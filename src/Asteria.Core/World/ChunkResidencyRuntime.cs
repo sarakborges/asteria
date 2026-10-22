@@ -71,7 +71,8 @@ public readonly record struct ChunkResidencyActivation(
     ChunkActivationSource Source,
     double WorkerMilliseconds,
     double TerrainMilliseconds = 0d,
-    double InitialLightingMilliseconds = 0d);
+    double InitialLightingMilliseconds = 0d,
+    double FluidActivationMilliseconds = 0d);
 
 public readonly record struct ChunkResidencyRetirement(
     ChunkCoord Coord,
@@ -576,7 +577,10 @@ public sealed class ChunkResidencyRuntime
     {
         _streaming.EnqueuePresentation(coord);
         EnqueueChunkLightingReconciliation(coord);
+        var fluidActivationStarted = Stopwatch.GetTimestamp();
         EnqueueResidentChunkFluids(coord);
+        var fluidActivationMilliseconds =
+            Stopwatch.GetElapsedTime(fluidActivationStarted).TotalMilliseconds;
         _blockPhysics.EnqueueResidentChunk(coord);
 
         return new ChunkResidencyActivation(
@@ -584,7 +588,8 @@ public sealed class ChunkResidencyRuntime
             source,
             workerMilliseconds,
             terrainMilliseconds,
-            initialLightingMilliseconds);
+            initialLightingMilliseconds,
+            fluidActivationMilliseconds);
     }
 
     private MaterializedChunk Materialize(
