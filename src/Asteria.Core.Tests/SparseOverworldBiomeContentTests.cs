@@ -170,7 +170,10 @@ public sealed class SparseOverworldBiomeContentTests
         void AssertMatchesGeology(int x, int y, int z, BiomeSample sample)
         {
             Assert.True(geology.TryGeologyBlockAt(sample, x, y, z, out var expected));
-            Assert.Equal(expected, MaterializedBlock(x, y, z));
+            var actual = MaterializedBlock(x, y, z);
+            Assert.True(expected == actual,
+                $"Geology mismatch at ({x},{y},{z}) in {sample.Primary}: " +
+                $"expected {blocks.GetDefinition(expected).Id}, actual {blocks.GetDefinition(actual).Id}.");
             checkedOceanVoxels++;
         }
 
@@ -182,6 +185,7 @@ public sealed class SparseOverworldBiomeContentTests
                 continue;
 
             if (diagnosticY >= 0 &&
+                diagnosticY < generator.SurfaceHeight(x, z) &&
                 generator.DensityAt(x, diagnosticY, z) >= 0d &&
                 !generator.IsCaveVoidAt(x, diagnosticY, z))
             {
