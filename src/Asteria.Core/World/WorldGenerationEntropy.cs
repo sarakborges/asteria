@@ -123,6 +123,55 @@ internal static class WorldGenerationEntropy
         return Lerp(Slice(zBase), Slice(z1), tz);
     }
 
+    /// <summary>
+    /// Continuous-coordinate 3D value noise. This overload supports rotated
+    /// world-space sampling without rounding transformed coordinates to voxels.
+    /// </summary>
+    public static double ValueNoise3D(
+        ulong seed,
+        GenerationDomain domain,
+        double x,
+        double y,
+        double z,
+        uint horizontalScale,
+        uint verticalScale)
+    {
+        if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z))
+            throw new ArgumentOutOfRangeException(nameof(x), "Noise coordinates must be finite.");
+        if (horizontalScale < 2 || verticalScale < 2)
+            throw new ArgumentOutOfRangeException(nameof(horizontalScale));
+
+        var gx = x / horizontalScale;
+        var gy = y / verticalScale;
+        var gz = z / horizontalScale;
+        var floorX = Math.Floor(gx);
+        var floorY = Math.Floor(gy);
+        var floorZ = Math.Floor(gz);
+        var x0 = ClampToInt(floorX);
+        var y0 = ClampToInt(floorY);
+        var z0 = ClampToInt(floorZ);
+        var x1 = x0 == int.MaxValue ? int.MaxValue : x0 + 1;
+        var y1 = y0 == int.MaxValue ? int.MaxValue : y0 + 1;
+        var z1 = z0 == int.MaxValue ? int.MaxValue : z0 + 1;
+        var tx = SmoothStep(gx - floorX);
+        var ty = SmoothStep(gy - floorY);
+        var tz = SmoothStep(gz - floorZ);
+
+        double Slice(int layerZ) =>
+            Lerp(
+                Lerp(
+                    SignedUnit(Sample3D(seed, domain, x0, y0, layerZ)),
+                    SignedUnit(Sample3D(seed, domain, x1, y0, layerZ)),
+                    tx),
+                Lerp(
+                    SignedUnit(Sample3D(seed, domain, x0, y1, layerZ)),
+                    SignedUnit(Sample3D(seed, domain, x1, y1, layerZ)),
+                    tx),
+                ty);
+
+        return Lerp(Slice(z0), Slice(z1), tz);
+    }
+
     public static double SmoothNoise2D(
         ulong seed,
         GenerationDomain domain,
