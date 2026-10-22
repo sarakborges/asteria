@@ -157,7 +157,7 @@ public sealed class OceanSeabedMaterialTests
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
 
         const int width = 17;
-        const int step = 8;
+        const int step = 4;
         var volume = new BlockRuntimeId[width, width, width];
         for (var y = 0; y < width; y++)
         for (var z = 0; z < width; z++)
@@ -192,6 +192,20 @@ public sealed class OceanSeabedMaterialTests
         var maximum = Math.Max(xTransitions, Math.Max(yTransitions, zTransitions));
         Assert.True(minimum >= maximum * 0.35,
             $"Geology is still strongly directional: X={xTransitions}, Y={yTransitions}, Z={zTransitions}.");
+
+        var verticalColumnsWithVariation = 0;
+        for (var z = 0; z < width; z++)
+        for (var x = 0; x < width; x++)
+        {
+            var columnMaterials = new HashSet<BlockRuntimeId>();
+            for (var y = 0; y < width; y++)
+                columnMaterials.Add(volume[x, y, z]);
+            if (columnMaterials.Count > 1)
+                verticalColumnsWithVariation++;
+        }
+
+        Assert.True(verticalColumnsWithVariation >= width * width / 2,
+            $"Too many columns retain one material through the sample: {verticalColumnsWithVariation}/{width * width}.");
     }
 
     private static IEnumerable<string> ReadJsonDirectory(string directory) =>
