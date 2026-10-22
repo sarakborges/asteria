@@ -668,11 +668,15 @@ public sealed class BiomeSurfaceMaterialField
             var clusterVerticalScale = _definition.ClusterVerticalScale ??
                 Math.Max(3u, detailVerticalScale / 4u);
 
+            var clusterInfluence = _definition.ClusterInfluence;
             var broadPosition = RotateFieldPosition(position, 0);
             var detailPosition = RotateFieldPosition(position, 1);
             var microPosition = RotateFieldPosition(position, 2);
             var clusterPosition = RotateFieldPosition(position, 3);
-            var grainPosition = RotateFieldPosition(position, 4);
+            // Preserve the established grain orientation for biomes that do
+            // not opt into the intermediate cluster field.
+            var grainPosition = RotateFieldPosition(
+                position, clusterInfluence > 0d ? 4 : 3);
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
@@ -690,7 +694,6 @@ public sealed class BiomeSurfaceMaterialField
                     seed, microDomains[index],
                     microPosition.X, microPosition.Y, microPosition.Z,
                     microScale, microVerticalScale);
-                var clusterInfluence = _definition.ClusterInfluence;
                 var cluster = 0d;
                 if (clusterInfluence > 0d)
                 {
