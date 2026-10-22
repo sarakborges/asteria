@@ -87,6 +87,62 @@ public sealed class OceanSeabedMaterialTests
     }
 
     [Fact]
+    public void MaterializedOceanSurfaceVariesBelowWaterAndKeepsDryBeachSand()
+    {
+        const ulong seed = 7808508665006554090UL;
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var fluids = FluidRegistry.FromJson(ReadJsonDirectory("fluids"));
+        var biomes = BiomeRegistry.FromJson(ReadJsonDirectory("biomes"));
+        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
+        var structureSets = StructureSetRegistry.FromJson(ReadJsonDirectory("structure_sets"));
+        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(PackData, "dimensions", "overworld.json")));
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension, blocks, fluids, biomes, structures, structureSets,
+            new WorldGenerationOptions(
+                spawnStructures: false, spawnCaves: false, spawnOceans: true));
+        var ocean = biomes.Get("asteria:overworld/ocean");
+        var sand = blocks.GetId("asteria:sand");
+        var chunkCache = new Dictionary<ChunkCoord, Chunk>();
+        var submergedSurfaceMaterials = new HashSet<BlockRuntimeId>();
+        var foundExposedDeposit = false;
+
+        for (var z = -486; z <= 486; z += 81)
+        for (var x = -131; x <= 841; x += 81)
+        {
+            if (generator.Biomes.Sample(x, z).Primary != ocean.Id)
+                continue;
+
+            var surfaceY = generator.SurfaceHeight(x, z);
+            if (surfaceY < 0)
+                continue;
+            var (coord, local) = VoxelCoordinates.FromWorld(x, surfaceY, z);
+            if (!chunkCache.TryGetValue(coord, out var chunk))
+            {
+                chunk = generator.Materialize(coord);
+                chunkCache.Add(coord, chunk);
+            }
+
+            var actual = chunk.GetBlock(local.X, local.Y, local.Z);
+            if (surfaceY >= dimension.SeaLevel)
+            {
+                // Exposed beach voxels stay with the authored Sand cover.
+                Assert.Equal(sand, actual);
+                continue;
+            }
+
+            submergedSurfaceMaterials.Add(actual);
+            foundExposedDeposit |= actual != sand;
+        }
+
+        Assert.True(submergedSurfaceMaterials.Count >= 2,
+            "The materialized submerged surface should not remain entirely Sand.");
+        Assert.True(foundExposedDeposit,
+            "No geological deposit was exposed on the materialized submerged surface.");
+    }
+
+    [Fact]
     public void OceanGeologyTransitionsAlongAllThreeWorldAxes()
     {
         var biome = BiomeDefinitionJson.Parse(File.ReadAllText(
@@ -137,5 +193,10 @@ public sealed class OceanSeabedMaterialTests
         Assert.True(minimum >= maximum * 0.35,
             $"Geology is still strongly directional: X={xTransitions}, Y={yTransitions}, Z={zTransitions}.");
     }
+
+    private static IEnumerable<string> ReadJsonDirectory(string directory) =>
+        Directory.EnumerateFiles(Path.Combine(PackData, directory), "*.json")
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .Select(File.ReadAllText);
 
 }
