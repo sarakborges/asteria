@@ -484,8 +484,8 @@ public sealed class BiomeSurfaceMaterialField
             if (_blocks.Length == 1)
                 return _blocks[0];
 
-            var detailScale = Math.Max(4u, _definition.SelectionScale / 3u);
-            var detailVerticalScale = Math.Max(4u, _definition.VerticalScale / 3u);
+            var detailScale = Math.Max(8u, _definition.SelectionScale / 4u);
+            var detailVerticalScale = Math.Max(8u, _definition.VerticalScale / 4u);
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
             for (var index = 0; index < _blocks.Length; index++)
@@ -499,7 +499,7 @@ public sealed class BiomeSurfaceMaterialField
                 // Low-frequency fields define the deposit body; independent
                 // finer fields roughen its boundaries in X, Y and Z so the
                 // result does not read as long, uniform columns or sheets.
-                var field = macro * 0.68d + detail * 0.32d;
+                var field = macro * 0.3d + detail * 0.7d;
                 var score = field + _materialBiases[index];
                 if (score > bestScore)
                 {
