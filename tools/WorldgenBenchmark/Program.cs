@@ -573,8 +573,33 @@ static void RenderGeologyMaterialMap(
             targetBiome, centerX, centerZ, options.SearchRadius)
             ?? throw new InvalidOperationException(
                 $"Could not locate surface biome {targetBiome} within {options.SearchRadius} blocks.");
+
+        // Locate an elevated representative inside the requested biome instead
+        // of accidentally centering on a low-relief border cell.
         centerX = target.X;
         centerZ = target.Z;
+        var highestSurface = generator.SurfaceHeight(centerX, centerZ);
+        const int peakSearchRadius = 256;
+        const int peakSearchStep = 8;
+        for (var dz = -peakSearchRadius; dz <= peakSearchRadius; dz += peakSearchStep)
+        for (var dx = -peakSearchRadius; dx <= peakSearchRadius; dx += peakSearchStep)
+        {
+            var x = checked(target.X + dx);
+            var z = checked(target.Z + dz);
+            if (!string.Equals(
+                    generator.Biomes.Sample(x, z).Primary,
+                    targetBiome,
+                    StringComparison.Ordinal))
+                continue;
+
+            var height = generator.SurfaceHeight(x, z);
+            if (height > highestSurface)
+            {
+                highestSurface = height;
+                centerX = x;
+                centerZ = z;
+            }
+        }
     }
 
     var centerY = Math.Max(0, generator.SurfaceHeight(centerX, centerZ));
