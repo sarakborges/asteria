@@ -315,6 +315,55 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void BreakingSupportStartsGravityBeforeResidentChunkSeedBacklog()
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:sand",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var sand = blocks.GetId("asteria:sand");
+        var stone = blocks.GetId("asteria:stone");
+
+        // Seed a dense resident chunk with supported gravity blocks. This
+        // creates far more queued scan work than one physics tick can drain.
+        for (var y = 1; y < Chunk.Size; y += 2)
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            chunk.SetBlock(x, y - 1, z, stone);
+            chunk.SetBlock(x, y, z, sand);
+        }
+
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var updates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), updates,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops);
+
+        Assert.True(physics.EnqueueResidentChunk(ChunkCoord.Zero) >
+            BlockPhysicsUpdateQueue.MaximumBatchSize);
+
+        var target = new WorldVoxelCoord(0, Chunk.Size - 1, 0);
+        var support = target + (0, -1, 0);
+        Assert.True(mutations.SetCellAt(support, VoxelCell.Empty, out _));
+
+        var wake = physics.ProcessWakeups();
+
+        Assert.Equal(1, wake.FallingStarted);
+        var falling = Assert.Single(physics.ActiveBlocks);
+        Assert.Equal(target.X, falling.ColumnX);
+        Assert.Equal(target.Z, falling.ColumnZ);
+        Assert.Equal(target.Y + 0.5, falling.CenterY);
+    }
+
+    [Fact]
     public void UnsupportedGravityBlockBecomesContinuousFallingState()
     {
         var fixture = CreateFixture();
