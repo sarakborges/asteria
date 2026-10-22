@@ -28,8 +28,9 @@ public sealed class TreeLeafLootTests
             ReadDocuments("tools"), ToolDefinition.Parse, tool => tool.Id);
         var objects = PackContentRegistry<ObjectDefinition>.FromJson(
             ReadDocuments("objects"), ObjectDefinition.Parse, obj => obj.Id);
+        var layers = AttachedLayerRegistry.FromJson(ReadDocuments("layers"));
         var catalog = new InventoryContentCatalog(
-            blocks, items, tools, objects: objects);
+            blocks, items, tools, layers: layers, objects: objects);
         return new Content(blocks, catalog, objects);
     }
 
