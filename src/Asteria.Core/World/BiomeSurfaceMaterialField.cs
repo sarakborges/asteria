@@ -514,7 +514,7 @@ public sealed class BiomeSurfaceMaterialField
                 rotated.Z + warpZ * horizontalStrength);
         }
 
-        private double SelectMaterial(
+        private BlockRuntimeId SelectMaterial(
             ulong seed,
             SpatialPosition position,
             BlockRuntimeId[] candidateBlocks,
