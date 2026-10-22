@@ -63,14 +63,16 @@ structures.ValidateFluids(fluids);
 
 var dimension = dimensions.Get(new DimensionId(options.Dimension));
 var dimensionSeed = DimensionSeed.Derive(options.Seed, dimension.Id);
-BiomeWorldGenerator NewGenerator() => new(
+BiomeWorldGenerator NewGenerator(
+    WorldGenerationOptions? generation = null) => new(
     dimensionSeed,
     dimension,
     blocks,
     fluids,
     biomes,
     structures,
-    structureSets);
+    structureSets,
+    generation);
 
 var targetProbeGenerator =
     NewGenerator();
@@ -487,7 +489,9 @@ if (options.Output is { } output)
 if (options.MaterialMapOutput is { } materialMapOutput)
 {
     RenderGeologyMaterialMap(
-        NewGenerator(),
+        NewGenerator(new WorldGenerationOptions(
+            spawnStructures: false,
+            spawnCaves: false)),
         blocks,
         options,
         materialMapOutput);
