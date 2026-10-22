@@ -220,6 +220,52 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void FluidActivationDelayCacheInvalidatesWhenTickRateChanges()
+    {
+        var fixture = CreateFixture();
+        var coord = ChunkCoord.Zero;
+        var position = new WorldVoxelCoord(8, 8, 8);
+        var chunk = new Chunk();
+        chunk.SetFluid(
+            8, 8, 8,
+            FluidCell.Spreading(
+                fixture.Fluids.GetId("asteria:water"),
+                level: 4,
+                spreadDistance: 1));
+        fixture.World.InsertChunk(coord, chunk);
+        fixture.World.ArchiveChunk(coord);
+
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        var firstDue = Assert.Single(
+            fixture.FluidUpdates.CaptureState().Scheduled,
+            scheduled => scheduled.Tick.Position == position);
+        Assert.Equal(40UL, firstDue.DueTick);
+        fixture.FluidUpdates.DrainReady(40, maximumItems: 128);
+
+        Assert.NotEqual(
+            ChunkArchiveResult.NotResident,
+            fixture.World.ArchiveChunk(coord));
+        fixture.Runtime.SyncResidentState(Array.Empty<ChunkCoord>());
+        Assert.True(fixture.Rules.SetTicksPerSecond(80));
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        var secondDue = Assert.Single(
+            fixture.FluidUpdates.CaptureState().Scheduled,
+            scheduled => scheduled.Tick.Position == position);
+        Assert.Equal(80UL, secondDue.DueTick);
+    }
+
+    [Fact]
     public void PresentationDoesNotWaitForUnmaterializedNeighbor()
     {
         var fixture = CreateFixture();
@@ -329,6 +375,7 @@ public sealed class ChunkResidencyRuntimeTests
         var fluidRevisions =
             new MeshletContentRevisions();
         var ticks = new WorldTickClock();
+        var rules = new WorldGameRules();
         var mutations =
             new VoxelMutationRuntime(
                 world,
@@ -367,7 +414,7 @@ public sealed class ChunkResidencyRuntimeTests
                     maxDispatchesPerFrame: 2,
                     maxResultsPerFrame: 2,
                     maxEvictionsPerFrame: 2,
-                    gameRules: new WorldGameRules()));
+                    gameRules: rules));
 
         return new RuntimeFixture(
             world,
@@ -375,7 +422,8 @@ public sealed class ChunkResidencyRuntimeTests
             fluids,
             worldUpdates,
             fluidUpdates,
-            runtime);
+            runtime,
+            rules);
     }
 
     private sealed class EmptyChunkProvider : IChunkProvider
@@ -391,5 +439,6 @@ public sealed class ChunkResidencyRuntimeTests
         FluidRegistry Fluids,
         WorldUpdateQueue WorldUpdates,
         FluidUpdateQueue FluidUpdates,
-        ChunkResidencyRuntime Runtime);
+        ChunkResidencyRuntime Runtime,
+        WorldGameRules Rules);
 }
