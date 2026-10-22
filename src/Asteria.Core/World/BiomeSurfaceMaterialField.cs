@@ -677,6 +677,8 @@ public sealed class BiomeSurfaceMaterialField
             // not opt into the intermediate cluster field.
             var grainPosition = RotateFieldPosition(
                 position, clusterInfluence > 0d ? 4 : 3);
+            var scores = new double[candidateBlocks.Length];
+            var grainValues = new double[candidateBlocks.Length];
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
@@ -722,10 +724,48 @@ public sealed class BiomeSurfaceMaterialField
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
                 var gumbel = -Math.Log(-Math.Log(unit));
                 var score = gumbel + biases[index];
+                scores[index] = score;
+                grainValues[index] = grain;
                 if (score > bestScore)
                 {
                     bestScore = score;
                     bestIndex = index;
+                }
+            }
+
+            // Ocean-like biomes may use the finest field only as an extra
+            // perturbation near material boundaries. That keeps deposit
+            // interiors coherent while letting high-frequency grain roughen
+            // edges where the leading candidates are already competitive.
+            var boundaryInfluence = _definition.BoundaryGrainInfluence;
+            if (boundaryInfluence > 0d && candidateBlocks.Length > 1)
+            {
+                var secondBestScore = double.NegativeInfinity;
+                for (var index = 0; index < scores.Length; index++)
+                {
+                    if (index != bestIndex)
+                        secondBestScore = Math.Max(secondBestScore, scores[index]);
+                }
+
+                var margin = bestScore - secondBestScore;
+                var boundaryFactor = Math.Clamp(
+                    1d - margin / (2d * boundaryInfluence),
+                    0d,
+                    1d);
+                if (boundaryFactor > 0d)
+                {
+                    bestScore = double.NegativeInfinity;
+                    bestIndex = 0;
+                    for (var index = 0; index < scores.Length; index++)
+                    {
+                        var score = scores[index] +
+                            grainValues[index] * boundaryInfluence * boundaryFactor;
+                        if (score > bestScore)
+                        {
+                            bestScore = score;
+                            bestIndex = index;
+                        }
+                    }
                 }
             }
 
