@@ -549,6 +549,34 @@ public sealed class VoxelWorld
         return true;
     }
 
+    public bool TryGetCellAndFluid(
+        WorldVoxelCoord position,
+        out VoxelCell cell,
+        out FluidCell fluid)
+    {
+        var address = VoxelCoordinates.FromWorld(
+            position.X,
+            position.Y,
+            position.Z);
+
+        if (!_chunks.TryGetValue(address.Chunk, out var chunk))
+        {
+            cell = VoxelCell.Empty;
+            fluid = FluidCell.Empty;
+            return false;
+        }
+
+        cell = chunk.GetCell(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z);
+        fluid = chunk.GetFluid(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z);
+        return true;
+    }
+
     public VoxelCell GetCellOrEmpty(WorldVoxelCoord position) =>
         TryGetCell(position, out var cell)
             ? cell
