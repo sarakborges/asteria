@@ -861,8 +861,10 @@ public sealed class BlockPhysicsRuntimeTests
         }
 
         Assert.Equal(0, fixture.Physics.ActiveCount);
-        Assert.Equal(sand, fixture.World.GetCellOrEmpty(first with { Y = 0 }).Block);
-        Assert.Equal(sand, fixture.World.GetCellOrEmpty(second with { Y = 0 }).Block);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(
+            new WorldVoxelCoord(first.X, 0, first.Z)).Block);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(
+            new WorldVoxelCoord(second.X, 0, second.Z)).Block);
     }
 
     [Fact]
