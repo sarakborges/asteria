@@ -52,6 +52,11 @@
       "item": "asteria:stick",
       "chance": 0.6,
       "quantity": 1
+    },
+    {
+      "item": "asteria:sapling_willow",
+      "chance": 0.05,
+      "quantity": 1
     }
   ]
 }

@@ -60,6 +60,11 @@
       "item": "asteria:stick",
       "chance": 0.6,
       "quantity": 1
+    },
+    {
+      "item": "asteria:sapling_rimehollow",
+      "chance": 0.05,
+      "quantity": 1
     }
   ],
   "previewColor": "9ee7ff"
