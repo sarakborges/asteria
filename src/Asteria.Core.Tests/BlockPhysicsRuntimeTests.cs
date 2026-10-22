@@ -406,6 +406,77 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void FallingBlocksCannotOverlapWhenUpperBlockCatchesLowerBlock()
+    {
+        var fixture = CreateFixture();
+        var sand = fixture.Blocks.GetId("asteria:sand");
+        var stone = fixture.Blocks.GetId("asteria:stone");
+        Assert.True(fixture.Mutations.SetBlockAt(
+            new WorldVoxelCoord(3, 0, 3), stone, out _));
+
+        // Reverse ID order deliberately: physics order must follow spatial
+        // position, not the identity assigned when an entity was created.
+        fixture.Physics.Dispose();
+        var sandState = BlockStateSnapshot.FromCell(new VoxelCell(sand));
+        var snapshot = new BlockPhysicsRuntimeSnapshot(2, [
+            new FallingBlockState(new FallingBlockId(1), sandState,
+                3, 3, 5.55, -24.0),
+            new FallingBlockState(new FallingBlockId(2), sandState,
+                3, 3, 4.5, 0.0),
+        ]);
+        using var physics = new BlockPhysicsRuntime(
+            fixture.World, fixture.Blocks, fixture.Mutations,
+            fixture.PhysicsUpdates, fixture.Dropped, restore: snapshot);
+
+        for (var frame = 0; frame < 240 && physics.ActiveCount > 0; frame++)
+        {
+            physics.Advance(1.0 / 60.0, 18.0);
+            var active = physics.ActiveBlocks
+                .OrderBy(block => block.ColumnX)
+                .ThenBy(block => block.ColumnZ)
+                .ThenBy(block => block.CenterY)
+                .ToArray();
+
+            for (var index = 1; index < active.Length; index++)
+            {
+                var lower = active[index - 1];
+                var upper = active[index];
+                if (lower.ColumnX == upper.ColumnX &&
+                    lower.ColumnZ == upper.ColumnZ)
+                {
+                    Assert.True(
+                        upper.CenterY - lower.CenterY >= 1.0 - 1e-8,
+                        $"Falling blocks {lower.Id.Value} and {upper.Id.Value} overlap.");
+                }
+            }
+        }
+
+        Assert.Equal(0, physics.ActiveCount);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(
+            new WorldVoxelCoord(3, 1, 3)).Block);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(
+            new WorldVoxelCoord(3, 2, 3)).Block);
+    }
+
+    [Fact]
+    public void VoxelMutationCannotPlaceABlockInsideAFallingBlock()
+    {
+        var fixture = CreateFixture();
+        var sand = fixture.Blocks.GetId("asteria:sand");
+        var stone = fixture.Blocks.GetId("asteria:stone");
+        var fallingPosition = new WorldVoxelCoord(3, 4, 3);
+
+        Assert.True(fixture.Mutations.SetBlockAt(
+            fallingPosition, sand, out _));
+        Assert.Equal(1, fixture.Physics.ProcessWakeups().FallingStarted);
+        Assert.True(fixture.Physics.IsVoxelOccupiedByFallingBlock(fallingPosition));
+
+        Assert.False(fixture.Mutations.SetBlockAt(
+            fallingPosition, stone, out _));
+        Assert.True(fixture.World.GetCellOrEmpty(fallingPosition).IsEmpty);
+    }
+
+    [Fact]
     public void FallingBlockMovesContinuouslyAndSettlesAboveSupport()
     {
         var fixture = CreateFixture();
