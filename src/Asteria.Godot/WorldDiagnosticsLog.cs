@@ -94,6 +94,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private ChunkCoord? _slowestChunk;
     private int _slowChunks;
     private int _restored;
+    private int _fluidActivationChunks;
+    private double _fluidActivationMs;
+    private double _fluidActivationMaxMs;
     private int _terrainMeshBatches;
     private double _terrainMeshMs;
     private double _terrainMeshCaptureMs;
@@ -297,6 +300,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     {
         foreach (var activation in update.Activations)
         {
+            _fluidActivationChunks++;
+            _fluidActivationMs += activation.FluidActivationMilliseconds;
+            _fluidActivationMaxMs = Math.Max(
+                _fluidActivationMaxMs, activation.FluidActivationMilliseconds);
+
             if (activation.Source == ChunkActivationSource.Archive)
             {
                 _restored++;
@@ -517,6 +525,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"generation_initial_light_ms_total={Format1(_initialLightingMs)} " +
             $"generation_ms_max={Format1(_materializationMaxMs)} " +
             $"generation_slow_chunks={_slowChunks} slowest_chunk={_slowestChunk} " +
+            $"fluid_activation_chunks={_fluidActivationChunks} " +
+            $"fluid_activation_ms_total={Format1(_fluidActivationMs)} " +
+            $"fluid_activation_ms_max={Format1(_fluidActivationMaxMs)} " +
             $"mesh_batches={_terrainMeshBatches} mesh_ms_total={Format1(_terrainMeshMs)} " +
             $"mesh_capture_ms_total={Format1(_terrainMeshCaptureMs)} " +
             $"mesh_capture_ms_max={Format1(_terrainMeshCaptureMaxMs)} " +
@@ -584,6 +595,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _renderVisiblePrimitivesMax = 0;
         _materialized = 0;
         _restored = 0;
+        _fluidActivationChunks = 0;
+        _fluidActivationMs = 0d;
+        _fluidActivationMaxMs = 0d;
         _materializationMs = 0d;
         _terrainGenerationMs = 0d;
         _initialLightingMs = 0d;
