@@ -690,8 +690,6 @@ public sealed class BiomeGeologyDefinition
         }
 
         var authoredWeights = new double[alternatives.Length];
-        var cumulative = new double[alternatives.Length];
-        var total = 0d;
         for (var index = 0; index < alternatives.Length; index++)
         {
             var block = alternatives[index];
@@ -702,15 +700,11 @@ public sealed class BiomeGeologyDefinition
                     nameof(weights),
                     "Geology material weights must be within (0, 1000].");
             authoredWeights[index] = weight;
-            total += weight;
-            cumulative[index] = total;
         }
 
         BaseBlock = baseBlock;
         Blocks = Array.AsReadOnly(alternatives);
         BlockWeights = Array.AsReadOnly(authoredWeights);
-        CumulativeWeights = Array.AsReadOnly(cumulative);
-        TotalWeight = total;
         Scale = scale;
         VerticalScale = verticalScale;
         DetailScale = detailScale;
@@ -723,8 +717,6 @@ public sealed class BiomeGeologyDefinition
     public string BaseBlock { get; }
     public IReadOnlyList<string> Blocks { get; }
     public IReadOnlyList<double> BlockWeights { get; }
-    internal IReadOnlyList<double> CumulativeWeights { get; }
-    internal double TotalWeight { get; }
     public uint Scale { get; }
     public uint VerticalScale { get; }
     public uint DetailScale { get; }
