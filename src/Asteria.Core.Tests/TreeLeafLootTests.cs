@@ -54,8 +54,7 @@ public sealed class TreeLeafLootTests
                 content.Objects.TryGet(saplingId, out var sapling) && sapling is not null,
                 $"{leaf.Id} has no matching sapling Object {saplingId}.");
             var table = Assert.IsType<LootTable>(leaf.LootTable);
-            var saplingDrop = Assert.Single(
-                table.Entries.Where(entry => entry.Item == saplingId));
+            var saplingDrop = Assert.Single(table.Entries, entry => entry.Item == saplingId);
             Assert.Equal(0.05f, saplingDrop.Chance);
             Assert.Equal(1, saplingDrop.Quantity);
             Assert.True(content.Catalog.TryResolve(
@@ -117,8 +116,7 @@ public sealed class TreeLeafLootTests
             new VoxelWorldHit(position, 0, 1, 0), worldTick: worldTick);
 
         Assert.True(result.Accepted);
-        var saplingDrop = Assert.Single(
-            drops.ActiveBlocks.Where(drop => drop.Stack.Id == saplingId));
+        var saplingDrop = Assert.Single(drops.ActiveBlocks, drop => drop.Stack.Id == saplingId);
         Assert.Equal(InventoryEntryKind.Object, saplingDrop.Stack.Kind);
     }
 }
