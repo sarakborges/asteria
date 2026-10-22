@@ -499,9 +499,13 @@ public sealed class BiomeSurfaceMaterialField
                 seed, detailDomain,
                 position.X, position.Y, position.Z,
                 _definition.DetailScale,
-                Math.Max(2u, _definition.VerticalScale / 2u));
-            return (macro + detail * _definition.Roughness) /
-                (1d + _definition.Roughness);
+                Math.Max(6u, _definition.VerticalScale / 4u));
+
+            // Formation presence also needs genuine 3D breakup. The former
+            // roughness-weighted detail was too weak and used half the vertical
+            // wavelength, letting the host-rock mask persist as broad sheets.
+            var detailInfluence = 0.55d + _definition.Roughness * 0.35d;
+            return macro * (1d - detailInfluence) + detail * detailInfluence;
         }
 
         private BlockRuntimeId SelectMaterial(ulong seed, SpatialPosition position)
@@ -509,8 +513,8 @@ public sealed class BiomeSurfaceMaterialField
             if (_blocks.Length == 1)
                 return _blocks[0];
 
-            var detailScale = Math.Max(8u, _definition.SelectionScale / 4u);
-            var detailVerticalScale = Math.Max(8u, _definition.VerticalScale / 4u);
+            var detailScale = Math.Max(6u, _definition.SelectionScale / 6u);
+            var detailVerticalScale = Math.Max(6u, _definition.VerticalScale / 6u);
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
             for (var index = 0; index < _blocks.Length; index++)
@@ -525,7 +529,9 @@ public sealed class BiomeSurfaceMaterialField
                     detailScale, detailVerticalScale);
                 // Fine independent fields dominate local boundary shape while
                 // broad fields retain coherent deposits rather than voxel noise.
-                var field = macro * 0.3d + detail * 0.7d;
+                // A shorter vertical wavelength specifically prevents long
+                // material columns through several adjacent chunks.
+                var field = macro * 0.18d + detail * 0.82d;
                 var score = field + _materialBiases[index];
                 if (score > bestScore)
                 {
