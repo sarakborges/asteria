@@ -640,7 +640,8 @@ public sealed class BiomeGeologyDefinition
         float surfaceCoverage = 0f,
         bool surfaceSubmergedOnly = false,
         uint? grainScale = null,
-        uint? grainVerticalScale = null)
+        uint? grainVerticalScale = null,
+        float grainInfluence = 0.70f)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(baseBlock);
         if (scale is < 2 or > 2048 ||
@@ -662,6 +663,11 @@ public sealed class BiomeGeologyDefinition
             throw new ArgumentOutOfRangeException(
                 nameof(grainVerticalScale),
                 "Geology vertical grain scale must be within 2..1024.");
+        if (!float.IsFinite(grainInfluence) ||
+            grainInfluence is < 0.1f or > 0.9f)
+            throw new ArgumentOutOfRangeException(
+                nameof(grainInfluence),
+                "Geology grain influence must be within 0.1..0.9.");
 
         if (surfaceCoverDepth > 64)
             throw new ArgumentOutOfRangeException(
@@ -736,6 +742,7 @@ public sealed class BiomeGeologyDefinition
         SurfaceSubmergedOnly = surfaceSubmergedOnly;
         GrainScale = grainScale;
         GrainVerticalScale = grainVerticalScale;
+        GrainInfluence = grainInfluence;
     }
 
     public string BaseBlock { get; }
@@ -765,6 +772,9 @@ public sealed class BiomeGeologyDefinition
 
     /// <summary>Optional vertical wavelength of the finest geological material field.</summary>
     public uint? GrainVerticalScale { get; }
+
+    /// <summary>Share of the material selector controlled by its finest field, from 0.1 to 0.9.</summary>
+    public float GrainInfluence { get; }
 }
 
 /// <summary>Required fluid occupancy of a decorator's placement voxel.</summary>
