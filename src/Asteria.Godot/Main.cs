@@ -5018,6 +5018,12 @@ public partial class Main : Node3D
                 held, definition, _sessionStates.Player.GameMode))
             return;
 
+        // Capture the authored appearance before the mutation removes the
+        // source voxel or its top interactive layer. Creative does not pass
+        // through BlockMiningRuntime, so it submits the same completed cue
+        // directly to the shared particle runtime after a successful break.
+        var breakAppearance = MiningFragmentAppearance.Resolve(
+            _world, _blocks, _layers, hit);
         var decision =
             _blockInteractions.Break(
                 hit,
@@ -5027,6 +5033,9 @@ public partial class Main : Node3D
         {
             return;
         }
+
+        _sessions.Active.EmitMiningFeedback(
+            new MiningFeedbackEvent(hit, true, breakAppearance));
 
         // Destruction creates a physical block drop; collection is handled
         // by DroppedBlockRuntime and the authoritative inventory.
