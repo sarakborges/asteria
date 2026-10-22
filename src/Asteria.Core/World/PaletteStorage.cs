@@ -81,8 +81,8 @@ internal sealed class PaletteStorage<T>
         ArgumentNullException.ThrowIfNull(visit);
 
         VisitOccupied(
-            startVoxelIndex: 0,
-            maximumItems: int.MaxValue,
+            0,
+            int.MaxValue,
             visit,
             out _);
     }
