@@ -321,6 +321,7 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain _formationDomain;
         private readonly GenerationDomain _detailDomain;
         private readonly GenerationDomain[] _materialDomains;
+        private readonly double[] _materialBiases;
 
         private ResolvedGeology(
             BiomeGeologyDefinition definition,
@@ -338,6 +339,9 @@ public sealed class BiomeSurfaceMaterialField
             _materialDomains = definition.Blocks
                 .Select(block => GenerationDomain.Named(
                     $"material/geology/material-field/v2/{biomeId}/{block}"))
+                .ToArray();
+            _materialBiases = definition.BlockWeights
+                .Select(weight => 0.2d * Math.Log(weight))
                 .ToArray();
         }
 
@@ -373,12 +377,7 @@ public sealed class BiomeSurfaceMaterialField
                     seed, _materialDomains[index], x, y, z,
                     _definition.SelectionScale,
                     _definition.VerticalScale);
-                var unit = Math.Clamp(
-                    (field + 1d) * 0.5d,
-                    1e-9d,
-                    1d - 1e-9d);
-                var score = (unit * 2d - 1d) +
-                    0.2d * Math.Log(_definition.BlockWeights[index]);
+                var score = field + _materialBiases[index];
                 if (score > bestScore)
                 {
                     bestScore = score;
