@@ -480,14 +480,16 @@ A surface or additive-volume biome may author an optional `geology` object along
       "asteria:dirt": 4,
       "asteria:gravel": 2,
       "asteria:clay": 1
-    }
+    },
+    "surfaceCoverage": 0.4,
+    "surfaceSubmergedOnly": false
   }
 }
 ```
 
 `baseBlock` is the host rock; `blocks` are the possible geological inclusions. `scale` and `verticalScale` define the three-dimensional formation wavelength, `detailScale` adds smaller structure to the formation mask, and `selectionScale` controls the independent material-composition field. `coverage` sets how much of a formation mask receives an inclusion; `roughness` mixes the detail field into that mask. Optional `weights` bias alternatives and must reference only IDs in `blocks`. These definitions are sampled in named, seeded world-space X/Y/Z noise domains, so voxel identity remains deterministic across chunks and generation order while deposits have genuine volumetric shapes.
 
-`surfaceCoverDepth` (0..64, default 0) states how many top-facing voxels keep the finite `palette.default` cover before volumetric geology takes over. Its value cannot exceed the profile's authored finite depth. Use 0 when geology should select even the exposed solid material (e.g. bare rock); use a shallow cover for grass/soil, snow, desert sand, or a one-block sandy seabed skin. This is a relative surface-cover policy, not an absolute-world-Y material gate. Once outside that cover, material is selected from the same 3D geological field throughout the solid volume. Explicit `floor`, `walls` and `ceiling` palettes still own any directions they override; carved-void cave biomes continue using their cave-facing palettes.
+`surfaceCoverDepth` (0..64, default 0) states how many top-facing voxels keep the finite `palette.default` cover before volumetric geology takes over. Its value cannot exceed the profile's authored finite depth. Use 0 when geology should select even the exposed solid material (e.g. bare rock); use a shallow cover for grass/soil, snow, desert sand, or a one-block sandy seabed skin. This is a relative surface-cover policy, not an absolute-world-Y material gate. Once outside that cover, material is selected from the same 3D geological field throughout the solid volume. `surfaceCoverage` (0..1, default 0) optionally reveals geological deposits on exposed top faces while preserving the normal cover elsewhere. `surfaceSubmergedOnly: true` restricts those deposits to positions where generated fluid occupies the voxel immediately above, allowing an ocean seabed to vary without painting dry beaches. The geological field now warps in all three axes and combines independent low- and high-frequency material fields to break long column- or sheet-like boundaries. Explicit `floor`, `walls` and `ceiling` palettes still own any directions they override; carved-void cave biomes continue using their cave-facing palettes.
 
 Tintable blocks declare a semantic block tint category such as `grass`, `leaf` or `foliage`. Surface biomes may author matching RGB colors:
 

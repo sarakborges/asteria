@@ -252,6 +252,54 @@ public sealed class SurfaceChunkMaterializer
                             }
                         }
 
+                        // Exposed cover variation is decided at the actual
+                        // terrain surface, not by subsurface depth or world altitude.
+                        // Ocean deposits are exposed only where generated fluid occupies
+                        // the voxel above, preserving dry beaches as continuous sand.
+                        // The sampled height is a terrain bound, not a
+                        // guarantee that this exact voxel is solid. Density
+                        // clipping can leave the top sample empty; in that case
+                        // expose geology on the highest solid voxel immediately
+                        // beneath it instead of silently keeping the whole cover.
+                        var isExposedTerrainTop = worldY == surfaceY;
+                        if (!isExposedTerrainTop &&
+                            worldY < surfaceY &&
+                            (long)surfaceY - worldY <= 2L)
+                        {
+                            isExposedTerrainTop = true;
+                            for (var aboveY = worldY + 1;
+                                 aboveY <= surfaceY;
+                                 aboveY++)
+                            {
+                                var aboveLocalY = aboveY - originY;
+                                if (aboveLocalY < 0 || aboveLocalY >= Chunk.Size ||
+                                    densityVolume.DensityAt(
+                                        localX, aboveLocalY, localZ) >= 0d)
+                                {
+                                    isExposedTerrainTop = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (isExposedTerrainTop)
+                        {
+                            var surfaceOwner = worldY > baseY
+                                ? volumeSample
+                                : sample;
+                            if (surfaceOwner is not null &&
+                                (!_materials.SurfaceGeologyRequiresSubmerged(surfaceOwner) ||
+                                 HasGeneratedFluidAboveSurface(
+                                     surfaceOwner, baseY, surfaceFluidCutDepth,
+                                     worldX, worldY, worldZ)) &&
+                                _materials.TrySurfaceGeologyBlockAt(
+                                    surfaceOwner, worldX, worldY, worldZ,
+                                    out var exposedBlock))
+                            {
+                                block = exposedBlock;
+                            }
+                        }
+
                         chunk.SetBlock(
                             localX,
                             worldY - originY,
@@ -1744,6 +1792,26 @@ public sealed class SurfaceChunkMaterializer
                 }
             }
         }
+    }
+
+    private bool HasGeneratedFluidAboveSurface(
+        BiomeSample sample,
+        int baseY,
+        int surfaceFluidCutDepth,
+        int worldX,
+        int surfaceY,
+        int worldZ)
+    {
+        var aboveY = (long)surfaceY + 1L;
+        if (aboveY < 0 || aboveY > int.MaxValue)
+            return false;
+
+        var y = (int)aboveY;
+        var density = _terrain.DensityAt(worldX, y, worldZ);
+        var fluid = _generatedFluids.FluidAt(
+            sample, baseY, surfaceFluidCutDepth,
+            worldX, y, worldZ, density);
+        return !fluid.IsEmpty;
     }
 
     private void MaterializeGeneratedFluids(

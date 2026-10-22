@@ -285,7 +285,9 @@
       "asteria:gravel": 2,
       "asteria:clay": 1
     },
-    "surfaceCoverDepth": 5
+    "surfaceCoverDepth": 5,
+    "surfaceCoverage": 0.4,
+    "surfaceSubmergedOnly": false
   },
   "palette": {
     "default": [

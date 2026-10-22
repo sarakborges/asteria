@@ -122,6 +122,200 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Fact]
+    public void OceanGeologyMaterialsCompeteThroughIndependentSpatialFields()
+    {
+        var biome = LoadBiome("ocean");
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var field = new BiomeSurfaceMaterialField(
+            7808508665006554090UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var alternatives = new[]
+        {
+            blocks.GetId("asteria:sand"),
+            blocks.GetId("asteria:gravel"),
+            blocks.GetId("asteria:clay"),
+            blocks.GetId("asteria:cobble_stone"),
+        };
+        var alternativeIndexes = alternatives
+            .Select((block, index) => (block, index))
+            .ToDictionary(item => item.block, item => item.index);
+        const int min = -128;
+        const int max = 128;
+        const int step = 2;
+        var width = (max - min) / step + 1;
+        var plane = new BlockRuntimeId[width, width];
+        var seenAlternatives = new HashSet<BlockRuntimeId>();
+
+        for (var zIndex = 0; zIndex < width; zIndex++)
+        for (var xIndex = 0; xIndex < width; xIndex++)
+        {
+            var x = min + xIndex * step;
+            var z = min + zIndex * step;
+            Assert.True(field.TryGeologyBlockAt(sample, x, 82, z, out var block));
+            plane[zIndex, xIndex] = block;
+            if (alternativeIndexes.ContainsKey(block))
+                seenAlternatives.Add(block);
+        }
+
+        var hasNonAdjacentMaterialBoundary = false;
+        for (var zIndex = 0; zIndex < width; zIndex++)
+        for (var xIndex = 0; xIndex < width; xIndex++)
+        {
+            var current = plane[zIndex, xIndex];
+            if (!alternativeIndexes.TryGetValue(current, out var currentIndex))
+                continue;
+
+            if (xIndex + 1 < width &&
+                alternativeIndexes.TryGetValue(plane[zIndex, xIndex + 1], out var rightIndex) &&
+                Math.Abs(currentIndex - rightIndex) > 1)
+                hasNonAdjacentMaterialBoundary = true;
+
+            if (zIndex + 1 < width &&
+                alternativeIndexes.TryGetValue(plane[zIndex + 1, xIndex], out var nextIndex) &&
+                Math.Abs(currentIndex - nextIndex) > 1)
+                hasNonAdjacentMaterialBoundary = true;
+        }
+
+        Assert.Equal(alternatives.Length, seenAlternatives.Count);
+        Assert.True(hasNonAdjacentMaterialBoundary,
+            "Expected non-consecutive materials to share boundaries; a single scalar divided into weighted intervals cannot produce these local transitions.");
+    }
+
+    [Fact]
+    public void OceanGeologyDoesNotCollapseIntoStrongHorizontalOrVerticalBands()
+    {
+        var biome = LoadBiome("ocean");
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var field = new BiomeSurfaceMaterialField(
+            7808508665006554090UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        const int step = 8;
+        var horizontalTransitions = 0;
+        var verticalTransitions = 0;
+        var sampleCount = 0;
+
+        for (var z = -128; z <= 128; z += 32)
+        for (var y = 16; y <= 144; y += step)
+        for (var x = -128; x <= 128; x += step)
+        {
+            Assert.True(field.TryGeologyBlockAt(sample, x, y, z, out var current));
+            Assert.True(field.TryGeologyBlockAt(sample, x + step, y, z, out var right));
+            Assert.True(field.TryGeologyBlockAt(sample, x, y + step, z, out var above));
+
+            if (current != right)
+                horizontalTransitions++;
+            if (current != above)
+                verticalTransitions++;
+            sampleCount++;
+        }
+
+        Assert.True(horizontalTransitions > 0 && verticalTransitions > 0,
+            $"Expected geological transitions in both axes; horizontal={horizontalTransitions}, vertical={verticalTransitions}.");
+        var verticalToHorizontalRatio =
+            verticalTransitions / (double)horizontalTransitions;
+        Assert.InRange(verticalToHorizontalRatio, 0.5, 2.0);
+        Assert.True(sampleCount > 5_000);
+    }
+
+    [Fact]
+    public void OceanRegressionRegionMaterializationMatchesThreeDimensionalGeology()
+    {
+        const ulong seed = 7808508665006554090UL;
+        const int centerX = 355;
+        const int centerZ = -230;
+        const int diagnosticY = 82;
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var fluids = FluidRegistry.FromJson(ReadJsonDirectory("fluids"));
+        var biomes = BiomeRegistry.FromJson(ReadJsonDirectory("biomes"));
+        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
+        var structureSets = StructureSetRegistry.FromJson(ReadJsonDirectory("structure_sets"));
+        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(PackData, "dimensions", "overworld.json")));
+        var dimensionSeed = DimensionSeed.Derive(seed, dimension.Id);
+        var generator = new BiomeWorldGenerator(
+            dimensionSeed, dimension, blocks, fluids, biomes,
+            structures, structureSets,
+            new WorldGenerationOptions(
+                spawnStructures: false, spawnCaves: false, spawnOceans: true));
+        var ocean = biomes.Get("asteria:overworld/ocean");
+        var geology = new BiomeSurfaceMaterialField(dimensionSeed, [ocean], blocks);
+        var chunkCache = new Dictionary<ChunkCoord, Chunk>();
+        var fixedAltitudeMaterials = new HashSet<BlockRuntimeId>();
+        var materialsByDepth = new Dictionary<int, HashSet<BlockRuntimeId>>
+        {
+            [1] = [],
+            [2] = [],
+            [4] = [],
+            [8] = [],
+            [12] = [],
+        };
+        var checkedOceanVoxels = 0;
+
+        BlockRuntimeId MaterializedBlock(int x, int y, int z)
+        {
+            var (coord, local) = VoxelCoordinates.FromWorld(x, Math.Max(0, y), z);
+            if (!chunkCache.TryGetValue(coord, out var chunk))
+            {
+                chunk = generator.Materialize(coord);
+                chunkCache.Add(coord, chunk);
+            }
+
+            return chunk.GetBlock(local.X, local.Y, local.Z);
+        }
+
+        void AssertMatchesGeology(int x, int y, int z, BiomeSample sample)
+        {
+            Assert.True(geology.TryGeologyBlockAt(sample, x, y, z, out var expected));
+            var actual = MaterializedBlock(x, y, z);
+            Assert.True(expected == actual,
+                $"Geology mismatch at ({x},{y},{z}) in {sample.Primary}: " +
+                $"expected {blocks.GetDefinition(expected).Id}, actual {blocks.GetDefinition(actual).Id}.");
+            checkedOceanVoxels++;
+        }
+
+        for (var z = centerZ - 80; z <= centerZ + 80; z += 8)
+        for (var x = centerX - 80; x <= centerX + 80; x += 8)
+        {
+            var sample = generator.Biomes.Sample(x, z);
+            if (sample.Primary != ocean.Id)
+                continue;
+
+            if (diagnosticY >= 0 &&
+                diagnosticY < generator.SurfaceHeight(x, z) &&
+                generator.DensityAt(x, diagnosticY, z) >= 0d &&
+                !generator.IsCaveVoidAt(x, diagnosticY, z))
+            {
+                AssertMatchesGeology(x, diagnosticY, z, sample);
+                fixedAltitudeMaterials.Add(MaterializedBlock(x, diagnosticY, z));
+            }
+
+            var surfaceY = generator.SurfaceHeight(x, z);
+            foreach (var depth in materialsByDepth.Keys.ToArray())
+            {
+                var y = surfaceY - depth;
+                if (y < 0 || generator.DensityAt(x, y, z) < 0d ||
+                    generator.IsCaveVoidAt(x, y, z))
+                    continue;
+
+                AssertMatchesGeology(x, y, z, sample);
+                materialsByDepth[depth].Add(MaterializedBlock(x, y, z));
+            }
+        }
+
+        Assert.True(checkedOceanVoxels >= 50,
+            $"Expected a useful ocean sample near {centerX},{centerZ}; checked {checkedOceanVoxels} solid voxels.");
+        Assert.True(fixedAltitudeMaterials.Count >= 2,
+            $"The materialized ocean slice at Y={diagnosticY} had only {fixedAltitudeMaterials.Count} material(s).");
+        foreach (var (depth, materials) in materialsByDepth)
+        {
+            Assert.True(materials.Count >= 3,
+                $"Ocean seabed at depth {depth} had only {materials.Count} geological material(s).");
+        }
+    }
+
+    [Fact]
     public void DesertKeepsSandAtTheSurfaceWithoutGravelPatchesOrPebbles()
     {
         var biome = LoadBiome("desert");

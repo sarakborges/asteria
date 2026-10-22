@@ -621,6 +621,7 @@ public sealed class BiomeWorldGenerationTests
             [new BiomeInfluence(plains.Id, 1f)]);
         var grass = blocks.GetId("asteria:block_grass");
         var seen = new HashSet<BlockRuntimeId>();
+        var exposedSurfaceDeposits = new HashSet<BlockRuntimeId>();
 
         for (var z = -384; z <= 384; z += 8)
         for (var x = -384; x <= 384; x += 8)
@@ -630,14 +631,252 @@ public sealed class BiomeWorldGenerationTests
             Assert.True(second.TryGeologyBlockAt(sample, x, 30, z, out var repeated));
             Assert.Equal(block, repeated);
             seen.Add(block);
+
+            // Exercise the authored Plains surface rule at a coarser spatial
+            // interval without tying it to terrain altitude or material depth.
+            if (x % 24 == 0 && z % 24 == 0 &&
+                first.TrySurfaceGeologyBlockAt(sample, x, 4, z, out var exposed))
+                exposedSurfaceDeposits.Add(exposed);
         }
 
+        Assert.Contains(blocks.GetId("asteria:dirt"), exposedSurfaceDeposits);
+        Assert.Contains(blocks.GetId("asteria:gravel"), exposedSurfaceDeposits);
+        Assert.Contains(blocks.GetId("asteria:clay"), exposedSurfaceDeposits);
         Assert.Contains(blocks.GetId("asteria:stone"), seen);
         Assert.Contains(blocks.GetId("asteria:dirt"), seen);
         Assert.Contains(blocks.GetId("asteria:gravel"), seen);
         Assert.All(plains.Decorations.Where(decoration =>
             decoration.Block is "asteria:pebble" or "asteria:stick"),
             decoration => Assert.Contains("asteria:gravel", decoration.SurfaceBlocks));
+    }
+
+    [Fact]
+    public void MaterializedFlatPlainsSurfaceShowsGeologicalVariation()
+    {
+        const ulong seed = 112233UL;
+        var blocks = LoadDefaultBlocks();
+        var fluids = LoadDefaultFluids();
+        var biomes = LoadDefaultBiomes();
+        var dimensions = LoadDefaultDimensions();
+        var plains = biomes.Get("asteria:overworld/plains");
+        var dimension = dimensions.Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension, blocks, fluids, biomes,
+            LoadDefaultStructures(), LoadDefaultStructureSets(),
+            new WorldGenerationOptions(
+                mode: WorldGenerationMode.Flat,
+                spawnBiome: plains.Id,
+                spawnStructures: false,
+                singleBiome: true,
+                spawnCaves: false,
+                spawnOceans: false));
+
+        var grass = blocks.GetId("asteria:block_grass");
+        var exposedMaterials = new HashSet<BlockRuntimeId>();
+        var chunks = new Dictionary<ChunkCoord, Chunk>();
+
+        // Inspect the actual top voxel from materialized flat-world chunks,
+        // not only the geology field in isolation.
+        for (var z = -32; z < 32; z++)
+        for (var x = -32; x < 32; x++)
+        {
+            var surfaceY = generator.SurfaceHeight(x, z);
+            var (coord, local) = VoxelCoordinates.FromWorld(x, surfaceY, z);
+            if (!chunks.TryGetValue(coord, out var chunk))
+            {
+                chunk = generator.Materialize(coord);
+                chunks.Add(coord, chunk);
+            }
+
+            exposedMaterials.Add(chunk.GetBlock(local.X, local.Y, local.Z));
+        }
+
+        Assert.Contains(grass, exposedMaterials);
+        Assert.Contains(blocks.GetId("asteria:dirt"), exposedMaterials);
+        Assert.Contains(blocks.GetId("asteria:gravel"), exposedMaterials);
+        Assert.Contains(blocks.GetId("asteria:clay"), exposedMaterials);
+        Assert.True(exposedMaterials.Count >= 4,
+            "The actual flat Plains surface should show the authored geological variation.");
+    }
+
+    [Fact]
+    public void DefaultPlainsGeologyKeepsMaterialVarietyAcrossAltitudeSlices()
+    {
+        var blocks = LoadDefaultBlocks();
+        var plains = LoadDefaultBiomes().Get("asteria:overworld/plains");
+        var field = new BiomeSurfaceMaterialField(0xA57E_3D10_2026UL, [plains], blocks);
+        var sample = new BiomeSample(
+            plains.Id, [new BiomeInfluence(plains.Id, 1f)]);
+        var expectedMaterials = new[]
+        {
+            blocks.GetId("asteria:stone"),
+            blocks.GetId("asteria:dirt"),
+            blocks.GetId("asteria:gravel"),
+            blocks.GetId("asteria:clay"),
+        };
+        var altitudeSlices = new[] { 12, 28, 44, 60, 76, 92 };
+        var distributions = new Dictionary<int, Dictionary<BlockRuntimeId, double>>();
+
+        foreach (var y in altitudeSlices)
+        {
+            var counts = expectedMaterials.ToDictionary(block => block, _ => 0);
+            for (var z = -512; z <= 512; z += 16)
+            for (var x = -512; x <= 512; x += 16)
+            {
+                Assert.True(field.TryGeologyBlockAt(sample, x, y, z, out var block));
+                Assert.True(counts.ContainsKey(block),
+                    $"Unexpected geology block {blocks.GetDefinition(block).Id} at Y={y}.");
+                counts[block]++;
+            }
+
+            var total = counts.Values.Sum();
+            Assert.Equal(expectedMaterials.Length, counts.Count(pair => pair.Value > 0));
+            distributions[y] = counts.ToDictionary(
+                pair => pair.Key, pair => pair.Value / (double)total);
+        }
+
+        // A world-height threshold would collapse at least one slice to a
+        // predictable material. The 3D geology contract requires all authored
+        // materials to remain represented at every sampled altitude.
+        foreach (var material in expectedMaterials)
+        {
+            var shares = distributions.Values.Select(slice => slice[material]).ToArray();
+            Assert.True(
+                shares.Max() - shares.Min() < 0.30,
+                $"Material {blocks.GetDefinition(material).Id} varies too strongly by altitude: " +
+                $"{shares.Min():P1}..{shares.Max():P1}.");
+        }
+    }
+
+    [Fact]
+    public void AuthoredMountainWallPaletteTakesPrecedenceOverThreeDimensionalGeology()
+    {
+        var blocks = LoadDefaultBlocks();
+        var mountains = LoadDefaultBiomes().Get("asteria:overworld/mountains");
+        var field = new BiomeSurfaceMaterialField(445566UL, [mountains], blocks);
+        var sample = new BiomeSample(
+            mountains.Id, [new BiomeInfluence(mountains.Id, 1f)]);
+        var stone = blocks.GetId("asteria:stone");
+        var geologyProducedAlternative = false;
+
+        Assert.True(field.HasDirectionalOverride(sample, BiomePaletteFace.Walls));
+
+        for (var y = 12; y <= 60; y += 8)
+        for (var z = -96; z <= 96; z += 8)
+        for (var x = -96; x <= 96; x += 8)
+        {
+            Assert.True(field.TryGeologyBlockAt(sample, x, y, z, out var geology));
+            geologyProducedAlternative |= geology != stone;
+            Assert.Equal(stone, field.VolumeBlockAt(
+                sample, x, y, z, BiomePaletteFace.Walls));
+        }
+
+        Assert.True(geologyProducedAlternative,
+            "The test seed did not exercise any non-stone geological material.");
+    }
+
+    [Fact]
+    public void MaterializedGeologyFollowsSurfaceBiomeAcrossABiomeTransition()
+    {
+        const ulong seed = 0xA57E_2026UL;
+        const int sampleStep = 16;
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var biomes = LoadDefaultBiomes();
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension, blocks, LoadDefaultFluids(), biomes,
+            LoadDefaultStructures(), LoadDefaultStructureSets(),
+            new WorldGenerationOptions(spawnStructures: false));
+        var geologyBiomeIds = dimension.SurfaceBiomes
+            .Where(id => biomes.Get(id).Geology is not null &&
+                id != "asteria:overworld/ocean")
+            .ToHashSet(StringComparer.Ordinal);
+        var geologyField = new BiomeSurfaceMaterialField(
+            DimensionSeed.Derive(seed, dimension.Id),
+            geologyBiomeIds.Select(biomes.Get),
+            blocks);
+
+        (int X, int Y, int Z, BlockRuntimeId Expected)? leftVoxel = null;
+        (int X, int Y, int Z, BlockRuntimeId Expected)? rightVoxel = null;
+        for (var z = -2048; z <= 2048 && leftVoxel is null; z += sampleStep)
+        {
+            for (var x = -2048; x < 2048; x += sampleStep)
+            {
+                var leftSample = generator.Biomes.Sample(x, z);
+                var rightSample = generator.Biomes.Sample(x + sampleStep, z);
+                if (leftSample.Primary == rightSample.Primary ||
+                    !geologyBiomeIds.Contains(leftSample.Primary) ||
+                    !geologyBiomeIds.Contains(rightSample.Primary))
+                    continue;
+
+                if (!TryFindVoxel(leftSample, x, z, out var left) ||
+                    !TryFindVoxel(rightSample, x + sampleStep, z, out var right))
+                    continue;
+
+                leftVoxel = left;
+                rightVoxel = right;
+                break;
+            }
+        }
+
+        Assert.True(leftVoxel.HasValue && rightVoxel.HasValue,
+            "No suitable boundary between two geology-enabled surface biomes was found.");
+        Assert.Equal(
+            leftVoxel!.Value.Expected,
+            ReadMaterializedBlock(leftVoxel.Value.X, leftVoxel.Value.Y, leftVoxel.Value.Z));
+        Assert.Equal(
+            rightVoxel!.Value.Expected,
+            ReadMaterializedBlock(rightVoxel.Value.X, rightVoxel.Value.Y, rightVoxel.Value.Z));
+
+        bool TryFindVoxel(
+            BiomeSample sample,
+            int x,
+            int z,
+            out (int X, int Y, int Z, BlockRuntimeId Expected) voxel)
+        {
+            var cover = Assert.IsType<BiomeGeologyDefinition>(
+                biomes.Get(sample.Primary).Geology).SurfaceCoverDepth;
+            var surfaceY = generator.SurfaceHeight(x, z);
+            for (var depth = checked((int)cover + 2);
+                 depth <= cover + 16;
+                 depth++)
+            {
+                var y = surfaceY - depth;
+                if (y < 2 || !IsInteriorSolid(x, y, z))
+                    continue;
+                if (geologyField.TryGeologyBlockAt(sample, x, y, z, out var expected))
+                {
+                    voxel = (x, y, z, expected);
+                    return true;
+                }
+            }
+
+            voxel = default;
+            return false;
+        }
+
+        bool IsInteriorSolid(int x, int y, int z)
+        {
+            if (generator.DensityAt(x, y, z) < 0d ||
+                generator.IsCaveVoidAt(x, y, z))
+                return false;
+
+            return !generator.IsCaveVoidAt(x - 1, y, z) &&
+                !generator.IsCaveVoidAt(x + 1, y, z) &&
+                !generator.IsCaveVoidAt(x, y - 1, z) &&
+                !generator.IsCaveVoidAt(x, y + 1, z) &&
+                !generator.IsCaveVoidAt(x, y, z - 1) &&
+                !generator.IsCaveVoidAt(x, y, z + 1);
+        }
+
+        BlockRuntimeId ReadMaterializedBlock(int x, int y, int z)
+        {
+            var (chunkCoord, local) = VoxelCoordinates.FromWorld(x, y, z);
+            return generator.Materialize(chunkCoord).GetBlock(
+                local.X, local.Y, local.Z);
+        }
     }
 
     [Fact]
