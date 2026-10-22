@@ -410,19 +410,24 @@ public sealed class BiomeSurfaceMaterialField
 
             var alternativeWeightTotal = definition.BlockWeights.Sum();
             var baseProbability = 1d - definition.Coverage;
+            // Spatial fields are correlated value-noise samples rather than
+            // independent ideal Gumbel variates. Compress log-biases so rare
+            // authored materials remain present in every broad region while
+            // weights still influence their relative frequency.
+            const double biasStrength = 0.35d;
             _volumeBiases = new double[_volumeBlocks.Length];
             _volumeBiases[0] = baseProbability > 0d
-                ? Math.Log(baseProbability)
+                ? biasStrength * Math.Log(baseProbability)
                 : double.NegativeInfinity;
             for (var index = 0; index < definition.BlockWeights.Count; index++)
             {
                 var probability = definition.Coverage *
                     definition.BlockWeights[index] / alternativeWeightTotal;
-                _volumeBiases[index + 1] = Math.Log(probability);
+                _volumeBiases[index + 1] = biasStrength * Math.Log(probability);
             }
 
             _surfaceBiases = definition.BlockWeights
-                .Select(weight => Math.Log(weight / alternativeWeightTotal))
+                .Select(weight => biasStrength * Math.Log(weight / alternativeWeightTotal))
                 .ToArray();
         }
 
