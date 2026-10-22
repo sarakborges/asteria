@@ -727,7 +727,8 @@ public sealed class BiomeWorldGenerationTests
         var generator = new BiomeWorldGenerator(
             DimensionSeed.Derive(seed, dimension.Id),
             dimension, blocks, LoadDefaultFluids(), biomes,
-            StructureRegistry.Empty);
+            LoadDefaultStructures(), LoadDefaultStructureSets(),
+            new WorldGenerationOptions(spawnStructures: false));
         var geologyBiomeIds = dimension.SurfaceBiomes
             .Where(id => biomes.Get(id).Geology is not null &&
                 id != "asteria:overworld/ocean")
