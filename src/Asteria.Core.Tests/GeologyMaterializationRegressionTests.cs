@@ -146,6 +146,55 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
+    public void MaterializedVerticalWallBreaksLongMaterialColumns()
+    {
+        var blocks = CreateBlocks();
+        var biome = CreateBiome();
+        var dimension = CreateDimension(biome.Id);
+        var generator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, new BiomeRegistry([biome]));
+        var chunks = new Dictionary<ChunkCoord, Chunk>();
+        var materials = new HashSet<BlockRuntimeId>();
+        var columnsWithVariation = 0;
+        var horizontalTransitions = 0;
+
+        // Read the actual materialized voxel wall, not direct noise-field
+        // queries. The terrain is flat at Y=40, so every sampled voxel below
+        // it is part of one continuous exposed solid section.
+        for (var x = -32; x < 32; x++)
+        {
+            var previous = BlockRuntimeId.Air;
+            var column = new HashSet<BlockRuntimeId>();
+            for (var y = 8; y < 40; y++)
+            {
+                var (coord, local) = VoxelCoordinates.FromWorld(x, y, 0);
+                if (!chunks.TryGetValue(coord, out var chunk))
+                {
+                    chunk = generator.Materialize(coord);
+                    chunks.Add(coord, chunk);
+                }
+
+                var block = chunk.GetBlock(local.X, local.Y, local.Z);
+                materials.Add(block);
+                column.Add(block);
+                if (!previous.IsAir && previous != block)
+                    horizontalTransitions++;
+                previous = block;
+            }
+
+            if (column.Count > 1)
+                columnsWithVariation++;
+        }
+
+        Assert.True(materials.Count >= 4,
+            $"Expected host rock and multiple materials on a materialized wall; found {materials.Count}.");
+        Assert.True(columnsWithVariation >= 48,
+            $"Long single-material columns remain in the materialized wall: {columnsWithVariation}/64 varied.");
+        Assert.True(horizontalTransitions >= 100,
+            $"Material boundaries are still too continuous on the wall: {horizontalTransitions} transitions.");
+    }
+
+    [Fact]
     public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation()
     {
         var blocks = CreateBlocks();
@@ -157,15 +206,26 @@ public sealed class GeologyMaterializationRegressionTests
 
         // Sample a 64x64 flat surface so low authored exposure coverage remains
         // meaningful while checking actual materialized top voxels.
+        var chunksWithSurfaceVariation = 0;
         for (var chunkZ = -2; chunkZ < 2; chunkZ++)
         for (var chunkX = -2; chunkX < 2; chunkX++)
         {
             var chunk = generator.Materialize(new ChunkCoord(chunkX, 2, chunkZ));
+            var localSurface = new HashSet<BlockRuntimeId>();
             for (var z = 0; z < Chunk.Size; z++)
             for (var x = 0; x < Chunk.Size; x++)
-                surfaceMaterials.Add(chunk.GetBlock(x, 40 % Chunk.Size, z));
+            {
+                var block = chunk.GetBlock(x, 40 % Chunk.Size, z);
+                surfaceMaterials.Add(block);
+                localSurface.Add(block);
+            }
+
+            if (localSurface.Count > 1)
+                chunksWithSurfaceVariation++;
         }
 
+        Assert.True(chunksWithSurfaceVariation >= 12,
+            $"Flat exposed surface remains uniform within most chunks: {chunksWithSurfaceVariation}/16 varied.");
         Assert.Contains(blocks.GetId("asteria:grass"), surfaceMaterials);
         Assert.Contains(blocks.GetId("asteria:dirt"), surfaceMaterials);
         Assert.Contains(blocks.GetId("asteria:gravel"), surfaceMaterials);
