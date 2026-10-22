@@ -321,18 +321,26 @@ public sealed class ChunkResidencyRuntimeTests
         var totalFluidCells = first.FluidCellsProcessed;
         var totalFrontierCells = first.FrontierCellsProcessed;
         var totalDormantTicks = first.DormantTicksReactivated;
+        var totalCompletedChunks = first.CompletedChunks;
         var report = first;
         for (var frame = 0; frame < 100 && report.PendingChunks > 0; frame++)
         {
             report = fixture.Runtime.ProcessPendingFluidActivations(GenerousBudget());
             Assert.True(report.FluidCellsProcessed <= 256);
+            Assert.InRange(
+                report.FluidCellsProcessed +
+                report.FrontierCellsProcessed +
+                report.DormantTicksReactivated,
+                0,
+                report.SlicesProcessed * 32);
             totalFluidCells += report.FluidCellsProcessed;
             totalFrontierCells += report.FrontierCellsProcessed;
             totalDormantTicks += report.DormantTicksReactivated;
+            totalCompletedChunks += report.CompletedChunks;
         }
 
         Assert.Equal(0, report.PendingChunks);
-        Assert.Equal(2, report.CompletedChunks);
+        Assert.Equal(2, totalCompletedChunks);
         Assert.Equal(2048, totalFluidCells);
         Assert.True(totalFrontierCells > 0);
         Assert.Equal(0, totalDormantTicks);
