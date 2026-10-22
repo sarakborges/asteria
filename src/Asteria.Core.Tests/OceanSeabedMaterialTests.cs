@@ -33,6 +33,7 @@ public sealed class OceanSeabedMaterialTests
         const int sampleCount = 97;
         var grid = new BlockRuntimeId[sampleCount, sampleCount];
         var seen = new HashSet<BlockRuntimeId>();
+        var volumeCounts = new Dictionary<BlockRuntimeId, int>();
         for (var z = 0; z < sampleCount; z++)
         for (var x = 0; x < sampleCount; x++)
         {
@@ -40,6 +41,7 @@ public sealed class OceanSeabedMaterialTests
                 sample, 355 + (x - 48) * 4, 82, -230 + (z - 48) * 4, out var block));
             grid[x, z] = block;
             seen.Add(block);
+            volumeCounts[block] = volumeCounts.GetValueOrDefault(block) + 1;
         }
 
         var xTransitions = 0;
@@ -55,6 +57,9 @@ public sealed class OceanSeabedMaterialTests
 
         Assert.True(seen.Count >= 3,
             "The ocean floor should contain the host rock and multiple geological deposits.");
+        var sand = blocks.GetId("asteria:sand");
+        Assert.True(volumeCounts.GetValueOrDefault(sand) < sampleCount * sampleCount * 0.55,
+            "Sand is dominating the 3D selector regardless of the local formation field.");
         Assert.True(xTransitions > 0 && zTransitions > 0,
             "The volumetric geology should vary along both horizontal axes.");
         var larger = Math.Max(xTransitions, zTransitions);
@@ -72,6 +77,8 @@ public sealed class OceanSeabedMaterialTests
             "The material distribution must change within a vertical world-space column.");
 
         var surfaceDeposits = new HashSet<BlockRuntimeId>();
+        var surfaceSamples = 0;
+        var surfaceSandSamples = 0;
         for (var z = 0; z < sampleCount; z++)
         for (var x = 0; x < sampleCount; x++)
             if (materials.TrySurfaceGeologyBlockAt(
@@ -80,10 +87,17 @@ public sealed class OceanSeabedMaterialTests
                 82,
                 -230 + (z - 48) * 4,
                 out var block))
+            {
                 surfaceDeposits.Add(block);
+                surfaceSamples++;
+                if (block == sand)
+                    surfaceSandSamples++;
+            }
 
         Assert.True(surfaceDeposits.Count >= 3,
             $"Exposed submerged terrain should reveal multiple deposits, found {surfaceDeposits.Count}.");
+        Assert.True(surfaceSamples > 0 && surfaceSandSamples < surfaceSamples * 0.5,
+            $"Submerged surface selection still defaults to Sand: {surfaceSandSamples}/{surfaceSamples} samples.");
     }
 
     [Fact]
