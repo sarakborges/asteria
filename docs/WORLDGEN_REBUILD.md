@@ -169,6 +169,8 @@ dotnet run -c Release --project tools/BiomeMap -- \
 
 CI publishes equivalent fixed-seed SVG artifacts for both `asteria:overworld` and `asteria:umbral`.
 
+The materialized-geology diagnostic uses `tools/WorldgenBenchmark --material-map-output` and the Ocean regression seed. Its SVG contains four panels: exposed surface, a horizontal slice at the center column's surface height, a second horizontal slice 32 blocks below it, and a vertical X/Y slice through the target Z. The diagnostic samples a 384-by-384-block horizontal field so the image shows several formation scales instead of only one or two large patches. It reads blocks from actual materialized chunks; black cells represent empty block voxels (the block-only view does not render fluid). This is diagnostic evidence, not a replacement for the deterministic Core assertions.
+
 ## Data-driven biome contours and surface-patch morphology
 
 The Sphere-level `biomeBlending.contourHarmonics` list configures the
@@ -532,11 +534,16 @@ Only `GeneratedFluidField` decides actual generated water occupancy.
 
 ### Ocean seabed enrichment
 
-The authored Ocean Sand surface remains continuous on the beach. Its
-`palette.default[0].patch.conditions.maxY` limits Gravel, Clay and
-Stone Cobble variants to ground below Y=86 (the default Overworld sea
-level is 90); the patch stays warped and seed-stable rather than
-painting randomly at the shore.
+The Ocean surface keeps an explicit one-block Sand sediment cover.
+Below that cover, the biome's `geology` field selects host Stone and
+weighted Sand, Gravel, Clay and Stone Cobble deposits from world-space
+3D noise. This replaces the former absolute-`maxY` material gate and
+2D surface patches: geological materials can continue through vertical
+slices, and world altitude is not a material eligibility rule. The
+selection remains deterministic for a given world seed and coordinate.
+Core tests exercise both the geological field and materialized chunks
+near seed `7808508665006554090`, X=355, Z=-230, including the slice
+at Y=82 and multiple seabed depths.
 
 The existing `rock_ocean` group now contains four rotated templates:
 two original Stone Cobble outcrops, one low Clay/Gravel shingle outcrop
