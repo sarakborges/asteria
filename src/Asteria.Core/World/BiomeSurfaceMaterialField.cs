@@ -748,8 +748,11 @@ public sealed class BiomeSurfaceMaterialField
                 }
 
                 var margin = bestScore - secondBestScore;
+                // Let edge roughening affect a slightly wider transition
+                // zone so large deposits do not leave occasional straight runs,
+                // while keeping the perturbation absent in confident interiors.
                 var boundaryFactor = Math.Clamp(
-                    1d - margin / (2d * boundaryInfluence),
+                    1d - margin / (3d * boundaryInfluence),
                     0d,
                     1d);
                 if (boundaryFactor > 0d)
