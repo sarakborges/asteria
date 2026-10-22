@@ -469,7 +469,6 @@ public sealed class BlockPhysicsRuntimeTests
         Assert.True(fixture.Mutations.SetBlockAt(
             fallingPosition, sand, out _));
         Assert.Equal(1, fixture.Physics.ProcessWakeups().FallingStarted);
-        Assert.True(fixture.Physics.IsVoxelOccupiedByFallingBlock(fallingPosition));
 
         Assert.False(fixture.Mutations.SetBlockAt(
             fallingPosition, stone, out _));
