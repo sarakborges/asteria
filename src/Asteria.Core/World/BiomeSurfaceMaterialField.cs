@@ -320,7 +320,7 @@ public sealed class BiomeSurfaceMaterialField
         private readonly BlockRuntimeId[] _blocks;
         private readonly GenerationDomain _formationDomain;
         private readonly GenerationDomain _detailDomain;
-        private readonly GenerationDomain _selectionDomain;
+        private readonly GenerationDomain[] _materialDomains;
 
         private ResolvedGeology(
             BiomeGeologyDefinition definition,
@@ -335,8 +335,10 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/geology/formation/v1/{biomeId}");
             _detailDomain = GenerationDomain.Named(
                 $"material/geology/detail/v1/{biomeId}");
-            _selectionDomain = GenerationDomain.Named(
-                $"material/geology/selection/v1/{biomeId}");
+            _materialDomains = definition.Blocks
+                .Select(block => GenerationDomain.Named(
+                    $"material/geology/material-field/v2/{biomeId}/{block}"))
+                .ToArray();
         }
 
         public uint SurfaceCoverDepth => _definition.SurfaceCoverDepth;
@@ -358,19 +360,33 @@ public sealed class BiomeSurfaceMaterialField
             if (_blocks.Length == 1)
                 return _blocks[0];
 
-            var selection = WorldGenerationEntropy.ValueNoise3D(
-                seed, _selectionDomain, x, y, z,
-                _definition.SelectionScale,
-                _definition.VerticalScale);
-            var unit = Math.Clamp((selection + 1d) * 0.5d,
-                0d, 0.999999999999d);
-            var target = unit * _definition.TotalWeight;
+            // Each material competes through its own continuous world-space
+            // field. A single scalar selector divided into weight intervals
+            // creates nested level-set boundaries that can read as strata.
+            // Weighted Gumbel scores preserve authored relative weights while
+            // allowing independent fields to form intersecting, organic regions.
+            var bestScore = double.NegativeInfinity;
+            var bestIndex = 0;
             for (var index = 0; index < _blocks.Length; index++)
             {
-                if (target < _definition.CumulativeWeights[index])
-                    return _blocks[index];
+                var field = WorldGenerationEntropy.ValueNoise3D(
+                    seed, _materialDomains[index], x, y, z,
+                    _definition.SelectionScale,
+                    _definition.VerticalScale);
+                var unit = Math.Clamp(
+                    (field + 1d) * 0.5d,
+                    1e-9d,
+                    1d - 1e-9d);
+                var score = -Math.Log(-Math.Log(unit)) +
+                    Math.Log(_definition.BlockWeights[index]);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestIndex = index;
+                }
             }
-            return _blocks[^1];
+
+            return _blocks[bestIndex];
         }
 
         public static ResolvedGeology Create(
