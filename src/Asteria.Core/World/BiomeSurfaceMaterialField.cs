@@ -357,9 +357,11 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain[] _volumeMaterialDomains;
         private readonly GenerationDomain[] _volumeDetailDomains;
         private readonly GenerationDomain[] _volumeMicroDomains;
+        private readonly GenerationDomain[] _volumeGrainDomains;
         private readonly GenerationDomain[] _surfaceMaterialDomains;
         private readonly GenerationDomain[] _surfaceDetailDomains;
         private readonly GenerationDomain[] _surfaceMicroDomains;
+        private readonly GenerationDomain[] _surfaceGrainDomains;
         private readonly double[] _volumeBiases;
         private readonly double[] _surfaceBiases;
 
@@ -394,6 +396,10 @@ public sealed class BiomeSurfaceMaterialField
                 .Select(block => GenerationDomain.Named(
                     $"material/geology/volume-micro/v1/{biomeId}/{block}"))
                 .ToArray();
+            _volumeGrainDomains = volumeNames
+                .Select(block => GenerationDomain.Named(
+                    $"material/geology/volume-grain/v1/{biomeId}/{block}"))
+                .ToArray();
 
             _surfaceMaterialDomains = definition.Blocks
                 .Select(block => GenerationDomain.Named(
@@ -406,6 +412,10 @@ public sealed class BiomeSurfaceMaterialField
             _surfaceMicroDomains = definition.Blocks
                 .Select(block => GenerationDomain.Named(
                     $"material/geology/surface-micro/v1/{biomeId}/{block}"))
+                .ToArray();
+            _surfaceGrainDomains = definition.Blocks
+                .Select(block => GenerationDomain.Named(
+                    $"material/geology/surface-grain/v1/{biomeId}/{block}"))
                 .ToArray();
 
             var alternativeWeightTotal = definition.BlockWeights.Sum();
@@ -444,7 +454,7 @@ public sealed class BiomeSurfaceMaterialField
             return SelectMaterial(
                 seed, position, _volumeBlocks,
                 _volumeMaterialDomains, _volumeDetailDomains, _volumeMicroDomains,
-                _volumeBiases);
+                _volumeGrainDomains, _volumeBiases);
         }
 
         public bool TrySurfaceBlockAt(
@@ -472,7 +482,7 @@ public sealed class BiomeSurfaceMaterialField
             block = SelectMaterial(
                 seed, position, _blocks,
                 _surfaceMaterialDomains, _surfaceDetailDomains, _surfaceMicroDomains,
-                _surfaceBiases);
+                _surfaceGrainDomains, _surfaceBiases);
             return true;
         }
 
@@ -500,8 +510,8 @@ public sealed class BiomeSurfaceMaterialField
             // stretches a small patch into a continuous ribbon.
             var warpHorizontalScale = Math.Max(12u, _definition.Scale / 3u);
             var warpVerticalScale = Math.Max(10u, _definition.VerticalScale / 3u);
-            var horizontalStrength = Math.Max(4d, _definition.DetailScale * 0.6d);
-            var verticalStrength = Math.Max(4d, _definition.DetailScale * 0.45d);
+            var horizontalStrength = Math.Max(6d, _definition.DetailScale * 0.9d);
+            var verticalStrength = Math.Max(5d, _definition.DetailScale * 0.7d);
 
             var warpX = WorldGenerationEntropy.ValueNoise3D(
                 seed, _warpDomains[0], rotated.X, rotated.Y, rotated.Z,
@@ -526,6 +536,7 @@ public sealed class BiomeSurfaceMaterialField
             GenerationDomain[] broadDomains,
             GenerationDomain[] detailDomains,
             GenerationDomain[] microDomains,
+            GenerationDomain[] grainDomains,
             double[] biases)
         {
             var detailScale = Math.Max(6u, _definition.DetailScale);
@@ -533,6 +544,11 @@ public sealed class BiomeSurfaceMaterialField
                 6u, Math.Min(_definition.VerticalScale / 3u, _definition.DetailScale));
             var microScale = Math.Max(4u, _definition.DetailScale / 2u);
             var microVerticalScale = Math.Max(4u, detailVerticalScale / 2u);
+            // Fine-grain field introduces small three-dimensional pockets so
+            // large formations cannot keep a single material through long
+            // vertical columns merely because the broad fields change slowly.
+            var grainScale = Math.Max(3u, detailScale / 3u);
+            var grainVerticalScale = Math.Max(2u, detailVerticalScale / 3u);
 
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
@@ -551,12 +567,16 @@ public sealed class BiomeSurfaceMaterialField
                     seed, microDomains[index],
                     position.X, position.Y, position.Z,
                     microScale, microVerticalScale);
+                var grain = WorldGenerationEntropy.ValueNoise3D(
+                    seed, grainDomains[index],
+                    position.X, position.Y, position.Z,
+                    grainScale, grainVerticalScale);
 
-                // Three independent 3D scales roughen the same deposit
-                // boundaries in every direction. Gumbelizing the correlated
-                // field makes the authored material proportions meaningful;
-                // the previous separate mask plus argmax selector did not.
-                var field = broad * 0.22d + detail * 0.48d + micro * 0.30d;
+                // Keep broad geology only as a weak coherence signal. Fine
+                // and grain fields now dominate boundaries, breaking residual
+                // sheets/columns while preserving multi-block deposits.
+                var field = broad * 0.10d + detail * 0.27d +
+                    micro * 0.31d + grain * 0.32d;
                 var unit = Math.Clamp(
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
                 var gumbel = -Math.Log(-Math.Log(unit));
