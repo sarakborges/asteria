@@ -714,7 +714,7 @@ public sealed class ChunkResidencyRuntime
         var maximumSliceMilliseconds = 0d;
 
         while (slicesProcessed < MaximumFluidActivationSlicesPerFrame &&
-               _pendingFluidActivationCoords.TryPeek(out var nextCoord))
+               _pendingFluidActivationCoords.Count > 0)
         {
             if (slicesProcessed > 0 &&
                 budget.Exhausted(Stopwatch.GetTimestamp()))
@@ -812,13 +812,13 @@ public sealed class ChunkResidencyRuntime
 
         if (!state.FluidScanComplete)
         {
+            var (originX, originY, originZ) =
+                VoxelCoordinates.ChunkOrigin(coord);
             state.NextFluidVoxelIndex = chunk.VisitFluidCells(
                 state.NextFluidVoxelIndex,
                 remaining,
                 (x, y, z, fluid) =>
                 {
-                    var (originX, originY, originZ) =
-                        VoxelCoordinates.ChunkOrigin(coord);
                     var position = new WorldVoxelCoord(
                         originX + x,
                         originY + y,
