@@ -630,8 +630,10 @@ public sealed class BiomeSurfaceMaterialField
             // Fine-grain field introduces small three-dimensional pockets so
             // large formations cannot keep a single material through long
             // vertical columns merely because the broad fields change slowly.
-            var grainScale = Math.Max(2u, detailScale / 8u);
-            var grainVerticalScale = Math.Max(2u, detailVerticalScale / 8u);
+            var grainScale = _definition.GrainScale ??
+                Math.Max(2u, detailScale / 8u);
+            var grainVerticalScale = _definition.GrainVerticalScale ??
+                Math.Max(2u, detailVerticalScale / 8u);
 
             var broadPosition = RotateFieldPosition(position, 0);
             var detailPosition = RotateFieldPosition(position, 1);
