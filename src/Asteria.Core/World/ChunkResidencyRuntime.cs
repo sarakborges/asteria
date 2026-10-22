@@ -705,6 +705,12 @@ public sealed class ChunkResidencyRuntime
     public FluidActivationWorkReport ProcessPendingFluidActivations(
         WorldFrameWorkBudget budget)
     {
+        if (_pendingFluidActivationCoords.Count == 0)
+        {
+            return new FluidActivationWorkReport(
+                0, 0, 0, 0, 0, 0d, 0d, 0);
+        }
+
         var started = Stopwatch.GetTimestamp();
         var completedChunks = 0;
         var slicesProcessed = 0;
