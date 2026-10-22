@@ -701,6 +701,55 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void MaterializedFlatPlainsSurfaceShowsGeologicalVariation()
+    {
+        const ulong seed = 112233UL;
+        var blocks = LoadDefaultBlocks();
+        var fluids = LoadDefaultFluids();
+        var biomes = LoadDefaultBiomes();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var plains = biomes.Get("asteria:overworld/plains");
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension, blocks, fluids, biomes,
+            LoadDefaultStructures(), LoadDefaultStructureSets(),
+            new WorldGenerationOptions(
+                mode: WorldGenerationMode.Flat,
+                spawnBiome: plains.Id,
+                spawnStructures: false,
+                singleBiome: true,
+                spawnCaves: false,
+                spawnOceans: false));
+
+        var grass = blocks.GetId("asteria:block_grass");
+        var exposedMaterials = new HashSet<BlockRuntimeId>();
+        var chunks = new Dictionary<ChunkCoord, Chunk>();
+
+        // Inspect the actual top voxel from materialized flat-world chunks,
+        // not only the geology field in isolation.
+        for (var z = -32; z < 32; z++)
+        for (var x = -32; x < 32; x++)
+        {
+            var surfaceY = generator.SurfaceHeight(x, z);
+            var (coord, local) = VoxelCoordinates.FromWorld(x, surfaceY, z);
+            if (!chunks.TryGetValue(coord, out var chunk))
+            {
+                chunk = generator.Materialize(coord);
+                chunks.Add(coord, chunk);
+            }
+
+            exposedMaterials.Add(chunk.GetBlock(local.X, local.Y, local.Z));
+        }
+
+        Assert.Contains(grass, exposedMaterials);
+        Assert.Contains(blocks.GetId("asteria:dirt"), exposedMaterials);
+        Assert.Contains(blocks.GetId("asteria:gravel"), exposedMaterials);
+        Assert.Contains(blocks.GetId("asteria:clay"), exposedMaterials);
+        Assert.True(exposedMaterials.Count >= 4,
+            "The actual flat Plains surface should show the authored geological variation.");
+    }
+
+    [Fact]
     public void DefaultPlainsGeologyKeepsMaterialVarietyAcrossAltitudeSlices()
     {
         var blocks = LoadDefaultBlocks();
