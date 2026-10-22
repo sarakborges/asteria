@@ -206,7 +206,9 @@ public sealed class VolcanoBiomeContentTests
             """);
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:basalt"),
-            new BlockDefinition("asteria:cobble_basalt")
+            new BlockDefinition("asteria:cobble_basalt"),
+            new BlockDefinition("asteria:gravel"),
+            new BlockDefinition("asteria:stone")
         ]);
         var fluids = new FluidRegistry([
             new FluidDefinition("asteria:lava",
