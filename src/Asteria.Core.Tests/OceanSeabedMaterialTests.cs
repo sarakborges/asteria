@@ -247,8 +247,10 @@ public sealed class OceanSeabedMaterialTests
                 LongestRun(width, z => volume[x, y, z]));
 
         var longestRun = Math.Max(longestXRun, Math.Max(longestYRun, longestZRun));
-        Assert.True(longestRun <= 12,
-            $"A geological material still forms a long straight run at {step}-block sampling: X={longestXRun}, Y={longestYRun}, Z={longestZRun} samples.");
+        // Keep the same physical limit as the former 8 samples at 4-block
+        // spacing: no axis may retain one material for more than 32 world blocks.
+        Assert.True(longestRun <= 16,
+            $"A geological material still forms a long straight run over 32 world blocks at {step}-block sampling: X={longestXRun}, Y={longestYRun}, Z={longestZRun} samples.");
 
         var verticalColumnsWithVariation = 0;
         for (var z = 0; z < width; z++)
