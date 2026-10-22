@@ -67,7 +67,7 @@
     "clusterScale": 6,
     "clusterVerticalScale": 4,
     "clusterInfluence": 0.35,
-    "boundaryGrainInfluence": 0.3
+    "boundaryGrainInfluence": 0.4
   },
   "palette": {
     "default": [
