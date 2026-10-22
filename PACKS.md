@@ -481,7 +481,7 @@ A surface or additive-volume biome may author an optional `geology` object along
       "asteria:gravel": 2,
       "asteria:clay": 1
     },
-    "surfaceCoverage": 0.24,
+    "surfaceCoverage": 0.4,
     "surfaceSubmergedOnly": false
   }
 }
