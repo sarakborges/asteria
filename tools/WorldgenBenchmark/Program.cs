@@ -599,10 +599,13 @@ static void RenderGeologyMaterialMap(
         {
             var x = checked(startX + column * options.MapStep);
             var topY = Math.Max(0, generator.SurfaceHeight(x, z));
+            var verticalX = checked(options.CenterX - verticalRadius +
+                (int)Math.Round(column * (2d * verticalRadius) /
+                    Math.Max(1, size - 1)));
             surface[row, column] = SampleBlock(x, topY, z);
             horizontal[row, column] = SampleBlock(x, centerY, z);
             subsurface[row, column] = SampleBlock(x, subsurfaceY, z);
-            vertical[row, column] = SampleBlock(x, worldY, options.CenterZ);
+            vertical[row, column] = SampleBlock(verticalX, worldY, options.CenterZ);
         }
     }
 
@@ -622,7 +625,7 @@ static void RenderGeologyMaterialMap(
     AppendPanel(svg, "Exposed surface", surface, panelLefts[0], panelTop);
     AppendPanel(svg, $"Horizontal slice Y={centerY}", horizontal, panelLefts[1], panelTop);
     AppendPanel(svg, $"Subsurface slice Y={subsurfaceY}", subsurface, panelLefts[2], panelTop);
-    AppendPanel(svg, $"Vertical slice Z={options.CenterZ}", vertical, panelLefts[3], panelTop);
+    AppendPanel(svg, $"Local vertical slice X={options.CenterX}±{verticalRadius}, Z={options.CenterZ}", vertical, panelLefts[3], panelTop);
 
     var legendY = panelTop + panelPixels + 28;
     var legendX = margin;
