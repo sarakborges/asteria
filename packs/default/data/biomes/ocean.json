@@ -63,10 +63,11 @@
     "surfaceSubmergedOnly": true,
     "grainScale": 2,
     "grainVerticalScale": 2,
-    "grainInfluence": 0.4,
+    "grainInfluence": 0.25,
     "clusterScale": 6,
     "clusterVerticalScale": 4,
-    "clusterInfluence": 0.35
+    "clusterInfluence": 0.35,
+    "boundaryGrainInfluence": 0.3
   },
   "palette": {
     "default": [
