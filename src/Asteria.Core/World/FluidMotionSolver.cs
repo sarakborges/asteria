@@ -37,7 +37,7 @@ public static class FluidMotionSolver
                     : motion.AscendSpeed
                 : descendRequested
                     ? -motion.SinkSpeed
-                    : motion.BuoyancySpeed;
+                    : -motion.PassiveSinkSpeed;
         var maximumDelta =
             motion.VerticalAcceleration *
             deltaSeconds;
