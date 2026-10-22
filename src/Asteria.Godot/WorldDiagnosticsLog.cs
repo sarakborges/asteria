@@ -116,6 +116,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _fluidGpuAttributePatches;
     private int _fluidMeshBatches;
     private double _fluidMeshMs;
+    private double _fluidMeshCaptureMs;
+    private double _fluidMeshCaptureMaxMs;
     private int _fluidMeshAccepted;
     private int _fluidMeshStale;
     private int _fluidLightOnlyMeshlets;
@@ -375,10 +377,13 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public void ObserveFluidMesh(double workerMilliseconds, int accepted, int stale,
         bool discarded = false, int relitWithoutMeshing = 0,
-        int salvagedFromStaleBatch = 0)
+        int salvagedFromStaleBatch = 0, double captureMilliseconds = 0d)
     {
         _fluidSalvagedMeshlets += salvagedFromStaleBatch;
         _fluidMeshBatches++;
+        _fluidMeshCaptureMs += captureMilliseconds;
+        _fluidMeshCaptureMaxMs = Math.Max(
+            _fluidMeshCaptureMaxMs, captureMilliseconds);
         _fluidLightOnlyMeshlets += relitWithoutMeshing;
         if (discarded)
             _fluidMeshDiscardedBatches++;
@@ -528,6 +533,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"mesh_publish_vertices={_meshPublicationVertices} " +
             $"mesh_publish_collision_triangles={_meshPublicationCollisionTriangles} " +
             $"fluid_mesh_batches={_fluidMeshBatches} fluid_mesh_ms_total={Format1(_fluidMeshMs)} " +
+            $"fluid_mesh_capture_ms_total={Format1(_fluidMeshCaptureMs)} " +
+            $"fluid_mesh_capture_ms_max={Format1(_fluidMeshCaptureMaxMs)} " +
             $"fluid_mesh_accepted={_fluidMeshAccepted} fluid_mesh_stale={_fluidMeshStale} " +
             $"fluid_light_only={_fluidLightOnlyMeshlets} " +
             $"fluid_mesh_salvaged_from_stale_batch={_fluidSalvagedMeshlets} " +
