@@ -630,8 +630,8 @@ public sealed class BiomeSurfaceMaterialField
             // Fine-grain field introduces small three-dimensional pockets so
             // large formations cannot keep a single material through long
             // vertical columns merely because the broad fields change slowly.
-            var grainScale = Math.Max(3u, detailScale / 6u);
-            var grainVerticalScale = Math.Max(2u, detailVerticalScale / 6u);
+            var grainScale = Math.Max(2u, detailScale / 8u);
+            var grainVerticalScale = Math.Max(2u, detailVerticalScale / 8u);
 
             var broadPosition = RotateFieldPosition(position, 0);
             var detailPosition = RotateFieldPosition(position, 1);
@@ -662,8 +662,8 @@ public sealed class BiomeSurfaceMaterialField
                 // Keep broad geology only as a weak coherence signal. Fine
                 // and grain fields now dominate boundaries, breaking residual
                 // sheets/columns while preserving multi-block deposits.
-                var field = broad * 0.06d + detail * 0.22d +
-                    micro * 0.28d + grain * 0.44d;
+                var field = broad * 0.06d + detail * 0.17d +
+                    micro * 0.22d + grain * 0.55d;
                 var unit = Math.Clamp(
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
                 var gumbel = -Math.Log(-Math.Log(unit));
