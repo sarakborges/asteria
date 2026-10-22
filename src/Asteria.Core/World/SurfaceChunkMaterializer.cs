@@ -256,7 +256,33 @@ public sealed class SurfaceChunkMaterializer
                         // terrain surface, not by subsurface depth or world altitude.
                         // Ocean deposits are exposed only where generated fluid occupies
                         // the voxel above, preserving dry beaches as continuous sand.
-                        if (worldY == surfaceY)
+                        // The sampled height is a terrain bound, not a
+                        // guarantee that this exact voxel is solid. Density
+                        // clipping can leave the top sample empty; in that case
+                        // expose geology on the highest solid voxel immediately
+                        // beneath it instead of silently keeping the whole cover.
+                        var isExposedTerrainTop = worldY == surfaceY;
+                        if (!isExposedTerrainTop &&
+                            worldY < surfaceY &&
+                            (long)surfaceY - worldY <= 2L)
+                        {
+                            isExposedTerrainTop = true;
+                            for (var aboveY = worldY + 1;
+                                 aboveY <= surfaceY;
+                                 aboveY++)
+                            {
+                                var aboveLocalY = aboveY - originY;
+                                if (aboveLocalY < 0 || aboveLocalY >= Chunk.Size ||
+                                    densityVolume.DensityAt(
+                                        localX, aboveLocalY, localZ) >= 0d)
+                                {
+                                    isExposedTerrainTop = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (isExposedTerrainTop)
                         {
                             var surfaceOwner = worldY > baseY
                                 ? volumeSample
