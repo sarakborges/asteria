@@ -16,18 +16,42 @@ public sealed class LeafDecayRuntime : IDisposable
     }
 
     private const int MaximumSupportDistance = 6;
-    private const int MaximumSupportSearchCells = 377;
+    // A 13×13×13 support region gives the same radius in each voxel axis.
+    private const int MaximumSupportSearchCells = 13 * 13 * 13;
     private const int MaximumCandidatesPerAdvance = 8;
     private const int MaximumChunkScansPerAdvance = 2;
 
+    // Leaves may touch logs and one another along edges or corners. Use the
+    // full 26-cell neighborhood both for support connectivity and mutation
+    // invalidation; a face-only graph incorrectly decays diagonal foliage.
     private static readonly (int X, int Y, int Z)[] Neighbors =
     [
-        (0, 1, 0),
-        (-1, 0, 0),
-        (0, 0, -1),
-        (1, 0, 0),
-        (0, 0, 1),
+        (-1, -1, -1),
+        (0, -1, -1),
+        (1, -1, -1),
+        (-1, -1, 0),
         (0, -1, 0),
+        (1, -1, 0),
+        (-1, -1, 1),
+        (0, -1, 1),
+        (1, -1, 1),
+        (-1, 0, -1),
+        (0, 0, -1),
+        (1, 0, -1),
+        (-1, 0, 0),
+        (1, 0, 0),
+        (-1, 0, 1),
+        (0, 0, 1),
+        (1, 0, 1),
+        (-1, 1, -1),
+        (0, 1, -1),
+        (1, 1, -1),
+        (-1, 1, 0),
+        (0, 1, 0),
+        (1, 1, 0),
+        (-1, 1, 1),
+        (0, 1, 1),
+        (1, 1, 1),
     ];
 
     private readonly VoxelWorld _world;

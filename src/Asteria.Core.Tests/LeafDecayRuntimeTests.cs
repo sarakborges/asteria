@@ -107,6 +107,20 @@ public sealed class LeafDecayRuntimeTests
     }
 
     [Fact]
+    public void DiagonalLeafRemainsSupportedByNearbyLog()
+    {
+        var fixture = CreateFixture();
+        var trunk = At(5, 5, 5);
+        var diagonalLeaf = At(6, 6, 5);
+        PlaceBlock(fixture, trunk, "asteria:log_test");
+        PlaceBlock(fixture, diagonalLeaf, "asteria:leaf_test");
+
+        Assert.Equal(0, fixture.Decay.Advance(1));
+        Assert.False(fixture.World.GetCellOrEmpty(diagonalLeaf).IsEmpty);
+        Assert.Equal(0, fixture.Drops.ActiveCount);
+    }
+
+    [Fact]
     public void PlayerPlacedLeavesStayProtectedAfterTheirNearbyLogIsRemoved()
     {
         var fixture = CreateFixture();
