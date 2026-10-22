@@ -555,16 +555,15 @@ static void RenderGeologyMaterialMap(
     var size = options.MapSize;
     var panelPixels = checked(size * cellSize);
     var panelTop = margin + headingHeight;
-    var panelLefts = new[]
-    {
-        margin,
-        margin + panelPixels + panelGap,
-        margin + (panelPixels + panelGap) * 2,
-    };
-    var imageWidth = margin * 2 + panelPixels * 3 + panelGap * 2;
+    const int panelCount = 4;
+    var panelLefts = Enumerable.Range(0, panelCount)
+        .Select(index => margin + index * (panelPixels + panelGap))
+        .ToArray();
+    var imageWidth = margin * 2 + panelPixels * panelCount + panelGap * (panelCount - 1);
     var imageHeight = panelTop + panelPixels + 76;
     var centerY = Math.Max(0, generator.SurfaceHeight(
         options.CenterX, options.CenterZ));
+    var subsurfaceY = Math.Max(0, centerY - 32);
     var verticalRadius = Math.Min(64, Math.Max(16, centerY));
     var startX = checked(options.CenterX - ((size - 1) / 2) * options.MapStep);
     var startZ = checked(options.CenterZ - ((size - 1) / 2) * options.MapStep);
@@ -584,6 +583,7 @@ static void RenderGeologyMaterialMap(
 
     var surface = new BlockRuntimeId[size, size];
     var horizontal = new BlockRuntimeId[size, size];
+    var subsurface = new BlockRuntimeId[size, size];
     var vertical = new BlockRuntimeId[size, size];
     for (var row = 0; row < size; row++)
     {
@@ -597,6 +597,7 @@ static void RenderGeologyMaterialMap(
             var topY = Math.Max(0, generator.SurfaceHeight(x, z));
             surface[row, column] = SampleBlock(x, topY, z);
             horizontal[row, column] = SampleBlock(x, centerY, z);
+            subsurface[row, column] = SampleBlock(x, subsurfaceY, z);
             vertical[row, column] = SampleBlock(x, worldY, options.CenterZ);
         }
     }
@@ -616,7 +617,8 @@ static void RenderGeologyMaterialMap(
 
     AppendPanel(svg, "Exposed surface", surface, panelLefts[0], panelTop);
     AppendPanel(svg, $"Horizontal slice Y={centerY}", horizontal, panelLefts[1], panelTop);
-    AppendPanel(svg, $"Vertical slice Z={options.CenterZ}", vertical, panelLefts[2], panelTop);
+    AppendPanel(svg, $"Subsurface slice Y={subsurfaceY}", subsurface, panelLefts[2], panelTop);
+    AppendPanel(svg, $"Vertical slice Z={options.CenterZ}", vertical, panelLefts[3], panelTop);
 
     var legendY = panelTop + panelPixels + 28;
     var legendX = margin;
