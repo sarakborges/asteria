@@ -641,6 +641,55 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void DefaultPlainsGeologyKeepsMaterialVarietyAcrossAltitudeSlices()
+    {
+        var blocks = LoadDefaultBlocks();
+        var plains = LoadDefaultBiomes().Get("asteria:overworld/plains");
+        var field = new BiomeSurfaceMaterialField(0xA57E_3D10_2026UL, [plains], blocks);
+        var sample = new BiomeSample(
+            plains.Id, [new BiomeInfluence(plains.Id, 1f)]);
+        var expectedMaterials = new[]
+        {
+            blocks.GetId("asteria:stone"),
+            blocks.GetId("asteria:dirt"),
+            blocks.GetId("asteria:gravel"),
+            blocks.GetId("asteria:clay"),
+        };
+        var altitudeSlices = new[] { 12, 28, 44, 60, 76, 92 };
+        var distributions = new Dictionary<int, Dictionary<BlockRuntimeId, double>>();
+
+        foreach (var y in altitudeSlices)
+        {
+            var counts = expectedMaterials.ToDictionary(block => block, _ => 0);
+            for (var z = -512; z <= 512; z += 16)
+            for (var x = -512; x <= 512; x += 16)
+            {
+                Assert.True(field.TryGeologyBlockAt(sample, x, y, z, out var block));
+                Assert.True(counts.ContainsKey(block),
+                    $"Unexpected geology block {blocks.GetDefinition(block).Id} at Y={y}.");
+                counts[block]++;
+            }
+
+            var total = counts.Values.Sum();
+            Assert.Equal(expectedMaterials.Length, counts.Count(pair => pair.Value > 0));
+            distributions[y] = counts.ToDictionary(
+                pair => pair.Key, pair => pair.Value / (double)total);
+        }
+
+        // A world-height threshold would collapse at least one slice to a
+        // predictable material. The 3D geology contract requires all authored
+        // materials to remain represented at every sampled altitude.
+        foreach (var material in expectedMaterials)
+        {
+            var shares = distributions.Values.Select(slice => slice[material]).ToArray();
+            Assert.True(
+                shares.Max() - shares.Min() < 0.30,
+                $"Material {blocks.GetDefinition(material).Id} varies too strongly by altitude: " +
+                $"{shares.Min():P1}..{shares.Max():P1}.");
+        }
+    }
+
+    [Fact]
     public void DeepMaterialCoreBypassesSurfacePatchSelectionWithoutChangingBlock()
     {
         var blocks = LoadDefaultBlocks();
