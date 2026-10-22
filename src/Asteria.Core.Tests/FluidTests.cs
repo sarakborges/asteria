@@ -516,7 +516,7 @@ public sealed class FluidTests
         ]);
 }
 
-public sealed class FluidSurfaceExitMotionTests
+public sealed class FluidMotionSolverBoundaryTests
 {
     [Fact]
     public void NearSurfaceAscendAppliesImmediateExitImpulse()
@@ -606,10 +606,10 @@ public sealed class MineCloneSwimmingParityTests
     }
 
     [Fact]
-    public void IdleFloatsAndDescendingRequiresInput()
+    public void IdleSinksAndDescendingRequiresInput()
     {
         var motion = FluidMotionDefinition.Default;
-        Assert.Equal(0.6f, FluidMotionSolver.VerticalSpeed(
+        Assert.Equal(-0.6f, FluidMotionSolver.VerticalSpeed(
             0f, 0.1f, DeepWater, motion, false, false));
         Assert.Equal(-1.2f, FluidMotionSolver.VerticalSpeed(
             0f, 0.1f, DeepWater, motion, false, true), 5);
@@ -1120,9 +1120,11 @@ public sealed class FluidUpdateQueueTests
 
         var reactivated = queue.ReactivateLoadedChunk(
             new ChunkCoord(1, 0, 0),
-            14, 10, out var complete);
+            14,
+            maximumItems: 1,
+            out var reactivationComplete);
         Assert.Equal(1, reactivated);
-        Assert.True(complete);
+        Assert.True(reactivationComplete);
 
         var batch =
             queue.DrainReady(

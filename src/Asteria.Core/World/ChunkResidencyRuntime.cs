@@ -71,8 +71,17 @@ public readonly record struct ChunkResidencyActivation(
     ChunkActivationSource Source,
     double WorkerMilliseconds,
     double TerrainMilliseconds = 0d,
-    double InitialLightingMilliseconds = 0d,
-    double FluidActivationMilliseconds = 0d);
+    double InitialLightingMilliseconds = 0d);
+
+public readonly record struct FluidActivationWorkReport(
+    int CompletedChunks,
+    int SlicesProcessed,
+    int FluidCellsProcessed,
+    int FrontierCellsProcessed,
+    int DormantTicksReactivated,
+    double ProcessingMilliseconds,
+    double MaximumSliceMilliseconds,
+    int PendingChunks);
 
 public readonly record struct ChunkResidencyRetirement(
     ChunkCoord Coord,
@@ -129,6 +138,10 @@ public sealed class ChunkResidencyRuntime
     private readonly ChunkPresentationSelection _presentationSelection = new();
     private readonly Dictionary<ChunkCoord, Task<MaterializedChunk>>
         _materializationTasks = [];
+    private const int FluidActivationItemsPerSlice = 32;
+    private const int MaximumFluidActivationSlicesPerFrame = 8;
+    private readonly DeduplicatedQueue<ChunkCoord> _pendingFluidActivationCoords = new();
+    private readonly Dictionary<ChunkCoord, PendingFluidActivation> _pendingFluidActivations = [];
     // Fluid definitions are immutable for the session. Tick-rate changes
     // invalidate the derived delays before the next fluid is scheduled.
     private readonly Dictionary<FluidRuntimeId, ulong?> _fluidDelayTicksById = [];
@@ -561,6 +574,8 @@ public sealed class ChunkResidencyRuntime
                     coord.Value);
             }
 
+            _pendingFluidActivationCoords.Remove(coord.Value);
+            _pendingFluidActivations.Remove(coord.Value);
             _streaming.Forget(coord.Value);
             retired.Add(
                 new ChunkResidencyRetirement(
@@ -581,10 +596,7 @@ public sealed class ChunkResidencyRuntime
     {
         _streaming.EnqueuePresentation(coord);
         EnqueueChunkLightingReconciliation(coord);
-        var fluidActivationStarted = Stopwatch.GetTimestamp();
-        EnqueueResidentChunkFluids(coord);
-        var fluidActivationMilliseconds =
-            Stopwatch.GetElapsedTime(fluidActivationStarted).TotalMilliseconds;
+        EnqueueResidentChunkFluidActivation(coord);
         _blockPhysics.EnqueueResidentChunk(coord);
 
         return new ChunkResidencyActivation(
@@ -592,8 +604,7 @@ public sealed class ChunkResidencyRuntime
             source,
             workerMilliseconds,
             terrainMilliseconds,
-            initialLightingMilliseconds,
-            fluidActivationMilliseconds);
+            initialLightingMilliseconds);
     }
 
     private MaterializedChunk Materialize(
@@ -678,76 +689,219 @@ public sealed class ChunkResidencyRuntime
         }
     }
 
-    private void EnqueueResidentChunkFluids(
-        ChunkCoord coord)
+    private void EnqueueResidentChunkFluidActivation(ChunkCoord coord)
     {
-        if (!_world.TryGetChunk(
-                coord,
-                out var chunk))
+        if (_pendingFluidActivations.ContainsKey(coord))
         {
             return;
         }
 
-        var (originX, originY, originZ) =
-            VoxelCoordinates.ChunkOrigin(coord);
-
-        _fluidUpdates.ReactivateLoadedChunk(
+        _pendingFluidActivations.Add(
             coord,
-            _worldTicks.CurrentTick);
+            new PendingFluidActivation());
+        _pendingFluidActivationCoords.Enqueue(coord);
+    }
 
-        chunk.VisitFluidCells(
-            (x, y, z, fluid) =>
+    public FluidActivationWorkReport ProcessPendingFluidActivations(
+        WorldFrameWorkBudget budget)
+    {
+        if (_pendingFluidActivationCoords.Count == 0)
+        {
+            return new FluidActivationWorkReport(
+                0, 0, 0, 0, 0, 0d, 0d, 0);
+        }
+
+        var started = Stopwatch.GetTimestamp();
+        var completedChunks = 0;
+        var slicesProcessed = 0;
+        var fluidCellsProcessed = 0;
+        var frontierCellsProcessed = 0;
+        var dormantTicksReactivated = 0;
+        var maximumSliceMilliseconds = 0d;
+
+        while (slicesProcessed < MaximumFluidActivationSlicesPerFrame &&
+               _pendingFluidActivationCoords.Count > 0)
+        {
+            if (slicesProcessed > 0 &&
+                budget.Exhausted(Stopwatch.GetTimestamp()))
             {
-                var position =
-                    new WorldVoxelCoord(
+                break;
+            }
+
+            if (!_pendingFluidActivationCoords.TryDequeue(out var coord))
+            {
+                break;
+            }
+
+            if (!_pendingFluidActivations.TryGetValue(coord, out var state))
+            {
+                continue;
+            }
+
+            if (!_world.TryGetChunk(coord, out var chunk))
+            {
+                _pendingFluidActivations.Remove(coord);
+                continue;
+            }
+
+            var sliceStarted = Stopwatch.GetTimestamp();
+            var complete = ProcessFluidActivationSlice(
+                coord,
+                chunk,
+                state,
+                out var fluidCells,
+                out var frontierCells,
+                out var reactivatedTicks);
+            var sliceMilliseconds =
+                Stopwatch.GetElapsedTime(sliceStarted).TotalMilliseconds;
+
+            slicesProcessed++;
+            fluidCellsProcessed += fluidCells;
+            frontierCellsProcessed += frontierCells;
+            dormantTicksReactivated += reactivatedTicks;
+            maximumSliceMilliseconds = Math.Max(
+                maximumSliceMilliseconds,
+                sliceMilliseconds);
+
+            if (complete)
+            {
+                _pendingFluidActivations.Remove(coord);
+                completedChunks++;
+            }
+            else
+            {
+                // Rotate incomplete chunks so dense fluid volumes do not
+                // block activation work for other newly resident chunks.
+                _pendingFluidActivationCoords.Enqueue(coord);
+            }
+        }
+
+        return new FluidActivationWorkReport(
+            completedChunks,
+            slicesProcessed,
+            fluidCellsProcessed,
+            frontierCellsProcessed,
+            dormantTicksReactivated,
+            Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+            maximumSliceMilliseconds,
+            _pendingFluidActivations.Count);
+    }
+
+    private bool ProcessFluidActivationSlice(
+        ChunkCoord coord,
+        Chunk chunk,
+        PendingFluidActivation state,
+        out int fluidCellsProcessed,
+        out int frontierCellsProcessed,
+        out int dormantTicksReactivated)
+    {
+        var remaining = FluidActivationItemsPerSlice;
+        fluidCellsProcessed = 0;
+        frontierCellsProcessed = 0;
+        dormantTicksReactivated = 0;
+
+        if (!state.DormantReactivationComplete)
+        {
+            dormantTicksReactivated = _fluidUpdates.ReactivateLoadedChunk(
+                coord,
+                _worldTicks.CurrentTick,
+                remaining,
+                out var reactivationComplete);
+            remaining -= dormantTicksReactivated;
+            state.DormantReactivationComplete = reactivationComplete;
+
+            if (!reactivationComplete || remaining == 0)
+            {
+                return false;
+            }
+        }
+
+        if (!state.FluidScanComplete)
+        {
+            var (originX, originY, originZ) =
+                VoxelCoordinates.ChunkOrigin(coord);
+            state.NextFluidVoxelIndex = chunk.VisitFluidCells(
+                state.NextFluidVoxelIndex,
+                remaining,
+                (x, y, z, fluid) =>
+                {
+                    var position = new WorldVoxelCoord(
                         originX + x,
                         originY + y,
                         originZ + z);
+                    if (ShouldWakeResidentFluid(position, fluid))
+                    {
+                        ScheduleFluidNeighborhood(fluid.Fluid, position);
+                    }
+                },
+                out fluidCellsProcessed);
+            remaining -= fluidCellsProcessed;
+            state.FluidScanComplete =
+                state.NextFluidVoxelIndex == Chunk.Volume;
 
-                if (ShouldWakeResidentFluid(
-                        position,
-                        fluid))
-                {
-                    ScheduleFluidNeighborhood(
-                        fluid.Fluid,
-                        position);
-                }
-            });
-
-        ReconcileIncomingFluidFrontiers(coord);
-    }
-
-    private void ReconcileIncomingFluidFrontiers(ChunkCoord arrived)
-    {
-        var (originX, originY, originZ) = VoxelCoordinates.ChunkOrigin(arrived);
-        foreach (var (dx, dy, dz) in IncomingFluidNeighbors)
-        {
-            var neighbor = new ChunkCoord(
-                arrived.X + dx, arrived.Y + dy, arrived.Z + dz);
-            if (!_world.ContainsChunk(neighbor))
-                continue;
-
-            // Scan only the adjacent resident face. Source fluids on this
-            // face were previously blocked by the missing chunk boundary.
-            for (var u = 0; u < Chunk.Size; u++)
-            for (var v = 0; v < Chunk.Size; v++)
+            if (!state.FluidScanComplete || remaining == 0)
             {
-                var position = dx != 0
-                    ? new WorldVoxelCoord(
-                        originX + (dx > 0 ? Chunk.Size : -1),
-                        originY + u, originZ + v)
-                    : dy != 0
-                        ? new WorldVoxelCoord(
-                            originX + u, originY + Chunk.Size, originZ + v)
-                        : new WorldVoxelCoord(
-                            originX + u, originY + v,
-                            originZ + (dz > 0 ? Chunk.Size : -1));
-                var fluid = _world.GetFluidOrEmpty(position);
-                if (!fluid.IsEmpty && ShouldWakeResidentFluid(position, fluid))
-                    ScheduleFluidNeighborhood(fluid.Fluid, position);
+                return false;
             }
         }
+
+        var (chunkOriginX, chunkOriginY, chunkOriginZ) =
+            VoxelCoordinates.ChunkOrigin(coord);
+        while (remaining > 0 &&
+               state.FrontierNeighborIndex < IncomingFluidNeighbors.Length)
+        {
+            var (dx, dy, dz) =
+                IncomingFluidNeighbors[state.FrontierNeighborIndex];
+            var neighbor = new ChunkCoord(
+                coord.X + dx,
+                coord.Y + dy,
+                coord.Z + dz);
+            if (!_world.ContainsChunk(neighbor))
+            {
+                state.FrontierNeighborIndex++;
+                state.FrontierFaceIndex = 0;
+                continue;
+            }
+
+            var u = state.FrontierFaceIndex / Chunk.Size;
+            var v = state.FrontierFaceIndex % Chunk.Size;
+            var position = dx != 0
+                ? new WorldVoxelCoord(
+                    chunkOriginX + (dx > 0 ? Chunk.Size : -1),
+                    chunkOriginY + u,
+                    chunkOriginZ + v)
+                : dy != 0
+                    ? new WorldVoxelCoord(
+                        chunkOriginX + u,
+                        chunkOriginY + Chunk.Size,
+                        chunkOriginZ + v)
+                    : new WorldVoxelCoord(
+                        chunkOriginX + u,
+                        chunkOriginY + v,
+                        chunkOriginZ + (dz > 0 ? Chunk.Size : -1));
+            var fluid = _world.GetFluidOrEmpty(position);
+            if (!fluid.IsEmpty &&
+                ShouldWakeResidentFluid(position, fluid))
+            {
+                ScheduleFluidNeighborhood(fluid.Fluid, position);
+            }
+
+            state.FrontierFaceIndex++;
+            frontierCellsProcessed++;
+            remaining--;
+
+            if (state.FrontierFaceIndex == Chunk.Area)
+            {
+                state.FrontierNeighborIndex++;
+                state.FrontierFaceIndex = 0;
+            }
+        }
+
+        return state.FluidScanComplete &&
+            state.FrontierNeighborIndex >= IncomingFluidNeighbors.Length;
     }
+
+
 
     private bool ShouldWakeResidentFluid(
         WorldVoxelCoord position,
@@ -840,6 +994,19 @@ public sealed class ChunkResidencyRuntime
         ulong.MaxValue - value < amount
             ? ulong.MaxValue
             : value + amount;
+
+    private sealed class PendingFluidActivation
+    {
+        public int NextFluidVoxelIndex { get; set; }
+
+        public bool DormantReactivationComplete { get; set; }
+
+        public bool FluidScanComplete { get; set; }
+
+        public int FrontierNeighborIndex { get; set; }
+
+        public int FrontierFaceIndex { get; set; }
+    }
 
     private sealed record MaterializedChunk(
         Chunk Chunk,

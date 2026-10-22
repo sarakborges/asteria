@@ -76,11 +76,27 @@ public sealed class FluidUpdateQueue
         (0, 0, -1),
     ];
 
+    private static readonly IComparer<FluidTickKey> DormantComparer =
+        Comparer<FluidTickKey>.Create(
+            static (left, right) =>
+            {
+                var comparison = left.Position.Y.CompareTo(right.Position.Y);
+                if (comparison != 0) return comparison;
+
+                comparison = left.Position.Z.CompareTo(right.Position.Z);
+                if (comparison != 0) return comparison;
+
+                comparison = left.Position.X.CompareTo(right.Position.X);
+                return comparison != 0
+                    ? comparison
+                    : left.Fluid.Value.CompareTo(right.Fluid.Value);
+            });
+
     private readonly SortedSet<FluidTopologyKey> _topology =
         new(TopologyComparer);
     private readonly SortedDictionary<ulong, ScheduledBucket> _scheduled = [];
     private readonly Dictionary<FluidTickKey, ulong> _scheduledDue = [];
-    private readonly Dictionary<ChunkCoord, HashSet<FluidTickKey>> _dormant = [];
+    private readonly Dictionary<ChunkCoord, SortedSet<FluidTickKey>> _dormant = [];
 
     public FluidUpdateQueue(FluidUpdateQueueSnapshot? restore = null)
     {
@@ -328,30 +344,50 @@ public sealed class FluidUpdateQueue
                 coord,
                 out var ticks))
         {
-            ticks = [];
+            ticks = new SortedSet<FluidTickKey>(DormantComparer);
             _dormant.Add(coord, ticks);
         }
 
         ticks.Add(tick);
     }
 
-    public void ReactivateLoadedChunk(
+    public int ReactivateLoadedChunk(
         ChunkCoord coord,
-        ulong currentTick)
+        ulong currentTick,
+        int maximumItems,
+        out bool complete)
     {
-        if (!_dormant.Remove(
-                coord,
-                out var ticks))
+        if (maximumItems <= 0)
         {
-            return;
+            throw new ArgumentOutOfRangeException(nameof(maximumItems));
         }
 
-        foreach (var tick in ticks)
+        if (!_dormant.TryGetValue(coord, out var ticks))
         {
-            ScheduleAt(
-                tick,
-                currentTick);
+            complete = true;
+            return 0;
         }
+
+        var processed = 0;
+        while (processed < maximumItems && ticks.Count > 0)
+        {
+            var tick = ticks.Min;
+            ticks.Remove(tick);
+            ScheduleAt(tick, currentTick);
+            processed++;
+        }
+
+        if (ticks.Count == 0)
+        {
+            _dormant.Remove(coord);
+            complete = true;
+        }
+        else
+        {
+            complete = false;
+        }
+
+        return processed;
     }
 
     private readonly record struct FluidTopologyKey(

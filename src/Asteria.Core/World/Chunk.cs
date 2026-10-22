@@ -304,13 +304,35 @@ public sealed class Chunk
     {
         ArgumentNullException.ThrowIfNull(visit);
 
-        _fluids.VisitOccupied(
+        VisitFluidCells(
+            0,
+            int.MaxValue,
+            visit,
+            out _);
+    }
+
+    /// <summary>
+    /// Visits a bounded range of occupied fluid cells beginning at the cursor.
+    /// The returned cursor can be used to resume the scan without revisiting
+    /// earlier voxel indices. A cursor equal to <see cref="Volume"/> is complete.
+    /// </summary>
+    public int VisitFluidCells(
+        int startVoxelIndex,
+        int maximumCells,
+        Action<int, int, int, FluidCell> visit,
+        out int visitedCount)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+
+        return _fluids.VisitOccupied(
+            startVoxelIndex,
+            maximumCells,
             (voxelIndex, fluid) =>
             {
-                var (x, y, z) =
-                    FromIndex(voxelIndex);
+                var (x, y, z) = FromIndex(voxelIndex);
                 visit(x, y, z, fluid);
-            });
+            },
+            out visitedCount);
     }
 
     public VoxelLight GetLight(int x, int y, int z)
