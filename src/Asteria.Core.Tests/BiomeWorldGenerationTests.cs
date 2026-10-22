@@ -621,6 +621,7 @@ public sealed class BiomeWorldGenerationTests
             [new BiomeInfluence(plains.Id, 1f)]);
         var grass = blocks.GetId("asteria:block_grass");
         var seen = new HashSet<BlockRuntimeId>();
+        var exposedSurfaceDeposits = new HashSet<BlockRuntimeId>();
 
         for (var z = -384; z <= 384; z += 8)
         for (var x = -384; x <= 384; x += 8)
@@ -630,8 +631,17 @@ public sealed class BiomeWorldGenerationTests
             Assert.True(second.TryGeologyBlockAt(sample, x, 30, z, out var repeated));
             Assert.Equal(block, repeated);
             seen.Add(block);
+
+            // Exercise the authored Plains surface rule at a coarser spatial
+            // interval without tying it to terrain altitude or material depth.
+            if (x % 24 == 0 && z % 24 == 0 &&
+                first.TrySurfaceGeologyBlockAt(sample, x, 4, z, out var exposed))
+                exposedSurfaceDeposits.Add(exposed);
         }
 
+        Assert.Contains(blocks.GetId("asteria:dirt"), exposedSurfaceDeposits);
+        Assert.Contains(blocks.GetId("asteria:gravel"), exposedSurfaceDeposits);
+        Assert.Contains(blocks.GetId("asteria:clay"), exposedSurfaceDeposits);
         Assert.Contains(blocks.GetId("asteria:stone"), seen);
         Assert.Contains(blocks.GetId("asteria:dirt"), seen);
         Assert.Contains(blocks.GetId("asteria:gravel"), seen);
