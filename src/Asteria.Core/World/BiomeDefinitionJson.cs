@@ -68,7 +68,8 @@ public static class BiomeDefinitionJson
             OptionalSingle(value, "grainInfluence") ?? 0.70f,
             OptionalUInt32(value, "clusterScale"),
             OptionalUInt32(value, "clusterVerticalScale"),
-            OptionalSingle(value, "clusterInfluence") ?? 0f);
+            OptionalSingle(value, "clusterInfluence") ?? 0f,
+            OptionalSingle(value, "boundaryGrainInfluence") ?? 0f);
     }
 
     private static PlacementLayoutValues?
