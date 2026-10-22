@@ -305,8 +305,8 @@ public sealed class Chunk
         ArgumentNullException.ThrowIfNull(visit);
 
         VisitFluidCells(
-            startVoxelIndex: 0,
-            maximumCells: int.MaxValue,
+            0,
+            int.MaxValue,
             visit,
             out _);
     }
