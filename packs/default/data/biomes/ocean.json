@@ -63,7 +63,7 @@
     "surfaceSubmergedOnly": true,
     "grainScale": 4,
     "grainVerticalScale": 3,
-    "grainInfluence": 0.58
+    "grainInfluence": 0.7
   },
   "palette": {
     "default": [
