@@ -60,7 +60,9 @@ public static class BiomeDefinitionJson
             RequiredSingle(value, "coverage"),
             OptionalSingle(value, "roughness") ?? 0.25f,
             ParseMaterialWeights(value),
-            OptionalUInt32(value, "surfaceCoverDepth") ?? 0u);
+            OptionalUInt32(value, "surfaceCoverDepth") ?? 0u,
+            OptionalSingle(value, "surfaceCoverage") ?? 0f,
+            OptionalBoolean(value, "surfaceSubmergedOnly"));
     }
 
     private static PlacementLayoutValues?
@@ -932,6 +934,22 @@ public static class BiomeDefinitionJson
             name) ??
         throw new FormatException(
             $"{name} must be a number.");
+
+    private static bool OptionalBoolean(
+        JsonElement parent,
+        string name,
+        bool fallback = false)
+    {
+        if (!parent.TryGetProperty(name, out var value))
+            return fallback;
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new FormatException($"{name} must be boolean.")
+        };
+    }
 
     private static float? OptionalSingle(
         JsonElement value,
