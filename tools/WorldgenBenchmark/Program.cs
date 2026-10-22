@@ -565,12 +565,23 @@ static void RenderGeologyMaterialMap(
         .ToArray();
     var imageWidth = margin * 2 + panelPixels * panelCount + panelGap * (panelCount - 1);
     var imageHeight = panelTop + panelPixels + 76;
-    var centerY = Math.Max(0, generator.SurfaceHeight(
-        options.CenterX, options.CenterZ));
+    var centerX = options.CenterX;
+    var centerZ = options.CenterZ;
+    if (options.MaterialMapBiome is { } targetBiome)
+    {
+        var target = generator.FindNearestSurfaceBiome(
+            targetBiome, centerX, centerZ, options.SearchRadius)
+            ?? throw new InvalidOperationException(
+                $"Could not locate surface biome {targetBiome} within {options.SearchRadius} blocks.");
+        centerX = target.X;
+        centerZ = target.Z;
+    }
+
+    var centerY = Math.Max(0, generator.SurfaceHeight(centerX, centerZ));
     var subsurfaceY = Math.Max(0, centerY - 32);
     var verticalRadius = Math.Min(64, Math.Max(16, centerY));
-    var startX = checked(options.CenterX - ((size - 1) / 2) * options.MapStep);
-    var startZ = checked(options.CenterZ - ((size - 1) / 2) * options.MapStep);
+    var startX = checked(centerX - ((size - 1) / 2) * options.MapStep);
+    var startZ = checked(centerZ - ((size - 1) / 2) * options.MapStep);
     var chunkCache = new Dictionary<ChunkCoord, Chunk>();
 
     BlockRuntimeId SampleBlock(int x, int y, int z)
@@ -599,13 +610,13 @@ static void RenderGeologyMaterialMap(
         {
             var x = checked(startX + column * options.MapStep);
             var topY = Math.Max(0, generator.SurfaceHeight(x, z));
-            var verticalX = checked(options.CenterX - verticalRadius +
+            var verticalX = checked(centerX - verticalRadius +
                 (int)Math.Round(column * (2d * verticalRadius) /
                     Math.Max(1, size - 1)));
             surface[row, column] = SampleBlock(x, topY, z);
             horizontal[row, column] = SampleBlock(x, centerY, z);
             subsurface[row, column] = SampleBlock(x, subsurfaceY, z);
-            vertical[row, column] = SampleBlock(verticalX, worldY, options.CenterZ);
+            vertical[row, column] = SampleBlock(verticalX, worldY, centerZ);
         }
     }
 
@@ -620,12 +631,15 @@ static void RenderGeologyMaterialMap(
     svg.AppendLine($"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{imageWidth}\" height=\"{imageHeight}\" viewBox=\"0 0 {imageWidth} {imageHeight}\">");
     svg.AppendLine("<rect width=\"100%\" height=\"100%\" fill=\"#10141a\"/>");
     svg.AppendLine("<style>text{font-family:monospace;fill:#e8edf2}.label{font-size:12px}.title{font-size:15px;font-weight:bold}</style>");
-    svg.AppendLine($"<text x=\"{margin}\" y=\"19\" class=\"title\">Asteria geology materialization · seed {options.Seed} · center {options.CenterX},{options.CenterZ} · surface Y {centerY}</text>");
+    var targetLabel = options.MaterialMapBiome is { } requestedBiome
+        ? $" · target {requestedBiome}"
+        : string.Empty;
+    svg.AppendLine($"<text x=\"{margin}\" y=\"19\" class=\"title\">Asteria geology materialization · seed {options.Seed} · center {centerX},{centerZ}{targetLabel} · surface Y {centerY}</text>");
 
     AppendPanel(svg, "Exposed surface", surface, panelLefts[0], panelTop);
     AppendPanel(svg, $"Horizontal slice Y={centerY}", horizontal, panelLefts[1], panelTop);
     AppendPanel(svg, $"Subsurface slice Y={subsurfaceY}", subsurface, panelLefts[2], panelTop);
-    AppendPanel(svg, $"Local vertical slice X={options.CenterX}±{verticalRadius}, Z={options.CenterZ}", vertical, panelLefts[3], panelTop);
+    AppendPanel(svg, $"Local vertical slice X={centerX}±{verticalRadius}, Z={centerZ}", vertical, panelLefts[3], panelTop);
 
     var legendY = panelTop + panelPixels + 28;
     var legendX = margin;
@@ -940,7 +954,8 @@ internal sealed record Arguments(
     int SearchRadius,
     bool EnforceCiBudgets,
     string? Output,
-    string? MaterialMapOutput)
+    string? MaterialMapOutput,
+    string? MaterialMapBiome)
 {
     public static Arguments Parse(string[] input)
     {
@@ -959,6 +974,7 @@ internal sealed record Arguments(
         var enforceCiBudgets = false;
         string? output = null;
         string? materialMapOutput = null;
+        string? materialMapBiome = null;
 
         if (input.Length % 2 != 0)
         {
@@ -1022,6 +1038,9 @@ internal sealed record Arguments(
                 case "--material-map-output":
                     materialMapOutput = value;
                     break;
+                case "--material-map-biome":
+                    materialMapBiome = value;
+                    break;
                 default:
                     throw new ArgumentException($"Unknown option {input[i]}.");
             }
@@ -1054,6 +1073,7 @@ internal sealed record Arguments(
             searchRadius,
             enforceCiBudgets,
             output,
-            materialMapOutput);
+            materialMapOutput,
+            materialMapBiome);
     }
 }
