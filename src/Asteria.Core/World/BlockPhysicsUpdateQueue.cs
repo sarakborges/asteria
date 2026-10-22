@@ -6,6 +6,17 @@ public sealed class BlockPhysicsUpdateQueue
     // Keep the FIFO workload bounded on each tick; pending work remains queued.
     public const int MaximumBatchSize = 256;
 
+    private static readonly (int X, int Y, int Z)[] VoxelEditWakeOffsets =
+    [
+        (0, 0, 0),
+        (0, 1, 0),
+        (0, -1, 0),
+        (1, 0, 0),
+        (-1, 0, 0),
+        (0, 0, 1),
+        (0, 0, -1),
+    ];
+
     private readonly DeduplicatedQueue<WorldVoxelCoord>
         _queue = new();
     // Missing support chunks are dormant until their residency changes.
@@ -85,22 +96,10 @@ public sealed class BlockPhysicsUpdateQueue
         // queued when a chunk entered residency. Promote already queued cells
         // too; ordinary Enqueue intentionally preserves FIFO order for chunk
         // seeding and capacity retries.
-        WorldVoxelCoord[] affected =
-        [
-            position,
-            position + (0, 1, 0),
-            position + (0, -1, 0),
-            // Any edited voxel may be the supporting side of wall flora.
-            position + (1, 0, 0),
-            position + (-1, 0, 0),
-            position + (0, 0, 1),
-            position + (0, 0, -1),
-        ];
-
         // EnqueueFront reverses insertion order, so walk backwards to preserve
         // the deterministic changed-voxel/neighbor order exposed by DrainBatch.
-        for (var index = affected.Length - 1; index >= 0; index--)
-            EnqueueFront(affected[index]);
+        for (var index = VoxelEditWakeOffsets.Length - 1; index >= 0; index--)
+            EnqueueFront(position + VoxelEditWakeOffsets[index]);
     }
 
     private void EnqueueFront(WorldVoxelCoord position)
