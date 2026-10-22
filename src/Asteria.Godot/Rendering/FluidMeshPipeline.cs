@@ -235,6 +235,7 @@ public sealed class FluidMeshPipeline
                 result.WorkerMilliseconds,
                 accepted,
                 stale,
+                CaptureMilliseconds: result.CaptureMilliseconds,
                 RelitWithoutMeshing: relitWithoutMeshing,
                 SalvagedFromStaleBatch: salvaged);
             return true;
