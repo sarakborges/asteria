@@ -294,34 +294,34 @@ public static class FluidMeshDataBuilder
             origin +
             new Vector3(0f, heights.H00, 0f);
 
-        EmitQuad(
-            vertices,
-            world,
-            blocks,
-            position,
-            BlockFace.Top,
-            points);
-        EmitTopUnderside(
-            vertices,
-            world,
-            blocks,
-            position,
-            points);
-    }
-
-    private static void EmitTopUnderside(
-        List<FluidMeshVertex> vertices,
-        VoxelWorld world,
-        BlockRegistry blocks,
-        WorldVoxelCoord position,
-        ReadOnlySpan<Vector3> points)
-    {
         var lighting =
             VoxelMeshLighting.SampleFace(
                 world,
                 blocks,
                 position,
                 BlockFace.Top);
+
+        EmitQuad(
+            vertices,
+            world,
+            blocks,
+            position,
+            BlockFace.Top,
+            points,
+            lighting);
+        EmitTopUnderside(
+            vertices,
+            position,
+            points,
+            lighting);
+    }
+
+    private static void EmitTopUnderside(
+        List<FluidMeshVertex> vertices,
+        WorldVoxelCoord position,
+        ReadOnlySpan<Vector3> points,
+        VoxelFaceLighting lighting)
+    {
         var triangleOrder =
             lighting.ShouldFlipDiagonal
                 ? ReverseFlippedTriangleOrder
@@ -470,9 +470,11 @@ public static class FluidMeshDataBuilder
         BlockRegistry blocks,
         WorldVoxelCoord position,
         BlockFace face,
-        ReadOnlySpan<Vector3> points)
+        ReadOnlySpan<Vector3> points,
+        VoxelFaceLighting? sampledLighting = null)
     {
         var lighting =
+            sampledLighting ??
             VoxelMeshLighting.SampleFace(
                 world,
                 blocks,
