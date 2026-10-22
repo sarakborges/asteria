@@ -57,10 +57,35 @@ export function SettingsPage({
     </section>
   ));
 
+  const updateSelectedSection = (event: React.UIEvent<HTMLDivElement>) => {
+    const viewport = event.currentTarget;
+    if (sections.length === 0) return;
+
+    const lastSection = sections[sections.length - 1];
+    const atScrollableBottom = viewport.scrollHeight > viewport.clientHeight + 1 &&
+      viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 2;
+    if (atScrollableBottom && lastSection) {
+      if (selectedId !== lastSection.id) onSelect(lastSection.id);
+      return;
+    }
+
+    const activationLine = viewport.getBoundingClientRect().top + 48;
+    let activeId = sections[0].id;
+    for (const section of sections) {
+      const element = panelRefs.current.get(section.id);
+      if (element && element.getBoundingClientRect().top <= activationLine) {
+        activeId = section.id;
+      }
+    }
+
+    if (activeId !== selectedId) onSelect(activeId);
+  };
+
   const panelScroll = (
     <ScrollArea className="settings-page__sections-scroll"
       contentClassName="settings-page__sections-content"
-      ariaLabel={title ?? t("common.settings")}>
+      ariaLabel={title ?? t("common.settings")}
+      onViewportScroll={updateSelectedSection}>
       {panels}
     </ScrollArea>
   );
