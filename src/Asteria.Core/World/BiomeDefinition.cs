@@ -644,7 +644,8 @@ public sealed class BiomeGeologyDefinition
         float grainInfluence = 0.70f,
         uint? clusterScale = null,
         uint? clusterVerticalScale = null,
-        float clusterInfluence = 0f)
+        float clusterInfluence = 0f,
+        float boundaryGrainInfluence = 0f)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(baseBlock);
         if (scale is < 2 or > 2048 ||
@@ -686,6 +687,11 @@ public sealed class BiomeGeologyDefinition
             throw new ArgumentOutOfRangeException(
                 nameof(clusterInfluence),
                 "Geology cluster influence must be within 0..0.6, with at least 0.1 influence left for broader fields.");
+        if (!float.IsFinite(boundaryGrainInfluence) ||
+            boundaryGrainInfluence is < 0f or > 0.6f)
+            throw new ArgumentOutOfRangeException(
+                nameof(boundaryGrainInfluence),
+                "Geology boundary grain influence must be within 0..0.6.");
 
         if (surfaceCoverDepth > 64)
             throw new ArgumentOutOfRangeException(
@@ -764,6 +770,7 @@ public sealed class BiomeGeologyDefinition
         ClusterScale = clusterScale;
         ClusterVerticalScale = clusterVerticalScale;
         ClusterInfluence = clusterInfluence;
+        BoundaryGrainInfluence = boundaryGrainInfluence;
     }
 
     public string BaseBlock { get; }
@@ -805,6 +812,9 @@ public sealed class BiomeGeologyDefinition
 
     /// <summary>Share of material selection controlled by the intermediate cluster field.</summary>
     public float ClusterInfluence { get; }
+
+    /// <summary>Maximum additional fine-grain score perturbation where the top material candidates are close.</summary>
+    public float BoundaryGrainInfluence { get; }
 }
 
 /// <summary>Required fluid occupancy of a decorator's placement voxel.</summary>
