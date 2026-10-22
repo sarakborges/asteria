@@ -23,8 +23,10 @@ public sealed class GeologyMaterializationRegressionTests
         // influence voxels at either the horizontal or vertical chunk seam.
         var firstUpperRight = firstGenerator.Materialize(new ChunkCoord(1, 2, 0));
         var firstUpperLeft = firstGenerator.Materialize(new ChunkCoord(0, 2, 0));
+        var firstLowerRight = firstGenerator.Materialize(new ChunkCoord(1, 1, 0));
         var firstLowerLeft = firstGenerator.Materialize(new ChunkCoord(0, 1, 0));
         var secondLowerLeft = secondGenerator.Materialize(new ChunkCoord(0, 1, 0));
+        var secondLowerRight = secondGenerator.Materialize(new ChunkCoord(1, 1, 0));
         var secondUpperLeft = secondGenerator.Materialize(new ChunkCoord(0, 2, 0));
         var secondUpperRight = secondGenerator.Materialize(new ChunkCoord(1, 2, 0));
 
@@ -40,16 +42,22 @@ public sealed class GeologyMaterializationRegressionTests
             var coord = new ChunkCoord(x / Chunk.Size, worldY / Chunk.Size, 0);
             var localX = x % Chunk.Size;
             var localY = worldY % Chunk.Size;
-            var actualFirst = coord.Y == 1
-                ? firstLowerLeft.GetBlock(localX, localY, z)
-                : x < Chunk.Size
-                    ? firstUpperLeft.GetBlock(localX, localY, z)
-                    : firstUpperRight.GetBlock(localX, localY, z);
-            var actualSecond = coord.Y == 1
-                ? secondLowerLeft.GetBlock(localX, localY, z)
-                : x < Chunk.Size
-                    ? secondUpperLeft.GetBlock(localX, localY, z)
-                    : secondUpperRight.GetBlock(localX, localY, z);
+            var actualFirst = (x / Chunk.Size, coord.Y) switch
+            {
+                (0, 1) => firstLowerLeft.GetBlock(localX, localY, z),
+                (1, 1) => firstLowerRight.GetBlock(localX, localY, z),
+                (0, 2) => firstUpperLeft.GetBlock(localX, localY, z),
+                (1, 2) => firstUpperRight.GetBlock(localX, localY, z),
+                _ => throw new InvalidOperationException("Unexpected test chunk coordinate."),
+            };
+            var actualSecond = (x / Chunk.Size, coord.Y) switch
+            {
+                (0, 1) => secondLowerLeft.GetBlock(localX, localY, z),
+                (1, 1) => secondLowerRight.GetBlock(localX, localY, z),
+                (0, 2) => secondUpperLeft.GetBlock(localX, localY, z),
+                (1, 2) => secondUpperRight.GetBlock(localX, localY, z),
+                _ => throw new InvalidOperationException("Unexpected test chunk coordinate."),
+            };
 
             Assert.Equal(actualFirst, actualSecond);
 
@@ -74,13 +82,30 @@ public sealed class GeologyMaterializationRegressionTests
         for (var worldY = 16; worldY <= 40; worldY++)
         for (var z = 0; z < Chunk.Size; z++)
         {
-            var left = worldY / Chunk.Size == 1
+            var chunkY = worldY / Chunk.Size;
+            var leftFirst = chunkY == 1
                 ? firstLowerLeft.GetBlock(Chunk.Size - 1, worldY % Chunk.Size, z)
                 : firstUpperLeft.GetBlock(Chunk.Size - 1, worldY % Chunk.Size, z);
-            var right = worldY / Chunk.Size == 1
+            var rightFirst = chunkY == 1
+                ? firstLowerRight.GetBlock(0, worldY % Chunk.Size, z)
+                : firstUpperRight.GetBlock(0, worldY % Chunk.Size, z);
+            var leftSecond = chunkY == 1
                 ? secondLowerLeft.GetBlock(Chunk.Size - 1, worldY % Chunk.Size, z)
                 : secondUpperLeft.GetBlock(Chunk.Size - 1, worldY % Chunk.Size, z);
-            Assert.Equal(left, right);
+            var rightSecond = chunkY == 1
+                ? secondLowerRight.GetBlock(0, worldY % Chunk.Size, z)
+                : secondUpperRight.GetBlock(0, worldY % Chunk.Size, z);
+            Assert.Equal(leftFirst, leftSecond);
+            Assert.Equal(rightFirst, rightSecond);
+            Assert.True(materials.TryGeologyBlockAt(
+                sample, Chunk.Size - 1, worldY, z, out var expectedLeft));
+            Assert.True(materials.TryGeologyBlockAt(
+                sample, Chunk.Size, worldY, z, out var expectedRight));
+            if (40 - worldY >= cover)
+            {
+                Assert.Equal(expectedLeft, leftFirst);
+                Assert.Equal(expectedRight, rightFirst);
+            }
         }
     }
 
