@@ -53,7 +53,7 @@
     "coverage": 0.72,
     "roughness": 0.36,
     "weights": {
-      "asteria:sand": 2,
+      "asteria:sand": 4,
       "asteria:gravel": 3,
       "asteria:clay": 3,
       "asteria:cobble_stone": 1
