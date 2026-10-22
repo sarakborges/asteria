@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using Asteria.Core.Content;
 using Asteria.Core.Diagnostics;
@@ -483,6 +484,15 @@ if (options.Output is { } output)
     File.WriteAllText(output, json);
 }
 
+if (options.MaterialMapOutput is { } materialMapOutput)
+{
+    RenderGeologyMaterialMap(
+        NewGenerator(),
+        blocks,
+        options,
+        materialMapOutput);
+}
+
 Measurement Measure(
     int operations,
     Func<BiomeWorldGenerator, ulong> work)
@@ -531,6 +541,135 @@ Measurement Measure(
         warmAllocated,
         coldDigest);
 }
+
+static void RenderGeologyMaterialMap(
+    BiomeWorldGenerator generator,
+    BlockRegistry blocks,
+    Arguments options,
+    string outputPath)
+{
+    const int cellSize = 4;
+    const int margin = 16;
+    const int headingHeight = 32;
+    const int panelGap = 20;
+    var size = options.MapSize;
+    var panelPixels = checked(size * cellSize);
+    var panelTop = margin + headingHeight;
+    var panelLefts = new[]
+    {
+        margin,
+        margin + panelPixels + panelGap,
+        margin + (panelPixels + panelGap) * 2,
+    };
+    var imageWidth = margin * 2 + panelPixels * 3 + panelGap * 2;
+    var imageHeight = panelTop + panelPixels + 76;
+    var centerY = Math.Max(0, generator.SurfaceHeight(
+        options.CenterX, options.CenterZ));
+    var verticalRadius = Math.Min(64, Math.Max(16, centerY));
+    var startX = checked(options.CenterX - ((size - 1) / 2) * options.MapStep);
+    var startZ = checked(options.CenterZ - ((size - 1) / 2) * options.MapStep);
+    var chunkCache = new Dictionary<ChunkCoord, Chunk>();
+
+    BlockRuntimeId SampleBlock(int x, int y, int z)
+    {
+        var (coord, local) = VoxelCoordinates.FromWorld(x, Math.Max(0, y), z);
+        if (!chunkCache.TryGetValue(coord, out var chunk))
+        {
+            chunk = generator.Materialize(coord);
+            chunkCache.Add(coord, chunk);
+        }
+
+        return chunk.GetBlock(local.X, local.Y, local.Z);
+    }
+
+    var surface = new BlockRuntimeId[size, size];
+    var horizontal = new BlockRuntimeId[size, size];
+    var vertical = new BlockRuntimeId[size, size];
+    for (var row = 0; row < size; row++)
+    {
+        var z = checked(startZ + row * options.MapStep);
+        var worldY = Math.Max(0,
+            centerY + verticalRadius -
+            (int)Math.Round(row * (2d * verticalRadius) / Math.Max(1, size - 1)));
+        for (var column = 0; column < size; column++)
+        {
+            var x = checked(startX + column * options.MapStep);
+            var topY = Math.Max(0, generator.SurfaceHeight(x, z));
+            surface[row, column] = SampleBlock(x, topY, z);
+            horizontal[row, column] = SampleBlock(x, centerY, z);
+            vertical[row, column] = SampleBlock(x, worldY, options.CenterZ);
+        }
+    }
+
+    var legendBlocks = new[]
+    {
+        "asteria:stone", "asteria:sand", "asteria:gravel", "asteria:clay",
+        "asteria:cobble_stone", "asteria:dirt", "asteria:sandstone",
+        "asteria:basalt", "asteria:cobble_basalt", "asteria:ice",
+        "asteria:snow", "asteria:mud", "asteria:block_grass",
+    };
+    var svg = new StringBuilder();
+    svg.AppendLine($"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{imageWidth}\" height=\"{imageHeight}\" viewBox=\"0 0 {imageWidth} {imageHeight}\">");
+    svg.AppendLine("<rect width=\"100%\" height=\"100%\" fill=\"#10141a\"/>");
+    svg.AppendLine("<style>text{font-family:monospace;fill:#e8edf2}.label{font-size:12px}.title{font-size:15px;font-weight:bold}</style>");
+    svg.AppendLine($"<text x=\"{margin}\" y=\"19\" class=\"title\">Asteria geology materialization · seed {options.Seed} · center {options.CenterX},{options.CenterZ} · surface Y {centerY}</text>");
+
+    AppendPanel(svg, "Exposed surface", surface, panelLefts[0], panelTop);
+    AppendPanel(svg, $"Horizontal slice Y={centerY}", horizontal, panelLefts[1], panelTop);
+    AppendPanel(svg, $"Vertical slice Z={options.CenterZ}", vertical, panelLefts[2], panelTop);
+
+    var legendY = panelTop + panelPixels + 28;
+    var legendX = margin;
+    foreach (var id in legendBlocks)
+    {
+        var color = MaterialColor(id);
+        svg.AppendLine($"<rect x=\"{legendX}\" y=\"{legendY - 10}\" width=\"10\" height=\"10\" fill=\"{color}\"/>");
+        svg.AppendLine($"<text x=\"{legendX + 14}\" y=\"{legendY - 1}\" class=\"label\">{id.Replace("asteria:", "")}</text>");
+        legendX += 92;
+    }
+
+    svg.AppendLine("</svg>");
+    var fullPath = Path.GetFullPath(outputPath);
+    Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+    File.WriteAllText(fullPath, svg.ToString());
+    Console.WriteLine($"Geology materialization map: {fullPath} ({chunkCache.Count} generated chunks)");
+
+    void AppendPanel(
+        StringBuilder builder, string label, BlockRuntimeId[,] values,
+        int left, int top)
+    {
+        builder.AppendLine($"<text x=\"{left}\" y=\"{top - 7}\" class=\"label\">{label}</text>");
+        for (var row = 0; row < size; row++)
+        for (var column = 0; column < size; column++)
+        {
+            var block = values[row, column];
+            var color = block.IsAir
+                ? "#10141a"
+                : MaterialColor(blocks.GetDefinition(block).Id);
+            var x = left + column * cellSize;
+            var y = top + row * cellSize;
+            builder.AppendLine($"<rect x=\"{x}\" y=\"{y}\" width=\"{cellSize}\" height=\"{cellSize}\" fill=\"{color}\"/>");
+        }
+    }
+}
+
+static string MaterialColor(string id) => id switch
+{
+    "asteria:stone" => "#858b92",
+    "asteria:sand" => "#d6bd79",
+    "asteria:gravel" => "#9a958a",
+    "asteria:clay" => "#b38b72",
+    "asteria:cobble_stone" => "#62666d",
+    "asteria:dirt" => "#79543a",
+    "asteria:sandstone" => "#bd8d58",
+    "asteria:basalt" => "#3c4148",
+    "asteria:cobble_basalt" => "#66605a",
+    "asteria:ice" => "#8dd9e8",
+    "asteria:snow" => "#eef2f5",
+    "asteria:mud" => "#584939",
+    "asteria:block_grass" => "#54884a",
+    _ => "#d85bb8",
+};
 
 static (int X, int Z) Position(Arguments options, int index) =>
 (
@@ -791,7 +930,8 @@ internal sealed record Arguments(
     int Chunks,
     int SearchRadius,
     bool EnforceCiBudgets,
-    string? Output)
+    string? Output,
+    string? MaterialMapOutput)
 {
     public static Arguments Parse(string[] input)
     {
@@ -809,6 +949,7 @@ internal sealed record Arguments(
         var searchRadius = 1024;
         var enforceCiBudgets = false;
         string? output = null;
+        string? materialMapOutput = null;
 
         if (input.Length % 2 != 0)
         {
@@ -869,6 +1010,9 @@ internal sealed record Arguments(
                 case "--output":
                     output = value;
                     break;
+                case "--material-map-output":
+                    materialMapOutput = value;
+                    break;
                 default:
                     throw new ArgumentException($"Unknown option {input[i]}.");
             }
@@ -900,6 +1044,7 @@ internal sealed record Arguments(
             chunks,
             searchRadius,
             enforceCiBudgets,
-            output);
+            output,
+            materialMapOutput);
     }
 }

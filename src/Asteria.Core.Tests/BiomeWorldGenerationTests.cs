@@ -153,9 +153,8 @@ public sealed class BiomeWorldGenerationTests
         Assert.Equal(
             new[]
             {
-                ("asteria:sand", (uint?)8),
-                ("asteria:sandstone", (uint?)4),
-                ("asteria:stone", (uint?)null),
+                ("asteria:sand", (uint?)4),
+                ("asteria:sandstone", (uint?)null),
             },
             biomes.Get(
                     "asteria:overworld/desert")
@@ -180,7 +179,6 @@ public sealed class BiomeWorldGenerationTests
             new[]
             {
                 ("asteria:dirt", (uint?)2),
-                ("asteria:gravel", (uint?)3),
                 ("asteria:stone", (uint?)null),
             },
             biomes.Get(
@@ -610,34 +608,33 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void PlainsSurfaceHasDeterministicDirtAndGravelPatches()
+    public void PlainsKeepsShallowGrassCoverAndUsesThreeDimensionalGeology()
     {
         var blocks = LoadDefaultBlocks();
-        var biomes = LoadDefaultBiomes();
-        var plains = biomes.Get("asteria:overworld/plains");
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            plains.SurfaceLayers[0].Patch);
-        Assert.Equal(new[] { "asteria:dirt", "asteria:gravel" },
-            patch.Blocks);
+        var plains = LoadDefaultBiomes().Get("asteria:overworld/plains");
+        Assert.Null(plains.SurfaceLayers[0].Patch);
+        Assert.Equal(5u, Assert.IsType<BiomeGeologyDefinition>(plains.Geology).SurfaceCoverDepth);
+
         var first = new BiomeSurfaceMaterialField(112233, [plains], blocks);
         var second = new BiomeSurfaceMaterialField(112233, [plains], blocks);
         var sample = new BiomeSample(plains.Id,
             [new BiomeInfluence(plains.Id, 1f)]);
-        var materials = new HashSet<BlockRuntimeId>();
+        var grass = blocks.GetId("asteria:block_grass");
+        var seen = new HashSet<BlockRuntimeId>();
 
-        for (var z = -96; z <= 96; z += 2)
+        for (var z = -384; z <= 384; z += 8)
+        for (var x = -384; x <= 384; x += 8)
         {
-            for (var x = -96; x <= 96; x += 2)
-            {
-                var at = first.BlockAt(sample, x, z, 0);
-                Assert.Equal(at, second.BlockAt(sample, x, z, 0));
-                materials.Add(at);
-            }
+            Assert.Equal(grass, first.BlockAt(sample, x, z, 0));
+            Assert.True(first.TryGeologyBlockAt(sample, x, 30, z, out var block));
+            Assert.True(second.TryGeologyBlockAt(sample, x, 30, z, out var repeated));
+            Assert.Equal(block, repeated);
+            seen.Add(block);
         }
 
-        Assert.Contains(blocks.GetId("asteria:block_grass"), materials);
-        Assert.Contains(blocks.GetId("asteria:dirt"), materials);
-        Assert.Contains(blocks.GetId("asteria:gravel"), materials);
+        Assert.Contains(blocks.GetId("asteria:stone"), seen);
+        Assert.Contains(blocks.GetId("asteria:dirt"), seen);
+        Assert.Contains(blocks.GetId("asteria:gravel"), seen);
         Assert.All(plains.Decorations.Where(decoration =>
             decoration.Block is "asteria:pebble" or "asteria:stick"),
             decoration => Assert.Contains("asteria:gravel", decoration.SurfaceBlocks));
@@ -1763,6 +1760,106 @@ public sealed class BiomeWorldGenerationTests
             generator.SurfaceHeight(
                 0,
                 0));
+    }
+
+    [Fact]
+    public void MaterializedTerrainKeepsFiniteSurfaceCoverBeforeApplyingThreeDimensionalGeology()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:grass"),
+            new BlockDefinition("asteria:dirt"),
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:gravel"),
+            new BlockDefinition("asteria:clay"),
+        ]);
+        var geology = new BiomeGeologyDefinition(
+            "asteria:stone",
+            ["asteria:gravel", "asteria:clay"],
+            scale: 64,
+            verticalScale: 42,
+            detailScale: 16,
+            selectionScale: 128,
+            coverage: 0.6f,
+            roughness: 0.3f,
+            surfaceCoverDepth: 5);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
+            new BiomeTerrainDefinition(
+                baseHeightOffset: 10f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                new BiomeSurfaceLayerDefinition("asteria:grass", depth: 1),
+                new BiomeSurfaceLayerDefinition("asteria:dirt", depth: 4),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ],
+            geology: geology);
+        var generator = new BiomeWorldGenerator(
+            2468UL,
+            TestDimension([biome.Id]),
+            blocks,
+            new BiomeRegistry([biome]));
+
+        var chunk = generator.Materialize(new ChunkCoord(0, 0, 0));
+        var grass = blocks.GetId("asteria:grass");
+        var dirt = blocks.GetId("asteria:dirt");
+        var allowedGeology = new HashSet<BlockRuntimeId>
+        {
+            blocks.GetId("asteria:stone"),
+            blocks.GetId("asteria:gravel"),
+            blocks.GetId("asteria:clay"),
+        };
+
+        Assert.Equal(grass, chunk.GetBlock(2, 10, 2));
+        Assert.Equal(dirt, chunk.GetBlock(2, 9, 2));
+        Assert.Equal(dirt, chunk.GetBlock(2, 6, 2));
+        Assert.Contains(chunk.GetBlock(2, 5, 2), allowedGeology);
+        Assert.Contains(chunk.GetBlock(2, 3, 2), allowedGeology);
+    }
+
+    [Fact]
+    public void MaterializedRockSurfaceUsesGeologyWhenNoCoverIsAuthored()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:gravel"),
+        ]);
+        var geology = new BiomeGeologyDefinition(
+            "asteria:stone",
+            ["asteria:gravel"],
+            scale: 64,
+            verticalScale: 42,
+            detailScale: 16,
+            selectionScale: 128,
+            coverage: 1f,
+            surfaceCoverDepth: 0);
+        var biome = new BiomeDefinition(
+            "asteria:test/rock",
+            new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
+            new BiomeTerrainDefinition(
+                baseHeightOffset: 10f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [new BiomeSurfaceLayerDefinition("asteria:stone")],
+            geology: geology);
+        var generator = new BiomeWorldGenerator(
+            97531UL,
+            TestDimension([biome.Id]),
+            blocks,
+            new BiomeRegistry([biome]));
+
+        var chunk = generator.Materialize(new ChunkCoord(0, 0, 0));
+        var gravel = blocks.GetId("asteria:gravel");
+
+        Assert.Equal(gravel, chunk.GetBlock(2, 10, 2));
+        Assert.Equal(gravel, chunk.GetBlock(2, 5, 2));
     }
 
     [Fact]

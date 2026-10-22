@@ -186,36 +186,28 @@
       }
     ]
   },
+  "geology": {
+    "baseBlock": "asteria:stone",
+    "blocks": [
+      "asteria:gravel",
+      "asteria:cobble_stone",
+      "asteria:dirt"
+    ],
+    "scale": 78,
+    "verticalScale": 51,
+    "detailScale": 17,
+    "selectionScale": 59,
+    "coverage": 0.58,
+    "roughness": 0.32,
+    "weights": {
+      "asteria:gravel": 3,
+      "asteria:cobble_stone": 2,
+      "asteria:dirt": 1
+    },
+    "surfaceCoverDepth": 0
+  },
   "palette": {
     "default": [
-      {
-        "block": "asteria:stone",
-        "depth": 1,
-        "boundaryNoise": 1,
-        "patch": {
-          "scale": 40,
-          "coverage": 0.2,
-          "roughness": 0.33,
-          "blocks": [
-            "asteria:gravel",
-            "asteria:dirt",
-            "asteria:cobble_stone"
-          ],
-          "detailScale": 12,
-          "selectionScale": 90,
-          "warpScale": 88,
-          "warpStrength": 16,
-          "stretchZ": 1.4,
-          "weights": {
-            "asteria:gravel": 5,
-            "asteria:dirt": 1,
-            "asteria:cobble_stone": 2
-          },
-          "conditions": {
-            "maxSlope": 3
-          }
-        }
-      },
       {
         "block": "asteria:stone"
       }

@@ -267,29 +267,31 @@
       }
     ]
   },
+  "geology": {
+    "baseBlock": "asteria:stone",
+    "blocks": [
+      "asteria:dirt",
+      "asteria:gravel",
+      "asteria:clay"
+    ],
+    "scale": 84,
+    "verticalScale": 55,
+    "detailScale": 19,
+    "selectionScale": 63,
+    "coverage": 0.62,
+    "roughness": 0.32,
+    "weights": {
+      "asteria:dirt": 4,
+      "asteria:gravel": 2,
+      "asteria:clay": 1
+    },
+    "surfaceCoverDepth": 5
+  },
   "palette": {
     "default": [
       {
         "block": "asteria:block_grass",
-        "depth": 1,
-        "patch": {
-          "scale": 24,
-          "coverage": 0.24,
-          "roughness": 0.34,
-          "blocks": [
-            "asteria:dirt",
-            "asteria:gravel"
-          ],
-          "detailScale": 9,
-          "selectionScale": 64,
-          "warpScale": 72,
-          "warpStrength": 12,
-          "stretchZ": 1.6,
-          "weights": {
-            "asteria:dirt": 3,
-            "asteria:gravel": 1
-          }
-        }
+        "depth": 1
       },
       {
         "block": "asteria:dirt",

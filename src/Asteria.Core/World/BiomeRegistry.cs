@@ -112,6 +112,13 @@ public sealed class BiomeRegistry
                 }
             }
 
+            if (definition.Geology is { } geology)
+            {
+                RequireBlock(blocks, definition.Id, geology.BaseBlock);
+                foreach (var block in geology.Blocks)
+                    RequireBlock(blocks, definition.Id, block);
+            }
+
             if (definition.Palette.SurfaceMosaic is { } mosaic)
             {
                 foreach (var entry in mosaic.Entries)

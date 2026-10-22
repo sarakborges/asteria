@@ -27,10 +27,10 @@ public sealed class DesertEnrichmentContentTests
             ["open_dunes", "sand_flats", "sandstone_outcrops"],
             desert.SurfaceHabitats!.Bands.Select(band => band.Id));
         Assert.Equal("asteria:sand", desert.SurfaceLayers[0].Block);
-        Assert.Equal((uint?)8, desert.SurfaceLayers[0].Depth);
+        Assert.Equal((uint?)4, desert.SurfaceLayers[0].Depth);
         Assert.Equal("asteria:sandstone", desert.SurfaceLayers[1].Block);
-        Assert.Equal((uint?)4, desert.SurfaceLayers[1].Depth);
-        Assert.Equal("asteria:stone", desert.SurfaceLayers[2].Block);
+        Assert.Null(desert.SurfaceLayers[1].Depth);
+        Assert.Equal("asteria:sandstone", desert.SurfaceLayers[1].Block);
         Assert.DoesNotContain(desert.Decorations,
             d => d.Block == "asteria:pebble");
 

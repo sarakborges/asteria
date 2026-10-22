@@ -8,46 +8,32 @@ public sealed class VerticalBiomeContentTests
         AppContext.BaseDirectory, "packs", "default", "data");
 
     [Fact]
-    public void OceanExposesOrganicSeabedWithoutChangingItsUnderlyingLayers()
+    public void OceanExposesSandCoverAboveThreeDimensionalGeologicalDeposits()
     {
         var blocks = BlockRegistry.FromJson(ReadFiles("blocks"));
         var ocean = BiomeDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "biomes", "ocean.json")));
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            ocean.SurfaceLayers[0].Patch);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(ocean.Geology);
+        Assert.Equal(1u, geology.SurfaceCoverDepth);
         Assert.Equal("asteria:sand", ocean.SurfaceLayers[0].Block);
-        Assert.Equal(4u, ocean.SurfaceLayers[0].Depth);
-        Assert.Equal("asteria:gravel", ocean.SurfaceLayers[1].Block);
-        Assert.Equal("asteria:stone", ocean.SurfaceLayers[2].Block);
-        Assert.Equal(new[] { "asteria:gravel", "asteria:clay", "asteria:cobble_stone" },
-            patch.Blocks);
-        Assert.True(patch.WarpStrength > 0d);
+        Assert.Equal(1u, ocean.SurfaceLayers[0].Depth);
+        Assert.Null(ocean.SurfaceLayers[0].Patch);
+        Assert.Equal("asteria:stone", ocean.SurfaceLayers[1].Block);
+        Assert.Null(ocean.SurfaceLayers[1].Depth);
 
-        Assert.Equal(86, patch.Conditions!.MaxY);
         var a = new BiomeSurfaceMaterialField(217UL, [ocean], blocks);
         var b = new BiomeSurfaceMaterialField(217UL, [ocean], blocks);
         var sample = new BiomeSample(ocean.Id,
             [new BiomeInfluence(ocean.Id, 1f)]);
-        var seen = new HashSet<BlockRuntimeId>();
+        var sand = blocks.GetId("asteria:sand");
         for (var z = -192; z <= 192; z += 5)
         for (var x = -192; x <= 192; x += 5)
         {
-            var deep = new SurfacePlacementContext(70, 0);
-            var shore = new SurfacePlacementContext(90, 0);
-            var material = a.BlockAt(sample, x, z, 0, deep);
-            Assert.Equal(material, b.BlockAt(sample, x, z, 0, deep));
-            Assert.Equal(blocks.GetId("asteria:sand"),
-                a.BlockAt(sample, x, z, 0, shore));
-            Assert.Equal(blocks.GetId("asteria:gravel"),
-                a.BlockAt(sample, x, z, 4, deep));
-            Assert.Equal(blocks.GetId("asteria:stone"),
-                a.BlockAt(sample, x, z, 6, deep));
-            seen.Add(material);
+            Assert.Equal(sand, a.BlockAt(sample, x, z, 0));
+            Assert.True(a.TryGeologyBlockAt(sample, x, 82, z, out var material));
+            Assert.True(b.TryGeologyBlockAt(sample, x, 82, z, out var repeat));
+            Assert.Equal(material, repeat);
         }
-        Assert.Contains(blocks.GetId("asteria:sand"), seen);
-        Assert.Contains(blocks.GetId("asteria:gravel"), seen);
-        Assert.Contains(blocks.GetId("asteria:clay"), seen);
-        Assert.Contains(blocks.GetId("asteria:cobble_stone"), seen);
     }
 
     [Fact]

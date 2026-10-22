@@ -44,65 +44,81 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Theory]
-    [InlineData("arctic", "asteria:snow", "asteria:ice", "asteria:gravel")]
-    [InlineData("wasteland", "asteria:dirt", "asteria:gravel", "asteria:stone")]
-    public void OrganicSurfacePatchesAreVariedAndChunkIndependent(
-        string file, string baseBlock, string firstAlternative, string secondAlternative)
+    [InlineData("arctic", "asteria:ice", "asteria:gravel")]
+    [InlineData("wasteland", "asteria:gravel", "asteria:sandstone")]
+    public void GeologyMaterialsAreVariedAndChunkIndependent(
+        string file, string firstAlternative, string secondAlternative)
     {
         var biome = LoadBiome(file);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Null(biome.SurfaceLayers[0].Patch);
+
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            biome.SurfaceLayers[0].Patch);
-        Assert.True(patch.WarpStrength > 0d);
-        Assert.True(patch.Roughness > 0f);
-        Assert.InRange(patch.Coverage, 0.1f, 0.35f);
         var first = new BiomeSurfaceMaterialField(278UL, [biome], blocks);
         var second = new BiomeSurfaceMaterialField(278UL, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
         var seen = new HashSet<BlockRuntimeId>();
-        for (var z = -192; z <= 192; z += 4)
+        for (var z = -192; z <= 192; z += 8)
+        for (var x = -192; x <= 192; x += 8)
         {
-            for (var x = -192; x <= 192; x += 4)
-            {
-                var material = first.BlockAt(sample, x, z, 0);
-                Assert.Equal(material, second.BlockAt(sample, x, z, 0));
-                seen.Add(material);
-            }
+            Assert.True(first.TryGeologyBlockAt(sample, x, 76, z, out var material));
+            Assert.True(second.TryGeologyBlockAt(sample, x, 76, z, out var repeat));
+            Assert.Equal(material, repeat);
+            seen.Add(material);
         }
 
-        Assert.Contains(blocks.GetId(baseBlock), seen);
+        Assert.Contains(blocks.GetId(geology.BaseBlock), seen);
         Assert.Contains(blocks.GetId(firstAlternative), seen);
-        Assert.Contains(blocks.GetId(secondAlternative), seen);
+        Assert.True(seen.Any(material => material != blocks.GetId(geology.BaseBlock)),
+            $"Expected non-core geological deposits for {file}.");
     }
 
     [Fact]
-    public void OceanKeepsBeachSandWhileDeepSeabedPatchesRemainAuthored()
+    public void OceanKeepsThinSandCoverAndUsesThreeDimensionalGeologyBelowIt()
     {
         var biome = LoadBiome("ocean");
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            biome.Palette.Default[0].Patch);
-        Assert.Equal(86, Assert.IsType<SurfacePlacementConditions>(
-            patch.Conditions).MaxY);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Equal(1u, geology.SurfaceCoverDepth);
+        Assert.Equal("asteria:sand", biome.SurfaceLayers[0].Block);
+        Assert.Equal(1u, biome.SurfaceLayers[0].Depth);
+        Assert.Null(biome.SurfaceLayers[0].Patch);
+        Assert.Equal("asteria:stone", biome.SurfaceLayers[1].Block);
+        Assert.Null(biome.SurfaceLayers[1].Depth);
+
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var field = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
+        var first = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
+        var second = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
-        var shallow = new SurfacePlacementContext(90, 0);
-        var deep = new SurfacePlacementContext(70, 0);
-        var seen = new HashSet<BlockRuntimeId>();
-        for (var z = -192; z <= 192; z += 6)
-        for (var x = -192; x <= 192; x += 6)
+        var sand = blocks.GetId("asteria:sand");
+        var seenAtSameAltitude = new HashSet<BlockRuntimeId>();
+        var seenAlongVerticalColumn = new HashSet<BlockRuntimeId>();
+
+        for (var z = -384; z <= 384; z += 12)
+        for (var x = -384; x <= 384; x += 12)
         {
-            Assert.Equal(blocks.GetId("asteria:sand"),
-                field.BlockAt(sample, x, z, 0, shallow));
-            seen.Add(field.BlockAt(sample, x, z, 0, deep));
+            Assert.Equal(sand, first.BlockAt(
+                sample, x, z, 0, new SurfacePlacementContext(90, 0)));
+            Assert.Equal(sand, first.BlockAt(
+                sample, x, z, 0, new SurfacePlacementContext(70, 0)));
+            Assert.True(first.TryGeologyBlockAt(sample, x, 82, z, out var material));
+            Assert.True(second.TryGeologyBlockAt(sample, x, 82, z, out var repeat));
+            Assert.Equal(material, repeat);
+            seenAtSameAltitude.Add(material);
         }
 
-        Assert.Contains(blocks.GetId("asteria:sand"), seen);
-        Assert.Contains(blocks.GetId("asteria:gravel"), seen);
-        Assert.True(seen.Count > 1,
-            "Deep ocean remains diversified below the sandy beach.");
+        for (var y = 8; y <= 168; y += 4)
+        {
+            Assert.True(first.TryGeologyBlockAt(sample, 355, y, -230, out var material));
+            seenAlongVerticalColumn.Add(material);
+        }
+
+        Assert.Contains(blocks.GetId("asteria:stone"), seenAtSameAltitude);
+        Assert.Contains(blocks.GetId("asteria:sand"), seenAtSameAltitude);
+        Assert.Contains(blocks.GetId("asteria:gravel"), seenAtSameAltitude);
+        Assert.True(seenAtSameAltitude.Count > 2);
+        Assert.True(seenAlongVerticalColumn.Count > 1);
     }
 
     [Fact]

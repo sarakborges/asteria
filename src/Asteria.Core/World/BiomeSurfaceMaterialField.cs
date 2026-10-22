@@ -1,7 +1,7 @@
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Resolves generated block material for already-solid surface terrain.
+/// Resolves authored surface coatings and three-dimensional solid geology.
 /// Terrain height may blend biome influences; material ownership stays with
 /// the authoritative primary surface biome.
 /// </summary>
@@ -12,6 +12,7 @@ public sealed class BiomeSurfaceMaterialField
     private readonly SurfaceMosaicField? _mosaic;
     private readonly Dictionary<string, MaterialRule> _rules;
     private readonly Dictionary<string, FaceRules> _faceRules;
+    private readonly Dictionary<string, ResolvedGeology> _geologyRules;
 
     public BiomeSurfaceMaterialField(
         ulong seed,
@@ -26,7 +27,8 @@ public sealed class BiomeSurfaceMaterialField
         _seed = seed;
         _terrain = terrain;
         _mosaic = mosaic;
-        _faceRules = biomes
+        var biomeDefinitions = biomes.ToArray();
+        _faceRules = biomeDefinitions
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
                 biome => biome.Id,
@@ -35,6 +37,13 @@ public sealed class BiomeSurfaceMaterialField
         _rules = _faceRules.ToDictionary(
             pair => pair.Key, pair => pair.Value.Floor,
             StringComparer.Ordinal);
+        _geologyRules = biomeDefinitions
+            .Where(biome => biome.Geology is not null)
+            .OrderBy(biome => biome.Id, StringComparer.Ordinal)
+            .ToDictionary(
+                biome => biome.Id,
+                biome => ResolvedGeology.Create(biome.Id, biome.Geology!, blocks),
+                StringComparer.Ordinal);
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
                 (profile.OverrideWalls || profile.OverrideCeiling));
@@ -81,6 +90,16 @@ public sealed class BiomeSurfaceMaterialField
                 $"Surface biome {sample.Primary} has no material rule.");
         }
 
+        if (_geologyRules.TryGetValue(sample.Primary, out var geology) &&
+            _terrain is not null &&
+            depth >= geology.SurfaceCoverDepth)
+        {
+            var surfaceY = _terrain.SurfaceHeight(worldX, worldZ);
+            var geologicalY = (int)Math.Max(
+                int.MinValue, (long)surfaceY - depth);
+            return geology.BlockAt(_seed, worldX, geologicalY, worldZ);
+        }
+
         if (depth == 0 &&
             _mosaic?.Sample(sample, worldX, worldZ) is
                 { Block.IsAir: false } choice)
@@ -100,6 +119,37 @@ public sealed class BiomeSurfaceMaterialField
     }
 
     /// <summary>
+    /// Returns the authored surface-cover depth, or null for biomes using only
+    /// the legacy surface profile. Beyond this depth, the 3D geology owns solids.
+    /// </summary>
+    public uint? GeologySurfaceCoverDepth(BiomeSample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return _geologyRules.TryGetValue(sample.Primary, out var geology)
+            ? geology.SurfaceCoverDepth
+            : null;
+    }
+
+    /// <summary>
+    /// Resolves the volumetric geology at a solid world-space voxel. Material
+    /// selection uses a continuous 3D field, not altitude-specific layer rules.
+    /// </summary>
+    public bool TryGeologyBlockAt(
+        BiomeSample sample, int worldX, int worldY, int worldZ,
+        out BlockRuntimeId block)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (!_geologyRules.TryGetValue(sample.Primary, out var geology))
+        {
+            block = BlockRuntimeId.Air;
+            return false;
+        }
+
+        block = geology.BlockAt(_seed, worldX, worldY, worldZ);
+        return true;
+    }
+
+    /// <summary>
     /// Samples the same authored palette across 3D exposed faces, where
     /// depth increases into the solid along the face normal.
     /// </summary>
@@ -111,6 +161,10 @@ public sealed class BiomeSurfaceMaterialField
         if (!_faceRules.TryGetValue(sample.Primary, out var rules))
             throw new KeyNotFoundException(
                 $"Biome {sample.Primary} has no material palette.");
+        if (!rules.HasOverride(face) &&
+            _geologyRules.TryGetValue(sample.Primary, out var geology))
+            return geology.BlockAt(_seed, worldX, worldY, worldZ);
+
         var rule = rules.For(face);
         SurfacePlacementContext? placement = null;
         if (rule.HasConditions)
@@ -257,6 +311,77 @@ public sealed class BiomeSurfaceMaterialField
                 biome.SurfaceLayout is not null ||
                 biome.VolumeLayout?.Placement == VolumeBiomePlacement.Additive);
         }
+    }
+
+    private sealed class ResolvedGeology
+    {
+        private readonly BiomeGeologyDefinition _definition;
+        private readonly BlockRuntimeId _baseBlock;
+        private readonly BlockRuntimeId[] _blocks;
+        private readonly GenerationDomain _formationDomain;
+        private readonly GenerationDomain _detailDomain;
+        private readonly GenerationDomain _selectionDomain;
+
+        private ResolvedGeology(
+            BiomeGeologyDefinition definition,
+            BlockRuntimeId baseBlock,
+            BlockRuntimeId[] blocks,
+            string biomeId)
+        {
+            _definition = definition;
+            _baseBlock = baseBlock;
+            _blocks = blocks;
+            _formationDomain = GenerationDomain.Named(
+                $"material/geology/formation/v1/{biomeId}");
+            _detailDomain = GenerationDomain.Named(
+                $"material/geology/detail/v1/{biomeId}");
+            _selectionDomain = GenerationDomain.Named(
+                $"material/geology/selection/v1/{biomeId}");
+        }
+
+        public uint SurfaceCoverDepth => _definition.SurfaceCoverDepth;
+
+        public BlockRuntimeId BlockAt(ulong seed, int x, int y, int z)
+        {
+            var macro = WorldGenerationEntropy.ValueNoise3D(
+                seed, _formationDomain, x, y, z,
+                _definition.Scale, _definition.VerticalScale);
+            var detail = WorldGenerationEntropy.ValueNoise3D(
+                seed, _detailDomain, x, y, z,
+                _definition.DetailScale,
+                Math.Max(2u, _definition.VerticalScale / 2u));
+            var formation = (macro + detail * _definition.Roughness) /
+                (1d + _definition.Roughness);
+            if (formation < 1d - _definition.Coverage * 2d)
+                return _baseBlock;
+
+            if (_blocks.Length == 1)
+                return _blocks[0];
+
+            var selection = WorldGenerationEntropy.ValueNoise3D(
+                seed, _selectionDomain, x, y, z,
+                _definition.SelectionScale,
+                _definition.VerticalScale);
+            var unit = Math.Clamp((selection + 1d) * 0.5d,
+                0d, 0.999999999999d);
+            var target = unit * _definition.TotalWeight;
+            for (var index = 0; index < _blocks.Length; index++)
+            {
+                if (target < _definition.CumulativeWeights[index])
+                    return _blocks[index];
+            }
+            return _blocks[^1];
+        }
+
+        public static ResolvedGeology Create(
+            string biomeId,
+            BiomeGeologyDefinition definition,
+            BlockRegistry blocks) =>
+            new ResolvedGeology(
+                definition,
+                blocks.GetId(definition.BaseBlock),
+                definition.Blocks.Select(blocks.GetId).ToArray(),
+                biomeId);
     }
 
     private sealed class MaterialRule

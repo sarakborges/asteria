@@ -45,18 +45,34 @@
       }
     ]
   },
+  "geology": {
+    "baseBlock": "asteria:sandstone",
+    "blocks": [
+      "asteria:sand",
+      "asteria:gravel",
+      "asteria:stone"
+    ],
+    "scale": 106,
+    "verticalScale": 69,
+    "detailScale": 23,
+    "selectionScale": 80,
+    "coverage": 0.65,
+    "roughness": 0.28,
+    "weights": {
+      "asteria:sand": 5,
+      "asteria:gravel": 2,
+      "asteria:stone": 1
+    },
+    "surfaceCoverDepth": 4
+  },
   "palette": {
     "default": [
       {
         "block": "asteria:sand",
-        "depth": 8
-      },
-      {
-        "block": "asteria:sandstone",
         "depth": 4
       },
       {
-        "block": "asteria:stone"
+        "block": "asteria:sandstone"
       }
     ]
   },

@@ -191,10 +191,25 @@ public sealed class SurfaceChunkMaterializer
                         if (worldY <= baseY)
                         {
                             var depth = checked((uint)(baseY - worldY));
-                            block = depth >= surfaceCore.StartDepth
-                                ? surfaceCore.Block
-                                : (surfaceMaterials ??= _materials.SampleColumn(
-                                    sample, worldX, worldZ)).BlockAt(depth);
+                            surfaceMaterials ??= _materials.SampleColumn(
+                                sample, worldX, worldZ);
+                            var coverDepth = _materials.GeologySurfaceCoverDepth(sample);
+                            var useSurfaceCover = coverDepth is { } authoredCoverDepth
+                                ? depth < authoredCoverDepth
+                                : depth == 0 || depth < surfaceMaterials.FiniteDepth;
+                            if (useSurfaceCover)
+                            {
+                                block = surfaceMaterials.BlockAt(depth);
+                            }
+                            else if (!_materials.TryGeologyBlockAt(
+                                sample, worldX, worldY, worldZ, out block))
+                            {
+                                // Biomes without authored geology preserve the
+                                // existing depth-based core-material contract.
+                                block = depth >= surfaceCore.StartDepth
+                                    ? surfaceCore.Block
+                                    : surfaceMaterials.BlockAt(depth);
+                            }
                         }
                         else
                         {
@@ -222,9 +237,19 @@ public sealed class SurfaceChunkMaterializer
                                     worldY,
                                     worldZ,
                                     volumeMaterials.FiniteDepth);
-                            block =
-                                volumeMaterials.BlockAt(
-                                    depth);
+                            var coverDepth = _materials.GeologySurfaceCoverDepth(volumeSample);
+                            var useSurfaceCover = coverDepth is { } authoredCoverDepth
+                                ? depth < authoredCoverDepth
+                                : depth == 0 || depth < volumeMaterials.FiniteDepth;
+                            if (useSurfaceCover)
+                            {
+                                block = volumeMaterials.BlockAt(depth);
+                            }
+                            else if (!_materials.TryGeologyBlockAt(
+                                volumeSample, worldX, worldY, worldZ, out block))
+                            {
+                                block = volumeMaterials.BlockAt(depth);
+                            }
                         }
 
                         chunk.SetBlock(

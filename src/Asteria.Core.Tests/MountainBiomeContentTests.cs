@@ -50,61 +50,44 @@ public sealed class MountainBiomeContentTests
     }
 
     [Theory]
-    [InlineData("mountains", "asteria:stone", 112, 180)]
-    [InlineData("mountain_belt", "asteria:stone", 115, 180)]
-    [InlineData("alps", "asteria:snow", 145, 90)]
-    [InlineData("gorge", "asteria:stone", 96, 150)]
-    public void MountainSurfacePatchesAreOrganicDeterministicAndConstrainedByAltitudeAndSlope(
-        string file, string originalBlock, int eligibleY, int ineligibleY)
+    [InlineData("mountains")]
+    [InlineData("mountain_belt")]
+    [InlineData("alps")]
+    [InlineData("gorge")]
+    public void SurfaceMaterialsUseThreeDimensionalGeologyInsteadOfAltitudeGatedPatches(string file)
     {
         var biome = LoadBiome(file);
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            biome.SurfaceLayers[0].Patch);
-        var conditions = Assert.IsType<SurfacePlacementConditions>(patch.Conditions);
-        Assert.True(conditions.Allows(new SurfacePlacementContext(eligibleY, 0)));
-        if (file is "mountains" or "mountain_belt")
-            Assert.True(conditions.Allows(new SurfacePlacementContext(ineligibleY, 0)));
-        else
-            Assert.False(conditions.Allows(new SurfacePlacementContext(ineligibleY, 0)));
-        Assert.False(conditions.Allows(new SurfacePlacementContext(eligibleY, 20)));
-        Assert.InRange(patch.Coverage, 0.15f, 0.35f);
-        Assert.True(patch.WarpStrength > 0d);
-        Assert.True(patch.Roughness > 0f);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Null(biome.SurfaceLayers[0].Patch);
 
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var a = new BiomeSurfaceMaterialField(71UL, [biome], blocks);
         var b = new BiomeSurfaceMaterialField(71UL, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
-        var original = blocks.GetId(originalBlock);
-        var core = blocks.GetId(biome.SurfaceLayers[^1].Block);
         var seen = new HashSet<BlockRuntimeId>();
-        var flat = new SurfacePlacementContext(eligibleY, 0);
-        var excluded = new SurfacePlacementContext(ineligibleY, 0);
-        var tooSteep = new SurfacePlacementContext(eligibleY, 20);
-        for (var z = -192; z <= 192; z += 6)
-        for (var x = -192; x <= 192; x += 6)
+        var y = 112;
+        for (var z = -192; z <= 192; z += 8)
+        for (var x = -192; x <= 192; x += 8)
         {
-            var eligible = a.BlockAt(sample, x, z, 0, flat);
-            Assert.Equal(eligible, b.BlockAt(sample, x, z, 0, flat));
-            seen.Add(eligible);
-            if (file is "mountains" or "mountain_belt")
-                Assert.Equal(eligible, a.BlockAt(sample, x, z, 0, excluded));
-            else
-                Assert.Equal(original, a.BlockAt(sample, x, z, 0, excluded));
-            Assert.Equal(original, a.BlockAt(sample, x, z, 0, tooSteep));
-            Assert.Equal(core, a.BlockAt(sample, x, z, 3, flat));
+            Assert.True(a.TryGeologyBlockAt(sample, x, y, z, out var material));
+            Assert.True(b.TryGeologyBlockAt(sample, x, y, z, out var repeat));
+            Assert.Equal(material, repeat);
+            seen.Add(material);
         }
-        Assert.True(seen.Contains(original));
-        Assert.True(seen.Count > 1);
-        Assert.Contains(patch.Blocks, block => seen.Contains(blocks.GetId(block)));
+
+        Assert.Contains(blocks.GetId(geology.BaseBlock), seen);
+        Assert.True(seen.Count > 1,
+            "A horizontal slice should contain multiple materials from a continuous 3D geology field.");
+        Assert.Contains(geology.Blocks,
+            block => seen.Contains(blocks.GetId(block)));
     }
 
     [Theory]
     [InlineData("mountains")]
     [InlineData("mountain_belt")]
     [InlineData("alps")]
-    public void MountainLateralFacesUseRockInsteadOfTheTopSurfacePatch(string file)
+    public void MountainLateralFacesUseAuthoredRockPalette(string file)
     {
         var biome = LoadBiome(file);
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
@@ -265,6 +248,42 @@ public sealed class MountainBiomeContentTests
         return (materials, sample,
             blocks.GetId("asteria:stone"),
             blocks.GetId("asteria:gravel"));
+    }
+
+    [Fact]
+    public void OceanGeologyVariesInThreeDimensionsAndIsSeedDeterministic()
+    {
+        var biome = LoadBiome("ocean");
+        Assert.NotNull(biome.Geology);
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var first = new BiomeSurfaceMaterialField(7808508665006554090UL, [biome], blocks);
+        var second = new BiomeSurfaceMaterialField(7808508665006554090UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var seenAtSameAltitude = new HashSet<BlockRuntimeId>();
+        var seenAlongVerticalColumn = new HashSet<BlockRuntimeId>();
+
+        for (var z = -384; z <= 384; z += 16)
+        for (var x = -384; x <= 384; x += 16)
+        {
+            Assert.True(first.TryGeologyBlockAt(sample, x, 82, z, out var block));
+            Assert.True(second.TryGeologyBlockAt(sample, x, 82, z, out var repeat));
+            Assert.Equal(block, repeat);
+            seenAtSameAltitude.Add(block);
+        }
+
+        for (var y = 8; y <= 168; y += 4)
+        {
+            Assert.True(first.TryGeologyBlockAt(sample, 355, y, -230, out var block));
+            seenAlongVerticalColumn.Add(block);
+        }
+
+        Assert.True(seenAtSameAltitude.Count >= 3,
+            "The seabed geology should form multiple materials at the same world altitude.");
+        Assert.True(seenAlongVerticalColumn.Count >= 2,
+            "The geological composition should vary through a vertical column without fixed altitude bands.");
+        Assert.Contains(blocks.GetId("asteria:stone"), seenAtSameAltitude);
+        Assert.Contains(blocks.GetId("asteria:gravel"), seenAtSameAltitude);
     }
 
     [Fact]

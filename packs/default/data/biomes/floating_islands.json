@@ -115,7 +115,9 @@
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:dirt",
-        "asteria:block_grass"
+        "asteria:block_grass",
+        "asteria:gravel",
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 33,
@@ -129,6 +131,26 @@
       }
     }
   ],
+  "geology": {
+    "baseBlock": "asteria:stone",
+    "blocks": [
+      "asteria:dirt",
+      "asteria:gravel",
+      "asteria:cobble_stone"
+    ],
+    "scale": 72,
+    "verticalScale": 47,
+    "detailScale": 16,
+    "selectionScale": 54,
+    "coverage": 0.58,
+    "roughness": 0.3,
+    "weights": {
+      "asteria:dirt": 3,
+      "asteria:gravel": 2,
+      "asteria:cobble_stone": 1
+    },
+    "surfaceCoverDepth": 5
+  },
   "palette": {
     "default": [
       {

@@ -16,7 +16,8 @@ public sealed class BiomeDefinition
         SurfaceHabitatDefinition? surfaceHabitats = null,
         IEnumerable<BiomeCaveSpikeDefinition>? caveSpikes = null,
         BiomePaletteDefinition? palette = null,
-        IEnumerable<BiomeVolumeStructureDefinition>? volumeStructures = null)
+        IEnumerable<BiomeVolumeStructureDefinition>? volumeStructures = null,
+        BiomeGeologyDefinition? geology = null)
     {
         ValidateId(id);
         Id = id;
@@ -61,6 +62,7 @@ public sealed class BiomeDefinition
                 "Volume structures require volumeLayout and at most eight rules.",
                 nameof(volumeStructures));
         VolumeStructures = Array.AsReadOnly(authoredVolumeStructures);
+        Geology = geology;
         if (palette is not null && surfaceLayers is not null)
             throw new ArgumentException(
                 "Pass palette or legacy constructor layers, not both.",
@@ -68,6 +70,18 @@ public sealed class BiomeDefinition
         Palette = palette ?? new BiomePaletteDefinition(
             surfaceLayers ?? throw new ArgumentException(
                 "Every biome requires an authored palette.", nameof(palette)));
+        if (Geology is { SurfaceCoverDepth: > 0 } authoredGeology)
+        {
+            var finiteCoverDepth = Palette.For(BiomePaletteFace.Floor)
+                .Where(layer => layer.Depth.HasValue)
+                .Aggregate(
+                    0UL,
+                    (total, layer) => checked(total + layer.Depth!.Value));
+            if (authoredGeology.SurfaceCoverDepth > finiteCoverDepth)
+                throw new ArgumentException(
+                    "Geology surfaceCoverDepth cannot exceed the finite authored surface profile depth.",
+                    nameof(geology));
+        }
         if (Palette.SurfaceMosaic is not null &&
             (surfaceLayout is null || surfaceTerrain?.FillToSeaLevel == true))
             throw new ArgumentException(
@@ -104,6 +118,9 @@ public sealed class BiomeDefinition
 
     public IReadOnlyList<BiomeCaveSpikeDefinition> CaveSpikes { get; }
     public IReadOnlyList<BiomeVolumeStructureDefinition> VolumeStructures { get; }
+
+    /// <summary>Optional three-dimensional material field for solid terrain.</summary>
+    public BiomeGeologyDefinition? Geology { get; }
 
     public BiomePaletteDefinition Palette { get; }
 
@@ -601,6 +618,122 @@ public sealed class BiomeSurfacePatchDefinition
     public IReadOnlyList<string> Blocks { get; }
     public IReadOnlyList<double> BlockWeights { get; }
     public SurfacePlacementConditions? Conditions { get; }
+}
+
+/// <summary>
+/// Authored volumetric geology. The base material fills the host rock; coherent
+/// three-dimensional formations replace it with weighted materials.
+/// </summary>
+public sealed class BiomeGeologyDefinition
+{
+    public BiomeGeologyDefinition(
+        string baseBlock,
+        IEnumerable<string> blocks,
+        uint scale,
+        uint verticalScale,
+        uint detailScale,
+        uint selectionScale,
+        float coverage,
+        float roughness = 0.25f,
+        IReadOnlyDictionary<string, double>? weights = null,
+        uint surfaceCoverDepth = 0)
+    {
+        BiomeSurfaceLayerDefinition.ValidateBlockId(baseBlock);
+        if (scale is < 2 or > 2048 ||
+            verticalScale is < 2 or > 1024 ||
+            detailScale is < 2 or > 2048 ||
+            selectionScale is < 2 or > 4096)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(scale),
+                "Geology scales are outside the supported range.");
+        }
+
+        if (surfaceCoverDepth > 64)
+            throw new ArgumentOutOfRangeException(
+                nameof(surfaceCoverDepth),
+                "Geological surface cover depth must be within 0..64.");
+
+        if (!float.IsFinite(coverage) || coverage is <= 0f or > 1f ||
+            !float.IsFinite(roughness) || roughness is < 0f or > 1f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(coverage),
+                "Geology coverage must be within (0, 1] and roughness within 0..1.");
+        }
+
+        var alternatives = blocks?.ToArray() ??
+            throw new ArgumentNullException(nameof(blocks));
+        if (alternatives.Length is < 1 or > 8)
+        {
+            throw new ArgumentException(
+                "Geology must contain 1..8 alternative materials.",
+                nameof(blocks));
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal) { baseBlock };
+        foreach (var block in alternatives)
+        {
+            BiomeSurfaceLayerDefinition.ValidateBlockId(block);
+            if (!seen.Add(block))
+                throw new ArgumentException(
+                    $"Geology materials must be unique and exclude baseBlock: {block}",
+                    nameof(blocks));
+        }
+
+        if (weights is not null &&
+            weights.Keys.Any(block => !alternatives.Contains(block, StringComparer.Ordinal)))
+        {
+            throw new ArgumentException(
+                "Geology weights must name an authored alternative material.",
+                nameof(weights));
+        }
+
+        var authoredWeights = new double[alternatives.Length];
+        var cumulative = new double[alternatives.Length];
+        var total = 0d;
+        for (var index = 0; index < alternatives.Length; index++)
+        {
+            var block = alternatives[index];
+            var weight = weights is not null && weights.TryGetValue(block, out var authored)
+                ? authored : 1d;
+            if (!double.IsFinite(weight) || weight is <= 0d or > 1000d)
+                throw new ArgumentOutOfRangeException(
+                    nameof(weights),
+                    "Geology material weights must be within (0, 1000].");
+            authoredWeights[index] = weight;
+            total += weight;
+            cumulative[index] = total;
+        }
+
+        BaseBlock = baseBlock;
+        Blocks = Array.AsReadOnly(alternatives);
+        BlockWeights = Array.AsReadOnly(authoredWeights);
+        CumulativeWeights = Array.AsReadOnly(cumulative);
+        TotalWeight = total;
+        Scale = scale;
+        VerticalScale = verticalScale;
+        DetailScale = detailScale;
+        SelectionScale = selectionScale;
+        Coverage = coverage;
+        Roughness = roughness;
+        SurfaceCoverDepth = surfaceCoverDepth;
+    }
+
+    public string BaseBlock { get; }
+    public IReadOnlyList<string> Blocks { get; }
+    public IReadOnlyList<double> BlockWeights { get; }
+    internal IReadOnlyList<double> CumulativeWeights { get; }
+    internal double TotalWeight { get; }
+    public uint Scale { get; }
+    public uint VerticalScale { get; }
+    public uint DetailScale { get; }
+    public uint SelectionScale { get; }
+    public float Coverage { get; }
+    public float Roughness { get; }
+
+    /// <summary>Number of surface-relative voxels that retain the authored cover profile.</summary>
+    public uint SurfaceCoverDepth { get; }
 }
 
 /// <summary>Required fluid occupancy of a decorator's placement voxel.</summary>

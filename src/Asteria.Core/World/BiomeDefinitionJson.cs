@@ -38,7 +38,29 @@ public static class BiomeDefinitionJson
             SurfaceHabitatDefinitionJson.Parse(root),
             ParseCaveSpikes(root),
             ParsePalette(root),
-            ParseVolumeStructures(root));
+            ParseVolumeStructures(root),
+            ParseGeology(root));
+    }
+
+    private static BiomeGeologyDefinition? ParseGeology(JsonElement root)
+    {
+        if (!root.TryGetProperty("geology", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+            return null;
+
+        value = EnsureObject(value, "geology");
+        var scale = RequiredUInt32(value, "scale");
+        return new BiomeGeologyDefinition(
+            RequiredString(value, "baseBlock"),
+            RequiredStringArray(value, "blocks"),
+            scale,
+            RequiredUInt32(value, "verticalScale"),
+            OptionalUInt32(value, "detailScale") ?? Math.Max(2u, scale / 4u),
+            OptionalUInt32(value, "selectionScale") ?? scale,
+            RequiredSingle(value, "coverage"),
+            OptionalSingle(value, "roughness") ?? 0.25f,
+            ParseMaterialWeights(value),
+            OptionalUInt32(value, "surfaceCoverDepth") ?? 0u);
     }
 
     private static PlacementLayoutValues?
@@ -511,10 +533,10 @@ public static class BiomeDefinitionJson
             OptionalUInt32(patch, "warpScale"),
             OptionalSingle(patch, "warpStrength") ?? 0d,
             OptionalSingle(patch, "stretchZ") ?? 1d,
-            ParsePatchWeights(patch));
+            ParseMaterialWeights(patch));
     }
 
-    private static IReadOnlyDictionary<string, double>? ParsePatchWeights(
+    private static IReadOnlyDictionary<string, double>? ParseMaterialWeights(
         JsonElement patch)
     {
         if (!patch.TryGetProperty("weights", out var value))
@@ -534,13 +556,13 @@ public static class BiomeDefinitionJson
                 !entry.Value.TryGetDouble(out var weight))
             {
                 throw new FormatException(
-                    $"Patch weight for {entry.Name} must be a number.");
+                    $"Material weight for {entry.Name} must be a number.");
             }
 
             if (!weights.TryAdd(entry.Name, weight))
             {
                 throw new FormatException(
-                    $"Duplicate patch weight for {entry.Name}.");
+                    $"Duplicate material weight for {entry.Name}.");
             }
         }
 
