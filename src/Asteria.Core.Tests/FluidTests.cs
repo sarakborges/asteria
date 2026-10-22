@@ -516,7 +516,7 @@ public sealed class FluidTests
         ]);
 }
 
-public sealed class FluidMotionSolverTests
+public sealed class FluidSurfaceExitMotionTests
 {
     [Fact]
     public void NearSurfaceAscendAppliesImmediateExitImpulse()
