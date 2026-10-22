@@ -5645,7 +5645,8 @@ public partial class Main : Node3D
                 completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
                 completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
                 completed.RelitWithoutMeshing,
-                completed.SalvagedFromStaleBatch);
+                completed.SalvagedFromStaleBatch,
+                completed.CaptureMilliseconds);
             if (completed.Kind != MeshPipelineCompletionKind.Applied)
                 continue;
             if (_debugHudVisible)
@@ -5654,7 +5655,8 @@ public partial class Main : Node3D
                     $"world.fluid_mesh worker_ms=" +
                     $"{completed.WorkerMilliseconds:F2} " +
                     $"accepted={completed.Accepted} " +
-                    $"stale={completed.Stale}");
+                    $"stale={completed.Stale} " +
+                    $"capture_ms={completed.CaptureMilliseconds:F2}");
             }
         }
     }
