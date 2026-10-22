@@ -339,6 +339,44 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void DormantFluidTicksReactivateInBoundedBatches()
+    {
+        var fixture = CreateFixture();
+        var coord = ChunkCoord.Zero;
+        var water = fixture.Fluids.GetId("asteria:water");
+        for (var index = 0; index < 512; index++)
+        {
+            var position = new WorldVoxelCoord(
+                index % Chunk.Size,
+                index / Chunk.Area,
+                index / Chunk.Size % Chunk.Size);
+            fixture.FluidUpdates.DeferUnloaded(
+                new FluidTickKey(water, position));
+        }
+
+        fixture.World.InsertChunk(coord, new Chunk());
+        fixture.World.ArchiveChunk(coord);
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        var first = fixture.Runtime.ProcessPendingFluidActivations(GenerousBudget());
+        Assert.Equal(256, first.DormantTicksReactivated);
+        Assert.Equal(256, fixture.FluidUpdates.ScheduledCount);
+        Assert.Equal(1, fixture.FluidUpdates.DormantChunkCount);
+        Assert.Equal(1, first.PendingChunks);
+
+        CompleteFluidActivations(fixture);
+        Assert.Equal(512, fixture.FluidUpdates.ScheduledCount);
+        Assert.Equal(0, fixture.FluidUpdates.DormantChunkCount);
+    }
+
+    [Fact]
     public void PresentationDoesNotWaitForUnmaterializedNeighbor()
     {
         var fixture = CreateFixture();
