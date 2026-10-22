@@ -454,7 +454,7 @@ public sealed class BiomeSurfaceMaterialField
             // Surface coverage is a dedicated shallow X/Z exposure field. It
             // must not also pass the volumetric occupancy threshold; that
             // double gate made many flat surfaces remain entirely grass/sand.
-            var exposureScale = Math.Max(8u, _definition.DetailScale);
+            var exposureScale = Math.Max(6u, _definition.DetailScale / 2u);
             var exposure = WorldGenerationEntropy.SmoothNoise2D(
                 seed, _surfaceExposureDomain, x, z, exposureScale);
             if (exposure < 1d - _definition.SurfaceCoverage * 2d)
