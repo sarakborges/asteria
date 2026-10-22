@@ -221,8 +221,9 @@ public sealed class BlockContentTests
         var path = Path.Combine(AppContext.BaseDirectory, "packs", "default",
             "data", "blocks", blockId + ".json");
         var block = BlockDefinitionJson.Parse(File.ReadAllText(path));
-        var drop = Assert.Single(Assert.IsType<LootTable>(
-            block.LootTable).Entries);
+        var drop = Assert.Single(
+            Assert.IsType<LootTable>(block.LootTable).Entries,
+            entry => entry.Item == itemId);
         Assert.Equal(itemId, drop.Item);
         Assert.Equal(chance, drop.Chance);
         Assert.Equal(quantity, drop.Quantity);

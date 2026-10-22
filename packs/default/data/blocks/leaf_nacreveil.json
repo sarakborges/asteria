@@ -60,6 +60,11 @@
       "item": "asteria:stick",
       "chance": 0.6,
       "quantity": 1
+    },
+    {
+      "item": "asteria:sapling_nacreveil",
+      "chance": 0.05,
+      "quantity": 1
     }
   ],
   "previewColor": "59d9ff"

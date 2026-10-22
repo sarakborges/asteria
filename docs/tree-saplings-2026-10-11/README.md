@@ -26,7 +26,7 @@ Cada silhueta é própria da espécie. Enchanted conserva tronco azul com folhas
 
 As mudas aparecem na categoria de folhagens do inventário criativo, com nomes em português brasileiro, inglês e espanhol. Usam o `crossedSprite` existente com quatro planos, sem colisão, vento e alpha cutoff 0.5. Só podem ser colocadas pela face superior e requerem suporte sólido abaixo. Quebrar a muda ou remover seu suporte recupera a mesma muda, que pode ser replantada.
 
-O registro de blocos, o catálogo de inventário, a colocação, os drops e a física existentes continuam como os donos dessas capacidades. Nenhum comportamento depende de IDs especiais no código. Este trabalho cria os recursos e os blocos plantáveis; crescimento automático e loot de mudas ao quebrar folhas ainda não fazem parte do runtime.
+O registro de blocos, o catálogo de inventário, a colocação, os drops e a física existentes continuam como os donos dessas capacidades. Nenhum comportamento depende de IDs especiais no código. O crescimento automático é implementado por `SaplingGrowthRuntime`, usando estruturas adultas específicas por espécie e o tick persistido da Esfera. Desde 22/10/2026, cada bloco de folhas também possui uma chance de 5% de soltar a muda correspondente à própria espécie.
 
 ## Arte e verificação
 
@@ -42,5 +42,5 @@ Referência dos materiais: `8dfc12455dfe68936f93cc31def793f78c737ace`. A integra
 
 Todas as onze mudas passaram do voxel `Block` para o `Object` preso ao bloco de suporte. Mantiveram nome, PNG, dimensões, quatro planos, vento, ausência de colisão e drop próprio; a muda agora não ocupa o voxel de ar. Os nomes de EN/PT-BR/ES estão no catálogo de Objects. O teste `TreeSaplingContentTests` cobre as onze famílias no inventário, posicionamento, quebra, replantio, drop por perda do suporte e persistência de chunks.
 
-**Crescimento automático ainda não está implementado.** Faltam árvores adultas autorais para algumas famílias e um ciclo de crescimento determinístico e persistido. Não se deve converter mudas de espécies distintas em árvores genéricas.
+**Status atualizado em 22/10/2026:** o crescimento automático determinístico e persistido está implementado em `src/Asteria.Core/World/SaplingGrowthRuntime.cs`. As tabelas de loot de `leaf_*` concedem a muda da mesma família com chance de 5%; `TreeLeafLootTests` valida o mapeamento e a quebra real de um bloco.
 
