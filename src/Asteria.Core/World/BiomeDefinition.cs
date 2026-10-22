@@ -638,7 +638,9 @@ public sealed class BiomeGeologyDefinition
         IReadOnlyDictionary<string, double>? weights = null,
         uint surfaceCoverDepth = 0,
         float surfaceCoverage = 0f,
-        bool surfaceSubmergedOnly = false)
+        bool surfaceSubmergedOnly = false,
+        uint? grainScale = null,
+        uint? grainVerticalScale = null)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(baseBlock);
         if (scale is < 2 or > 2048 ||
@@ -650,6 +652,16 @@ public sealed class BiomeGeologyDefinition
                 nameof(scale),
                 "Geology scales are outside the supported range.");
         }
+
+        if (grainScale.HasValue && grainScale.Value is < 2 or > 2048)
+            throw new ArgumentOutOfRangeException(
+                nameof(grainScale),
+                "Geology grain scale must be within 2..2048.");
+        if (grainVerticalScale.HasValue &&
+            grainVerticalScale.Value is < 2 or > 1024)
+            throw new ArgumentOutOfRangeException(
+                nameof(grainVerticalScale),
+                "Geology vertical grain scale must be within 2..1024.");
 
         if (surfaceCoverDepth > 64)
             throw new ArgumentOutOfRangeException(
@@ -722,6 +734,8 @@ public sealed class BiomeGeologyDefinition
         SurfaceCoverDepth = surfaceCoverDepth;
         SurfaceCoverage = surfaceCoverage;
         SurfaceSubmergedOnly = surfaceSubmergedOnly;
+        GrainScale = grainScale;
+        GrainVerticalScale = grainVerticalScale;
     }
 
     public string BaseBlock { get; }
@@ -745,6 +759,12 @@ public sealed class BiomeGeologyDefinition
 
     /// <summary>Whether exposed deposits are permitted only where generated fluid occupies the voxel above.</summary>
     public bool SurfaceSubmergedOnly { get; }
+
+    /// <summary>Optional voxel wavelength of the finest geological material field.</summary>
+    public uint? GrainScale { get; }
+
+    /// <summary>Optional vertical wavelength of the finest geological material field.</summary>
+    public uint? GrainVerticalScale { get; }
 }
 
 /// <summary>Required fluid occupancy of a decorator's placement voxel.</summary>
