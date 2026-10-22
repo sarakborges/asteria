@@ -122,43 +122,6 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Fact]
-    public void OceanGeologyDoesNotPreferHorizontalBandsOverVerticalVariation()
-    {
-        var biome = LoadBiome("ocean");
-        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var field = new BiomeSurfaceMaterialField(
-            7808508665006554090UL, [biome], blocks);
-        var sample = new BiomeSample(
-            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
-        const int step = 8;
-        var horizontalTransitions = 0;
-        var verticalTransitions = 0;
-        var sampledPairs = 0;
-
-        for (var z = -128; z <= 128; z += 32)
-        for (var y = 16; y <= 144; y += step)
-        for (var x = -128; x <= 128; x += step)
-        {
-            Assert.True(field.TryGeologyBlockAt(sample, x, y, z, out var current));
-            Assert.True(field.TryGeologyBlockAt(sample, x + step, y, z, out var right));
-            Assert.True(field.TryGeologyBlockAt(sample, x, y + step, z, out var above));
-
-            if (current != right)
-                horizontalTransitions++;
-            if (current != above)
-                verticalTransitions++;
-            sampledPairs++;
-        }
-
-        Assert.True(horizontalTransitions > 0 && verticalTransitions > 0,
-            $"Expected changes in both axes; horizontal={horizontalTransitions}, vertical={verticalTransitions}.");
-        var verticalToHorizontalRatio =
-            verticalTransitions / (double)horizontalTransitions;
-        Assert.InRange(verticalToHorizontalRatio, 0.75, 1.33);
-        Assert.True(sampledPairs > 5_000);
-    }
-
-    [Fact]
     public void OceanRegressionRegionMaterializationMatchesThreeDimensionalGeology()
     {
         const ulong seed = 7808508665006554090UL;

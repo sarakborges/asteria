@@ -349,7 +349,7 @@ public sealed class BiomeSurfaceMaterialField
             var detail = WorldGenerationEntropy.ValueNoise3D(
                 seed, _detailDomain, x, y, z,
                 _definition.DetailScale,
-                _definition.DetailScale);
+                Math.Max(2u, _definition.VerticalScale / 2u));
             var formation = (macro + detail * _definition.Roughness) /
                 (1d + _definition.Roughness);
             if (formation < 1d - _definition.Coverage * 2d)
@@ -361,7 +361,7 @@ public sealed class BiomeSurfaceMaterialField
             var selection = WorldGenerationEntropy.ValueNoise3D(
                 seed, _selectionDomain, x, y, z,
                 _definition.SelectionScale,
-                _definition.SelectionScale);
+                _definition.VerticalScale);
             var unit = Math.Clamp((selection + 1d) * 0.5d,
                 0d, 0.999999999999d);
             var target = unit * _definition.TotalWeight;
