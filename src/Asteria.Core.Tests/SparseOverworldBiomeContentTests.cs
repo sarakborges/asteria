@@ -122,6 +122,67 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Fact]
+    public void OceanGeologyMaterialsCompeteThroughIndependentSpatialFields()
+    {
+        var biome = LoadBiome("ocean");
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var field = new BiomeSurfaceMaterialField(
+            7808508665006554090UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var alternatives = new[]
+        {
+            blocks.GetId("asteria:sand"),
+            blocks.GetId("asteria:gravel"),
+            blocks.GetId("asteria:clay"),
+            blocks.GetId("asteria:cobble_stone"),
+        };
+        var alternativeIndexes = alternatives
+            .Select((block, index) => (block, index))
+            .ToDictionary(item => item.block, item => item.index);
+        const int min = -128;
+        const int max = 128;
+        const int step = 2;
+        var width = (max - min) / step + 1;
+        var plane = new BlockRuntimeId[width, width];
+        var seenAlternatives = new HashSet<BlockRuntimeId>();
+
+        for (var zIndex = 0; zIndex < width; zIndex++)
+        for (var xIndex = 0; xIndex < width; xIndex++)
+        {
+            var x = min + xIndex * step;
+            var z = min + zIndex * step;
+            Assert.True(field.TryGeologyBlockAt(sample, x, 82, z, out var block));
+            plane[zIndex, xIndex] = block;
+            if (alternativeIndexes.ContainsKey(block))
+                seenAlternatives.Add(block);
+        }
+
+        var hasNonAdjacentMaterialBoundary = false;
+        for (var zIndex = 0; zIndex < width; zIndex++)
+        for (var xIndex = 0; xIndex < width; xIndex++)
+        {
+            var current = plane[zIndex, xIndex];
+            if (!alternativeIndexes.TryGetValue(current, out var currentIndex))
+                continue;
+
+            if (xIndex + 1 < width &&
+                alternativeIndexes.TryGetValue(plane[zIndex, xIndex + 1], out var rightIndex) &&
+                Math.Abs(currentIndex - rightIndex) > 1)
+                hasNonAdjacentMaterialBoundary = true;
+
+            if (zIndex + 1 < width &&
+                alternativeIndexes.TryGetValue(plane[zIndex + 1, xIndex], out var nextIndex) &&
+                Math.Abs(currentIndex - nextIndex) > 1)
+                hasNonAdjacentMaterialBoundary = true;
+        }
+
+        Assert.Equal(alternatives.Length, seenAlternatives.Count);
+        Assert.True(hasNonAdjacentMaterialBoundary,
+            "Expected non-consecutive materials to share boundaries; a single scalar divided into weighted intervals cannot produce these local transitions.");
+    }
+
+    [Fact]
     public void OceanGeologyDoesNotCollapseIntoStrongHorizontalOrVerticalBands()
     {
         var biome = LoadBiome("ocean");
