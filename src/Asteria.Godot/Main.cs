@@ -789,7 +789,8 @@ public partial class Main : Node3D
             _worldUpdates.LightingEditCount,
             _worldUpdates.DirtyChunkCount,
             _fluidMeshUpdates.DirtyChunkCount,
-            _lightingRuntime.IsRunning);
+            _lightingRuntime.IsRunning,
+            _fluidSimulationRuntime.IsRunning);
 
         if (loadingWorld)
         {
@@ -2505,8 +2506,8 @@ public partial class Main : Node3D
 
     private void BeginWorldLoading()
     {
-        _worldDiagnostics?.Write(
-            $"world.loading.begin dimension={_dimension.Id} center={_spawnChunk}");
+        _worldDiagnostics?.WorldLoadingBegin(
+            _dimension.Id.ToString(), _spawnChunk);
         _worldReadySent = false;
         _loading.Begin(
             _spawnChunk);
@@ -2521,19 +2522,25 @@ public partial class Main : Node3D
         SendLoadingState();
     }
 
-    private bool IsInitialWorldPresentationSettled() =>
-        !_residency.HasRenderableBacklog &&
-        !_chunkStreaming.IsSelectionRunning &&
-        !_worldUpdates.HasLightingWork &&
-        !_lightingRuntime.IsRunning &&
-        !_worldUpdates.HasMeshWork &&
-        !_terrainMeshPipeline.IsRunning &&
-        _chunkPresentations.PendingTerrainPublications == 0 &&
-        !_fluidMeshUpdates.HasWork &&
-        !_fluidMeshPipeline.IsRunning &&
-        _chunkPresentations.PendingFluidPublications == 0 &&
-        _chunkPresentations.PendingObjectChanges == 0 &&
-        !_fluidSimulationRuntime.IsRunning;
+    private WorldLoadingReadiness GetInitialWorldReadiness() =>
+        new(
+            ResidencySettled: !_residency.HasRenderableBacklog,
+            SelectionSettled: !_chunkStreaming.IsSelectionRunning,
+            LightingSettled:
+                !_worldUpdates.HasLightingWork &&
+                !_lightingRuntime.IsRunning,
+            TerrainMeshWorkSettled:
+                !_worldUpdates.HasMeshWork &&
+                !_terrainMeshPipeline.IsRunning,
+            TerrainPublicationsSettled:
+                _chunkPresentations.PendingTerrainPublications == 0,
+            FluidMeshWorkSettled:
+                !_fluidMeshUpdates.HasWork &&
+                !_fluidMeshPipeline.IsRunning,
+            FluidPublicationsSettled:
+                _chunkPresentations.PendingFluidPublications == 0,
+            ObjectPresentationSettled:
+                _chunkPresentations.PendingObjectChanges == 0);
 
     private void AdvanceWorldLoading()
     {
@@ -2543,19 +2550,20 @@ public partial class Main : Node3D
             _residency.MaterializingCount,
             _chunkStreaming.IsSelectionRunning);
 
+        var readiness = GetInitialWorldReadiness();
         if (_loading.Progress.Phase ==
             WorldLoadingPhase.PreparingPresentation)
         {
             _ = _loading.UpdatePresentation(
                 _chunkPresentations.CountFullyPublishedDesired(_residency),
                 _residency.DesiredCount,
-                IsInitialWorldPresentationSettled());
+                readiness);
         }
 
         if (_loading.Progress.Phase == WorldLoadingPhase.PreparingArrivalStructure)
             _loading.UpdateArrivalStructurePresentation(
                 _sessions.Active.IsPortalArrivalPresentationCurrent() &&
-                IsInitialWorldPresentationSettled());
+                readiness.IsSettled);
 
         if (!_loading.Progress.IsReady)
         {
@@ -2651,9 +2659,10 @@ public partial class Main : Node3D
         }
 
         _worldReadySent = true;
-        _worldDiagnostics?.Write(
-            $"world.loading.ready dimension={_dimension.Id} " +
-            $"resident={_world.ChunkCount} presented={_chunkPresentations.Count}");
+        _worldDiagnostics?.WorldLoadingReady(
+            _dimension.Id.ToString(),
+            _world.ChunkCount,
+            _chunkPresentations.Count);
         SetupPlayer();
         SendLoadingState(
             force: true);

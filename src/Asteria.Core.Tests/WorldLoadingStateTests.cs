@@ -21,14 +21,14 @@ public sealed class WorldLoadingStateTests
         loading.UpdateResidency(264, 0, 0, selectionRunning: false);
         Assert.Equal(WorldLoadingPhase.PreparingPresentation, loading.Progress.Phase);
 
-        Assert.False(loading.UpdatePresentation(25, 264, workSettled: true));
+        Assert.False(loading.UpdatePresentation(25, 264, SettledReadiness()));
         Assert.Equal(WorldLoadingPhase.PreparingPresentation, loading.Progress.Phase);
         Assert.Equal(25, loading.Progress.Completed);
         Assert.Equal(264, loading.Progress.Total);
 
-        Assert.False(loading.UpdatePresentation(264, 264, workSettled: false));
+        Assert.False(loading.UpdatePresentation(264, 264, SettledReadiness() with { LightingSettled = false }));
         Assert.False(loading.Progress.IsReady);
-        Assert.True(loading.UpdatePresentation(264, 264, workSettled: true));
+        Assert.True(loading.UpdatePresentation(264, 264, SettledReadiness()));
         Assert.True(loading.Progress.IsReady);
     }
 
@@ -47,7 +47,7 @@ public sealed class WorldLoadingStateTests
         var loading = new WorldLoadingState();
         loading.Begin(ChunkCoord.Zero);
         loading.UpdateResidency(1, 0, 0, selectionRunning: false);
-        Assert.True(loading.UpdatePresentation(1, 1, workSettled: true));
+        Assert.True(loading.UpdatePresentation(1, 1, SettledReadiness()));
         loading.BeginArrivalStructurePresentation();
 
         loading.UpdateArrivalStructurePresentation(presentationCurrent: false);
@@ -57,12 +57,39 @@ public sealed class WorldLoadingStateTests
     }
 
     [Fact]
+    public void EveryBootstrapPresentationDependencyMustBeSettled()
+    {
+        var readiness = SettledReadiness();
+
+        Assert.True(readiness.IsSettled);
+        Assert.False((readiness with { ResidencySettled = false }).IsSettled);
+        Assert.False((readiness with { SelectionSettled = false }).IsSettled);
+        Assert.False((readiness with { LightingSettled = false }).IsSettled);
+        Assert.False((readiness with { TerrainMeshWorkSettled = false }).IsSettled);
+        Assert.False((readiness with { TerrainPublicationsSettled = false }).IsSettled);
+        Assert.False((readiness with { FluidMeshWorkSettled = false }).IsSettled);
+        Assert.False((readiness with { FluidPublicationsSettled = false }).IsSettled);
+        Assert.False((readiness with { ObjectPresentationSettled = false }).IsSettled);
+    }
+
+    [Fact]
     public void InvalidPresentationCountsAreRejected()
     {
         var loading = new WorldLoadingState();
         loading.Begin(ChunkCoord.Zero);
         loading.UpdateResidency(1, 0, 0, selectionRunning: false);
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            loading.UpdatePresentation(2, 1, workSettled: true));
+            loading.UpdatePresentation(2, 1, SettledReadiness()));
     }
+
+    private static WorldLoadingReadiness SettledReadiness() =>
+        new(
+            ResidencySettled: true,
+            SelectionSettled: true,
+            LightingSettled: true,
+            TerrainMeshWorkSettled: true,
+            TerrainPublicationsSettled: true,
+            FluidMeshWorkSettled: true,
+            FluidPublicationsSettled: true,
+            ObjectPresentationSettled: true);
 }

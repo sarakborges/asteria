@@ -21,6 +21,32 @@ public readonly record struct WorldLoadingProgress(
 }
 
 /// <summary>
+/// Readiness requirements for the initial bootstrap presentation.
+/// Ongoing world simulation is intentionally not a readiness dependency:
+/// it may continue after gameplay begins while revisions protect publications.
+/// </summary>
+public readonly record struct WorldLoadingReadiness(
+    bool ResidencySettled,
+    bool SelectionSettled,
+    bool LightingSettled,
+    bool TerrainMeshWorkSettled,
+    bool TerrainPublicationsSettled,
+    bool FluidMeshWorkSettled,
+    bool FluidPublicationsSettled,
+    bool ObjectPresentationSettled)
+{
+    public bool IsSettled =>
+        ResidencySettled &&
+        SelectionSettled &&
+        LightingSettled &&
+        TerrainMeshWorkSettled &&
+        TerrainPublicationsSettled &&
+        FluidMeshWorkSettled &&
+        FluidPublicationsSettled &&
+        ObjectPresentationSettled;
+}
+
+/// <summary>
 /// Authoritative runtime loading state. It reports only work owned by the
 /// existing streaming/residency/presentation pipeline; it owns no timers and
 /// never invents progress.
@@ -115,14 +141,15 @@ public sealed class WorldLoadingState
     }
 
     /// <summary>
-    /// Gameplay can start only after every selected chunk is presented and
-    /// all initial lighting/mesh publication work has settled. The counts
-    /// describe actual current presentation, not an estimated percentage.
+    /// Gameplay can start only after every bootstrap chunk is presented and
+    /// all presentation-critical work has settled. Streaming simulation such
+    /// as fluid evolution is independent and continues after world entry.
+    /// Counts describe actual current presentation, not estimated progress.
     /// </summary>
     public bool UpdatePresentation(
         int fullyPublishedChunks,
         int desiredChunks,
-        bool workSettled)
+        WorldLoadingReadiness readiness)
     {
         if (_progress.Phase !=
             WorldLoadingPhase.PreparingPresentation)
@@ -144,7 +171,7 @@ public sealed class WorldLoadingState
                 fullyPublishedChunks,
                 desiredChunks);
 
-        if (fullyPublishedChunks != desiredChunks || !workSettled)
+        if (fullyPublishedChunks != desiredChunks || !readiness.IsSettled)
             return false;
 
         _progress =

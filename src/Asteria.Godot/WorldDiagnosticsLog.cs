@@ -54,6 +54,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private readonly double[] _stageMsMax =
         new double[Enum.GetValues<WorldFrameStage>().Length];
     private long _nextFlush = Stopwatch.GetTimestamp() + IntervalTicks;
+    private long? _loadingStartedAt;
+    private long _phaseStartedAt;
     private bool _disposed;
     private string _phase = "";
     private int _resident;
@@ -63,6 +65,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _lightingPending;
     private int _terrainMeshPending;
     private int _fluidMeshPending;
+    private bool _fluidSimulationActive;
     private int _deferredCollisionChunks;
     private int _collisionPrewarmedShapes;
     private int _collisionEmergencyShapes;
@@ -212,6 +215,23 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         var name = separator < 0 ? message : message[..separator];
         var details = separator < 0 ? "" : message[(separator + 1)..];
         _session.Write("INFO", name, details);
+    }
+
+    public void WorldLoadingBegin(string dimension, ChunkCoord center)
+    {
+        _loadingStartedAt = Stopwatch.GetTimestamp();
+        Write($"world.loading.begin dimension={dimension} center={center}");
+    }
+
+    public void WorldLoadingReady(string dimension, int resident, int presented)
+    {
+        var elapsed = _loadingStartedAt is { } startedAt
+            ? Format1(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds)
+            : "unavailable";
+        Write(
+            $"world.loading.ready dimension={dimension} resident={resident} " +
+            $"presented={presented} elapsed_ms={elapsed}");
+        _loadingStartedAt = null;
     }
 
     public void Warn(string name, string message) =>
@@ -465,7 +485,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         int resident, int pending, int materializing,
         int presented, string loadingPhase,
         int lightingPending, int terrainMeshPending,
-        int fluidMeshPending, bool lightingActive)
+        int fluidMeshPending, bool lightingActive,
+        bool fluidSimulationActive)
     {
         _resident = resident;
         _pending = pending;
@@ -475,9 +496,23 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _terrainMeshPending = terrainMeshPending;
         _fluidMeshPending = fluidMeshPending;
         _lightingActive = lightingActive;
+        _fluidSimulationActive = fluidSimulationActive;
         if (_phase != loadingPhase)
         {
+            var now = Stopwatch.GetTimestamp();
+            if (_phaseStartedAt != 0 && IsTimedLoadingPhase(_phase))
+            {
+                var phaseMilliseconds =
+                    Stopwatch.GetElapsedTime(_phaseStartedAt, now).TotalMilliseconds;
+                Write(
+                    $"world.phase.complete name={_phase} " +
+                    $"duration_ms={Format1(phaseMilliseconds)}");
+            }
+
             _phase = loadingPhase;
+            _phaseStartedAt = IsTimedLoadingPhase(loadingPhase)
+                ? now
+                : 0;
             Write($"world.phase name={_phase}");
         }
 
@@ -515,6 +550,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"lighting_pending={_lightingPending} " +
             $"terrain_mesh_pending={_terrainMeshPending} " +
             $"fluid_mesh_pending={_fluidMeshPending} lighting_active={_lightingActive} " +
+            $"fluid_simulation_active={_fluidSimulationActive} " +
             $"creatures_active={_creaturesActive} creatures_peak={_creaturesPeak} " +
             $"projectiles_active={_projectilesActive} " +
             $"creature_particles_active={_creatureParticlesActive} " +
@@ -686,6 +722,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _lightingApplyMs = 0d;
         _lightingApplyMaxMs = 0d;
     }
+
+    private static bool IsTimedLoadingPhase(string phase) =>
+        phase is nameof(WorldLoadingPhase.MaterializingInitialArea)
+            or nameof(WorldLoadingPhase.PreparingPresentation)
+            or nameof(WorldLoadingPhase.PreparingArrivalStructure);
 
     private static string Format1(double value) =>
         value.ToString("F1", CultureInfo.InvariantCulture);
