@@ -11,7 +11,7 @@ const meta = {
     worlds: [
       {
         id: "Asteria",
-        lastSaved: "Today 19:42",
+        lastSavedUnixMs: Date.UTC(2026, 9, 21, 19, 42),
         seed: "181960897289965",
         daysPassed: "3",
         sphere: "Overworld",
@@ -20,7 +20,7 @@ const meta = {
       },
       {
         id: "Umbral Test",
-        lastSaved: "Yesterday 23:11",
+        lastSavedUnixMs: Date.UTC(2026, 9, 22, 23, 11),
         seed: "9201882",
         daysPassed: "1",
         sphere: "Umbral",

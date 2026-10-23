@@ -1,6 +1,6 @@
 export type WorldSummaryView = {
   id: string;
-  lastSaved: string;
+  lastSavedUnixMs: number | null;
   seed: string;
   daysPassed: string;
   sphere: string;

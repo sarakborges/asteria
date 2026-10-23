@@ -39,11 +39,11 @@ test("recreation passes only selected saved ID and blocks duplicate requests", (
       status: "ready",
       worlds: [
         {
-          id: "Asteria", lastSaved: "", seed: "42", daysPassed: "0",
+          id: "Asteria", lastSavedUnixMs: null, seed: "42", daysPassed: "0",
           sphere: "asteria:overworld", coordinates: "", compatible: true,
         },
         {
-          id: "Damaged", lastSaved: "", seed: "", daysPassed: "0",
+          id: "Damaged", lastSavedUnixMs: null, seed: "", daysPassed: "0",
           sphere: "", coordinates: "", compatible: false,
         },
       ],

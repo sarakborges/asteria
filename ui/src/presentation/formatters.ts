@@ -1,4 +1,27 @@
+import type { Language } from "../localization/LocalizationProvider";
 import type { VitalValue } from "../state/uiState";
+
+const dateTimeLocales: Record<Language, string> = {
+  english: "en-US",
+  portuguese_brazil: "pt-BR",
+  spanish: "es-ES",
+};
+
+export function formatLastSaved(unixMilliseconds: number | null, language: Language): string {
+  if (unixMilliseconds === null ||
+      !Number.isSafeInteger(unixMilliseconds) ||
+      unixMilliseconds <= 0) {
+    return "—";
+  }
+
+  const date = new Date(unixMilliseconds);
+  if (!Number.isFinite(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat(dateTimeLocales[language], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
 
 export function displayContentName(id: string): string {
   const local =

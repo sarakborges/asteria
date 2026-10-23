@@ -1,3 +1,4 @@
+import { formatLastSaved } from "../../../presentation/formatters";
 import type { WorldSummaryView } from "../../../presentation/worldCatalogModels";
 export type { WorldSummaryView } from "../../../presentation/worldCatalogModels";
 import { useLocalization } from "../../../localization/LocalizationProvider";
@@ -19,7 +20,7 @@ export function WorldCard({
   onDelete,
   onRecreate,
 }: WorldCardProps) {
-  const { t, contentName } = useLocalization();
+  const { t, contentName, language } = useLocalization();
   return (
     <Surface
       variant="frosted"
@@ -39,12 +40,12 @@ export function WorldCard({
           variant="heading"
         />
 
+        <Metadata
+          label={t("ui.lastSaved")}
+          value={formatLastSaved(world.lastSavedUnixMs, language)}
+        />
         {world.seed && world.sphere ? (
           <>
-            <Metadata
-              label={t("ui.lastSaved")}
-              value={world.lastSaved}
-            />
             <Metadata
               label={t("worldSelection.seed")}
               value={world.seed}

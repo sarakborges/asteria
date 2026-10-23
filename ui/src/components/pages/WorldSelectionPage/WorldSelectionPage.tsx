@@ -40,6 +40,7 @@ export function WorldSelectionPage({
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const confirmedWorld = worlds.find(world => world.id === confirmId);
+  const sortedWorlds = [...worlds].sort(compareWorldsByLastSaved);
   const openConfirmation = (id: string) => {
     returnFocus.current = document.activeElement instanceof HTMLElement
       ? document.activeElement : null;
@@ -101,7 +102,7 @@ export function WorldSelectionPage({
           </div>
         )}
 
-        {worlds.map((world) => (
+        {sortedWorlds.map((world) => (
           <Fragment key={world.id}>
             <WorldCard
               world={world}
@@ -157,4 +158,23 @@ export function WorldSelectionPage({
       </ScrollArea>
     </ScreenShell>
   );
+}
+
+function compareWorldsByLastSaved(
+  left: WorldSummaryView,
+  right: WorldSummaryView,
+): number {
+  if (left.lastSavedUnixMs === null) {
+    return right.lastSavedUnixMs === null
+      ? compareWorldIds(left.id, right.id)
+      : 1;
+  }
+  if (right.lastSavedUnixMs === null) return -1;
+
+  const byLastSaved = right.lastSavedUnixMs - left.lastSavedUnixMs;
+  return byLastSaved !== 0 ? byLastSaved : compareWorldIds(left.id, right.id);
+}
+
+function compareWorldIds(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }

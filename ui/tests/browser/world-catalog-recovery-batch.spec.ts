@@ -42,9 +42,9 @@ test("saved world catalog rejects incompatible loads and locks duplicate native 
     sent.push({ type, payload });
   });
   const worlds = [
-    { id: "Asteria", lastSaved: "", seed: "42", daysPassed: "0",
+    { id: "Asteria", lastSavedUnixMs: null, seed: "42", daysPassed: "0",
       sphere: "asteria:overworld", coordinates: "", compatible: true },
-    { id: "Damaged", lastSaved: "", seed: "", daysPassed: "",
+    { id: "Damaged", lastSavedUnixMs: null, seed: "", daysPassed: "",
       sphere: "", coordinates: "", compatible: false },
   ];
   store.update(s => ({
@@ -96,7 +96,7 @@ test("failed world delete keeps the catalog and permits exactly one retry", () =
   store.update(s => ({
     ...s,
     worldCatalog: { ...s.worldCatalog, status: "ready", worlds: [
-      { id: "Damaged", lastSaved: "", seed: "", daysPassed: "",
+      { id: "Damaged", lastSavedUnixMs: null, seed: "", daysPassed: "",
         sphere: "", coordinates: "", compatible: false },
     ] },
   }));

@@ -7,7 +7,7 @@ const meta = {
   args: {
     world: {
       id: "Asteria",
-      lastSaved: "Today 19:42",
+      lastSavedUnixMs: Date.UTC(2026, 9, 22, 19, 42),
       seed: "181960897289965",
       daysPassed: "3",
       sphere: "Overworld",
@@ -30,7 +30,7 @@ export const WithThumbnail: Story = {
   args: {
     world: {
       id: "Saved Landscape",
-      lastSaved: "2026-10-11 23:00 UTC",
+      lastSavedUnixMs: Date.UTC(2026, 9, 11, 23, 0),
       seed: "12345",
       daysPassed: "4",
       sphere: "asteria:overworld",
@@ -48,7 +48,7 @@ export const MetadataOnlyCandidate: Story = {
   args: {
     world: {
       id: "Metadata World",
-      lastSaved: "2026-10-08 15:00 UTC",
+      lastSavedUnixMs: Date.UTC(2026, 9, 8, 15, 0),
       seed: "181960897289965",
       daysPassed: "3",
       sphere: "asteria:overworld",
@@ -63,7 +63,7 @@ export const Incompatible: Story = {
     onDelete: () => undefined,
     world: {
       id: "Legacy World",
-      lastSaved: "",
+      lastSavedUnixMs: null,
       seed: "",
       daysPassed: "",
       sphere: "",

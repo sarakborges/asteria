@@ -25,6 +25,7 @@ public sealed class WorldSaveCatalogTests
 
             var entry = Assert.Single(WorldSaveCatalog.Scan(root));
             Assert.Equal("Saved World", entry.Id);
+            Assert.Equal(1_000_000_000L, entry.LastSavedUnixMs);
             Assert.Equal("18446744073709551615", entry.Seed);
             Assert.Equal("3", entry.DaysPassed);
             Assert.Equal("asteria:umbral", entry.Sphere);

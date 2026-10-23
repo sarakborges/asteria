@@ -174,10 +174,13 @@ export function createWorldCatalogController(
 
 function readWorldSummary(value: unknown): WorldSummaryView | null {
   const entry = asRecord(value);
-  if (!entry ||
+  if (!entry) return null;
+
+  const lastSavedUnixMs = entry.lastSavedUnixMs;
+  if (
       typeof entry.id !== "string" ||
       !entry.id.trim() ||
-      typeof entry.lastSaved !== "string" ||
+      !isLastSavedTimestamp(lastSavedUnixMs) ||
       typeof entry.seed !== "string" ||
       typeof entry.daysPassed !== "string" ||
       typeof entry.sphere !== "string" ||
@@ -186,11 +189,18 @@ function readWorldSummary(value: unknown): WorldSummaryView | null {
 
   return {
     id: entry.id,
-    lastSaved: entry.lastSaved,
+    lastSavedUnixMs,
     seed: entry.seed,
     daysPassed: entry.daysPassed,
     sphere: entry.sphere,
     coordinates: entry.coordinates,
     compatible: entry.compatible,
   };
+}
+
+function isLastSavedTimestamp(value: unknown): value is number | null {
+  return value === null ||
+    (typeof value === "number" &&
+      Number.isSafeInteger(value) &&
+      value > 0);
 }

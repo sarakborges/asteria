@@ -44,7 +44,7 @@ public static class WorldSaveCatalog
             // A missing serializer/loader is never treated as compatibility.
             var id = Path.GetFileName(directory);
             var entry = new WorldSaveSummary(
-                id, "", "", "", "", "", Compatible: false);
+                id, null, "", "", "", "", Compatible: false);
             try
             {
                 var file = new FileInfo(path);
@@ -85,11 +85,10 @@ public static class WorldSaveCatalog
                     continue;
                 }
 
-                var lastSaved = DateTimeOffset.FromUnixTimeMilliseconds(timestamp)
-                    .UtcDateTime.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture);
+                _ = DateTimeOffset.FromUnixTimeMilliseconds(timestamp);
                 var position = ReadCoordinates(root);
                 entry = new WorldSaveSummary(
-                    id, lastSaved, seed.GetString()!,
+                    id, timestamp, seed.GetString()!,
                     worldDay > 0 ? (worldDay - 1).ToString(CultureInfo.InvariantCulture) : "0",
                     dimension.GetString()!, position,
                     Compatible: false);
@@ -130,7 +129,7 @@ public static class WorldSaveCatalog
 
 public sealed record WorldSaveSummary(
     string Id,
-    string LastSaved,
+    long? LastSavedUnixMs,
     string Seed,
     string DaysPassed,
     string Sphere,
