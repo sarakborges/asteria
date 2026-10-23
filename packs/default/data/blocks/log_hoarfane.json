@@ -2,7 +2,8 @@
   "id": "asteria:log_hoarfane",
   "category": "blocks_wooden",
   "tags": [
-    "fragmentable"
+    "fragmentable",
+    "leaf_support"
   ],
   "variant": {
     "family": "asteria:log_hoarfane",

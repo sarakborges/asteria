@@ -2971,7 +2971,10 @@ public partial class Main : Node3D
         var customBlockState = stack.Block is { } state &&
             (state.HasMicroblockGeometry ||
              state.SurfaceState.Layers.Count > 0 ||
-             state.Cell != new VoxelCell(state.Cell.Block));
+             state.Cell.TextureRotation != TextureRotation.Degrees0 ||
+             state.Cell.Orientation != BlockOrientation.Y ||
+             state.Cell.Facing != HorizontalFacing.South ||
+             state.Cell.State != 0);
         return new
         {
             id = stack.Id,

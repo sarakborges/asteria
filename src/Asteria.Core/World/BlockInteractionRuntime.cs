@@ -275,6 +275,10 @@ public sealed class BlockInteractionRuntime
         VoxelCell cell,
         WorldAabb playerBounds)
     {
+        if (!cell.IsEmpty &&
+            _blocks.GetDefinition(cell.Block).HasTag(TreeBlockTags.DecayableLeaf))
+            cell = cell.WithPlayerPlaced(true);
+
         var spike = !cell.IsEmpty &&
             _blocks.GetDefinition(cell.Block).Shape.Kind == BlockShapeKind.Spike;
         if (spike)

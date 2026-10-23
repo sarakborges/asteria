@@ -54,7 +54,7 @@ public sealed class ManualStructurePlacementRuntime
             plan is null)
             return ManualStructurePlacementResult.InvalidPlacement;
 
-        return ApplyPlan(plan, playerBounds);
+        return ApplyPlan(plan, playerBounds, protectPlayerPlacedLeaves: true);
     }
 
     /// <summary>
@@ -91,7 +91,8 @@ public sealed class ManualStructurePlacementRuntime
 
     private ManualStructurePlacementResult ApplyPlan(
         ManualStructurePlacementPlan plan, WorldAabb playerBounds,
-        DimensionId? returnDimension = null)
+        DimensionId? returnDimension = null,
+        bool protectPlayerPlacedLeaves = false)
     {
         var placements = plan.Pieces;
 
@@ -157,9 +158,13 @@ public sealed class ManualStructurePlacementRuntime
                     ? voxel.Surface.WithMetaTag(
                         PortalActivationRuntime.TargetMetadataKey, origin.Value)
                     : voxel.Surface;
+                var blockCell = voxel.Cell;
+                if (protectPlayerPlacedLeaves &&
+                    _blocks.GetDefinition(blockCell.Block).HasTag(TreeBlockTags.DecayableLeaf))
+                    blockCell = blockCell.WithPlayerPlaced(true);
                 staged[at] = new VoxelStructureChange(
                     at, new BlockStateSnapshot(
-                        voxel.Cell, voxel.Mask, surface), FluidCell.Empty);
+                        blockCell, voxel.Mask, surface), FluidCell.Empty);
             }
 
             foreach (var obj in placement.Objects)

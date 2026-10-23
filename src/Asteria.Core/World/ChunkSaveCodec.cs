@@ -12,7 +12,7 @@ namespace Asteria.Core.World;
 public static class ChunkSaveCodec
 {
     private const uint Magic = 0x48435341; // "ASCH" (little-endian)
-    private const ushort FormatVersion = 3;
+    private const ushort FormatVersion = 4;
     private const int MaximumBytes = 8 * 1024 * 1024;
     private const int DigestBytes = 32;
 
@@ -46,6 +46,7 @@ public static class ChunkSaveCodec
                 writer.Write((byte)cell.Orientation);
                 writer.Write((byte)cell.Facing);
                 writer.Write(cell.State);
+                writer.Write(cell.IsPlayerPlaced);
 
                 var hasMask = cell.HasMicroblockGeometry;
                 writer.Write(hasMask);
@@ -180,7 +181,7 @@ public static class ChunkSaveCodec
             if (reader.ReadUInt32() != Magic)
                 throw new InvalidDataException("Unknown chunk snapshot magic.");
             var version = reader.ReadUInt16();
-            if (version is not (1 or 2 or FormatVersion))
+            if (version is not (1 or 2 or 3 or FormatVersion))
                 throw new InvalidDataException("Unknown chunk snapshot format.");
 
             var chunk = new Chunk();
@@ -199,9 +200,11 @@ public static class ChunkSaveCodec
                     !Enum.IsDefined(orientation) || !Enum.IsDefined(facing))
                     throw new InvalidDataException("Invalid saved block state.");
                 var state = reader.ReadUInt16();
+                var isPlayerPlaced = version >= 4 && reader.ReadBoolean();
                 var hasMask = reader.ReadBoolean();
                 chunk.SetCell(x, y, z, new VoxelCell(
-                    blockId, rotation, orientation, facing, state));
+                    blockId, rotation, orientation, facing, state,
+                    isPlayerPlaced: isPlayerPlaced));
                 if (hasMask)
                 {
                     var mask = MicroblockMask.ParseHexString(reader.ReadString());

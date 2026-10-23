@@ -86,6 +86,9 @@ public sealed class VoxelWorld
     /// </summary>
     public event Action<ChunkCoord>? ChunkBecameResident;
 
+    /// <summary>Raised after a chunk leaves live residency and becomes archived.</summary>
+    public event Action<ChunkCoord>? ChunkBecameArchived;
+
     /// <summary>Invalidates only Object presentation for a resident chunk.</summary>
     public event Action<ChunkCoord>? ObjectChunkChanged;
 
@@ -234,6 +237,7 @@ public sealed class VoxelWorld
         MarkColumnChunkRemoved(coord);
         var result = _archive.Archive(coord, chunk);
         Revision++;
+        ChunkBecameArchived?.Invoke(coord);
         return result;
     }
 

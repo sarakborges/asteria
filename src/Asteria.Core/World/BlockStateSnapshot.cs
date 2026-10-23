@@ -19,7 +19,8 @@ public sealed record BlockStateSnapshot
             cell.TextureRotation,
             cell.Orientation,
             cell.Facing,
-            cell.State);
+            cell.State,
+            isPlayerPlaced: cell.IsPlayerPlaced);
         MicroblockMask = microblockMask;
         SurfaceState = surfaceState ?? BlockSurfaceState.Empty;
     }

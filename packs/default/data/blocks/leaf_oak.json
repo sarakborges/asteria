@@ -61,5 +61,8 @@
       "chance": 0.6,
       "quantity": 1
     }
+  ],
+  "tags": [
+    "leaf_decay"
   ]
 }

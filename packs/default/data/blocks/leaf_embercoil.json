@@ -62,5 +62,8 @@
       "quantity": 1
     }
   ],
-  "previewColor": "ffd34a"
+  "previewColor": "ffd34a",
+  "tags": [
+    "leaf_decay"
+  ]
 }
