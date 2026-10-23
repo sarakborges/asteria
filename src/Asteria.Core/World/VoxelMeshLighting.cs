@@ -178,10 +178,11 @@ public static class VoxelMeshLighting
             return 0f;
         }
 
-        return OccupancyFraction(
-            cell,
-            blocks.GetDefinition(cell.Block),
-            world.GetMicroblockMaskOrEmpty(position));
+        var definition = blocks.GetDefinition(cell.Block);
+        var mask = cell.HasMicroblockGeometry
+            ? world.GetMicroblockMaskOrEmpty(position)
+            : default;
+        return OccupancyFraction(cell, definition, mask);
     }
 
     public static float OccupancyFraction(
@@ -214,11 +215,16 @@ public static class VoxelMeshLighting
         int y,
         int z,
         VoxelCell cell,
-        BlockDefinition definition) =>
-        OccupancyFraction(
-            cell,
-            definition,
-            chunk.GetMicroblockMask(x, y, z));
+        BlockDefinition definition)
+    {
+        // The common cube/layer shapes do not consult microblock occupancy.
+        // Avoid a dictionary lookup for every voxel during world lighting
+        // and mesh sampling when the cell has no microblock geometry.
+        var mask = cell.HasMicroblockGeometry
+            ? chunk.GetMicroblockMask(x, y, z)
+            : default;
+        return OccupancyFraction(cell, definition, mask);
+    }
 
     internal static float OccupancyFraction(
         VoxelCell cell,
