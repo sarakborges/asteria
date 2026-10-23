@@ -20,6 +20,24 @@ public static class ChunkLightingSolver
         FluidRegistry fluids,
         PackContentRegistry<ObjectDefinition>? objects = null)
     {
+        InitializeCore(chunk, blocks, fluids, objects);
+    }
+
+    // Exposes real propagation work to core regression tests without making
+    // solver internals part of the runtime API.
+    internal static int InitializeAndCountProcessedVoxels(
+        Chunk chunk,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        PackContentRegistry<ObjectDefinition>? objects = null) =>
+        InitializeCore(chunk, blocks, fluids, objects);
+
+    private static int InitializeCore(
+        Chunk chunk,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        PackContentRegistry<ObjectDefinition>? objects)
+    {
         ArgumentNullException.ThrowIfNull(chunk);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
@@ -29,7 +47,7 @@ public static class ChunkLightingSolver
         if (chunk.IsEmpty && chunk.ObjectCount == 0)
         {
             chunk.FillLight(new VoxelLight(VoxelLight.MaxLevel, 0, 0, 0));
-            return;
+            return 0;
         }
 
         var objectEmissions = ObjectLightEmissionField.Capture(chunk, objects);
@@ -39,9 +57,9 @@ public static class ChunkLightingSolver
             chunk, blocks, fluids, objectEmissions, mediumDampening);
 
         if (chunk.IsEmpty || !needsRelaxation)
-            return;
+            return 0;
 
-        Relax(chunk, blocks, fluids, objectEmissions, mediumDampening);
+        return Relax(chunk, mediumDampening);
     }
 
     private static bool SeedDirectLight(
@@ -120,116 +138,77 @@ public static class ChunkLightingSolver
         return needsPropagation;
     }
 
-    private static void Relax(
+    private static int Relax(
         Chunk chunk,
-        BlockRegistry blocks,
-        FluidRegistry fluids,
-        ObjectLightEmissionField objectEmissions,
         byte[] mediumDampening)
     {
-        var queue =
-            new Queue<int>(Chunk.Volume);
-        var queued =
-            new bool[Chunk.Volume];
+        // Most fluid voxels already have their final direct-sky value. Only
+        // seed cells where an existing neighbor can actually improve light;
+        // otherwise a whole ocean-filled chunk would enqueue every water cell.
+        var queue = new Queue<int>();
+        var queued = new bool[Chunk.Volume];
 
-        for (var y = 0;
-             y < Chunk.Size;
-             y++)
+        for (var y = 0; y < Chunk.Size; y++)
         {
-            for (var z = 0;
-                 z < Chunk.Size;
-                 z++)
+            for (var z = 0; z < Chunk.Size; z++)
             {
-                for (var x = 0;
-                     x < Chunk.Size;
-                     x++)
+                for (var x = 0; x < Chunk.Size; x++)
                 {
-                    if (mediumDampening[ToIndex(x, y, z)] <
-                        VoxelLight.MaxLevel)
+                    var index = ToIndex(x, y, z);
+                    var dampening = mediumDampening[index];
+                    if (dampening >= VoxelLight.MaxLevel)
+                        continue;
+
+                    var current = chunk.GetLight(x, y, z);
+                    var attenuation = Math.Max((byte)1, dampening);
+                    if (CanReceiveMoreLight(
+                            chunk, x, y, z, current, attenuation))
+                    {
                         Enqueue(queue, queued, x, y, z);
+                    }
                 }
             }
         }
 
+        var processed = 0;
         while (queue.Count > 0)
         {
-            var index =
-                queue.Dequeue();
+            var index = queue.Dequeue();
             queued[index] = false;
-            var (x, y, z) =
-                FromIndex(index);
-            var cell =
-                chunk.GetCell(x, y, z);
-            var fluid =
-                chunk.GetFluid(x, y, z);
-            // Direct-light seeding already evaluated every medium.
-            // Opaque cells can emit but never transmit; skip them entirely
-            // rather than revisiting them on every neighbor update.
+            var (x, y, z) = FromIndex(index);
             var dampening = mediumDampening[index];
+            var attenuation = Math.Max((byte)1, dampening);
+            var current = chunk.GetLight(x, y, z);
 
-            var attenuation =
-                Math.Max(
-                    (byte)1,
-                    dampening);
-            var current =
-                chunk.GetLight(x, y, z);
-            var candidate =
-                VoxelLight.FromEmission(
-                    VoxelLightingMedium.Emission(
-                        blocks,
-                        fluids,
-                        cell,
-                        fluid, objectEmissions.At(new WorldVoxelCoord(x, y, z))));
-
+            // Direct-sky seeding already includes each cell's block, fluid and
+            // object emission. Re-querying registries here was redundant and
+            // especially costly for fluid-heavy chunks.
+            var candidate = current;
             foreach (var (dx, dy, dz) in Neighbors)
             {
                 var nx = x + dx;
                 var ny = y + dy;
                 var nz = z + dz;
-
-                if (!Chunk.Contains(
-                        nx,
-                        ny,
-                        nz))
-                {
+                if (!Chunk.Contains(nx, ny, nz))
                     continue;
-                }
 
-                candidate =
-                    VoxelLight.Max(
-                        candidate,
-                        VoxelLight.Attenuate(
-                            chunk.GetLight(
-                                nx,
-                                ny,
-                                nz),
-                            attenuation));
-            }
-
-            // Direct skylight is authoritative and must never be reduced by
-            // this initial local relaxation pass.
-            candidate =
-                VoxelLight.Max(
+                candidate = VoxelLight.Max(
                     candidate,
-                    current);
-
-            if (candidate == current)
-            {
-                continue;
+                    VoxelLight.Attenuate(
+                        chunk.GetLight(nx, ny, nz),
+                        attenuation));
             }
 
-            chunk.SetLight(
-                x,
-                y,
-                z,
-                candidate);
+            processed++;
+            if (candidate == current)
+                continue;
 
+            chunk.SetLight(x, y, z, candidate);
             foreach (var (dx, dy, dz) in Neighbors)
             {
                 var nx = x + dx;
                 var ny = y + dy;
                 var nz = z + dz;
-
                 if (Chunk.Contains(nx, ny, nz) &&
                     mediumDampening[ToIndex(nx, ny, nz)] < VoxelLight.MaxLevel)
                 {
@@ -237,6 +216,34 @@ public static class ChunkLightingSolver
                 }
             }
         }
+
+        return processed;
+    }
+
+    private static bool CanReceiveMoreLight(
+        Chunk chunk,
+        int x,
+        int y,
+        int z,
+        VoxelLight current,
+        byte attenuation)
+    {
+        foreach (var (dx, dy, dz) in Neighbors)
+        {
+            var nx = x + dx;
+            var ny = y + dy;
+            var nz = z + dz;
+            if (!Chunk.Contains(nx, ny, nz))
+                continue;
+
+            var propagated = VoxelLight.Attenuate(
+                chunk.GetLight(nx, ny, nz),
+                attenuation);
+            if (VoxelLight.Max(current, propagated) != current)
+                return true;
+        }
+
+        return false;
     }
 
     public static byte MediumDampening(
