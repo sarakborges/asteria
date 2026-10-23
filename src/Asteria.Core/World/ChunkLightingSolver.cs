@@ -70,17 +70,13 @@ public static class ChunkLightingSolver
         byte[] mediumDampening)
     {
         // Only attenuated transmitting cells or emissive cells can
-        // increase another voxel's seeded light. Uniform full skylight
-        // never needs a local flood-fill.
+        // increase another voxel's seeded light. A horizontally uniform
+        // direct-sky profile is already stable without a local flood-fill.
         var needsPropagation = false;
-        // Fully uniform fluid chunks have no horizontal light discontinuities.
-        // Their direct-sky values are already the fixed point, so avoid even
-        // the candidate-frontier scan for large, fully submerged ocean chunks.
-        var uniformFullFluidChunk =
-            chunk.NonEmptyVoxelCount == 0 &&
-            chunk.ObjectCount == 0 &&
-            chunk.FluidCount == Chunk.Volume;
-        FluidCell? uniformFluid = null;
+        var hasEmission = false;
+        var uniformDirectSkyAcrossColumns = true;
+        var referenceDirectSky = new byte[Chunk.Size];
+        var isFirstColumn = true;
 
         for (var z = 0; z < Chunk.Size; z++)
         {
@@ -98,19 +94,6 @@ public static class ChunkLightingSolver
                         chunk.GetCell(x, y, z);
                     var fluid =
                         chunk.GetFluid(x, y, z);
-                    if (uniformFullFluidChunk)
-                    {
-                        if (fluid.IsEmpty ||
-                            uniformFluid is { } knownFluid && knownFluid != fluid)
-                        {
-                            uniformFullFluidChunk = false;
-                        }
-                        else
-                        {
-                            uniformFluid = fluid;
-                        }
-                    }
-
                     var dampening =
                         VoxelLightingMedium.Dampening(
                             chunk,
@@ -132,12 +115,22 @@ public static class ChunkLightingSolver
                                 dampening);
                     }
 
+                    if (isFirstColumn)
+                    {
+                        referenceDirectSky[y] = sky;
+                    }
+                    else if (sky != referenceDirectSky[y])
+                    {
+                        uniformDirectSkyAcrossColumns = false;
+                    }
+
                     var emission =
                         VoxelLightingMedium.Emission(
                             blocks,
                             fluids,
                             cell,
                             fluid, objectEmissions.At(new WorldVoxelCoord(x, y, z)));
+                    hasEmission |= !emission.IsDark;
                     needsPropagation |= !emission.IsDark ||
                         (dampening < VoxelLight.MaxLevel &&
                          sky < VoxelLight.MaxLevel);
@@ -152,12 +145,15 @@ public static class ChunkLightingSolver
                             emission.Green,
                             emission.Blue));
                 }
+                isFirstColumn = false;
             }
         }
 
-        // Uniformly filled fluid chunks cannot gain lateral light: every
-        // column has the same medium and therefore the same direct-sky field.
-        return needsPropagation && !uniformFullFluidChunk;
+        // Symmetric terrain/water layers are already solved by direct sky.
+        // Relax only when some column has a different direct-sky profile, or
+        // when an emissive source can illuminate neighboring cells.
+        return needsPropagation &&
+               (!uniformDirectSkyAcrossColumns || hasEmission);
     }
 
     private static int Relax(
