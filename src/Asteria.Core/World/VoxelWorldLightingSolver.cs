@@ -214,7 +214,9 @@ public static class VoxelWorldLightingSolver
         var darkening = new LightingPropagationQueue();
         var brightening = new LightingPropagationQueue();
         var originals = new Dictionary<WorldVoxelCoord, VoxelLight>();
-        var objectEmissions = ObjectLightEmissionField.Capture(world, objects);
+        var objectEmissions = workKind == LightingWorkKind.SkyOnly
+            ? ObjectLightEmissionField.Capture(world, definitions: null)
+            : ObjectLightEmissionField.Capture(world, objects);
         var lightingContext = new LightingSolveContext(
             world, blocks, fluids, objectEmissions, workKind);
         foreach (var position in editedPositions)
