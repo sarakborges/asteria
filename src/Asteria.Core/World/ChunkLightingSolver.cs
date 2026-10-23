@@ -50,6 +50,14 @@ public static class ChunkLightingSolver
             return 0;
         }
 
+        // Ocean water often occupies complete horizontal layers above the
+        // seabed. When there are no blocks, attached objects or emitters and
+        // each Y layer is either all air or uniformly attenuating fluid, its
+        // direct-sky field can be computed once per layer instead of sampling
+        // all 4096 cells through the medium registry.
+        if (TryInitializeUniformFluidLayers(chunk, fluids))
+            return 0;
+
         var objectEmissions = ObjectLightEmissionField.Capture(chunk, objects);
         // SeedDirectLight writes every cell's complete VoxelLight value.
         // Clearing the full array first only added a redundant memory pass.
@@ -61,6 +69,73 @@ public static class ChunkLightingSolver
             return 0;
 
         return Relax(chunk, mediumDampening);
+    }
+
+    private static bool TryInitializeUniformFluidLayers(
+        Chunk chunk,
+        FluidRegistry fluids)
+    {
+        if (chunk.NonEmptyVoxelCount != 0 ||
+            chunk.ObjectCount != 0 ||
+            chunk.FluidCount == 0)
+        {
+            return false;
+        }
+
+        var counts = new int[Chunk.Size];
+        var dampeningByY = new byte[Chunk.Size];
+        var initializedY = new bool[Chunk.Size];
+        var compatible = true;
+
+        chunk.VisitFluidCells((_, y, _, fluid) =>
+        {
+            if (!compatible)
+                return;
+
+            var emission = fluids.GetLightEmissionAtLevel(
+                fluid.Fluid, fluid.Level);
+            if (!emission.IsDark)
+            {
+                compatible = false;
+                return;
+            }
+
+            var dampening = fluids.GetLightDampeningAtLevel(
+                fluid.Fluid, fluid.Level);
+            if (initializedY[y] && dampeningByY[y] != dampening)
+            {
+                compatible = false;
+                return;
+            }
+
+            initializedY[y] = true;
+            dampeningByY[y] = dampening;
+            counts[y]++;
+        });
+
+        if (!compatible)
+            return false;
+
+        for (var y = 0; y < Chunk.Size; y++)
+        {
+            if (counts[y] != 0 && counts[y] != Chunk.Area)
+                return false;
+
+            if (counts[y] == 0)
+                dampeningByY[y] = 0;
+        }
+
+        byte sky = VoxelLight.MaxLevel;
+        for (var y = Chunk.Size - 1; y >= 0; y--)
+        {
+            sky = SaturatingSubtract(sky, dampeningByY[y]);
+            var light = new VoxelLight(sky, 0, 0, 0);
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var x = 0; x < Chunk.Size; x++)
+                chunk.SetLight(x, y, z, light);
+        }
+
+        return true;
     }
 
     private static bool SeedDirectLight(
