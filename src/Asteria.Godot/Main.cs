@@ -29,8 +29,13 @@ public partial class Main : Node3D
     private const int MaxInteractiveTerrainMeshletsPerWorker = 8;
     private const int MaxTerrainMeshletsPerWorker = 16;
     private const int MaxFluidMeshletsPerWorker = 16;
+    private static readonly int MaxFluidMeshWorkers =
+        Math.Clamp(System.Environment.ProcessorCount / 4, 1, 2);
     private const int MaxFluidMeshletPublishesPerFrame = 16;
     private const int MaxFluidUpdatesPerWorker = 512;
+    private static readonly TimeSpan WorldWorkerDispatchBudget =
+        TimeSpan.FromMilliseconds(1);
+    private const int WorldWorkerLaneCount = 4;
     private const int MaxChunkEvictionsPerFrame = 2;
 
     private WorldUpdateQueue _worldUpdates =>
@@ -658,9 +663,11 @@ public partial class Main : Node3D
             loadingWorld
                 ? _loading.Center
                 : CurrentStreamingCenter();
-        // Loading covers the entire configured render area, not a smaller
-        // spawn bootstrap that expands after the player is released.
-        var streamingRadius = _clientPreferences.RenderDistanceChunks;
+        // Present a nearby bootstrap first; farther chunks stream after entry.
+        var streamingRadius = loadingWorld
+            ? ChunkStreamingSelection.GetInitialLoadingRadius(
+                _clientPreferences.RenderDistanceChunks)
+            : _clientPreferences.RenderDistanceChunks;
 
         var streamingPressure = WorldStreamingWorkPressure.Evaluate(
             delta, _worldUpdates.DirtyChunkCount, loadingWorld);
@@ -680,6 +687,9 @@ public partial class Main : Node3D
             streamingBegin.Collected);
         ReportResidencyUpdate(
             streamingBegin.Dispatched);
+        var fluidActivationReport =
+            _residency.ProcessPendingFluidActivations(_worldFrameBudget);
+        _worldDiagnostics?.ObserveFluidActivation(fluidActivationReport);
         ReportPresentationReservations(
             streamingBegin.ReservedPresentations);
         _worldDiagnostics?.ObserveStageMilliseconds(
@@ -749,7 +759,7 @@ public partial class Main : Node3D
             WorldFrameStage.LightingPoll, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
-        DispatchOneWorldWorker(streamingPressure.IsPressured, streamingCenter);
+        DispatchReadyWorldWorkers(streamingPressure.IsPressured, streamingCenter);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.WorkerDispatch, stageStart);
 
@@ -1306,6 +1316,7 @@ public partial class Main : Node3D
                 MaxInteractiveTerrainMeshletsPerWorker,
                 MaxTerrainMeshletsPerWorker,
                 MaxFluidMeshletsPerWorker,
+                MaxFluidMeshWorkers,
                 MaxFluidUpdatesPerWorker,
                 MaxChunkEvictionsPerFrame),
             _mods.AllowBlockBreak);
@@ -2492,7 +2503,8 @@ public partial class Main : Node3D
         ReportStreamingSelection(
             _chunkStreaming.SyncSelection(
                 _loading.Center,
-                _clientPreferences.RenderDistanceChunks,
+                ChunkStreamingSelection.GetInitialLoadingRadius(
+                    _clientPreferences.RenderDistanceChunks),
                 RequiresPortalSurfaceAccess));
         SendLoadingState();
     }
@@ -5018,6 +5030,12 @@ public partial class Main : Node3D
                 held, definition, _sessionStates.Player.GameMode))
             return;
 
+        // Capture the authored appearance before the mutation removes the
+        // source voxel or its top interactive layer. Creative does not pass
+        // through BlockMiningRuntime, so it submits the same completed cue
+        // directly to the shared particle runtime after a successful break.
+        var breakAppearance = MiningFragmentAppearance.Resolve(
+            _world, _blocks, _layers, hit);
         var decision =
             _blockInteractions.Break(
                 hit,
@@ -5027,6 +5045,9 @@ public partial class Main : Node3D
         {
             return;
         }
+
+        _sessions.Active.EmitMiningFeedback(
+            new MiningFeedbackEvent(hit, true, breakAppearance));
 
         // Destruction creates a physical block drop; collection is handled
         // by DroppedBlockRuntime and the authoritative inventory.
@@ -5607,39 +5628,39 @@ public partial class Main : Node3D
 
     private void PollFluidMeshWorker()
     {
-        if (!_fluidMeshPipeline.TryPollCompleted(
+        while (_fluidMeshPipeline.TryPollCompleted(
                 out var report,
                 out var error))
         {
-            return;
-        }
+            if (error is not null)
+            {
+                _worldDiagnostics?.Error("worker.fluid_mesh.failed", error);
+                GD.PushError(error.ToString());
+                continue;
+            }
 
-        if (error is not null)
-        {
-            _worldDiagnostics?.Error("worker.fluid_mesh.failed", error);
-            GD.PushError(error.ToString());
-            return;
-        }
+            if (report is not { } completed)
+                continue;
 
-        if (report is not { } completed)
-            return;
-
-        // Requeued stale batches consumed CPU too: measure them rather than
-        // silently excluding their cost from the performance baseline.
-        _worldDiagnostics?.ObserveFluidMesh(
-            completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
-            completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
-            completed.RelitWithoutMeshing,
-            completed.SalvagedFromStaleBatch);
-        if (completed.Kind != MeshPipelineCompletionKind.Applied)
-            return;
-        if (_debugHudVisible)
-        {
-            GD.Print(
-                $"world.fluid_mesh worker_ms=" +
-                $"{completed.WorkerMilliseconds:F2} " +
-                $"accepted={completed.Accepted} " +
-                $"stale={completed.Stale}");
+            // Requeued stale batches consumed CPU too: measure them rather than
+            // silently excluding their cost from the performance baseline.
+            _worldDiagnostics?.ObserveFluidMesh(
+                completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
+                completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
+                completed.RelitWithoutMeshing,
+                completed.SalvagedFromStaleBatch,
+                completed.CaptureMilliseconds);
+            if (completed.Kind != MeshPipelineCompletionKind.Applied)
+                continue;
+            if (_debugHudVisible)
+            {
+                GD.Print(
+                    $"world.fluid_mesh worker_ms=" +
+                    $"{completed.WorkerMilliseconds:F2} " +
+                    $"accepted={completed.Accepted} " +
+                    $"stale={completed.Stale} " +
+                    $"capture_ms={completed.CaptureMilliseconds:F2}");
+            }
         }
     }
 
@@ -5762,14 +5783,26 @@ public partial class Main : Node3D
         }
     }
 
-    private void DispatchOneWorldWorker(
+    private void DispatchReadyWorldWorkers(
         bool underStreamingPressure, ChunkCoord center)
     {
-        // A worker captures its immutable neighborhood synchronously.
-        // Start at most one snapshot per frame and rotate across owners.
-        for (var offset = 0; offset < 4; offset++)
+        // Each domain owns an independent async worker. Snapshot capture still
+        // runs against the authoritative world on this thread, so cap dispatch
+        // overhead without serializing every domain behind one global start.
+        var budget = FrameWorkBudget.Begin(
+            WorldWorkerDispatchBudget,
+            minimumItems: 1,
+            nowTimestamp: Stopwatch.GetTimestamp(),
+            timestampFrequency: Stopwatch.Frequency,
+            maximumItems: WorldWorkerLaneCount);
+        var firstLane = _nextWorldWorker;
+
+        for (var offset = 0; offset < WorldWorkerLaneCount; offset++)
         {
-            var lane = (_nextWorldWorker + offset) % 4;
+            if (budget.Exhausted(Stopwatch.GetTimestamp()))
+                break;
+
+            var lane = (firstLane + offset) % WorldWorkerLaneCount;
             var started = lane switch
             {
                 0 => _fluidSimulationRuntime.TryStartReadyWork(),
@@ -5783,8 +5816,8 @@ public partial class Main : Node3D
             if (!started)
                 continue;
 
-            _nextWorldWorker = (lane + 1) % 4;
-            return;
+            budget.Record();
+            _nextWorldWorker = (lane + 1) % WorldWorkerLaneCount;
         }
     }
 

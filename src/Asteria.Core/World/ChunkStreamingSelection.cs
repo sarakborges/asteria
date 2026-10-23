@@ -2,6 +2,8 @@ namespace Asteria.Core.World;
 
 public static class ChunkStreamingSelection
 {
+    public const int InitialLoadingRadiusChunks = 2;
+
     private const int SurfacePaddingBelowChunks = 2;
     private const int SurfacePaddingAboveChunks = 1;
     internal const int PlayerLocalHorizontalRadiusChunks = 2;
@@ -9,6 +11,18 @@ public static class ChunkStreamingSelection
     // Portal entry can require a vertical authored Structure; the additional
     // residency is temporary and strictly bounded independently of world height.
     internal const int MaximumVerticalAccessChunks = 32;
+
+    public static int GetInitialLoadingRadius(
+        int configuredRenderDistanceChunks)
+    {
+        if (configuredRenderDistanceChunks <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(configuredRenderDistanceChunks));
+
+        return Math.Min(
+            configuredRenderDistanceChunks,
+            InitialLoadingRadiusChunks);
+    }
 
     public static HashSet<ChunkCoord> DesiredSurfaceChunks(
         ChunkCoord center,

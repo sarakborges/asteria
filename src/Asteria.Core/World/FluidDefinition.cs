@@ -53,7 +53,7 @@ public readonly record struct FluidMotionDefinition
             surfaceExitSpeed: PlayerMovementSpeeds.Jump,
             verticalAcceleration: 12f,
             surfaceExitMargin: 0.35f,
-            buoyancySpeed: 0.6f);
+            passiveSinkSpeed: 0.6f);
 
     public FluidMotionDefinition(
         float horizontalSpeedMultiplier,
@@ -63,7 +63,7 @@ public readonly record struct FluidMotionDefinition
         float surfaceExitSpeed,
         float verticalAcceleration,
         float surfaceExitMargin,
-        float buoyancySpeed = 0.6f)
+        float passiveSinkSpeed = 0.6f)
     {
         HorizontalSpeedMultiplier =
             RequiredFiniteNonNegative(
@@ -73,8 +73,8 @@ public readonly record struct FluidMotionDefinition
             RequiredFiniteNonNegative(
                 horizontalAcceleration,
                 nameof(horizontalAcceleration));
-        BuoyancySpeed = RequiredFiniteNonNegative(
-            buoyancySpeed, nameof(buoyancySpeed));
+        PassiveSinkSpeed = RequiredFiniteNonNegative(
+            passiveSinkSpeed, nameof(passiveSinkSpeed));
         SinkSpeed =
             RequiredFiniteNonNegative(
                 sinkSpeed,
@@ -104,8 +104,8 @@ public readonly record struct FluidMotionDefinition
     /// <summary>Downward speed while Descend is held.</summary>
     public float SinkSpeed { get; }
 
-    /// <summary>Upward speed while neither swim direction is held.</summary>
-    public float BuoyancySpeed { get; }
+    /// <summary>Downward speed while immersed without swim input.</summary>
+    public float PassiveSinkSpeed { get; }
 
     public float AscendSpeed { get; }
 
@@ -335,8 +335,8 @@ public static class FluidDefinitionJson
                 defaults.SurfaceExitMargin,
             OptionalSingle(
                 motion,
-                "buoyancySpeed") ??
-                defaults.BuoyancySpeed);
+                "passiveSinkSpeed") ??
+                defaults.PassiveSinkSpeed);
     }
 
     private static BlockLightEmission ParseLightEmission(

@@ -315,6 +315,58 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void BreakingSupportStartsGravityBeforeResidentChunkSeedBacklog()
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:sand",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var sand = blocks.GetId("asteria:sand");
+        var stone = blocks.GetId("asteria:stone");
+
+        // Seed a dense resident chunk with supported gravity blocks. This
+        // creates far more queued scan work than one physics tick can drain.
+        for (var y = 1; y < Chunk.Size; y += 2)
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            chunk.SetBlock(x, y - 1, z, stone);
+            chunk.SetBlock(x, y, z, sand);
+        }
+
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var updates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), updates,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops);
+
+        Assert.True(physics.EnqueueResidentChunk(ChunkCoord.Zero) >
+            BlockPhysicsUpdateQueue.MaximumBatchSize);
+
+        var target = new WorldVoxelCoord(0, Chunk.Size - 1, 0);
+        var support = target + (0, -1, 0);
+        var interactions = new BlockInteractionRuntime(
+            world, blocks, mutations, drops);
+        Assert.True(interactions.Break(
+            new VoxelWorldHit(support, 0, 0, 0)).Accepted);
+
+        var wake = physics.ProcessWakeups();
+
+        Assert.Equal(1, wake.FallingStarted);
+        var falling = Assert.Single(physics.ActiveBlocks);
+        Assert.Equal(target.X, falling.ColumnX);
+        Assert.Equal(target.Z, falling.ColumnZ);
+        Assert.Equal(target.Y + 0.5, falling.CenterY);
+    }
+
+    [Fact]
     public void UnsupportedGravityBlockBecomesContinuousFallingState()
     {
         var fixture = CreateFixture();
@@ -351,6 +403,76 @@ public sealed class BlockPhysicsRuntimeTests
         Assert.Equal(
             4.5,
             falling.CenterY);
+    }
+
+    [Fact]
+    public void FallingBlocksCannotOverlapWhenUpperBlockCatchesLowerBlock()
+    {
+        var fixture = CreateFixture();
+        var sand = fixture.Blocks.GetId("asteria:sand");
+        var stone = fixture.Blocks.GetId("asteria:stone");
+        Assert.True(fixture.Mutations.SetBlockAt(
+            new WorldVoxelCoord(3, 0, 3), stone, out _));
+
+        // Reverse ID order deliberately: physics order must follow spatial
+        // position, not the identity assigned when an entity was created.
+        fixture.Physics.Dispose();
+        var sandState = BlockStateSnapshot.FromCell(new VoxelCell(sand));
+        var snapshot = new BlockPhysicsRuntimeSnapshot(2, [
+            new FallingBlockState(new FallingBlockId(1), sandState,
+                3, 3, 5.55, -24.0),
+            new FallingBlockState(new FallingBlockId(2), sandState,
+                3, 3, 4.5, 0.0),
+        ]);
+        using var physics = new BlockPhysicsRuntime(
+            fixture.World, fixture.Blocks, fixture.Mutations,
+            fixture.PhysicsUpdates, fixture.Dropped, restore: snapshot);
+
+        for (var frame = 0; frame < 240 && physics.ActiveCount > 0; frame++)
+        {
+            physics.Advance(1.0 / 60.0, 18.0);
+            var active = physics.ActiveBlocks
+                .OrderBy(block => block.ColumnX)
+                .ThenBy(block => block.ColumnZ)
+                .ThenBy(block => block.CenterY)
+                .ToArray();
+
+            for (var index = 1; index < active.Length; index++)
+            {
+                var lower = active[index - 1];
+                var upper = active[index];
+                if (lower.ColumnX == upper.ColumnX &&
+                    lower.ColumnZ == upper.ColumnZ)
+                {
+                    Assert.True(
+                        upper.CenterY - lower.CenterY >= 1.0 - 1e-8,
+                        $"Falling blocks {lower.Id.Value} and {upper.Id.Value} overlap.");
+                }
+            }
+        }
+
+        Assert.Equal(0, physics.ActiveCount);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(
+            new WorldVoxelCoord(3, 1, 3)).Block);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(
+            new WorldVoxelCoord(3, 2, 3)).Block);
+    }
+
+    [Fact]
+    public void VoxelMutationCannotPlaceABlockInsideAFallingBlock()
+    {
+        var fixture = CreateFixture();
+        var sand = fixture.Blocks.GetId("asteria:sand");
+        var stone = fixture.Blocks.GetId("asteria:stone");
+        var fallingPosition = new WorldVoxelCoord(3, 4, 3);
+
+        Assert.True(fixture.Mutations.SetBlockAt(
+            fallingPosition, sand, out _));
+        Assert.Equal(1, fixture.Physics.ProcessWakeups().FallingStarted);
+
+        Assert.False(fixture.Mutations.SetBlockAt(
+            fallingPosition, stone, out _));
+        Assert.True(fixture.World.GetCellOrEmpty(fallingPosition).IsEmpty);
     }
 
     [Fact]
@@ -699,17 +821,17 @@ public sealed class BlockPhysicsRuntimeTests
         Assert.Equal(
             1,
             fixture.Physics.ActiveCount);
-        Assert.True(
-            fixture.World
-                .GetCellOrEmpty(first)
-                .IsEmpty);
+        var firstEmpty =
+            fixture.World.GetCellOrEmpty(first).IsEmpty;
+        var secondEmpty =
+            fixture.World.GetCellOrEmpty(second).IsEmpty;
+        Assert.NotEqual(firstEmpty, secondEmpty);
+
+        var pendingPosition = firstEmpty ? second : first;
         Assert.Equal(
             sand,
-            fixture.World
-                .GetCellOrEmpty(second)
-                .Block);
-        Assert.True(
-            fixture.PhysicsUpdates.Count > 0);
+            fixture.World.GetCellOrEmpty(pendingPosition).Block);
+        Assert.True(fixture.PhysicsUpdates.Count > 0);
 
         var saturatedWake =
             fixture.Physics.ProcessWakeups();
@@ -719,9 +841,29 @@ public sealed class BlockPhysicsRuntimeTests
             saturatedWake.FallingStarted);
         Assert.Equal(
             sand,
-            fixture.World
-                .GetCellOrEmpty(second)
-                .Block);
+            fixture.World.GetCellOrEmpty(pendingPosition).Block);
+
+        for (var frame = 0;
+             frame < 240 && fixture.Physics.ActiveCount > 0;
+             frame++)
+        {
+            fixture.Physics.Advance(1.0 / 60.0, 18.0);
+        }
+
+        Assert.Equal(0, fixture.Physics.ActiveCount);
+        Assert.Equal(1, fixture.Physics.ProcessWakeups().FallingStarted);
+        for (var frame = 0;
+             frame < 240 && fixture.Physics.ActiveCount > 0;
+             frame++)
+        {
+            fixture.Physics.Advance(1.0 / 60.0, 18.0);
+        }
+
+        Assert.Equal(0, fixture.Physics.ActiveCount);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(
+            new WorldVoxelCoord(first.X, 0, first.Z)).Block);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(
+            new WorldVoxelCoord(second.X, 0, second.Z)).Block);
     }
 
     [Fact]

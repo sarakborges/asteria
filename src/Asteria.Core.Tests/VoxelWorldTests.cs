@@ -27,6 +27,41 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
+    public void CombinedCellAndFluidReadReturnsBothResidentValuesAndEmptyForMissingChunks()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(new ChunkCoord(-1, 0, 0), new Chunk());
+
+        var blockPosition = new WorldVoxelCoord(-1, 3, 4);
+        var fluidPosition = new WorldVoxelCoord(-2, 3, 4);
+        var block = new BlockRuntimeId(1);
+        var fluid = new FluidRuntimeId(1);
+
+        Assert.True(world.SetBlockAt(blockPosition, block, out _));
+        Assert.True(world.SetFluidAt(
+            fluidPosition,
+            FluidCell.Source(fluid),
+            out _));
+
+        Assert.True(world.TryGetCellAndFluid(
+            blockPosition, out var blockCell, out var fluidAtBlock));
+        Assert.Equal(block, blockCell.Block);
+        Assert.True(fluidAtBlock.IsEmpty);
+
+        Assert.True(world.TryGetCellAndFluid(
+            fluidPosition, out var cellAtFluid, out var sourceFluid));
+        Assert.True(cellAtFluid.IsEmpty);
+        Assert.Equal(FluidCell.Source(fluid), sourceFluid);
+
+        Assert.False(world.TryGetCellAndFluid(
+            new WorldVoxelCoord(-17, 3, 4),
+            out var missingCell,
+            out var missingFluid));
+        Assert.True(missingCell.IsEmpty);
+        Assert.True(missingFluid.IsEmpty);
+    }
+
+    [Fact]
     public void EditedChunkMovesToSessionArchiveAndRestoresExactRuntimeState()
     {
         var world = new VoxelWorld();

@@ -39,8 +39,36 @@ public sealed class BlockPhysicsRuntime : IDisposable
                     left.Value.CompareTo(
                         right.Value));
 
+    private sealed class FallingBlockAdvanceComparer : IComparer<FallingBlockId>
+    {
+        private readonly IReadOnlyDictionary<FallingBlockId, FallingBlockState> _active;
+
+        public FallingBlockAdvanceComparer(
+            IReadOnlyDictionary<FallingBlockId, FallingBlockState> active) =>
+            _active = active;
+
+        public int Compare(FallingBlockId left, FallingBlockId right)
+        {
+            var leftState = _active[left];
+            var rightState = _active[right];
+            var result = leftState.ColumnX.CompareTo(rightState.ColumnX);
+            if (result != 0)
+                return result;
+
+            result = leftState.ColumnZ.CompareTo(rightState.ColumnZ);
+            if (result != 0)
+                return result;
+
+            result = leftState.CenterY.CompareTo(rightState.CenterY);
+            return result != 0
+                ? result
+                : left.Value.CompareTo(right.Value);
+        }
+    }
+
     private const double MaximumDeltaSeconds = 0.05;
     private const double SupportEpsilon = 0.0001;
+    private const double FallingBlockHeight = 1.0;
 
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
@@ -52,6 +80,9 @@ public sealed class BlockPhysicsRuntime : IDisposable
         _active =
             new(FallingBlockIdComparer);
     private readonly FallingBlockId[] _advanceIds;
+    private readonly IComparer<FallingBlockId> _advanceComparer;
+    private readonly Func<WorldVoxelCoord, FallingBlockId?, bool>
+        _fallingBlockOccupancyQuery;
     // A falling block whose next support lies in an unloaded chunk is
     // dormant until that chunk becomes resident. It remains authoritative
     // in _active and is included in snapshots.
@@ -88,6 +119,10 @@ public sealed class BlockPhysicsRuntime : IDisposable
         _maximumActive = maximumActive;
         _advanceIds =
             new FallingBlockId[maximumActive];
+        _advanceComparer =
+            new FallingBlockAdvanceComparer(_active);
+        _fallingBlockOccupancyQuery =
+            IsOccupiedByOtherFallingBlock;
 
         if (restore is not null)
         {
@@ -119,11 +154,17 @@ public sealed class BlockPhysicsRuntime : IDisposable
             }
         }
 
+        _mutations.ConfigureFallingBlockOccupancy(
+            _fallingBlockOccupancyQuery);
         _world.ChunkBecameResident += OnChunkBecameResident;
     }
 
-    public void Dispose() =>
+    public void Dispose()
+    {
         _world.ChunkBecameResident -= OnChunkBecameResident;
+        _mutations.ClearFallingBlockOccupancy(
+            _fallingBlockOccupancyQuery);
+    }
 
     private void OnChunkBecameResident(ChunkCoord coord)
     {
@@ -166,6 +207,30 @@ public sealed class BlockPhysicsRuntime : IDisposable
     public int ActiveCount => _active.Count;
 
     public int WaitingFallingCount => _fallingWaitingForChunk.Count;
+
+    private bool IsOccupiedByOtherFallingBlock(
+        WorldVoxelCoord position,
+        FallingBlockId? ignoredFallingBlockId)
+    {
+        if (position.Y < 0)
+            return false;
+
+        foreach (var state in _active.Values)
+        {
+            if (ignoredFallingBlockId == state.Id ||
+                state.ColumnX != position.X ||
+                state.ColumnZ != position.Z)
+                continue;
+
+            var bottom = state.CenterY - FallingBlockHeight / 2.0;
+            var top = state.CenterY + FallingBlockHeight / 2.0;
+            if (top > position.Y + SupportEpsilon &&
+                bottom < position.Y + 1.0 - SupportEpsilon)
+                return true;
+        }
+
+        return false;
+    }
 
     public BlockPhysicsRuntimeSnapshot CaptureState() =>
         new(
@@ -384,176 +449,276 @@ public sealed class BlockPhysicsRuntime : IDisposable
 
         var delta =
             Math.Min(deltaSeconds, MaximumDeltaSeconds);
-        var landed = 0;
-
         var activeCount = 0;
 
+        // Resolve lower blocks first within each column. Falling bodies are
+        // separate from voxel storage, so the voxel sweep alone cannot see
+        // another body and would otherwise allow faster blocks to pass through
+        // slower blocks in the same column.
         foreach (var id in _active.Keys)
-        {
-            if (!_fallingWaitingForChunk.ContainsKey(id))
-                _advanceIds[activeCount++] = id;
-        }
+            _advanceIds[activeCount++] = id;
+        Array.Sort(
+            _advanceIds,
+            0,
+            activeCount,
+            _advanceComparer);
 
-        for (var index = 0;
-             index < activeCount;
-             index++)
+        var landed = 0;
+        var hasColumn = false;
+        var columnX = 0;
+        var columnZ = 0;
+        FallingBlockState? lowerBlock = null;
+
+        for (var index = 0; index < activeCount; index++)
         {
             var id = _advanceIds[index];
-            var state = _active[id];
+            if (!_active.TryGetValue(id, out var state))
+                continue;
 
-            // Do not simulate gravity inside a resident chunk until the
-            // chunk directly below it is resident. Otherwise falling blocks
-            // can advance toward an unloaded vertical gap before the sweep
-            // reaches that boundary.
-            var currentVoxelY = (int)Math.Floor(state.CenterY);
-            var currentChunk = VoxelCoordinates.FromWorld(
-                state.ColumnX, currentVoxelY, state.ColumnZ).Chunk;
-            if (currentChunk.Y > 0)
+            if (!hasColumn ||
+                state.ColumnX != columnX ||
+                state.ColumnZ != columnZ)
             {
-                var lowerChunk = new ChunkCoord(
-                    currentChunk.X, currentChunk.Y - 1, currentChunk.Z);
-                if (!_world.ContainsChunk(lowerChunk))
-                {
-                    var missingChunkVoxel = new WorldVoxelCoord(
-                        state.ColumnX,
-                        checked(currentChunk.Y * Chunk.Size - 1),
-                        state.ColumnZ);
-                    _active[id] = state with { VelocityY = 0.0 };
-                    WaitForFallingChunk(id, missingChunkVoxel);
-                    continue;
-                }
+                hasColumn = true;
+                columnX = state.ColumnX;
+                columnZ = state.ColumnZ;
+                lowerBlock = null;
             }
 
-            var velocity =
-                state.VelocityY -
-                gravityStrength * delta;
-            var targetCenterY =
-                state.CenterY +
-                velocity * delta;
-            var currentBottom =
-                state.CenterY - 0.5;
-            var targetBottom =
-                targetCenterY - 0.5;
-            var highestSupport =
-                (int)Math.Floor(
-                    currentBottom -
-                    SupportEpsilon);
-            var lowestSupport =
-                (int)Math.Floor(
-                    targetBottom -
-                    SupportEpsilon);
-            int? landingY = null;
-            var blockedByUnloaded = false;
-            var missingSupport = default(WorldVoxelCoord);
-
-            for (var supportY = highestSupport;
-                 supportY >= lowestSupport;
-                 supportY--)
+            if (_fallingWaitingForChunk.ContainsKey(id))
             {
-                if (supportY < 0)
-                {
-                    landingY = 0;
-                    break;
-                }
-
-                var support =
-                    new WorldVoxelCoord(
-                        state.ColumnX,
-                        supportY,
-                        state.ColumnZ);
-                var supportState =
-                    BlockMaterializationRules.Evaluate(
-                        _world,
-                        support);
-
-                if (supportState ==
-                    BlockMaterializationState.Unloaded)
-                {
-                    blockedByUnloaded = true;
-                    missingSupport = support;
-                    break;
-                }
-
-                if (supportState ==
-                    BlockMaterializationState.Occupied)
-                {
-                    landingY =
-                        supportY + 1;
-                    break;
-                }
-            }
-
-            if (blockedByUnloaded)
-            {
-                _active[id] =
-                    state with { VelocityY = 0.0 };
-                WaitForFallingChunk(id, missingSupport);
+                state = ConstrainAboveFallingBlock(state, lowerBlock);
+                _active[id] = state;
+                lowerBlock = state;
                 continue;
             }
 
-            if (landingY is not { } voxelY)
-            {
-                _active[id] =
-                    state with
-                    {
-                        CenterY = targetCenterY,
-                        VelocityY = velocity,
-                    };
-                continue;
-            }
+            var remainsActive = AdvanceFallingBlock(
+                state,
+                lowerBlock,
+                delta,
+                gravityStrength,
+                out var blockLanded);
 
-            var landing =
-                new WorldVoxelCoord(
-                    state.ColumnX,
-                    voxelY,
-                    state.ColumnZ);
-
-            var landingState =
-                BlockMaterializationRules.Evaluate(
-                    _world,
-                    landing);
-
-            if (landingState ==
-                BlockMaterializationState.Unloaded)
-            {
-                _active[id] =
-                    state with { VelocityY = 0.0 };
-                WaitForFallingChunk(id, landing);
-                continue;
-            }
-
-            if (landingState !=
-                BlockMaterializationState.Available)
-            {
-                _active[id] =
-                    state with
-                    {
-                        CenterY =
-                            voxelY + 0.5,
-                        VelocityY = 0.0,
-                    };
-                continue;
-            }
-
-            if (_mutations.SetBlockStateAt(
-                    landing,
-                    state.Block,
-                    out _))
-            {
-                _active.Remove(id);
+            if (blockLanded)
                 landed++;
-            }
+
+            if (remainsActive && _active.TryGetValue(id, out var updated))
+                lowerBlock = updated;
             else
-            {
-                _active[id] =
-                    state with
-                    {
-                        CenterY = voxelY + 0.5,
-                        VelocityY = 0.0,
-                    };
-            }
+                // A landed block is now an ordinary occupied voxel; the
+                // voxel sweep will use it as support for blocks above.
+                lowerBlock = null;
         }
 
         return landed;
+    }
+
+    private bool AdvanceFallingBlock(
+        FallingBlockState state,
+        FallingBlockState? lowerBlock,
+        double delta,
+        double gravityStrength,
+        out bool landed)
+    {
+        landed = false;
+        var id = state.Id;
+
+        // Do not simulate gravity inside a resident chunk until the chunk
+        // directly below it is resident. Otherwise falling blocks can advance
+        // toward an unloaded vertical gap before the sweep reaches that edge.
+        var currentVoxelY = (int)Math.Floor(state.CenterY);
+        var currentChunk = VoxelCoordinates.FromWorld(
+            state.ColumnX, currentVoxelY, state.ColumnZ).Chunk;
+        if (currentChunk.Y > 0)
+        {
+            var lowerChunk = new ChunkCoord(
+                currentChunk.X, currentChunk.Y - 1, currentChunk.Z);
+            if (!_world.ContainsChunk(lowerChunk))
+            {
+                state = ConstrainAboveFallingBlock(
+                    state with { VelocityY = 0.0 },
+                    lowerBlock);
+                _active[id] = state;
+                var missingChunkVoxel = new WorldVoxelCoord(
+                    state.ColumnX,
+                    checked(currentChunk.Y * Chunk.Size - 1),
+                    state.ColumnZ);
+                WaitForFallingChunk(id, missingChunkVoxel);
+                return true;
+            }
+        }
+
+        var velocity =
+            state.VelocityY -
+            gravityStrength * delta;
+        var targetCenterY =
+            state.CenterY +
+            velocity * delta;
+        var currentBottom =
+            state.CenterY - FallingBlockHeight / 2.0;
+        var targetBottom =
+            targetCenterY - FallingBlockHeight / 2.0;
+        var highestSupport =
+            (int)Math.Floor(
+                currentBottom -
+                SupportEpsilon);
+        var lowestSupport =
+            (int)Math.Floor(
+                targetBottom -
+                SupportEpsilon);
+        int? landingY = null;
+        var blockedByUnloaded = false;
+        var missingSupport = default(WorldVoxelCoord);
+
+        for (var supportY = highestSupport;
+             supportY >= lowestSupport;
+             supportY--)
+        {
+            if (supportY < 0)
+            {
+                landingY = 0;
+                break;
+            }
+
+            var support =
+                new WorldVoxelCoord(
+                    state.ColumnX,
+                    supportY,
+                    state.ColumnZ);
+            var supportState =
+                BlockMaterializationRules.Evaluate(
+                    _world,
+                    support);
+
+            if (supportState ==
+                BlockMaterializationState.Unloaded)
+            {
+                blockedByUnloaded = true;
+                missingSupport = support;
+                break;
+            }
+
+            if (supportState ==
+                BlockMaterializationState.Occupied)
+            {
+                landingY =
+                    supportY + 1;
+                break;
+            }
+        }
+
+        if (blockedByUnloaded)
+        {
+            state = ConstrainAboveFallingBlock(
+                state with { VelocityY = 0.0 },
+                lowerBlock);
+            _active[id] = state;
+            WaitForFallingChunk(id, missingSupport);
+            return true;
+        }
+
+        if (landingY is not { } voxelY)
+        {
+            state = ConstrainAboveFallingBlock(
+                state with
+                {
+                    CenterY = targetCenterY,
+                    VelocityY = velocity,
+                },
+                lowerBlock);
+            _active[id] = state;
+            return true;
+        }
+
+        // If the voxel sweep only sees the floor below another falling body,
+        // that body takes precedence. Clamp to its top and inherit its vertical
+        // velocity, so stacked bodies continue moving together without overlap.
+        var landingCenterY =
+            voxelY + FallingBlockHeight / 2.0;
+        if (lowerBlock is { } lower &&
+            landingCenterY < lower.CenterY + FallingBlockHeight)
+        {
+            _active[id] = ConstrainAboveFallingBlock(
+                state with
+                {
+                    CenterY = landingCenterY,
+                    VelocityY = velocity,
+                },
+                lowerBlock);
+            return true;
+        }
+
+        var landing =
+            new WorldVoxelCoord(
+                state.ColumnX,
+                voxelY,
+                state.ColumnZ);
+
+        var landingState =
+            BlockMaterializationRules.Evaluate(
+                _world,
+                landing);
+
+        if (landingState ==
+            BlockMaterializationState.Unloaded)
+        {
+            state = ConstrainAboveFallingBlock(
+                state with { VelocityY = 0.0 },
+                lowerBlock);
+            _active[id] = state;
+            WaitForFallingChunk(id, landing);
+            return true;
+        }
+
+        if (landingState !=
+            BlockMaterializationState.Available)
+        {
+            state = ConstrainAboveFallingBlock(
+                state with
+                {
+                    CenterY = landingCenterY,
+                    VelocityY = 0.0,
+                },
+                lowerBlock);
+            _active[id] = state;
+            return true;
+        }
+
+        if (_mutations.SetFallingBlockStateAt(
+                landing,
+                state.Block,
+                id,
+                out _))
+        {
+            _active.Remove(id);
+            landed = true;
+            return false;
+        }
+
+        state = ConstrainAboveFallingBlock(
+            state with
+            {
+                CenterY = landingCenterY,
+                VelocityY = 0.0,
+            },
+            lowerBlock);
+        _active[id] = state;
+        return true;
+    }
+
+    private static FallingBlockState ConstrainAboveFallingBlock(
+        FallingBlockState state,
+        FallingBlockState? lowerBlock)
+    {
+        if (lowerBlock is not { } lower ||
+            state.CenterY >= lower.CenterY + FallingBlockHeight)
+            return state;
+
+        return state with
+        {
+            CenterY = lower.CenterY + FallingBlockHeight,
+            VelocityY = lower.VelocityY,
+        };
     }
 }

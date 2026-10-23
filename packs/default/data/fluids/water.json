@@ -11,7 +11,7 @@
     "horizontalSpeedMultiplier": 1,
     "horizontalAcceleration": 28,
     "sinkSpeed": 3,
-    "buoyancySpeed": 0.6,
+    "passiveSinkSpeed": 0.6,
     "ascendSpeed": 3.8,
     "surfaceExitSpeed": 7,
     "verticalAcceleration": 12,

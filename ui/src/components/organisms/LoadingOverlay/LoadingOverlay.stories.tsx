@@ -21,20 +21,33 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Materializing: Story = {};
-export const Preparing: Story = {
+
+export const PreparingPresentation: Story = {
   args: {
     state: {
-      phase: "preparing_world",
+      phase: "preparing_presentation",
+      completed: 48,
+      total: 61,
+      dimension: "asteria:overworld",
+    },
+  },
+};
+
+export const RetiringDimension: Story = {
+  args: {
+    state: {
+      phase: "retiring_current_dimension",
       completed: 0,
       total: 0,
       dimension: "asteria:overworld",
     },
   },
 };
-export const RetiringDimension: Story = {
+
+export const Preparing: Story = {
   args: {
     state: {
-      phase: "retiring_current_dimension",
+      phase: "preparing_world",
       completed: 0,
       total: 0,
       dimension: "asteria:overworld",

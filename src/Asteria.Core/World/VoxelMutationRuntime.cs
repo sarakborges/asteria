@@ -35,6 +35,7 @@ public sealed class VoxelMutationRuntime
     private readonly BlockPhysicsUpdateQueue _blockPhysicsUpdates;
     private readonly MeshletContentRevisions _terrainContentRevisions;
     private readonly MeshletContentRevisions _fluidContentRevisions;
+    private Func<WorldVoxelCoord, FallingBlockId?, bool>? _fallingBlockOccupancyQuery;
     private ObjectDetachmentRuntime? _objectDetachment;
     private PackContentRegistry<ObjectDefinition>? _objectDefinitions;
 
@@ -47,6 +48,34 @@ public sealed class VoxelMutationRuntime
             throw new InvalidOperationException("Object detachment already configured.");
         _objectDetachment = runtime;
     }
+
+    /// <summary>
+    /// Registers the active falling-block collision query for this Sphere.
+    /// Block mutation remains authoritative but may not insert a voxel into a
+    /// volume currently occupied by a falling block.
+    /// </summary>
+    internal void ConfigureFallingBlockOccupancy(
+        Func<WorldVoxelCoord, FallingBlockId?, bool> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        if (_fallingBlockOccupancyQuery is not null)
+            throw new InvalidOperationException("Falling-block occupancy already configured.");
+        _fallingBlockOccupancyQuery = query;
+    }
+
+    internal void ClearFallingBlockOccupancy(
+        Func<WorldVoxelCoord, FallingBlockId?, bool> query)
+    {
+        if (ReferenceEquals(_fallingBlockOccupancyQuery, query))
+            _fallingBlockOccupancyQuery = null;
+    }
+
+    private bool IsOccupiedByOtherFallingBlock(
+        WorldVoxelCoord position,
+        FallingBlockId? ignoredFallingBlockId) =>
+        _fallingBlockOccupancyQuery?.Invoke(
+            position,
+            ignoredFallingBlockId) == true;
 
     /// <summary>Registers the immutable content required for change-driven
     /// Object lighting. This per-session policy does not own Object storage.</summary>
@@ -105,6 +134,13 @@ public sealed class VoxelMutationRuntime
         out VoxelWorldEdit edit,
         BlockBreakLootPolicy objectLootPolicy = BlockBreakLootPolicy.DropSelf)
     {
+        if (!cell.IsEmpty &&
+            IsOccupiedByOtherFallingBlock(position, ignoredFallingBlockId: null))
+        {
+            edit = default;
+            return false;
+        }
+
         var detach = ObjectDetachmentPlan.Empty;
         if (_objectDetachment is not null)
         {
@@ -140,9 +176,41 @@ public sealed class VoxelMutationRuntime
         WorldVoxelCoord position,
         BlockStateSnapshot state,
         out VoxelWorldEdit edit,
-        BlockBreakLootPolicy objectLootPolicy = BlockBreakLootPolicy.DropSelf)
+        BlockBreakLootPolicy objectLootPolicy = BlockBreakLootPolicy.DropSelf) =>
+        SetBlockStateAtCore(
+            position,
+            state,
+            ignoredFallingBlockId: null,
+            out edit,
+            objectLootPolicy);
+
+    public bool SetFallingBlockStateAt(
+        WorldVoxelCoord position,
+        BlockStateSnapshot state,
+        FallingBlockId fallingBlockId,
+        out VoxelWorldEdit edit) =>
+        SetBlockStateAtCore(
+            position,
+            state,
+            fallingBlockId,
+            out edit,
+            BlockBreakLootPolicy.DropSelf);
+
+    private bool SetBlockStateAtCore(
+        WorldVoxelCoord position,
+        BlockStateSnapshot state,
+        FallingBlockId? ignoredFallingBlockId,
+        out VoxelWorldEdit edit,
+        BlockBreakLootPolicy objectLootPolicy)
     {
         ArgumentNullException.ThrowIfNull(state);
+        if (!state.Cell.IsEmpty &&
+            IsOccupiedByOtherFallingBlock(position, ignoredFallingBlockId))
+        {
+            edit = default;
+            return false;
+        }
+
         var detach = ObjectDetachmentPlan.Empty;
         if (_objectDetachment is not null)
         {
@@ -271,7 +339,9 @@ public sealed class VoxelMutationRuntime
             if (!positions.Add(change.Position) ||
                 change.Position.Y < 0 ||
                 !_world.IsLoadedAt(change.Position) ||
-                (change.Block is not null && !change.Fluid.IsEmpty))
+                (change.Block is not null && !change.Fluid.IsEmpty) ||
+                (change.Block is not null &&
+                 IsOccupiedByOtherFallingBlock(change.Position, ignoredFallingBlockId: null)))
                 return false;
         }
 

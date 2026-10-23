@@ -94,6 +94,14 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private ChunkCoord? _slowestChunk;
     private int _slowChunks;
     private int _restored;
+    private int _fluidActivationChunks;
+    private int _fluidActivationSlices;
+    private int _fluidActivationCells;
+    private int _fluidFrontierCells;
+    private int _fluidDormantTicksReactivated;
+    private int _fluidActivationPendingChunks;
+    private double _fluidActivationMs;
+    private double _fluidActivationMaxMs;
     private int _terrainMeshBatches;
     private double _terrainMeshMs;
     private double _terrainMeshCaptureMs;
@@ -116,6 +124,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _fluidGpuAttributePatches;
     private int _fluidMeshBatches;
     private double _fluidMeshMs;
+    private double _fluidMeshCaptureMs;
+    private double _fluidMeshCaptureMaxMs;
     private int _fluidMeshAccepted;
     private int _fluidMeshStale;
     private int _fluidLightOnlyMeshlets;
@@ -320,6 +330,20 @@ internal sealed class WorldDiagnosticsLog : IDisposable
                 $"coord={failure.Coord} exception={failure.Error}");
     }
 
+    public void ObserveFluidActivation(FluidActivationWorkReport report)
+    {
+        _fluidActivationChunks += report.CompletedChunks;
+        _fluidActivationSlices += report.SlicesProcessed;
+        _fluidActivationCells += report.FluidCellsProcessed;
+        _fluidFrontierCells += report.FrontierCellsProcessed;
+        _fluidDormantTicksReactivated += report.DormantTicksReactivated;
+        _fluidActivationPendingChunks = report.PendingChunks;
+        _fluidActivationMs += report.ProcessingMilliseconds;
+        _fluidActivationMaxMs = Math.Max(
+            _fluidActivationMaxMs,
+            report.MaximumSliceMilliseconds);
+    }
+
     public void ObserveTerrainMesh(
         double workerMilliseconds, int accepted, int stale,
         double captureMilliseconds = 0d, bool discarded = false,
@@ -375,10 +399,13 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public void ObserveFluidMesh(double workerMilliseconds, int accepted, int stale,
         bool discarded = false, int relitWithoutMeshing = 0,
-        int salvagedFromStaleBatch = 0)
+        int salvagedFromStaleBatch = 0, double captureMilliseconds = 0d)
     {
         _fluidSalvagedMeshlets += salvagedFromStaleBatch;
         _fluidMeshBatches++;
+        _fluidMeshCaptureMs += captureMilliseconds;
+        _fluidMeshCaptureMaxMs = Math.Max(
+            _fluidMeshCaptureMaxMs, captureMilliseconds);
         _fluidLightOnlyMeshlets += relitWithoutMeshing;
         if (discarded)
             _fluidMeshDiscardedBatches++;
@@ -512,6 +539,14 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"generation_initial_light_ms_total={Format1(_initialLightingMs)} " +
             $"generation_ms_max={Format1(_materializationMaxMs)} " +
             $"generation_slow_chunks={_slowChunks} slowest_chunk={_slowestChunk} " +
+            $"fluid_activation_chunks={_fluidActivationChunks} " +
+            $"fluid_activation_slices={_fluidActivationSlices} " +
+            $"fluid_activation_cells={_fluidActivationCells} " +
+            $"fluid_frontier_cells={_fluidFrontierCells} " +
+            $"fluid_dormant_ticks={_fluidDormantTicksReactivated} " +
+            $"fluid_activation_pending_chunks={_fluidActivationPendingChunks} " +
+            $"fluid_activation_ms_total={Format1(_fluidActivationMs)} " +
+            $"fluid_activation_slice_ms_max={Format1(_fluidActivationMaxMs)} " +
             $"mesh_batches={_terrainMeshBatches} mesh_ms_total={Format1(_terrainMeshMs)} " +
             $"mesh_capture_ms_total={Format1(_terrainMeshCaptureMs)} " +
             $"mesh_capture_ms_max={Format1(_terrainMeshCaptureMaxMs)} " +
@@ -528,6 +563,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"mesh_publish_vertices={_meshPublicationVertices} " +
             $"mesh_publish_collision_triangles={_meshPublicationCollisionTriangles} " +
             $"fluid_mesh_batches={_fluidMeshBatches} fluid_mesh_ms_total={Format1(_fluidMeshMs)} " +
+            $"fluid_mesh_capture_ms_total={Format1(_fluidMeshCaptureMs)} " +
+            $"fluid_mesh_capture_ms_max={Format1(_fluidMeshCaptureMaxMs)} " +
             $"fluid_mesh_accepted={_fluidMeshAccepted} fluid_mesh_stale={_fluidMeshStale} " +
             $"fluid_light_only={_fluidLightOnlyMeshlets} " +
             $"fluid_mesh_salvaged_from_stale_batch={_fluidSalvagedMeshlets} " +
@@ -577,6 +614,14 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _renderVisiblePrimitivesMax = 0;
         _materialized = 0;
         _restored = 0;
+        _fluidActivationChunks = 0;
+        _fluidActivationSlices = 0;
+        _fluidActivationCells = 0;
+        _fluidFrontierCells = 0;
+        _fluidDormantTicksReactivated = 0;
+        _fluidActivationPendingChunks = 0;
+        _fluidActivationMs = 0d;
+        _fluidActivationMaxMs = 0d;
         _materializationMs = 0d;
         _terrainGenerationMs = 0d;
         _initialLightingMs = 0d;
@@ -605,6 +650,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fluidGpuAttributePatches = 0;
         _fluidMeshBatches = 0;
         _fluidMeshMs = 0d;
+        _fluidMeshCaptureMs = 0d;
+        _fluidMeshCaptureMaxMs = 0d;
         _fluidMeshAccepted = 0;
         _fluidMeshStale = 0;
         _fluidLightOnlyMeshlets = 0;

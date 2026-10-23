@@ -10,12 +10,17 @@ public sealed class FluidMeshPipeline
     private readonly FluidMeshUpdateQueue _updates;
     private readonly MeshletContentRevisions _revisions;
     private readonly ChunkPresentationController _presentations;
+    private sealed class WorkerSlot
+    {
+        public FluidMeshWorker Worker { get; } = new();
+
+        public WorldMeshBatch? InFlightBatch { get; set; }
+    }
+
     private readonly int _maximumMeshletsPerWorker;
-    private readonly FluidMeshWorker _worker = new();
+    private readonly WorkerSlot[] _workers;
 
     private bool _acceptingWork = true;
-
-    private WorldMeshBatch? _inFlightBatch;
 
     private readonly ProximityDispatchFairness _dispatchFairness = new();
 
@@ -26,7 +31,8 @@ public sealed class FluidMeshPipeline
         FluidMeshUpdateQueue updates,
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
-        int maximumMeshletsPerWorker)
+        int maximumMeshletsPerWorker,
+        int maximumConcurrentWorkers)
     {
         _world =
             world ??
@@ -53,11 +59,29 @@ public sealed class FluidMeshPipeline
                 nameof(maximumMeshletsPerWorker));
         }
 
+        if (maximumConcurrentWorkers <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumConcurrentWorkers));
+        }
+
         _maximumMeshletsPerWorker =
             maximumMeshletsPerWorker;
+        _workers = new WorkerSlot[maximumConcurrentWorkers];
+        for (var index = 0; index < _workers.Length; index++)
+            _workers[index] = new WorkerSlot();
     }
 
-    public bool IsRunning => _worker.IsRunning;
+    public bool IsRunning
+    {
+        get
+        {
+            foreach (var worker in _workers)
+                if (worker.Worker.IsRunning)
+                    return true;
+            return false;
+        }
+    }
 
     public void BeginRetirement()
     {
@@ -73,11 +97,20 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
-        if (_worker.IsRunning ||
-            !_updates.HasWork)
-        {
+        if (!_updates.HasWork)
             return false;
+
+        WorkerSlot? availableWorker = null;
+        foreach (var worker in _workers)
+        {
+            if (worker.Worker.IsRunning)
+                continue;
+            availableWorker = worker;
+            break;
         }
+
+        if (availableWorker is null)
+            return false;
 
         var nearest = _dispatchFairness.ShouldPrioritizeNearby(
             center is not null);
@@ -103,7 +136,7 @@ public sealed class FluidMeshPipeline
         }
 
         var relightable = _presentations.CaptureRelightableFluid(batch);
-        if (!_worker.TryStart(
+        if (!availableWorker.Worker.TryStart(
                 _world,
                 _blocks,
                 _fluids,
@@ -115,7 +148,7 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
-        _inFlightBatch = batch;
+        availableWorker.InFlightBatch = batch;
         _dispatchFairness.RecordStarted(nearest);
         return true;
     }
@@ -127,97 +160,88 @@ public sealed class FluidMeshPipeline
         report = null;
         error = null;
 
-        if (!_worker.TryTakeCompleted(
-                out var result,
-                out error))
+        foreach (var worker in _workers)
         {
-            return false;
-        }
-
-        var sourceBatch =
-            _inFlightBatch;
-        _inFlightBatch = null;
-
-        if (error is not null)
-        {
-            if (sourceBatch is not null)
-            {
-                _updates.Requeue(
-                    sourceBatch);
-            }
-            return true;
-        }
-
-        if (result is null)
-        {
-            if (sourceBatch is not null)
-            {
-                _updates.Requeue(
-                    sourceBatch);
-            }
-            return true;
-        }
-
-        var batchStale = !result.Dependencies.IsCurrent(_world);
-        var accepted = 0;
-        var stale = 0;
-        var salvaged = 0;
-        var relitWithoutMeshing = 0;
-
-        foreach (var meshlet in result.Meshlets)
-        {
-            if (!_world.ContainsChunk(
-                    meshlet.Coord) ||
-                !_presentations.Contains(
-                    meshlet.Coord))
+            if (!worker.Worker.TryTakeCompleted(
+                    out var result,
+                    out error))
             {
                 continue;
             }
 
-            var key =
-                new ChunkMeshletKey(
+            var sourceBatch = worker.InFlightBatch;
+            worker.InFlightBatch = null;
+
+            if (error is not null)
+            {
+                if (sourceBatch is not null)
+                    _updates.Requeue(sourceBatch);
+                return true;
+            }
+
+            if (result is null)
+            {
+                if (sourceBatch is not null)
+                    _updates.Requeue(sourceBatch);
+                return true;
+            }
+
+            var batchStale = !result.Dependencies.IsCurrent(_world);
+            var accepted = 0;
+            var stale = 0;
+            var salvaged = 0;
+            var relitWithoutMeshing = 0;
+
+            foreach (var meshlet in result.Meshlets)
+            {
+                if (!_world.ContainsChunk(meshlet.Coord) ||
+                    !_presentations.Contains(meshlet.Coord))
+                {
+                    continue;
+                }
+
+                var key = new ChunkMeshletKey(
                     meshlet.Coord,
                     meshlet.MeshletIndex);
-            var revision =
-                result.ContentRevisions[key];
-            var dependencies = result.MeshletDependencies[key];
+                var revision = result.ContentRevisions[key];
+                var dependencies = result.MeshletDependencies[key];
 
-            if (_revisions.IsCurrent(
-                    key,
-                    revision) &&
-                dependencies.IsCurrent(_world))
-            {
-                _presentations.EnqueueFluidPublication(
-                    meshlet,
-                    revision,
-                    dependencies);
-                accepted++;
-                if (batchStale)
-                    salvaged++;
-                if (meshlet.LightOnly)
-                    relitWithoutMeshing++;
+                if (_revisions.IsCurrent(key, revision) &&
+                    dependencies.IsCurrent(_world))
+                {
+                    _presentations.EnqueueFluidPublication(
+                        meshlet,
+                        revision,
+                        dependencies);
+                    accepted++;
+                    if (batchStale)
+                        salvaged++;
+                    if (meshlet.LightOnly)
+                        relitWithoutMeshing++;
+                }
+                else
+                {
+                    _updates.EnqueueMeshlets(
+                        meshlet.Coord,
+                        ChunkMeshletMask.Single(meshlet.MeshletIndex));
+                    stale++;
+                }
             }
-            else
-            {
-                _updates.EnqueueMeshlets(
-                    meshlet.Coord,
-                    ChunkMeshletMask.Single(
-                        meshlet.MeshletIndex));
-                stale++;
-            }
-        }
 
-        report =
-            new MeshPipelineWorkerReport(
+            report = new MeshPipelineWorkerReport(
                 accepted == 0 && stale > 0
                     ? MeshPipelineCompletionKind.RequeuedStale
                     : MeshPipelineCompletionKind.Applied,
                 result.WorkerMilliseconds,
                 accepted,
                 stale,
+                CaptureMilliseconds: result.CaptureMilliseconds,
                 RelitWithoutMeshing: relitWithoutMeshing,
                 SalvagedFromStaleBatch: salvaged);
-        return true;
+            return true;
+        }
+
+        return false;
     }
 
     public ChunkPresentationIntegrationStats IntegratePublications(

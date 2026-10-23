@@ -23,6 +23,38 @@ public static class FluidMeshDataBuilder
         BlockFace.Back,
     ];
 
+    private readonly record struct FluidSurfaceCacheKey(
+        WorldVoxelCoord Position,
+        FluidRuntimeId Fluid);
+
+    private sealed class FluidSurfaceHeightCache
+    {
+        private readonly VoxelWorld _world;
+        private readonly Dictionary<FluidSurfaceCacheKey, FluidFaceHeights> _heights = [];
+
+        public FluidSurfaceHeightCache(VoxelWorld world)
+        {
+            _world = world ??
+                throw new ArgumentNullException(nameof(world));
+        }
+
+        public FluidFaceHeights Get(
+            WorldVoxelCoord position,
+            FluidRuntimeId fluid)
+        {
+            var key = new FluidSurfaceCacheKey(position, fluid);
+            if (_heights.TryGetValue(key, out var cached))
+                return cached;
+
+            var heights = CalculateSurfaceHeights(
+                _world,
+                position,
+                fluid);
+            _heights.Add(key, heights);
+            return heights;
+        }
+    }
+
     public static ChunkFluidMeshData BuildMeshlet(
         VoxelWorld world,
         ChunkCoord coord,
@@ -41,6 +73,11 @@ public static class FluidMeshDataBuilder
             ChunkMeshletMask.Bounds(meshletIndex);
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
+        // Surface heights depend only on the immutable worker snapshot.
+        // Neighbor faces repeatedly ask for the same fluid cell's heights,
+        // so cache them for this meshlet build rather than recomputing the
+        // four corners and their surrounding voxel reads for every face.
+        var surfaceHeightCache = new FluidSurfaceHeightCache(world);
 
         for (var y = bounds.MinY;
              y < bounds.MaxYExclusive;
@@ -86,8 +123,7 @@ public static class FluidMeshDataBuilder
                     }
 
                     var heights =
-                        SurfaceHeights(
-                            world,
+                        surfaceHeightCache.Get(
                             position,
                             fluid.Fluid);
 
@@ -101,6 +137,7 @@ public static class FluidMeshDataBuilder
                             new Vector3(x, y, z),
                             fluid,
                             heights,
+                            surfaceHeightCache,
                             face);
                     }
                 }
@@ -125,6 +162,7 @@ public static class FluidMeshDataBuilder
         Vector3 localOrigin,
         FluidCell fluid,
         FluidFaceHeights heights,
+        FluidSurfaceHeightCache surfaceHeightCache,
         BlockFace face)
     {
         var offset = FaceOffset(face);
@@ -183,8 +221,7 @@ public static class FluidMeshDataBuilder
             neighborFluid.IsEmpty ||
             neighborFluid.Fluid != fluid.Fluid
                 ? default
-                : SurfaceHeights(
-                    world,
+                : surfaceHeightCache.Get(
                     neighborPosition,
                     fluid.Fluid);
 
@@ -257,34 +294,34 @@ public static class FluidMeshDataBuilder
             origin +
             new Vector3(0f, heights.H00, 0f);
 
-        EmitQuad(
-            vertices,
-            world,
-            blocks,
-            position,
-            BlockFace.Top,
-            points);
-        EmitTopUnderside(
-            vertices,
-            world,
-            blocks,
-            position,
-            points);
-    }
-
-    private static void EmitTopUnderside(
-        List<FluidMeshVertex> vertices,
-        VoxelWorld world,
-        BlockRegistry blocks,
-        WorldVoxelCoord position,
-        ReadOnlySpan<Vector3> points)
-    {
         var lighting =
             VoxelMeshLighting.SampleFace(
                 world,
                 blocks,
                 position,
                 BlockFace.Top);
+
+        EmitQuad(
+            vertices,
+            world,
+            blocks,
+            position,
+            BlockFace.Top,
+            points,
+            lighting);
+        EmitTopUnderside(
+            vertices,
+            position,
+            points,
+            lighting);
+    }
+
+    private static void EmitTopUnderside(
+        List<FluidMeshVertex> vertices,
+        WorldVoxelCoord position,
+        ReadOnlySpan<Vector3> points,
+        VoxelFaceLighting lighting)
+    {
         var triangleOrder =
             lighting.ShouldFlipDiagonal
                 ? ReverseFlippedTriangleOrder
@@ -433,9 +470,11 @@ public static class FluidMeshDataBuilder
         BlockRegistry blocks,
         WorldVoxelCoord position,
         BlockFace face,
-        ReadOnlySpan<Vector3> points)
+        ReadOnlySpan<Vector3> points,
+        VoxelFaceLighting? sampledLighting = null)
     {
         var lighting =
+            sampledLighting ??
             VoxelMeshLighting.SampleFace(
                 world,
                 blocks,
@@ -499,7 +538,7 @@ public static class FluidMeshDataBuilder
                 nameof(face)),
         };
 
-    private static FluidFaceHeights SurfaceHeights(
+    private static FluidFaceHeights CalculateSurfaceHeights(
         VoxelWorld world,
         WorldVoxelCoord position,
         FluidRuntimeId fluid) =>

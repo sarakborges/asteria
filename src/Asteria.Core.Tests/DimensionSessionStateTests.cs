@@ -358,8 +358,16 @@ public sealed class DimensionSessionStateTests
 
         var fallingSnapshot =
             physics.CaptureState();
+        var fallingActiveCount =
+            physics.ActiveCount;
         var droppedSnapshot =
             dropped.CaptureState();
+        var droppedActiveCount =
+            dropped.ActiveCount;
+
+        // Only one authoritative physics runtime may be attached to a
+        // mutation owner for a Sphere at a time.
+        physics.Dispose();
 
         var restoredDropped =
             new DroppedBlockRuntime(
@@ -367,7 +375,7 @@ public sealed class DimensionSessionStateTests
                 blocks,
                 restore:
                     droppedSnapshot);
-        var restoredPhysics =
+        using var restoredPhysics =
             new BlockPhysicsRuntime(
                 world,
                 blocks,
@@ -378,10 +386,10 @@ public sealed class DimensionSessionStateTests
                     fallingSnapshot);
 
         Assert.Equal(
-            physics.ActiveCount,
+            fallingActiveCount,
             restoredPhysics.ActiveCount);
         Assert.Equal(
-            dropped.ActiveCount,
+            droppedActiveCount,
             restoredDropped.ActiveCount);
         var restoredFallingSnapshot =
             restoredPhysics.CaptureState();
