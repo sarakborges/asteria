@@ -429,6 +429,67 @@ public sealed class FluidLightingTests
             brighten.ChangedPositions);
     }
 
+    [Fact]
+    public void UniformWaterChunkKeepsDirectSkylightWithoutFloodFillVisits()
+    {
+        var blocks = new BlockRegistry([]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(64, 128, 224),
+                opacity: 0.72f,
+                lightDampening: 1),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var chunk = new Chunk();
+
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+            chunk.SetFluid(x, y, z, FluidCell.Source(water));
+
+        var processed = ChunkLightingSolver.InitializeAndCountProcessedVoxels(
+            chunk, blocks, fluids);
+
+        // Vertical attenuation already gives the final result for a uniform
+        // water column. Do not flood-fill all 4096 cells just because water
+        // dampens skylight.
+        Assert.Equal(0, processed);
+        Assert.Equal((byte)14, chunk.GetLight(8, 15, 8).Sky);
+        Assert.Equal((byte)13, chunk.GetLight(8, 14, 8).Sky);
+        Assert.Equal((byte)0, chunk.GetLight(8, 0, 8).Sky);
+    }
+
+    [Fact]
+    public void WaterCanStillReceiveLateralLightFromAnAirShaft()
+    {
+        var blocks = new BlockRegistry([]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(64, 128, 224),
+                opacity: 0.72f,
+                lightDampening: 1),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var chunk = new Chunk();
+
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            if (x != 8)
+                chunk.SetFluid(x, y, z, FluidCell.Source(water));
+        }
+
+        var processed = ChunkLightingSolver.InitializeAndCountProcessedVoxels(
+            chunk, blocks, fluids);
+
+        Assert.True(processed > 0);
+        Assert.Equal((byte)15, chunk.GetLight(8, 14, 8).Sky);
+        Assert.True(chunk.GetLight(7, 14, 8).Sky > (byte)13);
+    }
+
     private static FluidRegistry CreateWater(
         byte lightDampening) =>
         new(
