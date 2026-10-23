@@ -733,6 +733,35 @@ public sealed class VoxelLightingSnapshotTests
     }
 
     [Fact]
+    public void BlockLightSnapshotCapturesOnlyThreeDimensionalChunkNeighborhood()
+    {
+        var world = new VoxelWorld();
+        var chunks = new[]
+        {
+            new ChunkCoord(0, 0, 0),
+            new ChunkCoord(0, 1, 0),
+            new ChunkCoord(0, 2, 0),
+            new ChunkCoord(0, 3, 0),
+            new ChunkCoord(0, 4, 0),
+            new ChunkCoord(1, 2, 0),
+            new ChunkCoord(3, 2, 0),
+        };
+        foreach (var coord in chunks)
+            world.InsertChunk(coord, new Chunk());
+
+        var snapshot = VoxelLightingSnapshot.CaptureBlockLightNeighborhood(
+            world, [new WorldVoxelCoord(3, 2 * Chunk.Size + 3, 3)]);
+
+        Assert.True(snapshot.World.ContainsChunk(new ChunkCoord(0, 1, 0)));
+        Assert.True(snapshot.World.ContainsChunk(new ChunkCoord(0, 2, 0)));
+        Assert.True(snapshot.World.ContainsChunk(new ChunkCoord(0, 3, 0)));
+        Assert.True(snapshot.World.ContainsChunk(new ChunkCoord(1, 2, 0)));
+        Assert.False(snapshot.World.ContainsChunk(new ChunkCoord(0, 0, 0)));
+        Assert.False(snapshot.World.ContainsChunk(new ChunkCoord(0, 4, 0)));
+        Assert.False(snapshot.World.ContainsChunk(new ChunkCoord(3, 2, 0)));
+    }
+
+    [Fact]
     public void UnrelatedContentEditDoesNotInvalidateLightingSnapshot()
     {
         var world = new VoxelWorld();
