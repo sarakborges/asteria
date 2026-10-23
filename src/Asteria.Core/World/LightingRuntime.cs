@@ -19,7 +19,9 @@ public sealed record LightingRuntimeReport(
     double CaptureMilliseconds,
     double ApplyMilliseconds,
     int SeedCount = 0,
-    LightingDependencyChanges StaleDependencies = LightingDependencyChanges.None);
+    LightingDependencyChanges StaleDependencies = LightingDependencyChanges.None,
+    int MediumSampleRequests = 0,
+    int MediumSampleCacheMisses = 0);
 
 public sealed class LightingRuntime
 {
@@ -206,7 +208,9 @@ public sealed class LightingRuntime
                     captureMilliseconds,
                     0d,
                     result.SourceBatch.EditedPositions.Count,
-                    result.Dependencies.DetectChanges(_world));
+                    result.Dependencies.DetectChanges(_world),
+                    result.Lighting.MediumSampleRequests,
+                    result.Lighting.MediumSampleCacheMisses);
             return true;
         }
 
@@ -240,7 +244,9 @@ public sealed class LightingRuntime
                 _publicationCaptureMilliseconds,
                 _publicationApplyMilliseconds,
                 result.SourceBatch.EditedPositions.Count,
-                result.Dependencies.DetectChanges(_world));
+                result.Dependencies.DetectChanges(_world),
+                result.Lighting.MediumSampleRequests,
+                result.Lighting.MediumSampleCacheMisses);
             _publication = null;
             return true;
         }
@@ -283,7 +289,9 @@ public sealed class LightingRuntime
             result.Lighting.ProcessedVoxelCount,
             _publicationCaptureMilliseconds,
             _publicationApplyMilliseconds,
-            result.SourceBatch.EditedPositions.Count);
+            result.SourceBatch.EditedPositions.Count,
+            MediumSampleRequests: result.Lighting.MediumSampleRequests,
+            MediumSampleCacheMisses: result.Lighting.MediumSampleCacheMisses);
         _publication = null;
         return true;
     }
