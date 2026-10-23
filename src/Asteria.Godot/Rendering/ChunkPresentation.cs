@@ -655,12 +655,12 @@ public sealed class ChunkPresentation
             {
                 EnsureFluidMesh();
                 var start = _fluidMesh!.GetSurfaceCount();
-                var count = ChunkFluidMeshBuilder.AppendSurfaces(
+                var appendedSurfaces = ChunkFluidMeshBuilder.AppendSurfaces(
                     _fluidMesh, data, materials);
-                if (count > 0)
+                if (appendedSurfaces > 0)
                 {
                     _fluidSurfaceStarts[meshletIndex] = start;
-                    _fluidSurfaceCounts[meshletIndex] = count;
+                    _fluidSurfaceCounts[meshletIndex] = appendedSurfaces;
                 }
             }
         }
@@ -711,12 +711,12 @@ public sealed class ChunkPresentation
             {
                 EnsureTerrainMesh();
                 var start = _terrainMesh!.GetSurfaceCount();
-                var count = ChunkMeshBuilder.AppendSurfaces(
+                var appendedSurfaces = ChunkMeshBuilder.AppendSurfaces(
                     _terrainMesh, data, materials);
-                if (count > 0)
+                if (appendedSurfaces > 0)
                 {
                     _terrainSurfaceStarts[meshletIndex] = start;
-                    _terrainSurfaceCounts[meshletIndex] = count;
+                    _terrainSurfaceCounts[meshletIndex] = appendedSurfaces;
                 }
             }
         }
