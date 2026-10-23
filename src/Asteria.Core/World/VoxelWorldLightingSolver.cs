@@ -679,86 +679,116 @@ public static class VoxelWorldLightingSolver
                 return Column.Empty;
             }
 
-            var highestY =
-                (matchingChunks[0].Y + 1) * Chunk.Size - 1;
-            var lowestY =
-                matchingChunks[^1].Y * Chunk.Size;
-            // Sparse vertical residency must not allocate a continuous
-            // span across potentially thousands of unloaded Y chunks.
-            // Each resident chunk contributes exactly 16 levels.
-            var chunkLevels = new Dictionary<int, byte[]>(matchingChunks.Length);
-            int? previousChunkY = null;
-            var sky =
-                VoxelLight.MaxLevel;
-
-            foreach (var coord in matchingChunks)
-            {
-                if (previousChunkY is not null &&
-                    coord.Y !=
-                        previousChunkY.Value - 1)
-                {
-                    sky =
-                        VoxelLight.MaxLevel;
-                }
-
-                var chunk =
-                    _world.GetChunk(coord);
-                var levels = new byte[Chunk.Size];
-                chunkLevels.Add(coord.Y, levels);
-                var localX =
-                    horizontalAddress.Local.X;
-                var localZ =
-                    horizontalAddress.Local.Z;
-                for (var localY =
-                         Chunk.Size - 1;
-                     localY >= 0;
-                     localY--)
-                {
-                    var cell =
-                        chunk.GetCell(
-                            localX,
-                            localY,
-                            localZ);
-                    var fluid =
-                        chunk.GetFluid(
-                            localX,
-                            localY,
-                            localZ);
-
-                    var dampening = DampeningAt(
-                        coord, chunk, localX, localY, localZ, cell, fluid);
-                    sky = SaturatingSubtract(sky, dampening);
-
-                    levels[localY] = sky;
-                }
-
-                previousChunkY =
-                    coord.Y;
-            }
-
             return new Column(
-                lowestY,
-                highestY,
-                chunkLevels);
+                this,
+                worldX,
+                worldZ,
+                horizontalAddress.Local.X,
+                horizontalAddress.Local.Z,
+                matchingChunks);
         }
 
-        private sealed record Column(
-            int LowestY,
-            int HighestY,
-            IReadOnlyDictionary<int, byte[]> LevelsByChunk)
+        // Build direct-sky samples only down to the lowest Y queried in this
+        // column. Most edit relights stay near their seeds, so eagerly walking
+        // every lower chunk and allocating its sample array is wasted work.
+        // Chunks are stored top-down; vertical gaps reset direct sky to full.
+        private sealed class Column
         {
-            public static Column Empty { get; } =
-                new(0, -1, new Dictionary<int, byte[]>());
+            private readonly LightingSolveContext? _owner;
+            private readonly int _worldX;
+            private readonly int _worldZ;
+            private readonly int _localX;
+            private readonly int _localZ;
+            private readonly ChunkCoord[] _chunks;
+            private readonly Dictionary<int, int> _indicesByChunkY;
+            private readonly Dictionary<int, byte[]> _levelsByChunk = [];
+            private readonly int _highestY;
+            private readonly int _lowestY;
+            private int _nextChunkIndex;
+            private int? _previousChunkY;
+            private byte _sky = VoxelLight.MaxLevel;
+
+            private Column()
+            {
+                _chunks = [];
+                _indicesByChunkY = [];
+                _highestY = -1;
+                _lowestY = 0;
+            }
+
+            public Column(
+                LightingSolveContext owner,
+                int worldX,
+                int worldZ,
+                int localX,
+                int localZ,
+                ChunkCoord[] chunks)
+            {
+                _owner = owner;
+                _worldX = worldX;
+                _worldZ = worldZ;
+                _localX = localX;
+                _localZ = localZ;
+                _chunks = chunks;
+                _indicesByChunkY = new Dictionary<int, int>(chunks.Length);
+                for (var index = 0; index < chunks.Length; index++)
+                    _indicesByChunkY.Add(chunks[index].Y, index);
+
+                _highestY = (chunks[0].Y + 1) * Chunk.Size - 1;
+                _lowestY = chunks[^1].Y * Chunk.Size;
+            }
+
+            public static Column Empty { get; } = new();
 
             public byte LevelAt(int worldY)
             {
-                if (worldY > HighestY)
+                if (worldY > _highestY)
                     return VoxelLight.MaxLevel;
-                if (worldY < LowestY ||
-                    !LevelsByChunk.TryGetValue(worldY / Chunk.Size,
-                        out var levels))
+                if (worldY < _lowestY)
+                    return 0;
+
+                var address = VoxelCoordinates.FromWorld(
+                    _worldX, worldY, _worldZ);
+                if (!_indicesByChunkY.TryGetValue(
+                        address.Chunk.Y, out var targetIndex))
+                {
                     return 0; // Unloaded vertical gaps remain dark.
-                return levels[worldY % Chunk.Size];
+                }
+
+                EnsureLevelsThrough(targetIndex);
+                return _levelsByChunk[address.Chunk.Y][address.Local.Y];
+            }
+
+            private void EnsureLevelsThrough(int targetIndex)
+            {
+                while (_nextChunkIndex <= targetIndex)
+                {
+                    var coord = _chunks[_nextChunkIndex];
+                    if (_previousChunkY is not null &&
+                        coord.Y != _previousChunkY.Value - 1)
+                    {
+                        _sky = VoxelLight.MaxLevel;
+                    }
+
+                    var owner = _owner ??
+                        throw new InvalidOperationException(
+                            "The empty direct-sky column cannot contain chunks.");
+                    var chunk = owner._world.GetChunk(coord);
+                    var levels = new byte[Chunk.Size];
+                    for (var localY = Chunk.Size - 1; localY >= 0; localY--)
+                    {
+                        var cell = chunk.GetCell(_localX, localY, _localZ);
+                        var fluid = chunk.GetFluid(_localX, localY, _localZ);
+                        var dampening = owner.DampeningAt(
+                            coord, chunk, _localX, localY, _localZ, cell, fluid);
+                        _sky = SaturatingSubtract(_sky, dampening);
+                        levels[localY] = _sky;
+                    }
+
+                    _levelsByChunk.Add(coord.Y, levels);
+                    _previousChunkY = coord.Y;
+                    _nextChunkIndex++;
+                }
             }
         }
     }
