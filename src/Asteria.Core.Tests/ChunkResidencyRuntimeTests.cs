@@ -385,6 +385,54 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void TerrainGenerationAndInitialLightingAreSeparateReadinessStages()
+    {
+        using var provider = new SignalingChunkProvider();
+        var fixture = CreateFixture(provider);
+        var coord = ChunkCoord.Zero;
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(provider.Materialized.Wait(TimeSpan.FromSeconds(2)));
+
+        // Promotion happens during collection. The generated chunk must stay
+        // outside VoxelWorld until its initial-light worker has been collected.
+        for (var attempt = 0;
+             attempt < 2000 && fixture.Runtime.InitialLightingPendingCount == 0;
+             attempt++)
+        {
+            fixture.Runtime.CollectMaterializationResults(
+                GenerousBudget(), Array.Empty<ChunkCoord>());
+            if (fixture.Runtime.InitialLightingPendingCount == 0)
+                Thread.Sleep(1);
+        }
+
+        Assert.Equal(1, fixture.Runtime.InitialLightingPendingCount);
+        Assert.Equal(1, fixture.Runtime.MaterializingCount);
+        Assert.False(fixture.World.ContainsChunk(coord));
+
+        for (var attempt = 0;
+             attempt < 2000 && !fixture.World.ContainsChunk(coord);
+             attempt++)
+        {
+            fixture.Runtime.CollectMaterializationResults(
+                GenerousBudget(), Array.Empty<ChunkCoord>());
+            if (!fixture.World.ContainsChunk(coord))
+                Thread.Sleep(1);
+        }
+
+        Assert.True(fixture.World.ContainsChunk(coord));
+        Assert.Equal(0, fixture.Runtime.InitialLightingPendingCount);
+        Assert.Equal(0, fixture.Runtime.MaterializingCount);
+    }
+
+    [Fact]
     public void PresentationDoesNotWaitForUnmaterializedNeighbor()
     {
         var fixture = CreateFixture();
@@ -471,7 +519,7 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(0, report.PendingChunks);
     }
 
-    private static RuntimeFixture CreateFixture()
+    private static RuntimeFixture CreateFixture(IChunkProvider? chunkProvider = null)
     {
         var blocks =
             new BlockRegistry(
@@ -531,7 +579,7 @@ public sealed class ChunkResidencyRuntimeTests
                 world,
                 blocks,
                 fluids,
-                new EmptyChunkProvider(),
+                chunkProvider ?? new EmptyChunkProvider(),
                 worldUpdates,
                 fluidUpdates,
                 fluidMeshUpdates,
@@ -561,6 +609,20 @@ public sealed class ChunkResidencyRuntimeTests
         public Chunk Materialize(
             ChunkCoord coord) =>
             new();
+    }
+
+    private sealed class SignalingChunkProvider : IChunkProvider, IDisposable
+    {
+        public ManualResetEventSlim Materialized { get; } = new(false);
+
+        public Chunk Materialize(ChunkCoord coord)
+        {
+            var chunk = new Chunk();
+            Materialized.Set();
+            return chunk;
+        }
+
+        public void Dispose() => Materialized.Dispose();
     }
 
     private sealed record RuntimeFixture(
