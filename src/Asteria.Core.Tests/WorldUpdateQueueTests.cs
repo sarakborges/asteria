@@ -777,4 +777,54 @@ public sealed class MeshletContentRevisionsTests
 
         Assert.False(revisions.IsCurrent(key, captured));
     }
+    [Fact]
+    public void InteractiveLightingEditDrainsSeparatelyBeforeBackgroundWork()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var queue = new WorldUpdateQueue();
+        var olderBackground = new WorldVoxelCoord(2, 2, 2);
+        var edited = new WorldVoxelCoord(3, 2, 2);
+        var newerBackground = new WorldVoxelCoord(4, 2, 2);
+
+        queue.EnqueueLighting(olderBackground);
+        queue.EnqueueVoxelEdit(world, edited);
+        queue.EnqueueLighting(newerBackground);
+
+        var interactive = queue.DrainLighting(
+            maximumPositions: 512,
+            maximumColumns: 2,
+            world,
+            ChunkCoord.Zero);
+
+        Assert.Equal([edited], interactive.EditedPositions);
+        Assert.True(queue.HasLightingWork);
+
+        Assert.Equal(
+            new[] { olderBackground, newerBackground },
+            queue.DrainLighting(
+                maximumPositions: 512,
+                maximumColumns: 2,
+                world).EditedPositions);
+        Assert.False(queue.HasLightingWork);
+    }
+
+    [Fact]
+    public void PromotingBackgroundLightingSeedDoesNotLeaveDuplicate()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var queue = new WorldUpdateQueue();
+        var edited = new WorldVoxelCoord(2, 2, 2);
+
+        queue.EnqueueLighting(edited);
+        queue.EnqueueVoxelEdit(world, edited);
+
+        Assert.Equal([edited], queue.DrainLighting(
+            maximumPositions: 512,
+            maximumColumns: 2,
+            world).EditedPositions);
+        Assert.False(queue.HasLightingWork);
+    }
+
 }
