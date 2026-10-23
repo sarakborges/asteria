@@ -40,7 +40,8 @@ public sealed class LightingWorker
         BlockRegistry blocks,
         FluidRegistry fluids,
         WorldLightingBatch batch,
-        PackContentRegistry<ObjectDefinition>? objects = null)
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        LightingWorkKind workKind = LightingWorkKind.DirectSky)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -52,11 +53,14 @@ public sealed class LightingWorker
         {
             return false;
         }
+        if (workKind is not (LightingWorkKind.BlockLightOnly or LightingWorkKind.DirectSky))
+            throw new ArgumentOutOfRangeException(nameof(workKind));
 
-        var snapshot =
-            VoxelLightingSnapshot.Capture(
-                world,
-                batch.EditedPositions);
+        var snapshot = workKind == LightingWorkKind.BlockLightOnly
+            ? VoxelLightingSnapshot.CaptureBlockLightNeighborhood(
+                world, batch.EditedPositions)
+            : VoxelLightingSnapshot.Capture(
+                world, batch.EditedPositions);
 
         var cancellation = new CancellationTokenSource();
         if (!_worker.TryStart(() =>
@@ -64,9 +68,13 @@ public sealed class LightingWorker
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                var lighting = VoxelWorldLightingSolver.RelightAfterEdits(
-                    snapshot.World, blocks, fluids, batch.EditedPositions,
-                    objects, cancellation.Token);
+                var lighting = workKind == LightingWorkKind.BlockLightOnly
+                    ? VoxelWorldLightingSolver.RelightBlockLightAfterEdits(
+                        snapshot.World, blocks, fluids, batch.EditedPositions,
+                        objects, cancellation.Token)
+                    : VoxelWorldLightingSolver.RelightAfterEdits(
+                        snapshot.World, blocks, fluids, batch.EditedPositions,
+                        objects, cancellation.Token);
                 return new LightingWorkerResult(
                     snapshot.Dependencies, snapshot.World, batch, lighting,
                     stopwatch.Elapsed.TotalMilliseconds,
