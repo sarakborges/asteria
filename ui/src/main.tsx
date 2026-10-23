@@ -9,6 +9,7 @@ import {
 } from "./bridge/godotBridge";
 import { createHudController } from "./controllers/HudController";
 import { createLoadingController } from "./controllers/LoadingController";
+import { createSavingController } from "./controllers/SavingController";
 import { createUiNavigationController } from "./controllers/UiNavigationController";
 import { createInventoryController } from "./controllers/InventoryController";
 import { createStorageBoxController } from "./controllers/StorageBoxController";
@@ -36,6 +37,7 @@ const hud = createHudController(
   postGodotMessage,
 );
 const loading = createLoadingController(store);
+const saving = createSavingController(store);
 const navigation =
   createUiNavigationController(
     store,
@@ -66,6 +68,7 @@ subscribeGodotMessages((message) => {
   addons.handleGodotMessage(message);
   worldCreation.handleGodotMessage(message);
   loading.handleGodotMessage(message);
+  saving.handleGodotMessage(message);
 });
 
 createRoot(rootElement).render(
