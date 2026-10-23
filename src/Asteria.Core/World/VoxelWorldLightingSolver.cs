@@ -146,12 +146,37 @@ public static class VoxelWorldLightingSolver
         FluidRegistry fluids,
         IEnumerable<WorldVoxelCoord> editedPositions,
         PackContentRegistry<ObjectDefinition>? objects = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RelightAfterEditsCore(
+            world, blocks, fluids, editedPositions, objects,
+            cancellationToken, LightingWorkKind.DirectSky);
+
+    internal static VoxelLightingUpdateResult RelightBlockLightAfterEdits(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        IEnumerable<WorldVoxelCoord> editedPositions,
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        CancellationToken cancellationToken = default) =>
+        RelightAfterEditsCore(
+            world, blocks, fluids, editedPositions, objects,
+            cancellationToken, LightingWorkKind.BlockLightOnly);
+
+    private static VoxelLightingUpdateResult RelightAfterEditsCore(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        IEnumerable<WorldVoxelCoord> editedPositions,
+        PackContentRegistry<ObjectDefinition>? objects,
+        CancellationToken cancellationToken,
+        LightingWorkKind workKind)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(editedPositions);
+        if (workKind is not (LightingWorkKind.DirectSky or LightingWorkKind.BlockLightOnly))
+            throw new ArgumentOutOfRangeException(nameof(workKind));
         cancellationToken.ThrowIfCancellationRequested();
 
         // First remove stale illumination, then restore light monotonically.
@@ -162,7 +187,7 @@ public static class VoxelWorldLightingSolver
         var originals = new Dictionary<WorldVoxelCoord, VoxelLight>();
         var objectEmissions = ObjectLightEmissionField.Capture(world, objects);
         var lightingContext = new LightingSolveContext(
-            world, blocks, fluids, objectEmissions);
+            world, blocks, fluids, objectEmissions, workKind);
         foreach (var position in editedPositions)
         {
             EnqueueWithNeighbors(world, darkening, position);
@@ -291,9 +316,11 @@ public static class VoxelWorldLightingSolver
         WorldVoxelCoord position,
         LightingSample sample) =>
         new(
-            sample.Dampening >= VoxelLight.MaxLevel
+            !lightingContext.UsesDirectSky
                 ? (byte)0
-                : lightingContext.LevelAt(position),
+                : sample.Dampening >= VoxelLight.MaxLevel
+                    ? (byte)0
+                    : lightingContext.LevelAt(position),
             sample.Emission.Red,
             sample.Emission.Green,
             sample.Emission.Blue);
@@ -308,18 +335,21 @@ public static class VoxelWorldLightingSolver
     {
         var dampening = sample.Dampening;
         var emission = sample.Emission;
+        var current = chunk.GetLight(local.X, local.Y, local.Z);
 
         if (dampening >= VoxelLight.MaxLevel)
         {
             return new VoxelLight(
-                0,
+                lightingContext.UsesDirectSky ? (byte)0 : current.Sky,
                 emission.Red,
                 emission.Green,
                 emission.Blue);
         }
 
         var attenuation = Math.Max((byte)1, dampening);
-        var sky = lightingContext.LevelAt(position);
+        var sky = lightingContext.UsesDirectSky
+            ? lightingContext.LevelAt(position)
+            : current.Sky;
         var red = emission.Red;
         var green = emission.Green;
         var blue = emission.Blue;
@@ -665,6 +695,8 @@ public static class VoxelWorldLightingSolver
         private readonly BlockRegistry _blocks;
         private readonly FluidRegistry _fluids;
         private readonly ObjectLightEmissionField _objectEmissions;
+        private readonly LightingWorkKind _workKind;
+        public bool UsesDirectSky => _workKind == LightingWorkKind.DirectSky;
         private readonly Dictionary<(int X, int Z), Column> _columns = [];
         // The immutable worker snapshot makes these derived cell properties
         // stable for the entire solve; the cache dies with this solve.
@@ -690,12 +722,14 @@ public static class VoxelWorldLightingSolver
             VoxelWorld world,
             BlockRegistry blocks,
             FluidRegistry fluids,
-            ObjectLightEmissionField objectEmissions)
+            ObjectLightEmissionField objectEmissions,
+            LightingWorkKind workKind)
         {
             _world = world;
             _blocks = blocks;
             _fluids = fluids;
             _objectEmissions = objectEmissions;
+            _workKind = workKind;
             _loadedColumns = world.LoadedChunkCoords
                 .GroupBy(coord => (coord.X, coord.Z))
                 .ToDictionary(
