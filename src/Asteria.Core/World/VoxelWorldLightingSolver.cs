@@ -91,6 +91,13 @@ public static class VoxelWorldLightingSolver
 
             result = MaxWorkKind(
                 result, ClassifyLightAt(world, blocks, fluids, seed));
+            // A missing voxel directly above the edit may be above the
+            // highest loaded chunk. That location is the virtual full-sky
+            // source; do not mistake it for an entirely dark neighborhood.
+            var above = seed + (0, 1, 0);
+            if (above.Y >= 0 && !world.IsLoadedAt(above))
+                return LightingWorkKind.DirectSky;
+
             foreach (var offset in Neighbors)
             {
                 result = MaxWorkKind(
