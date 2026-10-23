@@ -44,6 +44,86 @@ public static class VoxelWorldLightingSolver
         return FindChanges(world, previous);
     }
 
+    /// <summary>
+    /// Conservative fast-path guard for a small interactive lighting batch.
+    /// If every seed and its immediate neighbors are dark and non-emissive,
+    /// a single voxel edit cannot create or remove any reachable light. Nearby
+    /// Object-bearing chunks disable the shortcut because their emitters live
+    /// outside the block/fluid cell medium.
+    /// </summary>
+    internal static bool HasPotentialLightingImpact(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        IReadOnlyList<WorldVoxelCoord> seedPositions)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(fluids);
+        ArgumentNullException.ThrowIfNull(seedPositions);
+
+        if (seedPositions.Count == 0)
+            return false;
+
+        var checkedObjectChunks = new HashSet<ChunkCoord>();
+        foreach (var seed in seedPositions)
+        {
+            var seedChunk = VoxelCoordinates.FromWorld(
+                seed.X, seed.Y, seed.Z).Chunk;
+            // Attached Object light is projected from a support cell. Keep
+            // the regular solver whenever such content lies within one chunk
+            // of the edited area, even when its current light field is dark.
+            for (var dy = -1; dy <= 1; dy++)
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var coord = new ChunkCoord(
+                    seedChunk.X + dx,
+                    seedChunk.Y + dy,
+                    seedChunk.Z + dz);
+                if (coord.Y < 0 || !checkedObjectChunks.Add(coord))
+                    continue;
+                if (world.TryGetChunk(coord, out var objectChunk) &&
+                    objectChunk.ObjectCount > 0)
+                {
+                    return true;
+                }
+            }
+
+            if (HasCurrentLightOrEmitterAt(world, blocks, fluids, seed))
+                return true;
+            foreach (var offset in Neighbors)
+            {
+                if (HasCurrentLightOrEmitterAt(
+                        world, blocks, fluids, seed + offset))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasCurrentLightOrEmitterAt(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        WorldVoxelCoord position)
+    {
+        var address = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z);
+        if (!world.TryGetChunk(address.Chunk, out var chunk))
+            return false;
+
+        var local = address.Local;
+        if (!chunk.GetLight(local.X, local.Y, local.Z).IsDark)
+            return true;
+
+        var cell = chunk.GetCell(local.X, local.Y, local.Z);
+        var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
+        return !VoxelLightingMedium.Emission(
+            blocks, fluids, cell, fluid).IsDark;
+    }
+
     public static VoxelLightingUpdateResult RelightAfterEdits(
         VoxelWorld world,
         BlockRegistry blocks,
