@@ -45,13 +45,11 @@ public static class VoxelWorldLightingSolver
     }
 
     /// <summary>
-    /// Conservative fast-path guard for a small interactive lighting batch.
-    /// If every seed and its immediate neighbors are dark and non-emissive,
-    /// a single voxel edit cannot create or remove any reachable light. Nearby
-    /// Object-bearing chunks disable the shortcut because their emitters live
-    /// outside the block/fluid cell medium.
+    /// Classifies small player edits before paying for a world snapshot.
+    /// Sky changes need full vertical columns; RGB-only changes fit in the
+    /// local chunk neighborhood; fully dark, non-emissive edits need no solve.
     /// </summary>
-    internal static bool HasPotentialLightingImpact(
+    internal static LightingWorkKind ClassifyInteractiveLightingImpact(
         VoxelWorld world,
         BlockRegistry blocks,
         FluidRegistry fluids,
@@ -63,16 +61,17 @@ public static class VoxelWorldLightingSolver
         ArgumentNullException.ThrowIfNull(seedPositions);
 
         if (seedPositions.Count == 0)
-            return false;
+            return LightingWorkKind.None;
 
         var checkedObjectChunks = new HashSet<ChunkCoord>();
+        var result = LightingWorkKind.None;
         foreach (var seed in seedPositions)
         {
             var seedChunk = VoxelCoordinates.FromWorld(
-                seed.X, seed.Y, seed.Z).Chunk;
-            // Attached Object light is projected from a support cell. Keep
-            // the regular solver whenever such content lies within one chunk
-            // of the edited area, even when its current light field is dark.
+                seed.X, Math.Max(seed.Y, 0), seed.Z).Chunk;
+            // Object emission is not stored in the block/fluid cell arrays.
+            // Keep the conservative full solve whenever nearby object content
+            // could be a contributing source or support dependency.
             for (var dy = -1; dy <= 1; dy++)
             for (var dz = -1; dz <= 1; dz++)
             for (var dx = -1; dx <= 1; dx++)
@@ -86,43 +85,60 @@ public static class VoxelWorldLightingSolver
                 if (world.TryGetChunk(coord, out var objectChunk) &&
                     objectChunk.ObjectCount > 0)
                 {
-                    return true;
+                    return LightingWorkKind.DirectSky;
                 }
             }
 
-            if (HasCurrentLightOrEmitterAt(world, blocks, fluids, seed))
-                return true;
+            result = MaxWorkKind(
+                result, ClassifyLightAt(world, blocks, fluids, seed));
             foreach (var offset in Neighbors)
             {
-                if (HasCurrentLightOrEmitterAt(
-                        world, blocks, fluids, seed + offset))
-                    return true;
+                result = MaxWorkKind(
+                    result,
+                    ClassifyLightAt(world, blocks, fluids, seed + offset));
+                if (result == LightingWorkKind.DirectSky)
+                    return result;
             }
         }
 
-        return false;
+        return result;
     }
 
-    private static bool HasCurrentLightOrEmitterAt(
+    private static LightingWorkKind ClassifyLightAt(
         VoxelWorld world,
         BlockRegistry blocks,
         FluidRegistry fluids,
         WorldVoxelCoord position)
     {
         var address = VoxelCoordinates.FromWorld(
-            position.X, position.Y, position.Z);
+            position.X, Math.Max(position.Y, 0), position.Z);
         if (!world.TryGetChunk(address.Chunk, out var chunk))
-            return false;
+            return LightingWorkKind.None;
 
         var local = address.Local;
-        if (!chunk.GetLight(local.X, local.Y, local.Z).IsDark)
-            return true;
+        var light = chunk.GetLight(local.X, local.Y, local.Z);
+        if (light.Sky > 0)
+            return LightingWorkKind.DirectSky;
+
+        if (light.BlockPeak > 0)
+            return LightingWorkKind.BlockLightOnly;
 
         var cell = chunk.GetCell(local.X, local.Y, local.Z);
         var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
-        return !VoxelLightingMedium.Emission(
-            blocks, fluids, cell, fluid).IsDark;
+        return VoxelLightingMedium.Emission(blocks, fluids, cell, fluid).IsDark
+            ? LightingWorkKind.None
+            : LightingWorkKind.BlockLightOnly;
     }
+
+    private static LightingWorkKind MaxWorkKind(
+        LightingWorkKind left,
+        LightingWorkKind right) =>
+        left == LightingWorkKind.DirectSky || right == LightingWorkKind.DirectSky
+            ? LightingWorkKind.DirectSky
+            : left == LightingWorkKind.BlockLightOnly ||
+              right == LightingWorkKind.BlockLightOnly
+                ? LightingWorkKind.BlockLightOnly
+                : LightingWorkKind.None;
 
     public static VoxelLightingUpdateResult RelightAfterEdits(
         VoxelWorld world,
