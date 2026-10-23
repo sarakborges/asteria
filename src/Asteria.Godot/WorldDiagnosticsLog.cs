@@ -140,6 +140,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _lightingSeedBatchMax;
     private double _lightingMs;
     private int _lightingVoxels;
+    private int _lightingMediumSampleRequests;
+    private int _lightingMediumSampleCacheMisses;
     private int _lightingChanged;
     private int _lightingDirtyChunks;
     private int _lightingStaleBatches;
@@ -450,6 +452,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _lightingSeedCount += report.SeedCount;
         _lightingMs += report.WorkerMilliseconds;
         _lightingVoxels += report.ProcessedVoxelCount;
+        _lightingMediumSampleRequests += report.MediumSampleRequests;
+        _lightingMediumSampleCacheMisses += report.MediumSampleCacheMisses;
         _lightingChanged += report.ChangedVoxelCount;
         _lightingDirtyChunks += report.DirtyChunkCount;
         _lightingApplyMs += report.ApplyMilliseconds;
@@ -575,7 +579,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"lighting_seed_count={_lightingSeedCount} " +
             $"lighting_stale_seed_count={_lightingStaleSeedCount} " +
             $"lighting_seed_batch_max={_lightingSeedBatchMax} " +
-            $"lighting_voxels={_lightingVoxels} lighting_changed={_lightingChanged} " +
+            $"lighting_voxels={_lightingVoxels} " +
+            $"lighting_medium_cache_queries={_lightingMediumSampleRequests} " +
+            $"lighting_medium_cache_misses={_lightingMediumSampleCacheMisses} " +
+            $"lighting_changed={_lightingChanged} " +
             $"lighting_dirty_chunks={_lightingDirtyChunks} " +
             $"lighting_stale={_lightingStaleBatches} " +
             $"lighting_stale_content={_lightingStaleContentBatches} " +
@@ -666,6 +673,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _lightingSeedBatchMax = 0;
         _lightingMs = 0d;
         _lightingVoxels = 0;
+        _lightingMediumSampleRequests = 0;
+        _lightingMediumSampleCacheMisses = 0;
         _lightingChanged = 0;
         _lightingDirtyChunks = 0;
         _lightingStaleBatches = 0;
