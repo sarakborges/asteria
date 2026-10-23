@@ -21,6 +21,10 @@ public partial class Main : Node3D
             System.Environment.ProcessorCount - 2,
             1,
             4);
+    // All CPU-bound world jobs share one admission budget instead of letting
+    // terrain, lighting, fluids and streaming independently saturate the pool.
+    private static readonly int MaxConcurrentWorldJobs =
+        Math.Clamp(System.Environment.ProcessorCount - 1, 2, 6);
     private static readonly int MaxMaterializationDispatchesPerFrame =
         MaxMaterializationTasksInFlight;
     private const int MaxMaterializationResultsPerFrame = 8;
@@ -93,6 +97,13 @@ public partial class Main : Node3D
         _sessions.Active.FluidSimulation;
     private LightingRuntime _lightingRuntime =>
         _sessions.Active.Lighting;
+
+    private int ActiveWorldWorkerCount =>
+        _residency.ActiveWorkerCount +
+        _fluidSimulationRuntime.ActiveWorkerCount +
+        _lightingRuntime.ActiveWorkerCount +
+        _terrainMeshPipeline.ActiveWorkerCount +
+        _fluidMeshPipeline.ActiveWorkerCount;
 
     private BlockRegistry _blocks = null!;
     private AttachedLayerRegistry _layers = null!;
@@ -676,13 +687,16 @@ public partial class Main : Node3D
             pendingLightingSeeds: _worldUpdates.LightingEditCount,
             pendingPhysicsWakeups: _blockPhysicsUpdates.Count);
         var stageStart = Stopwatch.GetTimestamp();
+        var availableWorkerSlots = Math.Max(
+            0, MaxConcurrentWorldJobs - ActiveWorldWorkerCount);
         var streamingBegin =
             _chunkStreaming.BeginFrame(
                 streamingCenter,
                 _worldFrameBudget,
                 streamingRadius,
                 RequiresPortalSurfaceAccess,
-                streamingPressure);
+                streamingPressure,
+                availableWorkerSlots);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.StreamingBegin, stageStart);
         ReportStreamingSelection(
@@ -5840,7 +5854,8 @@ public partial class Main : Node3D
 
         for (var offset = 0; offset < WorldWorkerLaneCount; offset++)
         {
-            if (budget.Exhausted(Stopwatch.GetTimestamp()))
+            if (budget.Exhausted(Stopwatch.GetTimestamp()) ||
+                ActiveWorldWorkerCount >= MaxConcurrentWorldJobs)
                 break;
 
             var lane = (firstLane + offset) % WorldWorkerLaneCount;

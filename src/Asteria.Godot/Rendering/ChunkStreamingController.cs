@@ -170,7 +170,8 @@ public sealed class ChunkStreamingController
         WorldFrameWorkBudget budget,
         int horizontalRadius,
         bool includeVerticalAccess = false,
-        WorldStreamingWorkPressure pressure = default)
+        WorldStreamingWorkPressure pressure = default,
+        int maximumMaterializationStarts = int.MaxValue)
     {
         var selection =
             SyncSelection(
@@ -185,7 +186,8 @@ public sealed class ChunkStreamingController
             _residency.DispatchMaterializationTasks(
                 budget,
                 _presentations.Coordinates,
-                deferDistantWork: pressure.IsPressured);
+                deferDistantWork: pressure.IsPressured,
+                maximumNewTasks: maximumMaterializationStarts);
         var reserved =
             _presentations.ReservePending(
                 _residency,

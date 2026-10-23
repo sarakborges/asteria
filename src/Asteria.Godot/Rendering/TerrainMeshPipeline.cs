@@ -86,6 +86,10 @@ public sealed class TerrainMeshPipeline
         _interactiveWorker.IsRunning ||
         _backgroundWorker.IsRunning;
 
+    public int ActiveWorkerCount =>
+        (_interactiveWorker.IsRunning ? 1 : 0) +
+        (_backgroundWorker.IsRunning ? 1 : 0);
+
     public bool HasWorkAffecting(Func<ChunkCoord, bool> isRelevantChunk)
     {
         ArgumentNullException.ThrowIfNull(isRelevantChunk);

@@ -245,6 +245,10 @@ public sealed class ChunkResidencyRuntime
     public int InitialLightingPendingCount =>
         _initialLightingTasks.Count;
 
+    /// <summary>Background tasks currently owning terrain or initial-light stages.</summary>
+    public int ActiveWorkerCount =>
+        _materializationTasks.Count + _initialLightingTasks.Count;
+
     public int PresentationPendingCount =>
         _streaming.PresentationPendingCount;
 
@@ -456,9 +460,12 @@ public sealed class ChunkResidencyRuntime
     public ChunkResidencyUpdate DispatchMaterializationTasks(
         WorldFrameWorkBudget budget,
         IEnumerable<ChunkCoord> presented,
-        bool deferDistantWork = false)
+        bool deferDistantWork = false,
+        int maximumNewTasks = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(presented);
+        if (maximumNewTasks < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumNewTasks));
 
         if (deferDistantWork)
             _pressuredFramesSinceDistantDispatch = Math.Min(
@@ -483,8 +490,6 @@ public sealed class ChunkResidencyRuntime
                    _settings.MaxTerrainMaterializationsInFlight &&
                _materializationTasks.Count + _initialLightingTasks.Count <
                    _settings.MaxMaterializationsInFlight &&
-               dispatched <
-                   _settings.MaxDispatchesPerFrame &&
                restored <
                    _settings.MaxResultsPerFrame)
         {
@@ -541,6 +546,13 @@ public sealed class ChunkResidencyRuntime
                 ChunkRestoreResult.AlreadyResident)
             {
                 continue;
+            }
+
+            if (dispatched >= Math.Min(
+                    _settings.MaxDispatchesPerFrame, maximumNewTasks))
+            {
+                _streaming.EnqueuePending(selected);
+                break;
             }
 
             _streaming.MarkMaterializing(selected);

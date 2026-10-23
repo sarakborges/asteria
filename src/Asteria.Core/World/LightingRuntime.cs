@@ -89,6 +89,8 @@ public sealed class LightingRuntime
 
     public bool IsRunning => _worker.IsRunning || _publication is not null;
 
+    public int ActiveWorkerCount => _worker.IsRunning ? 1 : 0;
+
     public bool HasWorkAffecting(Func<ChunkCoord, bool> isRelevantChunk)
     {
         ArgumentNullException.ThrowIfNull(isRelevantChunk);

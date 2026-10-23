@@ -74,6 +74,8 @@ public sealed class FluidSimulationRuntime
 
     public bool IsRunning => _worker.IsRunning;
 
+    public int ActiveWorkerCount => _worker.IsRunning ? 1 : 0;
+
     public void BeginRetirement()
     {
         _acceptingWork = false;

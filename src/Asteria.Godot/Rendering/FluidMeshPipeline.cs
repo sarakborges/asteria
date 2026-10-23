@@ -72,14 +72,17 @@ public sealed class FluidMeshPipeline
             _workers[index] = new WorkerSlot();
     }
 
-    public bool IsRunning
+    public bool IsRunning => ActiveWorkerCount > 0;
+
+    public int ActiveWorkerCount
     {
         get
         {
+            var count = 0;
             foreach (var worker in _workers)
                 if (worker.Worker.IsRunning)
-                    return true;
-            return false;
+                    count++;
+            return count;
         }
     }
 
