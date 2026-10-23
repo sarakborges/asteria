@@ -372,6 +372,24 @@ public sealed class Chunk
             ObjectRevision)
         { ObjectCount = this.ObjectCount };
 
+    /// <summary>
+    /// Creates an isolated lighting snapshot. Surface appearance state is
+    /// intentionally omitted because the light solver only reads block/fluid
+    /// cells, microblock geometry, attached Objects and the current light field.
+    /// </summary>
+    internal Chunk CloneForLightingWorker() =>
+        new(
+            _cells.Clone(),
+            _fluids.Clone(),
+            _microblockMasks.Clone(),
+            [],
+            _objects.ToDictionary(entry => entry.Key,
+                entry => new List<ObjectCell>(entry.Value)),
+            (VoxelLight[])_light.Clone(),
+            Revision,
+            ObjectRevision)
+        { ObjectCount = this.ObjectCount };
+
     public bool CopyLightFrom(Chunk source)
     {
         ArgumentNullException.ThrowIfNull(source);
