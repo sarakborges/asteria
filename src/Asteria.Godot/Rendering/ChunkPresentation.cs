@@ -64,6 +64,9 @@ public sealed class ChunkPresentation
         new(StringComparer.Ordinal);
     private readonly Dictionary<string, WorldVoxelCoord[]> _objectLightPositions =
         new(StringComparer.Ordinal);
+    private string[] _objectLightRefreshGroups = [];
+    private int _objectLightRefreshGroupIndex;
+    private int _objectLightRefreshInstanceIndex;
 
     public ChunkPresentation(ChunkCoord coord)
     {
@@ -282,16 +285,17 @@ public sealed class ChunkPresentation
 
     /// <summary>One MultiMesh per object definition per chunk, never one
     /// Godot node per ObjectCell. ObjectRevision gates the entire rebuild.</summary>
-    internal void ApplyObjects(
+    internal bool ApplyObjects(
         Chunk chunk, VoxelWorld world,
         PackContentRegistry<ObjectDefinition> definitions,
-        WorldObjectVisualCatalog visuals, BiomeTintField tints)
+        WorldObjectVisualCatalog visuals, BiomeTintField tints,
+        int maximumLightUpdatesPerSlice)
     {
+        if (maximumLightUpdatesPerSlice <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumLightUpdatesPerSlice));
+
         if (_objectRevision == chunk.ObjectRevision)
-        {
-            RefreshObjectLighting(world);
-            return;
-        }
+            return RefreshObjectLighting(world, maximumLightUpdatesPerSlice);
         var groups = new SortedDictionary<string, List<(Transform3D Transform,
             System.Numerics.Vector3 Color, WorldVoxelCoord LightPosition)>>(StringComparer.Ordinal);
         BiomeTintSampleGrid? tintSamples = null;
@@ -381,18 +385,65 @@ public sealed class ChunkPresentation
             Root.AddChild(instance);
         }
         _objectRevision = chunk.ObjectRevision;
+        ResetObjectLightingRefresh();
+        return true;
     }
 
-    private void RefreshObjectLighting(VoxelWorld world)
+    private bool RefreshObjectLighting(
+        VoxelWorld world, int maximumUpdates)
     {
-        foreach (var (id, samples) in _objectLightPositions)
+        if (_objectLightRefreshGroups.Length == 0)
         {
-            var multiMesh = _objectBatches[id].Multimesh;
-            for (var i = 0; i < samples.Length; i++)
-                multiMesh.SetInstanceCustomData(i,
-                    WorldObjectLighting.ToInstanceColor(
-                        world.GetLightOrDark(samples[i])));
+            _objectLightRefreshGroups = _objectLightPositions.Keys
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToArray();
+            _objectLightRefreshGroupIndex = 0;
+            _objectLightRefreshInstanceIndex = 0;
         }
+
+        var processed = 0;
+        while (_objectLightRefreshGroupIndex < _objectLightRefreshGroups.Length &&
+               processed < maximumUpdates)
+        {
+            var id = _objectLightRefreshGroups[_objectLightRefreshGroupIndex];
+            if (!_objectBatches.TryGetValue(id, out var batch) ||
+                !_objectLightPositions.TryGetValue(id, out var samples))
+            {
+                _objectLightRefreshGroupIndex++;
+                _objectLightRefreshInstanceIndex = 0;
+                continue;
+            }
+
+            var multiMesh = batch.Multimesh;
+            while (_objectLightRefreshInstanceIndex < samples.Length &&
+                   processed < maximumUpdates)
+            {
+                var index = _objectLightRefreshInstanceIndex++;
+                multiMesh.SetInstanceCustomData(index,
+                    WorldObjectLighting.ToInstanceColor(
+                        world.GetLightOrDark(samples[index])));
+                processed++;
+            }
+
+            if (_objectLightRefreshInstanceIndex >= samples.Length)
+            {
+                _objectLightRefreshGroupIndex++;
+                _objectLightRefreshInstanceIndex = 0;
+            }
+        }
+
+        if (_objectLightRefreshGroupIndex < _objectLightRefreshGroups.Length)
+            return false;
+
+        ResetObjectLightingRefresh();
+        return true;
+    }
+
+    private void ResetObjectLightingRefresh()
+    {
+        _objectLightRefreshGroups = [];
+        _objectLightRefreshGroupIndex = 0;
+        _objectLightRefreshInstanceIndex = 0;
     }
 
     // Only the Godot presentation is suspended. The authoritative chunk is

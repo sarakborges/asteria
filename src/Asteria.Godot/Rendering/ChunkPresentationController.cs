@@ -194,22 +194,50 @@ public sealed class ChunkPresentationController
             _pendingObjects.Enqueue(coord);
     }
 
+    private const int MaximumObjectLightingUpdatesPerSlice = 128;
+
     public int IntegrateObjectChanges(int maximumPerFrame,
         WorldFrameWorkBudget budget)
     {
+        if (maximumPerFrame <= 0 || _pendingObjects.Count == 0)
+            return 0;
+
+        var work = FrameWorkBudget.Begin(
+            TimeSpan.FromMilliseconds(1),
+            minimumItems: 1,
+            nowTimestamp: Stopwatch.GetTimestamp(),
+            timestampFrequency: Stopwatch.Frequency,
+            maximumItems: maximumPerFrame,
+            globalDeadlineTimestamp: budget.DeadlineTimestamp);
         var processed = 0;
-        while (processed < maximumPerFrame && _pendingObjects.TryDequeue(out var coord))
+        while (processed < maximumPerFrame &&
+               _pendingObjects.TryDequeue(out var coord))
         {
-            if (processed > 0 && budget.Exhausted(Stopwatch.GetTimestamp()))
+            if (processed > 0 && work.Exhausted(Stopwatch.GetTimestamp()))
             {
                 _pendingObjects.EnqueueFront(coord);
                 break;
             }
+
+            var complete = true;
             if (_presentations.TryGetValue(coord, out var presentation) &&
                 _world.TryGetChunk(coord, out var chunk))
-                presentation.ApplyObjects(chunk, _world,
-                    _objects, _objectVisuals, _objectTints);
+            {
+                complete = presentation.ApplyObjects(chunk, _world,
+                    _objects, _objectVisuals, _objectTints,
+                    MaximumObjectLightingUpdatesPerSlice);
+            }
+
             processed++;
+            work.Record();
+            if (!complete)
+            {
+                // Continue the same chunk on a later frame. Do not immediately
+                // dequeue it again and accidentally consume the entire budget
+                // rebuilding one large instance-light buffer.
+                _pendingObjects.Enqueue(coord);
+                break;
+            }
         }
         return processed;
     }

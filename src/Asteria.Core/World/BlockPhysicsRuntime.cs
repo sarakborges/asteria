@@ -253,24 +253,47 @@ public sealed class BlockPhysicsRuntime : IDisposable
             {
                 var definition =
                     _blocks.GetDefinition(cell.Block);
+                var position = new WorldVoxelCoord(
+                    originX + x, originY + y, originZ + z);
+                var hasGravity = definition.HasTag(
+                    BlockPhysicsCapabilities.Gravity);
+                var hasSupportDependency =
+                    definition.HasTag(BlockPhysicsCapabilities.SupportBelow) ||
+                    definition.HasTag(BlockPhysicsCapabilities.SupportAbove) ||
+                    definition.HasTag(BlockPhysicsCapabilities.SupportWall);
 
-                if (!definition.HasTag(
-                        BlockPhysicsCapabilities.Gravity) &&
-                    !definition.HasTag(
-                        BlockPhysicsCapabilities.SupportBelow) &&
-                    !definition.HasTag(
-                        BlockPhysicsCapabilities.SupportAbove) &&
-                    !definition.HasTag(
-                        BlockPhysicsCapabilities.SupportWall))
+                if (!hasGravity && !hasSupportDependency)
+                    return;
+
+                // Chunk arrival is not itself a reason to schedule a support
+                // check. Supported attached blocks are stable until a voxel
+                // edit changes their dependency. Keep unloaded and unsupported
+                // dependencies queued so they can be resolved after arrival.
+                if (hasSupportDependency &&
+                    BlockSupportRules.Evaluate(
+                        _world, _blocks, definition, cell,
+                        _world.GetMicroblockMaskOrEmpty(position),
+                        position) != BlockSupportState.Supported)
                 {
+                    _updates.Enqueue(position);
+                    queued++;
                     return;
                 }
 
-                _updates.Enqueue(
-                    new WorldVoxelCoord(
-                        originX + x,
-                        originY + y,
-                        originZ + z));
+                if (!hasGravity)
+                    return;
+
+                // Gravity blocks with known solid support are already stable.
+                // Queue only empty or unloaded lower cells; y=0 has no lower
+                // world voxel and can never start falling.
+                var belowState = BlockMaterializationRules.Evaluate(
+                    _world, position + (0, -1, 0));
+                if (belowState is not (
+                        BlockMaterializationState.Available or
+                        BlockMaterializationState.Unloaded))
+                    return;
+
+                _updates.Enqueue(position);
                 queued++;
             });
 

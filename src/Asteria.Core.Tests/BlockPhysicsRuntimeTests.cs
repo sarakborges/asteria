@@ -315,7 +315,7 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
-    public void BreakingSupportStartsGravityBeforeResidentChunkSeedBacklog()
+    public void BreakingSupportWakesGravityWithoutSeedingSupportedChunkBacklog()
     {
         var world = new VoxelWorld();
         var chunk = new Chunk();
@@ -327,8 +327,8 @@ public sealed class BlockPhysicsRuntimeTests
         var sand = blocks.GetId("asteria:sand");
         var stone = blocks.GetId("asteria:stone");
 
-        // Seed a dense resident chunk with supported gravity blocks. This
-        // creates far more queued scan work than one physics tick can drain.
+        // Seed a dense resident chunk with supported gravity blocks. Chunk
+        // arrival must not schedule every stable block for redundant checks.
         for (var y = 1; y < Chunk.Size; y += 2)
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
@@ -347,8 +347,8 @@ public sealed class BlockPhysicsRuntimeTests
         using var physics = new BlockPhysicsRuntime(
             world, blocks, mutations, updates, drops);
 
-        Assert.True(physics.EnqueueResidentChunk(ChunkCoord.Zero) >
-            BlockPhysicsUpdateQueue.MaximumBatchSize);
+        Assert.Equal(0, physics.EnqueueResidentChunk(ChunkCoord.Zero));
+        Assert.Equal(0, updates.Count);
 
         var target = new WorldVoxelCoord(0, Chunk.Size - 1, 0);
         var support = target + (0, -1, 0);

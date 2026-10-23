@@ -41,6 +41,27 @@ public readonly record struct WorldFrameWorkBudget(
                 durationTicks));
     }
 
+    /// <summary>
+    /// Returns a phase-local deadline that never extends the shared frame
+    /// deadline. This lets expensive presentation stages budget themselves
+    /// without spending time reserved by another stage.
+    /// </summary>
+    public WorldFrameWorkBudget LimitTo(
+        TimeSpan maximumDuration,
+        long nowTimestamp,
+        long timestampFrequency)
+    {
+        if (maximumDuration < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(maximumDuration));
+
+        var phaseDeadline = FrameWorkBudget.SaturatingAdd(
+            nowTimestamp,
+            FrameWorkBudget.ToTimestampTicks(
+                maximumDuration, timestampFrequency));
+        return new WorldFrameWorkBudget(
+            Math.Min(DeadlineTimestamp, phaseDeadline));
+    }
+
     public bool Exhausted(long nowTimestamp) =>
         nowTimestamp >= DeadlineTimestamp;
 }

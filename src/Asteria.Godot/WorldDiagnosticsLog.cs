@@ -20,6 +20,7 @@ internal enum WorldFrameStage : byte
     FluidPublication,
     TerrainPoll,
     TerrainPublication,
+    ObjectPresentation,
     LightingPoll,
     WorkerDispatch,
     StreamingEnd,

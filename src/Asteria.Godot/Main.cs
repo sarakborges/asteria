@@ -670,7 +670,11 @@ public partial class Main : Node3D
             : _clientPreferences.RenderDistanceChunks;
 
         var streamingPressure = WorldStreamingWorkPressure.Evaluate(
-            delta, _worldUpdates.DirtyChunkCount, loadingWorld);
+            delta,
+            _worldUpdates.DirtyChunkCount,
+            loadingWorld,
+            pendingLightingSeeds: _worldUpdates.LightingEditCount,
+            pendingPhysicsWakeups: _blockPhysicsUpdates.Count);
         var stageStart = Stopwatch.GetTimestamp();
         var streamingBegin =
             _chunkStreaming.BeginFrame(
@@ -738,7 +742,10 @@ public partial class Main : Node3D
             WorldFrameStage.FluidPoll, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
-        IntegrateFluidMeshletPublications();
+        var fluidPublicationBudget = _worldFrameBudget.LimitTo(
+            TimeSpan.FromMilliseconds(1),
+            Stopwatch.GetTimestamp(), Stopwatch.Frequency);
+        IntegrateFluidMeshletPublications(fluidPublicationBudget);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.FluidPublication, stageStart);
 
@@ -748,10 +755,21 @@ public partial class Main : Node3D
             WorldFrameStage.TerrainPoll, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
-        IntegrateMeshletPublications();
-        _chunkPresentations.IntegrateObjectChanges(4, _worldFrameBudget);
+        var terrainPublicationBudget = _worldFrameBudget.LimitTo(
+            TimeSpan.FromMilliseconds(2),
+            Stopwatch.GetTimestamp(), Stopwatch.Frequency);
+        IntegrateMeshletPublications(terrainPublicationBudget);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.TerrainPublication, stageStart);
+
+        stageStart = Stopwatch.GetTimestamp();
+        var objectPresentationBudget = _worldFrameBudget.LimitTo(
+            TimeSpan.FromMilliseconds(1),
+            Stopwatch.GetTimestamp(), Stopwatch.Frequency);
+        _chunkPresentations.IntegrateObjectChanges(
+            4, objectPresentationBudget);
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.ObjectPresentation, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
         PollLightingWorker();
@@ -5685,12 +5703,13 @@ public partial class Main : Node3D
         }
     }
 
-    private void IntegrateFluidMeshletPublications()
+    private void IntegrateFluidMeshletPublications(
+        WorldFrameWorkBudget budget)
     {
         var stats =
             _fluidMeshPipeline.IntegratePublications(
                 MaxFluidMeshletPublishesPerFrame,
-                _worldFrameBudget);
+                budget);
         _worldDiagnostics?.ObserveFluidPublication(stats);
 
         if (_debugHudVisible &&
@@ -5785,12 +5804,13 @@ public partial class Main : Node3D
 
     }
 
-    private void IntegrateMeshletPublications()
+    private void IntegrateMeshletPublications(
+        WorldFrameWorkBudget budget)
     {
         var stats =
             _terrainMeshPipeline.IntegratePublications(
                 MaxMeshletPublishesPerFrame,
-                _worldFrameBudget);
+                budget);
         _worldDiagnostics?.ObserveTerrainPublication(stats);
 
         if (_debugHudVisible &&

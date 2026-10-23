@@ -20,6 +20,21 @@ public sealed class FrameWorkBudgetTests
     }
 
     [Fact]
+    public void PhaseBudgetCanShortenButNeverExtendGlobalDeadline()
+    {
+        var global = new WorldFrameWorkBudget(1_100);
+        var shortPhase = global.LimitTo(
+            TimeSpan.FromMilliseconds(2), nowTimestamp: 1_000,
+            timestampFrequency: 1_000);
+        var longPhase = new WorldFrameWorkBudget(1_010).LimitTo(
+            TimeSpan.FromMilliseconds(20), nowTimestamp: 1_000,
+            timestampFrequency: 1_000);
+
+        Assert.Equal(1_002, shortPhase.DeadlineTimestamp);
+        Assert.Equal(1_010, longPhase.DeadlineTimestamp);
+    }
+
+    [Fact]
     public void MinimumWorkRunsBeforeDeadlineCanExhaustBudget()
     {
         var budget =
