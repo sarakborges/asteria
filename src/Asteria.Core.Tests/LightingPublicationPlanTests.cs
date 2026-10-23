@@ -78,4 +78,22 @@ public sealed class LightingPublicationPlanTests
     {
         Assert.Empty(LightingPublicationPlan.Create([]));
     }
+    [Fact]
+    public void PrioritizedPublicationStartsNearTheTriggeringEdit()
+    {
+        var positions = new[]
+        {
+            new WorldVoxelCoord(1, 2, 1),
+            new WorldVoxelCoord(161, 2, 1),
+            new WorldVoxelCoord(321, 2, 1),
+        };
+        var edit = new WorldVoxelCoord(162, 2, 1);
+
+        var plan = LightingPublicationPlan.Create(positions, [edit]);
+
+        Assert.Equal(new ChunkCoord(10, 0, 0), plan[0].Coord);
+        Assert.Equal(ChunkCoord.Zero, plan[1].Coord);
+        Assert.Equal(new ChunkCoord(20, 0, 0), plan[2].Coord);
+    }
+
 }
