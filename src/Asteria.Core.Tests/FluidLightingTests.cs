@@ -430,7 +430,7 @@ public sealed class FluidLightingTests
     }
 
     [Fact]
-    public void UniformWaterChunkKeepsDirectSkylightWithoutFloodFillVisits()
+    public void WaterChunkWithDifferentFlowStatesSkipsStableLightFloodFill()
     {
         var blocks = new BlockRegistry([]);
         var fluids = new FluidRegistry([
@@ -446,14 +446,20 @@ public sealed class FluidLightingTests
         for (var y = 0; y < Chunk.Size; y++)
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
-            chunk.SetFluid(x, y, z, FluidCell.Source(water));
+        {
+            var level = (byte)(1 + ((x + y + z) % FluidCell.MaxLevel));
+            var fluid = (x + y + z) % 2 == 0
+                ? FluidCell.Source(water, level)
+                : FluidCell.Spreading(water, level, (ushort)(x + y + z));
+            chunk.SetFluid(x, y, z, fluid);
+        }
 
         var processed = ChunkLightingSolver.InitializeAndCountProcessedVoxels(
             chunk, blocks, fluids);
 
-        // Vertical attenuation already gives the final result for a uniform
-        // water column. Do not flood-fill all 4096 cells just because water
-        // dampens skylight.
+        // Water light attenuation rounds to one for all levels here. Although
+        // the actual flow/source state differs throughout the chunk, every X/Z
+        // column has the same direct-sky field and needs no flood-fill.
         Assert.Equal(0, processed);
         Assert.Equal((byte)14, chunk.GetLight(8, 15, 8).Sky);
         Assert.Equal((byte)13, chunk.GetLight(8, 14, 8).Sky);
