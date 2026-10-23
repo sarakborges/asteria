@@ -768,11 +768,15 @@ public static class VoxelWorldLightingSolver
             _objectEmissions = objectEmissions;
             _hasObjectEmissions = !objectEmissions.IsEmpty;
             _workKind = workKind;
-            _loadedColumns = world.LoadedChunkCoords
-                .GroupBy(coord => (coord.X, coord.Z))
-                .ToDictionary(
-                    group => group.Key,
-                    group => group.OrderByDescending(coord => coord.Y).ToArray());
+            // RGB-only relights never query direct sky. Avoid grouping and
+            // sorting every resident chunk just to build unused sky columns.
+            _loadedColumns = UsesDirectSky
+                ? world.LoadedChunkCoords
+                    .GroupBy(coord => (coord.X, coord.Z))
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.OrderByDescending(coord => coord.Y).ToArray())
+                : [];
         }
 
         public LightingSample Sample(
