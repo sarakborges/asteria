@@ -1,6 +1,7 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { InventoryCatalogEntry } from "./state/uiState";
 import { LoadingOverlay } from "./components/organisms/LoadingOverlay/LoadingOverlay";
+import { SavingOverlay } from "./components/organisms/SavingOverlay/SavingOverlay";
 import { GameHudPage } from "./components/pages/GameHudPage/GameHudPage";
 import { ChatDock } from "./components/organisms/ChatDock/ChatDock";
 import { InventoryGameplayPage } from "./components/pages/InventoryGameplayPage/InventoryGameplayPage";
@@ -431,6 +432,7 @@ export function App({
       )}
 
       <LoadingOverlay state={state.loading} />
+      <SavingOverlay visible={state.saving} />
       {state.navigation.exitConfirmation && (
         <SaveFailureExitDialog
           onCancel={actions.cancelExitWithoutSave}
