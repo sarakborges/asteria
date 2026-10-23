@@ -17,7 +17,8 @@ public static class LightingPublicationPlan
     /// unordered input rather than publishing a chunk twice.
     /// </summary>
     public static IReadOnlyList<LightingPublicationChunk> Create(
-        IReadOnlyList<WorldVoxelCoord> changedPositions)
+        IReadOnlyList<WorldVoxelCoord> changedPositions,
+        IEnumerable<WorldVoxelCoord>? priorityPositions = null)
     {
         ArgumentNullException.ThrowIfNull(changedPositions);
         var result = new List<LightingPublicationChunk>();
@@ -50,6 +51,48 @@ public static class LightingPublicationPlan
                     changedPositions, offset, end - offset)));
             offset = end;
         }
-        return result;
+        if (priorityPositions is null || result.Count < 2)
+            return result;
+
+        var priorityChunks = priorityPositions
+            .Select(position => VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk)
+            .Distinct()
+            .OrderBy(coord => coord.Y)
+            .ThenBy(coord => coord.Z)
+            .ThenBy(coord => coord.X)
+            .ToArray();
+        if (priorityChunks.Length == 0)
+            return result;
+
+        // Publish around the triggering edit first. A large propagation
+        // result may span many chunks, but the edited area should not wait
+        // for the lexicographically first distant chunk to be copied.
+        return result
+            .Select(publication => (
+                Publication: publication,
+                Distance: NearestSeedDistance(publication.Coord, priorityChunks)))
+            .OrderBy(entry => entry.Distance)
+            .ThenBy(entry => entry.Publication.Coord.Y)
+            .ThenBy(entry => entry.Publication.Coord.Z)
+            .ThenBy(entry => entry.Publication.Coord.X)
+            .Select(entry => entry.Publication)
+            .ToArray();
+    }
+
+    private static long NearestSeedDistance(
+        ChunkCoord coord,
+        IReadOnlyList<ChunkCoord> seeds)
+    {
+        var nearest = long.MaxValue;
+        foreach (var seed in seeds)
+        {
+            var distance =
+                Math.Abs((long)coord.X - seed.X) +
+                Math.Abs((long)coord.Y - seed.Y) +
+                Math.Abs((long)coord.Z - seed.Z);
+            nearest = Math.Min(nearest, distance);
+        }
+        return nearest;
     }
 }
