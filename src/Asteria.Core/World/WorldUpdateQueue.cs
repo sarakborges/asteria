@@ -197,11 +197,15 @@ public sealed class WorldUpdateQueue
         ChunkCoord? center = null,
         ChunkMovementDirection movement = default)
     {
-        var source = _priorityLightingEdits.Count > 0
+        var fromPriorityLane = _priorityLightingEdits.Count > 0;
+        var source = fromPriorityLane
             ? _priorityLightingEdits
             : _lightingEdits;
-        return DrainLightingFrom(
+        var batch = DrainLightingFrom(
             source, maximumPositions, maximumColumns, world, center, movement);
+        return fromPriorityLane
+            ? batch with { IsPriority = true }
+            : batch;
     }
 
     private static WorldLightingBatch DrainLightingFrom(
@@ -457,7 +461,8 @@ public sealed class WorldUpdateQueue
 }
 
 public sealed record WorldLightingBatch(
-    IReadOnlyList<WorldVoxelCoord> EditedPositions)
+    IReadOnlyList<WorldVoxelCoord> EditedPositions,
+    bool IsPriority = false)
 {
     public bool IsEmpty =>
         EditedPositions.Count == 0;
