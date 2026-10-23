@@ -124,16 +124,19 @@ public sealed class LightingRuntime
             return false;
         }
 
-        // Player block edits in a completely dark, non-emissive neighborhood
-        // cannot affect any current light. Consume these tiny batches before
-        // cloning the 3x3 vertical snapshot or starting a worker.
-        if (batch.IsPriority &&
-            batch.EditedPositions.Count <= 8 &&
-            !VoxelWorldLightingSolver.HasPotentialLightingImpact(
-                _world, _blocks, _fluids, batch.EditedPositions))
+        // Classify small player edits before snapshot capture. Dark edits
+        // need no solve, RGB-only changes use a bounded local snapshot, and
+        // edits near skylight still use full vertical columns.
+        var workKind = LightingWorkKind.DirectSky;
+        if (batch.IsPriority && batch.EditedPositions.Count <= 8)
         {
-            _dispatchFairness.RecordStarted(nearest);
-            return true;
+            workKind = VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
+                _world, _blocks, _fluids, batch.EditedPositions);
+            if (workKind == LightingWorkKind.None)
+            {
+                _dispatchFairness.RecordStarted(nearest);
+                return true;
+            }
         }
 
         var captureStart = Stopwatch.GetTimestamp();
@@ -141,7 +144,7 @@ public sealed class LightingRuntime
                 _world,
                 _blocks,
                 _fluids,
-                batch, _objects))
+                batch, _objects, workKind))
         {
             _updates.RequeueLighting(batch, _world);
             return false;
