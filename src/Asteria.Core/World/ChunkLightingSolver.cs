@@ -75,6 +75,7 @@ public static class ChunkLightingSolver
         // direct-sky profile is already stable without a local flood-fill.
         var needsPropagation = false;
         var hasEmission = false;
+        var hasObjectEmissions = !objectEmissions.IsEmpty;
         var uniformDirectSkyAcrossColumns = true;
         var referenceDirectSky = new byte[Chunk.Size];
         var isFirstColumn = true;
@@ -95,16 +96,10 @@ public static class ChunkLightingSolver
                         chunk.GetCell(x, y, z);
                     var fluid =
                         chunk.GetFluid(x, y, z);
-                    var dampening =
-                        VoxelLightingMedium.Dampening(
-                            chunk,
-                            blocks,
-                            fluids,
-                            x,
-                            y,
-                            z,
-                            cell,
-                            fluid);
+                    var dampening = cell.IsEmpty && fluid.IsEmpty
+                        ? (byte)0
+                        : VoxelLightingMedium.Dampening(
+                            chunk, blocks, fluids, x, y, z, cell, fluid);
 
                     mediumDampening[ToIndex(x, y, z)] = dampening;
 
@@ -125,11 +120,14 @@ public static class ChunkLightingSolver
                         uniformDirectSkyAcrossColumns = false;
                     }
 
-                    var objectEmission = objectEmissions.IsEmpty
+                    var emission = cell.IsEmpty && fluid.IsEmpty &&
+                                   !hasObjectEmissions
                         ? default
-                        : objectEmissions.At(new WorldVoxelCoord(x, y, z));
-                    var emission = VoxelLightingMedium.Emission(
-                        blocks, fluids, cell, fluid, objectEmission);
+                        : VoxelLightingMedium.Emission(
+                            blocks, fluids, cell, fluid,
+                            hasObjectEmissions
+                                ? objectEmissions.At(new WorldVoxelCoord(x, y, z))
+                                : default);
                     hasEmission |= !emission.IsDark;
                     needsPropagation |= !emission.IsDark ||
                         (dampening < VoxelLight.MaxLevel &&
