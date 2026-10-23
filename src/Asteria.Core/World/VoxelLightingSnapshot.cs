@@ -137,7 +137,7 @@ public sealed class VoxelLightingSnapshot
             .ToArray();
 
         return new VoxelLightingSnapshot(
-            source.CloneForWorker(chunks),
+            source.CloneForLightingWorker(chunks),
             new VoxelLightingDependencies(
                 source.CaptureContentStamp(chunks),
                 source.CaptureColumnResidencyStamp(dependencyColumns)));
