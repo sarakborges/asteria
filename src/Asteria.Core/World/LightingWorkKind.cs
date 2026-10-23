@@ -5,5 +5,6 @@ internal enum LightingWorkKind : byte
 {
     None,
     BlockLightOnly,
-    DirectSky,
+    SkyOnly,
+    Full,
 }
