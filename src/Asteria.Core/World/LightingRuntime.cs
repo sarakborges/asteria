@@ -127,7 +127,7 @@ public sealed class LightingRuntime
         // Classify small player edits before snapshot capture. Dark edits
         // need no solve, RGB-only changes use a bounded local snapshot, and
         // edits near skylight still use full vertical columns.
-        var workKind = LightingWorkKind.DirectSky;
+        var workKind = LightingWorkKind.Full;
         if (batch.IsPriority && batch.EditedPositions.Count <= 8)
         {
             workKind = VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
