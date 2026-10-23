@@ -560,16 +560,14 @@ public static class VoxelWorldLightingSolver
                                 sky[columnIndex],
                                 dampening);
 
-                            var emission =
-                                VoxelLightingMedium.Emission(
-                                    blocks,
-                                    fluids,
-                                    cell,
-                                    fluid,
-                                    objectEmissions.At(new WorldVoxelCoord(
-                                        coord.X * Chunk.Size + x,
-                                        coord.Y * Chunk.Size + y,
-                                        coord.Z * Chunk.Size + z)));
+                            var objectEmission = objectEmissions.IsEmpty
+                                ? default
+                                : objectEmissions.At(new WorldVoxelCoord(
+                                    coord.X * Chunk.Size + x,
+                                    coord.Y * Chunk.Size + y,
+                                    coord.Z * Chunk.Size + z));
+                            var emission = VoxelLightingMedium.Emission(
+                                blocks, fluids, cell, fluid, objectEmission);
 
                             chunk.SetLight(
                                 x,
@@ -834,8 +832,11 @@ public static class VoxelWorldLightingSolver
             var index = x + Chunk.Size * (z + Chunk.Size * y);
             if (!cache.EmissionInitialized[index])
             {
+                var objectEmission = _objectEmissions.IsEmpty
+                    ? default
+                    : _objectEmissions.At(position);
                 cache.Emissions[index] = VoxelLightingMedium.Emission(
-                    _blocks, _fluids, cell, fluid, _objectEmissions.At(position));
+                    _blocks, _fluids, cell, fluid, objectEmission);
                 cache.EmissionInitialized[index] = true;
                 _mediumSampleCacheMisses++;
             }
