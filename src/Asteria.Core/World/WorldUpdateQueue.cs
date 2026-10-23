@@ -55,6 +55,23 @@ public sealed class WorldUpdateQueue
         }
     }
 
+    private readonly Dictionary<ChunkCoord, int> _priorityLightingSeedsByChunk = [];
+    private readonly Dictionary<ChunkCoord, int> _lightingSeedsByChunk = [];
+
+    public bool HasLightingWorkInChunks(Func<ChunkCoord, bool> includesChunk)
+    {
+        ArgumentNullException.ThrowIfNull(includesChunk);
+        return _priorityLightingSeedsByChunk.Keys.Any(includesChunk) ||
+            _lightingSeedsByChunk.Keys.Any(includesChunk);
+    }
+
+    public bool HasMeshWorkInChunks(Func<ChunkCoord, bool> includesChunk)
+    {
+        ArgumentNullException.ThrowIfNull(includesChunk);
+        return _priorityMeshlets.Keys.Any(includesChunk) ||
+            _backgroundMeshlets.Keys.Any(includesChunk);
+    }
+
     public void EnqueueVoxelEdit(
         VoxelWorld world,
         WorldVoxelCoord position)
@@ -63,8 +80,10 @@ public sealed class WorldUpdateQueue
 
         // A live voxel edit must not wait behind streaming/fluid lighting work.
         // Remove a same-position background seed so one edit is never solved twice.
-        _lightingEdits.Remove(position);
-        _priorityLightingEdits.Enqueue(position);
+        if (_lightingEdits.Remove(position))
+            RemoveLightingSeed(_lightingSeedsByChunk, position);
+        if (_priorityLightingEdits.Enqueue(position))
+            AddLightingSeed(_priorityLightingSeedsByChunk, position);
         EnqueueVoxelMeshlets(
             world,
             position,
@@ -78,7 +97,8 @@ public sealed class WorldUpdateQueue
     public void EnqueueLighting(
         WorldVoxelCoord position)
     {
-        _lightingEdits.Enqueue(position);
+        if (_lightingEdits.Enqueue(position))
+            AddLightingSeed(_lightingSeedsByChunk, position);
     }
 
     public void EnqueueVoxelMeshlets(
@@ -201,8 +221,12 @@ public sealed class WorldUpdateQueue
         var source = fromPriorityLane
             ? _priorityLightingEdits
             : _lightingEdits;
+        var seedIndex = fromPriorityLane
+            ? _priorityLightingSeedsByChunk
+            : _lightingSeedsByChunk;
         var batch = DrainLightingFrom(
-            source, maximumPositions, maximumColumns, world, center, movement);
+            source, maximumPositions, maximumColumns, world, center, movement,
+            position => RemoveLightingSeed(seedIndex, position));
         return fromPriorityLane
             ? batch with { IsPriority = true }
             : batch;
@@ -214,7 +238,8 @@ public sealed class WorldUpdateQueue
         int maximumColumns,
         VoxelWorld? world,
         ChunkCoord? center,
-        ChunkMovementDirection movement)
+        ChunkMovementDirection movement,
+        Action<WorldVoxelCoord> onRemoved)
     {
         if (maximumPositions <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumPositions));
@@ -222,7 +247,12 @@ public sealed class WorldUpdateQueue
             throw new ArgumentOutOfRangeException(nameof(maximumColumns));
 
         if (world is null && maximumColumns == int.MaxValue)
-            return new WorldLightingBatch(source.Drain(maximumPositions));
+        {
+            var drained = source.Drain(maximumPositions);
+            foreach (var position in drained)
+                onRemoved(position);
+            return new WorldLightingBatch(drained);
+        }
 
         // Under streaming pressure, prefer columns near the current player
         // within the same bounded scan used for batching. This avoids
@@ -296,7 +326,8 @@ public sealed class WorldUpdateQueue
 
                 columns.Add(column);
                 return QueueScanDecision.Take;
-            }));
+            },
+            onRemoved));
     }
 
     public WorldMeshBatch DrainMeshlets(
@@ -360,8 +391,9 @@ public sealed class WorldUpdateQueue
 
         foreach (var position in batch.EditedPositions)
         {
-            if (world.IsLoadedAt(position))
-                _lightingEdits.Enqueue(position);
+            if (world.IsLoadedAt(position) &&
+                _lightingEdits.Enqueue(position))
+                AddLightingSeed(_lightingSeedsByChunk, position);
         }
     }
 
@@ -418,6 +450,33 @@ public sealed class WorldUpdateQueue
             ref remaining);
 
         return new WorldMeshBatch(result);
+    }
+
+    private static void AddLightingSeed(
+        Dictionary<ChunkCoord, int> counts,
+        WorldVoxelCoord position)
+    {
+        var coord = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z).Chunk;
+        counts[coord] = counts.TryGetValue(coord, out var count)
+            ? checked(count + 1)
+            : 1;
+    }
+
+    private static void RemoveLightingSeed(
+        Dictionary<ChunkCoord, int> counts,
+        WorldVoxelCoord position)
+    {
+        var coord = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z).Chunk;
+        if (!counts.TryGetValue(coord, out var count))
+            throw new InvalidOperationException(
+                $"Lighting seed index has no entry for {coord}.");
+
+        if (count == 1)
+            counts.Remove(coord);
+        else
+            counts[coord] = count - 1;
     }
 
     private void EnqueueVoxelMeshlets(

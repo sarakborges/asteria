@@ -21,6 +21,15 @@ public sealed class DeduplicatedQueue<T>
     public bool Contains(T value) =>
         _nodes.ContainsKey(value);
 
+    public bool Any(Func<T, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        foreach (var value in _order)
+            if (predicate(value))
+                return true;
+        return false;
+    }
+
     public bool Enqueue(T value)
     {
         if (_nodes.ContainsKey(value))
@@ -179,7 +188,8 @@ public sealed class DeduplicatedQueue<T>
     public IReadOnlyList<T> DrainScanned(
         int maximumItems,
         int maximumExamined,
-        Func<T, QueueScanDecision> decide)
+        Func<T, QueueScanDecision> decide,
+        Action<T>? onRemoved = null)
     {
         if (maximumItems <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumItems));
@@ -207,6 +217,7 @@ public sealed class DeduplicatedQueue<T>
 
             _order.Remove(current);
             _nodes.Remove(current.Value);
+            onRemoved?.Invoke(current.Value);
             mutated = true;
             if (decision == QueueScanDecision.Take)
                 selected.Add(current.Value);

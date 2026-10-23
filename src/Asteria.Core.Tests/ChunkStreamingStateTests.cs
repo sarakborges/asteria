@@ -626,4 +626,20 @@ public sealed class ChunkStreamingStateTests
             range;
     }
 
+
+    [Fact]
+    public void LightingInterestIncludesDesiredColumnsAndTheirHorizontalNeighborColumns()
+    {
+        var state = new ChunkStreamingState();
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { ChunkCoord.Zero });
+
+        Assert.True(state.IsLightingRelevant(ChunkCoord.Zero));
+        Assert.True(state.IsLightingRelevant(new ChunkCoord(1, 0, 0)));
+        Assert.True(state.IsLightingRelevant(new ChunkCoord(0, 100, 0)));
+        Assert.False(state.IsLightingRelevant(new ChunkCoord(2, 0, 0)));
+    }
 }

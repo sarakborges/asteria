@@ -10,6 +10,12 @@ public sealed class FluidMeshUpdateQueue
 
     public int DirtyChunkCount => _dirty.Count;
 
+    public bool HasWorkInChunks(Func<ChunkCoord, bool> includesChunk)
+    {
+        ArgumentNullException.ThrowIfNull(includesChunk);
+        return _dirty.Keys.Any(includesChunk);
+    }
+
     public void EnqueueVoxelEdit(
         VoxelWorld world,
         WorldVoxelCoord position)

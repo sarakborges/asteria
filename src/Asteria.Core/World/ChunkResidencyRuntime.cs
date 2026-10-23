@@ -219,6 +219,9 @@ public sealed class ChunkResidencyRuntime
 
     public bool IsDesired(ChunkCoord coord) => _streaming.IsDesired(coord);
 
+    public bool IsLightingRelevant(ChunkCoord coord) =>
+        _streaming.IsLightingRelevant(coord);
+
     public int RetainedCount => _streaming.RetainedCount;
 
     public int PendingCount => _streaming.PendingCount;

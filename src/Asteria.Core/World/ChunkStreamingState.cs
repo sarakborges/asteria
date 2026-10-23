@@ -37,6 +37,8 @@ public readonly record struct ChunkLoadPriority(
 public sealed class ChunkStreamingState
 {
     private readonly HashSet<ChunkCoord> _desired = [];
+    // Light snapshots span neighboring horizontal columns at resident Y levels.
+    private readonly HashSet<(int X, int Z)> _lightingRelevantColumns = [];
     private readonly HashSet<ChunkCoord> _retained = [];
     private readonly HashSet<ChunkCoord> _pending = [];
     private readonly HashSet<ChunkCoord> _materializing = [];
@@ -68,6 +70,9 @@ public sealed class ChunkStreamingState
         _desired.Contains(coord) || _retained.Contains(coord);
 
     public bool IsDesired(ChunkCoord coord) => _desired.Contains(coord);
+
+    public bool IsLightingRelevant(ChunkCoord coord) =>
+        _lightingRelevantColumns.Contains((coord.X, coord.Z));
 
     public bool IsMaterializing(ChunkCoord coord) =>
         _materializing.Contains(coord);
@@ -127,6 +132,7 @@ public sealed class ChunkStreamingState
 
         _desired.Clear();
         _desired.UnionWith(desired);
+        RebuildLightingRelevantColumns();
         _retained.Clear();
 
         var retired =
@@ -369,7 +375,8 @@ public sealed class ChunkStreamingState
 
     public void Forget(ChunkCoord coord)
     {
-        _desired.Remove(coord);
+        if (_desired.Remove(coord))
+            RebuildLightingRelevantColumns();
         _retained.Remove(coord);
         _pending.Remove(coord);
         _materializing.Remove(coord);
@@ -441,6 +448,24 @@ public sealed class ChunkStreamingState
         return comparison != 0
             ? comparison
             : left.X.CompareTo(right.X);
+    }
+
+    private void RebuildLightingRelevantColumns()
+    {
+        _lightingRelevantColumns.Clear();
+        foreach (var coord in _desired)
+        {
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var x = (long)coord.X + dx;
+                var z = (long)coord.Z + dz;
+                if (x < int.MinValue || x > int.MaxValue ||
+                    z < int.MinValue || z > int.MaxValue)
+                    continue;
+                _lightingRelevantColumns.Add(((int)x, (int)z));
+            }
+        }
     }
 
     private void UpdateMovementDirection(ChunkCoord center)

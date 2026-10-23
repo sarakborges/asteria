@@ -82,6 +82,52 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void ScopedWorkQueriesIgnoreDistantChunksAndTrackLightingQueueMutations()
+    {
+        var world = new VoxelWorld();
+        var distantChunk = new ChunkCoord(5, 0, 0);
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        world.InsertChunk(distantChunk, new Chunk());
+
+        var queue = new WorldUpdateQueue();
+        var local = new WorldVoxelCoord(2, 2, 2);
+        var distant = new WorldVoxelCoord(82, 2, 2);
+        queue.EnqueueLighting(local);
+        queue.EnqueueLighting(distant);
+
+        Assert.True(queue.HasLightingWorkInChunks(coord => coord == ChunkCoord.Zero));
+        Assert.False(queue.HasLightingWorkInChunks(coord => coord == new ChunkCoord(1, 0, 0)));
+        Assert.True(queue.HasLightingWorkInChunks(coord => coord == distantChunk));
+
+        Assert.Equal([local], queue.DrainLighting(maximumPositions: 1).EditedPositions);
+        Assert.False(queue.HasLightingWorkInChunks(coord => coord == ChunkCoord.Zero));
+        Assert.True(queue.HasLightingWorkInChunks(coord => coord == distantChunk));
+
+        queue.RequeueLighting(new WorldLightingBatch([local]), world);
+        queue.EnqueueVoxelEdit(world, local);
+        Assert.True(queue.HasLightingWorkInChunks(coord => coord == ChunkCoord.Zero));
+
+        var interactive = queue.DrainLighting(
+            maximumPositions: 1, maximumColumns: 1, world: world);
+        Assert.Equal([local], interactive.EditedPositions);
+        Assert.False(queue.HasLightingWorkInChunks(coord => coord == ChunkCoord.Zero));
+        Assert.True(queue.HasLightingWorkInChunks(coord => coord == distantChunk));
+    }
+
+    [Fact]
+    public void MeshWorkQueriesOnlyMatchChunksWithQueuedMeshlets()
+    {
+        var queue = new WorldUpdateQueue();
+        var distant = new ChunkCoord(5, 0, 0);
+        queue.EnqueueMeshlets(ChunkCoord.Zero, ChunkMeshletMask.Single(0));
+        queue.EnqueuePriorityMeshlets(distant, ChunkMeshletMask.Single(1));
+
+        Assert.True(queue.HasMeshWorkInChunks(coord => coord == ChunkCoord.Zero));
+        Assert.True(queue.HasMeshWorkInChunks(coord => coord == distant));
+        Assert.False(queue.HasMeshWorkInChunks(coord => coord == new ChunkCoord(2, 0, 0)));
+    }
+
+    [Fact]
     public void GeometryAndLightingCanDrainIndependently()
     {
         var world = new VoxelWorld();
