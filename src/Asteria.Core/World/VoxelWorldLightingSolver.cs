@@ -557,7 +557,8 @@ public static class VoxelWorldLightingSolver
 
         private sealed class ChunkLightingSamples
         {
-            public readonly bool[] Initialized = new bool[Chunk.Volume];
+            public readonly bool[] DampeningInitialized = new bool[Chunk.Volume];
+            public readonly bool[] EmissionInitialized = new bool[Chunk.Volume];
             public readonly byte[] Dampening = new byte[Chunk.Volume];
             public readonly BlockLightEmission[] Emissions = new BlockLightEmission[Chunk.Volume];
         }
@@ -587,29 +588,66 @@ public static class VoxelWorldLightingSolver
             int z,
             WorldVoxelCoord position,
             VoxelCell cell,
+            FluidCell fluid) =>
+            new(
+                DampeningAt(coord, chunk, x, y, z, cell, fluid),
+                EmissionAt(coord, chunk, x, y, z, position, cell, fluid));
+
+        public byte DampeningAt(
+            ChunkCoord coord,
+            Chunk chunk,
+            int x,
+            int y,
+            int z,
+            VoxelCell cell,
             FluidCell fluid)
         {
             _mediumSampleRequests++;
-            if (!_samples.TryGetValue(coord, out var cache))
-            {
-                cache = new ChunkLightingSamples();
-                _samples.Add(coord, cache);
-            }
-
+            var cache = GetSamples(coord);
             var index = x + Chunk.Size * (z + Chunk.Size * y);
-            if (!cache.Initialized[index])
+            if (!cache.DampeningInitialized[index])
             {
                 cache.Dampening[index] = VoxelLightingMedium.Dampening(
                     chunk, _blocks, _fluids, x, y, z, cell, fluid);
-                cache.Emissions[index] = VoxelLightingMedium.Emission(
-                    _blocks, _fluids, cell, fluid, _objectEmissions.At(position));
-                cache.Initialized[index] = true;
+                cache.DampeningInitialized[index] = true;
                 _mediumSampleCacheMisses++;
             }
 
-            return new LightingSample(
-                cache.Dampening[index],
-                cache.Emissions[index]);
+            return cache.Dampening[index];
+        }
+
+        public BlockLightEmission EmissionAt(
+            ChunkCoord coord,
+            Chunk chunk,
+            int x,
+            int y,
+            int z,
+            WorldVoxelCoord position,
+            VoxelCell cell,
+            FluidCell fluid)
+        {
+            _mediumSampleRequests++;
+            var cache = GetSamples(coord);
+            var index = x + Chunk.Size * (z + Chunk.Size * y);
+            if (!cache.EmissionInitialized[index])
+            {
+                cache.Emissions[index] = VoxelLightingMedium.Emission(
+                    _blocks, _fluids, cell, fluid, _objectEmissions.At(position));
+                cache.EmissionInitialized[index] = true;
+                _mediumSampleCacheMisses++;
+            }
+
+            return cache.Emissions[index];
+        }
+
+        private ChunkLightingSamples GetSamples(ChunkCoord coord)
+        {
+            if (_samples.TryGetValue(coord, out var cache))
+                return cache;
+
+            cache = new ChunkLightingSamples();
+            _samples.Add(coord, cache);
+            return cache;
         }
 
         public byte LevelAt(WorldVoxelCoord position)
@@ -671,7 +709,6 @@ public static class VoxelWorldLightingSolver
                     horizontalAddress.Local.X;
                 var localZ =
                     horizontalAddress.Local.Z;
-                var originY = coord.Y * Chunk.Size;
                 for (var localY =
                          Chunk.Size - 1;
                      localY >= 0;
@@ -688,16 +725,9 @@ public static class VoxelWorldLightingSolver
                             localY,
                             localZ);
 
-                    var sample = Sample(
-                        coord,
-                        chunk,
-                        localX,
-                        localY,
-                        localZ,
-                        new WorldVoxelCoord(worldX, originY + localY, worldZ),
-                        cell,
-                        fluid);
-                    sky = SaturatingSubtract(sky, sample.Dampening);
+                    var dampening = DampeningAt(
+                        coord, chunk, localX, localY, localZ, cell, fluid);
+                    sky = SaturatingSubtract(sky, dampening);
 
                     levels[localY] = sky;
                 }
