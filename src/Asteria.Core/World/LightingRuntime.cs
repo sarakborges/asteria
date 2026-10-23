@@ -124,6 +124,18 @@ public sealed class LightingRuntime
             return false;
         }
 
+        // Player block edits in a completely dark, non-emissive neighborhood
+        // cannot affect any current light. Consume these tiny batches before
+        // cloning the 3x3 vertical snapshot or starting a worker.
+        if (batch.IsPriority &&
+            batch.EditedPositions.Count <= 8 &&
+            !VoxelWorldLightingSolver.HasPotentialLightingImpact(
+                _world, _blocks, _fluids, batch.EditedPositions))
+        {
+            _dispatchFairness.RecordStarted(nearest);
+            return true;
+        }
+
         var captureStart = Stopwatch.GetTimestamp();
         if (!_worker.TryStart(
                 _world,
