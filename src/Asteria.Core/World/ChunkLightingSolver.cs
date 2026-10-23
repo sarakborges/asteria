@@ -71,7 +71,7 @@ public static class ChunkLightingSolver
         return Relax(chunk, mediumDampening);
     }
 
-    private static bool TryInitializeUniformFluidLayers(
+    internal static bool TryInitializeUniformFluidLayers(
         Chunk chunk,
         FluidRegistry fluids)
     {
