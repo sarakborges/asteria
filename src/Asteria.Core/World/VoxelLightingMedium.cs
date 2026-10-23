@@ -150,9 +150,18 @@ public static class VoxelLightingMedium
         var fullDampening =
             definition.LightDampening;
 
-        if (fullDampening == 0)
+        if (fullDampening == 0 ||
+            definition.Visual.Kind == BlockVisualKind.CrossedSprite)
         {
             return 0;
+        }
+
+        // Standard cubes occupy the complete voxel. Skip shape/occupancy
+        // calculation entirely in the dominant terrain-block case.
+        if (!cell.HasMicroblockGeometry &&
+            definition.Shape.Kind == BlockShapeKind.Cube)
+        {
+            return fullDampening;
         }
 
         var occupancy =
