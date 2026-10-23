@@ -348,6 +348,7 @@ export type UiState = {
   mouseCaptured: boolean;
   hud: HudState;
   loading: LoadingState | null;
+  saving: boolean;
   worldCreation: WorldCreationState;
   worldCatalog: WorldCatalogState;
   addons: AddonsState;
@@ -398,6 +399,7 @@ export function createInitialUiState(
       },
     },
     loading: null,
+    saving: false,
     worldCatalog: { status: "unavailable", worlds: [], folderError: false, deleteError: false, loadError: false },
     addons: { packs: [], mods: [], packRestartRequired: false, modRestartRequired: false, error: null },
     chat: {
