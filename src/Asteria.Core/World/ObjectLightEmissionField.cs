@@ -12,6 +12,8 @@ public sealed class ObjectLightEmissionField
 
     private ObjectLightEmissionField() { }
 
+    public bool IsEmpty => _sources.Count == 0;
+
     public static ObjectLightEmissionField Capture(
         VoxelWorld world, PackContentRegistry<ObjectDefinition>? definitions)
     {
