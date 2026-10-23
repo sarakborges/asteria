@@ -71,7 +71,8 @@ public sealed class LightingWorker
                     snapshot.Dependencies, snapshot.World, batch, lighting,
                     stopwatch.Elapsed.TotalMilliseconds,
                     PublicationChunks: LightingPublicationPlan.Create(
-                        lighting.ChangedPositions));
+                        lighting.ChangedPositions,
+                        batch.EditedPositions.Take(1)));
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
