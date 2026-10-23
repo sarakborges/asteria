@@ -89,6 +89,12 @@ public static class ChunkMeshBuilder
     public static bool TryUpdateLighting(ArrayMesh mesh, ChunkMeshData data) =>
         MeshLightAttributePatcher.TryUpdate(mesh, data);
 
+    public static bool TryUpdateLighting(
+        ArrayMesh mesh, ChunkMeshData data,
+        int firstSurface, int surfaceCount) =>
+        MeshLightAttributePatcher.TryUpdate(
+            mesh, data, firstSurface, surfaceCount);
+
     private static byte PackUnorm8(float value) =>
         (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
 
