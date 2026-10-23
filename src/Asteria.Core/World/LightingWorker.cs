@@ -42,7 +42,7 @@ public sealed class LightingWorker
         WorldLightingBatch batch,
         PackContentRegistry<ObjectDefinition>? objects = null) =>
         TryStartScoped(
-            world, blocks, fluids, batch, objects, LightingWorkKind.DirectSky);
+            world, blocks, fluids, batch, objects, LightingWorkKind.Full);
 
     internal bool TryStartScoped(
         VoxelWorld world,
@@ -62,7 +62,10 @@ public sealed class LightingWorker
         {
             return false;
         }
-        if (workKind is not (LightingWorkKind.BlockLightOnly or LightingWorkKind.DirectSky))
+        if (workKind is not (
+                LightingWorkKind.BlockLightOnly or
+                LightingWorkKind.SkyOnly or
+                LightingWorkKind.Full))
             throw new ArgumentOutOfRangeException(nameof(workKind));
 
         var snapshot = workKind == LightingWorkKind.BlockLightOnly
@@ -77,13 +80,20 @@ public sealed class LightingWorker
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                var lighting = workKind == LightingWorkKind.BlockLightOnly
-                    ? VoxelWorldLightingSolver.RelightBlockLightAfterEdits(
+                var lighting = workKind switch
+                {
+                    LightingWorkKind.BlockLightOnly =>
+                        VoxelWorldLightingSolver.RelightBlockLightAfterEdits(
+                            snapshot.World, blocks, fluids, batch.EditedPositions,
+                            objects, cancellation.Token),
+                    LightingWorkKind.SkyOnly =>
+                        VoxelWorldLightingSolver.RelightSkyOnlyAfterEdits(
+                            snapshot.World, blocks, fluids, batch.EditedPositions,
+                            objects, cancellation.Token),
+                    _ => VoxelWorldLightingSolver.RelightAfterEdits(
                         snapshot.World, blocks, fluids, batch.EditedPositions,
-                        objects, cancellation.Token)
-                    : VoxelWorldLightingSolver.RelightAfterEdits(
-                        snapshot.World, blocks, fluids, batch.EditedPositions,
-                        objects, cancellation.Token);
+                        objects, cancellation.Token),
+                };
                 return new LightingWorkerResult(
                     snapshot.Dependencies, snapshot.World, batch, lighting,
                     stopwatch.Elapsed.TotalMilliseconds,
