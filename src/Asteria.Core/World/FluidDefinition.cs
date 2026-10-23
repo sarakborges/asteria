@@ -507,10 +507,53 @@ public static class FluidDefinitionJson
     }
 }
 
+    internal static byte ScaleLightDampening(
+        byte fullDampening,
+        byte level)
+    {
+        if (fullDampening == 0 || level == 0)
+            return 0;
+
+        var clampedDampening = Math.Min(fullDampening, VoxelLight.MaxLevel);
+        var clampedLevel = Math.Clamp(
+            level, FluidCell.MinLevel, FluidCell.MaxLevel);
+        var numerator = clampedDampening * clampedLevel;
+        return checked((byte)Math.Min(
+            VoxelLight.MaxLevel,
+            (numerator + FluidCell.MaxLevel - 1) / FluidCell.MaxLevel));
+    }
+
+    internal static BlockLightEmission ScaleLightEmission(
+        BlockLightEmission fullEmission,
+        byte level) =>
+        new(
+            ScaleLightChannel(fullEmission.Red, level),
+            ScaleLightChannel(fullEmission.Green, level),
+            ScaleLightChannel(fullEmission.Blue, level));
+
+    private static byte ScaleLightChannel(byte fullEmission, byte level)
+    {
+        if (fullEmission == 0 || level == 0)
+            return 0;
+
+        var clampedLevel = Math.Clamp(
+            level, FluidCell.MinLevel, FluidCell.MaxLevel);
+        var numerator = fullEmission * clampedLevel;
+        return checked((byte)((numerator + FluidCell.MaxLevel - 1) /
+            FluidCell.MaxLevel));
+    }
+
 public sealed class FluidRegistry
 {
+    private const int LightingLevelsPerFluid = FluidCell.MaxLevel + 1;
+
     private readonly FluidDefinition[] _definitions;
     private readonly Dictionary<string, FluidRuntimeId> _idsByName;
+    // Fluid lighting depends only on immutable definition + fill level. Flatten
+    // this tiny lookup table so voxel hot paths do not repeatedly resolve the
+    // definition and rescale the same values across thousands of cells.
+    private readonly byte[] _lightDampeningByLevel;
+    private readonly BlockLightEmission[] _lightEmissionByLevel;
 
     public FluidRegistry(IEnumerable<FluidDefinition> definitions)
     {
@@ -530,6 +573,9 @@ public sealed class FluidRegistry
             new Dictionary<string, FluidRuntimeId>(
                 authored.Length,
                 StringComparer.Ordinal);
+        var tableLength = checked(_definitions.Length * LightingLevelsPerFluid);
+        _lightDampeningByLevel = new byte[tableLength];
+        _lightEmissionByLevel = new BlockLightEmission[tableLength];
 
         for (var index = 0;
              index < authored.Length;
@@ -555,8 +601,31 @@ public sealed class FluidRegistry
 
             _definitions[runtimeId.Value] =
                 definition;
+            for (byte level = FluidCell.MinLevel;
+                 level <= FluidCell.MaxLevel;
+                 level++)
+            {
+                var tableIndex = LightingIndex(runtimeId, level);
+                _lightDampeningByLevel[tableIndex] =
+                    FluidDefinition.ScaleLightDampening(
+                        definition.LightDampening, level);
+                _lightEmissionByLevel[tableIndex] =
+                    FluidDefinition.ScaleLightEmission(
+                        definition.LightEmission, level);
+            }
         }
     }
+
+    internal byte GetLightDampeningAtLevel(
+        FluidRuntimeId runtimeId, byte level) =>
+        _lightDampeningByLevel[LightingIndex(runtimeId, level)];
+
+    internal BlockLightEmission GetLightEmissionAtLevel(
+        FluidRuntimeId runtimeId, byte level) =>
+        _lightEmissionByLevel[LightingIndex(runtimeId, level)];
+
+    private static int LightingIndex(FluidRuntimeId runtimeId, byte level) =>
+        runtimeId.Value * LightingLevelsPerFluid + level;
 
     public int AuthoredCount =>
         _definitions.Length - 1;
