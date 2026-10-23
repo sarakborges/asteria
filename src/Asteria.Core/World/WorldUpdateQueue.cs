@@ -62,7 +62,8 @@ public sealed class WorldUpdateQueue
         ArgumentNullException.ThrowIfNull(world);
 
         // A live voxel edit must not wait behind streaming/fluid lighting work.
-        // Its own batch is drained separately before any background seeds.
+        // Remove a same-position background seed so one edit is never solved twice.
+        _lightingEdits.Remove(position);
         _priorityLightingEdits.Enqueue(position);
         EnqueueVoxelMeshlets(
             world,
