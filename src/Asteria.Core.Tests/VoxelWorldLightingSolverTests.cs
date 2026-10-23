@@ -59,7 +59,7 @@ public sealed class VoxelWorldLightingSolverTests
     }
 
     [Fact]
-    public void SkylightNearAnEditForcesFullVerticalRelight()
+    public void SkylightNearAnEditSelectsSkyOnlyRelight()
     {
         var world = new VoxelWorld();
         var chunk = new Chunk();
@@ -67,23 +67,66 @@ public sealed class VoxelWorldLightingSolverTests
         chunk.SetLight(8, 9, 8, new VoxelLight(1, 0, 0, 0));
 
         Assert.Equal(
-            LightingWorkKind.DirectSky,
+            LightingWorkKind.SkyOnly,
             VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
                 world, new BlockRegistry([]), new FluidRegistry([]),
                 [new WorldVoxelCoord(8, 8, 8)]));
     }
 
     [Fact]
-    public void MissingChunkImmediatelyAboveAnEditKeepsFullSkylightPath()
+    public void MissingChunkImmediatelyAboveAnEditSelectsSkyOnlyRelight()
     {
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, new Chunk());
 
         Assert.Equal(
-            LightingWorkKind.DirectSky,
+            LightingWorkKind.SkyOnly,
             VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
                 world, new BlockRegistry([]), new FluidRegistry([]),
                 [new WorldVoxelCoord(8, Chunk.Size - 1, 8)]));
+    }
+
+    [Fact]
+    public void MixedSkylightAndRgbNeighborhoodRequiresFullRelight()
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        chunk.SetLight(8, 9, 8, new VoxelLight(1, 0, 0, 0));
+        chunk.SetLight(9, 8, 8, new VoxelLight(0, 0, 0, 1));
+
+        Assert.Equal(
+            LightingWorkKind.Full,
+            VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
+                world, new BlockRegistry([]), new FluidRegistry([]),
+                [new WorldVoxelCoord(8, 8, 8)]));
+    }
+
+    [Fact]
+    public void SkyOnlyRelightPreservesRgbChannels()
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var source = new WorldVoxelCoord(8, 8, 8);
+        var skyNeighbor = source + (1, 0, 0);
+        var distantRgb = source + (4, 0, 0);
+        chunk.SetLight(9, 8, 8, new VoxelLight(1, 0, 0, 0));
+        chunk.SetLight(12, 8, 8, new VoxelLight(0, 3, 2, 1));
+
+        Assert.Equal(
+            LightingWorkKind.SkyOnly,
+            VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
+                world, new BlockRegistry([]), new FluidRegistry([]), [source]));
+
+        VoxelWorldLightingSolver.RelightSkyOnlyAfterEdits(
+            world, new BlockRegistry([]), new FluidRegistry([]), [source]);
+
+        Assert.Equal((byte)15, world.GetLightOrDark(source).Sky);
+        Assert.Equal((byte)15, world.GetLightOrDark(skyNeighbor).Sky);
+        Assert.Equal((byte)3, world.GetLightOrDark(distantRgb).Red);
+        Assert.Equal((byte)2, world.GetLightOrDark(distantRgb).Green);
+        Assert.Equal((byte)1, world.GetLightOrDark(distantRgb).Blue);
     }
 
     [Fact]
