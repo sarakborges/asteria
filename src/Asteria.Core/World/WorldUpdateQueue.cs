@@ -3,6 +3,8 @@ namespace Asteria.Core.World;
 public sealed class WorldUpdateQueue
 {
     private readonly DeduplicatedQueue<WorldVoxelCoord>
+        _priorityLightingEdits = new();
+    private readonly DeduplicatedQueue<WorldVoxelCoord>
         _lightingEdits = new();
     private readonly SortedDictionary<ChunkCoord, ChunkMeshletMask>
         _priorityMeshlets =
@@ -16,6 +18,7 @@ public sealed class WorldUpdateQueue
         HasMeshWork;
 
     public bool HasLightingWork =>
+        _priorityLightingEdits.Count > 0 ||
         _lightingEdits.Count > 0;
 
     public bool HasMeshWork =>
@@ -29,7 +32,7 @@ public sealed class WorldUpdateQueue
         _backgroundMeshlets.Count > 0;
 
     public int LightingEditCount =>
-        _lightingEdits.Count;
+        _priorityLightingEdits.Count + _lightingEdits.Count;
 
     public int DirtyChunkCount
     {
@@ -58,7 +61,9 @@ public sealed class WorldUpdateQueue
     {
         ArgumentNullException.ThrowIfNull(world);
 
-        _lightingEdits.Enqueue(position);
+        // A live voxel edit must not wait behind streaming/fluid lighting work.
+        // Its own batch is drained separately before any background seeds.
+        _priorityLightingEdits.Enqueue(position);
         EnqueueVoxelMeshlets(
             world,
             position,
@@ -191,13 +196,28 @@ public sealed class WorldUpdateQueue
         ChunkCoord? center = null,
         ChunkMovementDirection movement = default)
     {
+        var source = _priorityLightingEdits.Count > 0
+            ? _priorityLightingEdits
+            : _lightingEdits;
+        return DrainLightingFrom(
+            source, maximumPositions, maximumColumns, world, center, movement);
+    }
+
+    private static WorldLightingBatch DrainLightingFrom(
+        DeduplicatedQueue<WorldVoxelCoord> source,
+        int maximumPositions,
+        int maximumColumns,
+        VoxelWorld? world,
+        ChunkCoord? center,
+        ChunkMovementDirection movement)
+    {
         if (maximumPositions <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumPositions));
         if (maximumColumns <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumColumns));
 
         if (world is null && maximumColumns == int.MaxValue)
-            return new WorldLightingBatch(_lightingEdits.Drain(maximumPositions));
+            return new WorldLightingBatch(source.Drain(maximumPositions));
 
         // Under streaming pressure, prefer columns near the current player
         // within the same bounded scan used for batching. This avoids
@@ -208,7 +228,7 @@ public sealed class WorldUpdateQueue
         {
             var nearest = new List<(
                 ChunkColumnCoord Column, ChunkLoadPriority Priority)>();
-            _lightingEdits.VisitPrefix(MaximumLightingCandidatesPerDrain,
+            source.VisitPrefix(MaximumLightingCandidatesPerDrain,
                 position =>
                 {
                     if (world is not null && !world.IsLoadedAt(position))
@@ -249,7 +269,7 @@ public sealed class WorldUpdateQueue
         // snapshots. Fill the chosen columns via bounded scan and remove
         // retired work without changing the order of deferred entries.
         var columns = new HashSet<ChunkColumnCoord>();
-        return new WorldLightingBatch(_lightingEdits.DrainScanned(
+        return new WorldLightingBatch(source.DrainScanned(
             maximumPositions,
             MaximumLightingCandidatesPerDrain,
             position =>
