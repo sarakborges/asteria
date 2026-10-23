@@ -352,6 +352,17 @@ public sealed class Chunk
         Array.Clear(_light);
     }
 
+    // Fills one horizontal Y layer of the light field. The voxel storage
+    // order is X/Z within each Y layer, so this avoids thousands of
+    // coordinate validations and method calls for horizontally uniform light.
+    internal void FillLightLayer(int y, VoxelLight value)
+    {
+        if ((uint)y >= Size)
+            throw new ArgumentOutOfRangeException(nameof(y));
+
+        Array.Fill(_light, value, y * Area, Area);
+    }
+
     // Initial light of a truly empty chunk is uniform open sky. Filling
     // the packed field once avoids four thousand medium/registry lookups.
     public void FillLight(VoxelLight value)
