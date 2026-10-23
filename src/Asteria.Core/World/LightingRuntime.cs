@@ -89,6 +89,37 @@ public sealed class LightingRuntime
 
     public bool IsRunning => _worker.IsRunning || _publication is not null;
 
+    public bool HasWorkAffecting(Func<ChunkCoord, bool> isRelevantChunk)
+    {
+        ArgumentNullException.ThrowIfNull(isRelevantChunk);
+        if (_updates.HasLightingWorkInChunks(isRelevantChunk))
+            return true;
+
+        if (_inFlightBatch is { } inFlight &&
+            ContainsRelevantSeed(inFlight, isRelevantChunk))
+            return true;
+
+        if (_publication is { } publication)
+        {
+            if (ContainsRelevantSeed(publication.SourceBatch, isRelevantChunk))
+                return true;
+            if (publication.PublicationChunks?.Any(
+                    chunk => isRelevantChunk(chunk.Coord)) == true)
+                return true;
+        }
+
+        // An active worker without its owned batch violates the lifecycle
+        // invariant; conservatively keep readiness blocked in that case.
+        return _worker.IsRunning && _inFlightBatch is null;
+    }
+
+    private static bool ContainsRelevantSeed(
+        WorldLightingBatch batch,
+        Func<ChunkCoord, bool> isRelevantChunk) =>
+        batch.EditedPositions.Any(position =>
+            isRelevantChunk(VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk));
+
     public void BeginRetirement()
     {
         _acceptingWork = false;

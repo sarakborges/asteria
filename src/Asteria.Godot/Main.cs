@@ -2527,20 +2527,17 @@ public partial class Main : Node3D
             ResidencySettled: !_residency.HasRenderableBacklog,
             SelectionSettled: !_chunkStreaming.IsSelectionRunning,
             LightingSettled:
-                !_worldUpdates.HasLightingWork &&
-                !_lightingRuntime.IsRunning,
+                !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant),
             TerrainMeshWorkSettled:
-                !_worldUpdates.HasMeshWork &&
-                !_terrainMeshPipeline.IsRunning,
+                !_terrainMeshPipeline.HasWorkAffecting(_residency.IsDesired),
             TerrainPublicationsSettled:
-                _chunkPresentations.PendingTerrainPublications == 0,
+                !_chunkPresentations.HasTerrainPublicationsFor(_residency.IsDesired),
             FluidMeshWorkSettled:
-                !_fluidMeshUpdates.HasWork &&
-                !_fluidMeshPipeline.IsRunning,
+                !_fluidMeshPipeline.HasWorkAffecting(_residency.IsDesired),
             FluidPublicationsSettled:
-                _chunkPresentations.PendingFluidPublications == 0,
+                !_chunkPresentations.HasFluidPublicationsFor(_residency.IsDesired),
             ObjectPresentationSettled:
-                _chunkPresentations.PendingObjectChanges == 0);
+                !_chunkPresentations.HasObjectPresentationWorkFor(_residency.IsDesired));
 
     private void AdvanceWorldLoading()
     {

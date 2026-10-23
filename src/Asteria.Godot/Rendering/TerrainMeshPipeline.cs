@@ -86,6 +86,24 @@ public sealed class TerrainMeshPipeline
         _interactiveWorker.IsRunning ||
         _backgroundWorker.IsRunning;
 
+    public bool HasWorkAffecting(Func<ChunkCoord, bool> isRelevantChunk)
+    {
+        ArgumentNullException.ThrowIfNull(isRelevantChunk);
+        if (_updates.HasMeshWorkInChunks(isRelevantChunk) ||
+            HasRelevantChunk(_interactiveInFlightBatch, isRelevantChunk) ||
+            HasRelevantChunk(_backgroundInFlightBatch, isRelevantChunk))
+            return true;
+
+        return (_interactiveWorker.IsRunning && _interactiveInFlightBatch is null) ||
+            (_backgroundWorker.IsRunning && _backgroundInFlightBatch is null);
+    }
+
+    private static bool HasRelevantChunk(
+        WorldMeshBatch? batch,
+        Func<ChunkCoord, bool> isRelevantChunk) =>
+        batch is not null &&
+        batch.DirtyMeshlets.Keys.Any(isRelevantChunk);
+
     public void BeginRetirement()
     {
         _acceptingWork = false;

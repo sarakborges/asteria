@@ -83,6 +83,23 @@ public sealed class FluidMeshPipeline
         }
     }
 
+    public bool HasWorkAffecting(Func<ChunkCoord, bool> isRelevantChunk)
+    {
+        ArgumentNullException.ThrowIfNull(isRelevantChunk);
+        if (_updates.HasWorkInChunks(isRelevantChunk))
+            return true;
+
+        foreach (var worker in _workers)
+        {
+            if (worker.InFlightBatch is { } batch &&
+                batch.DirtyMeshlets.Keys.Any(isRelevantChunk))
+                return true;
+            if (worker.Worker.IsRunning && worker.InFlightBatch is null)
+                return true;
+        }
+        return false;
+    }
+
     public void BeginRetirement()
     {
         _acceptingWork = false;

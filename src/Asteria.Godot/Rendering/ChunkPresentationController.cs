@@ -276,6 +276,24 @@ public sealed class ChunkPresentationController
 
     public int PendingObjectChanges => _pendingObjects.Count;
 
+    public bool HasTerrainPublicationsFor(Func<ChunkCoord, bool> includesChunk)
+    {
+        ArgumentNullException.ThrowIfNull(includesChunk);
+        return _terrainPublications.Keys.Any(key => includesChunk(key.Chunk));
+    }
+
+    public bool HasFluidPublicationsFor(Func<ChunkCoord, bool> includesChunk)
+    {
+        ArgumentNullException.ThrowIfNull(includesChunk);
+        return _fluidPublications.Keys.Any(key => includesChunk(key.Chunk));
+    }
+
+    public bool HasObjectPresentationWorkFor(Func<ChunkCoord, bool> includesChunk)
+    {
+        ArgumentNullException.ThrowIfNull(includesChunk);
+        return _pendingObjects.Any(includesChunk);
+    }
+
     public IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>
         CaptureRelightableFluid(WorldMeshBatch batch)
     {
