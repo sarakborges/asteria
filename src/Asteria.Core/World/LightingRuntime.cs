@@ -140,7 +140,7 @@ public sealed class LightingRuntime
         }
 
         var captureStart = Stopwatch.GetTimestamp();
-        if (!_worker.TryStart(
+        if (!_worker.TryStartScoped(
                 _world,
                 _blocks,
                 _fluids,
