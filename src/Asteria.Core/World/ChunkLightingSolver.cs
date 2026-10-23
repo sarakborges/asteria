@@ -73,6 +73,15 @@ public static class ChunkLightingSolver
         // increase another voxel's seeded light. Uniform full skylight
         // never needs a local flood-fill.
         var needsPropagation = false;
+        // Fully uniform fluid chunks have no horizontal light discontinuities.
+        // Their direct-sky values are already the fixed point, so avoid even
+        // the candidate-frontier scan for large, fully submerged ocean chunks.
+        var uniformFullFluidChunk =
+            chunk.NonEmptyVoxelCount == 0 &&
+            chunk.ObjectCount == 0 &&
+            chunk.FluidCount == Chunk.Volume;
+        FluidCell? uniformFluid = null;
+
         for (var z = 0; z < Chunk.Size; z++)
         {
             for (var x = 0; x < Chunk.Size; x++)
@@ -89,6 +98,19 @@ public static class ChunkLightingSolver
                         chunk.GetCell(x, y, z);
                     var fluid =
                         chunk.GetFluid(x, y, z);
+                    if (uniformFullFluidChunk)
+                    {
+                        if (fluid.IsEmpty ||
+                            uniformFluid is { } knownFluid && knownFluid != fluid)
+                        {
+                            uniformFullFluidChunk = false;
+                        }
+                        else
+                        {
+                            uniformFluid = fluid;
+                        }
+                    }
+
                     var dampening =
                         VoxelLightingMedium.Dampening(
                             chunk,
@@ -133,9 +155,9 @@ public static class ChunkLightingSolver
             }
         }
 
-        // A chunk without attenuated transmitting voxels or emissions
-        // already has its final local lighting.
-        return needsPropagation;
+        // Uniformly filled fluid chunks cannot gain lateral light: every
+        // column has the same medium and therefore the same direct-sky field.
+        return needsPropagation && !uniformFullFluidChunk;
     }
 
     private static int Relax(
