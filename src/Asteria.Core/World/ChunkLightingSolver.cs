@@ -125,12 +125,11 @@ public static class ChunkLightingSolver
                         uniformDirectSkyAcrossColumns = false;
                     }
 
-                    var emission =
-                        VoxelLightingMedium.Emission(
-                            blocks,
-                            fluids,
-                            cell,
-                            fluid, objectEmissions.At(new WorldVoxelCoord(x, y, z)));
+                    var objectEmission = objectEmissions.IsEmpty
+                        ? default
+                        : objectEmissions.At(new WorldVoxelCoord(x, y, z));
+                    var emission = VoxelLightingMedium.Emission(
+                        blocks, fluids, cell, fluid, objectEmission);
                     hasEmission |= !emission.IsDark;
                     needsPropagation |= !emission.IsDark ||
                         (dampening < VoxelLight.MaxLevel &&
