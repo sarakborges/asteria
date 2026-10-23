@@ -233,6 +233,42 @@ public sealed class FluidDefinition
 
     public string? Texture { get; }
 
+    internal static byte ScaleLightDampening(
+        byte fullDampening,
+        byte level)
+    {
+        if (fullDampening == 0 || level == 0)
+            return 0;
+
+        var clampedDampening = Math.Min(fullDampening, VoxelLight.MaxLevel);
+        var clampedLevel = Math.Clamp(
+            level, FluidCell.MinLevel, FluidCell.MaxLevel);
+        var numerator = clampedDampening * clampedLevel;
+        return checked((byte)Math.Min(
+            VoxelLight.MaxLevel,
+            (numerator + FluidCell.MaxLevel - 1) / FluidCell.MaxLevel));
+    }
+
+    internal static BlockLightEmission ScaleLightEmission(
+        BlockLightEmission fullEmission,
+        byte level) =>
+        new(
+            ScaleLightChannel(fullEmission.Red, level),
+            ScaleLightChannel(fullEmission.Green, level),
+            ScaleLightChannel(fullEmission.Blue, level));
+
+    private static byte ScaleLightChannel(byte fullEmission, byte level)
+    {
+        if (fullEmission == 0 || level == 0)
+            return 0;
+
+        var clampedLevel = Math.Clamp(
+            level, FluidCell.MinLevel, FluidCell.MaxLevel);
+        var numerator = fullEmission * clampedLevel;
+        return checked((byte)((numerator + FluidCell.MaxLevel - 1) /
+            FluidCell.MaxLevel));
+    }
+
     internal static void ValidateId(string id)
     {
         if (string.IsNullOrWhiteSpace(id) ||
@@ -506,42 +542,6 @@ public static class FluidDefinitionJson
         return result;
     }
 }
-
-    internal static byte ScaleLightDampening(
-        byte fullDampening,
-        byte level)
-    {
-        if (fullDampening == 0 || level == 0)
-            return 0;
-
-        var clampedDampening = Math.Min(fullDampening, VoxelLight.MaxLevel);
-        var clampedLevel = Math.Clamp(
-            level, FluidCell.MinLevel, FluidCell.MaxLevel);
-        var numerator = clampedDampening * clampedLevel;
-        return checked((byte)Math.Min(
-            VoxelLight.MaxLevel,
-            (numerator + FluidCell.MaxLevel - 1) / FluidCell.MaxLevel));
-    }
-
-    internal static BlockLightEmission ScaleLightEmission(
-        BlockLightEmission fullEmission,
-        byte level) =>
-        new(
-            ScaleLightChannel(fullEmission.Red, level),
-            ScaleLightChannel(fullEmission.Green, level),
-            ScaleLightChannel(fullEmission.Blue, level));
-
-    private static byte ScaleLightChannel(byte fullEmission, byte level)
-    {
-        if (fullEmission == 0 || level == 0)
-            return 0;
-
-        var clampedLevel = Math.Clamp(
-            level, FluidCell.MinLevel, FluidCell.MaxLevel);
-        var numerator = fullEmission * clampedLevel;
-        return checked((byte)((numerator + FluidCell.MaxLevel - 1) /
-            FluidCell.MaxLevel));
-    }
 
 public sealed class FluidRegistry
 {
