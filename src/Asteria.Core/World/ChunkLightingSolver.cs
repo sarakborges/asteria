@@ -129,10 +129,7 @@ public static class ChunkLightingSolver
         for (var y = Chunk.Size - 1; y >= 0; y--)
         {
             sky = SaturatingSubtract(sky, dampeningByY[y]);
-            var light = new VoxelLight(sky, 0, 0, 0);
-            for (var z = 0; z < Chunk.Size; z++)
-            for (var x = 0; x < Chunk.Size; x++)
-                chunk.SetLight(x, y, z, light);
+            chunk.FillLightLayer(y, new VoxelLight(sky, 0, 0, 0));
         }
 
         return true;
