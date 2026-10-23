@@ -16,8 +16,10 @@ public sealed class VoxelWorldLightingSolverTests
         var position = new WorldVoxelCoord(8, 8, 8);
         Assert.True(world.SetBlockAt(position, blocks.GetId("asteria:stone"), out _));
 
-        Assert.False(VoxelWorldLightingSolver.HasPotentialLightingImpact(
-            world, blocks, new FluidRegistry([]), [position]));
+        Assert.Equal(
+            LightingWorkKind.None,
+            VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
+                world, blocks, new FluidRegistry([]), [position]));
     }
 
     [Fact]
@@ -28,9 +30,11 @@ public sealed class VoxelWorldLightingSolverTests
         world.InsertChunk(ChunkCoord.Zero, chunk);
         chunk.SetLight(9, 8, 8, new VoxelLight(0, 0, 0, 1));
 
-        Assert.True(VoxelWorldLightingSolver.HasPotentialLightingImpact(
-            world, new BlockRegistry([]), new FluidRegistry([]),
-            [new WorldVoxelCoord(8, 8, 8)]));
+        Assert.Equal(
+            LightingWorkKind.BlockLightOnly,
+            VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
+                world, new BlockRegistry([]), new FluidRegistry([]),
+                [new WorldVoxelCoord(8, 8, 8)]));
     }
 
     [Fact]
@@ -48,8 +52,51 @@ public sealed class VoxelWorldLightingSolverTests
         var position = new WorldVoxelCoord(8, 8, 8);
         Assert.True(world.SetBlockAt(position, blocks.GetId("asteria:lamp"), out _));
 
-        Assert.True(VoxelWorldLightingSolver.HasPotentialLightingImpact(
-            world, blocks, new FluidRegistry([]), [position]));
+        Assert.Equal(
+            LightingWorkKind.BlockLightOnly,
+            VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
+                world, blocks, new FluidRegistry([]), [position]));
+    }
+
+    [Fact]
+    public void SkylightNearAnEditForcesFullVerticalRelight()
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        chunk.SetLight(8, 9, 8, new VoxelLight(1, 0, 0, 0));
+
+        Assert.Equal(
+            LightingWorkKind.DirectSky,
+            VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
+                world, new BlockRegistry([]), new FluidRegistry([]),
+                [new WorldVoxelCoord(8, 8, 8)]));
+    }
+
+    [Fact]
+    public void BlockLightOnlyRelightPreservesSkyWhileClearingRgbLight()
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var source = new WorldVoxelCoord(8, 8, 8);
+        var neighbor = source + (1, 0, 0);
+        var fartherSky = source + (4, 0, 0);
+        chunk.SetLight(8, 8, 8, new VoxelLight(0, 15, 0, 0));
+        chunk.SetLight(9, 8, 8, new VoxelLight(0, 14, 0, 0));
+        chunk.SetLight(12, 8, 8, new VoxelLight(7, 2, 0, 0));
+
+        Assert.Equal(
+            LightingWorkKind.BlockLightOnly,
+            VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
+                world, new BlockRegistry([]), new FluidRegistry([]), [source]));
+
+        VoxelWorldLightingSolver.RelightBlockLightAfterEdits(
+            world, new BlockRegistry([]), new FluidRegistry([]), [source]);
+
+        Assert.Equal((byte)0, world.GetLightOrDark(neighbor).Red);
+        Assert.Equal((byte)7, world.GetLightOrDark(fartherSky).Sky);
+        Assert.Equal((byte)0, world.GetLightOrDark(fartherSky).Red);
     }
 
     [Fact]
