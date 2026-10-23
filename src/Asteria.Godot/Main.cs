@@ -1057,19 +1057,28 @@ public partial class Main : Node3D
         _worldThumbnail.Capture(GetViewport());
         _worldDiagnostics?.Write(
             $"world.save.begin name={_sessionStates.Name} dimension={_dimension.Id} disposition=leave");
-        StartDimensionRetirement(_dimension.Id);
+        StartDimensionRetirement(_dimension.Id, savingWorld: true);
         return true;
     }
 
-    private void StartDimensionRetirement(DimensionId target)
+    private void StartDimensionRetirement(DimensionId target, bool savingWorld = false)
     {
         RetirePlayerForDimensionTransition();
         _ambientParticleRuntime?.Clear();
         _ambientParticlePresentation?.Clear();
         _worldReadySent = false;
-        _loading.BeginRetirement();
         _lastLoadingProgress = null;
-        SendLoadingState();
+        if (savingWorld)
+        {
+            // Leaving a world is a save operation, not a loading phase.
+            _loading.Reset();
+            SendWebUi("game.world.saving", new { active = true });
+        }
+        else
+        {
+            _loading.BeginRetirement();
+            SendLoadingState();
+        }
 
         SendWebUi(
             "game.dimension_transition",
@@ -1111,6 +1120,9 @@ public partial class Main : Node3D
             FinishLeavingWorld(completion);
             return;
         }
+
+        if (completion.IsCheckpoint)
+            SendWebUi("game.world.saving", new { active = false });
 
         ActivateCurrentDimensionPresentation();
         BeginWorldLoading();
