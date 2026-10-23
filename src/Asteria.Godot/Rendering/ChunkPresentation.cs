@@ -829,7 +829,12 @@ public sealed class ChunkPresentation
         }
 
         if (_terrainMeshDirty || _terrainMesh is null)
+        {
+            foreach (var batch in batches)
+                _terrainDirtyBatches.Enqueue(batch.Batch);
+            _terrainMeshDirty = _terrainDirtyBatches.Count > 0;
             return true;
+        }
 
         foreach (var batch in batches)
         {
@@ -841,7 +846,9 @@ public sealed class ChunkPresentation
                 continue;
 
             // A format mismatch must not leave partially patched output.
-            // Mark the chunk for one complete merged-surface rebuild.
+            // Queue this material surface for a bounded replacement on the
+            // presentation path; already-patched batch ranges remain current.
+            _terrainDirtyBatches.Enqueue(batch.Batch);
             _terrainMeshDirty = true;
             return true;
         }
