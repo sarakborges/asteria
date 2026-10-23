@@ -53,10 +53,6 @@ public sealed class LightingRuntime
     // the authoritative thread. Bound both chunks and changed voxels.
     private const int MaximumPublishedChunksPerPoll = 16;
     private const int MaximumPublishedVoxelsPerPoll = 8192;
-    // Coalesce up to eight polls of a lighting result before scheduling
-    // presentation rebuilds. This bounds visual lag to about eight frames
-    // while preventing repeated remesh of the same meshlet each slice.
-    private const int MaximumVoxelsPerMeshRefresh = 8192;
     private LightingWorkerResult? _publication;
     private double _publicationCaptureMilliseconds;
     private double _publicationApplyMilliseconds;
@@ -272,14 +268,17 @@ public sealed class LightingRuntime
             voxels += next.ChangedVoxelCount;
             _publicationChunkOffset++;
             chunks++;
-            if (_publicationVoxelsSinceRefresh >= MaximumVoxelsPerMeshRefresh)
-                FlushLightingRefreshes();
         }
+
+        // Publish the light-to-mesh invalidation after every bounded chunk
+        // slice, not only after the entire propagation result is copied.
+        // Otherwise small changes spread over many chunks remain invisible
+        // until the final slice despite the light data already being applied.
+        if (chunks > 0)
+            FlushLightingRefreshes();
 
         if (_publicationChunkOffset < publications.Count)
             return false;
-
-        FlushLightingRefreshes();
         report = new LightingRuntimeReport(
             LightingCompletionKind.Applied,
             result.WorkerMilliseconds,
