@@ -105,6 +105,17 @@ public partial class Main : Node3D
         _terrainMeshPipeline.ActiveWorkerCount +
         _fluidMeshPipeline.ActiveWorkerCount;
 
+    // If downstream world work is already queued and its owner has a free
+    // worker, reserve admission for it before streaming fills the entire pool.
+    private bool HasReadyNonStreamingWorldWork =>
+        (!_fluidSimulationRuntime.IsRunning &&
+         _fluidUpdates.HasReadyWork(_worldTicks.CurrentTick)) ||
+        (!_lightingRuntime.IsRunning && _worldUpdates.HasLightingWork) ||
+        (_terrainMeshPipeline.ActiveWorkerCount < 2 &&
+         (_worldUpdates.HasPriorityMeshWork || _worldUpdates.HasBackgroundMeshWork)) ||
+        (_fluidMeshPipeline.ActiveWorkerCount < MaxFluidMeshWorkers &&
+         _fluidMeshUpdates.HasWork);
+
     private BlockRegistry _blocks = null!;
     private AttachedLayerRegistry _layers = null!;
     private DyeRegistry _dyes = null!;
@@ -689,6 +700,11 @@ public partial class Main : Node3D
         var stageStart = Stopwatch.GetTimestamp();
         var availableWorkerSlots = Math.Max(
             0, MaxConcurrentWorldJobs - ActiveWorldWorkerCount);
+        var reservedWorkerSlots = HasReadyNonStreamingWorldWork
+            ? Math.Min(1, availableWorkerSlots)
+            : 0;
+        var materializationSlots = Math.Max(
+            0, availableWorkerSlots - reservedWorkerSlots);
         var streamingBegin =
             _chunkStreaming.BeginFrame(
                 streamingCenter,
@@ -696,7 +712,7 @@ public partial class Main : Node3D
                 streamingRadius,
                 RequiresPortalSurfaceAccess,
                 streamingPressure,
-                availableWorkerSlots);
+                materializationSlots);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.StreamingBegin, stageStart);
         ReportStreamingSelection(
