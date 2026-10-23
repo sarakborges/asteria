@@ -63,6 +63,43 @@ public sealed class DimensionPendingWorkSnapshotsTests
     }
 
     [Fact]
+    public void BlockPhysicsWakeupCaptureBoundsBacklogAndPreservesFifoPrefix()
+    {
+        var queue = new BlockPhysicsUpdateQueue();
+        var positions = Enumerable.Range(
+                0, BlockPhysicsUpdateQueueSnapshot.MaximumEntries + 3)
+            .Select(x => new WorldVoxelCoord(x, 5, 0))
+            .ToArray();
+
+        foreach (var position in positions)
+            queue.Enqueue(position);
+
+        var snapshot = queue.CaptureState();
+
+        Assert.Equal(
+            BlockPhysicsUpdateQueueSnapshot.MaximumEntries,
+            snapshot.Positions.Count);
+        Assert.Equal(
+            positions.Take(BlockPhysicsUpdateQueueSnapshot.MaximumEntries),
+            snapshot.Positions);
+        // Capturing a save snapshot does not mutate the live queue.
+        Assert.Equal(positions.Length, queue.Count);
+    }
+
+    [Fact]
+    public void InvalidWorldHeightCannotBecomeADormantPhysicsWakeup()
+    {
+        var queue = new BlockPhysicsUpdateQueue();
+
+        queue.WaitForChunk(
+            new WorldVoxelCoord(0, -1, 0),
+            new ChunkCoord(0, -1, 0));
+
+        Assert.Equal(0, queue.WaitingCount);
+        Assert.Empty(queue.CaptureState().Positions);
+    }
+
+    [Fact]
     public void InvalidOrRepeatedWorkIsRejected()
     {
         var invalid = new WorldVoxelCoord(0, -1, 0);
