@@ -40,8 +40,17 @@ public sealed class LightingWorker
         BlockRegistry blocks,
         FluidRegistry fluids,
         WorldLightingBatch batch,
-        PackContentRegistry<ObjectDefinition>? objects = null,
-        LightingWorkKind workKind = LightingWorkKind.DirectSky)
+        PackContentRegistry<ObjectDefinition>? objects = null) =>
+        TryStartScoped(
+            world, blocks, fluids, batch, objects, LightingWorkKind.DirectSky);
+
+    internal bool TryStartScoped(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        WorldLightingBatch batch,
+        PackContentRegistry<ObjectDefinition>? objects,
+        LightingWorkKind workKind)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
