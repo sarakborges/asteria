@@ -11,17 +11,28 @@ public static class ChunkFluidMeshBuilder
     {
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(materials);
-
         var mesh = new ArrayMesh();
+        AppendSurfaces(mesh, data, materials);
+        return mesh;
+    }
 
+    /// <summary>Appends a fluid meshlet into the owning chunk's shared mesh.</summary>
+    public static int AppendSurfaces(
+        ArrayMesh mesh,
+        ChunkFluidMeshData data,
+        FluidMaterialCatalog materials)
+    {
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(materials);
+
+        var initialSurfaceCount = mesh.GetSurfaceCount();
         foreach (var batch in data.Batches)
         {
-            if (batch.Vertices.Length == 0)
-            {
-                continue;
-            }
-
             var vertices = batch.Vertices;
+            if (vertices.Length == 0)
+                continue;
+
             var positions = new Vector3[vertices.Length];
             var normals = new Vector3[vertices.Length];
             var uvs = new Vector2[vertices.Length];
@@ -61,7 +72,7 @@ public static class ChunkFluidMeshBuilder
             mesh.SurfaceSetMaterial(surfaceIndex, materials.Get(batch.Fluid));
         }
 
-        return mesh;
+        return mesh.GetSurfaceCount() - initialSurfaceCount;
     }
 
     public static bool TryUpdateLighting(ArrayMesh mesh, ChunkFluidMeshData data) =>

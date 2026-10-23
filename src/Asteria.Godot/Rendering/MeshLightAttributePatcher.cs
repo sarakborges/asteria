@@ -22,12 +22,32 @@ internal static class MeshLightAttributePatcher
             .Where(batch => batch.Vertices.Length > 0).ToArray();
         if (mesh.GetSurfaceCount() != batches.Length)
             return false;
+        return TryUpdate(mesh, batches, firstSurface: 0);
+    }
+
+    public static bool TryUpdate(
+        ArrayMesh mesh, ChunkMeshData data,
+        int firstSurface, int surfaceCount)
+    {
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentNullException.ThrowIfNull(data);
+        return TryUpdate(mesh,
+            data.RenderBatches.Where(batch => batch.Vertices.Length > 0).ToArray(),
+            firstSurface, surfaceCount);
+    }
+
+    private static bool TryUpdate(
+        ArrayMesh mesh, ChunkRenderBatchData[] batches, int firstSurface)
+    {
+        if (firstSurface < 0 || firstSurface > mesh.GetSurfaceCount() - batches.Length)
+            return false;
 
         var patches = new byte[batches.Length][];
         for (var surface = 0; surface < batches.Length; surface++)
         {
             var vertices = batches[surface].Vertices;
-            if (!TryPrepare(mesh, surface, vertices.Length, hasUv2: true,
+            var targetSurface = firstSurface + surface;
+            if (!TryPrepare(mesh, targetSurface, vertices.Length, hasUv2: true,
                     out var layout))
                 return false;
             var bytes = new byte[checked(vertices.Length * layout.Stride)];
@@ -40,8 +60,17 @@ internal static class MeshLightAttributePatcher
             patches[surface] = bytes;
         }
 
-        Publish(mesh, patches);
+        Publish(mesh, patches, firstSurface);
         return true;
+    }
+
+    private static bool TryUpdate(
+        ArrayMesh mesh, ChunkRenderBatchData[] batches,
+        int firstSurface, int surfaceCount)
+    {
+        if (surfaceCount != batches.Length)
+            return false;
+        return TryUpdate(mesh, batches, firstSurface);
     }
 
     public static bool TryUpdate(ArrayMesh mesh, ChunkFluidMeshData data)
@@ -52,12 +81,32 @@ internal static class MeshLightAttributePatcher
             .Where(batch => batch.Vertices.Length > 0).ToArray();
         if (mesh.GetSurfaceCount() != batches.Length)
             return false;
+        return TryUpdate(mesh, batches, firstSurface: 0);
+    }
+
+    public static bool TryUpdate(
+        ArrayMesh mesh, ChunkFluidMeshData data,
+        int firstSurface, int surfaceCount)
+    {
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentNullException.ThrowIfNull(data);
+        return TryUpdate(mesh,
+            data.Batches.Where(batch => batch.Vertices.Length > 0).ToArray(),
+            firstSurface, surfaceCount);
+    }
+
+    private static bool TryUpdate(
+        ArrayMesh mesh, ChunkFluidBatchData[] batches, int firstSurface)
+    {
+        if (firstSurface < 0 || firstSurface > mesh.GetSurfaceCount() - batches.Length)
+            return false;
 
         var patches = new byte[batches.Length][];
         for (var surface = 0; surface < batches.Length; surface++)
         {
             var vertices = batches[surface].Vertices;
-            if (!TryPrepare(mesh, surface, vertices.Length, hasUv2: false,
+            var targetSurface = firstSurface + surface;
+            if (!TryPrepare(mesh, targetSurface, vertices.Length, hasUv2: false,
                     out var layout))
                 return false;
             var bytes = new byte[checked(vertices.Length * layout.Stride)];
@@ -70,8 +119,17 @@ internal static class MeshLightAttributePatcher
             patches[surface] = bytes;
         }
 
-        Publish(mesh, patches);
+        Publish(mesh, patches, firstSurface);
         return true;
+    }
+
+    private static bool TryUpdate(
+        ArrayMesh mesh, ChunkFluidBatchData[] batches,
+        int firstSurface, int surfaceCount)
+    {
+        if (surfaceCount != batches.Length)
+            return false;
+        return TryUpdate(mesh, batches, firstSurface);
     }
 
     private static bool TryPrepare(
@@ -116,10 +174,12 @@ internal static class MeshLightAttributePatcher
     private static bool Fits(int offset, int bytes, int stride) =>
         offset >= 0 && offset <= stride - bytes;
 
-    private static void Publish(ArrayMesh mesh, byte[][] patches)
+    private static void Publish(
+        ArrayMesh mesh, byte[][] patches, int firstSurface)
     {
         for (var surface = 0; surface < patches.Length; surface++)
-            mesh.SurfaceUpdateAttributeRegion(surface, 0, patches[surface]);
+            mesh.SurfaceUpdateAttributeRegion(
+                firstSurface + surface, 0, patches[surface]);
     }
 
     private static void Write(

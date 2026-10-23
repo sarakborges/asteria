@@ -12,18 +12,32 @@ public static class ChunkMeshBuilder
     {
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(materials);
-
         var mesh = new ArrayMesh();
+        AppendSurfaces(mesh, data, materials);
+        return mesh;
+    }
 
+    /// <summary>
+    /// Appends one meshlet's render batches to an existing chunk ArrayMesh.
+    /// Each non-empty batch remains a material surface while many meshlets
+    /// share one mesh resource and one MeshInstance3D.
+    /// </summary>
+    public static int AppendSurfaces(
+        ArrayMesh mesh,
+        ChunkMeshData data,
+        VoxelTerrainMaterialSet materials)
+    {
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(materials);
+
+        var initialSurfaceCount = mesh.GetSurfaceCount();
         foreach (var batch in data.RenderBatches)
         {
             var vertices = batch.Vertices;
             if (vertices.Length == 0)
                 continue;
 
-            // One packed upload per attribute instead of calling SurfaceTool
-            // setters six times per vertex across the managed/native boundary.
-            // CUSTOM0 retains the previous RGBA8 UNORM voxel-light encoding.
             var positions = new Vector3[vertices.Length];
             var normals = new Vector3[vertices.Length];
             var colors = new Color[vertices.Length];
@@ -62,8 +76,6 @@ public static class ChunkMeshBuilder
             arrays[(int)Mesh.ArrayType.Custom0] = light;
 
             var surfaceIndex = mesh.GetSurfaceCount();
-            // CUSTOM0 format 0 is RGBA8 UNORM, matching SurfaceTool's
-            // previous CustomFormat.Rgba8Unorm declaration.
             mesh.AddSurfaceFromArrays(
                 Mesh.PrimitiveType.Triangles, arrays,
                 flags: Mesh.ArrayFormat.FlagUseDynamicUpdate);
@@ -71,9 +83,8 @@ public static class ChunkMeshBuilder
                 surfaceIndex, materials.Get(batch.Batch));
         }
 
-        return mesh;
+        return mesh.GetSurfaceCount() - initialSurfaceCount;
     }
-
 
     public static bool TryUpdateLighting(ArrayMesh mesh, ChunkMeshData data) =>
         MeshLightAttributePatcher.TryUpdate(mesh, data);

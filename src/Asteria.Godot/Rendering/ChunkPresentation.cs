@@ -22,10 +22,21 @@ public sealed class ChunkPresentation
     private const int MaximumRelightCacheVerticesPerChunk = 2048;
     private int _relightCacheVertexCount;
 
-    private readonly MeshInstance3D?[] _meshes =
-        new MeshInstance3D?[ChunkMeshletMask.Count];
-    private readonly MeshInstance3D?[] _fluidMeshes =
-        new MeshInstance3D?[ChunkMeshletMask.Count];
+    // Each chunk owns one terrain mesh and one fluid mesh. Meshlet publication
+    // appends/replaces only that meshlet's surface range inside the shared
+    // ArrayMesh, avoiding one MeshInstance3D/ArrayMesh pair per meshlet.
+    private MeshInstance3D? _terrainMeshInstance;
+    private ArrayMesh? _terrainMesh;
+    private readonly int[] _terrainSurfaceStarts =
+        new int[ChunkMeshletMask.Count];
+    private readonly int[] _terrainSurfaceCounts =
+        new int[ChunkMeshletMask.Count];
+    private MeshInstance3D? _fluidMeshInstance;
+    private ArrayMesh? _fluidMesh;
+    private readonly int[] _fluidSurfaceStarts =
+        new int[ChunkMeshletMask.Count];
+    private readonly int[] _fluidSurfaceCounts =
+        new int[ChunkMeshletMask.Count];
     // A separate bounded immutable cache for small published fluid meshlets.
     private const int MaximumFluidRelightVerticesPerChunk = 2048;
     private readonly ChunkFluidMeshData?[] _relightableFluid =
@@ -131,8 +142,8 @@ public sealed class ChunkPresentation
 
     // A wholly empty chunk has no GPU state worth keeping in the warm cache.
     public bool HasReusableVisualResources =>
-        _meshes.Any(mesh => mesh?.Mesh is not null) ||
-        _fluidMeshes.Any(mesh => mesh?.Mesh is not null) ||
+        (_terrainMesh?.GetSurfaceCount() ?? 0) > 0 ||
+        (_fluidMesh?.GetSurfaceCount() ?? 0) > 0 ||
         _objectBatches.Count != 0;
 
     // Empty meshlets are marked published when a chunk is reserved, so this
@@ -190,7 +201,7 @@ public sealed class ChunkPresentation
     {
         foreach (var index in terrain.Indices())
         {
-            RemoveNode(_meshes, index);
+            RemoveTerrainSurfaces(index);
             RemoveCollision(index);
             _collisionDependencies[index] = null;
             _deferredCollisions[index] = null;
@@ -208,7 +219,7 @@ public sealed class ChunkPresentation
 
         foreach (var index in fluid.Indices())
         {
-            RemoveNode(_fluidMeshes, index);
+            RemoveFluidSurfaces(index);
             _publishedFluidDependencies[index] = null;
             _fluidRelightVertexCount -=
                 _relightableFluid[index]?.Batches.Sum(
@@ -246,7 +257,7 @@ public sealed class ChunkPresentation
 
         data = _relightableGeometry[meshletIndex];
         if (data is not { CanRelightWithoutRemesh: true } ||
-            _meshes[meshletIndex] is null ||
+            _terrainSurfaceCounts[meshletIndex] == 0 ||
             _relightableDependencies[meshletIndex] is not { } dependency ||
             !dependency.HasUnchangedGeometryAfterRestore(world))
         {
@@ -263,7 +274,7 @@ public sealed class ChunkPresentation
         ValidateMeshletIndex(meshletIndex);
         ArgumentNullException.ThrowIfNull(world);
         data = _relightableFluid[meshletIndex];
-        if (data is null || _fluidMeshes[meshletIndex]?.Mesh is null ||
+        if (data is null || _fluidSurfaceCounts[meshletIndex] == 0 ||
             _relightableFluidDependencies[meshletIndex] is not { } dependency ||
             !dependency.HasUnchangedGeometryAfterRestore(world))
         {
@@ -627,20 +638,32 @@ public sealed class ChunkPresentation
         _relightableFluidDependencies[meshletIndex] = null;
         _publishedFluidDependencies[meshletIndex] = dependencies;
 
-        if (!data.HasGeometry)
-        {
-            RemoveNode(_fluidMeshes, meshletIndex);
-            return false;
-        }
+        var expectedSurfaces = data.Batches.Count(
+            batch => batch.Vertices.Length > 0);
+        var patched = lightOnly &&
+            _fluidMesh is { } published &&
+            _fluidSurfaceCounts[meshletIndex] == expectedSurfaces &&
+            ChunkFluidMeshBuilder.TryUpdateLighting(
+                published, data,
+                _fluidSurfaceStarts[meshletIndex],
+                _fluidSurfaceCounts[meshletIndex]);
 
-        var mesh = _fluidMeshes[meshletIndex] ??
-            CreateMesh(_fluidMeshes, meshletIndex,
-                $"FluidMeshlet_{meshletIndex}");
-
-        var patched = lightOnly && mesh.Mesh is ArrayMesh published &&
-            ChunkFluidMeshBuilder.TryUpdateLighting(published, data);
         if (!patched)
-            mesh.Mesh = ChunkFluidMeshBuilder.CreateMesh(data, materials);
+        {
+            RemoveFluidSurfaces(meshletIndex);
+            if (data.HasGeometry)
+            {
+                EnsureFluidMesh();
+                var start = _fluidMesh!.GetSurfaceCount();
+                var count = ChunkFluidMeshBuilder.AppendSurfaces(
+                    _fluidMesh, data, materials);
+                if (count > 0)
+                {
+                    _fluidSurfaceStarts[meshletIndex] = start;
+                    _fluidSurfaceCounts[meshletIndex] = count;
+                }
+            }
+        }
 
         var count = data.Batches.Sum(batch => batch.Vertices.Length);
         if (count <= MaximumFluidRelightVerticesPerChunk -
@@ -671,26 +694,31 @@ public sealed class ChunkPresentation
             _relightableGeometry[meshletIndex] is not null;
 
         var renderStart = Stopwatch.GetTimestamp();
-        var patched = false;
-        if (data.HasRenderGeometry)
-        {
-            var mesh = _meshes[meshletIndex] ??
-                CreateMesh(_meshes, meshletIndex,
-                    $"Meshlet_{meshletIndex}");
+        var expectedSurfaces = data.RenderBatches.Count(
+            batch => batch.Vertices.Length > 0);
+        var patched = lightOnly &&
+            _terrainMesh is { } published &&
+            _terrainSurfaceCounts[meshletIndex] == expectedSurfaces &&
+            ChunkMeshBuilder.TryUpdateLighting(
+                published, data,
+                _terrainSurfaceStarts[meshletIndex],
+                _terrainSurfaceCounts[meshletIndex]);
 
-            // Light-only batches keep the original mesh resource and
-            // update only its attribute buffer. If its layout is not
-            // compatible, fall back to a complete mesh publication.
-            patched = lightOnly && mesh.Mesh is ArrayMesh published &&
-                ChunkMeshBuilder.TryUpdateLighting(published, data);
-            if (!patched)
-                mesh.Mesh = ChunkMeshBuilder.CreateMesh(data, materials);
-        }
-        else
+        if (!patched)
         {
-            RemoveNode(
-                _meshes,
-                meshletIndex);
+            RemoveTerrainSurfaces(meshletIndex);
+            if (data.HasRenderGeometry)
+            {
+                EnsureTerrainMesh();
+                var start = _terrainMesh!.GetSurfaceCount();
+                var count = ChunkMeshBuilder.AppendSurfaces(
+                    _terrainMesh, data, materials);
+                if (count > 0)
+                {
+                    _terrainSurfaceStarts[meshletIndex] = start;
+                    _terrainSurfaceCounts[meshletIndex] = count;
+                }
+            }
         }
 
         // Replacing an already-published geometry snapshot invalidates its
@@ -765,23 +793,89 @@ public sealed class ChunkPresentation
         System.Numerics.Vector3[] Faces,
         MeshDependencyStamp Dependencies);
 
-    private MeshInstance3D CreateMesh(
-        MeshInstance3D?[] storage,
-        int meshletIndex,
-        string name)
+    private void EnsureTerrainMesh()
     {
-        var mesh =
-            new MeshInstance3D
-            {
-                Name = name,
-            };
+        if (_terrainMesh is not null)
+            return;
 
-        storage[
-            meshletIndex] =
-            mesh;
-        Root.AddChild(
-            mesh);
-        return mesh;
+        _terrainMesh = new ArrayMesh();
+        _terrainMeshInstance = new MeshInstance3D
+        {
+            Name = "Terrain",
+            Mesh = _terrainMesh,
+        };
+        Root.AddChild(_terrainMeshInstance);
+    }
+
+    private void EnsureFluidMesh()
+    {
+        if (_fluidMesh is not null)
+            return;
+
+        _fluidMesh = new ArrayMesh();
+        _fluidMeshInstance = new MeshInstance3D
+        {
+            Name = "Fluids",
+            Mesh = _fluidMesh,
+        };
+        Root.AddChild(_fluidMeshInstance);
+    }
+
+    private void RemoveTerrainSurfaces(int meshletIndex) =>
+        RemoveSharedMeshletSurfaces(
+            ref _terrainMesh,
+            ref _terrainMeshInstance,
+            _terrainSurfaceStarts,
+            _terrainSurfaceCounts,
+            meshletIndex);
+
+    private void RemoveFluidSurfaces(int meshletIndex) =>
+        RemoveSharedMeshletSurfaces(
+            ref _fluidMesh,
+            ref _fluidMeshInstance,
+            _fluidSurfaceStarts,
+            _fluidSurfaceCounts,
+            meshletIndex);
+
+    private static void RemoveSharedMeshletSurfaces(
+        ref ArrayMesh? mesh,
+        ref MeshInstance3D? instance,
+        int[] starts,
+        int[] counts,
+        int meshletIndex)
+    {
+        var count = counts[meshletIndex];
+        if (count == 0)
+        {
+            starts[meshletIndex] = 0;
+            return;
+        }
+
+        var start = starts[meshletIndex];
+        var end = start + count;
+        if (mesh is { } shared)
+        {
+            for (var surface = end - 1; surface >= start; surface--)
+                shared.SurfaceRemove(surface);
+        }
+
+        for (var index = 0; index < counts.Length; index++)
+        {
+            if (index != meshletIndex && counts[index] > 0 &&
+                starts[index] >= end)
+                starts[index] -= count;
+        }
+
+        starts[meshletIndex] = 0;
+        counts[meshletIndex] = 0;
+        if (mesh is not { } remaining || remaining.GetSurfaceCount() != 0)
+            return;
+
+        instance?.QueueFree();
+        instance = null;
+        mesh = null;
+        Array.Clear(starts);
+        Array.Clear(counts);
     }
 
     private CollisionShape3D CreateCollision(
@@ -845,25 +939,6 @@ public sealed class ChunkPresentation
 
         _collisionBody?.QueueFree();
         _collisionBody = null;
-    }
-
-    private static void RemoveNode(
-        MeshInstance3D?[] storage,
-        int meshletIndex)
-    {
-        var node =
-            storage[
-                meshletIndex];
-
-        if (node is null)
-        {
-            return;
-        }
-
-        storage[
-            meshletIndex] =
-            null;
-        node.QueueFree();
     }
 
     private void MarkTerrainPublished(
