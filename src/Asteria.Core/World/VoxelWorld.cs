@@ -980,7 +980,16 @@ public sealed class VoxelWorld
         CloneForWorker(_chunks.Keys);
 
     public VoxelWorld CloneForWorker(
-        IEnumerable<ChunkCoord> coordinates)
+        IEnumerable<ChunkCoord> coordinates) =>
+        CloneForWorkerCore(coordinates, lightingOnly: false);
+
+    internal VoxelWorld CloneForLightingWorker(
+        IEnumerable<ChunkCoord> coordinates) =>
+        CloneForWorkerCore(coordinates, lightingOnly: true);
+
+    private VoxelWorld CloneForWorkerCore(
+        IEnumerable<ChunkCoord> coordinates,
+        bool lightingOnly)
     {
         ArgumentNullException.ThrowIfNull(coordinates);
 
@@ -993,7 +1002,9 @@ public sealed class VoxelWorld
             {
                 clone._chunks.Add(
                     coord,
-                    chunk.CloneForWorker());
+                    lightingOnly
+                        ? chunk.CloneForLightingWorker()
+                        : chunk.CloneForWorker());
             }
         }
 
