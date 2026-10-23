@@ -22,15 +22,23 @@ public sealed class ChunkPresentation
     private const int MaximumRelightCacheVerticesPerChunk = 2048;
     private int _relightCacheVertexCount;
 
-    // Each chunk owns one terrain mesh and one fluid mesh. Meshlet publication
-    // appends/replaces only that meshlet's surface range inside the shared
-    // ArrayMesh, avoiding one MeshInstance3D/ArrayMesh pair per meshlet.
+    // Terrain is merged by render batch (material/shadow policy) within a
+    // chunk. Per-meshlet ranges preserve local edits and partial light uploads.
+    private sealed class TerrainSurfaceState
+    {
+        public List<ChunkMeshVertex> Vertices { get; } = [];
+        public int SurfaceIndex { get; set; }
+    }
+
+    private readonly record struct TerrainVertexSpan(int Start, int Count);
+
+    private readonly Dictionary<TerrainRenderBatch, TerrainSurfaceState>
+        _terrainSurfaceStates = [];
+    private readonly Dictionary<TerrainRenderBatch, TerrainVertexSpan>[]
+        _terrainMeshletSpans = CreateTerrainMeshletSpans();
     private MeshInstance3D? _terrainMeshInstance;
     private ArrayMesh? _terrainMesh;
-    private readonly int[] _terrainSurfaceStarts =
-        new int[ChunkMeshletMask.Count];
-    private readonly int[] _terrainSurfaceCounts =
-        new int[ChunkMeshletMask.Count];
+    private bool _terrainMeshDirty;
     private MeshInstance3D? _fluidMeshInstance;
     private ArrayMesh? _fluidMesh;
     private readonly int[] _fluidSurfaceStarts =
@@ -138,7 +146,9 @@ public sealed class ChunkPresentation
         _deferredCollisions.Any(pending => pending is not null);
 
     public bool IsFullyPublished =>
-        _publishedCount == ChunkMeshletMask.Count;
+        _publishedCount == ChunkMeshletMask.Count && !_terrainMeshDirty;
+
+    public bool HasPendingTerrainMeshFlush => _terrainMeshDirty;
 
     // A wholly empty chunk has no GPU state worth keeping in the warm cache.
     public bool HasReusableVisualResources =>
@@ -257,7 +267,7 @@ public sealed class ChunkPresentation
 
         data = _relightableGeometry[meshletIndex];
         if (data is not { CanRelightWithoutRemesh: true } ||
-            _terrainSurfaceCounts[meshletIndex] == 0 ||
+            _terrainMeshletSpans[meshletIndex].Count == 0 ||
             _relightableDependencies[meshletIndex] is not { } dependency ||
             !dependency.HasUnchangedGeometryAfterRestore(world))
         {
@@ -694,32 +704,14 @@ public sealed class ChunkPresentation
             _relightableGeometry[meshletIndex] is not null;
 
         var renderStart = Stopwatch.GetTimestamp();
-        var expectedSurfaces = data.RenderBatches.Count(
-            batch => batch.Vertices.Length > 0);
-        var patched = lightOnly &&
-            _terrainMesh is { } published &&
-            _terrainSurfaceCounts[meshletIndex] == expectedSurfaces &&
-            ChunkMeshBuilder.TryUpdateLighting(
-                published, data,
-                _terrainSurfaceStarts[meshletIndex],
-                _terrainSurfaceCounts[meshletIndex]);
-
-        if (!patched)
-        {
-            RemoveTerrainSurfaces(meshletIndex);
-            if (data.HasRenderGeometry)
-            {
-                EnsureTerrainMesh();
-                var start = _terrainMesh!.GetSurfaceCount();
-                var appendedSurfaces = ChunkMeshBuilder.AppendSurfaces(
-                    _terrainMesh, data, materials);
-                if (appendedSurfaces > 0)
-                {
-                    _terrainSurfaceStarts[meshletIndex] = start;
-                    _terrainSurfaceCounts[meshletIndex] = appendedSurfaces;
-                }
-            }
-        }
+        var patchedGpuAttributes = false;
+        var lightOnlyHandled = lightOnly &&
+            TryUpdateTerrainLightOnly(
+                meshletIndex, data, out patchedGpuAttributes);
+        if (!lightOnlyHandled)
+            ReplaceTerrainMeshletGeometry(meshletIndex, data.RenderBatches);
+        var renderMilliseconds = Stopwatch.GetElapsedTime(
+            renderStart).TotalMilliseconds;
 
         // Replacing an already-published geometry snapshot invalidates its
         // old cached light bindings. New cache is immutable and bounded to
@@ -737,8 +729,6 @@ public sealed class ChunkPresentation
         _relightableDependencies[meshletIndex] =
             retainForRelighting ? dependencies : null;
 
-        var renderMilliseconds = Stopwatch.GetElapsedTime(
-            renderStart).TotalMilliseconds;
         var collisionStart = Stopwatch.GetTimestamp();
 
         if (preserveCollision)
@@ -786,25 +776,195 @@ public sealed class ChunkPresentation
             collisionMilliseconds,
             data.RenderVertexCount,
             data.CollisionTriangleCount,
-            patched);
+            patchedGpuAttributes);
     }
 
     private sealed record DeferredCollision(
         System.Numerics.Vector3[] Faces,
         MeshDependencyStamp Dependencies);
 
-    private void EnsureTerrainMesh()
+    private static Dictionary<TerrainRenderBatch, TerrainVertexSpan>[]
+        CreateTerrainMeshletSpans()
     {
-        if (_terrainMesh is not null)
+        var maps = new Dictionary<TerrainRenderBatch, TerrainVertexSpan>[
+            ChunkMeshletMask.Count];
+        for (var index = 0; index < maps.Length; index++)
+            maps[index] = [];
+        return maps;
+    }
+
+    private bool TryUpdateTerrainLightOnly(
+        int meshletIndex,
+        ChunkMeshData data,
+        out bool patchedGpuAttributes)
+    {
+        patchedGpuAttributes = false;
+        var spans = _terrainMeshletSpans[meshletIndex];
+        var batches = data.RenderBatches
+            .Where(batch => batch.Vertices.Length > 0)
+            .ToArray();
+
+        if (spans.Count != batches.Length)
+            return false;
+
+        foreach (var batch in batches)
+        {
+            if (!spans.TryGetValue(batch.Batch, out var span) ||
+                span.Count != batch.Vertices.Length ||
+                !_terrainSurfaceStates.ContainsKey(batch.Batch))
+                return false;
+        }
+
+        // Retain per-material CPU ranges. If another structural publication
+        // dirtied the chunk mesh this frame, one merged rebuild will include
+        // these light changes without a separate native upload.
+        foreach (var batch in batches)
+        {
+            var span = spans[batch.Batch];
+            var state = _terrainSurfaceStates[batch.Batch];
+            for (var index = 0; index < batch.Vertices.Length; index++)
+                state.Vertices[span.Start + index] = batch.Vertices[index];
+        }
+
+        if (_terrainMeshDirty || _terrainMesh is null)
+            return true;
+
+        foreach (var batch in batches)
+        {
+            var span = spans[batch.Batch];
+            var state = _terrainSurfaceStates[batch.Batch];
+            if (ChunkMeshBuilder.TryUpdateLightingRange(
+                    _terrainMesh, state.SurfaceIndex, span.Start,
+                    state.Vertices.Count, batch))
+                continue;
+
+            // A format mismatch must not leave partially patched output.
+            // Mark the chunk for one complete merged-surface rebuild.
+            _terrainMeshDirty = true;
+            return true;
+        }
+
+        patchedGpuAttributes = batches.Length > 0;
+        return true;
+    }
+
+    private void ReplaceTerrainMeshletGeometry(
+        int meshletIndex,
+        IReadOnlyList<ChunkRenderBatchData> batches)
+    {
+        RemoveTerrainMeshletGeometry(meshletIndex);
+        var spans = _terrainMeshletSpans[meshletIndex];
+
+        foreach (var batch in batches)
+        {
+            if (batch.Vertices.Length == 0)
+                continue;
+
+            if (!_terrainSurfaceStates.TryGetValue(batch.Batch, out var state))
+            {
+                state = new TerrainSurfaceState();
+                _terrainSurfaceStates.Add(batch.Batch, state);
+            }
+
+            var start = state.Vertices.Count;
+            state.Vertices.AddRange(batch.Vertices);
+            spans.Add(
+                batch.Batch,
+                new TerrainVertexSpan(start, batch.Vertices.Length));
+        }
+
+        _terrainMeshDirty = true;
+    }
+
+    private void RemoveTerrainMeshletGeometry(int meshletIndex)
+    {
+        var spans = _terrainMeshletSpans[meshletIndex];
+        if (spans.Count == 0)
             return;
 
-        _terrainMesh = new ArrayMesh();
-        _terrainMeshInstance = new MeshInstance3D
+        foreach (var (batch, span) in
+                 spans.OrderByDescending(entry => entry.Value.Start))
         {
-            Name = "Terrain",
-            Mesh = _terrainMesh,
-        };
-        Root.AddChild(_terrainMeshInstance);
+            if (!_terrainSurfaceStates.TryGetValue(batch, out var state))
+                continue;
+
+            state.Vertices.RemoveRange(span.Start, span.Count);
+            for (var otherIndex = 0;
+                 otherIndex < _terrainMeshletSpans.Length;
+                 otherIndex++)
+            {
+                if (otherIndex == meshletIndex ||
+                    !_terrainMeshletSpans[otherIndex].TryGetValue(
+                        batch, out var otherSpan))
+                    continue;
+
+                if (otherSpan.Start > span.Start)
+                    _terrainMeshletSpans[otherIndex][batch] =
+                        otherSpan with { Start = otherSpan.Start - span.Count };
+            }
+
+            if (state.Vertices.Count == 0)
+                _terrainSurfaceStates.Remove(batch);
+        }
+
+        spans.Clear();
+        _terrainMeshDirty = true;
+    }
+
+    /// <summary>
+    /// Rebuilds one surface per render batch after a publication slice, rather
+    /// than one surface per meshlet. The CPU ranges preserve meshlet-local
+    /// ownership for subsequent edits and partial light uploads.
+    /// </summary>
+    public double FlushTerrainMesh(VoxelTerrainMaterialSet materials)
+    {
+        if (!_terrainMeshDirty)
+            return 0d;
+
+        var stopwatch = Stopwatch.StartNew();
+        var batches = _terrainSurfaceStates
+            .OrderBy(entry => entry.Key)
+            .Select(entry => new ChunkRenderBatchData(
+                entry.Key, entry.Value.Vertices.ToArray()))
+            .ToArray();
+
+        if (batches.Length == 0)
+        {
+            _terrainMeshInstance?.QueueFree();
+            _terrainMeshInstance = null;
+            _terrainMesh = null;
+        }
+        else
+        {
+            var mesh = ChunkMeshBuilder.CreateMesh(
+                new ChunkMeshData(
+                    batches,
+                    Array.Empty<System.Numerics.Vector3>()),
+                materials);
+
+            if (_terrainMeshInstance is null)
+            {
+                _terrainMeshInstance = new MeshInstance3D
+                {
+                    Name = "Terrain",
+                    Mesh = mesh,
+                };
+                Root.AddChild(_terrainMeshInstance);
+            }
+            else
+            {
+                _terrainMeshInstance.Mesh = mesh;
+            }
+
+            _terrainMesh = mesh;
+            var surfaceIndex = 0;
+            foreach (var entry in _terrainSurfaceStates.OrderBy(entry => entry.Key))
+                entry.Value.SurfaceIndex = surfaceIndex++;
+        }
+
+        _terrainMeshDirty = false;
+        stopwatch.Stop();
+        return stopwatch.Elapsed.TotalMilliseconds;
     }
 
     private void EnsureFluidMesh()
@@ -822,12 +982,7 @@ public sealed class ChunkPresentation
     }
 
     private void RemoveTerrainSurfaces(int meshletIndex) =>
-        RemoveSharedMeshletSurfaces(
-            ref _terrainMesh,
-            ref _terrainMeshInstance,
-            _terrainSurfaceStarts,
-            _terrainSurfaceCounts,
-            meshletIndex);
+        RemoveTerrainMeshletGeometry(meshletIndex);
 
     private void RemoveFluidSurfaces(int meshletIndex) =>
         RemoveSharedMeshletSurfaces(

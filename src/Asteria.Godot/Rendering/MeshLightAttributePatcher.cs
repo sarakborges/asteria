@@ -95,6 +95,66 @@ internal static class MeshLightAttributePatcher
             firstSurface, surfaceCount);
     }
 
+    public static bool TryUpdateSurfaceRange(
+        ArrayMesh mesh,
+        int surfaceIndex,
+        int firstVertex,
+        int surfaceVertexCount,
+        ChunkRenderBatchData batch)
+    {
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentNullException.ThrowIfNull(batch);
+        if (firstVertex < 0 ||
+            firstVertex > surfaceVertexCount ||
+            batch.Vertices.Length > surfaceVertexCount - firstVertex ||
+            !TryPrepare(mesh, surfaceIndex, surfaceVertexCount,
+                hasUv2: true, out var layout))
+            return false;
+
+        var vertices = batch.Vertices;
+        var bytes = new byte[checked(vertices.Length * layout.Stride)];
+        for (var index = 0; index < vertices.Length; index++)
+        {
+            var vertex = vertices[index];
+            Write(bytes, index, layout, vertex.TintAndAo, vertex.Uv,
+                vertex.EncodedTextureLayers, vertex.VoxelLight);
+        }
+
+        mesh.SurfaceUpdateAttributeRegion(
+            surfaceIndex, checked(firstVertex * layout.Stride), bytes);
+        return true;
+    }
+
+    public static bool TryUpdateSurfaceRange(
+        ArrayMesh mesh,
+        int surfaceIndex,
+        int firstVertex,
+        int surfaceVertexCount,
+        ChunkFluidBatchData batch)
+    {
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentNullException.ThrowIfNull(batch);
+        if (firstVertex < 0 ||
+            firstVertex > surfaceVertexCount ||
+            batch.Vertices.Length > surfaceVertexCount - firstVertex ||
+            !TryPrepare(mesh, surfaceIndex, surfaceVertexCount,
+                hasUv2: false, out var layout))
+            return false;
+
+        var vertices = batch.Vertices;
+        var bytes = new byte[checked(vertices.Length * layout.Stride)];
+        for (var index = 0; index < vertices.Length; index++)
+        {
+            var vertex = vertices[index];
+            Write(bytes, index, layout, vertex.TintAndAo, vertex.Uv,
+                default, vertex.VoxelLight);
+        }
+
+        mesh.SurfaceUpdateAttributeRegion(
+            surfaceIndex, checked(firstVertex * layout.Stride), bytes);
+        return true;
+    }
+
     private static bool TryUpdate(
         ArrayMesh mesh, ChunkFluidBatchData[] batches, int firstSurface)
     {

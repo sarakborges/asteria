@@ -95,6 +95,15 @@ public static class ChunkMeshBuilder
         MeshLightAttributePatcher.TryUpdate(
             mesh, data, firstSurface, surfaceCount);
 
+    public static bool TryUpdateLightingRange(
+        ArrayMesh mesh,
+        int surfaceIndex,
+        int firstVertex,
+        int surfaceVertexCount,
+        ChunkRenderBatchData batch) =>
+        MeshLightAttributePatcher.TryUpdateSurfaceRange(
+            mesh, surfaceIndex, firstVertex, surfaceVertexCount, batch);
+
     private static byte PackUnorm8(float value) =>
         (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
 

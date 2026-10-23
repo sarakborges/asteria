@@ -49,6 +49,7 @@ public sealed class ChunkPresentationController
         _backgroundTerrainPublicationOrder = new();
     private readonly Dictionary<ChunkMeshletKey, TerrainPublication>
         _terrainPublications = [];
+    private readonly HashSet<ChunkCoord> _pendingTerrainMeshFlush = [];
     private readonly DeduplicatedQueue<ChunkMeshletKey>
         _fluidPublicationOrder = new();
     private readonly Dictionary<ChunkMeshletKey, FluidPublication>
@@ -247,6 +248,7 @@ public sealed class ChunkPresentationController
         _world.ObjectChunkChanged -= OnObjectChunkChanged;
         _pendingObjects.Clear();
         _deferredCollisionChunks.Clear();
+        _pendingTerrainMeshFlush.Clear();
         _warmPresentations.Clear(static presentation =>
             presentation.DisposeSuspended());
     }
@@ -447,11 +449,16 @@ public sealed class ChunkPresentationController
                 presentation.DiscardInvalidCachedMeshlets(
                     ChunkMeshletMask.All.Except(reusableTerrain),
                     ChunkMeshletMask.All.Except(reusableFluid));
+                if (presentation.HasPendingTerrainMeshFlush)
+                    _pendingTerrainMeshFlush.Add(coord.Value);
                 _warmTerrainMeshletsReused += reusableTerrain.Indices().Count();
                 _warmFluidMeshletsReused += reusableFluid.Indices().Count();
                 if (presentation.HasDeferredCollisions)
                     _deferredCollisionChunks.Add(coord.Value);
             }
+
+            if (presentation.HasPendingTerrainMeshFlush)
+                _pendingTerrainMeshFlush.Add(coord.Value);
 
             presentation.MarkTerrainPublished(
                 ChunkMeshletMask.All.Except(terrainMeshlets));
@@ -533,6 +540,7 @@ public sealed class ChunkPresentationController
         RemovePendingPublications(coord);
         _pendingObjects.Remove(coord);
         _deferredCollisionChunks.Remove(coord);
+        _pendingTerrainMeshFlush.Remove(coord);
 
         if (!_presentations.Remove(coord, out var presentation))
             return false;
@@ -678,6 +686,8 @@ public sealed class ChunkPresentationController
                 _terrainMaterials,
                 pending.Dependencies,
                 pending.Meshlet.LightOnly);
+            if (presentation.HasPendingTerrainMeshFlush)
+                _pendingTerrainMeshFlush.Add(pending.Meshlet.Coord);
             renderBuildMilliseconds += apply.RenderBuildMilliseconds;
             collisionBuildMilliseconds += apply.CollisionBuildMilliseconds;
             renderVertices += apply.RenderVertices;
@@ -699,6 +709,7 @@ public sealed class ChunkPresentationController
             published++;
         }
 
+        FlushPendingTerrainMeshes(budget, ref renderBuildMilliseconds);
         stopwatch.Stop();
 
         return new ChunkPresentationIntegrationStats(
@@ -707,6 +718,32 @@ public sealed class ChunkPresentationController
             renderBuildMilliseconds, collisionBuildMilliseconds,
             renderVertices, collisionTriangles,
             gpuAttributePatches);
+    }
+
+    private void FlushPendingTerrainMeshes(
+        WorldFrameWorkBudget budget,
+        ref double renderBuildMilliseconds)
+    {
+        var flushed = 0;
+        foreach (var coord in _pendingTerrainMeshFlush
+                     .OrderBy(value => value, ChunkCoordOrdering.YThenZThenX)
+                     .ToArray())
+        {
+            if (flushed > 0 &&
+                budget.Exhausted(Stopwatch.GetTimestamp()))
+                break;
+
+            if (!_presentations.TryGetValue(coord, out var presentation))
+            {
+                _pendingTerrainMeshFlush.Remove(coord);
+                continue;
+            }
+
+            renderBuildMilliseconds +=
+                presentation.FlushTerrainMesh(_terrainMaterials);
+            _pendingTerrainMeshFlush.Remove(coord);
+            flushed++;
+        }
     }
 
     public ChunkPresentationIntegrationStats
