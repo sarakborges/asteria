@@ -103,26 +103,14 @@ public static class VoxelLightingMedium
             return default;
         }
 
-        return ScaleFluidEmission(
-            fluids
-                .GetDefinition(fluid.Fluid)
-                .LightEmission,
-            fluid.Level);
+        return fluids.GetLightEmissionAtLevel(
+            fluid.Fluid, fluid.Level);
     }
 
     public static BlockLightEmission ScaleFluidEmission(
         BlockLightEmission fullEmission,
         byte level) =>
-        new(
-            ScaleFluidLightChannel(
-                fullEmission.Red,
-                level),
-            ScaleFluidLightChannel(
-                fullEmission.Green,
-                level),
-            ScaleFluidLightChannel(
-                fullEmission.Blue,
-                level));
+        FluidDefinition.ScaleLightEmission(fullEmission, level);
 
     public static byte FluidDampening(
         FluidRegistry fluids,
@@ -135,73 +123,14 @@ public static class VoxelLightingMedium
             return 0;
         }
 
-        var full =
-            fluids
-                .GetDefinition(fluid.Fluid)
-                .LightDampening;
-
-        return ScaleFluidDampening(
-            full,
-            fluid.Level);
-    }
-
-    private static byte ScaleFluidLightChannel(
-        byte fullEmission,
-        byte level)
-    {
-        if (fullEmission == 0 ||
-            level == 0)
-        {
-            return 0;
-        }
-
-        var clampedLevel =
-            Math.Clamp(
-                level,
-                FluidCell.MinLevel,
-                FluidCell.MaxLevel);
-        var numerator =
-            fullEmission *
-            clampedLevel;
-
-        return checked(
-            (byte)(
-                (numerator +
-                 FluidCell.MaxLevel - 1) /
-                FluidCell.MaxLevel));
+        return fluids.GetLightDampeningAtLevel(
+            fluid.Fluid, fluid.Level);
     }
 
     public static byte ScaleFluidDampening(
         byte fullDampening,
-        byte level)
-    {
-        if (fullDampening == 0 ||
-            level == 0)
-        {
-            return 0;
-        }
-
-        var clampedDampening =
-            Math.Min(
-                fullDampening,
-                VoxelLight.MaxLevel);
-        var clampedLevel =
-            Math.Clamp(
-                level,
-                FluidCell.MinLevel,
-                FluidCell.MaxLevel);
-
-        var numerator =
-            clampedDampening *
-            clampedLevel;
-
-        return checked(
-            (byte)Math.Min(
-                VoxelLight.MaxLevel,
-                (numerator +
-                 FluidCell.MaxLevel - 1) /
-                FluidCell.MaxLevel));
-    }
+        byte level) =>
+        FluidDefinition.ScaleLightDampening(fullDampening, level);
 
     private static byte BlockDampening(
         Chunk chunk,
