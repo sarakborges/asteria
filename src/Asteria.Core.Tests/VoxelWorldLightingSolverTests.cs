@@ -74,6 +74,19 @@ public sealed class VoxelWorldLightingSolverTests
     }
 
     [Fact]
+    public void MissingChunkImmediatelyAboveAnEditKeepsFullSkylightPath()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+
+        Assert.Equal(
+            LightingWorkKind.DirectSky,
+            VoxelWorldLightingSolver.ClassifyInteractiveLightingImpact(
+                world, new BlockRegistry([]), new FluidRegistry([]),
+                [new WorldVoxelCoord(8, Chunk.Size - 1, 8)]));
+    }
+
+    [Fact]
     public void BlockLightOnlyRelightPreservesSkyWhileClearingRgbLight()
     {
         var world = new VoxelWorld();
