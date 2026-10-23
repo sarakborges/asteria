@@ -105,6 +105,10 @@ public sealed class IncrementalVoxelWorldLightingTests
                 new FluidRegistry([]),
                 [edited]);
 
+        Assert.True(darken.MediumSampleRequests > 0);
+        Assert.True(darken.MediumSampleCacheMisses > 0);
+        Assert.True(darken.MediumSampleRequests > darken.MediumSampleCacheMisses);
+
         Assert.Equal(
             (byte)0,
             world.GetLightOrDark(edited).Sky);
