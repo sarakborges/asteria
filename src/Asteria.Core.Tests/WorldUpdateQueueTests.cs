@@ -798,14 +798,17 @@ public sealed class MeshletContentRevisionsTests
             ChunkCoord.Zero);
 
         Assert.Equal([edited], interactive.EditedPositions);
+        Assert.True(interactive.IsPriority);
         Assert.True(queue.HasLightingWork);
 
+        var background = queue.DrainLighting(
+            maximumPositions: 512,
+            maximumColumns: 2,
+            world);
         Assert.Equal(
             new[] { olderBackground, newerBackground },
-            queue.DrainLighting(
-                maximumPositions: 512,
-                maximumColumns: 2,
-                world).EditedPositions);
+            background.EditedPositions);
+        Assert.False(background.IsPriority);
         Assert.False(queue.HasLightingWork);
     }
 
