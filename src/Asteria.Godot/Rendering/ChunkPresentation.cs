@@ -28,12 +28,14 @@ public sealed class ChunkPresentation
     {
         public List<ChunkMeshVertex> Vertices { get; } = [];
         public int SurfaceIndex { get; set; }
+        public bool HasSurface { get; set; }
     }
 
     private readonly record struct TerrainVertexSpan(int Start, int Count);
 
     private readonly Dictionary<TerrainRenderBatch, TerrainSurfaceState>
         _terrainSurfaceStates = [];
+    private readonly HashSet<TerrainRenderBatch> _terrainDirtyBatches = [];
     private readonly Dictionary<TerrainRenderBatch, TerrainVertexSpan>[]
         _terrainMeshletSpans = CreateTerrainMeshletSpans();
     private MeshInstance3D? _terrainMeshInstance;
@@ -871,9 +873,9 @@ public sealed class ChunkPresentation
             spans.Add(
                 batch.Batch,
                 new TerrainVertexSpan(start, batch.Vertices.Length));
+            _terrainDirtyBatches.Add(batch.Batch);
+            _terrainMeshDirty = true;
         }
-
-        _terrainMeshDirty = true;
     }
 
     private void RemoveTerrainMeshletGeometry(int meshletIndex)
@@ -889,6 +891,7 @@ public sealed class ChunkPresentation
                 continue;
 
             state.Vertices.RemoveRange(span.Start, span.Count);
+            _terrainDirtyBatches.Add(batch);
             for (var otherIndex = 0;
                  otherIndex < _terrainMeshletSpans.Length;
                  otherIndex++)
@@ -903,12 +906,10 @@ public sealed class ChunkPresentation
                         otherSpan with { Start = otherSpan.Start - span.Count };
             }
 
-            if (state.Vertices.Count == 0)
-                _terrainSurfaceStates.Remove(batch);
         }
 
         spans.Clear();
-        _terrainMeshDirty = true;
+        _terrainMeshDirty = _terrainDirtyBatches.Count > 0;
     }
 
     /// <summary>
@@ -922,28 +923,34 @@ public sealed class ChunkPresentation
             return 0d;
 
         var stopwatch = Stopwatch.StartNew();
-        var batches = _terrainSurfaceStates
-            .OrderBy(entry => entry.Key)
-            .Select(entry => new ChunkRenderBatchData(
-                entry.Key, entry.Value.Vertices.ToArray()))
-            .ToArray();
-
-        if (batches.Length == 0)
+        if (_terrainMesh is null)
         {
-            _terrainMeshInstance?.QueueFree();
-            _terrainMeshInstance = null;
-            _terrainMesh = null;
-        }
-        else
-        {
-            var mesh = ChunkMeshBuilder.CreateMesh(
-                new ChunkMeshData(
-                    batches,
-                    Array.Empty<System.Numerics.Vector3>()),
-                materials);
-
-            if (_terrainMeshInstance is null)
+            var mesh = new ArrayMesh();
+            foreach (var (batch, state) in
+                     _terrainSurfaceStates.OrderBy(entry => entry.Key))
             {
+                if (state.Vertices.Count == 0)
+                    continue;
+
+                var surfaceIndex = mesh.GetSurfaceCount();
+                var data = new ChunkMeshData(
+                    [new ChunkRenderBatchData(batch, state.Vertices.ToArray())],
+                    Array.Empty<System.Numerics.Vector3>());
+                if (ChunkMeshBuilder.AppendSurfaces(mesh, data, materials) == 0)
+                    continue;
+
+                state.SurfaceIndex = surfaceIndex;
+                state.HasSurface = true;
+            }
+
+            foreach (var empty in _terrainSurfaceStates
+                         .Where(entry => entry.Value.Vertices.Count == 0)
+                         .Select(entry => entry.Key).ToArray())
+                _terrainSurfaceStates.Remove(empty);
+
+            if (mesh.GetSurfaceCount() > 0)
+            {
+                _terrainMesh = mesh;
                 _terrainMeshInstance = new MeshInstance3D
                 {
                     Name = "Terrain",
@@ -951,17 +958,54 @@ public sealed class ChunkPresentation
                 };
                 Root.AddChild(_terrainMeshInstance);
             }
-            else
+        }
+        else
+        {
+            foreach (var batch in _terrainDirtyBatches
+                         .OrderBy(value => value).ToArray())
             {
-                _terrainMeshInstance.Mesh = mesh;
+                if (!_terrainSurfaceStates.TryGetValue(batch, out var state))
+                    continue;
+
+                if (state.HasSurface)
+                {
+                    var removedSurface = state.SurfaceIndex;
+                    _terrainMesh.SurfaceRemove(removedSurface);
+                    foreach (var other in _terrainSurfaceStates.Values)
+                    {
+                        if (other.HasSurface &&
+                            other.SurfaceIndex > removedSurface)
+                            other.SurfaceIndex--;
+                    }
+                    state.HasSurface = false;
+                }
+
+                if (state.Vertices.Count == 0)
+                {
+                    _terrainSurfaceStates.Remove(batch);
+                    continue;
+                }
+
+                var surfaceIndex = _terrainMesh.GetSurfaceCount();
+                var data = new ChunkMeshData(
+                    [new ChunkRenderBatchData(batch, state.Vertices.ToArray())],
+                    Array.Empty<System.Numerics.Vector3>());
+                if (ChunkMeshBuilder.AppendSurfaces(_terrainMesh, data, materials) > 0)
+                {
+                    state.SurfaceIndex = surfaceIndex;
+                    state.HasSurface = true;
+                }
             }
 
-            _terrainMesh = mesh;
-            var surfaceIndex = 0;
-            foreach (var entry in _terrainSurfaceStates.OrderBy(entry => entry.Key))
-                entry.Value.SurfaceIndex = surfaceIndex++;
+            if (_terrainMesh.GetSurfaceCount() == 0)
+            {
+                _terrainMeshInstance?.QueueFree();
+                _terrainMeshInstance = null;
+                _terrainMesh = null;
+            }
         }
 
+        _terrainDirtyBatches.Clear();
         _terrainMeshDirty = false;
         stopwatch.Stop();
         return stopwatch.Elapsed.TotalMilliseconds;
