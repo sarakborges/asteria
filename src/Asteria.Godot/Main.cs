@@ -623,7 +623,7 @@ public partial class Main : Node3D
         {
             _placementPreview.Hide();
             _objectPlacementPreview.Hide();
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu", 0, 0, 0, false);
+            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu", 0, 0, 0, false, false);
             return;
         }
 
@@ -645,7 +645,7 @@ public partial class Main : Node3D
             _objectPlacementPreview.Hide();
             _heldDynamicLight.Clear();
             AdvanceDimensionTransition();
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, 0, false);
+            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, 0, false, false);
             return;
         }
 

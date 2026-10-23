@@ -497,9 +497,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fluidMeshPending = fluidMeshPending;
         _lightingActive = lightingActive;
         _fluidSimulationActive = fluidSimulationActive;
+        var now = Stopwatch.GetTimestamp();
         if (_phase != loadingPhase)
         {
-            var now = Stopwatch.GetTimestamp();
             if (_phaseStartedAt != 0 && IsTimedLoadingPhase(_phase))
             {
                 var phaseMilliseconds =
@@ -516,7 +516,6 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             Write($"world.phase name={_phase}");
         }
 
-        var now = Stopwatch.GetTimestamp();
         if (now < _nextFlush)
             return;
 
