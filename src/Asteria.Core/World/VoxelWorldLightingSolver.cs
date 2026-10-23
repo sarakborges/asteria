@@ -61,8 +61,8 @@ public static class VoxelWorldLightingSolver
         // First remove stale illumination, then restore light monotonically.
         // The previous single queue reduced light one level at a time and
         // revisited the same voxel repeatedly across large neighborhoods.
-        var darkening = new DeduplicatedQueue<WorldVoxelCoord>();
-        var brightening = new DeduplicatedQueue<WorldVoxelCoord>();
+        var darkening = new LightingPropagationQueue();
+        var brightening = new LightingPropagationQueue();
         var originals = new Dictionary<WorldVoxelCoord, VoxelLight>();
         var objectEmissions = ObjectLightEmissionField.Capture(world, objects);
         var lightingContext = new LightingSolveContext(
@@ -106,8 +106,8 @@ public static class VoxelWorldLightingSolver
     private static int RemoveStaleLight(
         VoxelWorld world,
         LightingSolveContext lightingContext,
-        DeduplicatedQueue<WorldVoxelCoord> darkening,
-        DeduplicatedQueue<WorldVoxelCoord> brightening,
+        LightingPropagationQueue darkening,
+        LightingPropagationQueue brightening,
         Dictionary<WorldVoxelCoord, VoxelLight> originals,
         CancellationToken cancellationToken)
     {
@@ -155,7 +155,7 @@ public static class VoxelWorldLightingSolver
     private static int RestoreLight(
         VoxelWorld world,
         LightingSolveContext lightingContext,
-        DeduplicatedQueue<WorldVoxelCoord> brightening,
+        LightingPropagationQueue brightening,
         Dictionary<WorldVoxelCoord, VoxelLight> originals,
         CancellationToken cancellationToken)
     {
@@ -250,7 +250,7 @@ public static class VoxelWorldLightingSolver
 
     private static void EnqueueWithNeighbors(
         VoxelWorld world,
-        DeduplicatedQueue<WorldVoxelCoord> queue,
+        LightingPropagationQueue queue,
         WorldVoxelCoord position)
     {
         EnqueueIfLoaded(world, queue, position);
@@ -263,7 +263,7 @@ public static class VoxelWorldLightingSolver
 
     private static void EnqueueIfLoaded(
         VoxelWorld world,
-        DeduplicatedQueue<WorldVoxelCoord> queue,
+        LightingPropagationQueue queue,
         WorldVoxelCoord position)
     {
         if (world.IsLoadedAt(position))
@@ -431,7 +431,7 @@ public static class VoxelWorldLightingSolver
         BlockRegistry blocks,
         FluidRegistry fluids)
     {
-        var queue = new DeduplicatedQueue<WorldVoxelCoord>();
+        var queue = new LightingPropagationQueue();
 
         foreach (var coord in world.LoadedChunkCoords)
         {
@@ -523,6 +523,33 @@ public static class VoxelWorldLightingSolver
                     queue.Enqueue(neighbor);
                 }
             }
+        }
+    }
+
+    // Solver frontiers are FIFO-only. A Queue + HashSet has the same
+    // uniqueness contract without allocating a LinkedListNode for every
+    // visited voxel, which matters when a light change spans thousands of cells.
+    private sealed class LightingPropagationQueue
+    {
+        private readonly Queue<WorldVoxelCoord> _order = new();
+        private readonly HashSet<WorldVoxelCoord> _queued = [];
+
+        public bool Enqueue(WorldVoxelCoord position)
+        {
+            if (!_queued.Add(position))
+                return false;
+
+            _order.Enqueue(position);
+            return true;
+        }
+
+        public bool TryDequeue(out WorldVoxelCoord position)
+        {
+            if (!_order.TryDequeue(out position))
+                return false;
+
+            _queued.Remove(position);
+            return true;
         }
     }
 
