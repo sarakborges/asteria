@@ -469,7 +469,6 @@ public sealed class FluidLightingTests
     [Fact]
     public void WaterLayersAboveAirUseTheSameDirectSkyProfileAcrossTheLayer()
     {
-        var blocks = new BlockRegistry([]);
         var fluids = CreateWater(lightDampening: 1);
         var water = fluids.GetId("asteria:water");
         var chunk = new Chunk();
@@ -486,10 +485,8 @@ public sealed class FluidLightingTests
                     : FluidCell.Spreading(water, level, (ushort)(x + z)));
         }
 
-        var processed = ChunkLightingSolver.InitializeAndCountProcessedVoxels(
-            chunk, blocks, fluids);
-
-        Assert.Equal(0, processed);
+        Assert.True(ChunkLightingSolver.TryInitializeUniformFluidLayers(
+            chunk, fluids));
         Assert.Equal((byte)14, chunk.GetLight(0, 15, 0).Sky);
         Assert.Equal((byte)14, chunk.GetLight(15, 15, 15).Sky);
         Assert.Equal((byte)7, chunk.GetLight(0, 8, 0).Sky);
