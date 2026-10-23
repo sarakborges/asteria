@@ -2583,7 +2583,8 @@ public partial class Main : Node3D
             FluidMeshWorkSettled:
                 !_fluidMeshPipeline.HasWorkAffecting(_residency.IsDesired),
             FluidPublicationsSettled:
-                !_chunkPresentations.HasFluidPublicationsFor(_residency.IsDesired),
+                !_chunkPresentations.HasFluidPublicationsFor(_residency.IsDesired) &&
+                !_chunkPresentations.HasPendingFluidMeshFlushFor(_residency.IsDesired),
             ObjectPresentationSettled:
                 !_chunkPresentations.HasObjectPresentationWorkFor(_residency.IsDesired));
 

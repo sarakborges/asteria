@@ -41,12 +41,23 @@ public sealed class ChunkPresentation
     private MeshInstance3D? _terrainMeshInstance;
     private ArrayMesh? _terrainMesh;
     private bool _terrainMeshDirty;
+    private sealed class FluidSurfaceState
+    {
+        public List<FluidMeshVertex> Vertices { get; } = [];
+        public int SurfaceIndex { get; set; }
+        public bool HasSurface { get; set; }
+    }
+
+    private readonly record struct FluidVertexSpan(int Start, int Count);
+
+    private readonly Dictionary<FluidRuntimeId, FluidSurfaceState>
+        _fluidSurfaceStates = [];
+    private readonly DeduplicatedQueue<FluidRuntimeId> _fluidDirtyBatches = new();
+    private readonly Dictionary<FluidRuntimeId, FluidVertexSpan>[]
+        _fluidMeshletSpans = CreateFluidMeshletSpans();
     private MeshInstance3D? _fluidMeshInstance;
     private ArrayMesh? _fluidMesh;
-    private readonly int[] _fluidSurfaceStarts =
-        new int[ChunkMeshletMask.Count];
-    private readonly int[] _fluidSurfaceCounts =
-        new int[ChunkMeshletMask.Count];
+    private bool _fluidMeshDirty;
     // A separate bounded immutable cache for small published fluid meshlets.
     private const int MaximumFluidRelightVerticesPerChunk = 2048;
     private readonly ChunkFluidMeshData?[] _relightableFluid =
@@ -151,6 +162,8 @@ public sealed class ChunkPresentation
         _publishedCount == ChunkMeshletMask.Count && !_terrainMeshDirty;
 
     public bool HasPendingTerrainMeshFlush => _terrainMeshDirty;
+
+    public bool HasPendingFluidMeshFlush => _fluidMeshDirty;
 
     // A wholly empty chunk has no GPU state worth keeping in the warm cache.
     public bool HasReusableVisualResources =>
@@ -286,7 +299,7 @@ public sealed class ChunkPresentation
         ValidateMeshletIndex(meshletIndex);
         ArgumentNullException.ThrowIfNull(world);
         data = _relightableFluid[meshletIndex];
-        if (data is null || _fluidSurfaceCounts[meshletIndex] == 0 ||
+        if (data is null || _fluidMeshletSpans[meshletIndex].Count == 0 ||
             _relightableFluidDependencies[meshletIndex] is not { } dependency ||
             !dependency.HasUnchangedGeometryAfterRestore(world))
         {
@@ -650,32 +663,12 @@ public sealed class ChunkPresentation
         _relightableFluidDependencies[meshletIndex] = null;
         _publishedFluidDependencies[meshletIndex] = dependencies;
 
-        var expectedSurfaces = data.Batches.Count(
-            batch => batch.Vertices.Length > 0);
-        var patched = lightOnly &&
-            _fluidMesh is { } published &&
-            _fluidSurfaceCounts[meshletIndex] == expectedSurfaces &&
-            ChunkFluidMeshBuilder.TryUpdateLighting(
-                published, data,
-                _fluidSurfaceStarts[meshletIndex],
-                _fluidSurfaceCounts[meshletIndex]);
-
-        if (!patched)
-        {
-            RemoveFluidSurfaces(meshletIndex);
-            if (data.HasGeometry)
-            {
-                EnsureFluidMesh();
-                var start = _fluidMesh!.GetSurfaceCount();
-                var appendedSurfaces = ChunkFluidMeshBuilder.AppendSurfaces(
-                    _fluidMesh, data, materials);
-                if (appendedSurfaces > 0)
-                {
-                    _fluidSurfaceStarts[meshletIndex] = start;
-                    _fluidSurfaceCounts[meshletIndex] = appendedSurfaces;
-                }
-            }
-        }
+        var patchedGpuAttributes = false;
+        var lightOnlyHandled = lightOnly &&
+            TryUpdateFluidLightOnly(
+                meshletIndex, data, out patchedGpuAttributes);
+        if (!lightOnlyHandled)
+            ReplaceFluidMeshletGeometry(meshletIndex, data.Batches);
 
         var count = data.Batches.Sum(batch => batch.Vertices.Length);
         if (count <= MaximumFluidRelightVerticesPerChunk -
@@ -685,7 +678,8 @@ public sealed class ChunkPresentation
             _relightableFluidDependencies[meshletIndex] = dependencies;
             _fluidRelightVertexCount += count;
         }
-        return patched;
+
+        return patchedGpuAttributes;
     }
 
     public ChunkPresentationApplyStats Apply(
@@ -1023,56 +1017,199 @@ public sealed class ChunkPresentation
         Root.AddChild(_fluidMeshInstance);
     }
 
-    private void RemoveTerrainSurfaces(int meshletIndex) =>
-        RemoveTerrainMeshletGeometry(meshletIndex);
+    private static Dictionary<FluidRuntimeId, FluidVertexSpan>[]
+        CreateFluidMeshletSpans()
+    {
+        var maps = new Dictionary<FluidRuntimeId, FluidVertexSpan>[
+            ChunkMeshletMask.Count];
+        for (var index = 0; index < maps.Length; index++)
+            maps[index] = [];
+        return maps;
+    }
+
+    private bool TryUpdateFluidLightOnly(
+        int meshletIndex,
+        ChunkFluidMeshData data,
+        out bool patchedGpuAttributes)
+    {
+        patchedGpuAttributes = false;
+        var spans = _fluidMeshletSpans[meshletIndex];
+        var batches = data.Batches
+            .Where(batch => batch.Vertices.Length > 0)
+            .ToArray();
+        if (spans.Count != batches.Length)
+            return false;
+
+        foreach (var batch in batches)
+        {
+            if (!spans.TryGetValue(batch.Fluid, out var span) ||
+                span.Count != batch.Vertices.Length ||
+                !_fluidSurfaceStates.ContainsKey(batch.Fluid))
+                return false;
+        }
+
+        foreach (var batch in batches)
+        {
+            var span = spans[batch.Fluid];
+            var state = _fluidSurfaceStates[batch.Fluid];
+            for (var index = 0; index < batch.Vertices.Length; index++)
+                state.Vertices[span.Start + index] = batch.Vertices[index];
+        }
+
+        if (_fluidMeshDirty || _fluidMesh is null)
+        {
+            foreach (var batch in batches)
+                _fluidDirtyBatches.Enqueue(batch.Fluid);
+            _fluidMeshDirty = _fluidDirtyBatches.Count > 0;
+            return true;
+        }
+
+        foreach (var batch in batches)
+        {
+            var span = spans[batch.Fluid];
+            var state = _fluidSurfaceStates[batch.Fluid];
+            if (ChunkFluidMeshBuilder.TryUpdateLightingRange(
+                    _fluidMesh, state.SurfaceIndex, span.Start,
+                    state.Vertices.Count, batch))
+                continue;
+
+            _fluidDirtyBatches.Enqueue(batch.Fluid);
+            _fluidMeshDirty = true;
+            return true;
+        }
+
+        patchedGpuAttributes = batches.Length > 0;
+        return true;
+    }
+
+    private void ReplaceFluidMeshletGeometry(
+        int meshletIndex,
+        IReadOnlyList<ChunkFluidBatchData> batches)
+    {
+        RemoveFluidMeshletGeometry(meshletIndex);
+        var spans = _fluidMeshletSpans[meshletIndex];
+
+        foreach (var batch in batches)
+        {
+            if (batch.Vertices.Length == 0)
+                continue;
+
+            if (!_fluidSurfaceStates.TryGetValue(batch.Fluid, out var state))
+            {
+                state = new FluidSurfaceState();
+                _fluidSurfaceStates.Add(batch.Fluid, state);
+            }
+
+            var start = state.Vertices.Count;
+            state.Vertices.AddRange(batch.Vertices);
+            spans.Add(batch.Fluid, new FluidVertexSpan(start, batch.Vertices.Length));
+            _fluidDirtyBatches.Enqueue(batch.Fluid);
+            _fluidMeshDirty = true;
+        }
+    }
 
     private void RemoveFluidSurfaces(int meshletIndex) =>
-        RemoveSharedMeshletSurfaces(
-            ref _fluidMesh,
-            ref _fluidMeshInstance,
-            _fluidSurfaceStarts,
-            _fluidSurfaceCounts,
-            meshletIndex);
+        RemoveFluidMeshletGeometry(meshletIndex);
 
-    private static void RemoveSharedMeshletSurfaces(
-        ref ArrayMesh? mesh,
-        ref MeshInstance3D? instance,
-        int[] starts,
-        int[] counts,
-        int meshletIndex)
+    private void RemoveFluidMeshletGeometry(int meshletIndex)
     {
-        var count = counts[meshletIndex];
-        if (count == 0)
-        {
-            starts[meshletIndex] = 0;
-            return;
-        }
-
-        var start = starts[meshletIndex];
-        var end = start + count;
-        if (mesh is { } shared)
-        {
-            for (var surface = end - 1; surface >= start; surface--)
-                shared.SurfaceRemove(surface);
-        }
-
-        for (var index = 0; index < counts.Length; index++)
-        {
-            if (index != meshletIndex && counts[index] > 0 &&
-                starts[index] >= end)
-                starts[index] -= count;
-        }
-
-        starts[meshletIndex] = 0;
-        counts[meshletIndex] = 0;
-        if (mesh is not { } remaining || remaining.GetSurfaceCount() != 0)
+        var spans = _fluidMeshletSpans[meshletIndex];
+        if (spans.Count == 0)
             return;
 
-        instance?.QueueFree();
-        instance = null;
-        mesh = null;
-        Array.Clear(starts);
-        Array.Clear(counts);
+        foreach (var (fluid, span) in
+                 spans.OrderByDescending(entry => entry.Value.Start))
+        {
+            if (!_fluidSurfaceStates.TryGetValue(fluid, out var state))
+                continue;
+
+            state.Vertices.RemoveRange(span.Start, span.Count);
+            _fluidDirtyBatches.Enqueue(fluid);
+            for (var otherIndex = 0;
+                 otherIndex < _fluidMeshletSpans.Length;
+                 otherIndex++)
+            {
+                if (otherIndex == meshletIndex ||
+                    !_fluidMeshletSpans[otherIndex].TryGetValue(
+                        fluid, out var otherSpan))
+                    continue;
+
+                if (otherSpan.Start > span.Start)
+                    _fluidMeshletSpans[otherIndex][fluid] =
+                        otherSpan with { Start = otherSpan.Start - span.Count };
+            }
+        }
+
+        spans.Clear();
+        _fluidMeshDirty = _fluidDirtyBatches.Count > 0;
+    }
+
+    /// <summary>Publishes at most one grouped fluid surface per call by default.</summary>
+    public double FlushFluidMesh(
+        FluidMaterialCatalog materials,
+        int maximumSurfaceUpdates = 1)
+    {
+        if (maximumSurfaceUpdates <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumSurfaceUpdates));
+        if (!_fluidMeshDirty)
+            return 0d;
+
+        var stopwatch = Stopwatch.StartNew();
+        var processed = 0;
+        while (processed < maximumSurfaceUpdates &&
+               _fluidDirtyBatches.TryDequeue(out var fluid))
+        {
+            if (!_fluidSurfaceStates.TryGetValue(fluid, out var state))
+            {
+                processed++;
+                continue;
+            }
+
+            if (state.HasSurface)
+            {
+                var removedSurface = state.SurfaceIndex;
+                _fluidMesh!.SurfaceRemove(removedSurface);
+                foreach (var other in _fluidSurfaceStates.Values)
+                {
+                    if (other.HasSurface && other.SurfaceIndex > removedSurface)
+                        other.SurfaceIndex--;
+                }
+                state.HasSurface = false;
+            }
+
+            if (state.Vertices.Count == 0)
+            {
+                _fluidSurfaceStates.Remove(fluid);
+                processed++;
+                continue;
+            }
+
+            EnsureFluidMesh();
+            var surfaceIndex = _fluidMesh!.GetSurfaceCount();
+            var data = new ChunkFluidMeshData([
+                new ChunkFluidBatchData(fluid, state.Vertices.ToArray())
+            ]);
+            if (ChunkFluidMeshBuilder.AppendSurfaces(_fluidMesh, data, materials) > 0)
+            {
+                state.SurfaceIndex = surfaceIndex;
+                state.HasSurface = true;
+            }
+
+            processed++;
+        }
+
+        _fluidMeshDirty = _fluidDirtyBatches.Count > 0;
+        if (!_fluidMeshDirty &&
+            _fluidMesh is { } mesh &&
+            mesh.GetSurfaceCount() == 0)
+        {
+            _fluidMeshInstance?.QueueFree();
+            _fluidMeshInstance = null;
+            _fluidMesh = null;
+        }
+
+        stopwatch.Stop();
+        return stopwatch.Elapsed.TotalMilliseconds;
     }
 
     private CollisionShape3D CreateCollision(

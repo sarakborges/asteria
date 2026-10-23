@@ -50,6 +50,7 @@ public sealed class ChunkPresentationController
     private readonly Dictionary<ChunkMeshletKey, TerrainPublication>
         _terrainPublications = [];
     private readonly DeduplicatedQueue<ChunkCoord> _pendingTerrainMeshFlush = new();
+    private readonly DeduplicatedQueue<ChunkCoord> _pendingFluidMeshFlush = new();
     private readonly DeduplicatedQueue<ChunkMeshletKey>
         _fluidPublicationOrder = new();
     private readonly Dictionary<ChunkMeshletKey, FluidPublication>
@@ -249,6 +250,7 @@ public sealed class ChunkPresentationController
         _pendingObjects.Clear();
         _deferredCollisionChunks.Clear();
         _pendingTerrainMeshFlush.Clear();
+        _pendingFluidMeshFlush.Clear();
         _warmPresentations.Clear(static presentation =>
             presentation.DisposeSuspended());
     }
@@ -316,6 +318,12 @@ public sealed class ChunkPresentationController
     {
         ArgumentNullException.ThrowIfNull(includesChunk);
         return _fluidPublications.Keys.Any(key => includesChunk(key.Chunk));
+    }
+
+    public bool HasPendingFluidMeshFlushFor(Func<ChunkCoord, bool> includesChunk)
+    {
+        ArgumentNullException.ThrowIfNull(includesChunk);
+        return _pendingFluidMeshFlush.Any(includesChunk);
     }
 
     public bool HasObjectPresentationWorkFor(Func<ChunkCoord, bool> includesChunk)
@@ -451,6 +459,8 @@ public sealed class ChunkPresentationController
                     ChunkMeshletMask.All.Except(reusableFluid));
                 if (presentation.HasPendingTerrainMeshFlush)
                     _pendingTerrainMeshFlush.Enqueue(coord.Value);
+                if (presentation.HasPendingFluidMeshFlush)
+                    _pendingFluidMeshFlush.Enqueue(coord.Value);
                 _warmTerrainMeshletsReused += reusableTerrain.Indices().Count();
                 _warmFluidMeshletsReused += reusableFluid.Indices().Count();
                 if (presentation.HasDeferredCollisions)
@@ -459,6 +469,8 @@ public sealed class ChunkPresentationController
 
             if (presentation.HasPendingTerrainMeshFlush)
                 _pendingTerrainMeshFlush.Enqueue(coord.Value);
+            if (presentation.HasPendingFluidMeshFlush)
+                _pendingFluidMeshFlush.Enqueue(coord.Value);
 
             presentation.MarkTerrainPublished(
                 ChunkMeshletMask.All.Except(terrainMeshlets));
@@ -541,6 +553,7 @@ public sealed class ChunkPresentationController
         _pendingObjects.Remove(coord);
         _deferredCollisionChunks.Remove(coord);
         _pendingTerrainMeshFlush.Remove(coord);
+        _pendingFluidMeshFlush.Remove(coord);
 
         if (!_presentations.Remove(coord, out var presentation))
             return false;
@@ -751,6 +764,33 @@ public sealed class ChunkPresentationController
         }
     }
 
+    private void FlushPendingFluidMeshes(
+        WorldFrameWorkBudget budget,
+        ref double fluidMeshBuildMilliseconds)
+    {
+        var candidates = _pendingFluidMeshFlush.Count;
+        var processed = 0;
+        while (processed < candidates &&
+               _pendingFluidMeshFlush.TryDequeue(out var coord))
+        {
+            if (processed > 0 &&
+                budget.Exhausted(Stopwatch.GetTimestamp()))
+            {
+                _pendingFluidMeshFlush.EnqueueFront(coord);
+                break;
+            }
+
+            processed++;
+            if (!_presentations.TryGetValue(coord, out var presentation))
+                continue;
+
+            fluidMeshBuildMilliseconds += presentation.FlushFluidMesh(
+                _fluidMaterials, maximumSurfaceUpdates: 1);
+            if (presentation.HasPendingFluidMeshFlush)
+                _pendingFluidMeshFlush.Enqueue(coord);
+        }
+    }
+
     public ChunkPresentationIntegrationStats
         IntegrateFluidPublications(
             int maximumPerFrame,
@@ -761,6 +801,7 @@ public sealed class ChunkPresentationController
         var stale = 0;
         var processed = 0;
         var gpuAttributePatches = 0;
+        var fluidMeshBuildMilliseconds = 0d;
 
         while (processed < maximumPerFrame &&
                _fluidPublicationOrder.TryDequeue(
@@ -812,16 +853,20 @@ public sealed class ChunkPresentationController
                 _fluidMaterials,
                 pending.Dependencies,
                 pending.Meshlet.LightOnly);
+            if (presentation.HasPendingFluidMeshFlush)
+                _pendingFluidMeshFlush.Enqueue(pending.Meshlet.Coord);
             if (patched)
                 gpuAttributePatches++;
             published++;
         }
 
+        FlushPendingFluidMeshes(budget, ref fluidMeshBuildMilliseconds);
         stopwatch.Stop();
 
         return new ChunkPresentationIntegrationStats(
             published, stale, _fluidPublications.Count,
             stopwatch.Elapsed.TotalMilliseconds,
+            RenderBuildMilliseconds: fluidMeshBuildMilliseconds,
             GpuAttributePatches: gpuAttributePatches);
     }
 
