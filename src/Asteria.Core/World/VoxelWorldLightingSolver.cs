@@ -747,12 +747,18 @@ public static class VoxelWorldLightingSolver
         public int MediumSampleRequests => _mediumSampleRequests;
         public int MediumSampleCacheMisses => _mediumSampleCacheMisses;
 
-        private sealed class ChunkLightingSamples
+        private sealed class ChunkLightingSamples(bool cacheEmission)
         {
             public readonly bool[] DampeningInitialized = new bool[Chunk.Volume];
-            public readonly bool[] EmissionInitialized = new bool[Chunk.Volume];
             public readonly byte[] Dampening = new byte[Chunk.Volume];
-            public readonly BlockLightEmission[] Emissions = new BlockLightEmission[Chunk.Volume];
+            // Sky-only work never samples emission. Use empty arrays instead
+            // of allocating another 8 KiB per touched chunk for unused RGB data.
+            public readonly bool[] EmissionInitialized = cacheEmission
+                ? new bool[Chunk.Volume]
+                : [];
+            public readonly BlockLightEmission[] Emissions = cacheEmission
+                ? new BlockLightEmission[Chunk.Volume]
+                : [];
         }
 
         public LightingSolveContext(
@@ -858,7 +864,8 @@ public static class VoxelWorldLightingSolver
             if (_samples.TryGetValue(coord, out var cache))
                 return cache;
 
-            cache = new ChunkLightingSamples();
+            cache = new ChunkLightingSamples(
+                cacheEmission: _workKind != LightingWorkKind.SkyOnly);
             _samples.Add(coord, cache);
             return cache;
         }
