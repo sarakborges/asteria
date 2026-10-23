@@ -467,6 +467,37 @@ public sealed class FluidLightingTests
     }
 
     [Fact]
+    public void WaterLayersAboveAirUseTheSameDirectSkyProfileAcrossTheLayer()
+    {
+        var blocks = new BlockRegistry([]);
+        var fluids = CreateWater(lightDampening: 1);
+        var water = fluids.GetId("asteria:water");
+        var chunk = new Chunk();
+
+        for (var y = Chunk.Size / 2; y < Chunk.Size; y++)
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var level = (byte)(1 + ((x + z) % FluidCell.MaxLevel));
+            chunk.SetFluid(
+                x, y, z,
+                (x + z) % 2 == 0
+                    ? FluidCell.Source(water, level)
+                    : FluidCell.Spreading(water, level, (ushort)(x + z)));
+        }
+
+        var processed = ChunkLightingSolver.InitializeAndCountProcessedVoxels(
+            chunk, blocks, fluids);
+
+        Assert.Equal(0, processed);
+        Assert.Equal((byte)14, chunk.GetLight(0, 15, 0).Sky);
+        Assert.Equal((byte)14, chunk.GetLight(15, 15, 15).Sky);
+        Assert.Equal((byte)7, chunk.GetLight(0, 8, 0).Sky);
+        Assert.Equal((byte)7, chunk.GetLight(15, 8, 15).Sky);
+        Assert.Equal((byte)7, chunk.GetLight(0, 7, 0).Sky);
+    }
+
+    [Fact]
     public void WaterCanStillReceiveLateralLightFromAnAirShaft()
     {
         var blocks = new BlockRegistry([]);
