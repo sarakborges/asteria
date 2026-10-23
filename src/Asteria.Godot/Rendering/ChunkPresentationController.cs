@@ -692,7 +692,10 @@ public sealed class ChunkPresentationController
             // voxel-light channels after a changed terrain-light publication.
             if (_world.TryGetChunk(pending.Meshlet.Coord, out var updated) &&
                 updated.ObjectCount > 0)
+            {
+                presentation.RequestObjectLightingRefresh();
                 _pendingObjects.Enqueue(pending.Meshlet.Coord);
+            }
             published++;
         }
 

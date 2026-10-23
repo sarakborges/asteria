@@ -67,6 +67,39 @@ public sealed class ChunkPresentation
     private string[] _objectLightRefreshGroups = [];
     private int _objectLightRefreshGroupIndex;
     private int _objectLightRefreshInstanceIndex;
+    private bool _objectLightRefreshInvalidated;
+    private ObjectPresentationBuildState? _objectPresentationBuild;
+
+    private readonly record struct ObjectBuildSource(
+        int X, int Y, int Z, ObjectCell Cell);
+
+    private readonly record struct ObjectBuildInstance(
+        Transform3D Transform,
+        System.Numerics.Vector3 Color,
+        WorldVoxelCoord LightPosition);
+
+    private sealed class ObjectPresentationBuildState(
+        ulong revision,
+        ObjectBuildSource[] sources)
+    {
+        public ulong Revision { get; } = revision;
+        public ObjectBuildSource[] Sources { get; } = sources;
+        public int NextSourceIndex { get; set; }
+        public SortedDictionary<string, List<ObjectBuildInstance>> Groups { get; } =
+            new(StringComparer.Ordinal);
+        public BiomeTintSampleGrid? TintSamples { get; set; }
+        public bool GroupsPrepared { get; set; }
+        public string[] GroupIds { get; set; } = [];
+        public int GroupIndex { get; set; }
+        public int InstanceIndex { get; set; }
+        public MultiMesh? CurrentMultiMesh { get; set; }
+        public MultiMeshInstance3D? CurrentNode { get; set; }
+        public ObjectDefinition? CurrentDefinition { get; set; }
+        public Dictionary<string, MultiMeshInstance3D> Replacements { get; } =
+            new(StringComparer.Ordinal);
+        public Dictionary<string, WorldVoxelCoord[]> SamplePositions { get; } =
+            new(StringComparer.Ordinal);
+    }
 
     public ChunkPresentation(ChunkCoord coord)
     {
@@ -285,108 +318,203 @@ public sealed class ChunkPresentation
 
     /// <summary>One MultiMesh per object definition per chunk, never one
     /// Godot node per ObjectCell. ObjectRevision gates the entire rebuild.</summary>
+    internal void RequestObjectLightingRefresh() =>
+        _objectLightRefreshInvalidated = true;
+
     internal bool ApplyObjects(
         Chunk chunk, VoxelWorld world,
         PackContentRegistry<ObjectDefinition> definitions,
         WorldObjectVisualCatalog visuals, BiomeTintField tints,
-        int maximumLightUpdatesPerSlice)
+        int maximumObjectsPerSlice)
     {
-        if (maximumLightUpdatesPerSlice <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumLightUpdatesPerSlice));
+        if (maximumObjectsPerSlice <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumObjectsPerSlice));
 
         if (_objectRevision == chunk.ObjectRevision)
-            return RefreshObjectLighting(world, maximumLightUpdatesPerSlice);
-        var groups = new SortedDictionary<string, List<(Transform3D Transform,
-            System.Numerics.Vector3 Color, WorldVoxelCoord LightPosition)>>(StringComparer.Ordinal);
-        BiomeTintSampleGrid? tintSamples = null;
-        var origin = new Vector3(Root.Position.X, Root.Position.Y, Root.Position.Z);
-        chunk.VisitObjectCells((x, y, z, cell) =>
         {
-            if (!definitions.TryGet(cell.Id, out var definition) ||
-                definition is null || !definition.Supports(cell.Face))
-                return;
-            var worldX = Coord.X * Chunk.Size + x;
-            var worldY = Coord.Y * Chunk.Size + y;
-            var worldZ = Coord.Z * Chunk.Size + z;
+            if (_objectLightRefreshInvalidated)
+            {
+                ResetObjectLightingRefresh();
+                _objectLightRefreshInvalidated = false;
+            }
+            return RefreshObjectLighting(world, maximumObjectsPerSlice);
+        }
+
+        if (_objectPresentationBuild is null ||
+            _objectPresentationBuild.Revision != chunk.ObjectRevision)
+            StartObjectPresentationBuild(chunk);
+
+        var build = _objectPresentationBuild ??
+            throw new InvalidOperationException("Object presentation build was not initialized.");
+        var processed = 0;
+
+        // Prepare object transforms and tint data in bounded slices. Keep the
+        // previous presentation alive until the complete replacement is ready.
+        while (build.NextSourceIndex < build.Sources.Length &&
+               processed < maximumObjectsPerSlice)
+        {
+            var source = build.Sources[build.NextSourceIndex++];
+            processed++;
+
+            if (!definitions.TryGet(source.Cell.Id, out var definition) ||
+                definition is null || !definition.Supports(source.Cell.Face))
+                continue;
+
+            var worldX = Coord.X * Chunk.Size + source.X;
+            var worldY = Coord.Y * Chunk.Size + source.Y;
+            var worldZ = Coord.Z * Chunk.Size + source.Z;
             var pose = WorldObjectGeometry.Pose(
-                new WorldVoxelCoord(worldX, worldY, worldZ), cell, definition);
+                new WorldVoxelCoord(worldX, worldY, worldZ),
+                source.Cell, definition);
             var rotation = new Quaternion(
                 pose.Rotation.X, pose.Rotation.Y, pose.Rotation.Z, pose.Rotation.W);
             var scale = new Vector3(pose.Scale.X, pose.Scale.Y, pose.Scale.Z);
-            var position = new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z);
-            var transform = new Transform3D(new Basis(rotation).Scaled(scale), position - origin);
-            if (!groups.TryGetValue(definition.Id, out var batch))
-                groups.Add(definition.Id, batch = []);
+            var position = new Vector3(
+                pose.Position.X, pose.Position.Y, pose.Position.Z);
+            var transform = new Transform3D(
+                new Basis(rotation).Scaled(scale), position - new Vector3(
+                    Root.Position.X, Root.Position.Y, Root.Position.Z));
             var tint = System.Numerics.Vector3.One;
             if (definition.Tint != BlockTint.None)
             {
-                tintSamples ??= tints.SampleChunkGrid(Coord.X, Coord.Z);
-                tint = tintSamples.Resolve(definition.Tint, definition.TintFallback,
-                    worldX, worldZ);
+                build.TintSamples ??= tints.SampleChunkGrid(Coord.X, Coord.Z);
+                tint = build.TintSamples.Resolve(
+                    definition.Tint, definition.TintFallback, worldX, worldZ);
             }
-            batch.Add((transform, tint,
-                WorldObjectLighting.SamplePosition(
-                    new WorldVoxelCoord(worldX, worldY, worldZ), cell.Face)));
-        });
 
-        // Resource acquisition happens before old nodes are retired; an
-        // invalid authored texture cannot silently erase existing geometry.
-        var replacements = new Dictionary<string, MultiMeshInstance3D>(StringComparer.Ordinal);
-        var samplePositions = new Dictionary<string, WorldVoxelCoord[]>(StringComparer.Ordinal);
-        foreach (var (id, instances) in groups)
-        {
-            var definition = definitions.Get(id);
-            var mesh = visuals.GetMesh(definition);
-            var tinted = definition.Tint != BlockTint.None;
-            var multimesh = new MultiMesh
-            {
-                TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
-                UseColors = tinted,
-                UseCustomData = !definition.Unlit,
-                Mesh = mesh,
-                InstanceCount = instances.Count,
-            };
-            for (var i = 0; i < instances.Count; i++)
-            {
-                multimesh.SetInstanceTransform(i, instances[i].Transform);
-                if (tinted)
-                {
-                    var tint = instances[i].Color;
-                    multimesh.SetInstanceColor(i, new Color(tint.X, tint.Y, tint.Z));
-                }
-                if (!definition.Unlit)
-                    multimesh.SetInstanceCustomData(i,
-                        WorldObjectLighting.ToInstanceColor(
-                            world.GetLightOrDark(instances[i].LightPosition)));
-            }
-            if (!definition.Unlit)
-                samplePositions.Add(id,
-                    instances.Select(instance => instance.LightPosition).ToArray());
-            replacements.Add(id, new MultiMeshInstance3D
-            {
-                Name = $"WorldObjects_{id.Replace(':', '_')}",
-                Multimesh = multimesh,
-                // Caster policy belongs to the batch node, receiver policy to
-                // its shared per-Object surface materials.
-                CastShadow = definition.CastsShadow
-                    ? GeometryInstance3D.ShadowCastingSetting.On
-                    : GeometryInstance3D.ShadowCastingSetting.Off,
-            });
+            if (!build.Groups.TryGetValue(definition.Id, out var instances))
+                build.Groups.Add(definition.Id, instances = []);
+            instances.Add(new ObjectBuildInstance(
+                transform, tint,
+                WorldObjectLighting.SamplePosition(
+                    new WorldVoxelCoord(worldX, worldY, worldZ), source.Cell.Face)));
         }
+
+        if (build.NextSourceIndex < build.Sources.Length)
+            return false;
+
+        if (!build.GroupsPrepared)
+        {
+            build.GroupIds = build.Groups.Keys.ToArray();
+            build.GroupsPrepared = true;
+        }
+
+        // Allocate each MultiMesh independently, then fill its instance buffer
+        // in bounded slices rather than synchronously writing every object in
+        // the chunk on the main thread.
+        while (build.GroupIndex < build.GroupIds.Length &&
+               processed < maximumObjectsPerSlice)
+        {
+            var id = build.GroupIds[build.GroupIndex];
+            var instances = build.Groups[id];
+            if (build.CurrentMultiMesh is null)
+            {
+                var definition = definitions.Get(id);
+                var tinted = definition.Tint != BlockTint.None;
+                build.CurrentMultiMesh = new MultiMesh
+                {
+                    TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+                    UseColors = tinted,
+                    UseCustomData = !definition.Unlit,
+                    Mesh = visuals.GetMesh(definition),
+                    InstanceCount = instances.Count,
+                };
+                build.CurrentDefinition = definition;
+                build.CurrentNode = new MultiMeshInstance3D
+                {
+                    Name = $"WorldObjects_{id.Replace(':', '_')}",
+                    Multimesh = build.CurrentMultiMesh,
+                    CastShadow = definition.CastsShadow
+                        ? GeometryInstance3D.ShadowCastingSetting.On
+                        : GeometryInstance3D.ShadowCastingSetting.Off,
+                };
+                if (!definition.Unlit)
+                    build.SamplePositions.Add(id,
+                        instances.Select(instance => instance.LightPosition).ToArray());
+            }
+
+            var currentDefinition = build.CurrentDefinition ??
+                throw new InvalidOperationException("Object presentation group lost its definition.");
+            var multiMesh = build.CurrentMultiMesh;
+            while (build.InstanceIndex < instances.Count &&
+                   processed < maximumObjectsPerSlice)
+            {
+                var index = build.InstanceIndex;
+                var instance = instances[index];
+                multiMesh.SetInstanceTransform(index, instance.Transform);
+                if (currentDefinition.Tint != BlockTint.None)
+                {
+                    var tint = instance.Color;
+                    multiMesh.SetInstanceColor(index,
+                        new Color(tint.X, tint.Y, tint.Z));
+                }
+                if (!currentDefinition.Unlit)
+                    multiMesh.SetInstanceCustomData(index,
+                        WorldObjectLighting.ToInstanceColor(
+                            world.GetLightOrDark(instance.LightPosition)));
+                build.InstanceIndex++;
+                processed++;
+            }
+
+            if (build.InstanceIndex >= instances.Count)
+            {
+                build.Replacements.Add(
+                    id,
+                    build.CurrentNode ??
+                    throw new InvalidOperationException("Object presentation node was not initialized."));
+                build.CurrentNode = null;
+                build.CurrentMultiMesh = null;
+                build.CurrentDefinition = null;
+                build.GroupIndex++;
+                build.InstanceIndex = 0;
+            }
+        }
+
+        if (build.GroupIndex < build.GroupIds.Length)
+            return false;
+
+        // Swap only after all data has been prepared, preserving the previous
+        // rendered objects while the new presentation is built across frames.
         foreach (var current in _objectBatches.Values)
             current.QueueFree();
         _objectBatches.Clear();
         _objectLightPositions.Clear();
-        foreach (var (id, samples) in samplePositions)
+        foreach (var (id, samples) in build.SamplePositions)
             _objectLightPositions.Add(id, samples);
-        foreach (var (id, instance) in replacements)
+        foreach (var (id, instance) in build.Replacements)
         {
             _objectBatches.Add(id, instance);
             Root.AddChild(instance);
         }
-        _objectRevision = chunk.ObjectRevision;
+
+        _objectRevision = build.Revision;
+        _objectPresentationBuild = null;
         ResetObjectLightingRefresh();
-        return true;
+        // If lighting changed while this build was in progress, queue one
+        // bounded refresh pass before marking the presentation current.
+        return !_objectLightRefreshInvalidated;
+    }
+
+    private void StartObjectPresentationBuild(Chunk chunk)
+    {
+        CancelObjectPresentationBuild();
+        var sources = new List<ObjectBuildSource>(chunk.ObjectCount);
+        chunk.VisitObjectCells((x, y, z, cell) =>
+            sources.Add(new ObjectBuildSource(x, y, z, cell)));
+        _objectPresentationBuild = new ObjectPresentationBuildState(
+            chunk.ObjectRevision, sources.ToArray());
+        ResetObjectLightingRefresh();
+    }
+
+    private void CancelObjectPresentationBuild()
+    {
+        if (_objectPresentationBuild is not { } build)
+            return;
+
+        build.CurrentNode?.Free();
+        foreach (var replacement in build.Replacements.Values)
+            replacement.Free();
+        _objectPresentationBuild = null;
     }
 
     private bool RefreshObjectLighting(
@@ -450,16 +578,24 @@ public sealed class ChunkPresentation
     // already owned by VoxelWorld's archive, not by this display object.
     public void Suspend()
     {
+        CancelObjectPresentationBuild();
+        ResetObjectLightingRefresh();
+        _objectLightRefreshInvalidated = true;
         SetPhysicsEnabled(false);
         Root.Visible = false;
     }
 
     // Suspended roots are detached from SceneTree and therefore must be
     // explicitly released on cache eviction or dimension retirement.
-    public void DisposeSuspended() => Root.Free();
+    public void DisposeSuspended()
+    {
+        CancelObjectPresentationBuild();
+        Root.Free();
+    }
 
     public void Retire()
     {
+        CancelObjectPresentationBuild();
         Root.QueueFree();
     }
 
