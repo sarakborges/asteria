@@ -5,6 +5,54 @@ namespace Asteria.Core.Tests;
 public sealed class VoxelWorldLightingSolverTests
 {
     [Fact]
+    public void DarkNonEmissiveNeighborhoodNeedsNoLightingRecalculation()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone", lightDampening: 15),
+        ]);
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var position = new WorldVoxelCoord(8, 8, 8);
+        Assert.True(world.SetBlockAt(position, blocks.GetId("asteria:stone"), out _));
+
+        Assert.False(VoxelWorldLightingSolver.HasPotentialLightingImpact(
+            world, blocks, new FluidRegistry([]), [position]));
+    }
+
+    [Fact]
+    public void LightingPreflightKeepsWorkWhenNeighborAlreadyHasLight()
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        chunk.SetLight(9, 8, 8, new VoxelLight(0, 0, 0, 1));
+
+        Assert.True(VoxelWorldLightingSolver.HasPotentialLightingImpact(
+            world, new BlockRegistry([]), new FluidRegistry([]),
+            [new WorldVoxelCoord(8, 8, 8)]));
+    }
+
+    [Fact]
+    public void LightingPreflightKeepsWorkForNewEmitterEvenWhenCurrentLightIsDark()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition(
+                "asteria:lamp",
+                lightDampening: 15,
+                lightEmission: new BlockLightEmission(15, 2, 0)),
+        ]);
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var position = new WorldVoxelCoord(8, 8, 8);
+        Assert.True(world.SetBlockAt(position, blocks.GetId("asteria:lamp"), out _));
+
+        Assert.True(VoxelWorldLightingSolver.HasPotentialLightingImpact(
+            world, blocks, new FluidRegistry([]), [position]));
+    }
+
+    [Fact]
     public void CancelledRelightCannotPublishPartialWorkerLight()
     {
         var world = new VoxelWorld();
