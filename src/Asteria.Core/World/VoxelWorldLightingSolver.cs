@@ -65,7 +65,8 @@ public static class VoxelWorldLightingSolver
         var brightening = new DeduplicatedQueue<WorldVoxelCoord>();
         var originals = new Dictionary<WorldVoxelCoord, VoxelLight>();
         var objectEmissions = ObjectLightEmissionField.Capture(world, objects);
-        var lightingContext = new LightingSolveContext(world, blocks, fluids, objectEmissions);
+        var lightingContext = new LightingSolveContext(
+            world, blocks, fluids, objectEmissions);
         foreach (var position in editedPositions)
         {
             EnqueueWithNeighbors(world, darkening, position);
@@ -73,10 +74,10 @@ public static class VoxelWorldLightingSolver
         }
 
         var processed = RemoveStaleLight(
-            world, blocks, fluids, lightingContext,
+            world, lightingContext,
             darkening, brightening, originals, cancellationToken);
         processed += RestoreLight(
-            world, blocks, fluids, lightingContext,
+            world, lightingContext,
             brightening, originals, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return new VoxelLightingUpdateResult(
@@ -103,7 +104,7 @@ public static class VoxelWorldLightingSolver
     }
 
     private static int RemoveStaleLight(
-        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
+        VoxelWorld world,
         LightingSolveContext lightingContext,
         DeduplicatedQueue<WorldVoxelCoord> darkening,
         DeduplicatedQueue<WorldVoxelCoord> brightening,
@@ -152,7 +153,7 @@ public static class VoxelWorldLightingSolver
     }
 
     private static int RestoreLight(
-        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
+        VoxelWorld world,
         LightingSolveContext lightingContext,
         DeduplicatedQueue<WorldVoxelCoord> brightening,
         Dictionary<WorldVoxelCoord, VoxelLight> originals,
@@ -595,7 +596,7 @@ public static class VoxelWorldLightingSolver
                 _samples.Add(coord, cache);
             }
 
-            var index = VoxelWorldLightingSolver.ToIndex(x, y, z);
+            var index = x + Chunk.Size * (z + Chunk.Size * y);
             if (!cache.Initialized[index])
             {
                 cache.Dampening[index] = VoxelLightingMedium.Dampening(
