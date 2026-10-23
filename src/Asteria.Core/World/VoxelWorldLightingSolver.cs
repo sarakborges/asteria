@@ -505,6 +505,7 @@ public static class VoxelWorldLightingSolver
         FluidRegistry fluids,
         ObjectLightEmissionField objectEmissions)
     {
+        var hasObjectEmissions = !objectEmissions.IsEmpty;
         var columns = world.LoadedChunkCoords
             .GroupBy(coord => (coord.X, coord.Z));
 
@@ -545,29 +546,26 @@ public static class VoxelWorldLightingSolver
                                     x,
                                     y,
                                     z);
-                            var dampening =
-                                VoxelLightingMedium.Dampening(
-                                    chunk,
-                                    blocks,
-                                    fluids,
-                                    x,
-                                    y,
-                                    z,
-                                    cell,
-                                    fluid);
+                            var dampening = cell.IsEmpty && fluid.IsEmpty
+                                ? (byte)0
+                                : VoxelLightingMedium.Dampening(
+                                    chunk, blocks, fluids, x, y, z, cell, fluid);
 
                             sky[columnIndex] = SaturatingSubtract(
                                 sky[columnIndex],
                                 dampening);
 
-                            var objectEmission = objectEmissions.IsEmpty
+                            var emission = cell.IsEmpty && fluid.IsEmpty &&
+                                           !hasObjectEmissions
                                 ? default
-                                : objectEmissions.At(new WorldVoxelCoord(
-                                    coord.X * Chunk.Size + x,
-                                    coord.Y * Chunk.Size + y,
-                                    coord.Z * Chunk.Size + z));
-                            var emission = VoxelLightingMedium.Emission(
-                                blocks, fluids, cell, fluid, objectEmission);
+                                : VoxelLightingMedium.Emission(
+                                    blocks, fluids, cell, fluid,
+                                    hasObjectEmissions
+                                        ? objectEmissions.At(new WorldVoxelCoord(
+                                            coord.X * Chunk.Size + x,
+                                            coord.Y * Chunk.Size + y,
+                                            coord.Z * Chunk.Size + z))
+                                        : default);
 
                             chunk.SetLight(
                                 x,
@@ -730,6 +728,7 @@ public static class VoxelWorldLightingSolver
         private readonly BlockRegistry _blocks;
         private readonly FluidRegistry _fluids;
         private readonly ObjectLightEmissionField _objectEmissions;
+        private readonly bool _hasObjectEmissions;
         private readonly LightingWorkKind _workKind;
         public bool UsesDirectSky =>
             _workKind is LightingWorkKind.Full or LightingWorkKind.SkyOnly;
@@ -767,6 +766,7 @@ public static class VoxelWorldLightingSolver
             _blocks = blocks;
             _fluids = fluids;
             _objectEmissions = objectEmissions;
+            _hasObjectEmissions = !objectEmissions.IsEmpty;
             _workKind = workKind;
             _loadedColumns = world.LoadedChunkCoords
                 .GroupBy(coord => (coord.X, coord.Z))
@@ -808,8 +808,10 @@ public static class VoxelWorldLightingSolver
             var index = x + Chunk.Size * (z + Chunk.Size * y);
             if (!cache.DampeningInitialized[index])
             {
-                cache.Dampening[index] = VoxelLightingMedium.Dampening(
-                    chunk, _blocks, _fluids, x, y, z, cell, fluid);
+                cache.Dampening[index] = cell.IsEmpty && fluid.IsEmpty
+                    ? (byte)0
+                    : VoxelLightingMedium.Dampening(
+                        chunk, _blocks, _fluids, x, y, z, cell, fluid);
                 cache.DampeningInitialized[index] = true;
                 _mediumSampleCacheMisses++;
             }
@@ -832,11 +834,14 @@ public static class VoxelWorldLightingSolver
             var index = x + Chunk.Size * (z + Chunk.Size * y);
             if (!cache.EmissionInitialized[index])
             {
-                var objectEmission = _objectEmissions.IsEmpty
+                cache.Emissions[index] = cell.IsEmpty && fluid.IsEmpty &&
+                                        !_hasObjectEmissions
                     ? default
-                    : _objectEmissions.At(position);
-                cache.Emissions[index] = VoxelLightingMedium.Emission(
-                    _blocks, _fluids, cell, fluid, objectEmission);
+                    : VoxelLightingMedium.Emission(
+                        _blocks, _fluids, cell, fluid,
+                        _hasObjectEmissions
+                            ? _objectEmissions.At(position)
+                            : default);
                 cache.EmissionInitialized[index] = true;
                 _mediumSampleCacheMisses++;
             }
