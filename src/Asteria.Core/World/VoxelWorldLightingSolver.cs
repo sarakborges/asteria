@@ -365,7 +365,9 @@ public static class VoxelWorldLightingSolver
                 (uint)z < Chunk.Size
                     ? chunk.GetLight(x, y, z)
                     : world.GetLightOrDark(position + (dx, dy, dz));
-            sky = Math.Max(sky, SaturatingSubtract(neighborLight.Sky, attenuation));
+            if (lightingContext.UsesDirectSky)
+                sky = Math.Max(
+                    sky, SaturatingSubtract(neighborLight.Sky, attenuation));
             red = Math.Max(red, SaturatingSubtract(neighborLight.Red, attenuation));
             green = Math.Max(green, SaturatingSubtract(neighborLight.Green, attenuation));
             blue = Math.Max(blue, SaturatingSubtract(neighborLight.Blue, attenuation));
