@@ -49,7 +49,7 @@ public sealed class ChunkPresentationController
         _backgroundTerrainPublicationOrder = new();
     private readonly Dictionary<ChunkMeshletKey, TerrainPublication>
         _terrainPublications = [];
-    private readonly HashSet<ChunkCoord> _pendingTerrainMeshFlush = [];
+    private readonly DeduplicatedQueue<ChunkCoord> _pendingTerrainMeshFlush = new();
     private readonly DeduplicatedQueue<ChunkMeshletKey>
         _fluidPublicationOrder = new();
     private readonly Dictionary<ChunkMeshletKey, FluidPublication>
@@ -450,7 +450,7 @@ public sealed class ChunkPresentationController
                     ChunkMeshletMask.All.Except(reusableTerrain),
                     ChunkMeshletMask.All.Except(reusableFluid));
                 if (presentation.HasPendingTerrainMeshFlush)
-                    _pendingTerrainMeshFlush.Add(coord.Value);
+                    _pendingTerrainMeshFlush.Enqueue(coord.Value);
                 _warmTerrainMeshletsReused += reusableTerrain.Indices().Count();
                 _warmFluidMeshletsReused += reusableFluid.Indices().Count();
                 if (presentation.HasDeferredCollisions)
@@ -458,7 +458,7 @@ public sealed class ChunkPresentationController
             }
 
             if (presentation.HasPendingTerrainMeshFlush)
-                _pendingTerrainMeshFlush.Add(coord.Value);
+                _pendingTerrainMeshFlush.Enqueue(coord.Value);
 
             presentation.MarkTerrainPublished(
                 ChunkMeshletMask.All.Except(terrainMeshlets));
@@ -687,7 +687,7 @@ public sealed class ChunkPresentationController
                 pending.Dependencies,
                 pending.Meshlet.LightOnly);
             if (presentation.HasPendingTerrainMeshFlush)
-                _pendingTerrainMeshFlush.Add(pending.Meshlet.Coord);
+                _pendingTerrainMeshFlush.Enqueue(pending.Meshlet.Coord);
             renderBuildMilliseconds += apply.RenderBuildMilliseconds;
             collisionBuildMilliseconds += apply.CollisionBuildMilliseconds;
             renderVertices += apply.RenderVertices;
@@ -724,25 +724,30 @@ public sealed class ChunkPresentationController
         WorldFrameWorkBudget budget,
         ref double renderBuildMilliseconds)
     {
-        var flushed = 0;
-        foreach (var coord in _pendingTerrainMeshFlush
-                     .OrderBy(value => value, ChunkCoordOrdering.YThenZThenX)
-                     .ToArray())
+        // Process at most the queue's initial population. Re-enqueued chunks
+        // return on the next frame, so one complex chunk cannot monopolize
+        // this frame just because it is the only item currently queued.
+        var candidates = _pendingTerrainMeshFlush.Count;
+        var processed = 0;
+        while (processed < candidates &&
+               _pendingTerrainMeshFlush.TryDequeue(out var coord))
         {
-            if (flushed > 0 &&
+            if (processed > 0 &&
                 budget.Exhausted(Stopwatch.GetTimestamp()))
-                break;
-
-            if (!_presentations.TryGetValue(coord, out var presentation))
             {
-                _pendingTerrainMeshFlush.Remove(coord);
-                continue;
+                _pendingTerrainMeshFlush.EnqueueFront(coord);
+                break;
             }
 
-            renderBuildMilliseconds +=
-                presentation.FlushTerrainMesh(_terrainMaterials);
-            _pendingTerrainMeshFlush.Remove(coord);
-            flushed++;
+            processed++;
+            if (!_presentations.TryGetValue(coord, out var presentation))
+                continue;
+
+            renderBuildMilliseconds += presentation.FlushTerrainMesh(
+                _terrainMaterials, maximumSurfaceUpdates: 1);
+
+            if (presentation.HasPendingTerrainMeshFlush)
+                _pendingTerrainMeshFlush.Enqueue(coord);
         }
     }
 

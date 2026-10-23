@@ -35,7 +35,7 @@ public sealed class ChunkPresentation
 
     private readonly Dictionary<TerrainRenderBatch, TerrainSurfaceState>
         _terrainSurfaceStates = [];
-    private readonly HashSet<TerrainRenderBatch> _terrainDirtyBatches = [];
+    private readonly DeduplicatedQueue<TerrainRenderBatch> _terrainDirtyBatches = new();
     private readonly Dictionary<TerrainRenderBatch, TerrainVertexSpan>[]
         _terrainMeshletSpans = CreateTerrainMeshletSpans();
     private MeshInstance3D? _terrainMeshInstance;
@@ -873,7 +873,7 @@ public sealed class ChunkPresentation
             spans.Add(
                 batch.Batch,
                 new TerrainVertexSpan(start, batch.Vertices.Length));
-            _terrainDirtyBatches.Add(batch.Batch);
+            _terrainDirtyBatches.Enqueue(batch.Batch);
             _terrainMeshDirty = true;
         }
     }
@@ -891,7 +891,7 @@ public sealed class ChunkPresentation
                 continue;
 
             state.Vertices.RemoveRange(span.Start, span.Count);
-            _terrainDirtyBatches.Add(batch);
+            _terrainDirtyBatches.Enqueue(batch);
             for (var otherIndex = 0;
                  otherIndex < _terrainMeshletSpans.Length;
                  otherIndex++)
@@ -917,96 +917,87 @@ public sealed class ChunkPresentation
     /// than one surface per meshlet. The CPU ranges preserve meshlet-local
     /// ownership for subsequent edits and partial light uploads.
     /// </summary>
-    public double FlushTerrainMesh(VoxelTerrainMaterialSet materials)
+    private void EnsureTerrainMesh()
     {
+        if (_terrainMesh is not null)
+            return;
+
+        _terrainMesh = new ArrayMesh();
+        _terrainMeshInstance = new MeshInstance3D
+        {
+            Name = "Terrain",
+            Mesh = _terrainMesh,
+        };
+        Root.AddChild(_terrainMeshInstance);
+    }
+
+    /// <summary>
+    /// Publishes a bounded number of dirty material surfaces. The caller
+    /// coordinates this slice with the shared frame deadline and other chunks.
+    /// </summary>
+    public double FlushTerrainMesh(
+        VoxelTerrainMaterialSet materials,
+        int maximumSurfaceUpdates = 1)
+    {
+        if (maximumSurfaceUpdates <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumSurfaceUpdates));
         if (!_terrainMeshDirty)
             return 0d;
 
         var stopwatch = Stopwatch.StartNew();
-        if (_terrainMesh is null)
+        var processed = 0;
+        while (processed < maximumSurfaceUpdates &&
+               _terrainDirtyBatches.TryDequeue(out var batch))
         {
-            var mesh = new ArrayMesh();
-            foreach (var (batch, state) in
-                     _terrainSurfaceStates.OrderBy(entry => entry.Key))
+            if (!_terrainSurfaceStates.TryGetValue(batch, out var state))
             {
-                if (state.Vertices.Count == 0)
-                    continue;
+                processed++;
+                continue;
+            }
 
-                var surfaceIndex = mesh.GetSurfaceCount();
-                var data = new ChunkMeshData(
-                    [new ChunkRenderBatchData(batch, state.Vertices.ToArray())],
-                    Array.Empty<System.Numerics.Vector3>());
-                if (ChunkMeshBuilder.AppendSurfaces(mesh, data, materials) == 0)
-                    continue;
+            if (state.HasSurface)
+            {
+                var removedSurface = state.SurfaceIndex;
+                _terrainMesh!.SurfaceRemove(removedSurface);
+                foreach (var other in _terrainSurfaceStates.Values)
+                {
+                    if (other.HasSurface && other.SurfaceIndex > removedSurface)
+                        other.SurfaceIndex--;
+                }
+                state.HasSurface = false;
+            }
 
+            if (state.Vertices.Count == 0)
+            {
+                _terrainSurfaceStates.Remove(batch);
+                processed++;
+                continue;
+            }
+
+            EnsureTerrainMesh();
+            var surfaceIndex = _terrainMesh!.GetSurfaceCount();
+            var data = new ChunkMeshData(
+                [new ChunkRenderBatchData(batch, state.Vertices.ToArray())],
+                Array.Empty<System.Numerics.Vector3>());
+            if (ChunkMeshBuilder.AppendSurfaces(_terrainMesh, data, materials) > 0)
+            {
                 state.SurfaceIndex = surfaceIndex;
                 state.HasSurface = true;
             }
 
-            foreach (var empty in _terrainSurfaceStates
-                         .Where(entry => entry.Value.Vertices.Count == 0)
-                         .Select(entry => entry.Key).ToArray())
-                _terrainSurfaceStates.Remove(empty);
-
-            if (mesh.GetSurfaceCount() > 0)
-            {
-                _terrainMesh = mesh;
-                _terrainMeshInstance = new MeshInstance3D
-                {
-                    Name = "Terrain",
-                    Mesh = mesh,
-                };
-                Root.AddChild(_terrainMeshInstance);
-            }
+            processed++;
         }
-        else
+
+        _terrainMeshDirty = _terrainDirtyBatches.Count > 0;
+        if (!_terrainMeshDirty &&
+            _terrainMesh is { } mesh &&
+            mesh.GetSurfaceCount() == 0)
         {
-            foreach (var batch in _terrainDirtyBatches
-                         .OrderBy(value => value).ToArray())
-            {
-                if (!_terrainSurfaceStates.TryGetValue(batch, out var state))
-                    continue;
-
-                if (state.HasSurface)
-                {
-                    var removedSurface = state.SurfaceIndex;
-                    _terrainMesh.SurfaceRemove(removedSurface);
-                    foreach (var other in _terrainSurfaceStates.Values)
-                    {
-                        if (other.HasSurface &&
-                            other.SurfaceIndex > removedSurface)
-                            other.SurfaceIndex--;
-                    }
-                    state.HasSurface = false;
-                }
-
-                if (state.Vertices.Count == 0)
-                {
-                    _terrainSurfaceStates.Remove(batch);
-                    continue;
-                }
-
-                var surfaceIndex = _terrainMesh.GetSurfaceCount();
-                var data = new ChunkMeshData(
-                    [new ChunkRenderBatchData(batch, state.Vertices.ToArray())],
-                    Array.Empty<System.Numerics.Vector3>());
-                if (ChunkMeshBuilder.AppendSurfaces(_terrainMesh, data, materials) > 0)
-                {
-                    state.SurfaceIndex = surfaceIndex;
-                    state.HasSurface = true;
-                }
-            }
-
-            if (_terrainMesh.GetSurfaceCount() == 0)
-            {
-                _terrainMeshInstance?.QueueFree();
-                _terrainMeshInstance = null;
-                _terrainMesh = null;
-            }
+            _terrainMeshInstance?.QueueFree();
+            _terrainMeshInstance = null;
+            _terrainMesh = null;
         }
 
-        _terrainDirtyBatches.Clear();
-        _terrainMeshDirty = false;
         stopwatch.Stop();
         return stopwatch.Elapsed.TotalMilliseconds;
     }
