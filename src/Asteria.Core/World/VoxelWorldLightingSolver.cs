@@ -46,8 +46,8 @@ public static class VoxelWorldLightingSolver
 
     /// <summary>
     /// Classifies small player edits before paying for a world snapshot.
-    /// Sky changes need full vertical columns; RGB-only changes fit in the
-    /// local chunk neighborhood; fully dark, non-emissive edits need no solve.
+    /// A dark edit needs no solve; RGB-only changes use a local snapshot;
+    /// sky-only changes skip RGB propagation; mixed/Object changes use the full solver.
     /// </summary>
     internal static LightingWorkKind ClassifyInteractiveLightingImpact(
         VoxelWorld world,
@@ -69,9 +69,8 @@ public static class VoxelWorldLightingSolver
         {
             var seedChunk = VoxelCoordinates.FromWorld(
                 seed.X, Math.Max(seed.Y, 0), seed.Z).Chunk;
-            // Object emission is not stored in the block/fluid cell arrays.
-            // Keep the conservative full solve whenever nearby object content
-            // could be a contributing source or support dependency.
+            // Object emission is stored outside block/fluid cell arrays.
+            // Keep a full solve when nearby Objects might contribute light.
             for (var dy = -1; dy <= 1; dy++)
             for (var dz = -1; dz <= 1; dz++)
             for (var dx = -1; dx <= 1; dx++)
@@ -85,25 +84,24 @@ public static class VoxelWorldLightingSolver
                 if (world.TryGetChunk(coord, out var objectChunk) &&
                     objectChunk.ObjectCount > 0)
                 {
-                    return LightingWorkKind.DirectSky;
+                    return LightingWorkKind.Full;
                 }
             }
 
             result = MaxWorkKind(
                 result, ClassifyLightAt(world, blocks, fluids, seed));
-            // A missing voxel directly above the edit may be above the
-            // highest loaded chunk. That location is the virtual full-sky
-            // source; do not mistake it for an entirely dark neighborhood.
+            // A missing voxel immediately above the edit may be above the
+            // highest loaded chunk and acts as a virtual full-sky source.
             var above = seed + (0, 1, 0);
             if (above.Y >= 0 && !world.IsLoadedAt(above))
-                return LightingWorkKind.DirectSky;
+                result = MaxWorkKind(result, LightingWorkKind.SkyOnly);
 
             foreach (var offset in Neighbors)
             {
                 result = MaxWorkKind(
                     result,
                     ClassifyLightAt(world, blocks, fluids, seed + offset));
-                if (result == LightingWorkKind.DirectSky)
+                if (result == LightingWorkKind.Full)
                     return result;
             }
         }
@@ -124,28 +122,38 @@ public static class VoxelWorldLightingSolver
 
         var local = address.Local;
         var light = chunk.GetLight(local.X, local.Y, local.Z);
-        if (light.Sky > 0)
-            return LightingWorkKind.DirectSky;
-
+        var result = light.Sky > 0
+            ? LightingWorkKind.SkyOnly
+            : LightingWorkKind.None;
         if (light.BlockPeak > 0)
-            return LightingWorkKind.BlockLightOnly;
+            result = MaxWorkKind(result, LightingWorkKind.BlockLightOnly);
 
         var cell = chunk.GetCell(local.X, local.Y, local.Z);
         var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
-        return VoxelLightingMedium.Emission(blocks, fluids, cell, fluid).IsDark
-            ? LightingWorkKind.None
-            : LightingWorkKind.BlockLightOnly;
+        if (!VoxelLightingMedium.Emission(blocks, fluids, cell, fluid).IsDark)
+            result = MaxWorkKind(result, LightingWorkKind.BlockLightOnly);
+        return result;
     }
 
     private static LightingWorkKind MaxWorkKind(
         LightingWorkKind left,
-        LightingWorkKind right) =>
-        left == LightingWorkKind.DirectSky || right == LightingWorkKind.DirectSky
-            ? LightingWorkKind.DirectSky
-            : left == LightingWorkKind.BlockLightOnly ||
-              right == LightingWorkKind.BlockLightOnly
-                ? LightingWorkKind.BlockLightOnly
-                : LightingWorkKind.None;
+        LightingWorkKind right)
+    {
+        if (left == LightingWorkKind.Full || right == LightingWorkKind.Full)
+            return LightingWorkKind.Full;
+
+        var hasSky = left == LightingWorkKind.SkyOnly ||
+                     right == LightingWorkKind.SkyOnly;
+        var hasBlock = left == LightingWorkKind.BlockLightOnly ||
+                       right == LightingWorkKind.BlockLightOnly;
+        if (hasSky && hasBlock)
+            return LightingWorkKind.Full;
+        if (hasSky)
+            return LightingWorkKind.SkyOnly;
+        if (hasBlock)
+            return LightingWorkKind.BlockLightOnly;
+        return LightingWorkKind.None;
+    }
 
     public static VoxelLightingUpdateResult RelightAfterEdits(
         VoxelWorld world,
@@ -156,7 +164,7 @@ public static class VoxelWorldLightingSolver
         CancellationToken cancellationToken = default) =>
         RelightAfterEditsCore(
             world, blocks, fluids, editedPositions, objects,
-            cancellationToken, LightingWorkKind.DirectSky);
+            cancellationToken, LightingWorkKind.Full);
 
     internal static VoxelLightingUpdateResult RelightBlockLightAfterEdits(
         VoxelWorld world,
@@ -168,6 +176,17 @@ public static class VoxelWorldLightingSolver
         RelightAfterEditsCore(
             world, blocks, fluids, editedPositions, objects,
             cancellationToken, LightingWorkKind.BlockLightOnly);
+
+    internal static VoxelLightingUpdateResult RelightSkyOnlyAfterEdits(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        IEnumerable<WorldVoxelCoord> editedPositions,
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        CancellationToken cancellationToken = default) =>
+        RelightAfterEditsCore(
+            world, blocks, fluids, editedPositions, objects,
+            cancellationToken, LightingWorkKind.SkyOnly);
 
     private static VoxelLightingUpdateResult RelightAfterEditsCore(
         VoxelWorld world,
@@ -182,7 +201,10 @@ public static class VoxelWorldLightingSolver
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(editedPositions);
-        if (workKind is not (LightingWorkKind.DirectSky or LightingWorkKind.BlockLightOnly))
+        if (workKind is not (
+                LightingWorkKind.Full or
+                LightingWorkKind.SkyOnly or
+                LightingWorkKind.BlockLightOnly))
             throw new ArgumentOutOfRangeException(nameof(workKind));
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -343,23 +365,24 @@ public static class VoxelWorldLightingSolver
         var dampening = sample.Dampening;
         var emission = sample.Emission;
         var current = chunk.GetLight(local.X, local.Y, local.Z);
+        var updatesBlockLight = lightingContext.UpdatesBlockLight;
+        var red = updatesBlockLight ? emission.Red : current.Red;
+        var green = updatesBlockLight ? emission.Green : current.Green;
+        var blue = updatesBlockLight ? emission.Blue : current.Blue;
 
         if (dampening >= VoxelLight.MaxLevel)
         {
             return new VoxelLight(
                 lightingContext.UsesDirectSky ? (byte)0 : current.Sky,
-                emission.Red,
-                emission.Green,
-                emission.Blue);
+                red,
+                green,
+                blue);
         }
 
         var attenuation = Math.Max((byte)1, dampening);
         var sky = lightingContext.UsesDirectSky
             ? lightingContext.LevelAt(position)
             : current.Sky;
-        var red = emission.Red;
-        var green = emission.Green;
-        var blue = emission.Blue;
 
         foreach (var (dx, dy, dz) in Neighbors)
         {
@@ -375,9 +398,12 @@ public static class VoxelWorldLightingSolver
             if (lightingContext.UsesDirectSky)
                 sky = Math.Max(
                     sky, SaturatingSubtract(neighborLight.Sky, attenuation));
-            red = Math.Max(red, SaturatingSubtract(neighborLight.Red, attenuation));
-            green = Math.Max(green, SaturatingSubtract(neighborLight.Green, attenuation));
-            blue = Math.Max(blue, SaturatingSubtract(neighborLight.Blue, attenuation));
+            if (updatesBlockLight)
+            {
+                red = Math.Max(red, SaturatingSubtract(neighborLight.Red, attenuation));
+                green = Math.Max(green, SaturatingSubtract(neighborLight.Green, attenuation));
+                blue = Math.Max(blue, SaturatingSubtract(neighborLight.Blue, attenuation));
+            }
         }
 
         return new VoxelLight(sky, red, green, blue);
@@ -705,7 +731,10 @@ public static class VoxelWorldLightingSolver
         private readonly FluidRegistry _fluids;
         private readonly ObjectLightEmissionField _objectEmissions;
         private readonly LightingWorkKind _workKind;
-        public bool UsesDirectSky => _workKind == LightingWorkKind.DirectSky;
+        public bool UsesDirectSky =>
+            _workKind is LightingWorkKind.Full or LightingWorkKind.SkyOnly;
+        public bool UpdatesBlockLight =>
+            _workKind is LightingWorkKind.Full or LightingWorkKind.BlockLightOnly;
         private readonly Dictionary<(int X, int Z), Column> _columns = [];
         // The immutable worker snapshot makes these derived cell properties
         // stable for the entire solve; the cache dies with this solve.
@@ -754,10 +783,16 @@ public static class VoxelWorldLightingSolver
             int z,
             WorldVoxelCoord position,
             VoxelCell cell,
-            FluidCell fluid) =>
-            new(
-                DampeningAt(coord, chunk, x, y, z, cell, fluid),
-                EmissionAt(coord, chunk, x, y, z, position, cell, fluid));
+            FluidCell fluid)
+        {
+            var dampening = DampeningAt(
+                coord, chunk, x, y, z, cell, fluid);
+            var emission = _workKind == LightingWorkKind.SkyOnly
+                ? default
+                : EmissionAt(
+                    coord, chunk, x, y, z, position, cell, fluid);
+            return new LightingSample(dampening, emission);
+        }
 
         public byte DampeningAt(
             ChunkCoord coord,
