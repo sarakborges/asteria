@@ -1003,6 +1003,9 @@ public sealed class ChunkPresentation
         return stopwatch.Elapsed.TotalMilliseconds;
     }
 
+    private void RemoveTerrainSurfaces(int meshletIndex) =>
+        RemoveTerrainMeshletGeometry(meshletIndex);
+
     private void EnsureFluidMesh()
     {
         if (_fluidMesh is not null)
