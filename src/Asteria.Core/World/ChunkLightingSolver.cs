@@ -51,7 +51,8 @@ public static class ChunkLightingSolver
         }
 
         var objectEmissions = ObjectLightEmissionField.Capture(chunk, objects);
-        chunk.ClearLight();
+        // SeedDirectLight writes every cell's complete VoxelLight value.
+        // Clearing the full array first only added a redundant memory pass.
         var mediumDampening = new byte[Chunk.Volume];
         var needsRelaxation = SeedDirectLight(
             chunk, blocks, fluids, objectEmissions, mediumDampening);
