@@ -152,7 +152,9 @@ public sealed class VoxelWorldLightingSolverTests
 
         Assert.Equal((byte)0, world.GetLightOrDark(neighbor).Red);
         Assert.Equal((byte)7, world.GetLightOrDark(fartherSky).Sky);
-        Assert.Equal((byte)0, world.GetLightOrDark(fartherSky).Red);
+        // An isolated stale value outside the connected light field is not
+        // part of this edit's darkening frontier and must be left untouched.
+        Assert.Equal((byte)2, world.GetLightOrDark(fartherSky).Red);
     }
 
     [Fact]
