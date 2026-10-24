@@ -37,6 +37,72 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void PriorityMeshDrainCapsSourceChunksAndPreservesRemainingWork()
+    {
+        var queue = new WorldUpdateQueue();
+        for (var x = 0; x < 6; x++)
+            queue.EnqueuePriorityMeshlets(
+                new ChunkCoord(x, 0, 0), ChunkMeshletMask.Single(x));
+
+        var first = queue.DrainPriorityMeshlets(
+            maximumMeshlets: 16, maximumChunks: 2);
+        Assert.Equal(2, first.DirtyMeshlets.Count);
+        Assert.True(queue.HasPriorityMeshWork);
+
+        var second = queue.DrainPriorityMeshlets(
+            maximumMeshlets: 16, maximumChunks: 2);
+        Assert.Equal(2, second.DirtyMeshlets.Count);
+        Assert.True(queue.HasPriorityMeshWork);
+
+        var third = queue.DrainPriorityMeshlets(
+            maximumMeshlets: 16, maximumChunks: 2);
+        Assert.Equal(2, third.DirtyMeshlets.Count);
+        Assert.False(queue.HasPriorityMeshWork);
+    }
+
+    [Fact]
+    public void AllLaneMeshDrainSharesSourceChunkCapAcrossPriorityAndBackgroundWork()
+    {
+        var queue = new WorldUpdateQueue();
+        queue.EnqueuePriorityMeshlets(
+            new ChunkCoord(0, 0, 0), ChunkMeshletMask.Single(0));
+        queue.EnqueueMeshlets(
+            new ChunkCoord(1, 0, 0), ChunkMeshletMask.Single(1));
+        queue.EnqueueMeshlets(
+            new ChunkCoord(2, 0, 0), ChunkMeshletMask.Single(2));
+
+        var batch = queue.DrainMeshlets(
+            maximumMeshlets: 16, maximumChunks: 2);
+
+        Assert.Equal(2, batch.DirtyMeshlets.Count);
+        Assert.True(queue.HasBackgroundMeshWork);
+    }
+
+    [Fact]
+    public void FluidMeshDrainCapsSourceChunksAndPreservesRemainingWork()
+    {
+        var queue = new FluidMeshUpdateQueue();
+        for (var x = 0; x < 6; x++)
+            queue.EnqueueMeshlets(
+                new ChunkCoord(x, 0, 0), ChunkMeshletMask.Single(x));
+
+        var first = queue.Drain(
+            maximumMeshlets: 16, maximumChunks: 2);
+        Assert.Equal(2, first.DirtyMeshlets.Count);
+        Assert.True(queue.HasWork);
+
+        var second = queue.Drain(
+            maximumMeshlets: 16, maximumChunks: 2);
+        Assert.Equal(2, second.DirtyMeshlets.Count);
+        Assert.True(queue.HasWork);
+
+        var third = queue.Drain(
+            maximumMeshlets: 16, maximumChunks: 2);
+        Assert.Equal(2, third.DirtyMeshlets.Count);
+        Assert.False(queue.HasWork);
+    }
+
+    [Fact]
     public void RangeInvalidationMatchesTheExactFullPositionEnumeration()
     {
         var world = new VoxelWorld();
