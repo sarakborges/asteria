@@ -168,6 +168,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _fallingBlocksWaiting;
     private int _physicsUpdatesPending;
     private int _physicsUpdatesWaiting;
+    private int _physicsUpdatesWaitingSupport;
+    private int _physicsUpdatesWaitingGravity;
     private int _physicsUpdatesPeak;
 
     private WorldDiagnosticsLog(DiagnosticSessionLog session)
@@ -307,7 +309,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     public void ObserveGameplayPopulation(
         int creatures, int projectiles, int ambientParticles,
         int creatureParticles, int droppedBlocks, int fallingBlocks, int physicsPending,
-        int physicsWaiting, int fallingWaiting)
+        int physicsWaiting, int physicsWaitingSupport, int physicsWaitingGravity,
+        int fallingWaiting)
     {
         _creaturesActive = creatures;
         _creaturesPeak = Math.Max(_creaturesPeak, creatures);
@@ -321,6 +324,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fallingBlocksWaiting = fallingWaiting;
         _physicsUpdatesPending = physicsPending;
         _physicsUpdatesWaiting = physicsWaiting;
+        _physicsUpdatesWaitingSupport = physicsWaitingSupport;
+        _physicsUpdatesWaitingGravity = physicsWaitingGravity;
         _physicsUpdatesPeak = Math.Max(_physicsUpdatesPeak, physicsPending);
     }
 
@@ -562,6 +567,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"falling_blocks_waiting={_fallingBlocksWaiting} " +
             $"physics_pending={_physicsUpdatesPending} " +
             $"physics_waiting={_physicsUpdatesWaiting} " +
+            $"physics_waiting_support={_physicsUpdatesWaitingSupport} " +
+            $"physics_waiting_gravity={_physicsUpdatesWaitingGravity} " +
             $"physics_pending_peak={_physicsUpdatesPeak} " +
             $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
             $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +

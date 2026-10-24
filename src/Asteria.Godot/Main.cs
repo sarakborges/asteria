@@ -951,6 +951,8 @@ public partial class Main : Node3D
             _blockEntities.FallingCount,
             _blockEntities.PendingPhysicsUpdates,
             _blockEntities.WaitingPhysicsUpdates,
+            _blockEntities.WaitingPhysicsSupportUpdates,
+            _blockEntities.WaitingPhysicsGravityUpdates,
             _blockEntities.WaitingFallingCount);
 
         // When the HUD is hidden, skip its world queries, raycasts and

@@ -82,6 +82,12 @@ public sealed class BlockEntityFrameController
     public int WaitingPhysicsUpdates =>
         _updates.WaitingCount;
 
+    public int WaitingPhysicsSupportUpdates =>
+        _updates.WaitingSupportCount;
+
+    public int WaitingPhysicsGravityUpdates =>
+        _updates.WaitingGravityCount;
+
     public int WaitingFallingCount =>
         _blockPhysics.WaitingFallingCount;
 

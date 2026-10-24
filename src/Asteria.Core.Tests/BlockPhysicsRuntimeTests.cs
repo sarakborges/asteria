@@ -167,6 +167,37 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void PhysicsWaitersKeepSeparateReasonsAndClearCountsWhenWoken()
+    {
+        var queue = new BlockPhysicsUpdateQueue();
+        var supportPosition = new WorldVoxelCoord(3, 5, 2);
+        var gravityPosition = new WorldVoxelCoord(4, 5, 2);
+        var neededChunk = new ChunkCoord(1, 0, 0);
+
+        queue.WaitForChunk(
+            supportPosition, neededChunk, BlockPhysicsWaitReason.SupportDependency);
+        queue.WaitForChunk(
+            gravityPosition, neededChunk, BlockPhysicsWaitReason.GravityBelowChunk);
+
+        Assert.Equal(2, queue.WaitingCount);
+        Assert.Equal(1, queue.WaitingSupportCount);
+        Assert.Equal(1, queue.WaitingGravityCount);
+
+        // Reclassifying an existing dependency must not double-count it.
+        queue.WaitForChunk(
+            gravityPosition, neededChunk, BlockPhysicsWaitReason.SupportDependency);
+        Assert.Equal(2, queue.WaitingSupportCount);
+        Assert.Equal(0, queue.WaitingGravityCount);
+
+        queue.WakeResidentChunk(neededChunk);
+
+        Assert.Equal(0, queue.WaitingCount);
+        Assert.Equal(0, queue.WaitingSupportCount);
+        Assert.Equal(0, queue.WaitingGravityCount);
+        Assert.Equal(2, queue.Count);
+    }
+
+    [Fact]
     public void FallingBlocksDoNotAdvanceWithinChunkUntilLowerChunkIsResident()
     {
         var world = new VoxelWorld();

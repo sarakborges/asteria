@@ -337,7 +337,8 @@ public sealed class BlockPhysicsRuntime : IDisposable
                 _updates.WaitForChunk(
                     position,
                     VoxelCoordinates.FromWorld(
-                        missingSupport.X, missingSupport.Y, missingSupport.Z).Chunk);
+                        missingSupport.X, missingSupport.Y, missingSupport.Z).Chunk,
+                    BlockPhysicsWaitReason.SupportDependency);
                 continue;
             }
 
@@ -396,8 +397,10 @@ public sealed class BlockPhysicsRuntime : IDisposable
             if (belowState ==
                 BlockMaterializationState.Unloaded)
             {
-                _updates.WaitForChunk(position,
-                    VoxelCoordinates.FromWorld(below.X, below.Y, below.Z).Chunk);
+                _updates.WaitForChunk(
+                    position,
+                    VoxelCoordinates.FromWorld(below.X, below.Y, below.Z).Chunk,
+                    BlockPhysicsWaitReason.GravityBelowChunk);
                 continue;
             }
 
