@@ -33,6 +33,33 @@ public sealed class WorldLoadingStateTests
     }
 
     [Fact]
+    public void SeamLightingDispatchWaitsUntilInitialResidencySettles()
+    {
+        var loading = new WorldLoadingState();
+        Assert.True(loading.AllowsLightingDispatch);
+
+        loading.Begin(ChunkCoord.Zero);
+        Assert.False(loading.AllowsLightingDispatch);
+
+        loading.UpdateResidency(
+            desired: 4, pending: 2, materializing: 0, selectionRunning: false);
+        Assert.False(loading.AllowsLightingDispatch);
+
+        loading.UpdateResidency(
+            desired: 4, pending: 0, materializing: 0, selectionRunning: false);
+        Assert.Equal(
+            WorldLoadingPhase.PreparingPresentation,
+            loading.Progress.Phase);
+        Assert.True(loading.AllowsLightingDispatch);
+
+        loading.BeginRetirement();
+        Assert.False(loading.AllowsLightingDispatch);
+
+        loading.Reset();
+        Assert.True(loading.AllowsLightingDispatch);
+    }
+
+    [Fact]
     public void ZeroDesiredSelectionCannotBecomeReady()
     {
         var loading = new WorldLoadingState();
