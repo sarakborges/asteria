@@ -9,8 +9,7 @@ public readonly record struct ChunkPresentationApplyStats(
     double RenderBuildMilliseconds,
     double CollisionBuildMilliseconds,
     int RenderVertices,
-    int CollisionTriangles,
-    bool PatchedGpuAttributes = false);
+    int CollisionTriangles);
 
 public readonly record struct CollisionActivationStats(double Milliseconds, int EmergencyShapes);
 
@@ -18,7 +17,7 @@ public sealed class ChunkPresentation
 {
 
     // Terrain is merged by render batch (material/shadow policy) within a
-    // chunk. Per-meshlet ranges preserve local edits and partial light uploads.
+    // chunk. Per-meshlet ranges preserve local edits to shared material surfaces.
     private sealed class TerrainSurfaceState
     {
         public List<ChunkMeshVertex> Vertices { get; } = [];
@@ -493,7 +492,7 @@ foreach (var (id, instance) in build.Replacements)
         }
     }
 
-    public bool ApplyFluid(
+    public void ApplyFluid(
         int meshletIndex,
         ChunkFluidMeshData data,
         FluidMaterialCatalog materials,
@@ -503,7 +502,6 @@ foreach (var (id, instance) in build.Replacements)
         ArgumentNullException.ThrowIfNull(dependencies);
         _publishedFluidDependencies[meshletIndex] = dependencies;
         ReplaceFluidMeshletGeometry(meshletIndex, data.Batches);
-        return false;
     }
 
 
@@ -564,8 +562,7 @@ foreach (var (id, instance) in build.Replacements)
             renderMilliseconds,
             collisionMilliseconds,
             data.RenderVertexCount,
-            data.CollisionTriangleCount,
-            false);
+            data.CollisionTriangleCount);
     }
 
     private sealed record DeferredCollision(
@@ -649,7 +646,7 @@ foreach (var (id, instance) in build.Replacements)
     /// <summary>
     /// Rebuilds one surface per render batch after a publication slice, rather
     /// than one surface per meshlet. The CPU ranges preserve meshlet-local
-    /// ownership for subsequent edits and partial light uploads.
+    /// ownership for subsequent meshlet edits.
     /// </summary>
     private void EnsureTerrainMesh()
     {
