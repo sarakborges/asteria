@@ -5,8 +5,7 @@ namespace Asteria.Core.World;
 public sealed record TerrainMeshletBuild(
     ChunkCoord Coord,
     int MeshletIndex,
-    ChunkMeshData Data,
-    bool LightOnly = false);
+    ChunkMeshData Data);
 
 public sealed record TerrainMeshWorkerResult(
     WorldMeshBatch SourceBatch,

@@ -5,8 +5,7 @@ namespace Asteria.Core.World;
 public sealed record FluidMeshletBuild(
     ChunkCoord Coord,
     int MeshletIndex,
-    ChunkFluidMeshData Data,
-    bool LightOnly = false);
+    ChunkFluidMeshData Data);
 
 public sealed record FluidMeshWorkerResult(
     WorldMeshBatch SourceBatch,

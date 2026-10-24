@@ -235,8 +235,6 @@ public sealed class FluidMeshPipeline
                     accepted++;
                     if (batchStale)
                         salvaged++;
-                    if (meshlet.LightOnly)
-                        relitWithoutMeshing++;
                 }
                 else
                 {

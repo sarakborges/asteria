@@ -346,8 +346,6 @@ public sealed class TerrainMeshPipeline
                 accepted++;
                 if (batchStale)
                     salvaged++;
-                if (meshlet.LightOnly)
-                    relitWithoutMeshing++;
             }
             else
             {

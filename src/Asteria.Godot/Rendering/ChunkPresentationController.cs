@@ -697,8 +697,7 @@ public sealed class ChunkPresentationController
                 pending.Meshlet.MeshletIndex,
                 pending.Meshlet.Data,
                 _terrainMaterials,
-                pending.Dependencies,
-                pending.Meshlet.LightOnly);
+                pending.Dependencies);
             if (presentation.HasPendingTerrainMeshFlush)
                 _pendingTerrainMeshFlush.Enqueue(pending.Meshlet.Coord);
             renderBuildMilliseconds += apply.RenderBuildMilliseconds;
@@ -850,8 +849,7 @@ public sealed class ChunkPresentationController
                 pending.Meshlet.MeshletIndex,
                 pending.Meshlet.Data,
                 _fluidMaterials,
-                pending.Dependencies,
-                pending.Meshlet.LightOnly);
+                pending.Dependencies);
             if (presentation.HasPendingFluidMeshFlush)
                 _pendingFluidMeshFlush.Enqueue(pending.Meshlet.Coord);
             if (patched)
