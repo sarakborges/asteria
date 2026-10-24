@@ -40,7 +40,6 @@ public sealed class BlockTintOptOutTests
         var blocks = new BlockRegistry([definition]);
         var chunk = new Chunk();
         chunk.SetBlock(2, 2, 2, blocks.GetId(definition.Id));
-        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
 
@@ -58,9 +57,9 @@ public sealed class BlockTintOptOutTests
         Assert.NotEmpty(vertices);
         Assert.All(vertices, vertex =>
         {
-            Assert.Equal(1f, vertex.TintAndAo.X);
-            Assert.Equal(1f, vertex.TintAndAo.Y);
-            Assert.Equal(1f, vertex.TintAndAo.Z);
+            Assert.Equal(1f, vertex.Tint.X);
+            Assert.Equal(1f, vertex.Tint.Y);
+            Assert.Equal(1f, vertex.Tint.Z);
             // 1 is the atlas layer; only the 0.5 wind bit may be set.
             // The 0.25 tint bit must stay clear.
             Assert.Equal(1.5f, vertex.EncodedTextureLayers.X);

@@ -52,8 +52,8 @@ public static class ChunkMeshBuilder
                 normals[index] = new Vector3(
                     vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z);
                 colors[index] = new Color(
-                    vertex.TintAndAo.X, vertex.TintAndAo.Y,
-                    vertex.TintAndAo.Z, vertex.TintAndAo.W);
+                    vertex.Tint.X, vertex.Tint.Y,
+                    vertex.Tint.Z, vertex.Tint.W);
                 uvs[index] = new Vector2(vertex.Uv.X, vertex.Uv.Y);
                 uv2s[index] = new Vector2(
                     vertex.EncodedTextureLayers.X,

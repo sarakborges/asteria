@@ -47,8 +47,8 @@ public static class ChunkFluidMeshBuilder
                     vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z);
                 uvs[index] = new Vector2(vertex.Uv.X, vertex.Uv.Y);
                 colors[index] = new Color(
-                    vertex.TintAndAo.X, vertex.TintAndAo.Y,
-                    vertex.TintAndAo.Z, vertex.TintAndAo.W);
+                    vertex.Tint.X, vertex.Tint.Y,
+                    vertex.Tint.Z, vertex.Tint.W);
             }
 
             Godot.Collections.Array arrays = [];
