@@ -24,19 +24,27 @@ public sealed class BlockPhysicsUpdateQueue
         _waitingByChunk = [];
     private readonly Dictionary<WorldVoxelCoord, ChunkCoord>
         _waitingForChunk = [];
+    // Index every queued or dormant support check by its source chunk. When
+    // that source chunk is archived, EnqueueResidentChunk will derive fresh
+    // wakeups on restore; old waiters must not accumulate with player travel.
+    private readonly Dictionary<ChunkCoord, HashSet<WorldVoxelCoord>>
+        _positionsBySourceChunk = [];
 
     public BlockPhysicsUpdateQueue(BlockPhysicsUpdateQueueSnapshot? restore = null)
     {
         if (restore is null) return;
         foreach (var position in restore.Positions)
+        {
             _queue.Enqueue(position);
+            TrackPosition(position);
+        }
     }
 
-    // Pending and dormant work are both preserved across Sphere retirement.
+    // Pending and dormant work from still-resident source chunks are persisted.
+    // Once a source chunk is archived, its wakeups are discarded and derived
+    // again from authoritative voxel state by EnqueueResidentChunk on restore.
     // The save format bounds snapshots, so capture a deterministic prefix if
-    // streaming has produced work faster than physics can drain it. Any omitted
-    // wakeups are derived from voxel state and are regenerated as chunks become
-    // resident again.
+    // streaming has produced work faster than physics can drain it.
     public BlockPhysicsUpdateQueueSnapshot CaptureState()
     {
         var maximumEntries = BlockPhysicsUpdateQueueSnapshot.MaximumEntries;
@@ -93,16 +101,18 @@ public sealed class BlockPhysicsUpdateQueue
             _queue.Remove(position);
             if (_waitingForChunk.TryGetValue(position, out var invalidPreviousChunk))
                 RemoveWaiter(position, invalidPreviousChunk);
+            UntrackPosition(position);
             return;
         }
 
+        if (_waitingForChunk.TryGetValue(position, out var existingChunk) &&
+            existingChunk == neededChunk)
+            return;
+
         _queue.Remove(position);
+        UntrackPosition(position);
         if (_waitingForChunk.TryGetValue(position, out var previousChunk))
-        {
-            if (previousChunk == neededChunk)
-                return;
             RemoveWaiter(position, previousChunk);
-        }
 
         if (!_waitingByChunk.TryGetValue(neededChunk, out var waiting))
         {
@@ -112,6 +122,56 @@ public sealed class BlockPhysicsUpdateQueue
 
         waiting.Add(position);
         _waitingForChunk.Add(position, neededChunk);
+        TrackPosition(position);
+    }
+
+    /// <summary>
+    /// Removes stale wakeups owned by a source chunk that has left residency.
+    /// The source's block state is archived and will be rescanned on restore.
+    /// </summary>
+    public int ForgetSourceChunk(ChunkCoord sourceChunk)
+    {
+        if (!_positionsBySourceChunk.Remove(sourceChunk, out var positions))
+            return 0;
+
+        foreach (var position in positions)
+        {
+            _queue.Remove(position);
+            if (_waitingForChunk.TryGetValue(position, out var neededChunk))
+                RemoveWaiter(position, neededChunk);
+        }
+
+        return positions.Count;
+    }
+
+    private void TrackPosition(WorldVoxelCoord position)
+    {
+        if (position.Y < 0)
+            return;
+
+        var sourceChunk = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z).Chunk;
+        if (!_positionsBySourceChunk.TryGetValue(sourceChunk, out var positions))
+        {
+            positions = [];
+            _positionsBySourceChunk.Add(sourceChunk, positions);
+        }
+        positions.Add(position);
+    }
+
+    private void UntrackPosition(WorldVoxelCoord position)
+    {
+        if (position.Y < 0)
+            return;
+
+        var sourceChunk = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z).Chunk;
+        if (!_positionsBySourceChunk.TryGetValue(sourceChunk, out var positions))
+            return;
+
+        positions.Remove(position);
+        if (positions.Count == 0)
+            _positionsBySourceChunk.Remove(sourceChunk);
     }
 
     public void WakeResidentChunk(ChunkCoord chunk)
@@ -160,6 +220,7 @@ public sealed class BlockPhysicsUpdateQueue
             RemoveWaiter(position, neededChunk);
 
         _queue.EnqueueFront(position);
+        TrackPosition(position);
     }
 
     public void Enqueue(WorldVoxelCoord position)
@@ -169,9 +230,15 @@ public sealed class BlockPhysicsUpdateQueue
             if (_waitingForChunk.TryGetValue(position, out var neededChunk))
                 RemoveWaiter(position, neededChunk);
             _queue.Enqueue(position);
+            TrackPosition(position);
         }
     }
 
-    public IReadOnlyList<WorldVoxelCoord> DrainBatch() =>
-        _queue.Drain(MaximumBatchSize);
+    public IReadOnlyList<WorldVoxelCoord> DrainBatch()
+    {
+        var drained = _queue.Drain(MaximumBatchSize);
+        foreach (var position in drained)
+            UntrackPosition(position);
+        return drained;
+    }
 }

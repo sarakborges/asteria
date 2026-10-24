@@ -157,11 +157,13 @@ public sealed class BlockPhysicsRuntime : IDisposable
         _mutations.ConfigureFallingBlockOccupancy(
             _fallingBlockOccupancyQuery);
         _world.ChunkBecameResident += OnChunkBecameResident;
+        _world.ChunkBecameArchived += OnChunkBecameArchived;
     }
 
     public void Dispose()
     {
         _world.ChunkBecameResident -= OnChunkBecameResident;
+        _world.ChunkBecameArchived -= OnChunkBecameArchived;
         _mutations.ClearFallingBlockOccupancy(
             _fallingBlockOccupancyQuery);
     }
@@ -175,6 +177,9 @@ public sealed class BlockPhysicsRuntime : IDisposable
         foreach (var id in waiting)
             _fallingWaitingForChunk.Remove(id);
     }
+
+    private void OnChunkBecameArchived(ChunkCoord coord) =>
+        _updates.ForgetSourceChunk(coord);
 
     private void WaitForFallingChunk(FallingBlockId id, WorldVoxelCoord support)
     {

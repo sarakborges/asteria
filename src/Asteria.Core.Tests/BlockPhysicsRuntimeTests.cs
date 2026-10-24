@@ -97,6 +97,60 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void ForgetSourceChunkRemovesItsQueuedAndDormantWakeups()
+    {
+        var queue = new BlockPhysicsUpdateQueue();
+        var queuedInSource = new WorldVoxelCoord(3, 5, 2);
+        var waitingInSource = new WorldVoxelCoord(4, 5, 2);
+        var queuedElsewhere = new WorldVoxelCoord(Chunk.Size + 2, 5, 2);
+
+        queue.Enqueue(queuedInSource);
+        queue.WaitForChunk(waitingInSource, new ChunkCoord(2, 0, 0));
+        queue.Enqueue(queuedElsewhere);
+
+        Assert.Equal(2, queue.Count);
+        Assert.Equal(1, queue.WaitingCount);
+        Assert.Equal(2, queue.ForgetSourceChunk(ChunkCoord.Zero));
+        Assert.Equal(1, queue.Count);
+        Assert.Equal(0, queue.WaitingCount);
+        Assert.Equal(new[] { queuedElsewhere }, queue.DrainBatch());
+    }
+
+    [Fact]
+    public void ArchivingSourceChunkDropsDormantSupportChecks()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:wall_plant",
+                tags: [BlockPhysicsCapabilities.SupportWall],
+                isCollidable: false),
+        ]);
+        var updates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), updates,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        using var runtime = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops);
+        var position = new WorldVoxelCoord(Chunk.Size - 1, 5, 5);
+
+        Assert.True(mutations.SetCellAt(position,
+            new VoxelCell(blocks.GetId("asteria:wall_plant"),
+                facing: HorizontalFacing.West), out _));
+        runtime.ProcessWakeups();
+
+        Assert.Equal(1, updates.WaitingCount);
+        Assert.NotEqual(
+            ChunkArchiveResult.NotResident,
+            world.ArchiveChunk(ChunkCoord.Zero));
+        Assert.Equal(0, updates.Count);
+        Assert.Equal(0, updates.WaitingCount);
+    }
+
+    [Fact]
     public void PhysicsWaitersCanBeReactivatedByVoxelEdits()
     {
         var queue = new BlockPhysicsUpdateQueue();
