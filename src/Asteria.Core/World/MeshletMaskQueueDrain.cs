@@ -5,24 +5,29 @@ internal static class MeshletMaskQueueDrain
     public static void Drain(
         SortedDictionary<ChunkCoord, ChunkMeshletMask> source,
         Dictionary<ChunkCoord, ChunkMeshletMask> destination,
-        ref int remaining)
+        ref int remaining,
+        int maximumChunks = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
+        if (maximumChunks <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumChunks));
 
-        if (remaining <= 0 ||
-            source.Count == 0)
-        {
+        if (remaining <= 0 || source.Count == 0)
             return;
-        }
 
+        var startingChunkCount = destination.Count;
         while (remaining > 0 && source.Count > 0)
         {
             var enumerator = source.GetEnumerator();
             if (!enumerator.MoveNext())
                 break;
-            DrainCoordinate(source, destination, enumerator.Current.Key,
-                ref remaining);
+            var coord = enumerator.Current.Key;
+            if (destination.Count - startingChunkCount >= maximumChunks &&
+                !destination.ContainsKey(coord))
+                break;
+
+            DrainCoordinate(source, destination, coord, ref remaining);
         }
     }
 
@@ -31,16 +36,20 @@ internal static class MeshletMaskQueueDrain
         Dictionary<ChunkCoord, ChunkMeshletMask> destination,
         ref int remaining,
         ChunkCoord center,
-        ChunkMovementDirection movement)
+        ChunkMovementDirection movement,
+        int maximumChunks = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
+        if (maximumChunks <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumChunks));
         if (remaining <= 0 || source.Count == 0)
             return;
 
-        // A worker accepts only a bounded number of meshlets. Select the
-        // closest chunk directly instead of sorting/allocating the entire
-        // backlog on the main thread every time a worker starts.
+        var startingChunkCount = destination.Count;
+        // A worker accepts a bounded set of meshlets and source chunks. Select
+        // the closest eligible chunk directly instead of sorting/allocating
+        // the entire backlog on the main thread for each worker start.
         while (remaining > 0 && source.Count > 0)
         {
             ChunkCoord? selected = null;
@@ -57,6 +66,9 @@ internal static class MeshletMaskQueueDrain
             }
 
             if (selected is not { } closest)
+                break;
+            if (destination.Count - startingChunkCount >= maximumChunks &&
+                !destination.ContainsKey(closest))
                 break;
             DrainCoordinate(source, destination, closest, ref remaining);
         }
