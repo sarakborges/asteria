@@ -297,7 +297,6 @@ public sealed class TerrainMeshPipeline
         var accepted = 0;
         var stale = 0;
         var salvaged = 0;
-        var relitWithoutMeshing = 0;
 
         foreach (var meshlet in result.Meshlets)
         {
@@ -379,7 +378,6 @@ public sealed class TerrainMeshPipeline
                 accepted,
                 stale,
                 result.CaptureMilliseconds,
-                relitWithoutMeshing,
                 salvaged);
         return true;
     }
