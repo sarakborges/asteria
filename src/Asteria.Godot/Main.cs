@@ -4615,8 +4615,6 @@ public partial class Main : Node3D
                                 objectHit.Support))
                         : IconDataUri(definition.Icon),
                     face = objectHit.Object.Face.ToString().ToLowerInvariant(),
-                    skyLight = objectSnapshot.SkyLight,
-                    blockLight = objectSnapshot.BlockLight,
                     position = new
                     {
                         x = objectHit.Support.X,
@@ -4666,8 +4664,6 @@ public partial class Main : Node3D
                         value = selectedFluid.Fluid.Level,
                         maximum = FluidCell.MaxLevel,
                     },
-                    skyLight = selectedFluid.Light.Sky,
-                    blockLight = selectedFluid.Light.BlockPeak,
                     position = new { x = voxel.X, y = voxel.Y, z = voxel.Z },
                 });
                 SendWebUi("game.hud.prompt", new { });
@@ -4721,8 +4717,6 @@ public partial class Main : Node3D
                         face = layer.Face.ToString().ToLowerInvariant(),
                     })
                     .ToArray(),
-                skyLight = value.SkyLight,
-                blockLight = value.BlockLight,
                 position = new { x = value.X, y = value.Y, z = value.Z },
             });
         var breakHint = _clientPreferences.HintVisible(
