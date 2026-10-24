@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, cull_back, depth_prepass_alpha;
+render_mode unshaded, cull_back, depth_prepass_alpha, shadows_disabled;
 
 uniform sampler2DArray terrain_textures : source_color, filter_nearest, repeat_enable;
 uniform vec2 wind_velocity = vec2(0.0, 0.0);
