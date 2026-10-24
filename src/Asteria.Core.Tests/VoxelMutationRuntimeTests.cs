@@ -33,7 +33,6 @@ public sealed class VoxelMutationRuntimeTests
             out var edit));
 
         Assert.Equal(position, edit.Position);
-        Assert.True(worldUpdates.HasLightingWork);
         Assert.True(worldUpdates.HasMeshWork);
         Assert.Equal(7, fluidUpdates.TopologyCount);
         Assert.True(fluidMeshUpdates.HasWork);
@@ -88,7 +87,6 @@ public sealed class VoxelMutationRuntimeTests
                 out var edit));
 
         Assert.Equal(position, edit.Position);
-        Assert.True(worldUpdates.HasLightingWork);
         Assert.False(worldUpdates.HasMeshWork);
         Assert.Equal(7, fluidUpdates.TopologyCount);
         Assert.True(fluidMeshUpdates.HasWork);
@@ -140,7 +138,6 @@ public sealed class VoxelMutationRuntimeTests
         Assert.True(
             world.GetFluidOrEmpty(position).IsEmpty);
         Assert.True(fluidMeshUpdates.HasWork);
-        Assert.True(worldUpdates.HasLightingWork);
         Assert.Equal(7, fluidUpdates.TopologyCount);
     }
 
@@ -499,8 +496,6 @@ public sealed class VoxelMutationRuntimeTests
             dirty.DirtyMeshlets[
                 ChunkCoord.Zero]
                 .ContainsIndex(0));
-        Assert.True(
-            worldUpdates.HasLightingWork);
     }
 
     [Fact]
@@ -707,7 +702,6 @@ public sealed class VoxelMutationRuntimeTests
         var key = new ChunkMeshletKey(ChunkCoord.Zero, 0);
 
         Assert.True(runtime.SetBlockAt(position, block, out _));
-        worldUpdates.DrainLighting();
         worldUpdates.DrainMeshlets();
         fluidUpdates.DrainReady(0, 32);
         fluidMeshUpdates.Drain();
