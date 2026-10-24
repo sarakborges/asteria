@@ -20,6 +20,11 @@ public sealed class BlockEntityPresentationController
 
     private const int MaximumSharedMeshCount = 256;
 
+    // Restored falling-block snapshots can contain hundreds of entities. Limit
+    // node and per-instance mesh creation so world entry does not pay that cost
+    // in one gameplay frame; existing presentations still sync every frame.
+    private const int MaximumNewPresentationsPerSync = 64;
+
     private readonly Node3D _parent;
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
@@ -79,12 +84,15 @@ public sealed class BlockEntityPresentationController
         ArgumentNullException.ThrowIfNull(falling);
         ArgumentNullException.ThrowIfNull(dropped);
 
-        SyncFalling(falling);
-        SyncDropped(dropped);
+        var remainingNewPresentations =
+            MaximumNewPresentationsPerSync;
+        SyncFalling(falling, ref remainingNewPresentations);
+        SyncDropped(dropped, ref remainingNewPresentations);
     }
 
     private void SyncFalling(
-        IEnumerable<FallingBlockState> states)
+        IEnumerable<FallingBlockState> states,
+        ref int remainingNewPresentations)
     {
         _activeFalling.Clear();
 
@@ -96,6 +104,9 @@ public sealed class BlockEntityPresentationController
                     state.Id,
                     out var presentation))
             {
+                if (remainingNewPresentations <= 0)
+                    continue;
+
                 var geometry = GetFallingGeometry(state.Block);
                 presentation =
                     new FallingBlockPresentation(
@@ -108,6 +119,7 @@ public sealed class BlockEntityPresentationController
                     presentation);
                 _parent.AddChild(
                     presentation.Root);
+                remainingNewPresentations--;
             }
 
             presentation.Apply(state);
@@ -132,7 +144,8 @@ public sealed class BlockEntityPresentationController
     }
 
     private void SyncDropped(
-        IEnumerable<DroppedBlockState> states)
+        IEnumerable<DroppedBlockState> states,
+        ref int remainingNewPresentations)
     {
         _activeDropped.Clear();
 
@@ -144,6 +157,9 @@ public sealed class BlockEntityPresentationController
                     state.Id,
                     out var presentation))
             {
+                if (remainingNewPresentations <= 0)
+                    continue;
+
                 presentation = state.Block is { } block
                     ? new DroppedBlockPresentation(state, GetMesh(block))
                     : new DroppedBlockPresentation(
@@ -156,6 +172,7 @@ public sealed class BlockEntityPresentationController
                     presentation);
                 _parent.AddChild(
                     presentation.Root);
+                remainingNewPresentations--;
             }
 
             presentation.Apply(state);
