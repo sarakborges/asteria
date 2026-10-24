@@ -817,8 +817,9 @@ public partial class Main : Node3D
         // Initial lighting can revise mesh inputs while the seam queue drains.
         // Let it settle before starting bootstrap mesh builds, avoiding work
         // that will immediately be rejected and rebuilt against newer light.
-        var allowMeshDispatch = !loadingWorld ||
-            !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant);
+        var allowMeshDispatch = _loading.AllowsMeshDispatch(
+            lightingSettled:
+                !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant));
         DispatchReadyWorldWorkers(
             streamingPressure.IsPressured, streamingCenter,
             _loading.AllowsLightingDispatch, allowMeshDispatch);
