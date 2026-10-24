@@ -741,29 +741,36 @@ public partial class Main : Node3D
         _worldDiagnostics?.ObserveDeferredCollisions(
             _chunkPresentations.DeferredCollisionChunkCount);
 
-        var gameplaySliceStart = Stopwatch.GetTimestamp();
-        var blockFrame = _blockEntities.Advance(
-            delta, _dimension.GravityStrength);
-        ReportBlockEntityFrame(blockFrame);
-        _worldDiagnostics?.ObserveStage(
-            WorldFrameStage.BlockEntities, gameplaySliceStart);
-        if (_worldDiagnostics is { } diagnostics)
+        // Restored falling/drop entities may be numerous and require per-frame
+        // simulation. Keep that work, including Godot presentation sync, out of
+        // the world-entry critical path; it resumes on the first gameplay frame.
+        long gameplaySliceStart;
+        if (!loadingWorld)
         {
-            var timings = blockFrame.Timings;
-            diagnostics.ObserveStageMilliseconds(
-                WorldFrameStage.BlockPhysicsWake, timings.WakeMilliseconds);
-            diagnostics.ObserveStageMilliseconds(
-                WorldFrameStage.FallingSimulation, timings.FallingMilliseconds);
-            diagnostics.ObserveStageMilliseconds(
-                WorldFrameStage.DroppedSimulation, timings.DroppedMilliseconds);
-            diagnostics.ObserveStageMilliseconds(
-                WorldFrameStage.BlockEntityPresentation, timings.PresentationMilliseconds);
-        }
+            gameplaySliceStart = Stopwatch.GetTimestamp();
+            var blockFrame = _blockEntities.Advance(
+                delta, _dimension.GravityStrength);
+            ReportBlockEntityFrame(blockFrame);
+            _worldDiagnostics?.ObserveStage(
+                WorldFrameStage.BlockEntities, gameplaySliceStart);
+            if (_worldDiagnostics is { } diagnostics)
+            {
+                var timings = blockFrame.Timings;
+                diagnostics.ObserveStageMilliseconds(
+                    WorldFrameStage.BlockPhysicsWake, timings.WakeMilliseconds);
+                diagnostics.ObserveStageMilliseconds(
+                    WorldFrameStage.FallingSimulation, timings.FallingMilliseconds);
+                diagnostics.ObserveStageMilliseconds(
+                    WorldFrameStage.DroppedSimulation, timings.DroppedMilliseconds);
+                diagnostics.ObserveStageMilliseconds(
+                    WorldFrameStage.BlockEntityPresentation, timings.PresentationMilliseconds);
+            }
 
-        gameplaySliceStart = Stopwatch.GetTimestamp();
-        AdvanceItemPickup(delta);
-        _worldDiagnostics?.ObserveStage(
-            WorldFrameStage.ItemPickup, gameplaySliceStart);
+            gameplaySliceStart = Stopwatch.GetTimestamp();
+            AdvanceItemPickup(delta);
+            _worldDiagnostics?.ObserveStage(
+                WorldFrameStage.ItemPickup, gameplaySliceStart);
+        }
 
         stageStart = Stopwatch.GetTimestamp();
         PollFluidWorker();
@@ -843,6 +850,7 @@ public partial class Main : Node3D
 
         if (loadingWorld)
         {
+            ObserveGameplayPopulation();
             AdvanceWorldLoading();
             return;
         }
@@ -943,18 +951,7 @@ public partial class Main : Node3D
                 WorldFrameStage.AmbientPresentation, gameplaySliceStart);
         }
 
-        _worldDiagnostics?.ObserveGameplayPopulation(
-            _sessions.Active.Creatures.Count,
-            _sessions.Active.Projectiles.Count,
-            _ambientParticleRuntime?.Particles.Count ?? 0,
-            _sessions.Active.CreatureParticleCount,
-            _blockEntities.DroppedCount,
-            _blockEntities.FallingCount,
-            _blockEntities.PendingPhysicsUpdates,
-            _blockEntities.WaitingPhysicsUpdates,
-            _blockEntities.WaitingPhysicsSupportUpdates,
-            _blockEntities.WaitingPhysicsGravityUpdates,
-            _blockEntities.WaitingFallingCount);
+        ObserveGameplayPopulation();
 
         // When the HUD is hidden, skip its world queries, raycasts and
         // preview work entirely. This permits a genuine A/B streaming test.
@@ -5459,6 +5456,22 @@ public partial class Main : Node3D
             SendInventoryState();
         }
 
+    }
+
+    private void ObserveGameplayPopulation()
+    {
+        _worldDiagnostics?.ObserveGameplayPopulation(
+            _sessions.Active.Creatures.Count,
+            _sessions.Active.Projectiles.Count,
+            _ambientParticleRuntime?.Particles.Count ?? 0,
+            _sessions.Active.CreatureParticleCount,
+            _blockEntities.DroppedCount,
+            _blockEntities.FallingCount,
+            _blockEntities.PendingPhysicsUpdates,
+            _blockEntities.WaitingPhysicsUpdates,
+            _blockEntities.WaitingPhysicsSupportUpdates,
+            _blockEntities.WaitingPhysicsGravityUpdates,
+            _blockEntities.WaitingFallingCount);
     }
 
     private void ReportBlockEntityFrame(
