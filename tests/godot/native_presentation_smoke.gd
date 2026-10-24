@@ -5,7 +5,6 @@ extends SceneTree
 # scene/script references. No WebView is instantiated in headless CI.
 const SHADERS := [
 	"res://shaders/voxel_object.gdshader",
-	"res://shaders/voxel_object_shadow_overlay.gdshader",
 	"res://shaders/voxel_terrain_opaque.gdshader",
 	"res://shaders/voxel_terrain_cutout.gdshader",
 	"res://shaders/voxel_terrain_translucent.gdshader",
@@ -58,31 +57,6 @@ func _run() -> void:
 				push_error("Native smoke: shader uniform missing: " + expected)
 				failed = true
 
-
-	# A shadow receiver's transparent second pass must keep the underlying
-	# voxel-colored material. Headless smoke checks the native shader contract.
-	var shadow_shader := ResourceLoader.load(SHADERS[1]) as Shader
-	if shadow_shader != null:
-		if not shadow_shader.code.contains("shadow_to_opacity"):
-			push_error("Native smoke: Object shadow overlay is not shadow-sensitive")
-			failed = true
-		var shadow_uniforms: Array = shadow_shader.get_shader_uniform_list()
-		for expected in ["object_texture", "alpha_cutoff", "alpha_multiplier"]:
-			if not shadow_uniforms.any(func(value): return value.name == expected):
-				push_error("Native smoke: Object shadow uniform missing: " + expected)
-				failed = true
-		var overlay := ShaderMaterial.new()
-		overlay.shader = shadow_shader
-		var object_base := ShaderMaterial.new()
-		object_base.shader = object_shader
-		object_base.next_pass = overlay
-		if object_base.next_pass != overlay:
-			push_error("Native smoke: Object shadow NextPass not assigned")
-			failed = true
-	var shadow_global = ProjectSettings.get_setting("shader_globals/object_sun_shadow_strength", null)
-	if not shadow_global is Dictionary or shadow_global.get("type", "") != "float":
-		push_error("Native smoke: Object solar shadow global not registered")
-		failed = true
 
 	# The actual Object model loader uses these in-memory GLB APIs. Exercise
 	# the same serializer/importer without relying on a pack-side .import file.
@@ -144,8 +118,8 @@ func _run() -> void:
 		if fluid_smoke != null:
 			fluid_smoke.free()
 
-	# World Object HUD must update on visible light changes without
-	# reissuing the same icon when only camera distance changes.
+	# World Object HUD should not republish the same icon when only camera
+	# distance changes.
 	var object_hud_script := ResourceLoader.load("res://tests/godot/TargetObjectHudSmoke.cs")
 	if object_hud_script == null:
 		push_error("Native smoke: Object target HUD test script missing")
