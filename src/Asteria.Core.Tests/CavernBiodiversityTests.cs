@@ -6,7 +6,7 @@ namespace Asteria.Core.Tests;
 public sealed class CavernBiodiversityTests
 {
     [Fact]
-    public void DefaultCavernContentHasValidLightingGeometryAndSupport()
+    public void DefaultCavernContentHasValidGeometryAndSupport()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
@@ -24,7 +24,6 @@ public sealed class CavernBiodiversityTests
         Assert.Equal(2, crystals.MinSpacing);
         var crystal = blocks.GetDefinition(blocks.GetId(crystals.Block));
         Assert.Equal(BlockShapeKind.Spike, crystal.Shape.Kind);
-        Assert.True(crystal.LightEmission.Blue > crystal.LightEmission.Green);
         Assert.Equal(6, cavern.CaveSpikes.Count);
         Assert.DoesNotContain(cavern.CaveSpikes,
             rule => rule.Block == "asteria:terracotta_spike");
@@ -57,7 +56,6 @@ public sealed class CavernBiodiversityTests
             var decoration = objects.Get(id);
             Assert.Equal(ObjectVisualKind.CrossedSprite, decoration.Visual.Kind);
             Assert.True(decoration.Supports(BlockFace.Top));
-            Assert.False(decoration.LightEmission.IsDark);
         }
     }
 

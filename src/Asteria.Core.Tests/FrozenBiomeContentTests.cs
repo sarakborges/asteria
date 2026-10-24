@@ -48,7 +48,6 @@ public sealed class FrozenBiomeContentTests
                 if (name != "spike_ice")
                     Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
                 Assert.Contains(BlockFace.Top, block.PlacementFaces);
-                Assert.True(block.LightDampening <= 1);
             }
         }
 

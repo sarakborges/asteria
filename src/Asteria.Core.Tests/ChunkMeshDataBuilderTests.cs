@@ -433,7 +433,6 @@ public sealed class ChunkMeshDataBuilderTests
                     isCollidable: false,
                     renderMode: BlockRenderMode.Cutout,
                     castsShadow: false,
-                    lightDampening: 0,
                     previewColor:
                         new BlockPreviewColor(
                             111,
@@ -518,8 +517,7 @@ public sealed class ChunkMeshDataBuilderTests
                     positionJitter: Vector2.Zero),
                 isCollidable: false,
                 renderMode: BlockRenderMode.Cutout,
-                castsShadow: false,
-                lightDampening: 0),
+                castsShadow: false),
         ]);
         var chunk = new Chunk();
         chunk.SetBlock(1, 1, 1, blocks.GetId("asteria:pebble"));

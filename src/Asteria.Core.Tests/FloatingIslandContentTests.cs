@@ -46,7 +46,6 @@ public sealed class FloatingIslandContentTests
 
         var bloomObjects = PackContentRegistry<ObjectDefinition>.FromJson(
             ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
-        Assert.False(bloomObjects.Get("asteria:bloom_aether").LightEmission.IsDark);
     }
 
     [Fact]
