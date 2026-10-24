@@ -625,8 +625,4 @@ public sealed class ChunkStreamingStateTests
             int chunkZ) =>
             range;
     }
-
-
-    [Fact]
-
 }
