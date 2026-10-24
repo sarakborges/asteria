@@ -16,11 +16,6 @@ public readonly record struct CollisionActivationStats(double Milliseconds, int 
 
 public sealed class ChunkPresentation
 {
-    // Store at most 2048 CPU-side light-refresh vertices per presented chunk.
-    // Large fine/sprite meshes remain correct through ordinary remeshing;
-    // this cache cannot grow unchecked with render distance or complexity.
-    private const int MaximumRelightCacheVerticesPerChunk = 2048;
-    private int _relightCacheVertexCount;
 
     // Terrain is merged by render batch (material/shadow policy) within a
     // chunk. Per-meshlet ranges preserve local edits and partial light uploads.
@@ -58,28 +53,13 @@ public sealed class ChunkPresentation
     private MeshInstance3D? _fluidMeshInstance;
     private ArrayMesh? _fluidMesh;
     private bool _fluidMeshDirty;
-    // A separate bounded immutable cache for small published fluid meshlets.
-    private const int MaximumFluidRelightVerticesPerChunk = 2048;
-    private readonly ChunkFluidMeshData?[] _relightableFluid =
-        new ChunkFluidMeshData?[ChunkMeshletMask.Count];
-    private readonly MeshDependencyStamp?[] _relightableFluidDependencies =
-        new MeshDependencyStamp?[ChunkMeshletMask.Count];
-    private int _fluidRelightVertexCount;
     private readonly CollisionShape3D?[] _collisions =
         new CollisionShape3D?[ChunkMeshletMask.Count];
     private readonly MeshDependencyStamp?[] _collisionDependencies =
         new MeshDependencyStamp?[ChunkMeshletMask.Count];
-    // All published meshlets retain a compact dependency stamp even when
-    // their vertex buffers are too large for the separate relight cache.
     private readonly MeshDependencyStamp?[] _publishedTerrainDependencies =
         new MeshDependencyStamp?[ChunkMeshletMask.Count];
     private readonly MeshDependencyStamp?[] _publishedFluidDependencies =
-        new MeshDependencyStamp?[ChunkMeshletMask.Count];
-    // Derived geometry cache is bounded to relightable presented meshlets.
-    // It is dropped with the presentation on residency retirement.
-    private readonly ChunkMeshData?[] _relightableGeometry =
-        new ChunkMeshData?[ChunkMeshletMask.Count];
-    private readonly MeshDependencyStamp?[] _relightableDependencies =
         new MeshDependencyStamp?[ChunkMeshletMask.Count];
     // Only unpublished physics faces are held; they are replaced on remesh
     // and released on proximity prewarm, activation or presentation retirement.
@@ -222,11 +202,7 @@ public sealed class ChunkPresentation
             _collisionDependencies[index] = null;
             _deferredCollisions[index] = null;
             _publishedTerrainDependencies[index] = null;
-            _relightCacheVertexCount -=
-                _relightableGeometry[index]?.RenderVertexCount ?? 0;
-            _relightableGeometry[index] = null;
-            _relightableDependencies[index] = null;
-            if (_published[index])
+if (_published[index])
             {
                 _published[index] = false;
                 _publishedCount--;
@@ -237,12 +213,7 @@ public sealed class ChunkPresentation
         {
             RemoveFluidSurfaces(index);
             _publishedFluidDependencies[index] = null;
-            _fluidRelightVertexCount -=
-                _relightableFluid[index]?.Batches.Sum(
-                    batch => batch.Vertices.Length) ?? 0;
-            _relightableFluid[index] = null;
-            _relightableFluidDependencies[index] = null;
-        }
+}
     }
 
     public ChunkMeshletMask UnpublishedTerrainMeshlets
@@ -265,40 +236,9 @@ public sealed class ChunkPresentation
         return _published[index];
     }
 
-    public bool TryGetRelightableGeometry(
-        int meshletIndex, VoxelWorld world, out ChunkMeshData? data)
-    {
-        ValidateMeshletIndex(meshletIndex);
-        ArgumentNullException.ThrowIfNull(world);
 
-        data = _relightableGeometry[meshletIndex];
-        if (data is not { CanRelightWithoutRemesh: true } ||
-            _terrainMeshletSpans[meshletIndex].Count == 0 ||
-            _relightableDependencies[meshletIndex] is not { } dependency ||
-            !dependency.HasUnchangedGeometryAfterRestore(world))
-        {
-            data = null;
-            return false;
-        }
 
-        return true;
-    }
 
-    public bool TryGetRelightableFluid(
-        int meshletIndex, VoxelWorld world, out ChunkFluidMeshData? data)
-    {
-        ValidateMeshletIndex(meshletIndex);
-        ArgumentNullException.ThrowIfNull(world);
-        data = _relightableFluid[meshletIndex];
-        if (data is null || _fluidMeshletSpans[meshletIndex].Count == 0 ||
-            _relightableFluidDependencies[meshletIndex] is not { } dependency ||
-            !dependency.HasUnchangedGeometryAfterRestore(world))
-        {
-            data = null;
-            return false;
-        }
-        return true;
-    }
 
     public void SetVisible(bool visible) =>
         Root.Visible = visible;
@@ -557,88 +497,34 @@ foreach (var (id, instance) in build.Replacements)
         int meshletIndex,
         ChunkFluidMeshData data,
         FluidMaterialCatalog materials,
-        MeshDependencyStamp dependencies,
-        bool lightOnly = false)
+        MeshDependencyStamp dependencies)
     {
         ValidateMeshletIndex(meshletIndex);
         ArgumentNullException.ThrowIfNull(dependencies);
-
-        _fluidRelightVertexCount -=
-            _relightableFluid[meshletIndex]?.Batches.Sum(
-                batch => batch.Vertices.Length) ?? 0;
-        _relightableFluid[meshletIndex] = null;
-        _relightableFluidDependencies[meshletIndex] = null;
         _publishedFluidDependencies[meshletIndex] = dependencies;
-
-        var patchedGpuAttributes = false;
-        var lightOnlyHandled = lightOnly &&
-            TryUpdateFluidLightOnly(
-                meshletIndex, data, out patchedGpuAttributes);
-        if (!lightOnlyHandled)
-            ReplaceFluidMeshletGeometry(meshletIndex, data.Batches);
-
-        var count = data.Batches.Sum(batch => batch.Vertices.Length);
-        if (count <= MaximumFluidRelightVerticesPerChunk -
-                     _fluidRelightVertexCount)
-        {
-            _relightableFluid[meshletIndex] = data;
-            _relightableFluidDependencies[meshletIndex] = dependencies;
-            _fluidRelightVertexCount += count;
-        }
-
-        return patchedGpuAttributes;
+        ReplaceFluidMeshletGeometry(meshletIndex, data.Batches);
+        return false;
     }
+
 
     public ChunkPresentationApplyStats Apply(
         int meshletIndex,
         ChunkMeshData data,
         VoxelTerrainMaterialSet materials,
-        MeshDependencyStamp dependencies,
-        bool lightOnly = false)
+        MeshDependencyStamp dependencies)
     {
         ArgumentNullException.ThrowIfNull(dependencies);
         ValidateMeshletIndex(
             meshletIndex);
 
-        // The cached geometry was validated before worker capture and the
-        // worker dependencies are checked again before publication. Relighting
-        // its vertices cannot change terrain physics or deferred collision.
-        var preserveCollision = lightOnly &&
-            _relightableGeometry[meshletIndex] is not null;
-
         var renderStart = Stopwatch.GetTimestamp();
-        var patchedGpuAttributes = false;
-        var lightOnlyHandled = lightOnly &&
-            TryUpdateTerrainLightOnly(
-                meshletIndex, data, out patchedGpuAttributes);
-        if (!lightOnlyHandled)
-            ReplaceTerrainMeshletGeometry(meshletIndex, data.RenderBatches);
+        ReplaceTerrainMeshletGeometry(meshletIndex, data.RenderBatches);
         var renderMilliseconds = Stopwatch.GetElapsedTime(
             renderStart).TotalMilliseconds;
 
-        // Replacing an already-published geometry snapshot invalidates its
-        // old cached light bindings. New cache is immutable and bounded to
-        // this presentation's lifetime.
-        _relightCacheVertexCount -=
-            _relightableGeometry[meshletIndex]?.RenderVertexCount ?? 0;
-        var retainForRelighting =
-            data.CanRelightWithoutRemesh && data.HasRenderGeometry &&
-            data.RenderVertexCount <=
-                MaximumRelightCacheVerticesPerChunk - _relightCacheVertexCount;
-        _relightableGeometry[meshletIndex] =
-            retainForRelighting ? data : null;
-        if (retainForRelighting)
-            _relightCacheVertexCount += data.RenderVertexCount;
-        _relightableDependencies[meshletIndex] =
-            retainForRelighting ? dependencies : null;
-
         var collisionStart = Stopwatch.GetTimestamp();
 
-        if (preserveCollision)
-        {
-            // No shape creation, destruction, or physics-body mutation.
-        }
-        else if (data.HasCollision)
+        if (data.HasCollision)
         {
             var geometryIsCurrent =
                 _collisions[meshletIndex] is not null &&
@@ -679,7 +565,7 @@ foreach (var (id, instance) in build.Replacements)
             collisionMilliseconds,
             data.RenderVertexCount,
             data.CollisionTriangleCount,
-            patchedGpuAttributes);
+            false);
     }
 
     private sealed record DeferredCollision(
@@ -696,67 +582,7 @@ foreach (var (id, instance) in build.Replacements)
         return maps;
     }
 
-    private bool TryUpdateTerrainLightOnly(
-        int meshletIndex,
-        ChunkMeshData data,
-        out bool patchedGpuAttributes)
-    {
-        patchedGpuAttributes = false;
-        var spans = _terrainMeshletSpans[meshletIndex];
-        var batches = data.RenderBatches
-            .Where(batch => batch.Vertices.Length > 0)
-            .ToArray();
 
-        if (spans.Count != batches.Length)
-            return false;
-
-        foreach (var batch in batches)
-        {
-            if (!spans.TryGetValue(batch.Batch, out var span) ||
-                span.Count != batch.Vertices.Length ||
-                !_terrainSurfaceStates.ContainsKey(batch.Batch))
-                return false;
-        }
-
-        // Retain per-material CPU ranges. If another structural publication
-        // dirtied the chunk mesh this frame, one merged rebuild will include
-        // these light changes without a separate native upload.
-        foreach (var batch in batches)
-        {
-            var span = spans[batch.Batch];
-            var state = _terrainSurfaceStates[batch.Batch];
-            for (var index = 0; index < batch.Vertices.Length; index++)
-                state.Vertices[span.Start + index] = batch.Vertices[index];
-        }
-
-        if (_terrainMeshDirty || _terrainMesh is null)
-        {
-            foreach (var batch in batches)
-                _terrainDirtyBatches.Enqueue(batch.Batch);
-            _terrainMeshDirty = _terrainDirtyBatches.Count > 0;
-            return true;
-        }
-
-        foreach (var batch in batches)
-        {
-            var span = spans[batch.Batch];
-            var state = _terrainSurfaceStates[batch.Batch];
-            if (ChunkMeshBuilder.TryUpdateLightingRange(
-                    _terrainMesh, state.SurfaceIndex, span.Start,
-                    state.Vertices.Count, batch))
-                continue;
-
-            // A format mismatch must not leave partially patched output.
-            // Queue this material surface for a bounded replacement on the
-            // presentation path; already-patched batch ranges remain current.
-            _terrainDirtyBatches.Enqueue(batch.Batch);
-            _terrainMeshDirty = true;
-            return true;
-        }
-
-        patchedGpuAttributes = batches.Length > 0;
-        return true;
-    }
 
     private void ReplaceTerrainMeshletGeometry(
         int meshletIndex,
@@ -937,60 +763,7 @@ foreach (var (id, instance) in build.Replacements)
         return maps;
     }
 
-    private bool TryUpdateFluidLightOnly(
-        int meshletIndex,
-        ChunkFluidMeshData data,
-        out bool patchedGpuAttributes)
-    {
-        patchedGpuAttributes = false;
-        var spans = _fluidMeshletSpans[meshletIndex];
-        var batches = data.Batches
-            .Where(batch => batch.Vertices.Length > 0)
-            .ToArray();
-        if (spans.Count != batches.Length)
-            return false;
 
-        foreach (var batch in batches)
-        {
-            if (!spans.TryGetValue(batch.Fluid, out var span) ||
-                span.Count != batch.Vertices.Length ||
-                !_fluidSurfaceStates.ContainsKey(batch.Fluid))
-                return false;
-        }
-
-        foreach (var batch in batches)
-        {
-            var span = spans[batch.Fluid];
-            var state = _fluidSurfaceStates[batch.Fluid];
-            for (var index = 0; index < batch.Vertices.Length; index++)
-                state.Vertices[span.Start + index] = batch.Vertices[index];
-        }
-
-        if (_fluidMeshDirty || _fluidMesh is null)
-        {
-            foreach (var batch in batches)
-                _fluidDirtyBatches.Enqueue(batch.Fluid);
-            _fluidMeshDirty = _fluidDirtyBatches.Count > 0;
-            return true;
-        }
-
-        foreach (var batch in batches)
-        {
-            var span = spans[batch.Fluid];
-            var state = _fluidSurfaceStates[batch.Fluid];
-            if (ChunkFluidMeshBuilder.TryUpdateLightingRange(
-                    _fluidMesh, state.SurfaceIndex, span.Start,
-                    state.Vertices.Count, batch))
-                continue;
-
-            _fluidDirtyBatches.Enqueue(batch.Fluid);
-            _fluidMeshDirty = true;
-            return true;
-        }
-
-        patchedGpuAttributes = batches.Length > 0;
-        return true;
-    }
 
     private void ReplaceFluidMeshletGeometry(
         int meshletIndex,
