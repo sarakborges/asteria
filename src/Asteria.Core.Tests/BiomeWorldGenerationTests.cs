@@ -1059,8 +1059,6 @@ public sealed class BiomeWorldGenerationTests
 
         var chunk = new Chunk();
         chunk.SetBlock(2, 2, 2, blocks.GetId(leafId));
-        ChunkLightingSolver.Initialize(
-            chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var layer = Assert.Single(
@@ -1082,11 +1080,11 @@ public sealed class BiomeWorldGenerationTests
         Assert.All(vertices, vertex =>
         {
             Assert.InRange(
-                MathF.Abs(vertex.TintAndAo.X - expected.X), 0f, 0.02f);
+                MathF.Abs(vertex.Tint.X - expected.X), 0f, 0.02f);
             Assert.InRange(
-                MathF.Abs(vertex.TintAndAo.Y - expected.Y), 0f, 0.02f);
+                MathF.Abs(vertex.Tint.Y - expected.Y), 0f, 0.02f);
             Assert.InRange(
-                MathF.Abs(vertex.TintAndAo.Z - expected.Z), 0f, 0.02f);
+                MathF.Abs(vertex.Tint.Z - expected.Z), 0f, 0.02f);
             // Texture code includes tint and wind flags: 0.25 + 0.5.
             var encodedFlags = vertex.EncodedTextureLayers.X -
                 MathF.Floor(vertex.EncodedTextureLayers.X);

@@ -130,7 +130,7 @@ internal sealed class InventoryVoxelIconRasterizer
         // the same Core mesh path as world terrain. The previous code used
         // definition.PreviewColor for every block and discarded dye RGB.
         var palette = sampledPalette ?? new Color(
-            a.TintAndAo.X, a.TintAndAo.Y, a.TintAndAo.Z);
+            a.Tint.X, a.Tint.Y, a.Tint.Z);
         var baseCode = a.EncodedTextureLayers.X;
         var baseIndex = (int)MathF.Floor(baseCode + .001f);
         var baseTint = Dyable(baseCode);
@@ -138,11 +138,6 @@ internal sealed class InventoryVoxelIconRasterizer
         var hasOverlay = overlayCode >= 0f;
         var overlayIndex = (int)MathF.Floor(overlayCode + .001f);
         var overlayTint = hasOverlay && Dyable(overlayCode);
-        var axis = NVector3.Abs(normal);
-        var faceShade = axis.Y >= axis.X && axis.Y >= axis.Z
-            ? (normal.Y >= 0f ? 1f : .5f)
-            : axis.Z >= axis.X ? .8f : .6f;
-
         for (var y = minY; y <= maxY; y++)
         for (var x = minX; x <= maxX; x++)
         {
@@ -180,11 +175,7 @@ internal sealed class InventoryVoxelIconRasterizer
             if (mode == BlockRenderMode.Cutout && shaded.A < .5f ||
                 shaded.A <= 0f)
                 continue;
-            var ao = a.TintAndAo.W * w0 +
-                b.TintAndAo.W * w1 + c.TintAndAo.W * w2;
-            var value = Math.Clamp(faceShade * ao, 0f, 1f);
-            var final = new Color(
-                shaded.R * value, shaded.G * value, shaded.B * value, shaded.A);
+            var final = shaded;
             if (final.A < 1f && screen[index].A > 0f)
             {
                 var previous = screen[index];

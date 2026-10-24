@@ -11,7 +11,6 @@ public sealed class Chunk
     private readonly MicroblockMaskPalette _microblockMasks;
     private readonly Dictionary<int, BlockSurfaceState> _surfaceStates;
     private readonly Dictionary<int, List<ObjectCell>> _objects;
-    private readonly VoxelLight[] _light;
 
     public Chunk()
     {
@@ -20,7 +19,6 @@ public sealed class Chunk
         _microblockMasks = new MicroblockMaskPalette();
         _surfaceStates = [];
         _objects = [];
-        _light = new VoxelLight[Volume];
     }
 
     private Chunk(
@@ -29,7 +27,6 @@ public sealed class Chunk
         MicroblockMaskPalette microblockMasks,
         Dictionary<int, BlockSurfaceState> surfaceStates,
         Dictionary<int, List<ObjectCell>> objects,
-        VoxelLight[] light,
         ulong revision,
         ulong objectRevision)
     {
@@ -38,7 +35,6 @@ public sealed class Chunk
         _microblockMasks = microblockMasks;
         _surfaceStates = surfaceStates;
         _objects = objects;
-        _light = light;
         Revision = revision;
         ObjectRevision = objectRevision;
     }
@@ -335,42 +331,14 @@ public sealed class Chunk
             out visitedCount);
     }
 
-    public VoxelLight GetLight(int x, int y, int z)
-    {
-        ValidateCoordinates(x, y, z);
-        return _light[ToIndex(x, y, z)];
-    }
 
-    public void SetLight(int x, int y, int z, VoxelLight light)
-    {
-        ValidateCoordinates(x, y, z);
-        _light[ToIndex(x, y, z)] = light;
-    }
 
-    public void ClearLight()
-    {
-        Array.Clear(_light);
-    }
 
     // Fills one horizontal Y layer of the light field. The voxel storage
     // order is X/Z within each Y layer, so this avoids thousands of
     // coordinate validations and method calls for horizontally uniform light.
-    internal void FillLightLayer(int y, VoxelLight value)
-    {
-        if ((uint)y >= Size)
-            throw new ArgumentOutOfRangeException(nameof(y));
 
-        Array.Fill(_light, value, y * Area, Area);
-    }
-
-    // Initial light of a truly empty chunk is uniform open sky. Filling
-    // the packed field once avoids four thousand medium/registry lookups.
-    public void FillLight(VoxelLight value)
-    {
-        Array.Fill(_light, value);
-    }
-
-    public Chunk CloneForWorker() =>
+public Chunk CloneForWorker() =>
         new(
             _cells.Clone(),
             _fluids.Clone(),
@@ -378,42 +346,9 @@ public sealed class Chunk
             new Dictionary<int, BlockSurfaceState>(_surfaceStates),
             _objects.ToDictionary(entry => entry.Key,
                 entry => new List<ObjectCell>(entry.Value)),
-            (VoxelLight[])_light.Clone(),
             Revision,
             ObjectRevision)
         { ObjectCount = this.ObjectCount };
-
-    /// <summary>
-    /// Creates an isolated lighting snapshot. Surface appearance state is
-    /// intentionally omitted because the light solver only reads block/fluid
-    /// cells, microblock geometry, attached Objects and the current light field.
-    /// </summary>
-    internal Chunk CloneForLightingWorker() =>
-        new(
-            _cells.Clone(),
-            _fluids.Clone(),
-            _microblockMasks.Clone(),
-            [],
-            _objects.ToDictionary(entry => entry.Key,
-                entry => new List<ObjectCell>(entry.Value)),
-            (VoxelLight[])_light.Clone(),
-            Revision,
-            ObjectRevision)
-        { ObjectCount = this.ObjectCount };
-
-    public bool CopyLightFrom(Chunk source)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        var changed = false;
-        for (var index = 0; index < Volume; index++)
-        {
-            var light = source._light[index];
-            changed |= _light[index] != light;
-            _light[index] = light;
-        }
-
-        return changed;
-    }
 
     public BlockSurfaceState GetSurfaceState(int x, int y, int z)
     {

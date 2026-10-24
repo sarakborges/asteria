@@ -117,7 +117,6 @@ public sealed class GorgeEnrichmentContentTests
             Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
             Assert.False(block.IsCollidable);
             Assert.False(block.CastsShadow);
-            Assert.Equal((byte)0, block.LightDampening);
             var expected = "textures/objects/" + name + ".png";
             Assert.Equal(expected, block.Visual.Texture!.Value.Texture);
             Assert.True(textures.Add(expected));

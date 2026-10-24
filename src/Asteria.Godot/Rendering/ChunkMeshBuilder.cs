@@ -43,7 +43,6 @@ public static class ChunkMeshBuilder
             var colors = new Color[vertices.Length];
             var uvs = new Vector2[vertices.Length];
             var uv2s = new Vector2[vertices.Length];
-            var light = new byte[vertices.Length * 4];
 
             for (var index = 0; index < vertices.Length; index++)
             {
@@ -53,17 +52,12 @@ public static class ChunkMeshBuilder
                 normals[index] = new Vector3(
                     vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z);
                 colors[index] = new Color(
-                    vertex.TintAndAo.X, vertex.TintAndAo.Y,
-                    vertex.TintAndAo.Z, vertex.TintAndAo.W);
+                    vertex.Tint.X, vertex.Tint.Y,
+                    vertex.Tint.Z, vertex.Tint.W);
                 uvs[index] = new Vector2(vertex.Uv.X, vertex.Uv.Y);
                 uv2s[index] = new Vector2(
                     vertex.EncodedTextureLayers.X,
                     vertex.EncodedTextureLayers.Y);
-                var offset = index * 4;
-                light[offset] = PackUnorm8(vertex.VoxelLight.X);
-                light[offset + 1] = PackUnorm8(vertex.VoxelLight.Y);
-                light[offset + 2] = PackUnorm8(vertex.VoxelLight.Z);
-                light[offset + 3] = PackUnorm8(vertex.VoxelLight.W);
             }
 
             Godot.Collections.Array arrays = [];
@@ -73,7 +67,6 @@ public static class ChunkMeshBuilder
             arrays[(int)Mesh.ArrayType.Color] = colors;
             arrays[(int)Mesh.ArrayType.TexUV] = uvs;
             arrays[(int)Mesh.ArrayType.TexUV2] = uv2s;
-            arrays[(int)Mesh.ArrayType.Custom0] = light;
 
             var surfaceIndex = mesh.GetSurfaceCount();
             mesh.AddSurfaceFromArrays(
@@ -86,26 +79,6 @@ public static class ChunkMeshBuilder
         return mesh.GetSurfaceCount() - initialSurfaceCount;
     }
 
-    public static bool TryUpdateLighting(ArrayMesh mesh, ChunkMeshData data) =>
-        MeshLightAttributePatcher.TryUpdate(mesh, data);
-
-    public static bool TryUpdateLighting(
-        ArrayMesh mesh, ChunkMeshData data,
-        int firstSurface, int surfaceCount) =>
-        MeshLightAttributePatcher.TryUpdate(
-            mesh, data, firstSurface, surfaceCount);
-
-    public static bool TryUpdateLightingRange(
-        ArrayMesh mesh,
-        int surfaceIndex,
-        int firstVertex,
-        int surfaceVertexCount,
-        ChunkRenderBatchData batch) =>
-        MeshLightAttributePatcher.TryUpdateSurfaceRange(
-            mesh, surfaceIndex, firstVertex, surfaceVertexCount, batch);
-
-    private static byte PackUnorm8(float value) =>
-        (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
 
     public static ConcavePolygonShape3D CreateCollisionShape(
         ChunkMeshData data)

@@ -430,7 +430,7 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
-    public void MeshGeometryDependencyStampsIgnoreLightingButDetectEditsAndResidency()
+    public void MeshGeometryDependencyStampsTrackEditsAndResidency()
     {
         var blocks = new BlockRegistry(
         [
@@ -450,12 +450,6 @@ public sealed class VoxelWorldTests
         var same =
             world.CaptureMeshWorkerSnapshot(requested).Dependencies;
         Assert.True(first.HasSameWorldGeometryInputsAs(same));
-
-        world.GetChunk(center).SetLight(
-            0, 0, 0, new VoxelLight(0, 4, 0, 0));
-        var relit =
-            world.CaptureMeshWorkerSnapshot(requested).Dependencies;
-        Assert.True(first.HasSameWorldGeometryInputsAs(relit));
 
         world.GetChunk(center).SetBlock(
             0, 0, 0, blocks.GetId("asteria:stone"));

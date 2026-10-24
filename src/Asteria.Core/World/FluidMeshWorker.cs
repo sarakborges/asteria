@@ -5,8 +5,7 @@ namespace Asteria.Core.World;
 public sealed record FluidMeshletBuild(
     ChunkCoord Coord,
     int MeshletIndex,
-    ChunkFluidMeshData Data,
-    bool LightOnly = false);
+    ChunkFluidMeshData Data);
 
 public sealed record FluidMeshWorkerResult(
     WorldMeshBatch SourceBatch,
@@ -31,8 +30,7 @@ public sealed class FluidMeshWorker
         BlockRegistry blocks,
         FluidRegistry fluids,
         WorldMeshBatch batch,
-        MeshletContentRevisions revisions,
-        IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>? relightable = null)
+        MeshletContentRevisions revisions)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -64,8 +62,7 @@ public sealed class FluidMeshWorker
                     snapshot.World,
                     blocks,
                     fluids,
-                    batch.DirtyMeshlets,
-                    relightable);
+                    batch.DirtyMeshlets);
             stopwatch.Stop();
 
             return new FluidMeshWorkerResult(
@@ -91,8 +88,7 @@ public sealed class FluidMeshWorker
             VoxelWorld world,
             BlockRegistry blocks,
             FluidRegistry fluids,
-            IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty,
-            IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>? relightable)
+            IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty)
     {
         var result =
             new List<FluidMeshletBuild>();
@@ -109,16 +105,6 @@ public sealed class FluidMeshWorker
 
             foreach (var meshletIndex in mask.Indices())
             {
-                var key = new ChunkMeshletKey(coord, meshletIndex);
-                if (relightable is not null &&
-                    relightable.TryGetValue(key, out var previous) &&
-                    FluidMeshLightingUpdater.TryRelight(
-                        world, coord, blocks, previous, out var relit))
-                {
-                    result.Add(new FluidMeshletBuild(
-                        coord, meshletIndex, relit, LightOnly: true));
-                    continue;
-                }
                 result.Add(new FluidMeshletBuild(
                     coord, meshletIndex,
                     FluidMeshDataBuilder.BuildMeshlet(

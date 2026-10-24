@@ -50,7 +50,6 @@ public sealed class AttachedLayerPlacementRuntimeTests
         var stone = blocks.GetId("asteria:stone");
         Assert.True(mutations.SetBlockAt(position, stone, out _));
         updates.DrainMeshlets();
-        updates.DrainLighting();
         Assert.True(mutations.SetBlockSurfaceStateAt(
             position, new BlockSurfaceState("asteria:dye_red"), out _));
         updates.DrainMeshlets();
@@ -64,7 +63,6 @@ public sealed class AttachedLayerPlacementRuntimeTests
             new VoxelWorldHit(position, 0, 0, 1)));
         Assert.False(runtime.TryPlace(moss,
             new VoxelWorldHit(position, 0, 0, 0)));
-        Assert.False(updates.HasLightingWork);
         Assert.True(updates.HasPriorityMeshWork);
         var state = world.GetBlockSurfaceStateOrEmpty(position);
         Assert.Equal("asteria:dye_red", state.DyeId);

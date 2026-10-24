@@ -62,11 +62,13 @@ When touching an area that already violates the canon, do not add new code on to
 - Every reusable WebUI component or page must have a colocated Storybook `*.stories.ts` file covering meaningful visual states.
 - Storybook is part of WebUI validation. `npm run build-storybook` must stay green together with `npm run build`.
 
+The voxel world is intentionally unlit. Do not reintroduce voxel-light propagation/storage, light emission or dampening properties, per-vertex light channels, relighting caches, or light-specific worker queues unless the user explicitly requests that system.
+
 ## Mineclone reference rule
 
 - Before implementing or materially changing a system that already exists in `sarakborges/mineclone`, inspect the equivalent implementation on the `world-systems-rebuild` branch first.
 - Use Mineclone as the architecture/behavior reference, then adapt deliberately to Asteria's Godot + C# boundaries rather than copying engine-specific code blindly.
 - Mineclone is a reference, not the final authority. For every inspected implementation, identify whether Asteria can achieve the same contract more simply, correctly, efficiently, or with cleaner ownership; prefer the better Asteria design when there is a concrete improvement.
 - Preserve the behavioral intent and proven invariants from Mineclone, but do not preserve incidental complexity, engine-driven compromises, duplicated ownership, or legacy constraints when Asteria can avoid them.
-- Prefer the rebuild branch over Mineclone `main` for chunk, voxel, world, lighting, meshing, placement, streaming and other world-runtime systems unless the task explicitly concerns old presentation behavior.
+- Prefer the rebuild branch over Mineclone `main` for chunk, voxel, world, meshing, placement, streaming and other world-runtime systems unless the task explicitly concerns old presentation behavior.
 - **UI / world-creation parity MUST compare MineClone `main` AND `world-systems-rebuild`** before declaring an interface complete. The rebuild branch can lag `main` on entire user-facing configuration sections and features. Do not infer parity from the existence of a page, Storybook story, old migration checklist, or a branch-specific subset. Record the compared source ref/commit, every section, option, enabled/disabled state, and its authoritative runtime owner. Never insert interactive world-generation controls that the engine silently ignores.

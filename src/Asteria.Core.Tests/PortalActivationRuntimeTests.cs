@@ -16,7 +16,7 @@ public sealed class PortalActivationRuntimeTests
         var portal = new BlockDefinition("asteria:portal",
             shape: BlockShapeDefinition.CenteredLayer(0.10f),
             orientations: [BlockOrientation.X, BlockOrientation.Y, BlockOrientation.Z],
-            isCollidable: false, lightDampening: 0);
+            isCollidable: false);
         var blocks = new BlockRegistry([frame, portal,
             new BlockDefinition("asteria:stone")]);
         var world = new VoxelWorld();

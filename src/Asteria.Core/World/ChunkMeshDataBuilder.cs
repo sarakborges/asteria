@@ -7,7 +7,6 @@ public static class ChunkMeshDataBuilder
     private const int FineResolution = BlockGeometry.Resolution;
     // Cache only after enough genuinely visible faces have been sampled.
     // A fully solid meshlet may contain 512 cubes but zero exposed faces.
-    private const int MinimumFaceSamplesForLightGrid = 96;
     private const int FinePlaneArea = FineResolution * FineResolution;
     private const float DyableLayerFlag = 0.25f;
     private const float WindSwayLayerFlag = 0.5f;
@@ -58,7 +57,6 @@ public static class ChunkMeshDataBuilder
         // The fine-geometry decision depends on the immutable worker snapshot.
         // Reuse it in all six greedy face passes rather than re-reading six
         // neighbors for every occupied voxel on every face.
-        var hasUnsupportedLightingGeometry = false;
         var fineMeshing = new bool[
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge *
@@ -96,8 +94,6 @@ public static class ChunkMeshDataBuilder
                     {
                         EmitCrossedSprite(
                             surfaces,
-                            world,
-                            blocks,
                             textures,
                             x,
                             y,
@@ -112,7 +108,7 @@ public static class ChunkMeshDataBuilder
                         BlockVisualKind.GroundSprite)
                     {
                         EmitGroundSprite(
-                            surfaces, world, blocks, textures,
+                            surfaces, textures,
                             x, y, z, worldPosition, definition, tintSamples);
                         continue;
                     }
@@ -120,7 +116,6 @@ public static class ChunkMeshDataBuilder
                     if (definition.Shape.Kind == BlockShapeKind.Spike &&
                         !cell.HasMicroblockGeometry)
                     {
-                        hasUnsupportedLightingGeometry = true;
                         fineMeshing[MeshletVoxelIndex(x, y, z)] = true;
                         EmitSpike(
                             surfaces, collision, world, blocks, textures,
@@ -173,10 +168,7 @@ public static class ChunkMeshDataBuilder
                     entry.Value.ToArray()))
             .ToArray();
 
-        return new ChunkMeshData(
-            batches,
-            collision.ToArray(),
-            CanRelightWithoutRemesh: !hasUnsupportedLightingGeometry);
+        return new ChunkMeshData(batches, collision.ToArray());
     }
 
     private static void EmitGreedyCubeFaces(
@@ -199,9 +191,7 @@ public static class ChunkMeshDataBuilder
         int meshletIndex)
     {
         var chunk = world.GetChunk(coord);
-        VoxelMeshLighting.SamplingGrid? lightingGrid = null;
-        var faceSamples = 0;
-        var (originX, originY, originZ) =
+var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
 
         foreach (var face in Faces)
@@ -271,16 +261,7 @@ public static class ChunkMeshDataBuilder
                                 cell,
                                 face,
                                 ResolveDye(dyes, definition, chunk.GetSurfaceState(x, y, z).DyeId));
-                        // Build the sample halo only once enough exposed faces
-                        // will amortize its cost. Empty/occluded dense chunks
-                        // avoid capturing a grid entirely.
-                        if (++faceSamples == MinimumFaceSamplesForLightGrid)
-                            lightingGrid = VoxelMeshLighting.SamplingGrid.Capture(
-                                world, blocks, coord, meshletIndex);
-                        var lighting = lightingGrid is null
-                            ? VoxelMeshLighting.SampleFace(
-                                world, blocks, worldPosition, face)
-                            : lightingGrid.SampleFace(worldPosition, face);
+                        var topology = MeshFaceTopology.Neutral;
                         var batch = new TerrainRenderBatch(
                             definition.RenderMode,
                             definition.CastsShadow);
@@ -291,11 +272,7 @@ public static class ChunkMeshDataBuilder
                                 cell.TextureRotation,
                                 faceMaterial.RotateTexture);
 
-                        if (!BlockRenderModePolicy.CanGreedyMerge(
-                                definition.RenderMode) ||
-                            !TryUniformLighting(
-                                lighting,
-                                out var uniformLighting))
+                        if (!BlockRenderModePolicy.CanGreedyMerge(definition.RenderMode))
                         {
                             EmitCubeFace(
                                 GetSurface(surfaces, batch),
@@ -304,7 +281,7 @@ public static class ChunkMeshDataBuilder
                                 face,
                                 cell,
                                 faceMaterial,
-                                lighting,
+                                topology,
                                 definition.IsCollidable,
                                 originX,
                                 originZ,
@@ -315,12 +292,7 @@ public static class ChunkMeshDataBuilder
                         candidates[
                             (u - plane.UMin) +
                             (v - plane.VMin) * width] =
-                            new GreedyCubeFace(
-                                batch,
-                                faceMaterial,
-                                uvRotation,
-                                uniformLighting,
-                                definition.IsCollidable);
+                            new GreedyCubeFace(batch, faceMaterial, uvRotation, definition.IsCollidable);
                     }
                 }
 
@@ -485,20 +457,12 @@ public static class ChunkMeshDataBuilder
             face,
             candidate.FaceMaterial,
             candidate.UvRotation,
-            new VoxelFaceLighting(
-                candidate.Lighting,
-                candidate.Lighting,
-                candidate.Lighting,
-                candidate.Lighting),
+            MeshFaceTopology.Neutral,
             candidate.IsCollidable,
             useAbsoluteUv: true,
             worldOriginX: worldOriginX,
             worldOriginZ: worldOriginZ,
-            tintSamples: tintSamples,
-            lightOrigin: new LocalVoxelCoord(
-                PlanePosition(face, depth, u, v).X,
-                PlanePosition(face, depth, u, v).Y,
-                PlanePosition(face, depth, u, v).Z));
+            tintSamples: tintSamples);
     }
 
     private static int MeshletVoxelIndex(int x, int y, int z)
@@ -617,9 +581,7 @@ public static class ChunkMeshDataBuilder
         {
             var material = ResolveFaceMaterial(
                 textures, definition, cell, face);
-            var light = VoxelMeshLighting.SampleFace(
-                world, blocks, worldPosition, face).Corner0;
-            var lighting = new VoxelFaceLighting(light, light, light, light);
+            var topology = MeshFaceTopology.Neutral;
 
             for (var tier = 0; tier < SpikeSegmentState.TiersPerVoxel;)
             {
@@ -633,7 +595,7 @@ public static class ChunkMeshDataBuilder
 
                 EmitSpikeSide(
                     surface, collision, center, uvOrigin,
-                    face, material, cell.TextureRotation, lighting,
+                    face, material, cell.TextureRotation, topology,
                     width,
                     tier / (float)SpikeSegmentState.TiersPerVoxel,
                     next / (float)SpikeSegmentState.TiersPerVoxel,
@@ -675,14 +637,12 @@ public static class ChunkMeshDataBuilder
             var face = top ? BlockFace.Top : BlockFace.Bottom;
             var material = ResolveFaceMaterial(
                 textures, definition, cell, face);
-            var light = VoxelMeshLighting.SampleFace(
-                world, blocks, worldPosition, face).Corner0;
-            var lighting = new VoxelFaceLighting(light, light, light, light);
+            var topology = MeshFaceTopology.Neutral;
             EmitSpikeHorizontalRim(
                 surface, collision, center, uvOrigin,
                 boundary / (float)SpikeSegmentState.TiersPerVoxel,
                 MathF.Max(lower, upper), MathF.Min(lower, upper),
-                face, material, cell.TextureRotation, lighting,
+                face, material, cell.TextureRotation, topology,
                 definition.IsCollidable,
                 worldOriginX, worldOriginZ, tintSamples);
         }
@@ -726,7 +686,7 @@ public static class ChunkMeshDataBuilder
         BlockFace face,
         TerrainFaceMaterial material,
         TextureRotation rotation,
-        VoxelFaceLighting lighting,
+        MeshFaceTopology topology,
         float width,
         float y0,
         float y1,
@@ -781,7 +741,7 @@ public static class ChunkMeshDataBuilder
         ReverseSpikeQuadWinding(quad);
         EmitQuadVertices(
             surface, collision, quad, normal, face,
-            material, rotation, lighting,
+            material, rotation, topology,
             collidable, false, uvOrigin,
             worldOriginX, worldOriginZ, tintSamples);
     }
@@ -797,7 +757,7 @@ public static class ChunkMeshDataBuilder
         BlockFace face,
         TerrainFaceMaterial material,
         TextureRotation rotation,
-        VoxelFaceLighting lighting,
+        MeshFaceTopology topology,
         bool collidable,
         int worldOriginX,
         int worldOriginZ,
@@ -829,7 +789,7 @@ public static class ChunkMeshDataBuilder
             ReverseSpikeQuadWinding(quad);
             EmitQuadVertices(
                 surface, collision, quad, normal, face,
-                material, rotation, lighting,
+                material, rotation, topology,
                 collidable, false, uvOrigin,
                 worldOriginX, worldOriginZ, tintSamples);
             return;
@@ -862,7 +822,7 @@ public static class ChunkMeshDataBuilder
             ReverseSpikeQuadWinding(quad);
             EmitQuadVertices(
                 surface, collision, quad, normal, face,
-                material, rotation, lighting,
+                material, rotation, topology,
                 collidable, false, uvOrigin,
                 worldOriginX, worldOriginZ, tintSamples);
         }
@@ -870,8 +830,6 @@ public static class ChunkMeshDataBuilder
 
     private static void EmitCrossedSprite(
         Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
-        VoxelWorld world,
-        BlockRegistry blocks,
         TerrainTextureLookup textures,
         int blockX,
         int blockY,
@@ -911,12 +869,6 @@ public static class ChunkMeshDataBuilder
             GetSurface(
                 surfaces,
                 batch);
-        var lighting =
-            VoxelMeshLighting.SampleFace(
-                world,
-                blocks,
-                worldPosition,
-                BlockFace.Top);
         var jitter = SpritePositionJitter.For(definition, worldPosition);
         var centerX =
             blockX + 0.5f + jitter.X;
@@ -974,24 +926,18 @@ public static class ChunkMeshDataBuilder
                 positions,
                 SpriteFrontOrder,
                 encodedLayers,
-                tint,
-                lighting,
-                new LocalVoxelCoord(blockX, blockY, blockZ));
+                tint);
             EmitSpriteSide(
                 surface,
                 positions,
                 SpriteBackOrder,
                 encodedLayers,
-                tint,
-                lighting,
-                new LocalVoxelCoord(blockX, blockY, blockZ));
+                tint);
         }
     }
 
     private static void EmitGroundSprite(
         Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
-        VoxelWorld world,
-        BlockRegistry blocks,
         TerrainTextureLookup textures,
         int blockX,
         int blockY,
@@ -1015,8 +961,6 @@ public static class ChunkMeshDataBuilder
         var surface = GetSurface(
             surfaces,
             new TerrainRenderBatch(definition.RenderMode, definition.CastsShadow));
-        var lighting = VoxelMeshLighting.SampleFace(
-            world, blocks, worldPosition, BlockFace.Top);
         var jitter = SpritePositionJitter.For(definition, worldPosition);
         var centerX = blockX + 0.5f + jitter.X;
         var centerZ = blockZ + 0.5f + jitter.Y;
@@ -1029,12 +973,10 @@ public static class ChunkMeshDataBuilder
         positions[3] = new(centerX + halfWidth, topY, centerZ - halfWidth);
         EmitSpriteSide(
             surface, positions, SpriteFrontOrder,
-            encodedLayers, tint, lighting,
-            new LocalVoxelCoord(blockX, blockY, blockZ));
+            encodedLayers, tint);
         EmitSpriteSide(
             surface, positions, SpriteBackOrder,
-            encodedLayers, tint, lighting,
-            new LocalVoxelCoord(blockX, blockY, blockZ));
+            encodedLayers, tint);
     }
 
     private static void EmitSpriteSide(
@@ -1042,33 +984,12 @@ public static class ChunkMeshDataBuilder
         ReadOnlySpan<Vector3> positions,
         IReadOnlyList<int> triangleOrder,
         Vector2 encodedLayers,
-        Vector3 tint,
-        VoxelFaceLighting lighting,
-        LocalVoxelCoord source)
+        Vector3 tint)
     {
         foreach (var index in triangleOrder)
-        {
-            var vertexLighting =
-                lighting[index];
-
-            surface.Add(
-                new ChunkMeshVertex(
-                    positions[index],
-                    Vector3.UnitY,
-                    SpriteUvs[index],
-                    encodedLayers,
-                    new Vector4(
-                        tint.X,
-                        tint.Y,
-                        tint.Z,
-                        vertexLighting.AmbientOcclusion),
-                    new Vector4(
-                        vertexLighting.Sky,
-                        vertexLighting.BlockRed,
-                        vertexLighting.BlockGreen,
-                        vertexLighting.BlockBlue),
-                    new ChunkMeshLightSample(source, BlockFace.Top, (byte)index)));
-        }
+            surface.Add(new ChunkMeshVertex(
+                positions[index], Vector3.UnitY, SpriteUvs[index], encodedLayers,
+                new Vector4(tint.X, tint.Y, tint.Z, 1f)));
     }
 
     private static void EmitCubeFace(
@@ -1078,7 +999,7 @@ public static class ChunkMeshDataBuilder
         BlockFace face,
         VoxelCell cell,
         TerrainFaceMaterial faceMaterial,
-        VoxelFaceLighting faceLighting,
+        MeshFaceTopology faceLighting,
         bool isCollidable,
         int worldOriginX,
         int worldOriginZ,
@@ -1165,7 +1086,7 @@ public static class ChunkMeshDataBuilder
         TextureRotation? rotationOverride = null)
     {
         var sourceMask = world.GetMicroblockMaskOrEmpty(worldPosition);
-        var lighting = VoxelMeshLighting.SampleFace(world, blocks, worldPosition, face);
+        var topology = MeshFaceTopology.Neutral;
         var firstDepth = 0;
         var lastDepthExclusive = FineResolution;
 
@@ -1203,7 +1124,7 @@ public static class ChunkMeshDataBuilder
 
             EmitGreedyFineRectangles(
                 surface, collision, origin, face, depth, visible,
-                cell, material, lighting, collidable,
+                cell, material, topology, collidable,
                 worldPosition.X - (int)origin.X,
                 worldPosition.Z - (int)origin.Z,
                 tintSamples, normalOffset, rotationOverride);
@@ -1292,7 +1213,7 @@ public static class ChunkMeshDataBuilder
                 EmitQuadVertices(
                     surface, collision, quad, FaceNormal(face), face,
                     material, attachment.Rotation,
-                    VoxelMeshLighting.SampleFace(world, blocks, worldPosition, face),
+                    MeshFaceTopology.Neutral,
                     false, false, uvOrigin: origin,
                     worldOriginX: originX, worldOriginZ: originZ,
                     tintSamples: tintSamples, normalOffset: offset);
@@ -1402,7 +1323,7 @@ public static class ChunkMeshDataBuilder
         bool[] visible,
         VoxelCell cell,
         TerrainFaceMaterial faceMaterial,
-        VoxelFaceLighting faceLighting,
+        MeshFaceTopology faceLighting,
         bool isCollidable,
         int worldOriginX,
         int worldOriginZ,
@@ -1512,7 +1433,7 @@ public static class ChunkMeshDataBuilder
         int height,
         VoxelCell cell,
         TerrainFaceMaterial faceMaterial,
-        VoxelFaceLighting faceLighting,
+        MeshFaceTopology faceLighting,
         bool isCollidable,
         int worldOriginX,
         int worldOriginZ,
@@ -1647,22 +1568,17 @@ public static class ChunkMeshDataBuilder
         BlockFace face,
         TerrainFaceMaterial faceMaterial,
         TextureRotation uvRotation,
-        VoxelFaceLighting lighting,
+        MeshFaceTopology topology,
         bool isCollidable,
         bool useAbsoluteUv,
         Vector3 uvOrigin = default,
         int worldOriginX = 0,
         int worldOriginZ = 0,
         BiomeTintSampleGrid? tintSamples = null,
-        float normalOffset = 0f,
-        LocalVoxelCoord? lightOrigin = null)
+        float normalOffset = 0f)
     {
-        var source = lightOrigin ?? new LocalVoxelCoord(
-            (int)MathF.Floor(uvOrigin.X),
-            (int)MathF.Floor(uvOrigin.Y),
-            (int)MathF.Floor(uvOrigin.Z));
         var triangleOrder =
-            lighting.ShouldFlipDiagonal
+            topology.ShouldFlipDiagonal
                 ? FlippedTriangleOrder
                 : TriangleOrder;
 
@@ -1675,7 +1591,6 @@ public static class ChunkMeshDataBuilder
             var uv = RotateUv(
                 MacroUv(face, uvPoint),
                 uvRotation);
-            var vertexLighting = lighting[index];
             var tint =
                 faceMaterial.DyeTint ??
                 ResolveTint(
@@ -1693,21 +1608,8 @@ public static class ChunkMeshDataBuilder
 
             surface.Add(
                 new ChunkMeshVertex(
-                    position,
-                    normal,
-                    uv,
-                    faceMaterial.EncodedLayers,
-                    new Vector4(
-                        tint.X,
-                        tint.Y,
-                        tint.Z,
-                        vertexLighting.AmbientOcclusion),
-                    new Vector4(
-                        vertexLighting.Sky,
-                        vertexLighting.BlockRed,
-                        vertexLighting.BlockGreen,
-                        vertexLighting.BlockBlue),
-                    new ChunkMeshLightSample(source, face, (byte)index)));
+                    position, normal, uv, faceMaterial.EncodedLayers,
+                    new Vector4(tint.X, tint.Y, tint.Z, 1f)));
 
             if (isCollidable)
             {
@@ -1716,15 +1618,7 @@ public static class ChunkMeshDataBuilder
         }
     }
 
-    private static bool TryUniformLighting(
-        VoxelFaceLighting lighting,
-        out VoxelVertexLighting uniform)
-    {
-        uniform = lighting.Corner0;
-        return lighting.Corner1 == uniform &&
-               lighting.Corner2 == uniform &&
-               lighting.Corner3 == uniform;
-    }
+
 
     private static List<ChunkMeshVertex> GetSurface(
         Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
@@ -2126,7 +2020,6 @@ public static class ChunkMeshDataBuilder
         TerrainRenderBatch Batch,
         TerrainFaceMaterial FaceMaterial,
         TextureRotation UvRotation,
-        VoxelVertexLighting Lighting,
         bool IsCollidable);
 
     private readonly record struct PlaneRange(

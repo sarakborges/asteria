@@ -294,12 +294,8 @@ public static class FluidMeshDataBuilder
             origin +
             new Vector3(0f, heights.H00, 0f);
 
-        var lighting =
-            VoxelMeshLighting.SampleFace(
-                world,
-                blocks,
-                position,
-                BlockFace.Top);
+        var topology =
+            MeshFaceTopology.Neutral;
 
         EmitQuad(
             vertices,
@@ -308,51 +304,24 @@ public static class FluidMeshDataBuilder
             position,
             BlockFace.Top,
             points,
-            lighting);
+            topology);
         EmitTopUnderside(
             vertices,
             position,
             points,
-            lighting);
+            topology);
     }
 
     private static void EmitTopUnderside(
         List<FluidMeshVertex> vertices,
         WorldVoxelCoord position,
         ReadOnlySpan<Vector3> points,
-        VoxelFaceLighting lighting)
+        MeshFaceTopology topology)
     {
-        var triangleOrder =
-            lighting.ShouldFlipDiagonal
-                ? ReverseFlippedTriangleOrder
-                : ReverseTriangleOrder;
-
-        foreach (var index in triangleOrder)
-        {
-            var light = lighting[index];
-
-            vertices.Add(
-                new FluidMeshVertex(
-                    points[index],
-                    -Vector3.UnitY,
-                    FaceUv(
-                        BlockFace.Top,
-                        points[index]),
-                    new Vector4(
-                        1f,
-                        1f,
-                        1f,
-                        light.AmbientOcclusion),
-                    new Vector4(
-                        light.Sky,
-                        light.BlockRed,
-                        light.BlockGreen,
-                        light.BlockBlue),
-                    new ChunkMeshLightSample(
-                        VoxelCoordinates.FromWorld(
-                            position.X, position.Y, position.Z).Local,
-                        BlockFace.Top, (byte)index)));
-        }
+        foreach (var index in ReverseTriangleOrder)
+            vertices.Add(new FluidMeshVertex(
+                points[index], -Vector3.UnitY,
+                FaceUv(BlockFace.Top, points[index]), Vector4.One));
     }
 
     private static void EmitSide(
@@ -471,47 +440,12 @@ public static class FluidMeshDataBuilder
         WorldVoxelCoord position,
         BlockFace face,
         ReadOnlySpan<Vector3> points,
-        VoxelFaceLighting? sampledLighting = null)
+        MeshFaceTopology? sampledTopology = null)
     {
-        var lighting =
-            sampledLighting ??
-            VoxelMeshLighting.SampleFace(
-                world,
-                blocks,
-                position,
-                face);
-        var triangleOrder =
-            lighting.ShouldFlipDiagonal
-                ? FlippedTriangleOrder
-                : TriangleOrder;
-        var normal =
-            FaceNormal(face);
-
-        foreach (var index in triangleOrder)
-        {
-            var light = lighting[index];
-            vertices.Add(
-                new FluidMeshVertex(
-                    points[index],
-                    normal,
-                    FaceUv(
-                        face,
-                        points[index]),
-                    new Vector4(
-                        1f,
-                        1f,
-                        1f,
-                        light.AmbientOcclusion),
-                    new Vector4(
-                        light.Sky,
-                        light.BlockRed,
-                        light.BlockGreen,
-                        light.BlockBlue),
-                    new ChunkMeshLightSample(
-                        VoxelCoordinates.FromWorld(
-                            position.X, position.Y, position.Z).Local,
-                        face, (byte)index)));
-        }
+        var normal = FaceNormal(face);
+        foreach (var index in TriangleOrder)
+            vertices.Add(new FluidMeshVertex(
+                points[index], normal, FaceUv(face, points[index]), Vector4.One));
     }
 
     private static Vector2 FaceUv(

@@ -92,7 +92,6 @@ public sealed class DesertEnrichmentContentTests
                 Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
                 Assert.False(block.IsCollidable);
                 Assert.False(block.CastsShadow);
-                Assert.Equal((byte)0, block.LightDampening);
                 var path = $"textures/objects/{name}.png";
                 Assert.Equal(path, block.Visual.Texture!.Value.Texture);
                 Assert.True(textures.Add(path));

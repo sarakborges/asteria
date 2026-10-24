@@ -58,11 +58,6 @@ public sealed class EnchantedForestEnrichmentTests
             Assert.True(Assert.Single(biome.Decorations,
                 x => x.Block == "asteria:" + reused).IsObject);
 
-        foreach (var glow in new[] {
-            "starflower","pod_glow"
-        })
-            Assert.True(blocks.GetDefinition(
-                blocks.GetId("asteria:" + glow)).LightEmission.Blue > 0);
     }
 
     [Fact]
@@ -127,8 +122,6 @@ public sealed class EnchantedForestEnrichmentTests
         var cap = blocks.GetDefinition(
             blocks.GetId("asteria:fungus_cap_luminous_giant"));
         Assert.Equal(BlockTint.None, cap.Tint);
-        Assert.True(cap.LightEmission.Red > 0);
-        Assert.True(cap.LightEmission.Blue > 0);
 
     }
 

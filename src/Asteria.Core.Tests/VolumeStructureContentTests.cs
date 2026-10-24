@@ -79,7 +79,6 @@ public sealed class VolumeStructureContentTests
         {
             var definition = blocks.GetDefinition(
                 blocks.GetId("asteria:" + name));
-            Assert.True(definition.LightEmission.Blue > 0);
             Assert.True(definition.IsCollidable);
         }
 

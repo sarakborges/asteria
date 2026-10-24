@@ -15,40 +15,11 @@ public readonly record struct TerrainRenderBatch(
     }
 }
 
-// Four packed bytes instead of a 20+ byte source tuple per vertex.
-// Chunk-local x/y/z each occupy four bits, face three, corner two.
-// All GPU-irrelevant metadata stays engine-agnostic in Core.
-public readonly record struct ChunkMeshLightSample
+/// <summary>Neutral face topology for an unlit mesh.</summary>
+public readonly record struct MeshFaceTopology
 {
-    private readonly uint _packed;
-
-    public ChunkMeshLightSample(
-        LocalVoxelCoord source, BlockFace face, byte corner)
-    {
-        if ((uint)source.X >= Chunk.Size ||
-            (uint)source.Y >= Chunk.Size ||
-            (uint)source.Z >= Chunk.Size)
-            throw new ArgumentOutOfRangeException(nameof(source));
-        if ((uint)face > (uint)BlockFace.Back)
-            throw new ArgumentOutOfRangeException(nameof(face));
-        if (corner > 3)
-            throw new ArgumentOutOfRangeException(nameof(corner));
-
-        _packed = (uint)source.X |
-                  ((uint)source.Y << 4) |
-                  ((uint)source.Z << 8) |
-                  ((uint)face << 12) |
-                  ((uint)corner << 15);
-    }
-
-    public LocalVoxelCoord Source => new(
-        (int)(_packed & 0x0f),
-        (int)((_packed >> 4) & 0x0f),
-        (int)((_packed >> 8) & 0x0f));
-
-    public BlockFace Face => (BlockFace)((_packed >> 12) & 0x07);
-
-    public byte Corner => (byte)((_packed >> 15) & 0x03);
+    public static MeshFaceTopology Neutral => default;
+    public bool ShouldFlipDiagonal => false;
 }
 
 public readonly record struct ChunkMeshVertex(
@@ -56,9 +27,7 @@ public readonly record struct ChunkMeshVertex(
     Vector3 Normal,
     Vector2 Uv,
     Vector2 EncodedTextureLayers,
-    Vector4 TintAndAo,
-    Vector4 VoxelLight,
-    ChunkMeshLightSample LightSample = default);
+    Vector4 Tint);
 
 public sealed record ChunkRenderBatchData(
     TerrainRenderBatch Batch,
@@ -69,8 +38,7 @@ public sealed record ChunkRenderBatchData(
 
 public sealed record ChunkMeshData(
     ChunkRenderBatchData[] RenderBatches,
-    Vector3[] CollisionFaces,
-    bool CanRelightWithoutRemesh = false)
+    Vector3[] CollisionFaces)
 {
     public int TriangleCount =>
         RenderBatches.Sum(batch => batch.TriangleCount);

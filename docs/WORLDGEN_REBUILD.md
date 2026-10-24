@@ -282,7 +282,7 @@ file is overwritten on the next client launch. Collection does not depend
 on F3 or the WebUI. Every five seconds, it records actual chunk
 materializations/restores, mean-independent total and maximum materializer
 worker milliseconds, pending/in-flight/resident/presented counts, terrain
-mesh-worker work, stale meshlets, and lighting-worker work. Materialization
+mesh-worker work and stale meshlets. Materialization
 errors are written immediately. Diagnostics report existing runtime facts;
 they do not own queues, scheduling decisions or derived simulation state.
 
@@ -293,14 +293,10 @@ noise, terrain-condition queries and material-column allocations.
 The current surface/volume biome remains authoritative and shallow
 layers retain the original material selection. Scalar deep-layer queries
 use the same bypass. This is especially valuable for underground vertical
-chunk bands. For completely light-opaque chunks, direct lighting remains
-authoritative and the local relaxation queue is skipped: no voxel in
-such a chunk can transmit light. Partially empty or translucent chunks
-continue through the full propagation algorithm.
-
+chunk bands. 
 The `asteria:dirt` block has no biome tint and a single base texture;
 therefore a gray visual effect on Wasteland dirt should first be
-investigated in voxel lighting/AO, face shading, geometry or adjacent
+investigated in authored tint, texture-layer selection, geometry or adjacent
 gravel layers, rather than changing Wasteland's grass/foliage tint data.
 
 ## Authored biome tint blends
@@ -644,7 +640,7 @@ the supporting block is outside the current chunk. The resulting
 `roots_hanging` block has `support_above`, so runtime edits to its host rock
 wake and detach the unsupported root through generic BlockPhysics.
 Additive floating islands keep their original top-only decoration policy.
-No new generated-fluid or lighting owner is introduced.
+No new generated-fluid owner is introduced.
 
 ## Floating Islands: authored surface and underside objects
 

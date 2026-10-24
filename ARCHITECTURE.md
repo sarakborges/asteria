@@ -13,7 +13,7 @@ Every mutable gameplay or world fact has exactly one authoritative owner.
 - Callers use capability methods/commands instead of reaching into another subsystem's storage.
 - A mutation owner is responsible for all mandatory consequences of that mutation.
 
-For voxel content, the mutation runtime is the canonical boundary. Block and fluid changes must not independently reproduce remesh, lighting, physics, scheduling or revision side effects in adapters.
+For voxel content, the mutation runtime is the canonical boundary. Block and fluid changes must not independently reproduce remesh, physics, scheduling or revision side effects in adapters.
 
 ## 2. Runtime boundaries
 
@@ -25,7 +25,6 @@ For voxel content, the mutation runtime is the canonical boundary. Block and flu
 - authored definition models and runtime IDs;
 - mutation semantics;
 - block physics and fluid simulation;
-- lighting propagation;
 - streaming state and scheduling policy;
 - queue/revision/cache primitives;
 - immutable worker snapshots;
@@ -65,14 +64,13 @@ WebUI owns presentation and browser-side interaction state.
 
 Composition roots coordinate coherent subsystems but must not implement their internals.
 
-Refactor when one class/file repeatedly changes for unrelated domains or begins owning unrelated invariants. In particular, a main Godot node must not permanently own streaming policy, worker lifecycle, fluid simulation, lighting, meshing, physics, interaction and UI transport in one implementation body.
+Refactor when one class/file repeatedly changes for unrelated domains or begins owning unrelated invariants. In particular, a main Godot node must not permanently own streaming policy, worker lifecycle, fluid simulation, meshing, physics, interaction and UI transport in one implementation body.
 
 Split by real responsibility, not arbitrary line count. Prefer cohesive runtime/controller objects with narrow dependencies over an everything-context.
 
 Current world-work ownership follows that rule explicitly:
 
 - `FluidSimulationRuntime` owns the fluid worker lifecycle, drained in-flight batch, stale/error recovery, authoritative result application and authored rescheduling.
-- `LightingRuntime` owns the lighting worker lifecycle, in-flight batch recovery, stale-result requeue and Core lighting-result integration.
 - `TerrainMeshPipeline` and `FluidMeshPipeline` are Godot-side publication pipelines: they own mesh worker start/poll/requeue and enqueue accepted DTOs into `ChunkPresentationController`; they do not own voxel content.
 - `ChunkStreamingController` composes `ChunkResidencyRuntime` with `ChunkPresentationController` in pre/post world-work frame phases. Residency policy/materialization stays in Core; Godot only coordinates presentation lifecycle.
 - `ChunkResidencyRuntime` depends on the narrow Core `IChunkProvider` materialization boundary instead of hard-coding a generator. The provider may be invoked concurrently and must be deterministic/thread-safe for immutable inputs.
@@ -83,7 +81,7 @@ Current world-work ownership follows that rule explicitly:
 
 Generated-world consumers must not reconstruct generator rules or materialize chunks to answer untouched-world questions. Biome search belongs to `BiomeField`; Structure search belongs to `SurfaceStructureField`; cross-domain safe-destination preparation belongs to `GeneratedSurfaceDestinationQuery`. Saved/mutated session state may still be consulted for runtime-authoritative questions. Initial spawn uses surface destination preparation around the authored spawn column; explicit dimension travel tries the exact generated 3D destination first, then falls back to a nearby safe generated surface column. Future locate/warp/portal consumers reuse these capabilities.
 
-WorldLoadingState is the single runtime loading-progress owner for world entry and dimension travel. It does not own generation or scheduling: it observes the existing ChunkStreamingController/ChunkResidencyRuntime and destination presentation. World entry, restored sessions, and Sphere travel first stabilize a bootstrap selection with a horizontal radius capped at two chunks (or the configured render distance if smaller); portal arrivals include their explicitly required vertical-access chunks in that bootstrap. Gameplay is released only after every chunk in the current bootstrap selection is resident and presented, with its initial lighting, terrain/fluid mesh work, and publication queues settled. After entry, ordinary incremental streaming expands residency and presentation to the configured render distance, so distant chunk and fluid work cannot hold the player behind the loading screen. Loading progress consists only of authoritative logical phase plus completed/total work; there is no duration, fake timer or second queue. WebUI is a renderer of the `game.loading` message only.
+WorldLoadingState is the single runtime loading-progress owner for world entry and dimension travel. It does not own generation or scheduling: it observes the existing ChunkStreamingController/ChunkResidencyRuntime and destination presentation. World entry, restored sessions, and Sphere travel first stabilize a bootstrap selection with a horizontal radius capped at two chunks (or the configured render distance if smaller); portal arrivals include their explicitly required vertical-access chunks in that bootstrap. Gameplay is released only after every chunk in the current bootstrap selection is resident and presented, with terrain/fluid mesh work, and publication queues settled. After entry, ordinary incremental streaming expands residency and presentation to the configured render distance, so distant chunk and fluid work cannot hold the player behind the loading screen. Loading progress consists only of authoritative logical phase plus completed/total work; there is no duration, fake timer or second queue. WebUI is a renderer of the `game.loading` message only.
 
 ## 4. Mutation pipeline
 
@@ -96,7 +94,6 @@ Current dependency classes include, as applicable:
 - terrain mesh invalidation;
 - fluid mesh invalidation;
 - content revisions/stale-worker rejection;
-- lighting work;
 - fluid topology/scheduled work;
 - block physics wakeups;
 - persistence/session-dirty state.
@@ -109,7 +106,7 @@ Block/fluid occupancy follows one shared voxel-content policy.
 - Only noncollidable crossed or ground sprites may coexist with fluid; these decorative blocks preserve source/flowing fluid beneath them.
 - Fluid mutation rejects fluid inside a non-submersible block, and chunk persistence uses the same occupancy policy rather than treating every non-empty block as solid.
 - Removing a block wakes fluid topology immediately; actual refill/spread still obeys the authored fluid timing instead of bypassing simulation.
-- One authoritative mutation publishes one consequence fan-out. A block mutation that also displaces fluid must not double-bump fluid revisions or duplicate remesh/lighting/topology invalidation.
+- One authoritative mutation publishes one consequence fan-out. A block mutation that also displaces fluid must not double-bump fluid revisions or duplicate remesh/topology invalidation.
 - Cross-chunk mesh halos, revisions and fluid topology must be invalidated from the edited world position, including loaded neighbors whose one-voxel dependency halo contains it.
 
 ## 5. Chunks and lifecycle states
@@ -152,7 +149,6 @@ Generic queue mechanics are shared primitives.
 - Predicate scans that can repeatedly miss unchanged work need revision-based miss caching when profiling shows the scan is meaningful.
 - Latency-sensitive world loops use a shared frame/work-budget abstraction instead of hand-rolled elapsed-time loops.
 - Meshlet-mask queues use the shared deterministic bounded-drain primitive. Terrain and fluid mesh workers both cap work per job; a large fluid remesh backlog must not be drained into one unbounded worker batch.
-- Lighting worker input is bounded before snapshot capture. Snapshot capture is synchronous at the authoritative-world boundary, so streaming reconciliation must never drain an unbounded lighting backlog into one capture/job.
 
 Consumers enqueue intent; queue owners control deduplication, fairness and draining semantics.
 
@@ -163,10 +159,10 @@ Authored behavior belongs to definitions/registries instead of hard-coded IDs.
 Examples:
 
 - gravity participation is a block capability/tag, not a sand-ID branch;
-- fluid spread, visual properties (including optional pack-relative texture paths), lighting behavior, timing and movement response belong to `FluidDefinition`; Godot resolves authored fluid textures through the selected pack rather than special-casing fluid IDs;
+- fluid spread, visual properties (including optional pack-relative texture paths), timing and movement response belong to `FluidDefinition`; Godot resolves authored fluid textures through the selected pack rather than special-casing fluid IDs;
 - fluid immersion is queried from authoritative voxel/fluid data in Core; engine adapters consume that contact state for swimming instead of inventing a second fluid-occupancy model. Passive immersion sinks; upward velocity requires explicit swim input;
 - fluid movement response is authored data: horizontal speed multiplier/acceleration, passive sink speed, swim ascent, surface-exit speed, vertical acceleration and exit margin must not be hard-coded to a fluid ID in the player adapter. Deep-water ascent/sink approaches authored target speeds, while an explicit near-surface ascent request applies the authored surface-exit speed as an immediate upward impulse so the player can actually clear the fluid boundary;
-- block rendering/mining/light behavior belongs to block definitions; block visuals are distinct from physical occupancy, so a non-collidable `crossedSprite` can share the normal voxel lifecycle without pretending its render planes are collision geometry;
+- block rendering/mining behavior belongs to block definitions; block visuals are distinct from physical occupancy, so a non-collidable `crossedSprite` can share the normal voxel lifecycle without pretending its render planes are collision geometry;
 - placement-face capability is authored data; ground plants restrict placement to the top face instead of branching on grass/mushroom IDs;
 - platform adapters must not special-case gameplay IDs to reproduce definition-owned policy.
 
@@ -182,24 +178,16 @@ Derived immutable metadata should be computed once near the registry owner when 
 - Collision meshes are generated from Core geometry and Godot only publishes the resulting physics shape.
 - Crossed-sprite visuals are meshed in Core into the same chunk/meshlet render batches as terrain. They are double-sided cutout presentation, contribute no voxel occlusion/collision, and must remain inside their owning voxel so existing meshlet dependency envelopes stay correct.
 
-## 9. Lighting and rendering
+## 9. Unlit world rendering
 
-Lighting is authoritative runtime data; meshes are derived presentation data.
+The voxel world is intentionally rendered without voxel illumination. There is no authoritative voxel-light field, propagation worker, block/fluid emission or dampening, per-vertex light data, or light-only mesh refresh path. Terrain, fluid and voxel-object shaders are unshaded and disable shadow rendering.
 
-- Light propagation and medium rules live in Core.
-- Block and fluid light emission are authored RGB data. Fluid emission scales with fill level; block dampening scales with actual authored/microblock geometry; fluid dampening scales with fill level.
-- RGB block light propagates per channel with deterministic strongest-channel composition. Asteria deliberately does not inherit Mineclone's HSI-specific source-reset machinery because the RGB field does not require it for convergence.
-- Direct skylight is computed only through contiguous loaded vertical chunk segments. An unloaded vertical gap is provisional open sky; chunk residency changes must enqueue reconciliation so newly known blockers/openings converge incrementally.
-- A light change should invalidate only the presentation region that can observe it. Terrain refresh work is omitted for block-empty chunks and fluid refresh work is omitted for fluid-empty chunks; lighting reconciliation must not manufacture no-op mesh backlog.
-- Applying an accepted lighting worker result is a Core responsibility. Changed voxel positions are coalesced into chunk/meshlet halo masks before terrain/fluid revisions and remesh queues are published, so one relight does not repeatedly bump the same meshlet.
-- Terrain and fluid meshes may have distinct invalidation/publication lifecycles.
-- Archived chunks retain their exact authoritative Core contents and must restore without terrain regeneration. Godot may hold a strictly bounded cache of detached, inactive presentations to avoid recreating GPU objects on nearby revisits; cached objects are never part of active residency or physics. Meshing reads an immutable snapshot of already-materialized spatial content from both resident and archived chunks, without activating archived simulation state. This prevents phantom exposed faces and unnecessary frontier remeshes when a preserved neighbor changes residence. Each published terrain/fluid meshlet retains content revisions and the full 3D dependency footprint: only first materialization, actual block/fluid revision changes, or changes to which spatial chunks are materialized invalidate it. Lighting refresh remains a separate concern. In-flight worker results still use strict residency-epoch validation so an old task cannot publish after archival/restoration; published meshes use the content-only spatial comparison. Cache eviction/session retirement must release GPU resources.
+- Mesh vertices carry geometry, normals, UVs, texture-layer encoding and authored tint only. Core meshing does not sample light or ambient-occlusion fields.
+- Voxel mutations publish only the applicable structural consequences: terrain/fluid mesh invalidation, content revisions, fluid topology/scheduled work, block-physics wakeups and persistence/session-dirty state.
+- Terrain and fluid workers consume bounded meshlet batches and reject stale snapshots through content/revision/dependency stamps. There are no relighting caches or GPU light-attribute patch operations; changes use the ordinary mesh publication path.
+- Archived chunks retain their exact authoritative Core contents and must restore without terrain regeneration. Godot may hold a strictly bounded cache of detached, inactive presentations to avoid recreating GPU objects on nearby revisits; cached objects are never part of active residency or physics. Meshing reads an immutable snapshot of already-materialized spatial content from both resident and archived chunks, without activating archived simulation state. This prevents phantom exposed faces and unnecessary frontier remeshes when a preserved neighbor changes residence. Each published terrain/fluid meshlet retains content revisions and the full 3D dependency footprint: only first materialization, actual block/fluid revision changes, or changes to which spatial chunks are materialized invalidate it. In-flight worker results still use strict residency-epoch validation so an old task cannot publish after archival/restoration; published meshes use the content-only spatial comparison. Cache eviction/session retirement must release GPU resources.
 - Initial chunk presentation is admitted only after every currently desired chunk in its one-chunk mesh dependency halo is resident. This avoids knowingly starting snapshots that active streaming is about to invalidate while still allowing absent chunks outside the desired selection to behave as stable open boundaries.
 - Presentation membership alone is not a reason to remesh neighbors. When a newly presented resident chunk can affect an already-presented neighbor, topology invalidation is content-aware at the shared dependency boundary; fluid-empty chunks do not enqueue an initial fluid mesh build.
-- Lighting refresh is presentation dirtiness, not a structural voxel mutation. It may enqueue a follow-up remesh but must not invalidate a structurally current mesh result solely because vertex lighting changed while that result was in flight.
-- Terrain meshlets whose previously published geometry and dependency envelope remain structurally current may update vertex lighting from immutable Core light-sampling provenance, without regenerating faces, UVs, biome tint or collisions. Multi-voxel greedy rectangles (whose topology may change when light uniformity changes) and unsupported special geometry use the complete remesh path. A presentation-owned, per-chunk bounded cache may retain only immutable relightable geometry, and is retired with the presentation. Results still validate the complete geometry/residency and content-revision envelopes at publication; only the Godot adapter creates rendering/physics resources.
-- Fluid meshlets may reuse their published quad geometry when structural dependencies are unchanged and the new lighting requires the same diagonal ordering; otherwise the worker regenerates the fluid geometry. The retained fluid mesh cache is bounded per chunk and owned by its presentation.
-- Light-only terrain and fluid publications first attempt a Godot `ArrayMesh` attribute-region update, retaining the existing surface/material/vertex resources. The shared Godot adapter validates the packed attribute layout and surface vertex counts before writing; incompatible surfaces fall back to complete publication. Mesh light data remains authoritative in Core rather than the GPU. The `mesh_light_only` and `fluid_light_only` diagnostics count worker-level geometry reuse, not verified GPU timings.
 - Interactive block edits use a dedicated latency terrain lane with its own bounded worker and priority publication queue. Background streaming/remesh work uses a separate worker, so a player-visible placement/destruction cannot wait for an already-running background batch or sit behind queued background publications.
 - Fluid volume sides and bottoms keep back-face culling to avoid alpha-sorted interior walls/triangles. Only an exposed fluid top surface emits dedicated reverse-wound underside geometry so the water surface remains visible from below without making the entire translucent volume double-sided.
 - Engine-agnostic mesh vertices, batches, culling/greedy logic, collision-face generation and fluid-surface geometry belong in Core.

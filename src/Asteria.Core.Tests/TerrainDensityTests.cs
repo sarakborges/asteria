@@ -795,8 +795,8 @@ public sealed class TerrainDensityTests
         new BlockDefinition("asteria:dirt"),
         new BlockDefinition("asteria:shell_sphere"),
         new BlockDefinition("asteria:spike_stone",
-            shape: BlockShapeDefinition.Spike(), lightDampening: 0),
-        new BlockDefinition("asteria:test_fern", lightDampening: 0),
+            shape: BlockShapeDefinition.Spike()),
+        new BlockDefinition("asteria:test_fern"),
     ]);
 
     private static DimensionCaveDefinition ChamberCaves(bool withChambers) =>

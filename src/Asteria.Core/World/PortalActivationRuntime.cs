@@ -53,7 +53,6 @@ public sealed class PortalActivationRuntime
         var portal = blocks.GetDefinition(_portalBlock);
         _portalThickness = portal.Shape.Thickness;
         if (!portal.Shape.IsCenteredLayer || portal.IsCollidable ||
-            portal.LightDampening != 0 ||
             !portal.Orientations.Contains(BlockOrientation.X) ||
             !portal.Orientations.Contains(BlockOrientation.Y) ||
             !portal.Orientations.Contains(BlockOrientation.Z))

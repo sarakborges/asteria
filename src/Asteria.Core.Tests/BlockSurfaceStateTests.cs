@@ -53,13 +53,11 @@ public sealed class BlockSurfaceStateTests
 
         Assert.False(mutations.SetBlockSurfaceStateAt(source, surface, out _));
         Assert.True(mutations.SetBlockAt(source, block, out _));
-        updates.DrainLighting();
         updates.DrainMeshlets();
 
         Assert.True(mutations.SetBlockSurfaceStateAt(source, surface, out var edit));
         Assert.Equal(block, edit.Current.Block);
         Assert.False(mutations.SetBlockSurfaceStateAt(source, surface, out _));
-        Assert.False(updates.HasLightingWork);
         Assert.True(updates.HasPriorityMeshWork);
         Assert.True(revisions.Get(new ChunkMeshletKey(ChunkCoord.Zero, 0)) > 0);
 

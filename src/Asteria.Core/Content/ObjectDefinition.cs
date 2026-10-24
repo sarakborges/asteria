@@ -43,7 +43,6 @@ public sealed class ObjectDefinition
         ObjectTargetDefinition target, Vector2 positionJitter,
         bool dropSelf, bool windSway, bool unlit,
         ObjectInteraction interaction = ObjectInteraction.Break,
-        BlockLightEmission lightEmission = default,
         string? pickupItem = null, string? supportFluid = null,
         string? requiredFluidAbove = null,
         BlockTint tint = BlockTint.None,
@@ -122,7 +121,6 @@ public sealed class ObjectDefinition
         CastsShadow = castsShadow;
         ReceivesShadow = receivesShadow;
         Interaction = interaction;
-        LightEmission = lightEmission;
         if (!Enum.IsDefined(tint))
             throw new FormatException("Invalid Object tint.");
         Tint = tint;
@@ -174,7 +172,6 @@ public sealed class ObjectDefinition
     /// <summary>Authoritative material shadow receiving policy for this Object identity.</summary>
     public bool ReceivesShadow { get; }
     public ObjectInteraction Interaction { get; }
-    public BlockLightEmission LightEmission { get; }
     public BlockTint Tint { get; }
     public BlockPreviewColor TintFallback { get; }
     public string? PickupItem { get; }
@@ -257,7 +254,6 @@ public sealed class ObjectDefinition
                 "pickup" => ObjectInteraction.Pickup,
                 _ => throw new FormatException("Unknown Object interaction."),
             },
-            BlockLightEmissionJson.Parse(root, PackContentFields.Id(root)),
             PackContentFields.OptionalString(root, "pickupItem"),
             PackContentFields.OptionalString(root, "supportFluid"),
             PackContentFields.OptionalString(root, "requiredFluidAbove"),

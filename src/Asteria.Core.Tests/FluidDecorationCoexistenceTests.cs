@@ -137,7 +137,7 @@ public sealed class FluidDecorationCoexistenceTests
         new BlockDefinition("asteria:test_sprite",
             visual: BlockVisualDefinition.CrossedSprite(
                 new BlockTextureLayer("textures/objects/grass.png")),
-            isCollidable: false, lightDampening: 0)
+            isCollidable: false)
     ]);
 
     private static FluidRegistry Fluids() => new([

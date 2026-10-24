@@ -28,7 +28,6 @@ public readonly record struct WorldLoadingProgress(
 public readonly record struct WorldLoadingReadiness(
     bool ResidencySettled,
     bool SelectionSettled,
-    bool LightingSettled,
     bool TerrainMeshWorkSettled,
     bool TerrainPublicationsSettled,
     bool FluidMeshWorkSettled,
@@ -38,7 +37,6 @@ public readonly record struct WorldLoadingReadiness(
     public bool IsSettled =>
         ResidencySettled &&
         SelectionSettled &&
-        LightingSettled &&
         TerrainMeshWorkSettled &&
         TerrainPublicationsSettled &&
         FluidMeshWorkSettled &&
@@ -69,21 +67,8 @@ public sealed class WorldLoadingState
     // Seam reconciliation is derived from chunk residency. During the initial
     // bootstrap, let the selected chunks finish materializing before dispatching
     // that work so snapshots do not repeatedly go stale as neighbors arrive.
-    public bool AllowsLightingDispatch =>
-        _progress.Phase is not (
-            WorldLoadingPhase.RetiringCurrentDimension or
-            WorldLoadingPhase.MaterializingInitialArea);
-
-    public bool AllowsMeshDispatch(bool lightingSettled) =>
-        _progress.Phase switch
-        {
-            WorldLoadingPhase.RetiringCurrentDimension => false,
-            WorldLoadingPhase.MaterializingInitialArea or
-                WorldLoadingPhase.PreparingPresentation or
-                WorldLoadingPhase.PreparingArrivalStructure or
-                WorldLoadingPhase.Ready => lightingSettled,
-            _ => true,
-        };
+    public bool AllowsMeshDispatch() =>
+        _progress.Phase != WorldLoadingPhase.RetiringCurrentDimension;
 
     public ChunkCoord Center { get; private set; }
 

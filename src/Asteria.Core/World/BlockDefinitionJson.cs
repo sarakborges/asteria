@@ -25,7 +25,6 @@ public static class BlockDefinitionJson
         var orientations = ParseOrientations(root);
         var placementFaces = ParsePlacementFaces(root);
         var variant = ParseVariant(root);
-        var lightDampening = OptionalByte(root, "lightDampening") ?? (byte)15;
         var castsShadow = OptionalBoolean(root, "castsShadow") ?? true;
         var isCollidable = OptionalBoolean(root, "isCollidable") ?? true;
         var dropsSelf = OptionalBoolean(root, "dropsSelf") ?? true;
@@ -47,7 +46,6 @@ public static class BlockDefinitionJson
                 ? BlockRenderMode.Cutout
                 : BlockRenderMode.Opaque;
 
-        var emission = BlockLightEmissionJson.Parse(root, id);
 
         var previewColor = root.TryGetProperty("previewColor", out var previewElement)
             ? BlockPreviewColor.Parse(previewElement.GetString() ?? throw new FormatException($"Block {id} previewColor must be a string."))
@@ -69,8 +67,6 @@ public static class BlockDefinitionJson
             isCollidable: isCollidable,
             renderMode: renderMode,
             castsShadow: castsShadow,
-            lightDampening: lightDampening,
-            lightEmission: emission,
             previewColor: previewColor,
             dropsSelf: dropsSelf,
             interaction: interaction,

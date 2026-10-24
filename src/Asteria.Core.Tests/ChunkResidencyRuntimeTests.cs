@@ -46,10 +46,6 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(
             1,
             fixture.Runtime.PresentationPendingCount);
-        // Without resident neighbors, the archived chunk already has
-        // its own light state and no cross-chunk reconciliation is needed.
-        Assert.False(
-            fixture.WorldUpdates.HasLightingWork);
     }
 
     [Fact]
@@ -152,32 +148,6 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.All(
             first.Activations.Concat(second.Activations).Concat(third.Activations),
             activation => Assert.Equal(ChunkActivationSource.Archive, activation.Source));
-    }
-
-    [Fact]
-    public void RestoringChunkWithResidentNeighborQueuesLightingFrontier()
-    {
-        var fixture = CreateFixture();
-        var coord = ChunkCoord.Zero;
-        var neighbor = new ChunkCoord(1, 0, 0);
-        fixture.World.InsertChunk(coord, new Chunk());
-        fixture.World.InsertChunk(neighbor, new Chunk());
-        fixture.World.ArchiveChunk(coord);
-
-        fixture.Runtime.SyncSelection(
-            coord,
-            horizontalRadius: 1,
-            retentionRadius: 2,
-            desired: new HashSet<ChunkCoord> { coord, neighbor },
-            presented: Array.Empty<ChunkCoord>());
-        var update = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(),
-            Array.Empty<ChunkCoord>());
-
-        Assert.Equal(
-            ChunkActivationSource.Archive,
-            Assert.Single(update.Activations).Source);
-        Assert.True(fixture.WorldUpdates.HasLightingWork);
     }
 
     [Fact]
@@ -382,54 +352,6 @@ public sealed class ChunkResidencyRuntimeTests
         CompleteFluidActivations(fixture);
         Assert.Equal(512, fixture.FluidUpdates.ScheduledCount);
         Assert.Equal(0, fixture.FluidUpdates.DormantChunkCount);
-    }
-
-    [Fact]
-    public void TerrainGenerationAndInitialLightingAreSeparateReadinessStages()
-    {
-        using var provider = new SignalingChunkProvider();
-        var fixture = CreateFixture(provider);
-        var coord = ChunkCoord.Zero;
-        fixture.Runtime.SyncSelection(
-            coord,
-            horizontalRadius: 1,
-            retentionRadius: 2,
-            desired: new HashSet<ChunkCoord> { coord },
-            presented: Array.Empty<ChunkCoord>());
-
-        fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.True(provider.Materialized.Wait(TimeSpan.FromSeconds(10)));
-
-        // Promotion happens during collection. The generated chunk must stay
-        // outside VoxelWorld until its initial-light worker has been collected.
-        for (var attempt = 0;
-             attempt < 2000 && fixture.Runtime.InitialLightingPendingCount == 0;
-             attempt++)
-        {
-            fixture.Runtime.CollectMaterializationResults(
-                GenerousBudget(), Array.Empty<ChunkCoord>());
-            if (fixture.Runtime.InitialLightingPendingCount == 0)
-                Thread.Sleep(1);
-        }
-
-        Assert.Equal(1, fixture.Runtime.InitialLightingPendingCount);
-        Assert.Equal(1, fixture.Runtime.MaterializingCount);
-        Assert.False(fixture.World.ContainsChunk(coord));
-
-        for (var attempt = 0;
-             attempt < 2000 && !fixture.World.ContainsChunk(coord);
-             attempt++)
-        {
-            fixture.Runtime.CollectMaterializationResults(
-                GenerousBudget(), Array.Empty<ChunkCoord>());
-            if (!fixture.World.ContainsChunk(coord))
-                Thread.Sleep(1);
-        }
-
-        Assert.True(fixture.World.ContainsChunk(coord));
-        Assert.Equal(0, fixture.Runtime.InitialLightingPendingCount);
-        Assert.Equal(0, fixture.Runtime.MaterializingCount);
     }
 
     [Fact]
