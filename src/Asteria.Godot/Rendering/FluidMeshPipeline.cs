@@ -156,14 +156,12 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
-        var relightable = _presentations.CaptureRelightableFluid(batch);
         if (!availableWorker.Worker.TryStart(
                 _world,
                 _blocks,
                 _fluids,
                 batch,
-                _revisions,
-                relightable))
+                _revisions))
         {
             _updates.Requeue(batch);
             return false;
