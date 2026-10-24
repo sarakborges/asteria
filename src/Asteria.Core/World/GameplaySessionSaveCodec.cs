@@ -88,6 +88,8 @@ public sealed record SphereClockSnapshot
     private readonly DroppedBlockRuntimeSnapshot? _droppedBlocks;
     private readonly CreatureRuntimeSnapshot? _creatures;
     private readonly FluidUpdateQueueSnapshot? _fluidWork;
+    // Legacy serialized field retained so old save files can still be decoded.
+    // Runtime physics wakeups are reconstructed from authoritative voxel state.
     private readonly BlockPhysicsUpdateQueueSnapshot? _physicsWork;
 
     public SphereClockSnapshot(
@@ -141,6 +143,7 @@ public sealed record SphereClockSnapshot
     public CreatureRuntimeSnapshot? Creatures =>
         SphereDynamicSnapshot.Copy(_creatures);
     public FluidUpdateQueueSnapshot? FluidWork => _fluidWork;
+    // Legacy-only data. New captures leave this null and restore ignores it.
     public BlockPhysicsUpdateQueueSnapshot? PhysicsWork => _physicsWork;
 
     public DimensionId Dimension { get; }
@@ -225,6 +228,8 @@ public static class GameplaySessionSaveCodec
         ArgumentNullException.ThrowIfNull(source);
         var spatial = DimensionChunkSaveCodec.Capture(
             source, blocks, fluids, dyes, layers);
+        // Gravity/support wakeups are derivable from voxel state and are rebuilt
+        // as chunks become resident. Persisting the queue can replay a huge stale backlog.
         var clocks = source.CreatedDimensions().Select(state =>
             new SphereClockSnapshot(
                 state.Dimension.Id, state.WorldTick, state.DayNight,
@@ -233,7 +238,7 @@ public static class GameplaySessionSaveCodec
                     new SavedStorageBoxContents(box.Position, box.Slots)),
                 state.ManualStructures.Snapshot(),
                 state.BlockPhysics, state.DroppedBlocks, state.Creatures,
-                state.PendingFluidWork, state.PendingPhysicsWork));
+                state.PendingFluidWork));
         return new GameplaySessionSnapshot(
             spatial, source.Name, source.GameRules.TicksPerSecond,
             source.GameRules.SpawnCreatures,
@@ -277,7 +282,7 @@ public static class GameplaySessionSaveCodec
             state.DroppedBlocks = clock.DroppedBlocks;
             state.Creatures = clock.Creatures;
             state.PendingFluidWork = clock.FluidWork;
-            state.PendingPhysicsWork = clock.PhysicsWork;
+            // clock.PhysicsWork is legacy-only and intentionally discarded.
         }
 
         return restored;

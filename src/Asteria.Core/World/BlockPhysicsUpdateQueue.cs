@@ -40,11 +40,9 @@ public sealed class BlockPhysicsUpdateQueue
         }
     }
 
-    // Pending and dormant work from still-resident source chunks are persisted.
-    // Once a source chunk is archived, its wakeups are discarded and derived
-    // again from authoritative voxel state by EnqueueResidentChunk on restore.
-    // The save format bounds snapshots, so capture a deterministic prefix if
-    // streaming has produced work faster than physics can drain it.
+    // Queue snapshot support remains for legacy-format validation. The live
+    // session save path deliberately does not persist this derived work: chunk
+    // activation recomputes gravity/support wakeups from authoritative voxels.
     public BlockPhysicsUpdateQueueSnapshot CaptureState()
     {
         var maximumEntries = BlockPhysicsUpdateQueueSnapshot.MaximumEntries;

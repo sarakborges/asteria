@@ -81,7 +81,8 @@ public sealed class BlockPhysicsRuntimeTests
         for (var tick = 0; tick < 10; tick++)
             Assert.Equal(BlockPhysicsWakeResult.Empty, runtime.ProcessWakeups());
 
-        // A save made while dormant must retain the pending dependency.
+        // The legacy queue snapshot can represent this dormant dependency;
+        // live session saves now reconstruct it from voxel state on chunk arrival.
         Assert.Contains(position, updates.CaptureState().Positions);
 
         var support = new Chunk();

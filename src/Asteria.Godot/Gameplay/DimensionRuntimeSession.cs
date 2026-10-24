@@ -183,8 +183,10 @@ public sealed class DimensionRuntimeSession
             new FluidUpdateQueue(state.PendingFluidWork);
         FluidMeshUpdates =
             new FluidMeshUpdateQueue();
+        // Gravity/support wakeups are derived from voxel state as each chunk
+        // becomes resident. Do not replay a serialized queue from an old session.
         BlockPhysicsUpdates =
-            new BlockPhysicsUpdateQueue(state.PendingPhysicsWork);
+            new BlockPhysicsUpdateQueue();
         ContentRevisions =
             new MeshletContentRevisions();
         FluidContentRevisions =
@@ -1051,8 +1053,7 @@ public sealed class DimensionRuntimeSession
             _blockPhysics.CaptureState();
         _state.PendingFluidWork =
             FluidUpdates.CaptureState();
-        _state.PendingPhysicsWork =
-            BlockPhysicsUpdates.CaptureState();
+        // Block-physics wakeups are reconstructed when archived chunks return.
         // Detach Core's residency listener before the old Sphere is archived.
         _blockPhysics.Dispose();
         _leafDecay.Dispose();

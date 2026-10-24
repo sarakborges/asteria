@@ -124,7 +124,7 @@ public sealed class DimensionPendingWorkSnapshotsTests
     }
 
     [Fact]
-    public void SphereSessionCaptureAndRestoreCarriesBothPendingQueues()
+    public void SphereSessionCaptureAndRestorePreservesFluidWorkAndDropsLegacyPhysicsWakeups()
     {
         var definition = new DimensionDefinition(
             DimensionId.Overworld, ["asteria:overworld/plains"],
@@ -142,24 +142,52 @@ public sealed class DimensionPendingWorkSnapshotsTests
         fluid.ScheduleAt(new FluidTickKey(
             new FluidRuntimeId(1), new WorldVoxelCoord(1, 9, 1)), 9);
         state.PendingFluidWork = fluid.CaptureState();
-        var physics = new BlockPhysicsUpdateQueue();
-        physics.Enqueue(new WorldVoxelCoord(2, 10, 2));
-        state.PendingPhysicsWork = physics.CaptureState();
-
         var blocks = new BlockRegistry([]);
         var fluids = new FluidRegistry([]);
         var dyes = new DyeRegistry([]);
         var layers = new AttachedLayerRegistry([]);
         var snapshot = GameplaySessionSaveCodec.Capture(
             store, blocks, fluids, dyes, layers);
+        var capturedSphere = Assert.Single(snapshot.Spheres);
+        Assert.Null(capturedSphere.PhysicsWork);
+
+        // Older saves may contain a queued physics snapshot. Decode it, then
+        // verify it is not re-emitted because voxel state is authoritative.
+        var legacySphere = new SphereClockSnapshot(
+            capturedSphere.Dimension,
+            capturedSphere.WorldTick,
+            capturedSphere.DayNight,
+            capturedSphere.Position,
+            capturedSphere.NaturalSpawnNextAttemptTick,
+            capturedSphere.StorageBoxes,
+            capturedSphere.ManualStructures,
+            capturedSphere.BlockPhysics,
+            capturedSphere.DroppedBlocks,
+            capturedSphere.Creatures,
+            capturedSphere.FluidWork,
+            new BlockPhysicsUpdateQueueSnapshot([
+                new WorldVoxelCoord(2, 10, 2)
+            ]));
+        var legacySnapshot = new GameplaySessionSnapshot(
+            snapshot.Spatial,
+            snapshot.Name,
+            snapshot.TicksPerSecond,
+            snapshot.SpawnCreatures,
+            snapshot.Player,
+            [legacySphere],
+            snapshot.ActiveSphere,
+            snapshot.KeepInventory,
+            snapshot.AttackMode);
+
         var restored = GameplaySessionSaveCodec.Restore(
-            creation, dimensions, snapshot, blocks, fluids, dyes, layers);
+            creation, dimensions, legacySnapshot, blocks, fluids, dyes, layers);
         var other = restored.GetOrCreate(DimensionId.Overworld);
         Assert.NotNull(other.PendingFluidWork);
-        Assert.NotNull(other.PendingPhysicsWork);
         Assert.Single(new FluidUpdateQueue(
             other.PendingFluidWork).CaptureState().Scheduled);
-        Assert.Equal(1, new BlockPhysicsUpdateQueue(
-            other.PendingPhysicsWork).Count);
+
+        var rewritten = GameplaySessionSaveCodec.Capture(
+            restored, blocks, fluids, dyes, layers);
+        Assert.Null(Assert.Single(rewritten.Spheres).PhysicsWork);
     }
 }
