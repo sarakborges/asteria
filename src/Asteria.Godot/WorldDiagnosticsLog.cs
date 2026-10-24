@@ -616,7 +616,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"physics_wait_gravity_target_chunks={_physicsGravityWaitingTargetChunkCount} " +
             $"physics_wait_gravity_source_top={_physicsGravityWaitingTopSources} " +
             $"physics_wait_gravity_target_top={_physicsGravityWaitingTopTargets} " +
-            $"physics_pending_peak={_physicsUpdatesPeak} "
+            $"physics_pending_peak={_physicsUpdatesPeak} " +
             $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
             $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +
             $"frames_over_100ms={_framesOver100Ms} " +
