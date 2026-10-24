@@ -209,7 +209,6 @@ public sealed class FluidMeshPipeline
             var accepted = 0;
             var stale = 0;
             var salvaged = 0;
-            var relitWithoutMeshing = 0;
 
             foreach (var meshlet in result.Meshlets)
             {
@@ -253,7 +252,6 @@ public sealed class FluidMeshPipeline
                 accepted,
                 stale,
                 CaptureMilliseconds: result.CaptureMilliseconds,
-                RelitWithoutMeshing: relitWithoutMeshing,
                 SalvagedFromStaleBatch: salvaged);
             return true;
         }
