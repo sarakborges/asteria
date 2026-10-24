@@ -74,6 +74,17 @@ public sealed class WorldLoadingState
             WorldLoadingPhase.RetiringCurrentDimension or
             WorldLoadingPhase.MaterializingInitialArea);
 
+    public bool AllowsMeshDispatch(bool lightingSettled) =>
+        _progress.Phase switch
+        {
+            WorldLoadingPhase.RetiringCurrentDimension => false,
+            WorldLoadingPhase.MaterializingInitialArea or
+                WorldLoadingPhase.PreparingPresentation or
+                WorldLoadingPhase.PreparingArrivalStructure or
+                WorldLoadingPhase.Ready => lightingSettled,
+            _ => true,
+        };
+
     public ChunkCoord Center { get; private set; }
 
     public WorldLoadingProgress Progress =>
