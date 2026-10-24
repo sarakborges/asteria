@@ -814,9 +814,14 @@ public partial class Main : Node3D
             WorldFrameStage.LightingPoll, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
+        // Initial lighting can revise mesh inputs while the seam queue drains.
+        // Let it settle before starting bootstrap mesh builds, avoiding work
+        // that will immediately be rejected and rebuilt against newer light.
+        var allowMeshDispatch = !loadingWorld ||
+            !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant);
         DispatchReadyWorldWorkers(
             streamingPressure.IsPressured, streamingCenter,
-            _loading.AllowsLightingDispatch);
+            _loading.AllowsLightingDispatch, allowMeshDispatch);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.WorkerDispatch, stageStart);
 
@@ -5877,7 +5882,7 @@ public partial class Main : Node3D
 
     private void DispatchReadyWorldWorkers(
         bool underStreamingPressure, ChunkCoord center,
-        bool allowLightingDispatch)
+        bool allowLightingDispatch, bool allowMeshDispatch)
     {
         // Each domain owns an independent async worker. Snapshot capture still
         // runs against the authoritative world on this thread, so cap dispatch
@@ -5900,11 +5905,11 @@ public partial class Main : Node3D
             var started = lane switch
             {
                 0 => _fluidSimulationRuntime.TryStartReadyWork(),
-                1 => _terrainMeshPipeline.TryStartReadyWork(
+                1 => allowMeshDispatch && _terrainMeshPipeline.TryStartReadyWork(
                     underStreamingPressure, center, _residency.MovementDirection),
                 2 => allowLightingDispatch && _lightingRuntime.TryStartReadyWork(
                     center, _residency.MovementDirection),
-                _ => _fluidMeshPipeline.TryStartReadyWork(
+                _ => allowMeshDispatch && _fluidMeshPipeline.TryStartReadyWork(
                     center, _residency.MovementDirection),
             };
             if (!started)
