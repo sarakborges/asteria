@@ -814,7 +814,9 @@ public partial class Main : Node3D
             WorldFrameStage.LightingPoll, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
-        DispatchReadyWorldWorkers(streamingPressure.IsPressured, streamingCenter);
+        DispatchReadyWorldWorkers(
+            streamingPressure.IsPressured, streamingCenter,
+            _loading.AllowsLightingDispatch);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.WorkerDispatch, stageStart);
 
@@ -5874,7 +5876,8 @@ public partial class Main : Node3D
     }
 
     private void DispatchReadyWorldWorkers(
-        bool underStreamingPressure, ChunkCoord center)
+        bool underStreamingPressure, ChunkCoord center,
+        bool allowLightingDispatch)
     {
         // Each domain owns an independent async worker. Snapshot capture still
         // runs against the authoritative world on this thread, so cap dispatch
@@ -5899,7 +5902,7 @@ public partial class Main : Node3D
                 0 => _fluidSimulationRuntime.TryStartReadyWork(),
                 1 => _terrainMeshPipeline.TryStartReadyWork(
                     underStreamingPressure, center, _residency.MovementDirection),
-                2 => _lightingRuntime.TryStartReadyWork(
+                2 => allowLightingDispatch && _lightingRuntime.TryStartReadyWork(
                     center, _residency.MovementDirection),
                 _ => _fluidMeshPipeline.TryStartReadyWork(
                     center, _residency.MovementDirection),
