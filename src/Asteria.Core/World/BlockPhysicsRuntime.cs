@@ -90,6 +90,12 @@ public sealed class BlockPhysicsRuntime : IDisposable
         _waitingFallingByChunk = [];
     private readonly Dictionary<FallingBlockId, ChunkCoord>
         _fallingWaitingForChunk = [];
+    // Many gravity blocks can share one unloaded lower chunk. Keep one
+    // dependency edge per source chunk instead of a dormant queue entry per voxel.
+    private readonly Dictionary<ChunkCoord, ChunkCoord>
+        _gravityWaitTargetBySourceChunk = [];
+    private readonly Dictionary<ChunkCoord, ChunkCoord>
+        _gravityWaitSourceByTargetChunk = [];
 
     private ulong _nextId;
 
@@ -171,6 +177,12 @@ public sealed class BlockPhysicsRuntime : IDisposable
     private void OnChunkBecameResident(ChunkCoord coord)
     {
         _updates.WakeResidentChunk(coord);
+        if (_gravityWaitSourceByTargetChunk.Remove(coord, out var sourceChunk))
+        {
+            _gravityWaitTargetBySourceChunk.Remove(sourceChunk);
+            ReconcileGravityBoundaryChunk(sourceChunk);
+        }
+
         if (!_waitingFallingByChunk.Remove(coord, out var waiting))
             return;
 
@@ -178,8 +190,89 @@ public sealed class BlockPhysicsRuntime : IDisposable
             _fallingWaitingForChunk.Remove(id);
     }
 
-    private void OnChunkBecameArchived(ChunkCoord coord) =>
+    private void OnChunkBecameArchived(ChunkCoord coord)
+    {
         _updates.ForgetSourceChunk(coord);
+        ForgetGravityWaitForSourceChunk(coord);
+
+        // If the chunk directly below is archived while its upper neighbor is
+        // still resident, re-park that upper chunk's boundary gravity blocks.
+        if (coord.Y < int.MaxValue)
+            ReconcileGravityBoundaryChunk(
+                new ChunkCoord(coord.X, coord.Y + 1, coord.Z));
+    }
+
+    private void WaitForGravityChunk(ChunkCoord sourceChunk, ChunkCoord targetChunk)
+    {
+        if (sourceChunk.Y <= 0 || targetChunk.Y < 0)
+            return;
+
+        if (_gravityWaitTargetBySourceChunk.TryGetValue(
+                sourceChunk, out var previousTarget))
+        {
+            if (previousTarget == targetChunk)
+                return;
+
+            _gravityWaitSourceByTargetChunk.Remove(previousTarget);
+        }
+
+        if (_gravityWaitSourceByTargetChunk.TryGetValue(
+                targetChunk, out var previousSource) &&
+            previousSource != sourceChunk)
+        {
+            _gravityWaitTargetBySourceChunk.Remove(previousSource);
+        }
+
+        _gravityWaitTargetBySourceChunk[sourceChunk] = targetChunk;
+        _gravityWaitSourceByTargetChunk[targetChunk] = sourceChunk;
+    }
+
+    private void ForgetGravityWaitForSourceChunk(ChunkCoord sourceChunk)
+    {
+        if (!_gravityWaitTargetBySourceChunk.Remove(sourceChunk, out var targetChunk))
+            return;
+
+        if (_gravityWaitSourceByTargetChunk.TryGetValue(targetChunk, out var source) &&
+            source == sourceChunk)
+        {
+            _gravityWaitSourceByTargetChunk.Remove(targetChunk);
+        }
+    }
+
+    private void ReconcileGravityBoundaryChunk(ChunkCoord sourceChunk)
+    {
+        ForgetGravityWaitForSourceChunk(sourceChunk);
+        if (!_world.TryGetChunk(sourceChunk, out var chunk))
+            return;
+
+        var (originX, originY, originZ) = VoxelCoordinates.ChunkOrigin(sourceChunk);
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var cell = chunk.GetCell(x, 0, z);
+            if (cell.IsEmpty)
+                continue;
+
+            var definition = _blocks.GetDefinition(cell.Block);
+            if (!definition.HasTag(BlockPhysicsCapabilities.Gravity))
+                continue;
+
+            var position = new WorldVoxelCoord(
+                originX + x, originY, originZ + z);
+            var below = position + (0, -1, 0);
+            var belowState = BlockMaterializationRules.Evaluate(_world, below);
+            if (belowState == BlockMaterializationState.Unloaded)
+            {
+                WaitForGravityChunk(
+                    sourceChunk,
+                    VoxelCoordinates.FromWorld(below.X, below.Y, below.Z).Chunk);
+            }
+            else if (belowState == BlockMaterializationState.Available)
+            {
+                _updates.Enqueue(position);
+            }
+        }
+    }
 
     private void WaitForFallingChunk(FallingBlockId id, WorldVoxelCoord support)
     {
@@ -213,6 +306,35 @@ public sealed class BlockPhysicsRuntime : IDisposable
 
     public int WaitingFallingCount => _fallingWaitingForChunk.Count;
 
+    public int WaitingGravityChunkCount => _gravityWaitTargetBySourceChunk.Count;
+
+    public BlockPhysicsWaitDistribution CaptureGravityWaitDistribution(int maximumChunks = 3)
+    {
+        if (maximumChunks <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumChunks));
+
+        var topSources = _gravityWaitTargetBySourceChunk.Keys
+            .Select(chunk => new BlockPhysicsWaitChunkCount(chunk, 1))
+            .OrderBy(entry => entry.Chunk.Y)
+            .ThenBy(entry => entry.Chunk.Z)
+            .ThenBy(entry => entry.Chunk.X)
+            .Take(maximumChunks)
+            .ToArray();
+        var topTargets = _gravityWaitSourceByTargetChunk.Keys
+            .Select(chunk => new BlockPhysicsWaitChunkCount(chunk, 1))
+            .OrderBy(entry => entry.Chunk.Y)
+            .ThenBy(entry => entry.Chunk.Z)
+            .ThenBy(entry => entry.Chunk.X)
+            .Take(maximumChunks)
+            .ToArray();
+
+        return new BlockPhysicsWaitDistribution(
+            _gravityWaitTargetBySourceChunk.Count,
+            _gravityWaitSourceByTargetChunk.Count,
+            topSources,
+            topTargets);
+    }
+
     private bool IsOccupiedByOtherFallingBlock(
         WorldVoxelCoord position,
         FallingBlockId? ignoredFallingBlockId)
@@ -244,6 +366,7 @@ public sealed class BlockPhysicsRuntime : IDisposable
 
     public int EnqueueResidentChunk(ChunkCoord coord)
     {
+        ForgetGravityWaitForSourceChunk(coord);
         if (!_world.TryGetChunk(coord, out var chunk))
         {
             return 0;
@@ -289,13 +412,19 @@ public sealed class BlockPhysicsRuntime : IDisposable
                     return;
 
                 // Gravity blocks with known solid support are already stable.
-                // Queue only empty or unloaded lower cells; y=0 has no lower
-                // world voxel and can never start falling.
-                var belowState = BlockMaterializationRules.Evaluate(
-                    _world, position + (0, -1, 0));
-                if (belowState is not (
-                        BlockMaterializationState.Available or
-                        BlockMaterializationState.Unloaded))
+                // A missing lower chunk sleeps as one source-chunk dependency,
+                // not one retained coordinate per gravity voxel.
+                var below = position + (0, -1, 0);
+                var belowState = BlockMaterializationRules.Evaluate(_world, below);
+                if (belowState == BlockMaterializationState.Unloaded)
+                {
+                    WaitForGravityChunk(
+                        coord,
+                        VoxelCoordinates.FromWorld(below.X, below.Y, below.Z).Chunk);
+                    return;
+                }
+
+                if (belowState != BlockMaterializationState.Available)
                     return;
 
                 _updates.Enqueue(position);
@@ -337,8 +466,7 @@ public sealed class BlockPhysicsRuntime : IDisposable
                 _updates.WaitForChunk(
                     position,
                     VoxelCoordinates.FromWorld(
-                        missingSupport.X, missingSupport.Y, missingSupport.Z).Chunk,
-                    BlockPhysicsWaitReason.SupportDependency);
+                        missingSupport.X, missingSupport.Y, missingSupport.Z).Chunk);
                 continue;
             }
 
@@ -397,10 +525,11 @@ public sealed class BlockPhysicsRuntime : IDisposable
             if (belowState ==
                 BlockMaterializationState.Unloaded)
             {
-                _updates.WaitForChunk(
-                    position,
-                    VoxelCoordinates.FromWorld(below.X, below.Y, below.Z).Chunk,
-                    BlockPhysicsWaitReason.GravityBelowChunk);
+                WaitForGravityChunk(
+                    VoxelCoordinates.FromWorld(
+                        position.X, position.Y, position.Z).Chunk,
+                    VoxelCoordinates.FromWorld(
+                        below.X, below.Y, below.Z).Chunk);
                 continue;
             }
 

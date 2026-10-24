@@ -1,11 +1,5 @@
 namespace Asteria.Core.World;
 
-public enum BlockPhysicsWaitReason : byte
-{
-    SupportDependency = 0,
-    GravityBelowChunk = 1,
-}
-
 public readonly record struct BlockPhysicsWaitChunkCount(ChunkCoord Chunk, int Count);
 
 public readonly record struct BlockPhysicsWaitDistribution(
@@ -38,10 +32,6 @@ public sealed class BlockPhysicsUpdateQueue
         _waitingByChunk = [];
     private readonly Dictionary<WorldVoxelCoord, ChunkCoord>
         _waitingForChunk = [];
-    private readonly Dictionary<WorldVoxelCoord, BlockPhysicsWaitReason>
-        _waitingReasonByPosition = [];
-    private int _waitingSupportCount;
-    private int _waitingGravityCount;
     // Index every queued or dormant support check by its source chunk. When
     // that source chunk is archived, EnqueueResidentChunk will derive fresh
     // wakeups on restore; old waiters must not accumulate with player travel.
@@ -109,10 +99,6 @@ public sealed class BlockPhysicsUpdateQueue
 
     public int WaitingCount => _waitingForChunk.Count;
 
-    public int WaitingSupportCount => _waitingSupportCount;
-
-    public int WaitingGravityCount => _waitingGravityCount;
-
     public BlockPhysicsWaitDistribution CaptureWaitingDistribution(int maximumChunks = 3)
     {
         if (maximumChunks <= 0)
@@ -147,10 +133,7 @@ public sealed class BlockPhysicsUpdateQueue
             sourceCounts.Count, _waitingByChunk.Count, topSources, topTargets);
     }
 
-    public void WaitForChunk(
-        WorldVoxelCoord position,
-        ChunkCoord neededChunk,
-        BlockPhysicsWaitReason reason = BlockPhysicsWaitReason.SupportDependency)
+    public void WaitForChunk(WorldVoxelCoord position, ChunkCoord neededChunk)
     {
         // Invalid world-height dependencies must never enter persisted queue state.
         if (position.Y < 0 || neededChunk.Y < 0)
@@ -163,9 +146,7 @@ public sealed class BlockPhysicsUpdateQueue
         }
 
         if (_waitingForChunk.TryGetValue(position, out var existingChunk) &&
-            existingChunk == neededChunk &&
-            _waitingReasonByPosition.TryGetValue(position, out var existingReason) &&
-            existingReason == reason)
+            existingChunk == neededChunk)
             return;
 
         _queue.Remove(position);
@@ -181,7 +162,6 @@ public sealed class BlockPhysicsUpdateQueue
 
         waiting.Add(position);
         _waitingForChunk.Add(position, neededChunk);
-        TrackWaitReason(position, reason);
         TrackPosition(position);
     }
 
@@ -219,42 +199,6 @@ public sealed class BlockPhysicsUpdateQueue
         positions.Add(position);
     }
 
-    private void TrackWaitReason(
-        WorldVoxelCoord position,
-        BlockPhysicsWaitReason reason)
-    {
-        _waitingReasonByPosition[position] = reason;
-        switch (reason)
-        {
-            case BlockPhysicsWaitReason.SupportDependency:
-                _waitingSupportCount++;
-                break;
-            case BlockPhysicsWaitReason.GravityBelowChunk:
-                _waitingGravityCount++;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(reason), reason, null);
-        }
-    }
-
-    private void UntrackWaitReason(WorldVoxelCoord position)
-    {
-        if (!_waitingReasonByPosition.Remove(position, out var reason))
-            return;
-
-        switch (reason)
-        {
-            case BlockPhysicsWaitReason.SupportDependency:
-                _waitingSupportCount--;
-                break;
-            case BlockPhysicsWaitReason.GravityBelowChunk:
-                _waitingGravityCount--;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(reason), reason, null);
-        }
-    }
-
     private void UntrackPosition(WorldVoxelCoord position)
     {
         if (position.Y < 0)
@@ -282,7 +226,6 @@ public sealed class BlockPhysicsUpdateQueue
             .ThenBy(position => position.X))
         {
             _waitingForChunk.Remove(position);
-            UntrackWaitReason(position);
             _queue.Enqueue(position);
         }
     }
@@ -290,7 +233,6 @@ public sealed class BlockPhysicsUpdateQueue
     private void RemoveWaiter(WorldVoxelCoord position, ChunkCoord chunk)
     {
         _waitingForChunk.Remove(position);
-        UntrackWaitReason(position);
         var waiting = _waitingByChunk[chunk];
         waiting.Remove(position);
         if (waiting.Count == 0)

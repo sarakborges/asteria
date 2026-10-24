@@ -167,41 +167,85 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
-    public void PhysicsWaitersKeepSeparateReasonsAndClearCountsWhenWoken()
+    public void GravityWakeupsCoalesceBySourceChunkAndResumeWhenLowerChunkLoads()
     {
-        var queue = new BlockPhysicsUpdateQueue();
-        var supportPosition = new WorldVoxelCoord(3, 5, 2);
-        var gravityPosition = new WorldVoxelCoord(4, 5, 2);
-        var supportChunk = new ChunkCoord(1, 0, 0);
-        var gravityChunk = new ChunkCoord(2, 0, 0);
+        var world = new VoxelWorld();
+        var sourceCoord = new ChunkCoord(0, 1, 0);
+        var source = new Chunk();
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:sand",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+        ]);
+        var sand = blocks.GetId("asteria:sand");
+        const int gravityBlocks = 128;
+        for (var index = 0; index < gravityBlocks; index++)
+            source.SetBlock(index % Chunk.Size, 0, index / Chunk.Size, sand);
+        world.InsertChunk(sourceCoord, source);
 
-        queue.WaitForChunk(
-            supportPosition, supportChunk, BlockPhysicsWaitReason.SupportDependency);
-        queue.WaitForChunk(
-            gravityPosition, gravityChunk, BlockPhysicsWaitReason.GravityBelowChunk);
+        var updates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), updates,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops);
 
-        Assert.Equal(2, queue.WaitingCount);
-        Assert.Equal(1, queue.WaitingSupportCount);
-        Assert.Equal(1, queue.WaitingGravityCount);
-        var distribution = queue.CaptureWaitingDistribution();
+        Assert.Equal(0, physics.EnqueueResidentChunk(sourceCoord));
+        Assert.Equal(0, updates.Count);
+        Assert.Equal(1, physics.WaitingGravityChunkCount);
+
+        var distribution = physics.CaptureGravityWaitDistribution();
         Assert.Equal(1, distribution.SourceChunkCount);
-        Assert.Equal(2, distribution.TargetChunkCount);
-        Assert.Equal(2, Assert.Single(distribution.TopSourceChunks).Count);
-        Assert.Equal(1, distribution.TopTargetChunks[0].Count);
+        Assert.Equal(1, distribution.TargetChunkCount);
+        Assert.Equal(new ChunkCoord(0, 1, 0), Assert.Single(distribution.TopSourceChunks).Chunk);
+        Assert.Equal(ChunkCoord.Zero, Assert.Single(distribution.TopTargetChunks).Chunk);
 
-        // Reclassifying an existing dependency must not double-count it.
-        queue.WaitForChunk(
-            gravityPosition, gravityChunk, BlockPhysicsWaitReason.SupportDependency);
-        Assert.Equal(2, queue.WaitingSupportCount);
-        Assert.Equal(0, queue.WaitingGravityCount);
+        // Loading the lower chunk wakes and rescans the source boundary.
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        Assert.Equal(0, physics.WaitingGravityChunkCount);
+        Assert.Equal(gravityBlocks, updates.Count);
+        Assert.Equal(gravityBlocks, physics.ProcessWakeups().FallingStarted);
+        Assert.Equal(gravityBlocks, physics.ActiveCount);
+    }
 
-        queue.WakeResidentChunk(supportChunk);
-        queue.WakeResidentChunk(gravityChunk);
+    [Fact]
+    public void ArchivingLowerChunkRecreatesGravityWaitAndArchivingSourceClearsIt()
+    {
+        var world = new VoxelWorld();
+        var lower = new Chunk();
+        var source = new Chunk();
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:sand",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var sand = blocks.GetId("asteria:sand");
+        var stone = blocks.GetId("asteria:stone");
+        source.SetBlock(3, 0, 4, sand);
+        lower.SetBlock(3, Chunk.Size - 1, 4, stone);
+        world.InsertChunk(ChunkCoord.Zero, lower);
+        var sourceCoord = new ChunkCoord(0, 1, 0);
+        world.InsertChunk(sourceCoord, source);
 
-        Assert.Equal(0, queue.WaitingCount);
-        Assert.Equal(0, queue.WaitingSupportCount);
-        Assert.Equal(0, queue.WaitingGravityCount);
-        Assert.Equal(2, queue.Count);
+        var updates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), updates,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops);
+
+        Assert.Equal(0, physics.EnqueueResidentChunk(sourceCoord));
+        Assert.Equal(0, physics.WaitingGravityChunkCount);
+
+        Assert.NotEqual(ChunkArchiveResult.NotResident, world.ArchiveChunk(ChunkCoord.Zero));
+        Assert.Equal(1, physics.WaitingGravityChunkCount);
+        Assert.Equal(0, updates.Count);
+
+        Assert.NotEqual(ChunkArchiveResult.NotResident, world.ArchiveChunk(sourceCoord));
+        Assert.Equal(0, physics.WaitingGravityChunkCount);
     }
 
     [Fact]

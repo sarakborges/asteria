@@ -174,6 +174,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _physicsWaitingTargetChunkCount;
     private string _physicsWaitingTopSources = "none";
     private string _physicsWaitingTopTargets = "none";
+    private int _physicsGravityWaitingSourceChunkCount;
+    private int _physicsGravityWaitingTargetChunkCount;
+    private string _physicsGravityWaitingTopSources = "none";
+    private string _physicsGravityWaitingTopTargets = "none";
     private int _physicsUpdatesPeak;
 
     private WorldDiagnosticsLog(DiagnosticSessionLog session)
@@ -310,17 +314,26 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     /// Counts remain cheap to read per frame, with peaks retained for each
     /// diagnostic window so short-lived population spikes are visible.
     /// </summary>
-    public void ObservePhysicsWaitDistribution(BlockPhysicsUpdateQueue updates)
+    public void ObservePhysicsWaitDistribution(
+        BlockPhysicsUpdateQueue updates,
+        Asteria.Client.Gameplay.BlockEntityFrameController blockEntities)
     {
         ArgumentNullException.ThrowIfNull(updates);
+        ArgumentNullException.ThrowIfNull(blockEntities);
         if (Stopwatch.GetTimestamp() < _nextFlush)
             return;
 
-        var distribution = updates.CaptureWaitingDistribution();
-        _physicsWaitingSourceChunkCount = distribution.SourceChunkCount;
-        _physicsWaitingTargetChunkCount = distribution.TargetChunkCount;
-        _physicsWaitingTopSources = FormatPhysicsWaitChunkCounts(distribution.TopSourceChunks);
-        _physicsWaitingTopTargets = FormatPhysicsWaitChunkCounts(distribution.TopTargetChunks);
+        var supportDistribution = updates.CaptureWaitingDistribution();
+        _physicsWaitingSourceChunkCount = supportDistribution.SourceChunkCount;
+        _physicsWaitingTargetChunkCount = supportDistribution.TargetChunkCount;
+        _physicsWaitingTopSources = FormatPhysicsWaitChunkCounts(supportDistribution.TopSourceChunks);
+        _physicsWaitingTopTargets = FormatPhysicsWaitChunkCounts(supportDistribution.TopTargetChunks);
+
+        var gravityDistribution = blockEntities.CaptureGravityWaitDistribution();
+        _physicsGravityWaitingSourceChunkCount = gravityDistribution.SourceChunkCount;
+        _physicsGravityWaitingTargetChunkCount = gravityDistribution.TargetChunkCount;
+        _physicsGravityWaitingTopSources = FormatPhysicsWaitChunkCounts(gravityDistribution.TopSourceChunks);
+        _physicsGravityWaitingTopTargets = FormatPhysicsWaitChunkCounts(gravityDistribution.TopTargetChunks);
     }
 
     private static string FormatPhysicsWaitChunkCounts(
@@ -592,12 +605,18 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"physics_pending={_physicsUpdatesPending} " +
             $"physics_waiting={_physicsUpdatesWaiting} " +
             $"physics_waiting_support={_physicsUpdatesWaitingSupport} " +
+            $"physics_waiting_support_voxels={_physicsUpdatesWaitingSupport} " +
+            $"physics_waiting_gravity_chunks={_physicsUpdatesWaitingGravity} " +
             $"physics_waiting_gravity={_physicsUpdatesWaitingGravity} " +
             $"physics_wait_source_chunks={_physicsWaitingSourceChunkCount} " +
             $"physics_wait_target_chunks={_physicsWaitingTargetChunkCount} " +
             $"physics_wait_source_top={_physicsWaitingTopSources} " +
             $"physics_wait_target_top={_physicsWaitingTopTargets} " +
-            $"physics_pending_peak={_physicsUpdatesPeak} " +
+            $"physics_wait_gravity_source_chunks={_physicsGravityWaitingSourceChunkCount} " +
+            $"physics_wait_gravity_target_chunks={_physicsGravityWaitingTargetChunkCount} " +
+            $"physics_wait_gravity_source_top={_physicsGravityWaitingTopSources} " +
+            $"physics_wait_gravity_target_top={_physicsGravityWaitingTopTargets} " +
+            $"physics_pending_peak={_physicsUpdatesPeak} "
             $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
             $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +
             $"frames_over_100ms={_framesOver100Ms} " +

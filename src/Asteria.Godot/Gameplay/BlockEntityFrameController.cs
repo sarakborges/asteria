@@ -80,13 +80,16 @@ public sealed class BlockEntityFrameController
         _updates.Count;
 
     public int WaitingPhysicsUpdates =>
-        _updates.WaitingCount;
+        _updates.WaitingCount + _blockPhysics.WaitingGravityChunkCount;
 
     public int WaitingPhysicsSupportUpdates =>
-        _updates.WaitingSupportCount;
+        _updates.WaitingCount;
 
     public int WaitingPhysicsGravityUpdates =>
-        _updates.WaitingGravityCount;
+        _blockPhysics.WaitingGravityChunkCount;
+
+    public BlockPhysicsWaitDistribution CaptureGravityWaitDistribution() =>
+        _blockPhysics.CaptureGravityWaitDistribution();
 
     public int WaitingFallingCount =>
         _blockPhysics.WaitingFallingCount;
