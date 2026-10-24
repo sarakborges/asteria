@@ -989,25 +989,14 @@ public sealed class VoxelWorld
             meshletDependencies);
     }
 
-    /// <summary>
-    /// Publishes worker lighting only for chunks that reported a light change.
-    /// Unmodified snapshot chunks must not cause full light-array copies on
-    /// the main thread. Input positions are taken in their supplied order.
-    /// </summary>
-
-    /// <summary>
+/// <summary>
     /// Copies a bounded slice of the lighting worker result. Unlike
     /// CopyChangedLightFrom, this updates individual voxels rather than
     /// cloning each chunk's light array, so large results can be published
     /// incrementally without repeating whole-chunk copies.
     /// </summary>
 
-    /// <summary>
-    /// Commit one worker-computed light field. The lighting runtime validates
-    /// chunk content and neighborhood residency before each publication.
-    /// </summary>
-
-    private void AssignResidencyEpoch(ChunkCoord coord)
+private void AssignResidencyEpoch(ChunkCoord coord)
     {
         _nextResidencyEpoch =
             _nextResidencyEpoch == ulong.MaxValue ? 1 : _nextResidencyEpoch + 1;
