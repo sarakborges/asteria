@@ -22,7 +22,7 @@ public partial class Main : Node3D
             1,
             4);
     // All CPU-bound world jobs share one admission budget instead of letting
-    // terrain, lighting, fluids and streaming independently saturate the pool.
+    // terrain, fluids and streaming independently saturate the pool.
     private static readonly int MaxConcurrentWorldJobs =
         Math.Clamp(System.Environment.ProcessorCount - 1, 2, 6);
     private static readonly int MaxMaterializationDispatchesPerFrame =
@@ -637,7 +637,7 @@ public partial class Main : Node3D
         {
             _placementPreview.Hide();
             _objectPlacementPreview.Hide();
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu", 0, 0, 0, false, false);
+            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu", 0, 0, false);
             return;
         }
 
@@ -658,7 +658,7 @@ public partial class Main : Node3D
             _placementPreview.Hide();
             _objectPlacementPreview.Hide();
             AdvanceDimensionTransition();
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, 0, false, false);
+            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, false);
             return;
         }
 
@@ -686,7 +686,6 @@ public partial class Main : Node3D
             delta,
             _worldUpdates.DirtyChunkCount,
             loadingWorld,
-            pendingLightingSeeds: 0,
             pendingPhysicsWakeups: _blockPhysicsUpdates.Count);
         var stageStart = Stopwatch.GetTimestamp();
         var availableWorkerSlots = Math.Max(
@@ -801,7 +800,7 @@ public partial class Main : Node3D
 
         stageStart = Stopwatch.GetTimestamp();
         stageStart = Stopwatch.GetTimestamp();
-        var allowMeshDispatch = _loading.AllowsMeshDispatch(lightingSettled: true);
+        var allowMeshDispatch = _loading.AllowsMeshDispatch();
         DispatchReadyWorldWorkers(
             streamingPressure.IsPressured, streamingCenter,
             allowMeshDispatch);
@@ -832,10 +831,8 @@ public partial class Main : Node3D
             _residency.MaterializingCount,
             _chunkPresentations.Count,
             _loading.Progress.Phase.ToString(),
-            0,
             _worldUpdates.DirtyChunkCount,
             _fluidMeshUpdates.DirtyChunkCount,
-            false,
             _fluidSimulationRuntime.IsRunning);
 
         if (loadingWorld)
@@ -2558,7 +2555,6 @@ public partial class Main : Node3D
         new(
             ResidencySettled: !_residency.HasRenderableBacklog,
             SelectionSettled: !_chunkStreaming.IsSelectionRunning,
-            LightingSettled: true,
             TerrainMeshWorkSettled:
                 !_terrainMeshPipeline.HasWorkAffecting(_residency.IsDesired),
             TerrainPublicationsSettled:
@@ -5718,7 +5714,6 @@ public partial class Main : Node3D
             _worldDiagnostics?.ObserveFluidMesh(
                 completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
                 completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
-                completed.RelitWithoutMeshing,
                 completed.SalvagedFromStaleBatch,
                 completed.CaptureMilliseconds);
             if (completed.Kind != MeshPipelineCompletionKind.Applied)
@@ -5742,8 +5737,6 @@ public partial class Main : Node3D
             _fluidMeshPipeline.IntegratePublications(
                 MaxFluidMeshletPublishesPerFrame,
                 budget);
-        _worldDiagnostics?.ObserveFluidPublication(stats);
-
         if (_debugHudVisible &&
             stats.Handled > 0)
         {
@@ -5777,7 +5770,6 @@ public partial class Main : Node3D
             completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
             completed.CaptureMilliseconds,
             completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
-            completed.RelitWithoutMeshing,
             completed.SalvagedFromStaleBatch);
         if (completed.Kind != MeshPipelineCompletionKind.Applied)
             return;
