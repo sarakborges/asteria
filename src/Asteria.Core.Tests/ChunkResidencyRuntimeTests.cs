@@ -151,9 +151,6 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-
-
-    [Fact]
     public void UnloadedSourceFluidFrontierWakesOnlyWhenTargetChunkArrives()
     {
         var fixture = CreateFixture();
@@ -356,9 +353,6 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(512, fixture.FluidUpdates.ScheduledCount);
         Assert.Equal(0, fixture.FluidUpdates.DormantChunkCount);
     }
-
-    [Fact]
-
 
     [Fact]
     public void PresentationDoesNotWaitForUnmaterializedNeighbor()

@@ -32,12 +32,6 @@ public sealed class WorldLoadingStateTests
     }
 
     [Fact]
-
-
-    [Fact]
-
-
-    [Fact]
     public void MeshDispatchOnlyPausesDuringRetirement()
     {
         var loading = new WorldLoadingState();

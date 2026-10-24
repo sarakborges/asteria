@@ -6,24 +6,6 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMeshDataBuilderTests
 {
     [Fact]
-
-
-    [Fact]
-
-
-    [Fact]
-
-
-    [Fact]
-
-
-    [Fact]
-
-
-    [Fact]
-
-
-    [Fact]
     public void SpikeClosesItsEndsAndProvidesMatchingCollisionTriangles()
     {
         var texture = new BlockTextureLayer("textures/test/spike.png");

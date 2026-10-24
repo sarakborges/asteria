@@ -20,11 +20,6 @@ public sealed class WorldStreamingWorkPressureTests
     [Theory]
     [InlineData(8191, false)]
     [InlineData(8192, true)]
-
-
-    [Theory]
-    [InlineData(8191, false)]
-    [InlineData(8192, true)]
     public void PhysicsBacklogDefersDistantStreaming(
         int pendingWakeups, bool expected)
     {
