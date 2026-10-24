@@ -2,10 +2,6 @@ namespace Asteria.Core.World;
 
 public sealed class WorldUpdateQueue
 {
-    private readonly DeduplicatedQueue<WorldVoxelCoord>
-        _priorityLightingEdits = new();
-    private readonly DeduplicatedQueue<WorldVoxelCoord>
-        _lightingEdits = new();
     private readonly SortedDictionary<ChunkCoord, ChunkMeshletMask>
         _priorityMeshlets =
             new(ChunkCoordOrdering.YThenZThenX);
@@ -13,11 +9,7 @@ public sealed class WorldUpdateQueue
         _backgroundMeshlets =
             new(ChunkCoordOrdering.YThenZThenX);
 
-    public bool HasWork =>
-        HasLightingWork ||
-        HasMeshWork;
-
-    public bool HasLightingWork => false;
+    public bool HasWork => HasMeshWork;
 
     public bool HasMeshWork =>
         HasPriorityMeshWork ||
@@ -29,7 +21,6 @@ public sealed class WorldUpdateQueue
     public bool HasBackgroundMeshWork =>
         _backgroundMeshlets.Count > 0;
 
-    public int LightingEditCount => 0;
 
     public int DirtyChunkCount
     {
@@ -52,15 +43,6 @@ public sealed class WorldUpdateQueue
         }
     }
 
-    private readonly Dictionary<ChunkCoord, int> _priorityLightingSeedsByChunk = [];
-    private readonly Dictionary<ChunkCoord, int> _lightingSeedsByChunk = [];
-
-    public bool HasLightingWorkInChunks(Func<ChunkCoord, bool> includesChunk)
-    {
-        ArgumentNullException.ThrowIfNull(includesChunk);
-        return false;
-    }
-
     public bool HasMeshWorkInChunks(Func<ChunkCoord, bool> includesChunk)
     {
         ArgumentNullException.ThrowIfNull(includesChunk);
@@ -80,11 +62,9 @@ public sealed class WorldUpdateQueue
             priority: true);
     }
 
-    /// <summary>Visual-only surface edits do not alter voxel lighting, fluid topology or physics.</summary>
+    /// <summary>Visual-only surface edits enqueue mesh work without changing voxel state.</summary>
     public void EnqueueSurfaceEdit(VoxelWorld world, WorldVoxelCoord position) =>
         EnqueueVoxelMeshlets(world, position, priority: true);
-
-    public void EnqueueLighting(WorldVoxelCoord position) { }
 
     public void EnqueueVoxelMeshlets(
         VoxelWorld world,
@@ -190,130 +170,13 @@ public sealed class WorldUpdateQueue
         _backgroundMeshlets.Remove(coord);
     }
 
-    // Retired chunks can leave substantial stale lighting work after fast
-    // streaming movement. Discard those positions before snapshot capture,
-    // but bound the inspection count to protect the main-thread budget.
-    private const int MaximumLightingCandidatesPerDrain = 4096;
-
     public WorldLightingBatch DrainLighting(
         int maximumPositions = int.MaxValue,
         int maximumColumns = int.MaxValue,
         VoxelWorld? world = null,
         ChunkCoord? center = null,
-        ChunkMovementDirection movement = default)
-    {
-        var fromPriorityLane = _priorityLightingEdits.Count > 0;
-        var source = fromPriorityLane
-            ? _priorityLightingEdits
-            : _lightingEdits;
-        var seedIndex = fromPriorityLane
-            ? _priorityLightingSeedsByChunk
-            : _lightingSeedsByChunk;
-        var batch = DrainLightingFrom(
-            source, maximumPositions, maximumColumns, world, center, movement,
-            position => RemoveLightingSeed(seedIndex, position));
-        return fromPriorityLane
-            ? batch with { IsPriority = true }
-            : batch;
-    }
-
-    private static WorldLightingBatch DrainLightingFrom(
-        DeduplicatedQueue<WorldVoxelCoord> source,
-        int maximumPositions,
-        int maximumColumns,
-        VoxelWorld? world,
-        ChunkCoord? center,
-        ChunkMovementDirection movement,
-        Action<WorldVoxelCoord> onRemoved)
-    {
-        if (maximumPositions <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumPositions));
-        if (maximumColumns <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumColumns));
-
-        if (world is null && maximumColumns == int.MaxValue)
-        {
-            var drained = source.Drain(maximumPositions);
-            foreach (var position in drained)
-                onRemoved(position);
-            return new WorldLightingBatch(drained);
-        }
-
-        // Under streaming pressure, prefer columns near the current player
-        // within the same bounded scan used for batching. This avoids
-        // expensive lighting snapshots for distant work while keeping
-        // unselected positions in stable FIFO order for fair fallback runs.
-        HashSet<ChunkColumnCoord>? preferredColumns = null;
-        if (center is { } focus)
-        {
-            var nearest = new List<(
-                ChunkColumnCoord Column, ChunkLoadPriority Priority)>();
-            source.VisitPrefix(MaximumLightingCandidatesPerDrain,
-                position =>
-                {
-                    if (world is not null && !world.IsLoadedAt(position))
-                        return;
-
-                    var column = ChunkColumnCoord.FromChunk(
-                        VoxelCoordinates.FromWorld(
-                            position.X, position.Y, position.Z).Chunk);
-                    if (nearest.Any(entry => entry.Column == column))
-                        return;
-
-                    // Lighting snapshots are grouped by horizontal column,
-                    // so Y is intentionally fixed at the player's level.
-                    var priority = ChunkStreamingState.Priority(
-                        new ChunkCoord(column.X, focus.Y, column.Z),
-                        focus, movement);
-                    if (nearest.Count < maximumColumns)
-                    {
-                        nearest.Add((column, priority));
-                        return;
-                    }
-
-                    var worst = 0;
-                    for (var i = 1; i < nearest.Count; i++)
-                    {
-                        if (nearest[i].Priority.CompareTo(
-                                nearest[worst].Priority) > 0)
-                            worst = i;
-                    }
-
-                    if (priority.CompareTo(nearest[worst].Priority) < 0)
-                        nearest[worst] = (column, priority);
-                });
-            preferredColumns = nearest.Select(entry => entry.Column).ToHashSet();
-        }
-
-        // Interleaved columns must not split a 512-seed worker into tiny
-        // snapshots. Fill the chosen columns via bounded scan and remove
-        // retired work without changing the order of deferred entries.
-        var columns = new HashSet<ChunkColumnCoord>();
-        return new WorldLightingBatch(source.DrainScanned(
-            maximumPositions,
-            MaximumLightingCandidatesPerDrain,
-            position =>
-            {
-                if (world is not null && !world.IsLoadedAt(position))
-                    return QueueScanDecision.Discard;
-
-                var column = ChunkColumnCoord.FromChunk(
-                    VoxelCoordinates.FromWorld(
-                        position.X, position.Y, position.Z).Chunk);
-                if (preferredColumns is not null)
-                    return preferredColumns.Contains(column)
-                        ? QueueScanDecision.Take
-                        : QueueScanDecision.Keep;
-
-                if (!columns.Contains(column) &&
-                    columns.Count >= maximumColumns)
-                    return QueueScanDecision.Keep;
-
-                columns.Add(column);
-                return QueueScanDecision.Take;
-            },
-            onRemoved));
-    }
+        ChunkMovementDirection movement = default) =>
+        new(Array.Empty<WorldVoxelCoord>());
 
     public WorldMeshBatch DrainMeshlets(
         int maximumMeshlets = int.MaxValue,
@@ -360,20 +223,6 @@ public sealed class WorldUpdateQueue
         ValidateMeshDrainLimits(maximumMeshlets, maximumChunks);
         return DrainMeshletLane(
             _backgroundMeshlets, maximumMeshlets, maximumChunks);
-    }
-
-    public void RequeueLighting(
-        WorldLightingBatch batch, VoxelWorld world)
-    {
-        ArgumentNullException.ThrowIfNull(batch);
-        ArgumentNullException.ThrowIfNull(world);
-
-        foreach (var position in batch.EditedPositions)
-        {
-            if (world.IsLoadedAt(position) &&
-                _lightingEdits.Enqueue(position))
-                AddLightingSeed(_lightingSeedsByChunk, position);
-        }
     }
 
     public void RequeueMeshlets(
@@ -428,33 +277,6 @@ public sealed class WorldUpdateQueue
             throw new ArgumentOutOfRangeException(nameof(maximumMeshlets));
         if (maximumChunks <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumChunks));
-    }
-
-    private static void AddLightingSeed(
-        Dictionary<ChunkCoord, int> counts,
-        WorldVoxelCoord position)
-    {
-        var coord = VoxelCoordinates.FromWorld(
-            position.X, position.Y, position.Z).Chunk;
-        counts[coord] = counts.TryGetValue(coord, out var count)
-            ? checked(count + 1)
-            : 1;
-    }
-
-    private static void RemoveLightingSeed(
-        Dictionary<ChunkCoord, int> counts,
-        WorldVoxelCoord position)
-    {
-        var coord = VoxelCoordinates.FromWorld(
-            position.X, position.Y, position.Z).Chunk;
-        if (!counts.TryGetValue(coord, out var count))
-            throw new InvalidOperationException(
-                $"Lighting seed index has no entry for {coord}.");
-
-        if (count == 1)
-            counts.Remove(coord);
-        else
-            counts[coord] = count - 1;
     }
 
     private void EnqueueVoxelMeshlets(
