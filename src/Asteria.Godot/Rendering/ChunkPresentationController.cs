@@ -13,8 +13,7 @@ public readonly record struct ChunkPresentationIntegrationStats(
     double RenderBuildMilliseconds = 0d,
     double CollisionBuildMilliseconds = 0d,
     long RenderVertices = 0,
-    long CollisionTriangles = 0,
-    int GpuAttributePatches = 0)
+    long CollisionTriangles = 0)
 {
     public int Handled => Published + Stale;
 }
@@ -597,7 +596,6 @@ public sealed class ChunkPresentationController
         var collisionBuildMilliseconds = 0d;
         long renderVertices = 0;
         long collisionTriangles = 0;
-        var gpuAttributePatches = 0;
 
         while (processed < maximumPerFrame &&
                TryDequeueTerrainPublication(
@@ -670,19 +668,10 @@ public sealed class ChunkPresentationController
             collisionBuildMilliseconds += apply.CollisionBuildMilliseconds;
             renderVertices += apply.RenderVertices;
             collisionTriangles += apply.CollisionTriangles;
-            if (apply.PatchedGpuAttributes)
-                gpuAttributePatches++;
             if (presentation.HasDeferredCollisions)
                 _deferredCollisionChunks.Add(pending.Meshlet.Coord);
             else
                 _deferredCollisionChunks.Remove(pending.Meshlet.Coord);
-            // Object mesh resources stay stable; refresh only per-instance
-            // voxel-light channels after a changed terrain-light publication.
-            if (_world.TryGetChunk(pending.Meshlet.Coord, out var updated) &&
-                updated.ObjectCount > 0)
-            {
-                _pendingObjects.Enqueue(pending.Meshlet.Coord);
-            }
             published++;
         }
 
@@ -693,8 +682,7 @@ public sealed class ChunkPresentationController
             published, stale, _terrainPublications.Count,
             stopwatch.Elapsed.TotalMilliseconds,
             renderBuildMilliseconds, collisionBuildMilliseconds,
-            renderVertices, collisionTriangles,
-            gpuAttributePatches);
+            renderVertices, collisionTriangles);
     }
 
     private void FlushPendingTerrainMeshes(
@@ -764,7 +752,6 @@ public sealed class ChunkPresentationController
         var published = 0;
         var stale = 0;
         var processed = 0;
-        var gpuAttributePatches = 0;
         var fluidMeshBuildMilliseconds = 0d;
 
         while (processed < maximumPerFrame &&
@@ -811,15 +798,13 @@ public sealed class ChunkPresentationController
                 continue;
             }
 
-            var patched = presentation.ApplyFluid(
+            presentation.ApplyFluid(
                 pending.Meshlet.MeshletIndex,
                 pending.Meshlet.Data,
                 _fluidMaterials,
                 pending.Dependencies);
             if (presentation.HasPendingFluidMeshFlush)
                 _pendingFluidMeshFlush.Enqueue(pending.Meshlet.Coord);
-            if (patched)
-                gpuAttributePatches++;
             published++;
         }
 
@@ -829,8 +814,7 @@ public sealed class ChunkPresentationController
         return new ChunkPresentationIntegrationStats(
             published, stale, _fluidPublications.Count,
             stopwatch.Elapsed.TotalMilliseconds,
-            RenderBuildMilliseconds: fluidMeshBuildMilliseconds,
-            GpuAttributePatches: gpuAttributePatches);
+            RenderBuildMilliseconds: fluidMeshBuildMilliseconds);
     }
 
     private void PromoteQueuedInitialTerrainPublications(
