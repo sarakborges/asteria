@@ -66,6 +66,14 @@ public sealed class WorldLoadingState
             WorldLoadingPhase.PreparingPresentation or
             WorldLoadingPhase.PreparingArrivalStructure;
 
+    // Seam reconciliation is derived from chunk residency. During the initial
+    // bootstrap, let the selected chunks finish materializing before dispatching
+    // that work so snapshots do not repeatedly go stale as neighbors arrive.
+    public bool AllowsLightingDispatch =>
+        _progress.Phase is not (
+            WorldLoadingPhase.RetiringCurrentDimension or
+            WorldLoadingPhase.MaterializingInitialArea);
+
     public ChunkCoord Center { get; private set; }
 
     public WorldLoadingProgress Progress =>
