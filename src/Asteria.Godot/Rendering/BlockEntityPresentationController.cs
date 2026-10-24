@@ -26,7 +26,6 @@ public sealed class BlockEntityPresentationController
     private const int MaximumNewPresentationsPerSync = 64;
 
     private readonly Node3D _parent;
-    private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
     private readonly TerrainTextureLookup _textures;
@@ -59,9 +58,7 @@ public sealed class BlockEntityPresentationController
         _parent =
             parent ??
             throw new ArgumentNullException(nameof(parent));
-        _world =
-            world ??
-            throw new ArgumentNullException(nameof(world));
+        ArgumentNullException.ThrowIfNull(world);
         _blocks =
             blocks ??
             throw new ArgumentNullException(nameof(blocks));
@@ -108,12 +105,8 @@ public sealed class BlockEntityPresentationController
                     continue;
 
                 var geometry = GetFallingGeometry(state.Block);
-                presentation =
-                    new FallingBlockPresentation(
-                        state,
-                        ChunkMeshBuilder.CreateMesh(geometry, _materials),
-                        geometry,
-                        _materials);
+                presentation = new FallingBlockPresentation(
+                    state, ChunkMeshBuilder.CreateMesh(geometry, _materials));
                 _falling.Add(
                     state.Id,
                     presentation);
@@ -123,7 +116,6 @@ public sealed class BlockEntityPresentationController
             }
 
             presentation.Apply(state);
-            presentation.UpdateLighting(_world, _blocks, state);
         }
 
         _retiredFalling.Clear();

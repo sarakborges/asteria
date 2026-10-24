@@ -94,12 +94,6 @@ public sealed class ChunkPresentation
     private ulong _objectRevision = ulong.MaxValue;
     private readonly Dictionary<string, MultiMeshInstance3D> _objectBatches =
         new(StringComparer.Ordinal);
-    private readonly Dictionary<string, WorldVoxelCoord[]> _objectLightPositions =
-        new(StringComparer.Ordinal);
-    private string[] _objectLightRefreshGroups = [];
-    private int _objectLightRefreshGroupIndex;
-    private int _objectLightRefreshInstanceIndex;
-    private bool _objectLightRefreshInvalidated;
     private ObjectPresentationBuildState? _objectPresentationBuild;
 
     private readonly record struct ObjectBuildSource(
@@ -107,8 +101,7 @@ public sealed class ChunkPresentation
 
     private readonly record struct ObjectBuildInstance(
         Transform3D Transform,
-        System.Numerics.Vector3 Color,
-        WorldVoxelCoord LightPosition);
+        System.Numerics.Vector3 Color);
 
     private sealed class ObjectPresentationBuildState(
         ulong revision,
@@ -129,9 +122,7 @@ public sealed class ChunkPresentation
         public ObjectDefinition? CurrentDefinition { get; set; }
         public Dictionary<string, MultiMeshInstance3D> Replacements { get; } =
             new(StringComparer.Ordinal);
-        public Dictionary<string, WorldVoxelCoord[]> SamplePositions { get; } =
-            new(StringComparer.Ordinal);
-    }
+}
 
     public ChunkPresentation(ChunkCoord coord)
     {
@@ -354,10 +345,7 @@ public sealed class ChunkPresentation
 
     /// <summary>One MultiMesh per object definition per chunk, never one
     /// Godot node per ObjectCell. ObjectRevision gates the entire rebuild.</summary>
-    internal void RequestObjectLightingRefresh() =>
-        _objectLightRefreshInvalidated = true;
-
-    internal bool ApplyObjects(
+internal bool ApplyObjects(
         Chunk chunk, VoxelWorld world,
         PackContentRegistry<ObjectDefinition> definitions,
         WorldObjectVisualCatalog visuals, BiomeTintField tints,
@@ -367,14 +355,7 @@ public sealed class ChunkPresentation
             throw new ArgumentOutOfRangeException(nameof(maximumObjectsPerSlice));
 
         if (_objectRevision == chunk.ObjectRevision)
-        {
-            if (_objectLightRefreshInvalidated)
-            {
-                ResetObjectLightingRefresh();
-                _objectLightRefreshInvalidated = false;
-            }
-            return RefreshObjectLighting(world, maximumObjectsPerSlice);
-        }
+            return true;
 
         if (_objectPresentationBuild is null ||
             _objectPresentationBuild.Revision != chunk.ObjectRevision)
@@ -420,10 +401,7 @@ public sealed class ChunkPresentation
 
             if (!build.Groups.TryGetValue(definition.Id, out var instances))
                 build.Groups.Add(definition.Id, instances = []);
-            instances.Add(new ObjectBuildInstance(
-                transform, tint,
-                WorldObjectLighting.SamplePosition(
-                    new WorldVoxelCoord(worldX, worldY, worldZ), source.Cell.Face)));
+            instances.Add(new ObjectBuildInstance(transform, tint));
         }
 
         if (build.NextSourceIndex < build.Sources.Length)
@@ -451,7 +429,7 @@ public sealed class ChunkPresentation
                 {
                     TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
                     UseColors = tinted,
-                    UseCustomData = !definition.Unlit,
+                    UseCustomData = false,
                     Mesh = visuals.GetMesh(definition),
                     InstanceCount = instances.Count,
                 };
@@ -464,10 +442,7 @@ public sealed class ChunkPresentation
                         ? GeometryInstance3D.ShadowCastingSetting.On
                         : GeometryInstance3D.ShadowCastingSetting.Off,
                 };
-                if (!definition.Unlit)
-                    build.SamplePositions.Add(id,
-                        instances.Select(instance => instance.LightPosition).ToArray());
-            }
+}
 
             var currentDefinition = build.CurrentDefinition ??
                 throw new InvalidOperationException("Object presentation group lost its definition.");
@@ -484,11 +459,7 @@ public sealed class ChunkPresentation
                     multiMesh.SetInstanceColor(index,
                         new Color(tint.X, tint.Y, tint.Z));
                 }
-                if (!currentDefinition.Unlit)
-                    multiMesh.SetInstanceCustomData(index,
-                        WorldObjectLighting.ToInstanceColor(
-                            world.GetLightOrDark(instance.LightPosition)));
-                build.InstanceIndex++;
+build.InstanceIndex++;
                 processed++;
             }
 
@@ -514,10 +485,7 @@ public sealed class ChunkPresentation
         foreach (var current in _objectBatches.Values)
             current.QueueFree();
         _objectBatches.Clear();
-        _objectLightPositions.Clear();
-        foreach (var (id, samples) in build.SamplePositions)
-            _objectLightPositions.Add(id, samples);
-        foreach (var (id, instance) in build.Replacements)
+foreach (var (id, instance) in build.Replacements)
         {
             _objectBatches.Add(id, instance);
             Root.AddChild(instance);
@@ -525,10 +493,7 @@ public sealed class ChunkPresentation
 
         _objectRevision = build.Revision;
         _objectPresentationBuild = null;
-        ResetObjectLightingRefresh();
-        // If lighting changed while this build was in progress, queue one
-        // bounded refresh pass before marking the presentation current.
-        return !_objectLightRefreshInvalidated;
+        return true;
     }
 
     private void StartObjectPresentationBuild(Chunk chunk)
@@ -539,7 +504,6 @@ public sealed class ChunkPresentation
             sources.Add(new ObjectBuildSource(x, y, z, cell)));
         _objectPresentationBuild = new ObjectPresentationBuildState(
             chunk.ObjectRevision, sources.ToArray());
-        ResetObjectLightingRefresh();
     }
 
     private void CancelObjectPresentationBuild()
@@ -553,70 +517,13 @@ public sealed class ChunkPresentation
         _objectPresentationBuild = null;
     }
 
-    private bool RefreshObjectLighting(
-        VoxelWorld world, int maximumUpdates)
-    {
-        if (_objectLightRefreshGroups.Length == 0)
-        {
-            _objectLightRefreshGroups = _objectLightPositions.Keys
-                .OrderBy(id => id, StringComparer.Ordinal)
-                .ToArray();
-            _objectLightRefreshGroupIndex = 0;
-            _objectLightRefreshInstanceIndex = 0;
-        }
 
-        var processed = 0;
-        while (_objectLightRefreshGroupIndex < _objectLightRefreshGroups.Length &&
-               processed < maximumUpdates)
-        {
-            var id = _objectLightRefreshGroups[_objectLightRefreshGroupIndex];
-            if (!_objectBatches.TryGetValue(id, out var batch) ||
-                !_objectLightPositions.TryGetValue(id, out var samples))
-            {
-                _objectLightRefreshGroupIndex++;
-                _objectLightRefreshInstanceIndex = 0;
-                continue;
-            }
-
-            var multiMesh = batch.Multimesh;
-            while (_objectLightRefreshInstanceIndex < samples.Length &&
-                   processed < maximumUpdates)
-            {
-                var index = _objectLightRefreshInstanceIndex++;
-                multiMesh.SetInstanceCustomData(index,
-                    WorldObjectLighting.ToInstanceColor(
-                        world.GetLightOrDark(samples[index])));
-                processed++;
-            }
-
-            if (_objectLightRefreshInstanceIndex >= samples.Length)
-            {
-                _objectLightRefreshGroupIndex++;
-                _objectLightRefreshInstanceIndex = 0;
-            }
-        }
-
-        if (_objectLightRefreshGroupIndex < _objectLightRefreshGroups.Length)
-            return false;
-
-        ResetObjectLightingRefresh();
-        return true;
-    }
-
-    private void ResetObjectLightingRefresh()
-    {
-        _objectLightRefreshGroups = [];
-        _objectLightRefreshGroupIndex = 0;
-        _objectLightRefreshInstanceIndex = 0;
-    }
 
     // Only the Godot presentation is suspended. The authoritative chunk is
     // already owned by VoxelWorld's archive, not by this display object.
     public void Suspend()
     {
         CancelObjectPresentationBuild();
-        ResetObjectLightingRefresh();
-        _objectLightRefreshInvalidated = true;
         SetPhysicsEnabled(false);
         Root.Visible = false;
     }
