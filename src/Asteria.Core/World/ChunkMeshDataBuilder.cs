@@ -94,8 +94,6 @@ public static class ChunkMeshDataBuilder
                     {
                         EmitCrossedSprite(
                             surfaces,
-                            world,
-                            blocks,
                             textures,
                             x,
                             y,
@@ -110,7 +108,7 @@ public static class ChunkMeshDataBuilder
                         BlockVisualKind.GroundSprite)
                     {
                         EmitGroundSprite(
-                            surfaces, world, blocks, textures,
+                            surfaces, textures,
                             x, y, z, worldPosition, definition, tintSamples);
                         continue;
                     }

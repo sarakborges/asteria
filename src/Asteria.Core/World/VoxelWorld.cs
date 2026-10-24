@@ -882,6 +882,48 @@ public sealed class VoxelWorld
         CloneForWorkerCore(coordinates);
 
 
+    private VoxelWorld CloneForWorkerCore(
+        IEnumerable<ChunkCoord> coordinates)
+    {
+        ArgumentNullException.ThrowIfNull(coordinates);
+
+        var clone = new VoxelWorld();
+        clone._fluidOccupancyBlocks = _fluidOccupancyBlocks;
+
+        foreach (var coord in coordinates.Distinct())
+        {
+            if (_chunks.TryGetValue(coord, out var chunk))
+                clone._chunks.Add(coord, chunk.CloneForWorker());
+        }
+
+        foreach (var (coord, epoch) in _residencyEpochs)
+        {
+            if (clone._chunks.ContainsKey(coord))
+                clone._residencyEpochs.Add(coord, epoch);
+        }
+
+        foreach (var coord in clone._chunks.Keys)
+        {
+            var column = ChunkColumnCoord.FromChunk(coord);
+            clone._residentColumnChunkCounts[column] =
+                clone._residentColumnChunkCounts.TryGetValue(column, out var count)
+                    ? count + 1
+                    : 1;
+        }
+
+        foreach (var column in clone._residentColumnChunkCounts.Keys)
+        {
+            if (_columnResidencyRevisions.TryGetValue(column, out var revision))
+                clone._columnResidencyRevisions.Add(column, revision);
+        }
+
+        clone._nextResidencyEpoch = _nextResidencyEpoch;
+        clone._nextColumnResidencyRevision = _nextColumnResidencyRevision;
+        clone.Revision = Revision;
+        return clone;
+    }
+
+
     /// <summary>
     /// Rendering sees already-materialized archived neighbors, unlike
     /// simulation snapshots that may only include actively resident chunks.
@@ -989,14 +1031,7 @@ public sealed class VoxelWorld
             meshletDependencies);
     }
 
-/// <summary>
-    /// Copies a bounded slice of the lighting worker result. Unlike
-    /// CopyChangedLightFrom, this updates individual voxels rather than
-    /// cloning each chunk's light array, so large results can be published
-    /// incrementally without repeating whole-chunk copies.
-    /// </summary>
-
-private void AssignResidencyEpoch(ChunkCoord coord)
+    private void AssignResidencyEpoch(ChunkCoord coord)
     {
         _nextResidencyEpoch =
             _nextResidencyEpoch == ulong.MaxValue ? 1 : _nextResidencyEpoch + 1;
