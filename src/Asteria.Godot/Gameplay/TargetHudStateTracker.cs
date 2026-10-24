@@ -7,15 +7,13 @@ public readonly record struct TargetHudSnapshot(
     int X,
     int Y,
     int Z,
-    byte SkyLight,
-    byte BlockLight,
     BlockSurfaceState Surface,
     VoxelCell Cell,
     BlockFace? HitFace,
     string? ActiveLayerId = null);
 
 public readonly record struct TargetFluidHudSnapshot(
-    WorldVoxelCoord Voxel, FluidCell Fluid, VoxelLight Light);
+    WorldVoxelCoord Voxel, FluidCell Fluid);
 
 public sealed class TargetHudStateTracker
 {
@@ -29,9 +27,9 @@ public sealed class TargetHudStateTracker
     }
 
     /// <summary>
-    /// Reuse the Core ray hit for the HUD's source-fluid variant. A fluid
-    /// hit replaces the cached block presentation; a fluid -> empty/block
-    /// transition is published by the ordinary TryCapture overload.
+    /// Reuse the Core ray hit for source-fluid targeting. A fluid hit
+    /// replaces the cached block presentation; fluid -> empty/block
+    /// transitions are published by the ordinary TryCapture overload.
     /// </summary>
     public bool TryCaptureFluid(
         VoxelWorld world, VoxelWorldHit? hit, bool force,
@@ -42,9 +40,7 @@ public sealed class TargetHudStateTracker
                    world.GetCellOrEmpty(resolved.Voxel).IsEmpty &&
                    world.TryGetFluid(resolved.Voxel, out var fluid) &&
                    !fluid.IsEmpty && fluid.IsSource
-            ? new TargetFluidHudSnapshot(
-                resolved.Voxel, fluid,
-                world.GetLightOrDark(resolved.Voxel + (0, 1, 0)))
+            ? new TargetFluidHudSnapshot(resolved.Voxel, fluid)
             : null;
 
         if (snapshot is null)
@@ -114,18 +110,6 @@ public sealed class TargetHudStateTracker
         var definition =
             blocks.GetDefinition(
                 cell.Block);
-        var lightOffset =
-            resolved.HasSurfaceNormal
-                ? (
-                    resolved.NormalX,
-                    resolved.NormalY,
-                    resolved.NormalZ)
-                : (0, 1, 0);
-        var light =
-            world.GetLightOrDark(
-                resolved.Voxel +
-                lightOffset);
-
         var surface = world.GetBlockSurfaceStateOrEmpty(resolved.Voxel);
         var hitFace = VoxelHitFace.TryResolve(resolved, out var face)
             ? face : (BlockFace?)null;
@@ -140,8 +124,6 @@ public sealed class TargetHudStateTracker
             resolved.Voxel.X,
             resolved.Voxel.Y,
             resolved.Voxel.Z,
-            light.Sky,
-            light.BlockPeak,
             surface,
             cell,
             hitFace,
