@@ -64,18 +64,22 @@ public sealed class FluidMeshUpdateQueue
     public WorldMeshBatch Drain(
         int maximumMeshlets = int.MaxValue,
         ChunkCoord? center = null,
-        ChunkMovementDirection movement = default)
+        ChunkMovementDirection movement = default,
+        int maximumChunks = int.MaxValue)
     {
         if (maximumMeshlets <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumMeshlets));
+        if (maximumChunks <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumChunks));
 
         var result = new Dictionary<ChunkCoord, ChunkMeshletMask>();
         var remaining = maximumMeshlets;
         if (center is { } focus)
             MeshletMaskQueueDrain.DrainNearest(
-                _dirty, result, ref remaining, focus, movement);
+                _dirty, result, ref remaining, focus, movement, maximumChunks);
         else
-            MeshletMaskQueueDrain.Drain(_dirty, result, ref remaining);
+            MeshletMaskQueueDrain.Drain(
+                _dirty, result, ref remaining, maximumChunks);
 
         return new WorldMeshBatch(result);
     }
