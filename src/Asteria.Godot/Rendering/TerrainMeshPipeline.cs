@@ -208,9 +208,11 @@ public sealed class TerrainMeshPipeline
         var drained =
             priority
                 ? _updates.DrainPriorityMeshlets(
-                    maximumMeshlets, center, movement)
+                    maximumMeshlets, center, movement,
+                    MeshWorkerSnapshotLimits.MaximumSourceChunksPerBatch)
                 : _updates.DrainBackgroundMeshlets(
-                    maximumMeshlets);
+                    maximumMeshlets,
+                    MeshWorkerSnapshotLimits.MaximumSourceChunksPerBatch);
 
         if (drained.IsEmpty)
         {
