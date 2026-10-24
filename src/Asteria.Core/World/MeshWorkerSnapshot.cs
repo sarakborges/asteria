@@ -1,5 +1,12 @@
 namespace Asteria.Core.World;
 
+public static class MeshWorkerSnapshotLimits
+{
+    // Bound synchronous main-thread capture by keeping each worker batch local
+    // to a small number of source chunks and their dependency neighborhoods.
+    public const int MaximumSourceChunksPerBatch = 4;
+}
+
 public sealed class MeshDependencyStamp
 {
     internal MeshDependencyStamp(
