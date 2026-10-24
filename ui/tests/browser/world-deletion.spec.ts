@@ -6,11 +6,12 @@ const deletingStory = "/iframe.html?id=pages-worldselectionpage--deleting&viewMo
 test("world deletion requires a second explicit confirmation", async ({ page }) => {
   await page.goto(selectionStory);
   const first = page.locator(".world-card").first();
+  const worldName = await first.locator(".world-card__info > .ui-text--heading").innerText();
   await first.getByRole("button", { name: "Delete" }).click();
 
   const confirm = page.getByRole("alertdialog", { name: "Delete World" });
   await expect(confirm).toBeVisible();
-  await expect(confirm).toContainText('Delete "Asteria" permanently?');
+  await expect(confirm).toContainText(`Delete "${worldName}" permanently?`);
 
   await confirm.getByRole("button", { name: "Back" }).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
