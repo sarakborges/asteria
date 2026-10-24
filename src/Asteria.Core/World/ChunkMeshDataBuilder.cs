@@ -940,8 +940,6 @@ var (originX, originY, originZ) =
 
     private static void EmitGroundSprite(
         Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
-        VoxelWorld world,
-        BlockRegistry blocks,
         TerrainTextureLookup textures,
         int blockX,
         int blockY,
