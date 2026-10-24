@@ -583,7 +583,7 @@ var (originX, originY, originZ) =
         {
             var material = ResolveFaceMaterial(
                 textures, definition, cell, face);
-            var topology = MeshFaceTopology.Neutral
+            var topology = MeshFaceTopology.Neutral;
 
             for (var tier = 0; tier < SpikeSegmentState.TiersPerVoxel;)
             {
@@ -639,7 +639,7 @@ var (originX, originY, originZ) =
             var face = top ? BlockFace.Top : BlockFace.Bottom;
             var material = ResolveFaceMaterial(
                 textures, definition, cell, face);
-            var topology = MeshFaceTopology.Neutral
+            var topology = MeshFaceTopology.Neutral;
             EmitSpikeHorizontalRim(
                 surface, collision, center, uvOrigin,
                 boundary / (float)SpikeSegmentState.TiersPerVoxel,
@@ -969,7 +969,6 @@ var (originX, originY, originZ) =
         var surface = GetSurface(
             surfaces,
             new TerrainRenderBatch(definition.RenderMode, definition.CastsShadow));
-        var topology = MeshFaceTopology.Neutral;
         var jitter = SpritePositionJitter.For(definition, worldPosition);
         var centerX = blockX + 0.5f + jitter.X;
         var centerZ = blockZ + 0.5f + jitter.Y;
@@ -1584,7 +1583,6 @@ var (originX, originY, originZ) =
         int worldOriginX = 0,
         int worldOriginZ = 0,
         BiomeTintSampleGrid? tintSamples = null,
-        float normalOffset = 0f,
         float normalOffset = 0f)
     {
         var triangleOrder =
