@@ -832,8 +832,6 @@ var (originX, originY, originZ) =
 
     private static void EmitCrossedSprite(
         Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
-        VoxelWorld world,
-        BlockRegistry blocks,
         TerrainTextureLookup textures,
         int blockX,
         int blockY,
@@ -873,8 +871,6 @@ var (originX, originY, originZ) =
             GetSurface(
                 surfaces,
                 batch);
-        var topology =
-            MeshFaceTopology.Neutral;
         var jitter = SpritePositionJitter.For(definition, worldPosition);
         var centerX =
             blockX + 0.5f + jitter.X;
