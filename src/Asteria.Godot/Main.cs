@@ -95,13 +95,9 @@ public partial class Main : Node3D
         _sessions.Active.FluidMesh;
     private FluidSimulationRuntime _fluidSimulationRuntime =>
         _sessions.Active.FluidSimulation;
-    private LightingRuntime _lightingRuntime =>
-        _sessions.Active.Lighting;
-
     private int ActiveWorldWorkerCount =>
         _residency.ActiveWorkerCount +
         _fluidSimulationRuntime.ActiveWorkerCount +
-        _lightingRuntime.ActiveWorkerCount +
         _terrainMeshPipeline.ActiveWorkerCount +
         _fluidMeshPipeline.ActiveWorkerCount;
 
@@ -110,7 +106,6 @@ public partial class Main : Node3D
     private bool HasReadyNonStreamingWorldWork =>
         (!_fluidSimulationRuntime.IsRunning &&
          _fluidUpdates.HasReadyWork(_worldTicks.CurrentTick)) ||
-        (!_lightingRuntime.IsRunning && _worldUpdates.HasLightingWork) ||
         (_terrainMeshPipeline.ActiveWorkerCount < 2 &&
          (_worldUpdates.HasPriorityMeshWork || _worldUpdates.HasBackgroundMeshWork)) ||
         (_fluidMeshPipeline.ActiveWorkerCount < MaxFluidMeshWorkers &&
@@ -168,7 +163,6 @@ public partial class Main : Node3D
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
     private VoxelTerrainMaterialSet _terrainMaterials = null!;
-    private HeldDynamicLightPresentation _heldDynamicLight = null!;
     private FluidMaterialCatalog _fluidMaterials = null!;
     private readonly WorldHudStateTracker _worldHud =
         new();
@@ -347,8 +341,6 @@ public partial class Main : Node3D
         _terrainMaterials =
             VoxelTerrainMaterialSet.Create(
                 _terrainTextures);
-        _heldDynamicLight = new HeldDynamicLightPresentation(
-            this, _blocks, _objects);
         _placementPreview = new BlockPlacementPreviewPresentation(
             this, _blocks, _fluids, _terrainTextureLookup, _terrainMaterials);
         _objectPlacementPreview = new ObjectPlacementPreviewPresentation(
@@ -665,7 +657,6 @@ public partial class Main : Node3D
         {
             _placementPreview.Hide();
             _objectPlacementPreview.Hide();
-            _heldDynamicLight.Clear();
             AdvanceDimensionTransition();
             _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, 0, false, false);
             return;
@@ -695,7 +686,7 @@ public partial class Main : Node3D
             delta,
             _worldUpdates.DirtyChunkCount,
             loadingWorld,
-            pendingLightingSeeds: _worldUpdates.LightingEditCount,
+            pendingLightingSeeds: 0,
             pendingPhysicsWakeups: _blockPhysicsUpdates.Count);
         var stageStart = Stopwatch.GetTimestamp();
         var availableWorkerSlots = Math.Max(
@@ -809,20 +800,11 @@ public partial class Main : Node3D
             WorldFrameStage.ObjectPresentation, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
-        PollLightingWorker();
-        _worldDiagnostics?.ObserveStage(
-            WorldFrameStage.LightingPoll, stageStart);
-
         stageStart = Stopwatch.GetTimestamp();
-        // Initial lighting can revise mesh inputs while the seam queue drains.
-        // Let it settle before starting bootstrap mesh builds, avoiding work
-        // that will immediately be rejected and rebuilt against newer light.
-        var allowMeshDispatch = _loading.AllowsMeshDispatch(
-            lightingSettled:
-                !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant));
+        var allowMeshDispatch = _loading.AllowsMeshDispatch(lightingSettled: true);
         DispatchReadyWorldWorkers(
             streamingPressure.IsPressured, streamingCenter,
-            _loading.AllowsLightingDispatch, allowMeshDispatch);
+            allowMeshDispatch);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.WorkerDispatch, stageStart);
 
@@ -850,10 +832,10 @@ public partial class Main : Node3D
             _residency.MaterializingCount,
             _chunkPresentations.Count,
             _loading.Progress.Phase.ToString(),
-            _worldUpdates.LightingEditCount,
+            0,
             _worldUpdates.DirtyChunkCount,
             _fluidMeshUpdates.DirtyChunkCount,
-            _lightingRuntime.IsRunning,
+            false,
             _fluidSimulationRuntime.IsRunning);
 
         if (loadingWorld)
@@ -1245,7 +1227,6 @@ public partial class Main : Node3D
         _worldDiagnostics?.Write(
             $"world.leave.complete generation={completion.SavedGeneration}");
         _dimensionEnvironment.Clear();
-        _heldDynamicLight.Clear();
         _placementPreview.Hide();
         _objectPlacementPreview.Hide();
         _ambientParticleRuntime = null;
@@ -1317,11 +1298,6 @@ public partial class Main : Node3D
             _dimensionEnvironment.FollowCamera(
                 player.Camera.GlobalPosition, deltaSeconds);
         }
-        _heldDynamicLight.Sync(
-            _worldReadySent && _sessionStates.Player.CanInteract
-                ? _sessionStates.Player.Inventory
-                : null,
-            _player?.Camera);
     }
 
     private void SendWorldClockState(
@@ -2582,8 +2558,7 @@ public partial class Main : Node3D
         new(
             ResidencySettled: !_residency.HasRenderableBacklog,
             SelectionSettled: !_chunkStreaming.IsSelectionRunning,
-            LightingSettled:
-                !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant),
+            LightingSettled: true,
             TerrainMeshWorkSettled:
                 !_terrainMeshPipeline.HasWorkAffecting(_residency.IsDesired),
             TerrainPublicationsSettled:
@@ -5816,50 +5791,6 @@ public partial class Main : Node3D
         }
     }
 
-    private void PollLightingWorker()
-    {
-        if (!_lightingRuntime.TryPollCompleted(
-                out var report,
-                out var error))
-        {
-            return;
-        }
-
-        if (error is not null)
-        {
-            _worldDiagnostics?.Error("worker.lighting.failed", error);
-            GD.PushError(error.ToString());
-            return;
-        }
-
-        if (report is null)
-        {
-            return;
-        }
-
-        _worldDiagnostics?.ObserveLighting(report);
-        if (report.Kind != LightingCompletionKind.Applied)
-        {
-            return;
-        }
-        if (_debugHudVisible)
-        {
-            GD.Print(
-                $"world.lighting worker_ms=" +
-                $"{report.WorkerMilliseconds:F2} " +
-                $"light_changes=" +
-                $"{report.ChangedVoxelCount} " +
-                $"dirty_chunks=" +
-                $"{report.DirtyChunkCount} " +
-                $"dirty_meshlets=" +
-                $"{report.DirtyMeshletCount} " +
-                $"light_processed=" +
-                $"{report.ProcessedVoxelCount} " +
-                $"capture_ms={report.CaptureMilliseconds:F2} " +
-                $"apply_ms={report.ApplyMilliseconds:F2}");
-        }
-
-    }
 
     private void IntegrateMeshletPublications(
         WorldFrameWorkBudget budget)
@@ -5883,7 +5814,7 @@ public partial class Main : Node3D
 
     private void DispatchReadyWorldWorkers(
         bool underStreamingPressure, ChunkCoord center,
-        bool allowLightingDispatch, bool allowMeshDispatch)
+        bool allowMeshDispatch)
     {
         // Each domain owns an independent async worker. Snapshot capture still
         // runs against the authoritative world on this thread, so cap dispatch
@@ -5908,8 +5839,7 @@ public partial class Main : Node3D
                 0 => _fluidSimulationRuntime.TryStartReadyWork(),
                 1 => allowMeshDispatch && _terrainMeshPipeline.TryStartReadyWork(
                     underStreamingPressure, center, _residency.MovementDirection),
-                2 => allowLightingDispatch && _lightingRuntime.TryStartReadyWork(
-                    center, _residency.MovementDirection),
+                2 => false,
                 _ => allowMeshDispatch && _fluidMeshPipeline.TryStartReadyWork(
                     center, _residency.MovementDirection),
             };

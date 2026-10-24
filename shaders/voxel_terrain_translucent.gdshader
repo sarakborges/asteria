@@ -1,18 +1,11 @@
 shader_type spatial;
-render_mode ambient_light_disabled, specular_disabled, cull_back, blend_mix, depth_draw_never;
+render_mode unshaded, cull_back, blend_mix, depth_draw_never;
 
 uniform sampler2DArray terrain_textures : source_color, filter_nearest, repeat_enable;
 uniform vec2 wind_velocity = vec2(0.0, 0.0);
 uniform float preview_opacity : hint_range(0.0, 1.0) = 1.0;
-#include "res://shaders/held_shadow_light.gdshaderinc"
 
-const float AMBIENT_FLOOR = 0.055;
-const float SKY_LIGHT_GAMMA = 1.35;
-const float BLOCK_LIGHT_INTENSITY_GAMMA = 0.50;
-const float BLOCK_LIGHT_COLOR_STRENGTH = 0.72;
 
-varying float voxel_face_shade;
-varying vec4 voxel_light;
 
 vec3 apply_layer_tint(vec3 source, vec3 tint) {
     const vec3 weights = vec3(0.2126, 0.7152, 0.0722);
@@ -38,18 +31,6 @@ void vertex() {
             VERTEX.xz += dir * sin(phase) * amplitude +
                 perpendicular * sin(phase * 0.61 + 1.73) * amplitude * 0.28;
         }
-    }
-    voxel_light = CUSTOM0;
-
-    vec3 normal = normalize(NORMAL);
-    vec3 axis = abs(normal);
-
-    if (axis.y >= axis.x && axis.y >= axis.z) {
-        voxel_face_shade = normal.y >= 0.0 ? 1.0 : 0.5;
-    } else if (axis.z >= axis.x) {
-        voxel_face_shade = 0.8;
-    } else {
-        voxel_face_shade = 0.6;
     }
 }
 
@@ -91,37 +72,7 @@ void fragment() {
         alpha = alpha + overlay.a * (1.0 - alpha);
     }
 
-    float sky_level = clamp(voxel_light.r, 0.0, 1.0);
-    vec3 block_levels = clamp(voxel_light.gba, vec3(0.0), vec3(1.0));
-    float ambient_occlusion = clamp(COLOR.a, 0.0, 1.0);
-
-    float sky_local_light = mix(
-        AMBIENT_FLOOR,
-        1.0,
-        pow(sky_level, SKY_LIGHT_GAMMA)
-    );
-
-    float block_peak = max(max(block_levels.r, block_levels.g), block_levels.b);
-    vec3 block_hue = block_levels / max(block_peak, 0.001);
-    float block_intensity = pow(block_peak, BLOCK_LIGHT_INTENSITY_GAMMA);
-
-    float combined_intensity =
-        1.0 - (1.0 - sky_local_light) * (1.0 - block_intensity);
-    float block_hue_weight = smoothstep(0.08, 0.55, block_intensity);
-    float color_weight = block_hue_weight * BLOCK_LIGHT_COLOR_STRENGTH;
-    vec3 combined_hue = mix(vec3(1.0), block_hue, color_weight);
-
-    vec3 local_light =
-        combined_hue *
-        combined_intensity *
-        ambient_occlusion *
-        voxel_face_shade;
-
-    // Preserve voxel lighting as light-independent emission. The Godot
-    // OmniLight contribution is evaluated only where its shadow map is visible.
-    EMISSION = rgb * local_light;
     ALBEDO = rgb;
-    held_surface_shade = ambient_occlusion * voxel_face_shade;
     ROUGHNESS = 1.0;
     ALPHA = alpha * preview_opacity;
 }

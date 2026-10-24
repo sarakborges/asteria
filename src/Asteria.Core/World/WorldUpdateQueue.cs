@@ -17,9 +17,7 @@ public sealed class WorldUpdateQueue
         HasLightingWork ||
         HasMeshWork;
 
-    public bool HasLightingWork =>
-        _priorityLightingEdits.Count > 0 ||
-        _lightingEdits.Count > 0;
+    public bool HasLightingWork => false;
 
     public bool HasMeshWork =>
         HasPriorityMeshWork ||
@@ -31,8 +29,7 @@ public sealed class WorldUpdateQueue
     public bool HasBackgroundMeshWork =>
         _backgroundMeshlets.Count > 0;
 
-    public int LightingEditCount =>
-        _priorityLightingEdits.Count + _lightingEdits.Count;
+    public int LightingEditCount => 0;
 
     public int DirtyChunkCount
     {
@@ -61,8 +58,7 @@ public sealed class WorldUpdateQueue
     public bool HasLightingWorkInChunks(Func<ChunkCoord, bool> includesChunk)
     {
         ArgumentNullException.ThrowIfNull(includesChunk);
-        return _priorityLightingSeedsByChunk.Keys.Any(includesChunk) ||
-            _lightingSeedsByChunk.Keys.Any(includesChunk);
+        return false;
     }
 
     public bool HasMeshWorkInChunks(Func<ChunkCoord, bool> includesChunk)
@@ -78,12 +74,6 @@ public sealed class WorldUpdateQueue
     {
         ArgumentNullException.ThrowIfNull(world);
 
-        // A live voxel edit must not wait behind streaming/fluid lighting work.
-        // Remove a same-position background seed so one edit is never solved twice.
-        if (_lightingEdits.Remove(position))
-            RemoveLightingSeed(_lightingSeedsByChunk, position);
-        if (_priorityLightingEdits.Enqueue(position))
-            AddLightingSeed(_priorityLightingSeedsByChunk, position);
         EnqueueVoxelMeshlets(
             world,
             position,
@@ -94,12 +84,7 @@ public sealed class WorldUpdateQueue
     public void EnqueueSurfaceEdit(VoxelWorld world, WorldVoxelCoord position) =>
         EnqueueVoxelMeshlets(world, position, priority: true);
 
-    public void EnqueueLighting(
-        WorldVoxelCoord position)
-    {
-        if (_lightingEdits.Enqueue(position))
-            AddLightingSeed(_lightingSeedsByChunk, position);
-    }
+    public void EnqueueLighting(WorldVoxelCoord position) { }
 
     public void EnqueueVoxelMeshlets(
         VoxelWorld world,
