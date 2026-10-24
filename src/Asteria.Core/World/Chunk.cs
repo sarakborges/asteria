@@ -353,14 +353,6 @@ public sealed class Chunk
             ObjectRevision)
         { ObjectCount = this.ObjectCount };
 
-    /// <summary>
-    /// Creates an isolated lighting snapshot. Surface appearance state is
-    /// intentionally omitted because the light solver only reads block/fluid
-    /// cells, microblock geometry, attached Objects and the current light field.
-    /// </summary>
-;
-
-
     public BlockSurfaceState GetSurfaceState(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
