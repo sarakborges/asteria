@@ -11,6 +11,34 @@ public sealed class WorldUpdateQueue
 
     public bool HasWork => HasMeshWork;
 
+    // The world has no voxel illumination. These no-op members keep older
+    // gameplay/tests source-compatible while all lighting work remains disabled.
+    public bool HasLightingWork => false;
+
+    public int LightingEditCount => 0;
+
+    public bool HasLightingWorkInChunks(Func<ChunkCoord, bool> includesChunk)
+    {
+        ArgumentNullException.ThrowIfNull(includesChunk);
+        return false;
+    }
+
+    public void EnqueueLighting(WorldVoxelCoord position) { }
+
+    public WorldLightingBatch DrainLighting(
+        int maximumPositions = int.MaxValue,
+        int maximumColumns = int.MaxValue,
+        VoxelWorld? world = null,
+        ChunkCoord? center = null,
+        ChunkMovementDirection movement = default) =>
+        new(Array.Empty<WorldVoxelCoord>());
+
+    public void RequeueLighting(WorldLightingBatch batch, VoxelWorld world)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        ArgumentNullException.ThrowIfNull(world);
+    }
+
     public bool HasMeshWork =>
         HasPriorityMeshWork ||
         HasBackgroundMeshWork;
@@ -317,4 +345,11 @@ public sealed record WorldMeshBatch(
 {
     public bool IsEmpty =>
         DirtyMeshlets.Count == 0;
+}
+
+public sealed record WorldLightingBatch(
+    IReadOnlyList<WorldVoxelCoord> EditedPositions,
+    bool IsPriority = false)
+{
+    public bool IsEmpty => EditedPositions.Count == 0;
 }
