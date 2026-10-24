@@ -4661,10 +4661,12 @@ public partial class Main : Node3D
             _targetHud.Reset();
         }
 
+        // The target HUD identifies blocks, not the fluid volume in front of them.
+        // Keep placement's separate fluid-surface targeting behavior unchanged.
         var hit =
             _player is
                 { IsMouseCaptured: true }
-                ? CurrentTarget(includeFluidSource: true)
+                ? CurrentTarget()
                 : null;
 
         var fluidChanged = _targetHud.TryCaptureFluid(
