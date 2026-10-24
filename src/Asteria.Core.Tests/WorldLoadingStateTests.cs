@@ -60,6 +60,31 @@ public sealed class WorldLoadingStateTests
     }
 
     [Fact]
+    public void MeshDispatchWaitsForLightingDuringBootstrapButNotAfterLoading()
+    {
+        var loading = new WorldLoadingState();
+        Assert.True(loading.AllowsMeshDispatch(lightingSettled: false));
+
+        loading.Begin(ChunkCoord.Zero);
+        Assert.False(loading.AllowsMeshDispatch(lightingSettled: false));
+        Assert.True(loading.AllowsMeshDispatch(lightingSettled: true));
+
+        loading.UpdateResidency(
+            desired: 4, pending: 0, materializing: 0, selectionRunning: false);
+        Assert.Equal(
+            WorldLoadingPhase.PreparingPresentation,
+            loading.Progress.Phase);
+        Assert.False(loading.AllowsMeshDispatch(lightingSettled: false));
+        Assert.True(loading.AllowsMeshDispatch(lightingSettled: true));
+
+        loading.BeginRetirement();
+        Assert.False(loading.AllowsMeshDispatch(lightingSettled: true));
+
+        loading.Reset();
+        Assert.True(loading.AllowsMeshDispatch(lightingSettled: false));
+    }
+
+    [Fact]
     public void ZeroDesiredSelectionCannotBecomeReady()
     {
         var loading = new WorldLoadingState();
