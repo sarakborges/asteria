@@ -138,10 +138,8 @@ public sealed class FluidDefinition
         FluidColor color,
         float opacity,
         float roughness = 1f,
-        byte lightDampening = 0,
         float spreadSpeed = 1f,
         ushort maxSpread = 7,
-        BlockLightEmission lightEmission = default,
         FluidMotionDefinition? motion = null,
         string? texture = null,
         float contactDamagePerSecond = 0f,
@@ -163,13 +161,6 @@ public sealed class FluidDefinition
             throw new ArgumentOutOfRangeException(
                 nameof(roughness),
                 "Fluid roughness must be within 0..1.");
-        }
-
-        if (lightDampening > VoxelLight.MaxLevel)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(lightDampening),
-                "Fluid light dampening must be within 0..15.");
         }
 
         if (!float.IsFinite(spreadSpeed) ||
@@ -199,10 +190,8 @@ public sealed class FluidDefinition
         Color = color;
         Opacity = opacity;
         Roughness = roughness;
-        LightDampening = lightDampening;
         SpreadSpeed = spreadSpeed;
         MaxSpread = maxSpread;
-        LightEmission = lightEmission;
         Motion =
             motion ??
             FluidMotionDefinition.Default;
@@ -221,53 +210,15 @@ public sealed class FluidDefinition
 
     public float Roughness { get; }
 
-    public byte LightDampening { get; }
 
     public float SpreadSpeed { get; }
 
     public ushort MaxSpread { get; }
 
-    public BlockLightEmission LightEmission { get; }
 
     public FluidMotionDefinition Motion { get; }
 
     public string? Texture { get; }
-
-    internal static byte ScaleLightDampening(
-        byte fullDampening,
-        byte level)
-    {
-        if (fullDampening == 0 || level == 0)
-            return 0;
-
-        var clampedDampening = Math.Min(fullDampening, VoxelLight.MaxLevel);
-        var clampedLevel = Math.Clamp(
-            level, FluidCell.MinLevel, FluidCell.MaxLevel);
-        var numerator = clampedDampening * clampedLevel;
-        return checked((byte)Math.Min(
-            VoxelLight.MaxLevel,
-            (numerator + FluidCell.MaxLevel - 1) / FluidCell.MaxLevel));
-    }
-
-    internal static BlockLightEmission ScaleLightEmission(
-        BlockLightEmission fullEmission,
-        byte level) =>
-        new(
-            ScaleLightChannel(fullEmission.Red, level),
-            ScaleLightChannel(fullEmission.Green, level),
-            ScaleLightChannel(fullEmission.Blue, level));
-
-    private static byte ScaleLightChannel(byte fullEmission, byte level)
-    {
-        if (fullEmission == 0 || level == 0)
-            return 0;
-
-        var clampedLevel = Math.Clamp(
-            level, FluidCell.MinLevel, FluidCell.MaxLevel);
-        var numerator = fullEmission * clampedLevel;
-        return checked((byte)((numerator + FluidCell.MaxLevel - 1) /
-            FluidCell.MaxLevel));
-    }
 
     internal static void ValidateId(string id)
     {
@@ -297,10 +248,8 @@ public static class FluidDefinitionJson
                 RequiredString(root, "color")),
             RequiredSingle(root, "opacity"),
             OptionalSingle(root, "roughness") ?? 1f,
-            OptionalByte(root, "lightDampening") ?? 0,
             OptionalSingle(root, "spreadSpeed") ?? 1f,
             OptionalUShort(root, "maxSpread") ?? 7,
-            ParseLightEmission(root),
             ParseMotion(root),
             OptionalString(root, "texture"),
             OptionalSingle(root, "contactDamagePerSecond") ?? 0f,
@@ -373,73 +322,6 @@ public static class FluidDefinitionJson
                 motion,
                 "passiveSinkSpeed") ??
                 defaults.PassiveSinkSpeed);
-    }
-
-    private static BlockLightEmission ParseLightEmission(
-        JsonElement root)
-    {
-        if (!root.TryGetProperty(
-                "lightEmission",
-                out var emission) ||
-            emission.ValueKind == JsonValueKind.Null)
-        {
-            return default;
-        }
-
-        if (emission.ValueKind ==
-            JsonValueKind.Number)
-        {
-            if (!emission.TryGetByte(
-                    out var level) ||
-                level > VoxelLight.MaxLevel)
-            {
-                throw new FormatException(
-                    "Fluid lightEmission must be within 0..15.");
-            }
-
-            return new BlockLightEmission(
-                level,
-                level,
-                level);
-        }
-
-        if (emission.ValueKind !=
-            JsonValueKind.Object)
-        {
-            throw new FormatException(
-                "Fluid lightEmission must be a 0..15 number or RGB object.");
-        }
-
-        return new BlockLightEmission(
-            RequiredLightChannel(
-                emission,
-                "red"),
-            RequiredLightChannel(
-                emission,
-                "green"),
-            RequiredLightChannel(
-                emission,
-                "blue"));
-    }
-
-    private static byte RequiredLightChannel(
-        JsonElement emission,
-        string channel)
-    {
-        if (!emission.TryGetProperty(
-                channel,
-                out var value) ||
-            value.ValueKind !=
-                JsonValueKind.Number ||
-            !value.TryGetByte(
-                out var level) ||
-            level > VoxelLight.MaxLevel)
-        {
-            throw new FormatException(
-                $"Fluid lightEmission.{channel} must be within 0..15.");
-        }
-
-        return level;
     }
 
     private static string RequiredString(
@@ -545,15 +427,8 @@ public static class FluidDefinitionJson
 
 public sealed class FluidRegistry
 {
-    private const int LightingLevelsPerFluid = FluidCell.MaxLevel + 1;
-
     private readonly FluidDefinition[] _definitions;
     private readonly Dictionary<string, FluidRuntimeId> _idsByName;
-    // Fluid lighting depends only on immutable definition + fill level. Flatten
-    // this tiny lookup table so voxel hot paths do not repeatedly resolve the
-    // definition and rescale the same values across thousands of cells.
-    private readonly byte[] _lightDampeningByLevel;
-    private readonly BlockLightEmission[] _lightEmissionByLevel;
 
     public FluidRegistry(IEnumerable<FluidDefinition> definitions)
     {
@@ -573,9 +448,6 @@ public sealed class FluidRegistry
             new Dictionary<string, FluidRuntimeId>(
                 authored.Length,
                 StringComparer.Ordinal);
-        var tableLength = checked(_definitions.Length * LightingLevelsPerFluid);
-        _lightDampeningByLevel = new byte[tableLength];
-        _lightEmissionByLevel = new BlockLightEmission[tableLength];
 
         for (var index = 0;
              index < authored.Length;
@@ -601,31 +473,8 @@ public sealed class FluidRegistry
 
             _definitions[runtimeId.Value] =
                 definition;
-            for (byte level = FluidCell.MinLevel;
-                 level <= FluidCell.MaxLevel;
-                 level++)
-            {
-                var tableIndex = LightingIndex(runtimeId, level);
-                _lightDampeningByLevel[tableIndex] =
-                    FluidDefinition.ScaleLightDampening(
-                        definition.LightDampening, level);
-                _lightEmissionByLevel[tableIndex] =
-                    FluidDefinition.ScaleLightEmission(
-                        definition.LightEmission, level);
-            }
         }
     }
-
-    internal byte GetLightDampeningAtLevel(
-        FluidRuntimeId runtimeId, byte level) =>
-        _lightDampeningByLevel[LightingIndex(runtimeId, level)];
-
-    internal BlockLightEmission GetLightEmissionAtLevel(
-        FluidRuntimeId runtimeId, byte level) =>
-        _lightEmissionByLevel[LightingIndex(runtimeId, level)];
-
-    private static int LightingIndex(FluidRuntimeId runtimeId, byte level) =>
-        runtimeId.Value * LightingLevelsPerFluid + level;
 
     public int AuthoredCount =>
         _definitions.Length - 1;
