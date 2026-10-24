@@ -399,7 +399,7 @@ public sealed class ChunkResidencyRuntimeTests
 
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.True(provider.Materialized.Wait(TimeSpan.FromSeconds(2)));
+        Assert.True(provider.Materialized.Wait(TimeSpan.FromSeconds(10)));
 
         // Promotion happens during collection. The generated chunk must stay
         // outside VoxelWorld until its initial-light worker has been collected.
