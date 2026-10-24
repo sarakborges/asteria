@@ -170,14 +170,6 @@ public sealed class WorldUpdateQueue
         _backgroundMeshlets.Remove(coord);
     }
 
-    public WorldLightingBatch DrainLighting(
-        int maximumPositions = int.MaxValue,
-        int maximumColumns = int.MaxValue,
-        VoxelWorld? world = null,
-        ChunkCoord? center = null,
-        ChunkMovementDirection movement = default) =>
-        new(Array.Empty<WorldVoxelCoord>());
-
     public WorldMeshBatch DrainMeshlets(
         int maximumMeshlets = int.MaxValue,
         int maximumChunks = int.MaxValue)
@@ -317,14 +309,6 @@ public sealed class WorldUpdateQueue
     }
 
 
-}
-
-public sealed record WorldLightingBatch(
-    IReadOnlyList<WorldVoxelCoord> EditedPositions,
-    bool IsPriority = false)
-{
-    public bool IsEmpty =>
-        EditedPositions.Count == 0;
 }
 
 public sealed record WorldMeshBatch(
