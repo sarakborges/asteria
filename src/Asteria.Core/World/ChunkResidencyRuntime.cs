@@ -41,7 +41,6 @@ public sealed class ChunkResidencySettings
 
         MaxMaterializationsInFlight =
             maxMaterializationsInFlight;
-        MaxInitialLightingTasksInFlight = 0;
         MaxTerrainMaterializationsInFlight = maxMaterializationsInFlight;
         MaxDispatchesPerFrame =
             maxDispatchesPerFrame;
@@ -56,7 +55,6 @@ public sealed class ChunkResidencySettings
 
     public int MaxTerrainMaterializationsInFlight { get; }
 
-    public int MaxInitialLightingTasksInFlight { get; }
 
     public int MaxDispatchesPerFrame { get; }
 
@@ -77,8 +75,7 @@ public readonly record struct ChunkResidencyActivation(
     ChunkCoord Coord,
     ChunkActivationSource Source,
     double WorkerMilliseconds,
-    double TerrainMilliseconds = 0d,
-    double InitialLightingMilliseconds = 0d);
+    double TerrainMilliseconds = 0d);
 
 public readonly record struct FluidActivationWorkReport(
     int CompletedChunks,
@@ -143,8 +140,7 @@ public sealed class ChunkResidencyRuntime
     private readonly ChunkResidencySettings _settings;
     private readonly ChunkStreamingState _streaming = new();
     private readonly ChunkPresentationSelection _presentationSelection = new();
-    // Stage 1 generates terrain data; stage 2 initializes local lighting.
-    // A coordinate remains materializing until stage 2 completes.
+    // Materialization tasks own terrain data generation.
     private readonly Dictionary<ChunkCoord, Task<GeneratedChunk>>
         _materializationTasks = [];
 private const int FluidActivationItemsPerSlice = 32;
@@ -228,9 +224,6 @@ private const int FluidActivationItemsPerSlice = 32;
 
     public bool IsDesired(ChunkCoord coord) => _streaming.IsDesired(coord);
 
-    public bool IsLightingRelevant(ChunkCoord coord) =>
-        _streaming.IsLightingRelevant(coord);
-
     public int RetainedCount => _streaming.RetainedCount;
 
     public int PendingCount => _streaming.PendingCount;
@@ -238,9 +231,7 @@ private const int FluidActivationItemsPerSlice = 32;
     public int MaterializingCount =>
         _streaming.MaterializingCount;
 
-    public int InitialLightingPendingCount => 0;
-
-    /// <summary>Background tasks currently owning terrain or initial-light stages.</summary>
+    /// <summary>Background tasks currently generating terrain data.</summary>
     public int ActiveWorkerCount =>
         _materializationTasks.Count;
 
@@ -374,8 +365,7 @@ private const int FluidActivationItemsPerSlice = 32;
             _world.InsertChunk(coord, generated.Chunk);
             activations.Add(ActivateResidentChunk(
                 coord, ChunkActivationSource.Provider,
-                generated.TerrainMilliseconds, generated.TerrainMilliseconds,
-                InitialLightingMilliseconds: 0d));
+                generated.TerrainMilliseconds, generated.TerrainMilliseconds));
         }
 
         if (processed > 0)
@@ -410,8 +400,8 @@ private const int FluidActivationItemsPerSlice = 32;
         var dispatched = 0;
         var restored = 0;
 
-        // Archived restores also mutate residency and wake lighting, fluids
-        // and physics. Bound them independently of provider dispatches.
+        // Archived restores also wake fluid simulation and physics.
+        // Bound them independently of provider dispatches.
         while (_materializationTasks.Count <
                    _settings.MaxTerrainMaterializationsInFlight &&
                _materializationTasks.Count <
@@ -575,8 +565,7 @@ private const int FluidActivationItemsPerSlice = 32;
         ChunkCoord coord,
         ChunkActivationSource source,
         double workerMilliseconds,
-        double terrainMilliseconds = 0d,
-        double initialLightingMilliseconds = 0d)
+        double terrainMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
 EnqueueResidentChunkFluidActivation(coord);
@@ -586,8 +575,7 @@ EnqueueResidentChunkFluidActivation(coord);
             coord,
             source,
             workerMilliseconds,
-            terrainMilliseconds,
-            initialLightingMilliseconds);
+            terrainMilliseconds);
     }
 
     private GeneratedChunk MaterializeTerrain(ChunkCoord coord)
