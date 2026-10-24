@@ -338,10 +338,7 @@ public sealed class Chunk
     // order is X/Z within each Y layer, so this avoids thousands of
     // coordinate validations and method calls for horizontally uniform light.
 
-    // Initial light of a truly empty chunk is uniform open sky. Filling
-    // the packed field once avoids four thousand medium/registry lookups.
-
-    public Chunk CloneForWorker() =>
+public Chunk CloneForWorker() =>
         new(
             _cells.Clone(),
             _fluids.Clone(),
