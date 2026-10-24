@@ -487,42 +487,6 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fluidBacklogMax = Math.Max(_fluidBacklogMax, backlog);
     }
 
-    public void ObserveLighting(LightingRuntimeReport report)
-    {
-        ArgumentNullException.ThrowIfNull(report);
-
-        _lightingCaptureMs += report.CaptureMilliseconds;
-        _lightingCaptureMaxMs = Math.Max(
-            _lightingCaptureMaxMs, report.CaptureMilliseconds);
-
-        _lightingSeedBatchMax = Math.Max(
-            _lightingSeedBatchMax, report.SeedCount);
-        if (report.Kind == LightingCompletionKind.RequeuedStale)
-        {
-            _lightingStaleSeedCount += report.SeedCount;
-            _lightingStaleBatches++;
-            if ((report.StaleDependencies & LightingDependencyChanges.Content) != 0)
-                _lightingStaleContentBatches++;
-            if ((report.StaleDependencies & LightingDependencyChanges.Residency) != 0)
-                _lightingStaleResidencyBatches++;
-            if (report.StaleDependencies == LightingDependencyChanges.None)
-                _lightingStaleUnknownBatches++;
-            _lightingDiscardedWorkerMs += report.WorkerMilliseconds;
-            return;
-        }
-
-        _lightingBatches++;
-        _lightingSeedCount += report.SeedCount;
-        _lightingMs += report.WorkerMilliseconds;
-        _lightingVoxels += report.ProcessedVoxelCount;
-        _lightingMediumSampleRequests += report.MediumSampleRequests;
-        _lightingMediumSampleCacheMisses += report.MediumSampleCacheMisses;
-        _lightingChanged += report.ChangedVoxelCount;
-        _lightingDirtyChunks += report.DirtyChunkCount;
-        _lightingApplyMs += report.ApplyMilliseconds;
-        _lightingApplyMaxMs = Math.Max(
-            _lightingApplyMaxMs, report.ApplyMilliseconds);
-    }
 
     public void FlushIfDue(
         int resident, int pending, int materializing,
