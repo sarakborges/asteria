@@ -6,6 +6,14 @@ public enum BlockPhysicsWaitReason : byte
     GravityBelowChunk = 1,
 }
 
+public readonly record struct BlockPhysicsWaitChunkCount(ChunkCoord Chunk, int Count);
+
+public readonly record struct BlockPhysicsWaitDistribution(
+    int SourceChunkCount,
+    int TargetChunkCount,
+    IReadOnlyList<BlockPhysicsWaitChunkCount> TopSourceChunks,
+    IReadOnlyList<BlockPhysicsWaitChunkCount> TopTargetChunks);
+
 public sealed class BlockPhysicsUpdateQueue
 {
     // Support checks can enqueue many voxels when chunks enter residency.
@@ -104,6 +112,40 @@ public sealed class BlockPhysicsUpdateQueue
     public int WaitingSupportCount => _waitingSupportCount;
 
     public int WaitingGravityCount => _waitingGravityCount;
+
+    public BlockPhysicsWaitDistribution CaptureWaitingDistribution(int maximumChunks = 3)
+    {
+        if (maximumChunks <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumChunks));
+
+        var sourceCounts = new Dictionary<ChunkCoord, int>();
+        foreach (var position in _waitingForChunk.Keys)
+        {
+            var sourceChunk = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk;
+            sourceCounts[sourceChunk] = sourceCounts.GetValueOrDefault(sourceChunk) + 1;
+        }
+
+        var topSources = sourceCounts
+            .Select(entry => new BlockPhysicsWaitChunkCount(entry.Key, entry.Value))
+            .OrderByDescending(entry => entry.Count)
+            .ThenBy(entry => entry.Chunk.Y)
+            .ThenBy(entry => entry.Chunk.Z)
+            .ThenBy(entry => entry.Chunk.X)
+            .Take(maximumChunks)
+            .ToArray();
+        var topTargets = _waitingByChunk
+            .Select(entry => new BlockPhysicsWaitChunkCount(entry.Key, entry.Value.Count))
+            .OrderByDescending(entry => entry.Count)
+            .ThenBy(entry => entry.Chunk.Y)
+            .ThenBy(entry => entry.Chunk.Z)
+            .ThenBy(entry => entry.Chunk.X)
+            .Take(maximumChunks)
+            .ToArray();
+
+        return new BlockPhysicsWaitDistribution(
+            sourceCounts.Count, _waitingByChunk.Count, topSources, topTargets);
+    }
 
     public void WaitForChunk(
         WorldVoxelCoord position,

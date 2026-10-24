@@ -170,6 +170,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _physicsUpdatesWaiting;
     private int _physicsUpdatesWaitingSupport;
     private int _physicsUpdatesWaitingGravity;
+    private int _physicsWaitingSourceChunkCount;
+    private int _physicsWaitingTargetChunkCount;
+    private string _physicsWaitingTopSources = "none";
+    private string _physicsWaitingTopTargets = "none";
     private int _physicsUpdatesPeak;
 
     private WorldDiagnosticsLog(DiagnosticSessionLog session)
@@ -306,6 +310,26 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     /// Counts remain cheap to read per frame, with peaks retained for each
     /// diagnostic window so short-lived population spikes are visible.
     /// </summary>
+    public void ObservePhysicsWaitDistribution(BlockPhysicsUpdateQueue updates)
+    {
+        ArgumentNullException.ThrowIfNull(updates);
+        if (Stopwatch.GetTimestamp() < _nextFlush)
+            return;
+
+        var distribution = updates.CaptureWaitingDistribution();
+        _physicsWaitingSourceChunkCount = distribution.SourceChunkCount;
+        _physicsWaitingTargetChunkCount = distribution.TargetChunkCount;
+        _physicsWaitingTopSources = FormatPhysicsWaitChunkCounts(distribution.TopSourceChunks);
+        _physicsWaitingTopTargets = FormatPhysicsWaitChunkCounts(distribution.TopTargetChunks);
+    }
+
+    private static string FormatPhysicsWaitChunkCounts(
+        IReadOnlyList<BlockPhysicsWaitChunkCount> chunks) =>
+        chunks.Count == 0
+            ? "none"
+            : string.Join(";", chunks.Select(entry =>
+                $"{entry.Chunk.X},{entry.Chunk.Y},{entry.Chunk.Z}:{entry.Count}"));
+
     public void ObserveGameplayPopulation(
         int creatures, int projectiles, int ambientParticles,
         int creatureParticles, int droppedBlocks, int fallingBlocks, int physicsPending,
@@ -569,6 +593,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"physics_waiting={_physicsUpdatesWaiting} " +
             $"physics_waiting_support={_physicsUpdatesWaitingSupport} " +
             $"physics_waiting_gravity={_physicsUpdatesWaitingGravity} " +
+            $"physics_wait_source_chunks={_physicsWaitingSourceChunkCount} " +
+            $"physics_wait_target_chunks={_physicsWaitingTargetChunkCount} " +
+            $"physics_wait_source_top={_physicsWaitingTopSources} " +
+            $"physics_wait_target_top={_physicsWaitingTopTargets} " +
             $"physics_pending_peak={_physicsUpdatesPeak} " +
             $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
             $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +

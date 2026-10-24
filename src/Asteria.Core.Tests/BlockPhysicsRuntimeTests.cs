@@ -172,24 +172,31 @@ public sealed class BlockPhysicsRuntimeTests
         var queue = new BlockPhysicsUpdateQueue();
         var supportPosition = new WorldVoxelCoord(3, 5, 2);
         var gravityPosition = new WorldVoxelCoord(4, 5, 2);
-        var neededChunk = new ChunkCoord(1, 0, 0);
+        var supportChunk = new ChunkCoord(1, 0, 0);
+        var gravityChunk = new ChunkCoord(2, 0, 0);
 
         queue.WaitForChunk(
-            supportPosition, neededChunk, BlockPhysicsWaitReason.SupportDependency);
+            supportPosition, supportChunk, BlockPhysicsWaitReason.SupportDependency);
         queue.WaitForChunk(
-            gravityPosition, neededChunk, BlockPhysicsWaitReason.GravityBelowChunk);
+            gravityPosition, gravityChunk, BlockPhysicsWaitReason.GravityBelowChunk);
 
         Assert.Equal(2, queue.WaitingCount);
         Assert.Equal(1, queue.WaitingSupportCount);
         Assert.Equal(1, queue.WaitingGravityCount);
+        var distribution = queue.CaptureWaitingDistribution();
+        Assert.Equal(1, distribution.SourceChunkCount);
+        Assert.Equal(2, distribution.TargetChunkCount);
+        Assert.Equal(2, Assert.Single(distribution.TopSourceChunks).Count);
+        Assert.Equal(1, distribution.TopTargetChunks[0].Count);
 
         // Reclassifying an existing dependency must not double-count it.
         queue.WaitForChunk(
-            gravityPosition, neededChunk, BlockPhysicsWaitReason.SupportDependency);
+            gravityPosition, gravityChunk, BlockPhysicsWaitReason.SupportDependency);
         Assert.Equal(2, queue.WaitingSupportCount);
         Assert.Equal(0, queue.WaitingGravityCount);
 
-        queue.WakeResidentChunk(neededChunk);
+        queue.WakeResidentChunk(supportChunk);
+        queue.WakeResidentChunk(gravityChunk);
 
         Assert.Equal(0, queue.WaitingCount);
         Assert.Equal(0, queue.WaitingSupportCount);

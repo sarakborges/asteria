@@ -828,6 +828,7 @@ public partial class Main : Node3D
             warmPresentationStats.TerrainMeshletsReused,
             warmPresentationStats.FluidMeshletsReused);
         PublishStorageBoxChanges();
+        _worldDiagnostics?.ObservePhysicsWaitDistribution(_blockPhysicsUpdates);
         _worldDiagnostics?.FlushIfDue(
             _world.ChunkCount,
             _residency.PendingCount,
