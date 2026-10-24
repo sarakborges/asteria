@@ -137,7 +137,8 @@ public sealed class FluidMeshPipeline
         var drained = _updates.Drain(
             _maximumMeshletsPerWorker,
             nearest ? center : null,
-            movement);
+            movement,
+            MeshWorkerSnapshotLimits.MaximumSourceChunksPerBatch);
 
         if (drained.IsEmpty)
         {
