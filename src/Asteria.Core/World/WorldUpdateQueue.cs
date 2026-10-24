@@ -331,31 +331,20 @@ public sealed class WorldUpdateQueue
     }
 
     public WorldMeshBatch DrainMeshlets(
-        int maximumMeshlets = int.MaxValue)
+        int maximumMeshlets = int.MaxValue,
+        int maximumChunks = int.MaxValue)
     {
-        if (maximumMeshlets <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumMeshlets));
-        }
+        ValidateMeshDrainLimits(maximumMeshlets, maximumChunks);
 
-        var result =
-            new Dictionary<ChunkCoord, ChunkMeshletMask>();
-        var remaining =
-            maximumMeshlets;
-
+        var result = new Dictionary<ChunkCoord, ChunkMeshletMask>();
+        var remaining = maximumMeshlets;
         MeshletMaskQueueDrain.Drain(
-            _priorityMeshlets,
-            result,
-            ref remaining);
+            _priorityMeshlets, result, ref remaining, maximumChunks);
 
-        if (remaining > 0)
-        {
+        var remainingChunks = maximumChunks - result.Count;
+        if (remaining > 0 && remainingChunks > 0)
             MeshletMaskQueueDrain.Drain(
-                _backgroundMeshlets,
-                result,
-                ref remaining);
-        }
+                _backgroundMeshlets, result, ref remaining, remainingChunks);
 
         return new WorldMeshBatch(result);
     }
@@ -363,25 +352,30 @@ public sealed class WorldUpdateQueue
     public WorldMeshBatch DrainPriorityMeshlets(
         int maximumMeshlets = int.MaxValue,
         ChunkCoord? center = null,
-        ChunkMovementDirection movement = default)
+        ChunkMovementDirection movement = default,
+        int maximumChunks = int.MaxValue)
     {
+        ValidateMeshDrainLimits(maximumMeshlets, maximumChunks);
         if (center is null)
-            return DrainMeshletLane(_priorityMeshlets, maximumMeshlets);
-        if (maximumMeshlets <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumMeshlets));
+            return DrainMeshletLane(
+                _priorityMeshlets, maximumMeshlets, maximumChunks);
 
         var selected = new Dictionary<ChunkCoord, ChunkMeshletMask>();
         var remaining = maximumMeshlets;
         MeshletMaskQueueDrain.DrainNearest(
-            _priorityMeshlets, selected, ref remaining, center.Value, movement);
+            _priorityMeshlets, selected, ref remaining, center.Value, movement,
+            maximumChunks);
         return new WorldMeshBatch(selected);
     }
 
     public WorldMeshBatch DrainBackgroundMeshlets(
-        int maximumMeshlets = int.MaxValue) =>
-        DrainMeshletLane(
-            _backgroundMeshlets,
-            maximumMeshlets);
+        int maximumMeshlets = int.MaxValue,
+        int maximumChunks = int.MaxValue)
+    {
+        ValidateMeshDrainLimits(maximumMeshlets, maximumChunks);
+        return DrainMeshletLane(
+            _backgroundMeshlets, maximumMeshlets, maximumChunks);
+    }
 
     public void RequeueLighting(
         WorldLightingBatch batch, VoxelWorld world)
@@ -431,25 +425,24 @@ public sealed class WorldUpdateQueue
 
     private static WorldMeshBatch DrainMeshletLane(
         SortedDictionary<ChunkCoord, ChunkMeshletMask> source,
-        int maximumMeshlets)
+        int maximumMeshlets,
+        int maximumChunks)
+    {
+        ValidateMeshDrainLimits(maximumMeshlets, maximumChunks);
+        var result = new Dictionary<ChunkCoord, ChunkMeshletMask>();
+        var remaining = maximumMeshlets;
+        MeshletMaskQueueDrain.Drain(
+            source, result, ref remaining, maximumChunks);
+        return new WorldMeshBatch(result);
+    }
+
+    private static void ValidateMeshDrainLimits(
+        int maximumMeshlets, int maximumChunks)
     {
         if (maximumMeshlets <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumMeshlets));
-        }
-
-        var result =
-            new Dictionary<ChunkCoord, ChunkMeshletMask>();
-        var remaining =
-            maximumMeshlets;
-
-        MeshletMaskQueueDrain.Drain(
-            source,
-            result,
-            ref remaining);
-
-        return new WorldMeshBatch(result);
+            throw new ArgumentOutOfRangeException(nameof(maximumMeshlets));
+        if (maximumChunks <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumChunks));
     }
 
     private static void AddLightingSeed(
