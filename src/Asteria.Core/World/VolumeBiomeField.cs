@@ -153,6 +153,44 @@ public sealed class VolumeBiomeField
             return null;
         }
 
+        return NormalizePlacementOwner(sample);
+    }
+
+    internal BiomeSample? SampleAtY(
+        VolumeBiomePlacementGrid grid,
+        int localX,
+        int worldY,
+        int localZ)
+    {
+        ArgumentNullException.ThrowIfNull(grid);
+        if (worldY < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(worldY));
+        }
+
+        var sample = grid[localX, localZ];
+        if (sample is null ||
+            !_formations.TryGetValue(
+                sample.Primary,
+                out var formation) ||
+            !formation.Any(rule =>
+                worldY >= rule.MinY &&
+                worldY <= rule.MaxY))
+        {
+            return null;
+        }
+
+        // Horizontal placement and its normalized ownership mixture are
+        // immutable across vertical chunks. Reuse the precomputed owner
+        // instead of allocating a new BiomeSample and influence arrays for
+        // every solid voxel within the same additive formation.
+        return grid.OwnerAt(localX, localZ);
+    }
+
+    private BiomeSample NormalizePlacementOwner(
+        BiomeSample sample)
+    {
         var ownedInfluences =
             sample.Influences
                 .Where(influence =>
@@ -200,13 +238,16 @@ public sealed class VolumeBiomeField
         var placements =
             new BiomeSample?[
                 checked(width * depth)];
+        var owners =
+            new BiomeSample?[placements.Length];
 
         if (_placement is null)
         {
             return new VolumeBiomePlacementGrid(
                 width,
                 depth,
-                placements);
+                placements,
+                owners);
         }
 
         var samples =
@@ -225,9 +266,9 @@ public sealed class VolumeBiomeField
                 if (_formations.ContainsKey(
                         sample.Primary))
                 {
-                    placements[
-                        z * width +
-                        x] = sample;
+                    var index = z * width + x;
+                    placements[index] = sample;
+                    owners[index] = NormalizePlacementOwner(sample);
                 }
             }
         }
@@ -235,7 +276,8 @@ public sealed class VolumeBiomeField
         return new VolumeBiomePlacementGrid(
             width,
             depth,
-            placements);
+            placements,
+            owners);
     }
 
     internal BiomeSample? SamplePlacement(
@@ -262,20 +304,34 @@ public sealed class VolumeBiomeField
 internal sealed class VolumeBiomePlacementGrid
 {
     private readonly BiomeSample?[] _placements;
+    private readonly BiomeSample?[] _owners;
 
     internal VolumeBiomePlacementGrid(
         int width,
         int depth,
-        BiomeSample?[] placements)
+        BiomeSample?[] placements,
+        BiomeSample?[] owners)
     {
         Width = width;
         Depth = depth;
         _placements = placements;
+        _owners = owners;
     }
 
     public int Width { get; }
 
     public int Depth { get; }
+
+    internal BiomeSample? OwnerAt(int x, int z)
+    {
+        if ((uint)x >= Width ||
+            (uint)z >= Depth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(x));
+        }
+
+        return _owners[z * Width + x];
+    }
 
     public BiomeSample? this[int x, int z]
     {
