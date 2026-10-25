@@ -150,13 +150,19 @@ public sealed class SurfaceChunkMaterializer
 
         // Resolve column-only metadata once. Terrain voxels are then visited
         // in the same Y/Z/X order as Chunk's linear storage.
+        var firstTerrainWorldY = Math.Max(originY, _floorY ?? 0);
+        var lastTerrainWorldY = Math.Min(
+            topExclusive - 1, _roofY ?? int.MaxValue);
+        var maximumSurfaceY = int.MinValue;
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
+            var surfaceY = column.HeightAt(localX, localZ);
+            maximumSurfaceY = Math.Max(maximumSurfaceY, surfaceY);
             var index = localX + Chunk.Size * localZ;
             columnMaterializationCaches[index] = new ColumnMaterializationCache
             {
-                SurfaceY = column.HeightAt(localX, localZ),
+                SurfaceY = surfaceY,
                 BaseY = column.BaseHeightAt(localX, localZ),
                 SurfaceFluidCutDepth =
                     column.SurfaceFluidCutDepthAt(localX, localZ),
@@ -164,9 +170,21 @@ public sealed class SurfaceChunkMaterializer
                 WorldZ = checked(originZ + localZ),
                 Sample = column.BiomeAt(localX, localZ),
             };
+
+            if (!_shellBlock.IsAir)
+            {
+                SetShellIfInChunk(
+                    chunk, localX, localZ, originY, topExclusive, _floorY);
+                SetShellIfInChunk(
+                    chunk, localX, localZ, originY, topExclusive, _roofY);
+            }
         }
 
-        for (var localY = 0; localY < Chunk.Size; localY++)
+        lastTerrainWorldY = Math.Min(lastTerrainWorldY, maximumSurfaceY);
+        for (var localY = firstTerrainWorldY - originY;
+             firstTerrainWorldY <= lastTerrainWorldY &&
+             localY <= lastTerrainWorldY - originY;
+             localY++)
         {
             var worldY = checked(originY + localY);
             for (var localZ = 0; localZ < Chunk.Size; localZ++)
@@ -184,13 +202,11 @@ public sealed class SurfaceChunkMaterializer
                     var worldX = state.WorldX;
                     var worldZ = state.WorldZ;
 
-                    // Shell planes remain authoritative even above the terrain.
+                    // Shell planes were installed before terrain writes.
+                    // Skip their voxels so geology cannot overwrite them.
                     if (!_shellBlock.IsAir &&
                         (worldY == _floorY || worldY == _roofY))
-                    {
-                        chunk.SetBlock(localX, localY, localZ, _shellBlock);
                         continue;
-                    }
 
                     if (worldY < (_floorY ?? 0) ||
                         worldY > surfaceY ||
