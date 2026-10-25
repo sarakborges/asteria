@@ -704,8 +704,27 @@ public sealed class BiomeSurfaceMaterialField
             // not opt into the intermediate cluster field.
             var grainPosition = RotateFieldPosition(
                 position, clusterInfluence > 0d ? 4 : 3);
-            var scores = new double[candidateBlocks.Length];
-            var grainValues = new double[candidateBlocks.Length];
+            var boundaryInfluence = _definition.BoundaryGrainInfluence;
+            Span<double> scores = default;
+            Span<double> grainValues = default;
+            if (boundaryInfluence > 0d && candidateBlocks.Length > 1)
+            {
+                // Most geology selections need only the winning score and
+                // never inspect the full score vector. For the few rules that
+                // roughen boundaries, stack storage avoids two heap arrays
+                // per voxel without changing the selector or its noise.
+                if (candidateBlocks.Length <= 32)
+                {
+                    scores = stackalloc double[candidateBlocks.Length];
+                    grainValues = stackalloc double[candidateBlocks.Length];
+                }
+                else
+                {
+                    scores = new double[candidateBlocks.Length];
+                    grainValues = new double[candidateBlocks.Length];
+                }
+            }
+
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
@@ -751,8 +770,11 @@ public sealed class BiomeSurfaceMaterialField
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
                 var gumbel = -Math.Log(-Math.Log(unit));
                 var score = gumbel + biases[index];
-                scores[index] = score;
-                grainValues[index] = grain;
+                if (!scores.IsEmpty)
+                {
+                    scores[index] = score;
+                    grainValues[index] = grain;
+                }
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -764,7 +786,6 @@ public sealed class BiomeSurfaceMaterialField
             // perturbation near material boundaries. That keeps deposit
             // interiors coherent while letting high-frequency grain roughen
             // edges where the leading candidates are already competitive.
-            var boundaryInfluence = _definition.BoundaryGrainInfluence;
             if (boundaryInfluence > 0d && candidateBlocks.Length > 1)
             {
                 var secondBestScore = double.NegativeInfinity;
