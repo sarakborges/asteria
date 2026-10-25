@@ -723,24 +723,23 @@ public sealed class BiomeSurfaceMaterialField
                     grainPosition.X, grainPosition.Y, grainPosition.Z,
                     grainScale, grainVerticalScale);
             var boundaryInfluence = _definition.BoundaryGrainInfluence;
-            Span<double> scores = default;
-            Span<double> grainValues = default;
-            if (boundaryInfluence > 0d && candidateBlocks.Length > 1)
+            var needsBoundaryScores =
+                boundaryInfluence > 0d && candidateBlocks.Length > 1;
+            // Most geology selections need only the winning score and never
+            // inspect the full score vector. Stack storage keeps the optional
+            // boundary-only vectors off the heap for ordinary pack sizes.
+            Span<double> scores = needsBoundaryScores &&
+                                  candidateBlocks.Length <= 32
+                ? stackalloc double[candidateBlocks.Length]
+                : Span<double>.Empty;
+            Span<double> grainValues = needsBoundaryScores &&
+                                       candidateBlocks.Length <= 32
+                ? stackalloc double[candidateBlocks.Length]
+                : Span<double>.Empty;
+            if (needsBoundaryScores && candidateBlocks.Length > 32)
             {
-                // Most geology selections need only the winning score and
-                // never inspect the full score vector. For the few rules that
-                // roughen boundaries, stack storage avoids two heap arrays
-                // per voxel without changing the selector or its noise.
-                if (candidateBlocks.Length <= 32)
-                {
-                    scores = stackalloc double[candidateBlocks.Length];
-                    grainValues = stackalloc double[candidateBlocks.Length];
-                }
-                else
-                {
-                    scores = new double[candidateBlocks.Length];
-                    grainValues = new double[candidateBlocks.Length];
-                }
+                scores = new double[candidateBlocks.Length];
+                grainValues = new double[candidateBlocks.Length];
             }
 
             var bestScore = double.NegativeInfinity;
