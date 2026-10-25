@@ -114,6 +114,19 @@ var searchRadius =
 var metrics = new SortedDictionary<string, Measurement>(
     StringComparer.Ordinal);
 
+var initialAreaDiagnostics = new
+{
+    SpawnX = 0,
+    SpawnY = 0,
+    SpawnZ = 0,
+    CenterChunkX = 0,
+    CenterChunkY = 0,
+    CenterChunkZ = 0,
+    DesiredChunkCount = 0,
+    SurfaceColumnCount = 0,
+    ChunksByY = new SortedDictionary<int, int>(),
+};
+
 metrics.Add("biomeScalar", Measure(
     options.Samples,
     generator =>
@@ -317,6 +330,73 @@ if (structureSearchTarget is not null)
                     searchRadius))));
 }
 
+metrics.Add("initialSpawnSearch", Measure(
+    1,
+    generator =>
+    {
+        var spawn =
+            generator.FindGeneratedSurfaceDestination(
+                dimension.Spawn.X,
+                dimension.Spawn.Z,
+                maxRadius: 64);
+        return HashDestination(spawn);
+    }));
+
+metrics.Add("initialDesiredChunks", Measure(
+    1,
+    generator =>
+    {
+        var spawn =
+            generator.FindGeneratedSurfaceDestination(
+                dimension.Spawn.X,
+                dimension.Spawn.Z,
+                maxRadius: 64) ??
+            throw new InvalidOperationException(
+                "Benchmark dimension has no safe generated spawn within 64 blocks.");
+        var center =
+            VoxelCoordinates.FromWorld(
+                    spawn.X,
+                    spawn.Y,
+                    spawn.Z)
+                .Chunk;
+        var desired =
+            ChunkStreamingSelection.DesiredSurfaceChunks(
+                center,
+                horizontalRadius: 2,
+                generator);
+        var chunksByY = new SortedDictionary<int, int>();
+        foreach (var coord in desired)
+        {
+            chunksByY[coord.Y] = chunksByY.GetValueOrDefault(coord.Y) + 1;
+        }
+
+        initialAreaDiagnostics = new
+        {
+            SpawnX = spawn.X,
+            SpawnY = spawn.Y,
+            SpawnZ = spawn.Z,
+            CenterChunkX = center.X,
+            CenterChunkY = center.Y,
+            CenterChunkZ = center.Z,
+            DesiredChunkCount = desired.Count,
+            SurfaceColumnCount = desired.Select(coord => (coord.X, coord.Z)).Distinct().Count(),
+            ChunksByY = chunksByY,
+        };
+
+        var digest = 14695981039346656037UL;
+        foreach (var coord in desired
+                     .OrderBy(coord => coord.Z)
+                     .ThenBy(coord => coord.X)
+                     .ThenBy(coord => coord.Y))
+        {
+            digest = HashNumber(digest, unchecked((ulong)coord.X));
+            digest = HashNumber(digest, unchecked((ulong)coord.Y));
+            digest = HashNumber(digest, unchecked((ulong)coord.Z));
+        }
+
+        return HashNumber(digest, (ulong)desired.Count);
+    }));
+
 metrics.Add("chunkSynthesis", Measure(
     options.Chunks,
     generator =>
@@ -460,6 +540,7 @@ var result = new
     options.Chunks,
     options.SearchRadius,
     Metrics = metrics,
+    InitialAreaDiagnostics = initialAreaDiagnostics,
     Notes = new[]
     {
         "Cold and warm passes use identical coordinates and independent generator instances per metric.",
