@@ -66,6 +66,12 @@ public sealed class SurfaceStructureField
             new(
                 CandidateCacheCapacity);
 
+    // A sampler belongs to the synchronous placement query on the current
+    // worker thread. It is installed only while resolving an uncached chunk
+    // and cleared afterward, so parallel chunk generation never shares it.
+    private readonly ThreadLocal<BiomeField.Sampler?> _activeBiomeSampler =
+        new();
+
     public SurfaceStructureField(
         ulong seed,
         DimensionDefinition dimension,
@@ -777,6 +783,24 @@ public sealed class SurfaceStructureField
                 SurfaceStructurePlacement>();
         }
 
+        var previousSampler = _activeBiomeSampler.Value;
+        _activeBiomeSampler.Value =
+            previousSampler ?? _terrain.CreateBiomeSampler();
+        try
+        {
+            return ResolvePlacementsCore(chunkX, chunkZ);
+        }
+        finally
+        {
+            _activeBiomeSampler.Value = previousSampler;
+        }
+    }
+
+    private IReadOnlyList<SurfaceStructurePlacement>
+        ResolvePlacementsCore(
+            int chunkX,
+            int chunkZ)
+    {
         var originX =
             checked(
                 chunkX *
@@ -2377,8 +2401,13 @@ public sealed class SurfaceStructureField
         int worldX,
         int worldZ)
     {
-        var surface =
-            _terrain.SampleBaseSurfaceWithGeneratedFluid(
+        var sampler = _activeBiomeSampler.Value;
+        var surface = sampler is null
+            ? _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                worldX,
+                worldZ)
+            : _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                sampler,
                 worldX,
                 worldZ);
 
