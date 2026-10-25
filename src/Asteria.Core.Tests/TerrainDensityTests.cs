@@ -540,10 +540,12 @@ public sealed class TerrainDensityTests
             var worldX = originX + x;
             var worldY = chunkY * Chunk.Size + y;
             var worldZ = originZ + z;
-            Assert.Equal(
-                generator.DensityAt(worldX, worldY, worldZ) >= 0d,
-                !chunk.GetBlock(x, y, z).IsAir,
-                $"Density fast path diverged at {worldX},{worldY},{worldZ}.");
+            var expectedSolid =
+                generator.DensityAt(worldX, worldY, worldZ) >= 0d;
+            var actualSolid = !chunk.GetBlock(x, y, z).IsAir;
+            Assert.True(
+                expectedSolid == actualSolid,
+                $"Density fast path diverged at {worldX},{worldY},{worldZ}: expected {expectedSolid}, actual {actualSolid}.");
         }
     }
 
