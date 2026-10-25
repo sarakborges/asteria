@@ -106,6 +106,22 @@ public sealed class VolumeBiomeField
     public BiomeSample? SampleCave(int worldX, int worldZ) =>
         _cavePlacement?.Sample(worldX, worldZ);
 
+    /// <summary>
+    /// Samples cave ownership once per horizontal column, allowing vertical
+    /// chunk layers to reuse the same immutable identities without allocating
+    /// a fresh scalar sampler for every exposed cave voxel.
+    /// </summary>
+    internal BiomeSampleGrid? SampleCaveGrid(
+        int originX,
+        int originZ,
+        int width,
+        int depth) =>
+        _cavePlacement?.SampleGrid(
+            originX,
+            originZ,
+            width,
+            depth);
+
     public BiomeSample? Sample(
         int worldX,
         int worldY,
