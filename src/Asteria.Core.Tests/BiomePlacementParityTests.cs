@@ -5,6 +5,20 @@ namespace Asteria.Core.Tests;
 public sealed class BiomePlacementParityTests
 {
     [Fact]
+    public void BiomeSampleResolvesPrimaryInfluenceIndependentlyOfListOrder()
+    {
+        var sample = new BiomeSample(
+            "asteria:test/primary",
+            [
+                new BiomeInfluence("asteria:test/secondary", 0.6f, 0.4f),
+                new BiomeInfluence("asteria:test/primary", 0.4f, 0.75f),
+            ]);
+
+        Assert.Equal(0.4f, sample.PrimaryWeight);
+        Assert.Equal(0.75f, sample.PrimaryTerrainStrength);
+    }
+
+    [Fact]
     public void SpawnWeightIsIndependentFromLayoutWeight()
     {
         var stone =
