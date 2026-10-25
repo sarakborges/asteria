@@ -94,97 +94,38 @@ internal static class WorldGenerationEntropy
             _tz = WorldGenerationEntropy.SmoothStep(gz - floorZ);
         }
 
-        internal double Sample(ulong seed, GenerationDomain domain) =>
-            Sample(seed, domain, null);
-
-        internal double Sample(
-            ulong seed,
-            GenerationDomain domain,
-            ValueNoise3DSampleCache? cache)
+        internal double Sample(ulong seed, GenerationDomain domain)
         {
             var domainSeed = seed ^ domain.Key;
-            var n000 = cache is null
-                ? WorldGenerationEntropy.SignedUnit(
-                    WorldGenerationEntropy.Mix(domainSeed ^ _c000))
-                : cache.SampleSignedUnit(domainSeed, _c000);
-            var n100 = cache is null
-                ? WorldGenerationEntropy.SignedUnit(
-                    WorldGenerationEntropy.Mix(domainSeed ^ _c100))
-                : cache.SampleSignedUnit(domainSeed, _c100);
-            var n010 = cache is null
-                ? WorldGenerationEntropy.SignedUnit(
-                    WorldGenerationEntropy.Mix(domainSeed ^ _c010))
-                : cache.SampleSignedUnit(domainSeed, _c010);
-            var n110 = cache is null
-                ? WorldGenerationEntropy.SignedUnit(
-                    WorldGenerationEntropy.Mix(domainSeed ^ _c110))
-                : cache.SampleSignedUnit(domainSeed, _c110);
-            var n001 = cache is null
-                ? WorldGenerationEntropy.SignedUnit(
-                    WorldGenerationEntropy.Mix(domainSeed ^ _c001))
-                : cache.SampleSignedUnit(domainSeed, _c001);
-            var n101 = cache is null
-                ? WorldGenerationEntropy.SignedUnit(
-                    WorldGenerationEntropy.Mix(domainSeed ^ _c101))
-                : cache.SampleSignedUnit(domainSeed, _c101);
-            var n011 = cache is null
-                ? WorldGenerationEntropy.SignedUnit(
-                    WorldGenerationEntropy.Mix(domainSeed ^ _c011))
-                : cache.SampleSignedUnit(domainSeed, _c011);
-            var n111 = cache is null
-                ? WorldGenerationEntropy.SignedUnit(
-                    WorldGenerationEntropy.Mix(domainSeed ^ _c111))
-                : cache.SampleSignedUnit(domainSeed, _c111);
-
             var firstZ = WorldGenerationEntropy.Lerp(
-                WorldGenerationEntropy.Lerp(n000, n100, _tx),
-                WorldGenerationEntropy.Lerp(n010, n110, _tx),
+                WorldGenerationEntropy.Lerp(
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c000)),
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c100)),
+                    _tx),
+                WorldGenerationEntropy.Lerp(
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c010)),
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c110)),
+                    _tx),
                 _ty);
             var secondZ = WorldGenerationEntropy.Lerp(
-                WorldGenerationEntropy.Lerp(n001, n101, _tx),
-                WorldGenerationEntropy.Lerp(n011, n111, _tx),
+                WorldGenerationEntropy.Lerp(
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c001)),
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c101)),
+                    _tx),
+                WorldGenerationEntropy.Lerp(
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c011)),
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c111)),
+                    _tx),
                 _ty);
             return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
-        }
-    }
-
-    /// <summary>
-    /// Small thread-confined corner cache for one chunk's geology pass.
-    /// Direct-mapped collisions only evict cached values; they cannot change
-    /// sampled noise because every hit validates the complete hash input.
-    /// </summary>
-    internal sealed class ValueNoise3DSampleCache
-    {
-        private const int Capacity = 4096;
-        private const int Mask = Capacity - 1;
-        private ulong[]? _keys;
-        private double[]? _values;
-        private byte[]? _initialized;
-
-        internal double SampleSignedUnit(ulong domainSeed, ulong cornerHash)
-        {
-            // Mix() receives exactly this XOR input, so it is also a valid
-            // cache key across prepared coordinates and their noise domains.
-            var key = domainSeed ^ cornerHash;
-            var keys = _keys;
-            if (keys is null)
-            {
-                keys = new ulong[Capacity];
-                _keys = keys;
-                _values = new double[Capacity];
-                _initialized = new byte[Capacity];
-            }
-
-            var slot = (int)((key ^ (key >> 32) ^ (key >> 17)) & Mask);
-            if (_initialized![slot] != 0 && keys[slot] == key)
-                return _values![slot];
-
-            var sample = WorldGenerationEntropy.SignedUnit(
-                WorldGenerationEntropy.Mix(key));
-            keys[slot] = key;
-            _values![slot] = sample;
-            _initialized[slot] = 1;
-            return sample;
         }
     }
 

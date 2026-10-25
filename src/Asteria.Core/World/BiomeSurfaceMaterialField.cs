@@ -149,15 +149,6 @@ public sealed class BiomeSurfaceMaterialField
     /// </summary>
     public bool TryGeologyBlockAt(
         BiomeSample sample, int worldX, int worldY, int worldZ,
-        out BlockRuntimeId block) =>
-        TryGeologyBlockAt(sample, worldX, worldY, worldZ, null, out block);
-
-    internal bool TryGeologyBlockAt(
-        BiomeSample sample,
-        int worldX,
-        int worldY,
-        int worldZ,
-        WorldGenerationEntropy.ValueNoise3DSampleCache? noiseCache,
         out BlockRuntimeId block)
     {
         ArgumentNullException.ThrowIfNull(sample);
@@ -167,7 +158,7 @@ public sealed class BiomeSurfaceMaterialField
             return false;
         }
 
-        block = geology.BlockAt(_seed, worldX, worldY, worldZ, noiseCache);
+        block = geology.BlockAt(_seed, worldX, worldY, worldZ);
         return true;
     }
 
@@ -189,22 +180,11 @@ public sealed class BiomeSurfaceMaterialField
     /// </summary>
     public bool TrySurfaceGeologyBlockAt(
         BiomeSample sample, int worldX, int worldY, int worldZ,
-        out BlockRuntimeId block) =>
-        TrySurfaceGeologyBlockAt(
-            sample, worldX, worldY, worldZ, null, out block);
-
-    internal bool TrySurfaceGeologyBlockAt(
-        BiomeSample sample,
-        int worldX,
-        int worldY,
-        int worldZ,
-        WorldGenerationEntropy.ValueNoise3DSampleCache? noiseCache,
         out BlockRuntimeId block)
     {
         ArgumentNullException.ThrowIfNull(sample);
         if (!_geologyRules.TryGetValue(sample.Primary, out var geology) ||
-            !geology.TrySurfaceBlockAt(
-                _seed, worldX, worldY, worldZ, out block, noiseCache))
+            !geology.TrySurfaceBlockAt(_seed, worldX, worldY, worldZ, out block))
         {
             block = BlockRuntimeId.Air;
             return false;
@@ -557,30 +537,20 @@ public sealed class BiomeSurfaceMaterialField
         public float SurfaceCoverage => _definition.SurfaceCoverage;
         public bool SurfaceSubmergedOnly => _definition.SurfaceSubmergedOnly;
 
-        public BlockRuntimeId BlockAt(
-            ulong seed,
-            int x,
-            int y,
-            int z,
-            WorldGenerationEntropy.ValueNoise3DSampleCache? noiseCache = null)
+        public BlockRuntimeId BlockAt(ulong seed, int x, int y, int z)
         {
             // Base material and deposits now compete in one spatial selector.
             // The previous separate formation mask created a second set of
             // broad, continuous boundaries that looked like columns/sheets.
-            var position = WarpCoordinates(seed, x, y, z, noiseCache);
+            var position = WarpCoordinates(seed, x, y, z);
             return SelectMaterial(
                 seed, position, _volumeBlocks,
                 _volumeMaterialDomains, _volumeDetailDomains, _volumeMicroDomains,
-                _volumeClusterDomains, _volumeGrainDomains, _volumeBiases, noiseCache);
+                _volumeClusterDomains, _volumeGrainDomains, _volumeBiases);
         }
 
         public bool TrySurfaceBlockAt(
-            ulong seed,
-            int x,
-            int y,
-            int z,
-            out BlockRuntimeId block,
-            WorldGenerationEntropy.ValueNoise3DSampleCache? noiseCache = null)
+            ulong seed, int x, int y, int z, out BlockRuntimeId block)
         {
             if (_definition.SurfaceCoverage <= 0f)
             {
@@ -599,11 +569,11 @@ public sealed class BiomeSurfaceMaterialField
                 return false;
             }
 
-            var position = WarpCoordinates(seed, x, y, z, noiseCache);
+            var position = WarpCoordinates(seed, x, y, z);
             block = SelectMaterial(
                 seed, position, _blocks,
                 _surfaceMaterialDomains, _surfaceDetailDomains, _surfaceMicroDomains,
-                _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases, noiseCache);
+                _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases);
             return true;
         }
 
@@ -700,20 +670,16 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         private SpatialPosition WarpCoordinates(
-            ulong seed,
-            int x,
-            int y,
-            int z,
-            WorldGenerationEntropy.ValueNoise3DSampleCache? noiseCache)
+            ulong seed, int x, int y, int z)
         {
             var rotated = RotateCoordinates(x, y, z);
             var warpCoordinates =
                 WorldGenerationEntropy.PrepareValueNoise3D(
                     rotated.X, rotated.Y, rotated.Z,
                     _warpHorizontalScale, _warpVerticalScale);
-            var warpX = warpCoordinates.Sample(seed, _warpDomains[0], noiseCache);
-            var warpY = warpCoordinates.Sample(seed, _warpDomains[1], noiseCache);
-            var warpZ = warpCoordinates.Sample(seed, _warpDomains[2], noiseCache);
+            var warpX = warpCoordinates.Sample(seed, _warpDomains[0]);
+            var warpY = warpCoordinates.Sample(seed, _warpDomains[1]);
+            var warpZ = warpCoordinates.Sample(seed, _warpDomains[2]);
 
             // A second, smaller-scale warp breaks the broad domain warp's
             // smooth directional bends. It is sampled in another basis and is
@@ -724,11 +690,11 @@ public sealed class BiomeSurfaceMaterialField
                     detailPosition.X, detailPosition.Y, detailPosition.Z,
                     _detailWarpScale, _detailWarpVerticalScale);
             var detailWarpX =
-                detailWarpCoordinates.Sample(seed, _warpDetailDomains[0], noiseCache);
+                detailWarpCoordinates.Sample(seed, _warpDetailDomains[0]);
             var detailWarpY =
-                detailWarpCoordinates.Sample(seed, _warpDetailDomains[1], noiseCache);
+                detailWarpCoordinates.Sample(seed, _warpDetailDomains[1]);
             var detailWarpZ =
-                detailWarpCoordinates.Sample(seed, _warpDetailDomains[2], noiseCache);
+                detailWarpCoordinates.Sample(seed, _warpDetailDomains[2]);
 
             return new SpatialPosition(
                 rotated.X + warpX * _warpHorizontalStrength + detailWarpX * _detailWarpStrength,
@@ -745,8 +711,7 @@ public sealed class BiomeSurfaceMaterialField
             GenerationDomain[] microDomains,
             GenerationDomain[] clusterDomains,
             GenerationDomain[] grainDomains,
-            double[] biases,
-            WorldGenerationEntropy.ValueNoise3DSampleCache? noiseCache)
+            double[] biases)
         {
             // Fine-grain field introduces small three-dimensional pockets so
             // large formations cannot keep a single material through long
@@ -816,16 +781,16 @@ public sealed class BiomeSurfaceMaterialField
             for (var index = 0; index < candidateBlocks.Length; index++)
             {
                 var broad =
-                    broadCoordinates.Sample(seed, broadDomains[index], noiseCache);
+                    broadCoordinates.Sample(seed, broadDomains[index]);
                 var detail =
-                    detailCoordinates.Sample(seed, detailDomains[index], noiseCache);
+                    detailCoordinates.Sample(seed, detailDomains[index]);
                 var micro =
-                    microCoordinates.Sample(seed, microDomains[index], noiseCache);
+                    microCoordinates.Sample(seed, microDomains[index]);
                 var cluster = _clusterInfluence > 0d
-                    ? clusterCoordinates.Sample(seed, clusterDomains[index], noiseCache)
+                    ? clusterCoordinates.Sample(seed, clusterDomains[index])
                     : 0d;
                 var grain =
-                    grainCoordinates.Sample(seed, grainDomains[index], noiseCache);
+                    grainCoordinates.Sample(seed, grainDomains[index]);
 
                 // Split finer detail across intermediate clusters and very
                 // fine grain. The former creates coherent mineral pockets;

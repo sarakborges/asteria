@@ -69,36 +69,6 @@ public sealed class WorldGenerationNoiseTests
         return Lerp(firstZ, secondZ, tz);
     }
 
-    [Fact]
-    public void ContinuousNoiseCornerCachePreservesExactSamplesAcrossCollisions()
-    {
-        const ulong seed = 0xA57E_3D10_2026UL;
-        var domains = new[]
-        {
-            GenerationDomain.Named("tests/geology-cache/broad"),
-            GenerationDomain.Named("tests/geology-cache/detail"),
-            GenerationDomain.Named("tests/geology-cache/grain"),
-            GenerationDomain.Named("tests/geology-cache/warp"),
-        };
-        var cache = new WorldGenerationEntropy.ValueNoise3DSampleCache();
-
-        for (var index = 0; index < 400; index++)
-        {
-            var x = index * 0.371d - 120.25d;
-            var y = index * 0.217d - 30.125d;
-            var z = index * 0.513d - 220.75d;
-            var prepared = WorldGenerationEntropy.PrepareValueNoise3D(
-                x, y, z, horizontalScale: 17, verticalScale: 9);
-
-            foreach (var domain in domains)
-            {
-                var expected = prepared.Sample(seed, domain);
-                var actual = prepared.Sample(seed, domain, cache);
-                Assert.Equal(expected, actual);
-            }
-        }
-    }
-
     [Theory]
     [InlineData(-31, 7, -19, 8u, 6u)]
     [InlineData(13, 24, -42, 16u, 12u)]
