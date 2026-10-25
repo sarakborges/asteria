@@ -7,6 +7,19 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class BiomeSurfaceMaterialField
 {
+    private const int SampledColumnCacheCapacity = 8192;
+
+    private readonly record struct MaterialColumnKey(
+        BiomeSample Sample,
+        int WorldX,
+        int WorldZ,
+        SurfacePlacementContext? Placement);
+
+    private readonly BoundedMemoCache<
+        MaterialColumnKey,
+        BiomeSurfaceMaterialColumn> _sampledColumns =
+            new(SampledColumnCacheCapacity);
+
     private readonly ulong _seed;
     private readonly SurfaceTerrainField? _terrain;
     private readonly SurfaceMosaicField? _mosaic;
@@ -244,13 +257,24 @@ public sealed class BiomeSurfaceMaterialField
                 $"Surface biome {sample.Primary} has no material rule.");
         }
 
-        var mosaic = _mosaic?.Sample(sample, worldX, worldZ) ?? default;
-        return rule.SampleColumn(
-            _seed,
-            worldX,
-            worldZ,
-            PlacementFor(rule, worldX, worldZ, placement),
-            mosaic.Block);
+        // The same immutable X/Z biome is sampled again for each vertical
+        // chunk band. Cache the resolved layer-depth and block arrays so
+        // vertical materialization does not repeatedly allocate them.
+        var key = new MaterialColumnKey(
+            sample, worldX, worldZ, placement);
+        return _sampledColumns.GetOrAdd(
+            key,
+            () =>
+            {
+                var mosaic = _mosaic?.Sample(
+                    sample, worldX, worldZ) ?? default;
+                return rule.SampleColumn(
+                    _seed,
+                    worldX,
+                    worldZ,
+                    PlacementFor(rule, worldX, worldZ, placement),
+                    mosaic.Block);
+            });
     }
 
     /// <summary>
