@@ -734,14 +734,14 @@ public sealed class BiomeSurfaceMaterialField
             // scratch data on this call's stack and retain a heap fallback for
             // unusually large authored material sets.
             const int StackScoreCapacity = 16;
-            Span<double> scores = default;
-            Span<double> grainValues = default;
+            Span<double> scores = stackalloc double[StackScoreCapacity];
+            Span<double> grainValues = stackalloc double[StackScoreCapacity];
             if (needsBoundaryScores)
             {
                 if (candidateBlocks.Length <= StackScoreCapacity)
                 {
-                    scores = stackalloc double[candidateBlocks.Length];
-                    grainValues = stackalloc double[candidateBlocks.Length];
+                    scores = scores[..candidateBlocks.Length];
+                    grainValues = grainValues[..candidateBlocks.Length];
                 }
                 else
                 {
