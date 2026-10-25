@@ -46,18 +46,14 @@ internal static class WorldGenerationEntropy
     // at the same transformed position, so avoid repeating floor/division work.
     internal readonly struct ValueNoise3DCoordinates
     {
-        private readonly int _x0;
-        private readonly int _x1;
-        private readonly int _y0;
-        private readonly int _y1;
-        private readonly int _z0;
-        private readonly int _z1;
-        private readonly ulong _x0Hash;
-        private readonly ulong _x1Hash;
-        private readonly ulong _y0Hash;
-        private readonly ulong _y1Hash;
-        private readonly ulong _z0Hash;
-        private readonly ulong _z1Hash;
+        private readonly ulong _c000;
+        private readonly ulong _c100;
+        private readonly ulong _c010;
+        private readonly ulong _c110;
+        private readonly ulong _c001;
+        private readonly ulong _c101;
+        private readonly ulong _c011;
+        private readonly ulong _c111;
         private readonly double _tx;
         private readonly double _ty;
         private readonly double _tz;
@@ -72,18 +68,27 @@ internal static class WorldGenerationEntropy
             var floorX = Math.Floor(gx);
             var floorY = Math.Floor(gy);
             var floorZ = Math.Floor(gz);
-            _x0 = WorldGenerationEntropy.ClampToInt(floorX);
-            _y0 = WorldGenerationEntropy.ClampToInt(floorY);
-            _z0 = WorldGenerationEntropy.ClampToInt(floorZ);
-            _x1 = _x0 == int.MaxValue ? int.MaxValue : _x0 + 1;
-            _y1 = _y0 == int.MaxValue ? int.MaxValue : _y0 + 1;
-            _z1 = _z0 == int.MaxValue ? int.MaxValue : _z0 + 1;
-            _x0Hash = WorldGenerationEntropy.HashXCoordinate(_x0);
-            _x1Hash = WorldGenerationEntropy.HashXCoordinate(_x1);
-            _y0Hash = WorldGenerationEntropy.HashYCoordinate(_y0);
-            _y1Hash = WorldGenerationEntropy.HashYCoordinate(_y1);
-            _z0Hash = WorldGenerationEntropy.HashZCoordinate(_z0);
-            _z1Hash = WorldGenerationEntropy.HashZCoordinate(_z1);
+            var x0 = WorldGenerationEntropy.ClampToInt(floorX);
+            var y0 = WorldGenerationEntropy.ClampToInt(floorY);
+            var z0 = WorldGenerationEntropy.ClampToInt(floorZ);
+            var x1 = x0 == int.MaxValue ? int.MaxValue : x0 + 1;
+            var y1 = y0 == int.MaxValue ? int.MaxValue : y0 + 1;
+            var z1 = z0 == int.MaxValue ? int.MaxValue : z0 + 1;
+
+            var x0Hash = WorldGenerationEntropy.HashXCoordinate(x0);
+            var x1Hash = WorldGenerationEntropy.HashXCoordinate(x1);
+            var y0Hash = WorldGenerationEntropy.HashYCoordinate(y0);
+            var y1Hash = WorldGenerationEntropy.HashYCoordinate(y1);
+            var z0Hash = WorldGenerationEntropy.HashZCoordinate(z0);
+            var z1Hash = WorldGenerationEntropy.HashZCoordinate(z1);
+            _c000 = x0Hash ^ y0Hash ^ z0Hash;
+            _c100 = x1Hash ^ y0Hash ^ z0Hash;
+            _c010 = x0Hash ^ y1Hash ^ z0Hash;
+            _c110 = x1Hash ^ y1Hash ^ z0Hash;
+            _c001 = x0Hash ^ y0Hash ^ z1Hash;
+            _c101 = x1Hash ^ y0Hash ^ z1Hash;
+            _c011 = x0Hash ^ y1Hash ^ z1Hash;
+            _c111 = x1Hash ^ y1Hash ^ z1Hash;
             _tx = WorldGenerationEntropy.SmoothStep(gx - floorX);
             _ty = WorldGenerationEntropy.SmoothStep(gy - floorY);
             _tz = WorldGenerationEntropy.SmoothStep(gz - floorZ);
@@ -91,32 +96,33 @@ internal static class WorldGenerationEntropy
 
         internal double Sample(ulong seed, GenerationDomain domain)
         {
+            var domainSeed = seed ^ domain.Key;
             var firstZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x0Hash ^ _y0Hash ^ _z0Hash)),
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c000)),
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x1Hash ^ _y0Hash ^ _z0Hash)),
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c100)),
                     _tx),
                 WorldGenerationEntropy.Lerp(
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x0Hash ^ _y1Hash ^ _z0Hash)),
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c010)),
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x1Hash ^ _y1Hash ^ _z0Hash)),
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c110)),
                     _tx),
                 _ty);
             var secondZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x0Hash ^ _y0Hash ^ _z1Hash)),
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c001)),
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x1Hash ^ _y0Hash ^ _z1Hash)),
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c101)),
                     _tx),
                 WorldGenerationEntropy.Lerp(
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x0Hash ^ _y1Hash ^ _z1Hash)),
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c011)),
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x1Hash ^ _y1Hash ^ _z1Hash)),
+                        WorldGenerationEntropy.Mix(domainSeed ^ _c111)),
                     _tx),
                 _ty);
             return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
