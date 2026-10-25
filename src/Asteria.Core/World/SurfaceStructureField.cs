@@ -666,6 +666,46 @@ public sealed class SurfaceStructureField
                 ? point - maximum
                 : 0L;
 
+    private bool CandidateBoundsIntersect(
+        RootRule rule,
+        int cellX,
+        int cellZ,
+        int minimumX,
+        int minimumZ,
+        int maximumX,
+        int maximumZ)
+    {
+        if (rule.Chance <= 0f)
+            return false;
+
+        var anchorX = CandidateAxis(
+            cellX,
+            rule.Spacing,
+            rule.Jitter,
+            WorldGenerationEntropy.Sample2D(
+                _seed,
+                rule.JitterXDomain,
+                cellX,
+                cellZ));
+        var anchorZ = CandidateAxis(
+            cellZ,
+            rule.Spacing,
+            rule.Jitter,
+            WorldGenerationEntropy.Sample2D(
+                _seed,
+                rule.JitterZDomain,
+                cellX,
+                cellZ));
+        if (anchorX is null || anchorZ is null)
+            return false;
+
+        var radius = (long)rule.MaximumHorizontalRadius;
+        return (long)anchorX.Value + radius >= minimumX &&
+               (long)anchorX.Value - radius <= maximumX &&
+               (long)anchorZ.Value + radius >= minimumZ &&
+               (long)anchorZ.Value - radius <= maximumZ;
+    }
+
     private bool CandidateIsAccepted(
         StructureCandidate candidate) =>
         _candidateAcceptance.GetOrAdd(
@@ -945,12 +985,34 @@ public sealed class SurfaceStructureField
                         continue;
                     }
 
+                    var candidateCellX = (int)cellX;
+                    var candidateCellZ = (int)cellZ;
+                    // Most rules are biomeInterior roots. If the root's
+                    // deterministic anchor plus the compiled maximum radius
+                    // cannot intersect this query, don't construct its full
+                    // structure payload just to reject it afterward.
+                    // biomeMargin roots are excluded because they may move
+                    // their root anchor while finding the biome boundary.
+                    if (rule.Placement ==
+                            DimensionGeneratedSurfaceStructurePlacement.BiomeInterior &&
+                        !CandidateBoundsIntersect(
+                            rule,
+                            candidateCellX,
+                            candidateCellZ,
+                            minimumX,
+                            minimumZ,
+                            maximumX,
+                            maximumZ))
+                    {
+                        continue;
+                    }
+
                     var candidate =
                         ResolveCandidate(
                             ruleIndex,
                             rule,
-                            (int)cellX,
-                            (int)cellZ);
+                            candidateCellX,
+                            candidateCellZ);
 
                     if (candidate is null ||
                         !candidate.IntersectsHorizontal(
