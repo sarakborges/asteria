@@ -728,12 +728,27 @@ public sealed class BiomeSurfaceMaterialField
             // Most geology selections need only the winning score. Allocate
             // score vectors only for definitions that explicitly enable
             // boundary roughening; ordinary geological voxels allocate none.
-            double[]? scores = needsBoundaryScores
-                ? new double[candidateBlocks.Length]
-                : null;
-            double[]? grainValues = needsBoundaryScores
-                ? new double[candidateBlocks.Length]
-                : null;
+            // Boundary roughening needs both vectors, but allocating two
+            // arrays for every solid voxel creates heavy GC pressure during
+            // chunk synthesis. Candidate sets are normally small, so keep the
+            // scratch data on this call's stack and retain a heap fallback for
+            // unusually large authored material sets.
+            const int StackScoreCapacity = 16;
+            Span<double> scores = default;
+            Span<double> grainValues = default;
+            if (needsBoundaryScores)
+            {
+                if (candidateBlocks.Length <= StackScoreCapacity)
+                {
+                    scores = stackalloc double[candidateBlocks.Length];
+                    grainValues = stackalloc double[candidateBlocks.Length];
+                }
+                else
+                {
+                    scores = new double[candidateBlocks.Length];
+                    grainValues = new double[candidateBlocks.Length];
+                }
+            }
 
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
@@ -766,10 +781,10 @@ public sealed class BiomeSurfaceMaterialField
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
                 var gumbel = -Math.Log(-Math.Log(unit));
                 var score = gumbel + biases[index];
-                if (scores is not null)
+                if (needsBoundaryScores)
                 {
                     scores[index] = score;
-                    grainValues![index] = grain;
+                    grainValues[index] = grain;
                 }
                 if (score > bestScore)
                 {
@@ -785,7 +800,7 @@ public sealed class BiomeSurfaceMaterialField
             if (boundaryInfluence > 0d && candidateBlocks.Length > 1)
             {
                 var secondBestScore = double.NegativeInfinity;
-                for (var index = 0; index < scores!.Length; index++)
+                for (var index = 0; index < candidateBlocks.Length; index++)
                 {
                     if (index != bestIndex)
                         secondBestScore = Math.Max(secondBestScore, scores[index]);
@@ -803,10 +818,10 @@ public sealed class BiomeSurfaceMaterialField
                 {
                     bestScore = double.NegativeInfinity;
                     bestIndex = 0;
-                    for (var index = 0; index < scores!.Length; index++)
+                    for (var index = 0; index < candidateBlocks.Length; index++)
                     {
                         var score = scores[index] +
-                            grainValues![index] * boundaryInfluence * boundaryFactor;
+                            grainValues[index] * boundaryInfluence * boundaryFactor;
                         if (score > bestScore)
                         {
                             bestScore = score;
