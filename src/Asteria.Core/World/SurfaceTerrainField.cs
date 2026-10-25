@@ -660,6 +660,12 @@ public sealed class SurfaceTerrainField
                 originZ,
                 Chunk.Size,
                 Chunk.Size);
+        var caveBiomes =
+            _volumeBiomes.SampleCaveGrid(
+                originX,
+                originZ,
+                Chunk.Size,
+                Chunk.Size);
         var baseHeights = new int[Chunk.Size * Chunk.Size];
         var surfaceFluidCutDepths =
             new int[baseHeights.Length];
@@ -699,6 +705,7 @@ public sealed class SurfaceTerrainField
         return new SurfaceTerrainColumn(
             biomes,
             volumeBiomes,
+            caveBiomes,
             baseHeights,
             surfaceFluidCutDepths,
             surfaceHeights,
@@ -1316,6 +1323,7 @@ public sealed class SurfaceTerrainColumn
 {
     private readonly BiomeSampleGrid _biomes;
     private readonly VolumeBiomePlacementGrid _volumeBiomes;
+    private readonly BiomeSampleGrid? _caveBiomes;
     private readonly int[] _baseHeights;
     private readonly int[] _surfaceFluidCutDepths;
     private readonly int[] _surfaceHeights;
@@ -1323,6 +1331,7 @@ public sealed class SurfaceTerrainColumn
     internal SurfaceTerrainColumn(
         BiomeSampleGrid biomes,
         VolumeBiomePlacementGrid volumeBiomes,
+        BiomeSampleGrid? caveBiomes,
         int[] baseHeights,
         int[] surfaceFluidCutDepths,
         int[] surfaceHeights,
@@ -1330,6 +1339,7 @@ public sealed class SurfaceTerrainColumn
     {
         _biomes = biomes;
         _volumeBiomes = volumeBiomes;
+        _caveBiomes = caveBiomes;
         _baseHeights = baseHeights;
         _surfaceFluidCutDepths =
             surfaceFluidCutDepths;
@@ -1340,6 +1350,9 @@ public sealed class SurfaceTerrainColumn
     public ChunkSurfaceRange Range { get; }
 
     internal VolumeBiomePlacementGrid VolumeBiomes => _volumeBiomes;
+
+    internal BiomeSample? CaveBiomeAt(int localX, int localZ) =>
+        _caveBiomes?[localX, localZ];
 
     public BiomeSample BiomeAt(int localX, int localZ) =>
         _biomes[localX, localZ];
