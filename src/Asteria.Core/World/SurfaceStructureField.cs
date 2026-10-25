@@ -716,6 +716,8 @@ public sealed class SurfaceStructureField
         if (_candidateAcceptance.TryGet(key, out var cached))
             return cached;
 
+        var relevantConflictGroups =
+            candidate.ConflictGroups.ToHashSet(StringComparer.Ordinal);
         return _candidateAcceptance.GetOrAdd(
             key,
             () =>
@@ -723,7 +725,9 @@ public sealed class SurfaceStructureField
                         candidate.MinimumX,
                         candidate.MinimumZ,
                         candidate.MaximumX,
-                        candidate.MaximumZ)
+                        candidate.MaximumZ,
+                        candidate.Priority,
+                        relevantConflictGroups)
                     .Any(other =>
                         !SameCandidate(other, candidate) &&
                         CandidateOutranks(other, candidate) &&
