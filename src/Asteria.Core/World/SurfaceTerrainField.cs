@@ -515,6 +515,70 @@ public sealed class SurfaceTerrainField
         return depth;
     }
 
+    /// <summary>
+    /// Chunk-aware variant that reuses the density snapshot already generated
+    /// for this chunk. Only samples outside the snapshot fall back to scalar
+    /// density evaluation.
+    /// </summary>
+    internal uint AdditiveDepthAt(
+        TerrainDensityVolume densityVolume,
+        BiomeSample biome,
+        int baseY,
+        int localX,
+        int localY,
+        int localZ,
+        int worldX,
+        int worldY,
+        int worldZ,
+        uint finiteDepth)
+    {
+        ArgumentNullException.ThrowIfNull(densityVolume);
+        ArgumentNullException.ThrowIfNull(biome);
+
+        var volumeBiomeSampled = false;
+        BiomeSample? volumeBiome = null;
+        uint depth = 0;
+        while (depth < finiteDepth)
+        {
+            var aboveLocalY = (long)localY + depth + 1L;
+            double density;
+            if (aboveLocalY >= 0 && aboveLocalY < densityVolume.Height)
+            {
+                density = densityVolume.DensityAt(
+                    localX,
+                    (int)aboveLocalY,
+                    localZ);
+            }
+            else
+            {
+                var aboveWorldY = (long)worldY + depth + 1L;
+                if (aboveWorldY > int.MaxValue)
+                    break;
+
+                if (!volumeBiomeSampled)
+                {
+                    volumeBiome = _volumeBiomes.SamplePlacement(worldX, worldZ);
+                    volumeBiomeSampled = true;
+                }
+
+                density = DensityAt(
+                    biome,
+                    baseY,
+                    worldX,
+                    (int)aboveWorldY,
+                    worldZ,
+                    volumeBiome);
+            }
+
+            if (density < 0d)
+                break;
+
+            depth++;
+        }
+
+        return depth;
+    }
+
     public TerrainDensityVolume SampleDensityVolume(
         int originX,
         int originY,
