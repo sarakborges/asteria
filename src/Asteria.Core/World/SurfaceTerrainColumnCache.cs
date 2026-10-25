@@ -25,10 +25,16 @@ public sealed class SurfaceTerrainColumnCache
 
     public int CachedColumnCount => _columns.Count;
 
-    public SurfaceTerrainColumn Get(int chunkX, int chunkZ) =>
-        _columns.GetOrAdd(
-            (chunkX, chunkZ),
+    public SurfaceTerrainColumn Get(int chunkX, int chunkZ)
+    {
+        var key = (X: chunkX, Z: chunkZ);
+        if (_columns.TryGet(key, out var cached))
+            return cached;
+
+        return _columns.GetOrAdd(
+            key,
             () => _terrain.SampleColumn(chunkX, chunkZ));
+    }
 
     /// <summary>
     /// Samples the 17x17 vertex grid for one chunk from its four immutable
