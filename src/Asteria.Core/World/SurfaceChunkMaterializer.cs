@@ -181,10 +181,10 @@ public sealed class SurfaceChunkMaterializer
                         var localY =
                             worldY -
                             originY;
-                        if (densityVolume.DensityAt(
+                        if (!densityVolume.IsSolidAt(
                                 localX,
                                 localY,
-                                localZ) < 0d)
+                                localZ))
                         {
                             continue;
                         }
@@ -279,8 +279,8 @@ public sealed class SurfaceChunkMaterializer
                             {
                                 var aboveLocalY = aboveY - originY;
                                 if (aboveLocalY < 0 || aboveLocalY >= Chunk.Size ||
-                                    densityVolume.DensityAt(
-                                        localX, aboveLocalY, localZ) >= 0d)
+                                    densityVolume.IsSolidAt(
+                                        localX, aboveLocalY, localZ))
                                 {
                                     isExposedTerrainTop = false;
                                     break;
@@ -358,12 +358,12 @@ public sealed class SurfaceChunkMaterializer
                 {
                     // Generated-fluid occupancy, not only the column range,
                     // decides whether this is a submerged decorator cell.
-                    var decorationDensity = normalInChunk
-                        ? densityVolume.DensityAt(
+                    var decorationTerrainSolid = normalInChunk
+                        ? densityVolume.IsSolidAt(
                             localX, (int)decorationY - originY, localZ)
                         : _terrain.DensityAt(
                             sample, baseY, worldX, (int)decorationY, worldZ,
-                            densityVolume.VolumePlacementAt(localX, localZ));
+                            densityVolume.VolumePlacementAt(localX, localZ)) >= 0d;
                     var submerged =
                         _generatedFluids.TryGetColumnBounds(
                             sample, baseY, surfaceFluidCutDepth,
@@ -373,7 +373,7 @@ public sealed class SurfaceChunkMaterializer
                         !_generatedFluids.FluidAt(
                             sample, baseY, surfaceFluidCutDepth,
                             worldX, (int)decorationY, worldZ,
-                            decorationDensity).IsEmpty;
+                            decorationTerrainSolid).IsEmpty;
 
                     if (normalInChunk)
                     {
@@ -678,9 +678,9 @@ public sealed class SurfaceChunkMaterializer
                 (long)localY +
                 depth +
                 1L;
-            var density =
+            var isSolid =
                 localAbove < densityVolume.Height
-                    ? densityVolume.DensityAt(
+                    ? densityVolume.IsSolidAt(
                         localX,
                         (int)localAbove,
                         localZ)
@@ -690,9 +690,9 @@ public sealed class SurfaceChunkMaterializer
                         worldX,
                         (int)above,
                         worldZ,
-                        volumeBiome);
+                        volumeBiome) >= 0d;
 
-            if (density < 0d)
+            if (!isSolid)
             {
                 break;
             }
@@ -1048,7 +1048,7 @@ public sealed class SurfaceChunkMaterializer
                     (_floorY is { } floorY && worldY <= floorY) ||
                     (_roofY is { } roofY && worldY >= roofY) ||
                     chunk.GetBlock(x, y, z).IsAir ||
-                    densityVolume.DensityAt(x, y, z) < 0d)
+                    !densityVolume.IsSolidAt(x, y, z))
                     continue;
 
                 bool CarvedVoid(int dx, int dy, int dz)
@@ -1062,7 +1062,7 @@ public sealed class SurfaceChunkMaterializer
                     if ((uint)nx < Chunk.Size &&
                         (uint)ny < Chunk.Size &&
                         (uint)nz < Chunk.Size)
-                        return densityVolume.DensityAt(nx, ny, nz) < 0d &&
+                        return !densityVolume.IsSolidAt(nx, ny, nz) &&
                             neighborY <= column.BaseHeightAt(nx, nz) - 4;
 
                     return OutsideCarvedVoid(
@@ -1146,7 +1146,7 @@ public sealed class SurfaceChunkMaterializer
                     (_floorY is { } floorY && worldY <= floorY) ||
                     (_roofY is { } roofY && worldY >= roofY) ||
                     chunk.GetBlock(x, y, z).IsAir ||
-                    densityVolume.DensityAt(x, y, z) < 0d)
+                    !densityVolume.IsSolidAt(x, y, z))
                     continue;
 
                 var biome = worldY > baseY
@@ -1172,7 +1172,7 @@ public sealed class SurfaceChunkMaterializer
                     var voidDensity = (uint)nx < Chunk.Size &&
                         (uint)ny < Chunk.Size &&
                         (uint)nz < Chunk.Size
-                        ? densityVolume.DensityAt(nx, ny, nz) < 0d
+                        ? !densityVolume.IsSolidAt(nx, ny, nz)
                         : DensityAtWorld(
                             worldX + dx, neighborY, worldZ + dz) < 0d;
                     if (!voidDensity)
@@ -1286,20 +1286,20 @@ public sealed class SurfaceChunkMaterializer
                 var volumePlacement = densityVolume.VolumePlacementAt(
                     localX, localZ);
                 var targetInChunk = (uint)localY < Chunk.Size;
-                var targetDensity = targetInChunk
-                    ? densityVolume.DensityAt(localX, localY, localZ)
+                var targetSolid = targetInChunk
+                    ? densityVolume.IsSolidAt(localX, localY, localZ)
                     : _terrain.DensityAt(surfaceBiome, baseY,
-                        worldX, worldY, worldZ, volumePlacement);
-                if (targetDensity >= 0d ||
+                        worldX, worldY, worldZ, volumePlacement) >= 0d;
+                if (targetSolid ||
                     (targetInChunk &&
                      !chunk.GetCell(localX, localY, localZ).IsEmpty))
                     continue;
-                var belowDensity = localY > 0 && localY <= Chunk.Size
-                    ? densityVolume.DensityAt(localX, localY - 1, localZ)
+                var belowSolid = localY > 0 && localY <= Chunk.Size
+                    ? densityVolume.IsSolidAt(localX, localY - 1, localZ)
                     : _terrain.DensityAt(
                         surfaceBiome, baseY,
-                        worldX, worldY - 1, worldZ, volumePlacement);
-                var isFloor = belowDensity >= 0d;
+                        worldX, worldY - 1, worldZ, volumePlacement) >= 0d;
+                var isFloor = belowSolid;
                 // Additive islands may expose their undersides above the
                 // base surface. Resolve the author at the solid voxel above.
                 // Do not sample unsupported sky or other volume ownership.
@@ -1318,12 +1318,12 @@ public sealed class SurfaceChunkMaterializer
                       _decorations.HasCeilingDecorationsFor(
                           additiveCeilingBiome.Primary))))
                 {
-                    var aboveDensity = localY + 1 >= 0 && localY + 1 < Chunk.Size
-                        ? densityVolume.DensityAt(localX, localY + 1, localZ)
+                    var aboveSolid = localY + 1 >= 0 && localY + 1 < Chunk.Size
+                        ? densityVolume.IsSolidAt(localX, localY + 1, localZ)
                         : _terrain.DensityAt(
                             surfaceBiome, baseY,
-                            worldX, worldY + 1, worldZ, volumePlacement);
-                    isCeiling = aboveDensity >= 0d;
+                            worldX, worldY + 1, worldZ, volumePlacement) >= 0d;
+                    isCeiling = aboveSolid;
                 }
                 if (!isFloor && !isCeiling)
                     continue;
@@ -1535,7 +1535,7 @@ public sealed class SurfaceChunkMaterializer
 
                 var host = chunk.GetCell(x, y, z);
                 if (host.IsEmpty ||
-                    densityVolume.DensityAt(x, y, z) < 0d)
+                    !densityVolume.IsSolidAt(x, y, z))
                     continue;
 
                 foreach (var side in faces)
@@ -1549,7 +1549,7 @@ public sealed class SurfaceChunkMaterializer
                     if (local)
                     {
                         if (!chunk.GetCell(nx, y, nz).IsEmpty ||
-                            densityVolume.DensityAt(nx, y, nz) >= 0d)
+                            densityVolume.IsSolidAt(nx, y, nz))
                             continue;
                     }
                     else if (DensityAtWorld(px, worldY, pz) >= 0d)
@@ -1667,7 +1667,7 @@ public sealed class SurfaceChunkMaterializer
                     (_roofY is { } roof && worldY >= roof) ||
                     !chunk.GetCell(x, y, z).IsEmpty ||
                     !chunk.GetFluid(x, y, z).IsEmpty ||
-                    densityVolume.DensityAt(x, y, z) >= 0d)
+                    densityVolume.IsSolidAt(x, y, z))
                     continue;
 
                 var exterior = worldY > baseY && surfaceSupportsObjects;
@@ -1692,7 +1692,7 @@ public sealed class SurfaceChunkMaterializer
                     var neighborZ = worldZ + side.Dz;
                     var local = Chunk.Contains(nx, y, nz);
                     var solid = local
-                        ? densityVolume.DensityAt(nx, y, nz) >= 0d
+                        ? densityVolume.IsSolidAt(nx, y, nz)
                         : DensityAtWorld(neighborX, worldY, neighborZ) >= 0d;
                     if (!solid)
                         continue;
@@ -1777,7 +1777,7 @@ public sealed class SurfaceChunkMaterializer
                 // not cave space. Only a carved void below the base surface
                 // could contain a generated cave spike.
                 if (originY + localY < baseY &&
-                    densityVolume.DensityAt(x, localY, z) < 0d)
+                    !densityVolume.IsSolidAt(x, localY, z))
                 {
                     containsVoid = true;
                     break;
@@ -1802,7 +1802,7 @@ public sealed class SurfaceChunkMaterializer
                 // sampled density and skip both direction probes immediately.
                 var localAnchorY = anchorY - originY;
                 if ((uint)localAnchorY < Chunk.Size &&
-                    densityVolume.DensityAt(x, localAnchorY, z) >= 0d)
+                    densityVolume.IsSolidAt(x, localAnchorY, z))
                     continue;
 
                 for (var direction = 0; direction < 2; direction++)
@@ -1951,7 +1951,7 @@ public sealed class SurfaceChunkMaterializer
                         worldX,
                         worldY,
                         worldZ,
-                        densityVolume.DensityAt(
+                        densityVolume.IsSolidAt(
                             localX,
                             localY,
                             localZ));
