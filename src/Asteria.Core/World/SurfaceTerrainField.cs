@@ -632,9 +632,9 @@ public sealed class SurfaceTerrainField
         // The horizontal placement is immutable and was already sampled
         // with the surface column. Reuse it across vertical chunk layers.
         var volumeBiomes = column.VolumeBiomes;
-        var solidMask =
-            new ulong[
-                (Chunk.Size * Chunk.Size * Chunk.Size + 63) / 64];
+        // A vertical column is only 16 voxels high, so one ushort stores
+        // every solid/empty decision for that X/Z without per-voxel indexing.
+        var solidMask = new ushort[Chunk.Size * Chunk.Size];
         var maximumY = checked(originY + Chunk.Size - 1);
         var minimumBaseY = int.MaxValue;
         var maximumBaseY = int.MinValue;
@@ -662,6 +662,7 @@ public sealed class SurfaceTerrainField
                  localX < Chunk.Size;
                  localX++)
             {
+                var solidColumnIndex = localZ * Chunk.Size + localX;
                 var worldX =
                     checked(originX + localX);
                 var baseY =
@@ -737,13 +738,11 @@ public sealed class SurfaceTerrainField
                                 localY,
                                 localZ)
                             : baseY - (double)worldY;
-                    var index =
-                        (localZ * Chunk.Size + localY) *
-                        Chunk.Size + localX;
                     if (density >= 0d)
                     {
-                        solidMask[index >> 6] |=
-                            1UL << (index & 63);
+                        solidMask[solidColumnIndex] =
+                            (ushort)(solidMask[solidColumnIndex] |
+                                     (1u << localY));
                     }
                 }
             }
@@ -1672,7 +1671,7 @@ public sealed class SurfaceTerrainColumn
 public sealed class TerrainDensityVolume
 {
     private double[]? _densities;
-    private readonly ulong[]? _solidMask;
+    private readonly ushort[]? _columnSolidMask;
     private readonly Func<int, int, int, double>? _densityProvider;
     private readonly object _densityGate = new();
     private readonly VolumeBiomePlacementGrid? _volumeBiomes;
@@ -1706,7 +1705,7 @@ public sealed class TerrainDensityVolume
         int width,
         int height,
         int depth,
-        ulong[] solidMask,
+        ushort[] columnSolidMask,
         Func<int, int, int, double> densityProvider,
         VolumeBiomePlacementGrid? volumeBiomes,
         VolumeBiomeField? volumeBiomeField)
@@ -1721,8 +1720,15 @@ public sealed class TerrainDensityVolume
         Width = width;
         Height = height;
         Depth = depth;
-        _solidMask = solidMask ??
-            throw new ArgumentNullException(nameof(solidMask));
+        if (height > sizeof(ushort) * 8)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(height),
+                "Column solidity masks support at most 16 voxels of vertical height.");
+        }
+
+        _columnSolidMask = columnSolidMask ??
+            throw new ArgumentNullException(nameof(columnSolidMask));
         _densityProvider = densityProvider ??
             throw new ArgumentNullException(nameof(densityProvider));
         _volumeBiomes = volumeBiomes;
@@ -1782,12 +1788,18 @@ public sealed class TerrainDensityVolume
         int localY,
         int localZ)
     {
-        var index = Index(localX, localY, localZ);
-        if (_solidMask is { } solidMask)
+        if (_columnSolidMask is { } columnSolidMask)
         {
-            return (solidMask[index >> 6] & (1UL << (index & 63))) != 0;
+            if ((uint)localY >= Height)
+            {
+                throw new ArgumentOutOfRangeException(nameof(localY));
+            }
+
+            var columnIndex = ColumnIndex(localX, localZ);
+            return (columnSolidMask[columnIndex] & (1u << localY)) != 0;
         }
 
+        var index = Index(localX, localY, localZ);
         var densities = Volatile.Read(ref _densities);
         if (densities is not null)
         {
@@ -1829,6 +1841,19 @@ public sealed class TerrainDensityVolume
             localX,
             worldY,
             localZ);
+    }
+
+    private int ColumnIndex(
+        int localX,
+        int localZ)
+    {
+        if ((uint)localX >= Width ||
+            (uint)localZ >= Depth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localX));
+        }
+
+        return localZ * Width + localX;
     }
 
     private int Index(
