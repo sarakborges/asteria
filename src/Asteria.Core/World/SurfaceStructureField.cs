@@ -1685,6 +1685,20 @@ public sealed class SurfaceStructureField
             }
         }
 
+        var coverage =
+            matchingBiome /
+            (float)Math.Max(
+                1,
+                footprint.Count);
+        if (coverage +
+                1e-6f <
+            member.Definition
+                .Restrictions
+                .RequiredBiomeCoverage)
+        {
+            return false;
+        }
+
         var minimumGroundY =
             int.MaxValue;
         var maximumGroundY =
@@ -1756,20 +1770,6 @@ public sealed class SurfaceStructureField
                     return false;
                 }
             }
-        }
-
-        var coverage =
-            matchingBiome /
-            (float)Math.Max(
-                1,
-                footprint.Count);
-        if (coverage +
-                1e-6f <
-            member.Definition
-                .Restrictions
-                .RequiredBiomeCoverage)
-        {
-            return false;
         }
 
         var slope =
