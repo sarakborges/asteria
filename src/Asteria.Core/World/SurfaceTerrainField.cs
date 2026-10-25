@@ -343,7 +343,30 @@ public sealed class SurfaceTerrainField
         int worldX,
         int worldY,
         int worldZ,
-        BiomeSample? volumeBiome)
+        BiomeSample? volumeBiome) =>
+        DensityAt(
+            biome,
+            baseY,
+            worldX,
+            worldY,
+            worldZ,
+            volumeBiome,
+            caveSampler: null,
+            localX: 0,
+            localY: 0,
+            localZ: 0);
+
+    private double DensityAt(
+        BiomeSample biome,
+        int baseY,
+        int worldX,
+        int worldY,
+        int worldZ,
+        BiomeSample? volumeBiome,
+        CaveNoiseVolumeSampler? caveSampler,
+        int localX,
+        int localY,
+        int localZ)
     {
         if (worldY < 0)
         {
@@ -387,7 +410,11 @@ public sealed class SurfaceTerrainField
                     baseY,
                     worldX,
                     worldY,
-                    worldZ);
+                    worldZ,
+                    caveSampler,
+                    localX,
+                    localY,
+                    localZ);
 
             if (voidDensity > 0d)
             {
@@ -414,7 +441,11 @@ public sealed class SurfaceTerrainField
         int baseY,
         int worldX,
         int worldY,
-        int worldZ)
+        int worldZ,
+        CaveNoiseVolumeSampler? caveSampler = null,
+        int localX = 0,
+        int localY = 0,
+        int localZ = 0)
     {
         if (_caves is null ||
             BordersSphereShell(worldY))
@@ -437,7 +468,11 @@ public sealed class SurfaceTerrainField
             worldX,
             worldY,
             worldZ,
-            depth);
+            depth,
+            caveSampler,
+            localX,
+            localY,
+            localZ);
     }
 
     /// <summary>
