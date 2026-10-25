@@ -141,12 +141,27 @@ public sealed class Chunk
     public bool SetCell(int x, int y, int z, VoxelCell cell)
     {
         ValidateCoordinates(x, y, z);
-        var index = ToIndex(x, y, z);
+        return SetCellAtIndex(ToIndex(x, y, z), cell);
+    }
+
+    /// <summary>
+    /// Writes a block using its already-linearized chunk index. Intended for
+    /// bounded internal loops that have established X/Y/Z coordinates; normal
+    /// callers keep using the coordinate-validated SetBlock/SetCell APIs.
+    /// </summary>
+    internal bool SetBlockAtLinearIndex(int voxelIndex, BlockRuntimeId block)
+    {
+        if ((uint)voxelIndex >= Volume)
+            throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+        return SetCellAtIndex(voxelIndex, new VoxelCell(block));
+    }
+
+    private bool SetCellAtIndex(int index, VoxelCell cell)
+    {
         var previous = _cells.Get(index);
         if (!_cells.Set(index, cell))
-        {
             return false;
-        }
 
         if (cell.IsEmpty || previous.Block != cell.Block)
         {
@@ -157,6 +172,7 @@ public sealed class Chunk
                 ObjectRevision++;
             }
         }
+
         Revision++;
         return true;
     }
