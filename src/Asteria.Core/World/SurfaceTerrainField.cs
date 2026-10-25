@@ -632,6 +632,8 @@ public sealed class SurfaceTerrainField
                 Chunk.Size *
                 Chunk.Size];
         var maximumY = checked(originY + Chunk.Size - 1);
+        var caveSamplerAttempted = false;
+        CaveNoiseVolumeSampler? caveSampler = null;
 
         for (var localZ = 0;
              localZ < Chunk.Size;
@@ -662,6 +664,20 @@ public sealed class SurfaceTerrainField
                     _caves is not null &&
                     (long)originY <= (long)baseY - _caves.MinimumDepth &&
                     (long)maximumY >= (long)baseY - _caves.MaximumDepth;
+                if (mayContainCaves && !caveSamplerAttempted)
+                {
+                    caveSampler =
+                        _caves!.CreateSampler(
+                            _seed,
+                            originX,
+                            originY,
+                            originZ,
+                            Chunk.Size,
+                            Chunk.Size,
+                            Chunk.Size);
+                    caveSamplerAttempted = true;
+                }
+
                 var mayContainAdditive =
                     volumeBiome is not null &&
                     _additiveRules.TryGetValue(
@@ -686,7 +702,11 @@ public sealed class SurfaceTerrainField
                                 worldX,
                                 worldY,
                                 worldZ,
-                                volumeBiome)
+                                volumeBiome,
+                                caveSampler,
+                                localX,
+                                localY,
+                                localZ)
                             : baseY - (double)worldY;
                 }
             }
