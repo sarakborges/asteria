@@ -1790,6 +1790,15 @@ public sealed class SurfaceChunkMaterializer
             var volumeBiome = densityVolume.VolumePlacementAt(x, z);
             for (var anchorY = first; anchorY <= last; anchorY++)
             {
+                // TrySample rejects a non-void anchor before producing any
+                // placement: IsVoid(anchorY) is its first density check.
+                // When the anchor is inside this chunk, reuse the already
+                // sampled density and skip both direction probes immediately.
+                var localAnchorY = anchorY - originY;
+                if ((uint)localAnchorY < Chunk.Size &&
+                    densityVolume.DensityAt(x, localAnchorY, z) >= 0d)
+                    continue;
+
                 for (var direction = 0; direction < 2; direction++)
                 {
                     var down = direction == 1;
