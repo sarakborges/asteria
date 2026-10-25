@@ -11,6 +11,8 @@ public readonly record struct GeneratedSurfaceDestination(
 /// </summary>
 internal sealed class GeneratedSurfaceDestinationQuery
 {
+    private const int InitialStructureSearchRadius = 8;
+
     private readonly SurfaceTerrainField _terrain;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceStructureField _structures;
@@ -73,17 +75,10 @@ internal sealed class GeneratedSurfaceDestinationQuery
             }
         }
 
-        var structureBounds =
-            StructureBoundsForSearch(
-                preferredX,
-                preferredZ,
-                maxRadius);
-
         return FindSurface(
             preferredX,
             preferredZ,
             maxRadius,
-            structureBounds,
             acceptsColumn,
             sampler);
     }
@@ -120,17 +115,10 @@ internal sealed class GeneratedSurfaceDestinationQuery
             }
         }
 
-        var structureBounds =
-            StructureBoundsForSearch(
-                preferredX,
-                preferredZ,
-                maxRadius);
-
         return FindSurface(
             preferredX,
             preferredZ,
             maxRadius,
-            structureBounds,
             acceptsColumn,
             sampler);
     }
@@ -140,48 +128,79 @@ internal sealed class GeneratedSurfaceDestinationQuery
             int preferredX,
             int preferredZ,
             int maxRadius,
-            IReadOnlyList<(
-                int MinimumX,
-                int MaximumX,
-                int MinimumZ,
-                int MaximumZ)> structureBounds,
             Func<int, int, bool>? acceptsColumn,
             BiomeField.Sampler sampler)
     {
-        foreach (var column in
-                 SquareRings(
-                     preferredX,
-                     preferredZ,
-                     maxRadius))
+        // Do not enumerate structure candidates for the entire maximum radius
+        // when a safe destination is usually found close to the preferred
+        // point. Grow the checked square geometrically; each batch includes
+        // all structures that can overlap the rings processed in that batch.
+        var checkedThroughRadius = -1;
+        while (true)
         {
-            if (acceptsColumn is not null &&
-                !acceptsColumn(
-                    column.X,
-                    column.Z))
+            var nextRadius = checkedThroughRadius < 0
+                ? InitialStructureSearchRadius
+                : checkedThroughRadius * 2;
+            var searchRadius = Math.Min(
+                maxRadius,
+                Math.Max(
+                    checkedThroughRadius + 1,
+                    nextRadius));
+
+            var structureBounds =
+                StructureBoundsForSearch(
+                    preferredX,
+                    preferredZ,
+                    searchRadius);
+
+            foreach (var column in
+                     SquareRings(
+                         preferredX,
+                         preferredZ,
+                         searchRadius))
             {
-                continue;
+                var ring = Math.Max(
+                    Math.Abs((long)column.X - preferredX),
+                    Math.Abs((long)column.Z - preferredZ));
+                if (ring <= checkedThroughRadius)
+                {
+                    continue;
+                }
+
+                if (acceptsColumn is not null &&
+                    !acceptsColumn(
+                        column.X,
+                        column.Z))
+                {
+                    continue;
+                }
+
+                if (InsideStructureBounds(
+                        column.X,
+                        column.Z,
+                        structureBounds))
+                {
+                    continue;
+                }
+
+                var destination =
+                    GeneratedSurfaceFeetAt(
+                        sampler,
+                        column.X,
+                        column.Z);
+                if (destination is not null)
+                {
+                    return destination;
+                }
             }
 
-            if (InsideStructureBounds(
-                    column.X,
-                    column.Z,
-                    structureBounds))
+            if (searchRadius >= maxRadius)
             {
-                continue;
+                return null;
             }
 
-            var destination =
-                GeneratedSurfaceFeetAt(
-                    sampler,
-                    column.X,
-                    column.Z);
-            if (destination is not null)
-            {
-                return destination;
-            }
+            checkedThroughRadius = searchRadius;
         }
-
-        return null;
     }
 
     private IReadOnlyList<(
