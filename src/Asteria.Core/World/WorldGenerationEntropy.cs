@@ -79,19 +79,35 @@ internal static class WorldGenerationEntropy
 
         internal double Sample(ulong seed, GenerationDomain domain)
         {
-            double Slice(int layerZ) =>
+            var firstZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
-                    WorldGenerationEntropy.Lerp(
-                        WorldGenerationEntropy.SignedUnit(WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y0, layerZ)),
-                        WorldGenerationEntropy.SignedUnit(WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y0, layerZ)),
-                        _tx),
-                    WorldGenerationEntropy.Lerp(
-                        WorldGenerationEntropy.SignedUnit(WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y1, layerZ)),
-                        WorldGenerationEntropy.SignedUnit(WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y1, layerZ)),
-                        _tx),
-                    _ty);
-
-            return WorldGenerationEntropy.Lerp(Slice(_z0), Slice(_z1), _tz);
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y0, _z0)),
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y0, _z0)),
+                    _tx),
+                WorldGenerationEntropy.Lerp(
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y1, _z0)),
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y1, _z0)),
+                    _tx),
+                _ty);
+            var secondZ = WorldGenerationEntropy.Lerp(
+                WorldGenerationEntropy.Lerp(
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y0, _z1)),
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y0, _z1)),
+                    _tx),
+                WorldGenerationEntropy.Lerp(
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y1, _z1)),
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y1, _z1)),
+                    _tx),
+                _ty);
+            return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
         }
     }
 
