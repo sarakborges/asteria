@@ -926,61 +926,50 @@ public sealed class SurfaceStructureField
             return Array.Empty<StructureCandidate>();
         }
 
-        var competitors =
-            new List<StructureCandidate>(
-                direct);
-        var seen =
-            direct
-                .Select(
-                    CandidateIdentity)
-                .ToHashSet();
-
-        foreach (var candidate in
-                 direct)
+        // Every direct candidate intersects the chunk being materialized.
+        // Their union is therefore bounded by that chunk plus the largest
+        // intersecting structure. Any candidate that can conflict with a
+        // direct candidate must intersect this union, so resolve the broad
+        // phase once rather than rescanning the root grid for every candidate.
+        var minimumX = int.MaxValue;
+        var minimumZ = int.MaxValue;
+        var maximumX = int.MinValue;
+        var maximumZ = int.MinValue;
+        foreach (var candidate in direct)
         {
-            foreach (var other in
-                     CollectCandidatesIntersectingBounds(
-                         candidate.MinimumX,
-                         candidate.MinimumZ,
-                         candidate.MaximumX,
-                         candidate.MaximumZ))
+            minimumX = Math.Min(minimumX, candidate.MinimumX);
+            minimumZ = Math.Min(minimumZ, candidate.MinimumZ);
+            maximumX = Math.Max(maximumX, candidate.MaximumX);
+            maximumZ = Math.Max(maximumZ, candidate.MaximumZ);
+        }
+
+        var possibleConflicts = CollectCandidatesIntersectingBounds(
+            minimumX, minimumZ, maximumX, maximumZ);
+        var accepted = new List<StructureCandidate>(direct.Count);
+
+        foreach (var candidate in direct)
+        {
+            var blocked = false;
+            foreach (var other in possibleConflicts)
             {
-                if (SameCandidate(
-                        other,
-                        candidate) ||
-                    !CandidateOutranks(
-                        other,
-                        candidate) ||
-                    !CandidatesConflict(
-                        other,
-                        candidate))
+                if (SameCandidate(other, candidate) ||
+                    !CandidateOutranks(other, candidate) ||
+                    !CandidatesConflict(other, candidate))
                 {
                     continue;
                 }
 
-                if (seen.Add(
-                        CandidateIdentity(
-                            other)))
-                {
-                    competitors.Add(
-                        other);
-                }
+                blocked = true;
+                break;
+            }
+
+            if (!blocked)
+            {
+                accepted.Add(candidate);
             }
         }
 
-        return direct
-            .Where(candidate =>
-                !competitors.Any(other =>
-                    !SameCandidate(
-                        other,
-                        candidate) &&
-                    CandidateOutranks(
-                        other,
-                        candidate) &&
-                    CandidatesConflict(
-                        other,
-                        candidate)))
-            .ToArray();
+        return accepted;
     }
 
     private StructureCandidate?
