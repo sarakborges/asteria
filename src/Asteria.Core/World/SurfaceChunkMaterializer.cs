@@ -6,6 +6,11 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class SurfaceChunkMaterializer
 {
+    private readonly record struct ColumnMaterializationCache(
+        BiomeSurfaceMaterialColumn? SurfaceMaterials,
+        BiomeSample? VolumeSample,
+        BiomeSurfaceMaterialColumn? VolumeMaterials);
+
     private readonly record struct PendingGeneratedObject(
         int X, int Y, int Z, string Id, BlockFace Face,
         bool Submerged = false, FluidRuntimeId SupportFluid = default)
@@ -128,6 +133,9 @@ public sealed class SurfaceChunkMaterializer
                 originZ);
         var topExclusive = checked(originY + Chunk.Size);
         List<PendingGeneratedObject>? pendingObjects = null;
+        var terrainBlocks = new BlockRuntimeId[Chunk.Volume];
+        var columnMaterializationCaches =
+            new ColumnMaterializationCache[Chunk.Area];
 
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         {
@@ -308,13 +316,50 @@ public sealed class SurfaceChunkMaterializer
                             }
                         }
 
-                        chunk.SetBlock(
-                            localX,
-                            worldY - originY,
-                            localZ,
-                            block);
+                        terrainBlocks[
+                            localX + Chunk.Size *
+                            (localZ + Chunk.Size * localY)] = block;
                     }
                 }
+
+                var columnIndex = localX + Chunk.Size * localZ;
+                columnMaterializationCaches[columnIndex] =
+                    new ColumnMaterializationCache(
+                        surfaceMaterials, volumeSample, volumeMaterials);
+            }
+        }
+
+        // Apply the prepared terrain in storage order: X is contiguous, then
+        // Z, then Y. Geology sampling stays column-oriented, but palette and
+        // occupancy writes now touch adjacent voxel indices.
+        for (var localY = 0; localY < Chunk.Size; localY++)
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        for (var localX = 0; localX < Chunk.Size; localX++)
+        {
+            var block = terrainBlocks[
+                localX + Chunk.Size * (localZ + Chunk.Size * localY)];
+            if (!block.IsAir)
+                chunk.SetBlock(localX, localY, localZ, block);
+        }
+
+        // Decorations are evaluated after terrain is committed, so every
+        // support/occupancy query observes the complete terrain layer.
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        {
+            for (var localX = 0; localX < Chunk.Size; localX++)
+            {
+                var surfaceY = column.HeightAt(localX, localZ);
+                var baseY = column.BaseHeightAt(localX, localZ);
+                var surfaceFluidCutDepth =
+                    column.SurfaceFluidCutDepthAt(localX, localZ);
+                var worldX = checked(originX + localX);
+                var worldZ = checked(originZ + localZ);
+                var sample = column.BiomeAt(localX, localZ);
+                var columnIndex = localX + Chunk.Size * localZ;
+                var columnCache = columnMaterializationCaches[columnIndex];
+                var surfaceMaterials = columnCache.SurfaceMaterials;
+                var volumeSample = columnCache.VolumeSample;
+                var volumeMaterials = columnCache.VolumeMaterials;
 
                 var decorationY = (long)surfaceY + 1;
                 var normalInChunk = CanPlaceDecorationAt(
