@@ -296,9 +296,15 @@ internal sealed class GeneratedSurfaceDestinationQuery
             return null;
         }
 
-        // SampleDestinationColumn has already resolved the highest solid voxel
-        // through the authoritative density field. Re-sampling support, feet
-        // and head density here repeats work for every surface search candidate.
+        // The final surface height resolves the regular terrain path. Keep the
+        // full density guard for columns with authored additive formations,
+        // whose exact density boundary must remain authoritative.
+        if (_terrain.HasAdditiveDensityRule(column.Volume) &&
+            !HasValidTerrainDensity(column, worldX, feetY, worldZ))
+        {
+            return null;
+        }
+
         return new GeneratedSurfaceDestination(worldX, feetY, worldZ);
     }
 
@@ -342,19 +348,34 @@ internal sealed class GeneratedSurfaceDestinationQuery
             return null;
         }
 
+        return HasValidTerrainDensity(
+                column, worldX, feetY, worldZ)
+            ? new GeneratedSurfaceDestination(worldX, feetY, worldZ)
+            : null;
+    }
+
+    private bool HasValidTerrainDensity(
+        (
+            BiomeSample Biome,
+            int BaseY,
+            int SurfaceFluidCutDepth,
+            int SurfaceY,
+            BiomeSample? Volume) column,
+        int worldX,
+        int feetY,
+        int worldZ)
+    {
         var supportY = feetY - 1;
         var headY = feetY + 1;
         return _terrain.DensityAt(
-                    column.Biome, column.BaseY,
-                    worldX, supportY, worldZ, column.Volume) < 0d ||
+                   column.Biome, column.BaseY,
+                   worldX, supportY, worldZ, column.Volume) >= 0d &&
                _terrain.DensityAt(
-                    column.Biome, column.BaseY,
-                    worldX, feetY, worldZ, column.Volume) >= 0d ||
+                   column.Biome, column.BaseY,
+                   worldX, feetY, worldZ, column.Volume) < 0d &&
                _terrain.DensityAt(
-                    column.Biome, column.BaseY,
-                    worldX, headY, worldZ, column.Volume) >= 0d
-            ? null
-            : new GeneratedSurfaceDestination(worldX, feetY, worldZ);
+                   column.Biome, column.BaseY,
+                   worldX, headY, worldZ, column.Volume) < 0d;
     }
 
     private bool HasValidGeneratedHeadroom(
