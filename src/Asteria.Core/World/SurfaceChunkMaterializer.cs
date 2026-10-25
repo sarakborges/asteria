@@ -1943,6 +1943,9 @@ public sealed class SurfaceChunkMaterializer
         // vertical work while making palette writes contiguous.
         Span<int> firstFluidYByColumn = stackalloc int[Chunk.Area];
         Span<int> lastFluidYByColumn = stackalloc int[Chunk.Area];
+        Span<int> baseSurfaceYByColumn = stackalloc int[Chunk.Area];
+        Span<int> surfaceCutDepthByColumn = stackalloc int[Chunk.Area];
+        var biomeSamplesByColumn = new BiomeSample[Chunk.Area];
         firstFluidYByColumn.Fill(int.MaxValue);
         lastFluidYByColumn.Fill(int.MinValue);
 
@@ -1958,6 +1961,10 @@ public sealed class SurfaceChunkMaterializer
                     column.SurfaceFluidCutDepthAt(localX, localZ);
                 var worldX = checked(originX + localX);
                 var worldZ = checked(originZ + localZ);
+                var columnIndex = localX + Chunk.Size * localZ;
+                biomeSamplesByColumn[columnIndex] = sample;
+                baseSurfaceYByColumn[columnIndex] = baseY;
+                surfaceCutDepthByColumn[columnIndex] = surfaceCutDepth;
 
                 if (!_generatedFluids.TryGetColumnBounds(
                         sample,
@@ -1974,7 +1981,6 @@ public sealed class SurfaceChunkMaterializer
                 if (firstY > lastY)
                     continue;
 
-                var columnIndex = localX + Chunk.Size * localZ;
                 firstFluidYByColumn[columnIndex] = firstY;
                 lastFluidYByColumn[columnIndex] = lastY;
                 firstWorldY = Math.Min(firstWorldY, firstY);
@@ -2004,12 +2010,12 @@ public sealed class SurfaceChunkMaterializer
                         !chunk.GetFluid(localX, localY, localZ).IsEmpty)
                         continue;
 
-                    var sample = column.BiomeAt(localX, localZ);
-                    var baseY = column.BaseHeightAt(localX, localZ);
+                    var sample = biomeSamplesByColumn[columnIndex];
+                    var baseY = baseSurfaceYByColumn[columnIndex];
                     var surfaceCutDepth =
-                        column.SurfaceFluidCutDepthAt(localX, localZ);
-                    var worldX = checked(originX + localX);
-                    var worldZ = checked(originZ + localZ);
+                        surfaceCutDepthByColumn[columnIndex];
+                    var worldX = originX + localX;
+                    var worldZ = originZ + localZ;
                     var fluid = _generatedFluids.FluidAt(
                         sample,
                         baseY,
