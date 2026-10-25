@@ -290,8 +290,9 @@ public sealed class SurfaceChunkMaterializer
                             if (surfaceOwner is not null &&
                                 (!_materials.SurfaceGeologyRequiresSubmerged(surfaceOwner) ||
                                  HasGeneratedFluidAboveSurface(
-                                     surfaceOwner, baseY, surfaceFluidCutDepth,
-                                     worldX, worldY, worldZ)) &&
+                                     surfaceOwner, sample, baseY, surfaceFluidCutDepth,
+                                     worldX, worldY, worldZ,
+                                     densityVolume.VolumePlacementAt(localX, localZ))) &&
                                 _materials.TrySurfaceGeologyBlockAt(
                                     surfaceOwner, worldX, worldY, worldZ,
                                     out var exposedBlock))
@@ -592,10 +593,50 @@ public sealed class SurfaceChunkMaterializer
                 neighbor.SurfaceFluidCutDepthAt(local.X, local.Z),
                 (int)px, supportY, (int)pz);
             if (candidate.Fluid == fluid &&
-                _terrain.DensityAt((int)px, supportY, (int)pz) < 0d)
+                _terrain.DensityAt(
+                    biome,
+                    baseY,
+                    (int)px,
+                    supportY,
+                    (int)pz,
+                    neighbor.VolumeBiomes[local.X, local.Z]) < 0d)
                 return true;
         }
         return false;
+    }
+
+    private double DensityAtWorld(
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        var (coord, local) =
+            VoxelCoordinates.FromWorld(worldX, 0, worldZ);
+        var column = _columns.Get(coord.X, coord.Z);
+        var biome = column.BiomeAt(local.X, local.Z);
+        return _terrain.DensityAt(
+            biome,
+            column.BaseHeightAt(local.X, local.Z),
+            worldX,
+            worldY,
+            worldZ,
+            column.VolumeBiomes[local.X, local.Z]);
+    }
+
+    private bool IsCaveVoidAtWorld(
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        if (worldY < 0)
+            throw new ArgumentOutOfRangeException(nameof(worldY));
+
+        var (coord, local) =
+            VoxelCoordinates.FromWorld(worldX, 0, worldZ);
+        var column = _columns.Get(coord.X, coord.Z);
+        return _terrain.IsCaveVoidAt(
+            column.BaseHeightAt(local.X, local.Z),
+            new WorldVoxelCoord(worldX, worldY, worldZ));
     }
 
     private uint AdditiveDepthAt(
@@ -1126,7 +1167,7 @@ public sealed class SurfaceChunkMaterializer
                         (uint)ny < Chunk.Size &&
                         (uint)nz < Chunk.Size
                         ? densityVolume.DensityAt(nx, ny, nz) < 0d
-                        : _terrain.DensityAt(
+                        : DensityAtWorld(
                             worldX + dx, neighborY, worldZ + dz) < 0d;
                     if (!voidDensity)
                         return false;
@@ -1140,7 +1181,7 @@ public sealed class SurfaceChunkMaterializer
                                      (uint)nz < Chunk.Size
                         ? _terrain.IsCaveVoidAt(
                             column.BaseHeightAt(nx, nz), neighborPosition)
-                        : _terrain.IsCaveVoidAt(
+                        : IsCaveVoidAtWorld(
                             neighborPosition.X, neighborPosition.Y,
                             neighborPosition.Z);
                     return !carvedVoid;
@@ -1505,7 +1546,7 @@ public sealed class SurfaceChunkMaterializer
                             densityVolume.DensityAt(nx, y, nz) >= 0d)
                             continue;
                     }
-                    else if (_terrain.DensityAt(px, worldY, pz) >= 0d)
+                    else if (DensityAtWorld(px, worldY, pz) >= 0d)
                         continue;
 
                     // Resolve the actual empty-side biome without changing
@@ -1646,7 +1687,7 @@ public sealed class SurfaceChunkMaterializer
                     var local = Chunk.Contains(nx, y, nz);
                     var solid = local
                         ? densityVolume.DensityAt(nx, y, nz) >= 0d
-                        : _terrain.DensityAt(neighborX, worldY, neighborZ) >= 0d;
+                        : DensityAtWorld(neighborX, worldY, neighborZ) >= 0d;
                     if (!solid)
                         continue;
 
@@ -1795,21 +1836,27 @@ public sealed class SurfaceChunkMaterializer
     }
 
     private bool HasGeneratedFluidAboveSurface(
-        BiomeSample sample,
+        BiomeSample fluidBiome,
+        BiomeSample surfaceBiome,
         int baseY,
         int surfaceFluidCutDepth,
         int worldX,
         int surfaceY,
-        int worldZ)
+        int worldZ,
+        BiomeSample? volumePlacement)
     {
         var aboveY = (long)surfaceY + 1L;
         if (aboveY < 0 || aboveY > int.MaxValue)
             return false;
 
         var y = (int)aboveY;
-        var density = _terrain.DensityAt(worldX, y, worldZ);
+        // The column and density volume already carry the authoritative
+        // surface biome, base height and volume placement for this X/Z.
+        // Reuse them instead of constructing new scalar-sample caches.
+        var density = _terrain.DensityAt(
+            surfaceBiome, baseY, worldX, y, worldZ, volumePlacement);
         var fluid = _generatedFluids.FluidAt(
-            sample, baseY, surfaceFluidCutDepth,
+            fluidBiome, baseY, surfaceFluidCutDepth,
             worldX, y, worldZ, density);
         return !fluid.IsEmpty;
     }
