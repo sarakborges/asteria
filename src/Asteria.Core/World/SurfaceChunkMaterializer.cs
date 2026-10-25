@@ -191,8 +191,8 @@ public sealed class SurfaceChunkMaterializer
             {
                 for (var localX = 0; localX < Chunk.Size; localX++)
                 {
-                    ref var state = ref columnMaterializationCaches[
-                        localX + Chunk.Size * localZ];
+                    var columnIndex = localX + Chunk.Size * localZ;
+                    ref var state = ref columnMaterializationCaches[columnIndex];
                     var sample = state.Sample ??
                         throw new InvalidOperationException(
                             "Materialization column has no biome sample.");
@@ -329,7 +329,8 @@ public sealed class SurfaceChunkMaterializer
                         }
                     }
 
-                    chunk.SetBlock(localX, localY, localZ, block);
+                    chunk.SetBlockAtLinearIndex(
+                        columnIndex + Chunk.Area * localY, block);
                 }
             }
         }
