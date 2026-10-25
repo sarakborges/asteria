@@ -167,6 +167,28 @@ public sealed class SurfaceTerrainField
         int BaseY,
         int SurfaceFluidCutDepth)
         SampleBaseSurfaceWithGeneratedFluid(
+            BiomeSample biome,
+            int worldX,
+            int worldZ)
+    {
+        ArgumentNullException.ThrowIfNull(biome);
+        var resolved =
+            BaseHeightAndSurfaceFluidCutAt(
+                biome,
+                worldX,
+                worldZ);
+
+        return (
+            biome,
+            resolved.BaseY,
+            resolved.SurfaceFluidCutDepth);
+    }
+
+    internal (
+        BiomeSample Biome,
+        int BaseY,
+        int SurfaceFluidCutDepth)
+        SampleBaseSurfaceWithGeneratedFluid(
             BiomeField.Sampler sampler,
             int worldX,
             int worldZ)
