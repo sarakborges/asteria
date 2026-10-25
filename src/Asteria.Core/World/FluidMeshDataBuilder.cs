@@ -38,7 +38,7 @@ public static class FluidMeshDataBuilder
                 throw new ArgumentNullException(nameof(world));
         }
 
-        public FluidFaceHeights Get(
+        private FluidFaceHeights Get(
             WorldVoxelCoord position,
             FluidRuntimeId fluid)
         {
