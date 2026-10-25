@@ -629,15 +629,13 @@ public sealed class BiomeSurfaceMaterialField
             var horizontalStrength = Math.Max(6d, _definition.DetailScale * 0.9d);
             var verticalStrength = Math.Max(5d, _definition.DetailScale * 0.7d);
 
-            var warpX = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDomains[0], rotated.X, rotated.Y, rotated.Z,
-                warpHorizontalScale, warpVerticalScale);
-            var warpY = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDomains[1], rotated.X, rotated.Y, rotated.Z,
-                warpHorizontalScale, warpVerticalScale);
-            var warpZ = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDomains[2], rotated.X, rotated.Y, rotated.Z,
-                warpHorizontalScale, warpVerticalScale);
+            var warpCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    rotated.X, rotated.Y, rotated.Z,
+                    warpHorizontalScale, warpVerticalScale);
+            var warpX = warpCoordinates.Sample(seed, _warpDomains[0]);
+            var warpY = warpCoordinates.Sample(seed, _warpDomains[1]);
+            var warpZ = warpCoordinates.Sample(seed, _warpDomains[2]);
 
             // A second, smaller-scale warp breaks the broad domain warp's
             // smooth directional bends. It is sampled in another basis and is
@@ -648,18 +646,16 @@ public sealed class BiomeSurfaceMaterialField
                 5u, Math.Min(_definition.VerticalScale / 4u, _definition.DetailScale / 2u));
             var detailStrength = Math.Max(2d, _definition.DetailScale * 0.35d);
             var detailVerticalStrength = Math.Max(2d, _definition.DetailScale * 0.28d);
-            var detailWarpX = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDetailDomains[0],
-                detailPosition.X, detailPosition.Y, detailPosition.Z,
-                detailWarpScale, detailWarpVerticalScale);
-            var detailWarpY = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDetailDomains[1],
-                detailPosition.X, detailPosition.Y, detailPosition.Z,
-                detailWarpScale, detailWarpVerticalScale);
-            var detailWarpZ = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDetailDomains[2],
-                detailPosition.X, detailPosition.Y, detailPosition.Z,
-                detailWarpScale, detailWarpVerticalScale);
+            var detailWarpCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    detailPosition.X, detailPosition.Y, detailPosition.Z,
+                    detailWarpScale, detailWarpVerticalScale);
+            var detailWarpX =
+                detailWarpCoordinates.Sample(seed, _warpDetailDomains[0]);
+            var detailWarpY =
+                detailWarpCoordinates.Sample(seed, _warpDetailDomains[1]);
+            var detailWarpZ =
+                detailWarpCoordinates.Sample(seed, _warpDetailDomains[2]);
 
             return new SpatialPosition(
                 rotated.X + warpX * horizontalStrength + detailWarpX * detailStrength,
@@ -704,6 +700,28 @@ public sealed class BiomeSurfaceMaterialField
             // not opt into the intermediate cluster field.
             var grainPosition = RotateFieldPosition(
                 position, clusterInfluence > 0d ? 4 : 3);
+            var broadCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    broadPosition.X, broadPosition.Y, broadPosition.Z,
+                    Math.Max(12u, _definition.SelectionScale),
+                    Math.Max(10u, _definition.VerticalScale));
+            var detailCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    detailPosition.X, detailPosition.Y, detailPosition.Z,
+                    detailScale, detailVerticalScale);
+            var microCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    microPosition.X, microPosition.Y, microPosition.Z,
+                    microScale, microVerticalScale);
+            var clusterCoordinates = clusterInfluence > 0d
+                ? WorldGenerationEntropy.PrepareValueNoise3D(
+                    clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
+                    clusterScale, clusterVerticalScale)
+                : default;
+            var grainCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    grainPosition.X, grainPosition.Y, grainPosition.Z,
+                    grainScale, grainVerticalScale);
             var boundaryInfluence = _definition.BoundaryGrainInfluence;
             Span<double> scores = default;
             Span<double> grainValues = default;
@@ -729,31 +747,17 @@ public sealed class BiomeSurfaceMaterialField
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
             {
-                var broad = WorldGenerationEntropy.ValueNoise3D(
-                    seed, broadDomains[index],
-                    broadPosition.X, broadPosition.Y, broadPosition.Z,
-                    Math.Max(12u, _definition.SelectionScale),
-                    Math.Max(10u, _definition.VerticalScale));
-                var detail = WorldGenerationEntropy.ValueNoise3D(
-                    seed, detailDomains[index],
-                    detailPosition.X, detailPosition.Y, detailPosition.Z,
-                    detailScale, detailVerticalScale);
-                var micro = WorldGenerationEntropy.ValueNoise3D(
-                    seed, microDomains[index],
-                    microPosition.X, microPosition.Y, microPosition.Z,
-                    microScale, microVerticalScale);
-                var cluster = 0d;
-                if (clusterInfluence > 0d)
-                {
-                    cluster = WorldGenerationEntropy.ValueNoise3D(
-                        seed, clusterDomains[index],
-                        clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
-                        clusterScale, clusterVerticalScale);
-                }
-                var grain = WorldGenerationEntropy.ValueNoise3D(
-                    seed, grainDomains[index],
-                    grainPosition.X, grainPosition.Y, grainPosition.Z,
-                    grainScale, grainVerticalScale);
+                var broad =
+                    broadCoordinates.Sample(seed, broadDomains[index]);
+                var detail =
+                    detailCoordinates.Sample(seed, detailDomains[index]);
+                var micro =
+                    microCoordinates.Sample(seed, microDomains[index]);
+                var cluster = clusterInfluence > 0d
+                    ? clusterCoordinates.Sample(seed, clusterDomains[index])
+                    : 0d;
+                var grain =
+                    grainCoordinates.Sample(seed, grainDomains[index]);
 
                 // Split finer detail across intermediate clusters and very
                 // fine grain. The former creates coherent mineral pockets;
