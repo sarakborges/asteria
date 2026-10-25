@@ -1699,6 +1699,40 @@ public sealed class SurfaceStructureField
             return false;
         }
 
+        if (member.AllowedGroundBlocks.Count >
+            0)
+        {
+            foreach (var offset in
+                     member.SupportOffsets(
+                         rotation))
+            {
+                var x =
+                    checked(
+                        anchorX +
+                        offset.X);
+                var z =
+                    checked(
+                        anchorZ +
+                        offset.Z);
+                var surfaceBiome =
+                    SurfaceBiomeAt(
+                        x,
+                        z);
+                var groundBlock =
+                    _materials.BlockAt(
+                        surfaceBiome,
+                        x,
+                        z,
+                        0);
+
+                if (!member.AllowedGroundBlocks.Contains(
+                        groundBlock))
+                {
+                    return false;
+                }
+            }
+        }
+
         var minimumGroundY =
             int.MaxValue;
         var maximumGroundY =
@@ -1735,40 +1769,6 @@ public sealed class SurfaceStructureField
                     surface))
             {
                 return false;
-            }
-        }
-
-        if (member.AllowedGroundBlocks.Count >
-            0)
-        {
-            foreach (var offset in
-                     member.SupportOffsets(
-                         rotation))
-            {
-                var x =
-                    checked(
-                        anchorX +
-                        offset.X);
-                var z =
-                    checked(
-                        anchorZ +
-                        offset.Z);
-                var surface =
-                    SurfaceAt(
-                        x,
-                        z);
-                var groundBlock =
-                    _materials.BlockAt(
-                        surface.Biome,
-                        x,
-                        z,
-                        0);
-
-                if (!member.AllowedGroundBlocks.Contains(
-                        groundBlock))
-                {
-                    return false;
-                }
             }
         }
 
