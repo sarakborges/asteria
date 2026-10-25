@@ -1936,10 +1936,18 @@ public sealed class SurfaceChunkMaterializer
         int topExclusive)
     {
         if (!_generatedFluids.HasRules)
-        {
             return;
-        }
 
+        // Resolve each column's fluid interval once. The subsequent pass walks
+        // the chunk in storage order (X, then Z, then Y), preserving bounded
+        // vertical work while making palette writes contiguous.
+        Span<int> firstFluidYByColumn = stackalloc int[Chunk.Area];
+        Span<int> lastFluidYByColumn = stackalloc int[Chunk.Area];
+        firstFluidYByColumn.Fill(int.MaxValue);
+        lastFluidYByColumn.Fill(int.MinValue);
+
+        var firstWorldY = int.MaxValue;
+        var lastWorldY = int.MinValue;
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         {
             for (var localX = 0; localX < Chunk.Size; localX++)
@@ -1947,18 +1955,9 @@ public sealed class SurfaceChunkMaterializer
                 var sample = column.BiomeAt(localX, localZ);
                 var baseY = column.BaseHeightAt(localX, localZ);
                 var surfaceCutDepth =
-                    column.SurfaceFluidCutDepthAt(
-                        localX,
-                        localZ);
-
-                var worldX =
-                    checked(
-                        originX +
-                        localX);
-                var worldZ =
-                    checked(
-                        originZ +
-                        localZ);
+                    column.SurfaceFluidCutDepthAt(localX, localZ);
+                var worldX = checked(originX + localX);
+                var worldZ = checked(originZ + localZ);
 
                 if (!_generatedFluids.TryGetColumnBounds(
                         sample,
@@ -1968,30 +1967,49 @@ public sealed class SurfaceChunkMaterializer
                         worldZ,
                         out var minimumY,
                         out var maximumY))
-                {
                     continue;
-                }
 
                 var firstY = Math.Max(originY, minimumY);
                 var lastY = Math.Min(topExclusive - 1, maximumY);
                 if (firstY > lastY)
-                {
                     continue;
-                }
 
-                for (var worldY = firstY; worldY <= lastY; worldY++)
+                var columnIndex = localX + Chunk.Size * localZ;
+                firstFluidYByColumn[columnIndex] = firstY;
+                lastFluidYByColumn[columnIndex] = lastY;
+                firstWorldY = Math.Min(firstWorldY, firstY);
+                lastWorldY = Math.Max(lastWorldY, lastY);
+            }
+        }
+
+        if (firstWorldY > lastWorldY)
+            return;
+
+        for (var worldY = firstWorldY; worldY <= lastWorldY; worldY++)
+        {
+            var localY = worldY - originY;
+            for (var localZ = 0; localZ < Chunk.Size; localZ++)
+            {
+                for (var localX = 0; localX < Chunk.Size; localX++)
                 {
-                    var localY = worldY - originY;
+                    var columnIndex = localX + Chunk.Size * localZ;
+                    if (worldY < firstFluidYByColumn[columnIndex] ||
+                        worldY > lastFluidYByColumn[columnIndex])
+                        continue;
 
                     var block = chunk.GetBlock(localX, localY, localZ);
                     if ((!block.IsAir &&
                          !FluidBlockOccupancy.AllowsFluid(
                              _blocks.GetDefinition(block))) ||
                         !chunk.GetFluid(localX, localY, localZ).IsEmpty)
-                    {
                         continue;
-                    }
 
+                    var sample = column.BiomeAt(localX, localZ);
+                    var baseY = column.BaseHeightAt(localX, localZ);
+                    var surfaceCutDepth =
+                        column.SurfaceFluidCutDepthAt(localX, localZ);
+                    var worldX = checked(originX + localX);
+                    var worldZ = checked(originZ + localZ);
                     var fluid = _generatedFluids.FluidAt(
                         sample,
                         baseY,
