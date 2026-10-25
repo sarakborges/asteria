@@ -923,7 +923,9 @@ public sealed class SurfaceStructureField
             int minimumX,
             int minimumZ,
             int maximumX,
-            int maximumZ)
+            int maximumZ,
+            int? minimumPotentialPriority = null,
+            IReadOnlySet<string>? relevantConflictGroups = null)
     {
         var candidates =
             new List<StructureCandidate>();
@@ -934,6 +936,19 @@ public sealed class SurfaceStructureField
         {
             var rule =
                 _rules[ruleIndex];
+            if (minimumPotentialPriority is { } priority &&
+                rule.MaximumPriority < priority)
+            {
+                continue;
+            }
+
+            if (relevantConflictGroups is not null &&
+                !rule.MayReserveSpace &&
+                !rule.MightConflictWith(relevantConflictGroups))
+            {
+                continue;
+            }
+
             long minimumCellX;
             long maximumCellX;
             long minimumCellZ;
@@ -1091,8 +1106,21 @@ public sealed class SurfaceStructureField
             maximumZ = Math.Max(maximumZ, candidate.MaximumZ);
         }
 
+        // Only a candidate that outranks at least one direct candidate
+        // and can share a conflict rule can remove it. Filter impossible
+        // contenders before expanding their full structures/connectors.
+        var minimumDirectPriority =
+            direct.Min(candidate => candidate.Priority);
+        var relevantConflictGroups =
+            direct.SelectMany(candidate => candidate.ConflictGroups)
+                .ToHashSet(StringComparer.Ordinal);
         var possibleConflicts = CollectCandidatesIntersectingBounds(
-            minimumX, minimumZ, maximumX, maximumZ);
+            minimumX,
+            minimumZ,
+            maximumX,
+            maximumZ,
+            minimumDirectPriority,
+            relevantConflictGroups);
         var accepted = new List<StructureCandidate>(direct.Count);
 
         foreach (var candidate in direct)
@@ -2895,6 +2923,17 @@ public sealed class SurfaceStructureField
             Set = set;
             MaximumHorizontalRadius =
                 maximumHorizontalRadius;
+            MaximumPriority = set is not null
+                ? set.Priority
+                : members.Max(member => member.Definition.Priority);
+            MayReserveSpace = set is not null
+                ? set.ReserveSpace
+                : members.Any(member => member.Definition.Generation.ReserveSpace);
+            ConflictGroups = set is not null
+                ? set.ConflictGroups
+                : members.SelectMany(member => member.Definition.ConflictGroups)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
             var prefix =
                 $"surface-structure/{biome}/{reference}/v1/";
             PresenceDomain =
@@ -2938,6 +2977,23 @@ public sealed class SurfaceStructureField
         public RuntimeStructureSet? Set { get; }
 
         public int MaximumHorizontalRadius { get; }
+
+        public int MaximumPriority { get; }
+
+        public bool MayReserveSpace { get; }
+
+        public IReadOnlyList<string> ConflictGroups { get; }
+
+        public bool MightConflictWith(IReadOnlySet<string> groups)
+        {
+            foreach (var group in ConflictGroups)
+            {
+                if (groups.Contains(group))
+                    return true;
+            }
+
+            return false;
+        }
 
         public GenerationDomain PresenceDomain { get; }
 
