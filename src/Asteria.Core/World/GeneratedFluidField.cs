@@ -327,6 +327,28 @@ public sealed class GeneratedFluidField
                 worldY,
                 worldZ);
 
+    /// <summary>
+    /// Resolves fluid occupancy from a precomputed terrain solidity bit,
+    /// avoiding expansion of the full numeric density volume.
+    /// </summary>
+    public FluidCell FluidAt(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldY,
+        int worldZ,
+        bool terrainSolid) =>
+        terrainSolid
+            ? FluidCell.Empty
+            : FluidAtEmptyVoxel(
+                sample,
+                baseSurfaceY,
+                surfaceCutDepth,
+                worldX,
+                worldY,
+                worldZ);
+
     public ChunkSurfaceRange ExpandSurfaceRange(
         SurfaceTerrainColumn column) =>
         ExpandSurfaceRange(
