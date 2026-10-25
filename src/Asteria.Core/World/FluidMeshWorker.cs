@@ -92,6 +92,10 @@ public sealed class FluidMeshWorker
     {
         var result =
             new List<FluidMeshletBuild>();
+        // All meshlets in this job read the same immutable snapshot. Sharing
+        // surface heights avoids recalculating the halo around each meshlet.
+        var surfaceHeightCache =
+            new FluidMeshDataBuilder.FluidSurfaceHeightCache(world);
 
         foreach (var (coord, mask) in dirty
                      .OrderBy(entry => entry.Key.Y)
@@ -108,7 +112,8 @@ public sealed class FluidMeshWorker
                 result.Add(new FluidMeshletBuild(
                     coord, meshletIndex,
                     FluidMeshDataBuilder.BuildMeshlet(
-                        world, coord, blocks, fluids, meshletIndex)));
+                        world, coord, blocks, fluids, meshletIndex,
+                        surfaceHeightCache)));
             }
         }
 
