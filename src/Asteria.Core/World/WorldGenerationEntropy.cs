@@ -52,6 +52,12 @@ internal static class WorldGenerationEntropy
         private readonly int _y1;
         private readonly int _z0;
         private readonly int _z1;
+        private readonly ulong _x0Hash;
+        private readonly ulong _x1Hash;
+        private readonly ulong _y0Hash;
+        private readonly ulong _y1Hash;
+        private readonly ulong _z0Hash;
+        private readonly ulong _z1Hash;
         private readonly double _tx;
         private readonly double _ty;
         private readonly double _tz;
@@ -72,6 +78,12 @@ internal static class WorldGenerationEntropy
             _x1 = _x0 == int.MaxValue ? int.MaxValue : _x0 + 1;
             _y1 = _y0 == int.MaxValue ? int.MaxValue : _y0 + 1;
             _z1 = _z0 == int.MaxValue ? int.MaxValue : _z0 + 1;
+            _x0Hash = WorldGenerationEntropy.HashXCoordinate(_x0);
+            _x1Hash = WorldGenerationEntropy.HashXCoordinate(_x1);
+            _y0Hash = WorldGenerationEntropy.HashYCoordinate(_y0);
+            _y1Hash = WorldGenerationEntropy.HashYCoordinate(_y1);
+            _z0Hash = WorldGenerationEntropy.HashZCoordinate(_z0);
+            _z1Hash = WorldGenerationEntropy.HashZCoordinate(_z1);
             _tx = WorldGenerationEntropy.SmoothStep(gx - floorX);
             _ty = WorldGenerationEntropy.SmoothStep(gy - floorY);
             _tz = WorldGenerationEntropy.SmoothStep(gz - floorZ);
@@ -82,29 +94,29 @@ internal static class WorldGenerationEntropy
             var firstZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y0, _z0)),
+                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x0Hash ^ _y0Hash ^ _z0Hash)),
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y0, _z0)),
+                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x1Hash ^ _y0Hash ^ _z0Hash)),
                     _tx),
                 WorldGenerationEntropy.Lerp(
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y1, _z0)),
+                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x0Hash ^ _y1Hash ^ _z0Hash)),
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y1, _z0)),
+                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x1Hash ^ _y1Hash ^ _z0Hash)),
                     _tx),
                 _ty);
             var secondZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y0, _z1)),
+                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x0Hash ^ _y0Hash ^ _z1Hash)),
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y0, _z1)),
+                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x1Hash ^ _y0Hash ^ _z1Hash)),
                     _tx),
                 WorldGenerationEntropy.Lerp(
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3D(seed, domain, _x0, _y1, _z1)),
+                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x0Hash ^ _y1Hash ^ _z1Hash)),
                     WorldGenerationEntropy.SignedUnit(
-                        WorldGenerationEntropy.Sample3D(seed, domain, _x1, _y1, _z1)),
+                        WorldGenerationEntropy.Sample3DHashed(seed, domain, _x1Hash ^ _y1Hash ^ _z1Hash)),
                     _tx),
                 _ty);
             return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
@@ -293,23 +305,42 @@ internal static class WorldGenerationEntropy
         }
     }
 
+    private const ulong XCoordinateMultiplier = 0x9e3779b185ebca87UL;
+    private const ulong YCoordinateMultiplier = 0x165667b19e3779f9UL;
+    private const ulong ZCoordinateMultiplier = 0xc2b2ae3d27d4eb4fUL;
+
+    private static ulong HashXCoordinate(int x) =>
+        unchecked((ulong)(uint)x * XCoordinateMultiplier);
+
+    private static ulong HashYCoordinate(int y) =>
+        unchecked((ulong)(uint)y * YCoordinateMultiplier);
+
+    private static ulong HashZCoordinate(int z) =>
+        unchecked((ulong)(uint)z * ZCoordinateMultiplier);
+
+    private static ulong Sample3DHashed(
+        ulong seed,
+        GenerationDomain domain,
+        ulong coordinateHash)
+    {
+        unchecked
+        {
+            return Mix(seed ^ domain.Key ^ coordinateHash);
+        }
+    }
+
     public static ulong Sample3D(
         ulong seed,
         GenerationDomain domain,
         int x,
         int y,
-        int z)
-    {
-        unchecked
-        {
-            return Mix(
-                seed ^
-                domain.Key ^
-                ((ulong)(uint)x * 0x9e3779b185ebca87UL) ^
-                ((ulong)(uint)y * 0x165667b19e3779f9UL) ^
-                ((ulong)(uint)z * 0xc2b2ae3d27d4eb4fUL));
-        }
-    }
+        int z) =>
+        Sample3DHashed(
+            seed,
+            domain,
+            HashXCoordinate(x) ^
+            HashYCoordinate(y) ^
+            HashZCoordinate(z));
 
     public static double ValueNoise3D(
         ulong seed,
