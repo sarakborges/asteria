@@ -189,9 +189,59 @@ public sealed class SurfaceChunkMaterializer
                             continue;
                         }
 
+                        // Resolve an exposed surface deposit before volumetric
+                        // geology. When the surface rule applies (notably ocean
+                        // seabeds), the volumetric material for this same voxel
+                        // would be immediately overwritten and need not be sampled.
+                        var isExposedTerrainTop = worldY == surfaceY;
+                        if (!isExposedTerrainTop &&
+                            worldY < surfaceY &&
+                            (long)surfaceY - worldY <= 2L)
+                        {
+                            isExposedTerrainTop = true;
+                            for (var aboveY = worldY + 1;
+                                 aboveY <= surfaceY;
+                                 aboveY++)
+                            {
+                                var aboveLocalY = aboveY - originY;
+                                if (aboveLocalY < 0 || aboveLocalY >= Chunk.Size ||
+                                    densityVolume.IsSolidAt(
+                                        localX, aboveLocalY, localZ))
+                                {
+                                    isExposedTerrainTop = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        BlockRuntimeId exposedBlock = BlockRuntimeId.Air;
+                        var hasExposedGeology = false;
+                        if (isExposedTerrainTop)
+                        {
+                            var surfaceOwner = worldY > baseY
+                                ? densityVolume.VolumeBiomeAt(localX, worldY, localZ) ??
+                                  throw new InvalidOperationException(
+                                      "Additive surface has no volume biome owner.")
+                                : sample;
+                            if (!_materials.SurfaceGeologyRequiresSubmerged(surfaceOwner) ||
+                                HasGeneratedFluidAboveSurface(
+                                    surfaceOwner, sample, baseY, surfaceFluidCutDepth,
+                                    worldX, worldY, worldZ,
+                                    densityVolume.VolumePlacementAt(localX, localZ)))
+                            {
+                                hasExposedGeology = _materials.TrySurfaceGeologyBlockAt(
+                                    surfaceOwner, worldX, worldY, worldZ,
+                                    out exposedBlock);
+                            }
+                        }
+
                         BlockRuntimeId block;
 
-                        if (worldY <= baseY)
+                        if (hasExposedGeology)
+                        {
+                            block = exposedBlock;
+                        }
+                        else if (worldY <= baseY)
                         {
                             var depth = checked((uint)(baseY - worldY));
                             surfaceMaterials ??= _materials.SampleColumn(
@@ -255,55 +305,6 @@ public sealed class SurfaceChunkMaterializer
                                 volumeSample, worldX, worldY, worldZ, out block))
                             {
                                 block = volumeMaterials.BlockAt(depth);
-                            }
-                        }
-
-                        // Exposed cover variation is decided at the actual
-                        // terrain surface, not by subsurface depth or world altitude.
-                        // Ocean deposits are exposed only where generated fluid occupies
-                        // the voxel above, preserving dry beaches as continuous sand.
-                        // The sampled height is a terrain bound, not a
-                        // guarantee that this exact voxel is solid. Density
-                        // clipping can leave the top sample empty; in that case
-                        // expose geology on the highest solid voxel immediately
-                        // beneath it instead of silently keeping the whole cover.
-                        var isExposedTerrainTop = worldY == surfaceY;
-                        if (!isExposedTerrainTop &&
-                            worldY < surfaceY &&
-                            (long)surfaceY - worldY <= 2L)
-                        {
-                            isExposedTerrainTop = true;
-                            for (var aboveY = worldY + 1;
-                                 aboveY <= surfaceY;
-                                 aboveY++)
-                            {
-                                var aboveLocalY = aboveY - originY;
-                                if (aboveLocalY < 0 || aboveLocalY >= Chunk.Size ||
-                                    densityVolume.IsSolidAt(
-                                        localX, aboveLocalY, localZ))
-                                {
-                                    isExposedTerrainTop = false;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (isExposedTerrainTop)
-                        {
-                            var surfaceOwner = worldY > baseY
-                                ? volumeSample
-                                : sample;
-                            if (surfaceOwner is not null &&
-                                (!_materials.SurfaceGeologyRequiresSubmerged(surfaceOwner) ||
-                                 HasGeneratedFluidAboveSurface(
-                                     surfaceOwner, sample, baseY, surfaceFluidCutDepth,
-                                     worldX, worldY, worldZ,
-                                     densityVolume.VolumePlacementAt(localX, localZ))) &&
-                                _materials.TrySurfaceGeologyBlockAt(
-                                    surfaceOwner, worldX, worldY, worldZ,
-                                    out var exposedBlock))
-                            {
-                                block = exposedBlock;
                             }
                         }
 
