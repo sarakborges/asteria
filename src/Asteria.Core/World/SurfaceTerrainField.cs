@@ -1809,6 +1809,16 @@ public sealed class TerrainDensityVolume
         return _densityProvider!(localX, localY, localZ) >= 0d;
     }
 
+    /// <summary>
+    /// Fast occupancy read for materializer loops that have already proven
+    /// all coordinates are inside this chunk's compact column-mask volume.
+    /// </summary>
+    internal bool IsSolidAtUnchecked(
+        int localX,
+        int localY,
+        int localZ) =>
+        (_columnSolidMask![(localZ * Width) + localX] & (1u << localY)) != 0;
+
     internal BiomeSample? VolumePlacementAt(
         int localX,
         int localZ)

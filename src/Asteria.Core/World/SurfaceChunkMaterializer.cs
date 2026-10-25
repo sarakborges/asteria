@@ -181,7 +181,7 @@ public sealed class SurfaceChunkMaterializer
                         var localY =
                             worldY -
                             originY;
-                        if (!densityVolume.IsSolidAt(
+                        if (!densityVolume.IsSolidAtUnchecked(
                                 localX,
                                 localY,
                                 localZ))
@@ -205,7 +205,7 @@ public sealed class SurfaceChunkMaterializer
                             {
                                 var aboveLocalY = aboveY - originY;
                                 if (aboveLocalY < 0 || aboveLocalY >= Chunk.Size ||
-                                    densityVolume.IsSolidAt(
+                                    densityVolume.IsSolidAtUnchecked(
                                         localX, aboveLocalY, localZ))
                                 {
                                     isExposedTerrainTop = false;
@@ -360,7 +360,7 @@ public sealed class SurfaceChunkMaterializer
                     // Generated-fluid occupancy, not only the column range,
                     // decides whether this is a submerged decorator cell.
                     var decorationTerrainSolid = normalInChunk
-                        ? densityVolume.IsSolidAt(
+                        ? densityVolume.IsSolidAtUnchecked(
                             localX, (int)decorationY - originY, localZ)
                         : _terrain.DensityAt(
                             sample, baseY, worldX, (int)decorationY, worldZ,
@@ -1049,7 +1049,7 @@ public sealed class SurfaceChunkMaterializer
                     (_floorY is { } floorY && worldY <= floorY) ||
                     (_roofY is { } roofY && worldY >= roofY) ||
                     chunk.GetBlock(x, y, z).IsAir ||
-                    !densityVolume.IsSolidAt(x, y, z))
+                    !densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
                 bool CarvedVoid(int dx, int dy, int dz)
@@ -1063,7 +1063,7 @@ public sealed class SurfaceChunkMaterializer
                     if ((uint)nx < Chunk.Size &&
                         (uint)ny < Chunk.Size &&
                         (uint)nz < Chunk.Size)
-                        return !densityVolume.IsSolidAt(nx, ny, nz) &&
+                        return !densityVolume.IsSolidAtUnchecked(nx, ny, nz) &&
                             neighborY <= column.BaseHeightAt(nx, nz) - 4;
 
                     return OutsideCarvedVoid(
@@ -1147,7 +1147,7 @@ public sealed class SurfaceChunkMaterializer
                     (_floorY is { } floorY && worldY <= floorY) ||
                     (_roofY is { } roofY && worldY >= roofY) ||
                     chunk.GetBlock(x, y, z).IsAir ||
-                    !densityVolume.IsSolidAt(x, y, z))
+                    !densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
                 var biome = worldY > baseY
@@ -1173,7 +1173,7 @@ public sealed class SurfaceChunkMaterializer
                     var voidDensity = (uint)nx < Chunk.Size &&
                         (uint)ny < Chunk.Size &&
                         (uint)nz < Chunk.Size
-                        ? !densityVolume.IsSolidAt(nx, ny, nz)
+                        ? !densityVolume.IsSolidAtUnchecked(nx, ny, nz)
                         : DensityAtWorld(
                             worldX + dx, neighborY, worldZ + dz) < 0d;
                     if (!voidDensity)
@@ -1288,7 +1288,7 @@ public sealed class SurfaceChunkMaterializer
                     localX, localZ);
                 var targetInChunk = (uint)localY < Chunk.Size;
                 var targetSolid = targetInChunk
-                    ? densityVolume.IsSolidAt(localX, localY, localZ)
+                    ? densityVolume.IsSolidAtUnchecked(localX, localY, localZ)
                     : _terrain.DensityAt(surfaceBiome, baseY,
                         worldX, worldY, worldZ, volumePlacement) >= 0d;
                 if (targetSolid ||
@@ -1296,7 +1296,7 @@ public sealed class SurfaceChunkMaterializer
                      !chunk.GetCell(localX, localY, localZ).IsEmpty))
                     continue;
                 var belowSolid = localY > 0 && localY <= Chunk.Size
-                    ? densityVolume.IsSolidAt(localX, localY - 1, localZ)
+                    ? densityVolume.IsSolidAtUnchecked(localX, localY - 1, localZ)
                     : _terrain.DensityAt(
                         surfaceBiome, baseY,
                         worldX, worldY - 1, worldZ, volumePlacement) >= 0d;
@@ -1320,7 +1320,7 @@ public sealed class SurfaceChunkMaterializer
                           additiveCeilingBiome.Primary))))
                 {
                     var aboveSolid = localY + 1 >= 0 && localY + 1 < Chunk.Size
-                        ? densityVolume.IsSolidAt(localX, localY + 1, localZ)
+                        ? densityVolume.IsSolidAtUnchecked(localX, localY + 1, localZ)
                         : _terrain.DensityAt(
                             surfaceBiome, baseY,
                             worldX, worldY + 1, worldZ, volumePlacement) >= 0d;
@@ -1536,7 +1536,7 @@ public sealed class SurfaceChunkMaterializer
 
                 var host = chunk.GetCell(x, y, z);
                 if (host.IsEmpty ||
-                    !densityVolume.IsSolidAt(x, y, z))
+                    !densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
                 foreach (var side in faces)
@@ -1550,7 +1550,7 @@ public sealed class SurfaceChunkMaterializer
                     if (local)
                     {
                         if (!chunk.GetCell(nx, y, nz).IsEmpty ||
-                            densityVolume.IsSolidAt(nx, y, nz))
+                            densityVolume.IsSolidAtUnchecked(nx, y, nz))
                             continue;
                     }
                     else if (DensityAtWorld(px, worldY, pz) >= 0d)
@@ -1668,7 +1668,7 @@ public sealed class SurfaceChunkMaterializer
                     (_roofY is { } roof && worldY >= roof) ||
                     !chunk.GetCell(x, y, z).IsEmpty ||
                     !chunk.GetFluid(x, y, z).IsEmpty ||
-                    densityVolume.IsSolidAt(x, y, z))
+                    densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
                 var exterior = worldY > baseY && surfaceSupportsObjects;
@@ -1693,7 +1693,7 @@ public sealed class SurfaceChunkMaterializer
                     var neighborZ = worldZ + side.Dz;
                     var local = Chunk.Contains(nx, y, nz);
                     var solid = local
-                        ? densityVolume.IsSolidAt(nx, y, nz)
+                        ? densityVolume.IsSolidAtUnchecked(nx, y, nz)
                         : DensityAtWorld(neighborX, worldY, neighborZ) >= 0d;
                     if (!solid)
                         continue;
@@ -1778,7 +1778,7 @@ public sealed class SurfaceChunkMaterializer
                 // not cave space. Only a carved void below the base surface
                 // could contain a generated cave spike.
                 if (originY + localY < baseY &&
-                    !densityVolume.IsSolidAt(x, localY, z))
+                    !densityVolume.IsSolidAtUnchecked(x, localY, z))
                 {
                     containsVoid = true;
                     break;
@@ -1803,7 +1803,7 @@ public sealed class SurfaceChunkMaterializer
                 // sampled density and skip both direction probes immediately.
                 var localAnchorY = anchorY - originY;
                 if ((uint)localAnchorY < Chunk.Size &&
-                    densityVolume.IsSolidAt(x, localAnchorY, z))
+                    densityVolume.IsSolidAtUnchecked(x, localAnchorY, z))
                     continue;
 
                 for (var direction = 0; direction < 2; direction++)
@@ -1952,7 +1952,7 @@ public sealed class SurfaceChunkMaterializer
                         worldX,
                         worldY,
                         worldZ,
-                        densityVolume.IsSolidAt(
+                        densityVolume.IsSolidAtUnchecked(
                             localX,
                             localY,
                             localZ));
