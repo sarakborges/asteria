@@ -41,6 +41,72 @@ internal readonly record struct GenerationDomain(ulong Key)
 
 internal static class WorldGenerationEntropy
 {
+    // Prepared value-noise coordinates share lattice indices and interpolation
+    // factors across several independent domains. Geology samples many domains
+    // at the same transformed position, so avoid repeating floor/division work.
+    internal readonly struct ValueNoise3DCoordinates
+    {
+        private readonly int _x0;
+        private readonly int _x1;
+        private readonly int _y0;
+        private readonly int _y1;
+        private readonly int _z0;
+        private readonly int _z1;
+        private readonly double _tx;
+        private readonly double _ty;
+        private readonly double _tz;
+
+        internal ValueNoise3DCoordinates(
+            double x, double y, double z,
+            uint horizontalScale, uint verticalScale)
+        {
+            var gx = x / horizontalScale;
+            var gy = y / verticalScale;
+            var gz = z / horizontalScale;
+            var floorX = Math.Floor(gx);
+            var floorY = Math.Floor(gy);
+            var floorZ = Math.Floor(gz);
+            _x0 = ClampToInt(floorX);
+            _y0 = ClampToInt(floorY);
+            _z0 = ClampToInt(floorZ);
+            _x1 = _x0 == int.MaxValue ? int.MaxValue : _x0 + 1;
+            _y1 = _y0 == int.MaxValue ? int.MaxValue : _y0 + 1;
+            _z1 = _z0 == int.MaxValue ? int.MaxValue : _z0 + 1;
+            _tx = SmoothStep(gx - floorX);
+            _ty = SmoothStep(gy - floorY);
+            _tz = SmoothStep(gz - floorZ);
+        }
+
+        internal double Sample(ulong seed, GenerationDomain domain)
+        {
+            double Slice(int layerZ) =>
+                Lerp(
+                    Lerp(
+                        SignedUnit(Sample3D(seed, domain, _x0, _y0, layerZ)),
+                        SignedUnit(Sample3D(seed, domain, _x1, _y0, layerZ)),
+                        _tx),
+                    Lerp(
+                        SignedUnit(Sample3D(seed, domain, _x0, _y1, layerZ)),
+                        SignedUnit(Sample3D(seed, domain, _x1, _y1, layerZ)),
+                        _tx),
+                    _ty);
+
+            return Lerp(Slice(_z0), Slice(_z1), _tz);
+        }
+    }
+
+    internal static ValueNoise3DCoordinates PrepareValueNoise3D(
+        double x, double y, double z,
+        uint horizontalScale, uint verticalScale)
+    {
+        if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z))
+            throw new ArgumentOutOfRangeException(nameof(x), "Noise coordinates must be finite.");
+        if (horizontalScale < 2 || verticalScale < 2)
+            throw new ArgumentOutOfRangeException(nameof(horizontalScale));
+
+        return new ValueNoise3DCoordinates(
+            x, y, z, horizontalScale, verticalScale);
+    }
     public static ulong Sample2D(
         ulong seed,
         GenerationDomain domain,
@@ -134,43 +200,10 @@ internal static class WorldGenerationEntropy
         double y,
         double z,
         uint horizontalScale,
-        uint verticalScale)
-    {
-        if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z))
-            throw new ArgumentOutOfRangeException(nameof(x), "Noise coordinates must be finite.");
-        if (horizontalScale < 2 || verticalScale < 2)
-            throw new ArgumentOutOfRangeException(nameof(horizontalScale));
-
-        var gx = x / horizontalScale;
-        var gy = y / verticalScale;
-        var gz = z / horizontalScale;
-        var floorX = Math.Floor(gx);
-        var floorY = Math.Floor(gy);
-        var floorZ = Math.Floor(gz);
-        var x0 = ClampToInt(floorX);
-        var y0 = ClampToInt(floorY);
-        var z0 = ClampToInt(floorZ);
-        var x1 = x0 == int.MaxValue ? int.MaxValue : x0 + 1;
-        var y1 = y0 == int.MaxValue ? int.MaxValue : y0 + 1;
-        var z1 = z0 == int.MaxValue ? int.MaxValue : z0 + 1;
-        var tx = SmoothStep(gx - floorX);
-        var ty = SmoothStep(gy - floorY);
-        var tz = SmoothStep(gz - floorZ);
-
-        double Slice(int layerZ) =>
-            Lerp(
-                Lerp(
-                    SignedUnit(Sample3D(seed, domain, x0, y0, layerZ)),
-                    SignedUnit(Sample3D(seed, domain, x1, y0, layerZ)),
-                    tx),
-                Lerp(
-                    SignedUnit(Sample3D(seed, domain, x0, y1, layerZ)),
-                    SignedUnit(Sample3D(seed, domain, x1, y1, layerZ)),
-                    tx),
-                ty);
-
-        return Lerp(Slice(z0), Slice(z1), tz);
-    }
+        uint verticalScale) =>
+        PrepareValueNoise3D(
+            x, y, z, horizontalScale, verticalScale)
+        .Sample(seed, domain);
 
     public static double SmoothNoise2D(
         ulong seed,
