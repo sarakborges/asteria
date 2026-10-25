@@ -160,10 +160,13 @@ public sealed class SurfaceChunkMaterializer
                 BiomeSurfaceMaterialColumn? surfaceMaterials = null;
                 BiomeSample? volumeSample = null;
                 BiomeSurfaceMaterialColumn? volumeMaterials = null;
+                uint? volumeCoverDepth = null;
 
                 if (firstSolidY <= lastSolidY)
                 {
                     var surfaceCore = _materials.CoreLayer(sample);
+                    var surfaceCoverDepth =
+                        _materials.GeologySurfaceCoverDepth(sample);
 
                     for (var worldY = firstSolidY;
                          worldY <= lastSolidY;
@@ -193,8 +196,7 @@ public sealed class SurfaceChunkMaterializer
                             var depth = checked((uint)(baseY - worldY));
                             surfaceMaterials ??= _materials.SampleColumn(
                                 sample, worldX, worldZ);
-                            var coverDepth = _materials.GeologySurfaceCoverDepth(sample);
-                            var useSurfaceCover = coverDepth is { } authoredCoverDepth
+                            var useSurfaceCover = surfaceCoverDepth is { } authoredCoverDepth
                                 ? depth < authoredCoverDepth
                                 : depth == 0 || depth < surfaceMaterials.FiniteDepth;
                             if (useSurfaceCover)
@@ -213,13 +215,18 @@ public sealed class SurfaceChunkMaterializer
                         }
                         else
                         {
-                            volumeSample ??=
-                                densityVolume.VolumeBiomeAt(
-                                    localX,
-                                    worldY,
-                                    localZ) ??
-                                throw new InvalidOperationException(
-                                    "Additive solid voxel has no volume biome owner.");
+                            if (volumeSample is null)
+                            {
+                                volumeSample =
+                                    densityVolume.VolumeBiomeAt(
+                                        localX,
+                                        worldY,
+                                        localZ) ??
+                                    throw new InvalidOperationException(
+                                        "Additive solid voxel has no volume biome owner.");
+                                volumeCoverDepth =
+                                    _materials.GeologySurfaceCoverDepth(volumeSample);
+                            }
                             volumeMaterials ??=
                                 _materials.SampleColumn(
                                     volumeSample,
@@ -237,8 +244,7 @@ public sealed class SurfaceChunkMaterializer
                                     worldY,
                                     worldZ,
                                     volumeMaterials.FiniteDepth);
-                            var coverDepth = _materials.GeologySurfaceCoverDepth(volumeSample);
-                            var useSurfaceCover = coverDepth is { } authoredCoverDepth
+                            var useSurfaceCover = volumeCoverDepth is { } authoredCoverDepth
                                 ? depth < authoredCoverDepth
                                 : depth == 0 || depth < volumeMaterials.FiniteDepth;
                             if (useSurfaceCover)
