@@ -1349,7 +1349,7 @@ public sealed class SurfaceChunkMaterializer
                         !_terrain.IsCaveVoidAt(
                             baseY, new WorldVoxelCoord(worldX, worldY, worldZ)))
                         continue;
-                    underground ??= column.CaveBiomeAt(x, z);
+                    underground ??= column.CaveBiomeAt(localX, localZ);
                     decoratorBiome = underground;
                 }
 
