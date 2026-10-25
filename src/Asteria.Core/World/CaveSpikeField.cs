@@ -17,12 +17,6 @@ public sealed class CaveSpikeField
         (int X, int Z, int Radius),
         bool> _spacingPriorities = new(32768);
 
-    // Height probes for neighboring spike anchors overlap heavily. Cache only
-    // out-of-chunk void classifications; in-chunk cells keep using the dense
-    // precomputed volume without dictionary lookups.
-    private readonly BoundedMemoCache<
-        (int X, int Y, int Z),
-        bool> _voidDensity = new(65536);
     private static readonly GenerationDomain SpacingDomain =
         GenerationDomain.Named("worldgen/cave-spike/horizontal-spacing/v1");
 
@@ -175,14 +169,8 @@ public sealed class CaveSpikeField
                     return densityVolume.DensityAt(
                         localX, localProbeY, localZ) < 0d;
 
-                var key = (X: x, Y: probeY, Z: z);
-                if (_voidDensity.TryGet(key, out var cachedVoid))
-                    return cachedVoid;
-
-                return _voidDensity.GetOrAdd(
-                    key,
-                    () => _terrain.DensityAt(
-                        surfaceBiome, baseY, x, probeY, z, volumeBiome) < 0d);
+                return _terrain.DensityAt(
+                    surfaceBiome, baseY, x, probeY, z, volumeBiome) < 0d;
             }
             var supportY = y + (down ? 1 : -1);
             if (!IsVoid(y) || IsVoid(supportY))
