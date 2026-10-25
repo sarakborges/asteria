@@ -27,7 +27,7 @@ public static class FluidMeshDataBuilder
         WorldVoxelCoord Position,
         FluidRuntimeId Fluid);
 
-    private sealed class FluidSurfaceHeightCache
+    internal sealed class FluidSurfaceHeightCache
     {
         private readonly VoxelWorld _world;
         private readonly Dictionary<FluidSurfaceCacheKey, FluidFaceHeights> _heights = [];
@@ -60,11 +60,23 @@ public static class FluidMeshDataBuilder
         ChunkCoord coord,
         BlockRegistry blocks,
         FluidRegistry fluids,
-        int meshletIndex)
+        int meshletIndex) =>
+        BuildMeshlet(
+            world, coord, blocks, fluids, meshletIndex,
+            new FluidSurfaceHeightCache(world));
+
+    internal static ChunkFluidMeshData BuildMeshlet(
+        VoxelWorld world,
+        ChunkCoord coord,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        int meshletIndex,
+        FluidSurfaceHeightCache surfaceHeightCache)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
+        ArgumentNullException.ThrowIfNull(surfaceHeightCache);
 
         var chunk = world.GetChunk(coord);
         var buffers =
@@ -73,12 +85,8 @@ public static class FluidMeshDataBuilder
             ChunkMeshletMask.Bounds(meshletIndex);
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
-        // Surface heights depend only on the immutable worker snapshot.
-        // Neighbor faces repeatedly ask for the same fluid cell's heights,
-        // so cache them for this meshlet build rather than recomputing the
-        // four corners and their surrounding voxel reads for every face.
-        var surfaceHeightCache = new FluidSurfaceHeightCache(world);
-
+        // The caller owns this cache for the lifetime of the immutable worker
+        // snapshot; neighboring meshlets can reuse surface-height samples.
         for (var y = bounds.MinY;
              y < bounds.MaxYExclusive;
              y++)
@@ -106,7 +114,12 @@ public static class FluidMeshDataBuilder
                             originZ + z);
 
                     // Permeable sprites and their source fluid can coexist.
-                    if (!world.CanContainFluidAt(position))
+                    // This voxel is known to belong to the current chunk, so
+                    // avoid a second world-coordinate-to-chunk lookup.
+                    var cell = chunk.GetCell(x, y, z);
+                    if (!cell.IsEmpty &&
+                        !FluidBlockOccupancy.AllowsFluid(
+                            blocks.GetDefinition(cell.Block)))
                     {
                         continue;
                     }
