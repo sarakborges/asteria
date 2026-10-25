@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -630,11 +632,9 @@ public sealed class SurfaceTerrainField
         // The horizontal placement is immutable and was already sampled
         // with the surface column. Reuse it across vertical chunk layers.
         var volumeBiomes = column.VolumeBiomes;
-        var values =
-            new double[
-                Chunk.Size *
-                Chunk.Size *
-                Chunk.Size];
+        var solidMask =
+            new ulong[
+                (Chunk.Size * Chunk.Size * Chunk.Size + 63) / 64];
         var maximumY = checked(originY + Chunk.Size - 1);
         var minimumBaseY = int.MaxValue;
         var maximumBaseY = int.MinValue;
@@ -721,9 +721,7 @@ public sealed class SurfaceTerrainField
                         additiveRule is { } activeAdditive &&
                         worldY >= activeAdditive.MinimumY &&
                         worldY <= activeAdditive.MaximumY;
-                    values[
-                        (localZ * Chunk.Size + localY) *
-                        Chunk.Size + localX] =
+                    var density =
                         caveDensityApplies ||
                         additiveDensityApplies ||
                         IsShellLining(worldY)
@@ -739,15 +737,41 @@ public sealed class SurfaceTerrainField
                                 localY,
                                 localZ)
                             : baseY - (double)worldY;
+                    var index =
+                        (localZ * Chunk.Size + localY) *
+                        Chunk.Size + localX;
+                    if (density >= 0d)
+                    {
+                        solidMask[index >> 6] |=
+                            1UL << (index & 63);
+                    }
                 }
             }
+        }
+
+        double DensityAtLocal(
+            int localX,
+            int localY,
+            int localZ)
+        {
+            var worldX = checked(originX + localX);
+            var worldY = checked(originY + localY);
+            var worldZ = checked(originZ + localZ);
+            return DensityAt(
+                column.BiomeAt(localX, localZ),
+                column.BaseHeightAt(localX, localZ),
+                worldX,
+                worldY,
+                worldZ,
+                volumeBiomes[localX, localZ]);
         }
 
         return new TerrainDensityVolume(
             Chunk.Size,
             Chunk.Size,
             Chunk.Size,
-            values,
+            solidMask,
+            DensityAtLocal,
             volumeBiomes,
             _volumeBiomes);
     }
@@ -1642,10 +1666,15 @@ public sealed class SurfaceTerrainColumn
 
 /// <summary>
 /// Immutable bounded 3D query snapshot with Z/Y/X row major storage.
+/// Solids are stored as a compact bitset; exact density values are expanded
+/// lazily for query consumers that request them.
 /// </summary>
 public sealed class TerrainDensityVolume
 {
-    private readonly double[] _densities;
+    private double[]? _densities;
+    private readonly ulong[]? _solidMask;
+    private readonly Func<int, int, int, double>? _densityProvider;
+    private readonly object _densityGate = new();
     private readonly VolumeBiomePlacementGrid? _volumeBiomes;
     private readonly VolumeBiomeField? _volumeBiomeField;
 
@@ -1667,7 +1696,35 @@ public sealed class TerrainDensityVolume
         Width = width;
         Height = height;
         Depth = depth;
-        _densities = densities;
+        _densities = densities ??
+            throw new ArgumentNullException(nameof(densities));
+        _volumeBiomes = volumeBiomes;
+        _volumeBiomeField = volumeBiomeField;
+    }
+
+    internal TerrainDensityVolume(
+        int width,
+        int height,
+        int depth,
+        ulong[] solidMask,
+        Func<int, int, int, double> densityProvider,
+        VolumeBiomePlacementGrid? volumeBiomes,
+        VolumeBiomeField? volumeBiomeField)
+    {
+        if ((volumeBiomes is null) !=
+            (volumeBiomeField is null))
+        {
+            throw new ArgumentException(
+                "Volume biome snapshot metadata must be supplied together.");
+        }
+
+        Width = width;
+        Height = height;
+        Depth = depth;
+        _solidMask = solidMask ??
+            throw new ArgumentNullException(nameof(solidMask));
+        _densityProvider = densityProvider ??
+            throw new ArgumentNullException(nameof(densityProvider));
         _volumeBiomes = volumeBiomes;
         _volumeBiomeField = volumeBiomeField;
     }
@@ -1683,18 +1740,61 @@ public sealed class TerrainDensityVolume
         int localY,
         int localZ)
     {
-        if ((uint)localX >= Width ||
-            (uint)localY >= Height ||
-            (uint)localZ >= Depth)
+        var index = Index(localX, localY, localZ);
+        var densities = Volatile.Read(ref _densities);
+        if (densities is null)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(localX));
+            lock (_densityGate)
+            {
+                densities = Volatile.Read(ref _densities);
+                if (densities is null)
+                {
+                    if (_densityProvider is null)
+                    {
+                        throw new InvalidOperationException(
+                            "Density values are unavailable for this volume.");
+                    }
+
+                    densities = new double[
+                        checked(Width * Height * Depth)];
+                    for (var z = 0; z < Depth; z++)
+                    for (var y = 0; y < Height; y++)
+                    for (var x = 0; x < Width; x++)
+                    {
+                        densities[(z * Height + y) * Width + x] =
+                            _densityProvider(x, y, z);
+                    }
+
+                    Volatile.Write(ref _densities, densities);
+                }
+            }
         }
 
-        return _densities[
-            (localZ * Height + localY) *
-            Width +
-            localX];
+        return densities[index];
+    }
+
+    /// <summary>
+    /// Tests voxel occupancy without retaining a double per voxel in the
+    /// materialization path.
+    /// </summary>
+    public bool IsSolidAt(
+        int localX,
+        int localY,
+        int localZ)
+    {
+        var index = Index(localX, localY, localZ);
+        if (_solidMask is { } solidMask)
+        {
+            return (solidMask[index >> 6] & (1UL << (index & 63))) != 0;
+        }
+
+        var densities = Volatile.Read(ref _densities);
+        if (densities is not null)
+        {
+            return densities[index] >= 0d;
+        }
+
+        return _densityProvider!(localX, localY, localZ) >= 0d;
     }
 
     internal BiomeSample? VolumePlacementAt(
@@ -1729,5 +1829,20 @@ public sealed class TerrainDensityVolume
             localX,
             worldY,
             localZ);
+    }
+
+    private int Index(
+        int localX,
+        int localY,
+        int localZ)
+    {
+        if ((uint)localX >= Width ||
+            (uint)localY >= Height ||
+            (uint)localZ >= Depth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localX));
+        }
+
+        return (localZ * Height + localY) * Width + localX;
     }
 }
