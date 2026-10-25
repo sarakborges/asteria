@@ -71,6 +71,47 @@ public sealed class CaveSpikeField
         int y,
         int z,
         bool down,
+        out CaveSpikePlacement placement) =>
+        TrySampleCore(
+            undergroundBiome, surfaceBiome, volumeBiome, baseY,
+            x, y, z, down, densityVolume: null, densityOriginY: 0,
+            localX: 0, localZ: 0, out placement);
+
+    internal bool TrySample(
+        string undergroundBiome,
+        BiomeSample surfaceBiome,
+        BiomeSample? volumeBiome,
+        int baseY,
+        int x,
+        int y,
+        int z,
+        bool down,
+        TerrainDensityVolume densityVolume,
+        int densityOriginY,
+        int localX,
+        int localZ,
+        out CaveSpikePlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(densityVolume);
+        return TrySampleCore(
+            undergroundBiome, surfaceBiome, volumeBiome, baseY,
+            x, y, z, down, densityVolume, densityOriginY,
+            localX, localZ, out placement);
+    }
+
+    private bool TrySampleCore(
+        string undergroundBiome,
+        BiomeSample surfaceBiome,
+        BiomeSample? volumeBiome,
+        int baseY,
+        int x,
+        int y,
+        int z,
+        bool down,
+        TerrainDensityVolume? densityVolume,
+        int densityOriginY,
+        int localX,
+        int localZ,
         out CaveSpikePlacement placement)
     {
         placement = default;
@@ -116,10 +157,19 @@ public sealed class CaveSpikeField
             if (!HasSpacingPriority(x, z, definition.MinSpacing))
                 continue;
 
-            bool IsVoid(int probeY) =>
-                probeY > 0 && probeY < baseY &&
-                _terrain.DensityAt(
-                    surfaceBiome, baseY, x, probeY, z, volumeBiome) < 0d;
+            bool IsVoid(int probeY)
+            {
+                if (probeY <= 0 || probeY >= baseY)
+                    return false;
+
+                var localProbeY = probeY - densityOriginY;
+                var density = densityVolume is not null &&
+                              (uint)localProbeY < densityVolume.Height
+                    ? densityVolume.DensityAt(localX, localProbeY, localZ)
+                    : _terrain.DensityAt(
+                        surfaceBiome, baseY, x, probeY, z, volumeBiome);
+                return density < 0d;
+            }
             var supportY = y + (down ? 1 : -1);
             if (!IsVoid(y) || IsVoid(supportY))
                 continue;
