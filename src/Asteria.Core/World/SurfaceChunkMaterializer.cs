@@ -126,6 +126,11 @@ public sealed class SurfaceChunkMaterializer
                 originX,
                 originY,
                 originZ);
+        // Several face-materialization passes inspect the same one-voxel
+        // halo. Keep their expensive terrain/cave classifications local to
+        // this chunk synthesis rather than recomputing noise for each pass.
+        var haloDensity = new Dictionary<(int X, int Y, int Z), double>();
+        var haloCaveVoid = new Dictionary<(int X, int Y, int Z), bool>();
         var topExclusive = checked(originY + Chunk.Size);
         List<PendingGeneratedObject>? pendingObjects = null;
 
@@ -444,7 +449,8 @@ public sealed class SurfaceChunkMaterializer
         MaterializeVolumeCavePalette(
             chunk, column, densityVolume, originX, originY, originZ);
         MaterializeExteriorFacePalette(
-            chunk, column, densityVolume, originX, originY, originZ);
+            chunk, column, densityVolume, originX, originY, originZ,
+            haloDensity, haloCaveVoid);
 
         MaterializeVolumeStructures(chunk, coord);
 
@@ -474,9 +480,10 @@ public sealed class SurfaceChunkMaterializer
         _veins?.Apply(chunk, coord);
         MaterializeWallLayers(
             chunk, column, densityVolume, originX, originY, originZ,
-            ref pendingObjects);
+            haloDensity, haloCaveVoid, ref pendingObjects);
         MaterializeWallObjects(
-            chunk, column, densityVolume, originX, originY, originZ);
+            chunk, column, densityVolume, originX, originY, originZ,
+            haloDensity);
         // The Sphere Shell and its opaque terrain lining are the final
         // worldgen boundary. Structures, fluids, spikes and layers must not
         // uncover or replace them.
@@ -608,35 +615,49 @@ public sealed class SurfaceChunkMaterializer
     private double DensityAtWorld(
         int worldX,
         int worldY,
-        int worldZ)
+        int worldZ,
+        Dictionary<(int X, int Y, int Z), double> haloDensity)
     {
+        var key = (X: worldX, Y: worldY, Z: worldZ);
+        if (haloDensity.TryGetValue(key, out var cached))
+            return cached;
+
         var (coord, local) =
             VoxelCoordinates.FromWorld(worldX, 0, worldZ);
         var column = _columns.Get(coord.X, coord.Z);
         var biome = column.BiomeAt(local.X, local.Z);
-        return _terrain.DensityAt(
+        var density = _terrain.DensityAt(
             biome,
             column.BaseHeightAt(local.X, local.Z),
             worldX,
             worldY,
             worldZ,
             column.VolumeBiomes[local.X, local.Z]);
+        haloDensity.Add(key, density);
+        return density;
     }
 
     private bool IsCaveVoidAtWorld(
         int worldX,
         int worldY,
-        int worldZ)
+        int worldZ,
+        Dictionary<(int X, int Y, int Z), bool> haloCaveVoid)
     {
         if (worldY < 0)
             throw new ArgumentOutOfRangeException(nameof(worldY));
 
+        var key = (X: worldX, Y: worldY, Z: worldZ);
+        if (haloCaveVoid.TryGetValue(key, out var cached))
+            return cached;
+
         var (coord, local) =
             VoxelCoordinates.FromWorld(worldX, 0, worldZ);
         var column = _columns.Get(coord.X, coord.Z);
-        return _terrain.IsCaveVoidAt(
+        var isCaveVoid = _terrain.IsCaveVoidAt(
             column.BaseHeightAt(local.X, local.Z),
             new WorldVoxelCoord(worldX, worldY, worldZ));
+        haloCaveVoid.Add(key, isCaveVoid);
+        return isCaveVoid;
     }
 
     private uint AdditiveDepthAt(
@@ -1109,7 +1130,9 @@ public sealed class SurfaceChunkMaterializer
         Chunk chunk,
         SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
-        int originX, int originY, int originZ)
+        int originX, int originY, int originZ,
+        Dictionary<(int X, int Y, int Z), double> haloDensity,
+        Dictionary<(int X, int Y, int Z), bool> haloCaveVoid)
     {
         if (!_materials.HasExteriorOverrides)
             return;
@@ -1168,7 +1191,8 @@ public sealed class SurfaceChunkMaterializer
                         (uint)nz < Chunk.Size
                         ? densityVolume.DensityAt(nx, ny, nz) < 0d
                         : DensityAtWorld(
-                            worldX + dx, neighborY, worldZ + dz) < 0d;
+                            worldX + dx, neighborY, worldZ + dz,
+                            haloDensity) < 0d;
                     if (!voidDensity)
                         return false;
 
@@ -1183,7 +1207,7 @@ public sealed class SurfaceChunkMaterializer
                             column.BaseHeightAt(nx, nz), neighborPosition)
                         : IsCaveVoidAtWorld(
                             neighborPosition.X, neighborPosition.Y,
-                            neighborPosition.Z);
+                            neighborPosition.Z, haloCaveVoid);
                     return !carvedVoid;
                 }
 
@@ -1486,6 +1510,8 @@ public sealed class SurfaceChunkMaterializer
         int originX,
         int originY,
         int originZ,
+        Dictionary<(int X, int Y, int Z), double> haloDensity,
+        Dictionary<(int X, int Y, int Z), bool> haloCaveVoid,
         ref List<PendingGeneratedObject>? pendingObjects)
     {
         if (!_decorations.HasWallLayers && !_decorations.HasWallObjects)
@@ -1546,7 +1572,7 @@ public sealed class SurfaceChunkMaterializer
                             densityVolume.DensityAt(nx, y, nz) >= 0d)
                             continue;
                     }
-                    else if (DensityAtWorld(px, worldY, pz) >= 0d)
+                    else if (DensityAtWorld(px, worldY, pz, haloDensity) >= 0d)
                         continue;
 
                     // Resolve the actual empty-side biome without changing
@@ -1625,7 +1651,8 @@ public sealed class SurfaceChunkMaterializer
         TerrainDensityVolume densityVolume,
         int originX,
         int originY,
-        int originZ)
+        int originZ,
+        Dictionary<(int X, int Y, int Z), double> haloDensity)
     {
         if (!_decorations.HasWallBlocks)
             return;
@@ -1687,7 +1714,7 @@ public sealed class SurfaceChunkMaterializer
                     var local = Chunk.Contains(nx, y, nz);
                     var solid = local
                         ? densityVolume.DensityAt(nx, y, nz) >= 0d
-                        : DensityAtWorld(neighborX, worldY, neighborZ) >= 0d;
+                        : DensityAtWorld(neighborX, worldY, neighborZ, haloDensity) >= 0d;
                     if (!solid)
                         continue;
 
