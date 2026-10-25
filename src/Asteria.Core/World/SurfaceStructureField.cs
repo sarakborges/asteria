@@ -707,12 +707,17 @@ public sealed class SurfaceStructureField
     }
 
     private bool CandidateIsAccepted(
-        StructureCandidate candidate) =>
-        _candidateAcceptance.GetOrAdd(
-            new StructureCandidateKey(
-                candidate.RuleIndex,
-                candidate.CellX,
-                candidate.CellZ),
+        StructureCandidate candidate)
+    {
+        var key = new StructureCandidateKey(
+            candidate.RuleIndex,
+            candidate.CellX,
+            candidate.CellZ);
+        if (_candidateAcceptance.TryGet(key, out var cached))
+            return cached;
+
+        return _candidateAcceptance.GetOrAdd(
+            key,
             () =>
                 !CollectCandidatesIntersectingBounds(
                         candidate.MinimumX,
@@ -720,15 +725,10 @@ public sealed class SurfaceStructureField
                         candidate.MaximumX,
                         candidate.MaximumZ)
                     .Any(other =>
-                        !SameCandidate(
-                            other,
-                            candidate) &&
-                        CandidateOutranks(
-                            other,
-                            candidate) &&
-                        CandidatesConflict(
-                            other,
-                            candidate)));
+                        !SameCandidate(other, candidate) &&
+                        CandidateOutranks(other, candidate) &&
+                        CandidatesConflict(other, candidate)));
+    }
 
     private static SurfaceStructureQueryResult
         ToQueryResult(
@@ -809,15 +809,16 @@ public sealed class SurfaceStructureField
     internal IReadOnlyList<SurfaceStructurePlacement>
         PlacementsForChunk(
             int chunkX,
-            int chunkZ) =>
-        _placements.GetOrAdd(
-            new StructureChunkKey(
-                chunkX,
-                chunkZ),
-            () =>
-                ResolvePlacements(
-                    chunkX,
-                    chunkZ));
+            int chunkZ)
+    {
+        var key = new StructureChunkKey(chunkX, chunkZ);
+        if (_placements.TryGet(key, out var cached))
+            return cached;
+
+        return _placements.GetOrAdd(
+            key,
+            () => ResolvePlacements(chunkX, chunkZ));
+    }
 
     public ChunkSurfaceRange ExpandSurfaceRange(
         ChunkSurfaceRange terrainRange,
@@ -1153,18 +1154,17 @@ public sealed class SurfaceStructureField
             int ruleIndex,
             RootRule rule,
             int cellX,
-            int cellZ) =>
-        _candidates.GetOrAdd(
-            new StructureCandidateKey(
-                ruleIndex,
-                cellX,
-                cellZ),
-            () =>
-                ResolveCandidateUncached(
-                    ruleIndex,
-                    rule,
-                    cellX,
-                    cellZ));
+            int cellZ)
+    {
+        var key = new StructureCandidateKey(ruleIndex, cellX, cellZ);
+        if (_candidates.TryGet(key, out var cached))
+            return cached;
+
+        return _candidates.GetOrAdd(
+            key,
+            () => ResolveCandidateUncached(
+                ruleIndex, rule, cellX, cellZ));
+    }
 
     private StructureCandidate?
         ResolveCandidateUncached(
