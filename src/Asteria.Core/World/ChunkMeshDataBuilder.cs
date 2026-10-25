@@ -57,10 +57,11 @@ public static class ChunkMeshDataBuilder
         // The fine-geometry decision depends on the immutable worker snapshot.
         // Reuse it in all six greedy face passes rather than re-reading six
         // neighbors for every occupied voxel on every face.
-        var fineMeshing = new bool[
+        Span<bool> fineMeshing = stackalloc bool[
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge];
+        fineMeshing.Clear();
 
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
@@ -187,20 +188,25 @@ public static class ChunkMeshDataBuilder
             int MaxZExclusive) bounds,
         BiomeTintSampleGrid? tintSamples,
         DyeRegistry? dyes,
-        bool[] fineMeshing,
+        ReadOnlySpan<bool> fineMeshing,
         int meshletIndex)
     {
         var chunk = world.GetChunk(coord);
 var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
 
+        // Every face plane in the cubic meshlet has the same dimensions.
+        // Reuse the candidate buffer instead of allocating one array per face.
+        GreedyCubeFace?[] candidates = new GreedyCubeFace?[
+            ChunkMeshletMask.Edge * ChunkMeshletMask.Edge];
+
         foreach (var face in Faces)
         {
             var plane = PlaneBounds(face, bounds);
             var width = plane.UMaxExclusive - plane.UMin;
             var height = plane.VMaxExclusive - plane.VMin;
-            var candidates =
-                new GreedyCubeFace?[width * height];
+            if (candidates.Length != width * height)
+                candidates = new GreedyCubeFace?[width * height];
 
             for (var depth = plane.DepthMin;
                  depth < plane.DepthMaxExclusive;
