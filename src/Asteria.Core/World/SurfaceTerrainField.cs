@@ -690,23 +690,38 @@ public sealed class SurfaceTerrainField
                     caveSamplerAttempted = true;
                 }
 
-                var mayContainAdditive =
+                var additiveRule =
                     volumeBiome is not null &&
                     _additiveRules.TryGetValue(
                         volumeBiome.Primary,
-                        out var additive) &&
-                    originY <= additive.MaximumY &&
-                    maximumY >= additive.MinimumY;
+                        out var resolvedAdditive)
+                        ? resolvedAdditive
+                        : null;
+                var mayContainAdditive =
+                    additiveRule is not null &&
+                    originY <= additiveRule.MaximumY &&
+                    maximumY >= additiveRule.MinimumY;
 
                 for (var localY = 0;
                      localY < Chunk.Size;
                      localY++)
                 {
                     var worldY = originY + localY;
+                    var caveDepth = (long)baseY - worldY;
+                    var caveDensityApplies =
+                        mayContainCaves &&
+                        caveDepth >= _caves!.MinimumDepth &&
+                        caveDepth <= _caves.MaximumDepth;
+                    var additiveDensityApplies =
+                        mayContainAdditive &&
+                        additiveRule is { } activeAdditive &&
+                        worldY >= activeAdditive.MinimumY &&
+                        worldY <= activeAdditive.MaximumY;
                     values[
                         (localZ * Chunk.Size + localY) *
                         Chunk.Size + localX] =
-                        mayContainCaves || mayContainAdditive ||
+                        caveDensityApplies ||
+                        additiveDensityApplies ||
                         IsShellLining(worldY)
                             ? DensityAt(
                                 biome,
