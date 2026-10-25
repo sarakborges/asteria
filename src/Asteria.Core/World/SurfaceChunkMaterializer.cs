@@ -1795,7 +1795,9 @@ public sealed class SurfaceChunkMaterializer
                     var down = direction == 1;
                     if (!spikes.TrySample(
                             biome.Primary, surfaceBiome, volumeBiome, baseY,
-                            worldX, anchorY, worldZ, down, out var placement))
+                            worldX, anchorY, worldZ, down,
+                            densityVolume, originY, x, z,
+                            out var placement))
                         continue;
 
                     // A blocked root or intermediate tier invalidates
