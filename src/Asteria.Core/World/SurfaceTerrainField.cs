@@ -153,10 +153,27 @@ public sealed class SurfaceTerrainField
         int SurfaceFluidCutDepth)
         SampleBaseSurfaceWithGeneratedFluid(
             int worldX,
+            int worldZ) =>
+        SampleBaseSurfaceWithGeneratedFluid(
+            _surfaceBiomes.CreateSampler(),
+            worldX,
+            worldZ);
+
+    // Structure-placement queries often sample many nearby surface points.
+    // Reuse the query-owned biome sampler instead of allocating a fresh
+    // sampler and seed-assignment dictionary for every point.
+    internal (
+        BiomeSample Biome,
+        int BaseY,
+        int SurfaceFluidCutDepth)
+        SampleBaseSurfaceWithGeneratedFluid(
+            BiomeField.Sampler sampler,
+            int worldX,
             int worldZ)
     {
+        ArgumentNullException.ThrowIfNull(sampler);
         var biome =
-            _surfaceBiomes.Sample(
+            sampler.Sample(
                 worldX,
                 worldZ);
         var resolved =
