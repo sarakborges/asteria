@@ -512,6 +512,42 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CachedColumnDensityFastPathMatchesScalarAtEveryVoxel()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var point = FindVolumeSolid(generator, y: 96);
+        var horizontal = VoxelCoordinates.FromWorld(
+            point.X, 0, point.Z).Chunk;
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(horizontal);
+        const int chunkY = 5;
+        var chunk = generator.Materialize(
+            new ChunkCoord(horizontal.X, chunkY, horizontal.Z));
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var worldX = originX + x;
+            var worldY = chunkY * Chunk.Size + y;
+            var worldZ = originZ + z;
+            Assert.Equal(
+                generator.DensityAt(worldX, worldY, worldZ) >= 0d,
+                !chunk.GetBlock(x, y, z).IsAir,
+                $"Density fast path diverged at {worldX},{worldY},{worldZ}.");
+        }
+    }
+
+    [Fact]
     public void VolumeAndMaterializationStayAlignedAcrossVerticalChunkBoundary()
     {
         var generator = Generator(
