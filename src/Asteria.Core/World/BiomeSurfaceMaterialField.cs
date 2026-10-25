@@ -719,9 +719,12 @@ public sealed class BiomeSurfaceMaterialField
             var broadPosition = RotateFieldPosition(position, 0);
             var detailPosition = RotateFieldPosition(position, 1);
             var microPosition = RotateFieldPosition(position, 2);
-            var clusterPosition = RotateFieldPosition(position, 3);
-            // Preserve the established grain orientation for biomes that do
-            // not opt into the intermediate cluster field.
+            // The cluster field is optional. Avoid rotating its coordinate
+            // basis for biomes that do not use it; their grain basis remains
+            // the established orientation 3.
+            var clusterPosition = _clusterInfluence > 0d
+                ? RotateFieldPosition(position, 3)
+                : default;
             var grainPosition = RotateFieldPosition(
                 position, _clusterInfluence > 0d ? 4 : 3);
             var broadCoordinates =
