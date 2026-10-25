@@ -652,25 +652,35 @@ Measurement Measure(
             GC.GetAllocatedBytesForCurrentThread() -
             beforeCold);
 
-    var beforeWarm =
-        GC.GetAllocatedBytesForCurrentThread();
-    timer.Restart();
-    var warmDigest =
-        work(
-            generator);
-    timer.Stop();
-    var warmMs =
-        timer.Elapsed.TotalMilliseconds;
-    var warmAllocated =
-        checked(
-            GC.GetAllocatedBytesForCurrentThread() -
-            beforeWarm);
-
-    if (coldDigest != warmDigest)
+    // A single warm sample is too sensitive to shared-runner scheduling
+    // noise. Take three independent timings against the same warmed generator
+    // and use the median; correctness and allocation budgets remain unchanged.
+    const int WarmSampleCount = 3;
+    var warmTimes = new double[WarmSampleCount];
+    var warmAllocations = new long[WarmSampleCount];
+    for (var sample = 0; sample < WarmSampleCount; sample++)
     {
-        throw new InvalidOperationException(
-            "Worldgen cold and warm queries produced different generated results.");
+        var beforeWarm =
+            GC.GetAllocatedBytesForCurrentThread();
+        timer.Restart();
+        var warmDigest =
+            work(generator);
+        timer.Stop();
+        warmTimes[sample] = timer.Elapsed.TotalMilliseconds;
+        warmAllocations[sample] = checked(
+            GC.GetAllocatedBytesForCurrentThread() - beforeWarm);
+
+        if (coldDigest != warmDigest)
+        {
+            throw new InvalidOperationException(
+                "Worldgen cold and warm queries produced different generated results.");
+        }
     }
+
+    Array.Sort(warmTimes);
+    Array.Sort(warmAllocations);
+    var warmMs = warmTimes[WarmSampleCount / 2];
+    var warmAllocated = warmAllocations[WarmSampleCount / 2];
 
     return new Measurement(
         operations,
