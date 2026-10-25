@@ -934,34 +934,66 @@ public sealed class SurfaceStructureField
         {
             var rule =
                 _rules[ruleIndex];
-            var padding =
-                checked(
-                    rule.MaximumHorizontalRadius +
-                    1);
-            var minimumCellX =
-                FloorDiv(
-                    (long)minimumX -
-                    padding,
-                    rule.Spacing) -
-                1;
-            var maximumCellX =
-                FloorDiv(
-                    (long)maximumX +
-                    padding,
-                    rule.Spacing) +
-                1;
-            var minimumCellZ =
-                FloorDiv(
-                    (long)minimumZ -
-                    padding,
-                    rule.Spacing) -
-                1;
-            var maximumCellZ =
-                FloorDiv(
-                    (long)maximumZ +
-                    padding,
-                    rule.Spacing) +
-                1;
+            long minimumCellX;
+            long maximumCellX;
+            long minimumCellZ;
+            long maximumCellZ;
+            if (rule.Placement ==
+                DimensionGeneratedSurfaceStructurePlacement.BiomeInterior)
+            {
+                // A biomeInterior anchor is exactly cell * spacing +
+                // spacing/2 + jitter in [-Jitter, Jitter]. Solve those
+                // inequalities directly so irrelevant cells never need a
+                // candidate lookup or structure expansion.
+                var radius = (long)rule.MaximumHorizontalRadius;
+                var halfSpacing = rule.Spacing / 2L;
+                var jitter = (long)rule.Jitter;
+                minimumCellX = CeilingDiv(
+                    (long)minimumX - radius - halfSpacing - jitter,
+                    rule.Spacing);
+                maximumCellX = FloorDiv(
+                    (long)maximumX + radius - halfSpacing + jitter,
+                    rule.Spacing);
+                minimumCellZ = CeilingDiv(
+                    (long)minimumZ - radius - halfSpacing - jitter,
+                    rule.Spacing);
+                maximumCellZ = FloorDiv(
+                    (long)maximumZ + radius - halfSpacing + jitter,
+                    rule.Spacing);
+            }
+            else
+            {
+                // biomeMargin roots may move to a discovered biome edge, so
+                // retain the conservative padded range for those placements.
+                var padding =
+                    checked(
+                        rule.MaximumHorizontalRadius +
+                        1);
+                minimumCellX =
+                    FloorDiv(
+                        (long)minimumX -
+                        padding,
+                        rule.Spacing) -
+                    1;
+                maximumCellX =
+                    FloorDiv(
+                        (long)maximumX +
+                        padding,
+                        rule.Spacing) +
+                    1;
+                minimumCellZ =
+                    FloorDiv(
+                        (long)minimumZ -
+                        padding,
+                        rule.Spacing) -
+                    1;
+                maximumCellZ =
+                    FloorDiv(
+                        (long)maximumZ +
+                        padding,
+                        rule.Spacing) +
+                    1;
+            }
 
             for (var cellZ =
                      minimumCellZ;
@@ -2796,6 +2828,11 @@ public sealed class SurfaceStructureField
             ? null
             : (int)value;
     }
+
+    private static long CeilingDiv(
+        long value,
+        int divisor) =>
+        -FloorDiv(-value, divisor);
 
     private static long FloorDiv(
         long value,
