@@ -66,6 +66,11 @@ public sealed class SurfaceStructureField
             new(
                 CandidateCacheCapacity);
 
+    private readonly BoundedMemoCache<
+        (int X, int Z),
+        SurfaceSample> _surfaceSamples =
+            new(8192);
+
     // A sampler belongs to the synchronous placement query on the current
     // worker thread. It is installed only while resolving an uncached chunk
     // and cleared afterward, so parallel chunk generation never shares it.
@@ -2443,22 +2448,31 @@ public sealed class SurfaceStructureField
         int worldX,
         int worldZ)
     {
-        var sampler = _activeBiomeSampler.Value;
-        var surface = sampler is null
-            ? _terrain.SampleBaseSurfaceWithGeneratedFluid(
-                worldX,
-                worldZ)
-            : _terrain.SampleBaseSurfaceWithGeneratedFluid(
-                sampler,
-                worldX,
-                worldZ);
+        var key = (X: worldX, Z: worldZ);
+        if (_surfaceSamples.TryGet(key, out var cached))
+            return cached;
 
-        return new SurfaceSample(
-            surface.Biome,
-            surface.BaseY,
-            surface.SurfaceFluidCutDepth,
-            worldX,
-            worldZ);
+        return _surfaceSamples.GetOrAdd(
+            key,
+            () =>
+            {
+                var sampler = _activeBiomeSampler.Value;
+                var surface = sampler is null
+                    ? _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                        worldX,
+                        worldZ)
+                    : _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                        sampler,
+                        worldX,
+                        worldZ);
+
+                return new SurfaceSample(
+                    surface.Biome,
+                    surface.BaseY,
+                    surface.SurfaceFluidCutDepth,
+                    worldX,
+                    worldZ);
+            });
     }
 
     private bool IsGeneratedFluidAbove(
