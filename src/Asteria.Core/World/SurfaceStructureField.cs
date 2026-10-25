@@ -71,6 +71,11 @@ public sealed class SurfaceStructureField
         SurfaceSample> _surfaceSamples =
             new(8192);
 
+    private readonly BoundedMemoCache<
+        (int X, int Z),
+        BiomeSample> _surfaceBiomes =
+            new(8192);
+
     // A sampler belongs to the synchronous placement query on the current
     // worker thread. It is installed only while resolving an uncached chunk
     // and cleared afterward, so parallel chunk generation never shares it.
@@ -1227,10 +1232,9 @@ public sealed class SurfaceStructureField
             {
                 DimensionGeneratedSurfaceStructurePlacement.BiomeInterior =>
                     string.Equals(
-                        SurfaceAt(
+                        SurfaceBiomeAt(
                             anchorX.Value,
                             anchorZ.Value)
-                        .Biome
                         .Primary,
                         rule.Biome,
                         StringComparison.Ordinal)
@@ -1670,10 +1674,9 @@ public sealed class SurfaceStructureField
                     anchorZ +
                     offset.Z);
             if (string.Equals(
-                    SurfaceAt(
+                    SurfaceBiomeAt(
                         x,
                         z)
-                    .Biome
                     .Primary,
                     biome,
                     StringComparison.Ordinal))
@@ -2222,10 +2225,9 @@ public sealed class SurfaceStructureField
                         z);
                 target[index] =
                     string.Equals(
-                        SurfaceAt(
+                        SurfaceBiomeAt(
                             x,
                             z)
-                        .Biome
                         .Primary,
                         rule.Biome,
                         StringComparison.Ordinal);
@@ -2375,19 +2377,17 @@ public sealed class SurfaceStructureField
     {
         var leftIsTarget =
             string.Equals(
-                SurfaceAt(
+                SurfaceBiomeAt(
                     left.X,
                     left.Z)
-                .Biome
                 .Primary,
                 biome,
                 StringComparison.Ordinal);
         var rightIsTarget =
             string.Equals(
-                SurfaceAt(
+                SurfaceBiomeAt(
                     right.X,
                     right.Z)
-                .Biome
                 .Primary,
                 biome,
                 StringComparison.Ordinal);
@@ -2426,10 +2426,9 @@ public sealed class SurfaceStructureField
 
             var middleIsTarget =
                 string.Equals(
-                    SurfaceAt(
+                    SurfaceBiomeAt(
                         middle.X,
                         middle.Z)
-                    .Biome
                     .Primary,
                     biome,
                     StringComparison.Ordinal);
@@ -2570,6 +2569,25 @@ public sealed class SurfaceStructureField
         }
     }
 
+    private BiomeSample SurfaceBiomeAt(
+        int worldX,
+        int worldZ)
+    {
+        var key = (X: worldX, Z: worldZ);
+        if (_surfaceSamples.TryGet(key, out var cachedSurface))
+            return cachedSurface.Biome;
+        if (_surfaceBiomes.TryGet(key, out var cachedBiome))
+            return cachedBiome;
+
+        var sampler = _activeBiomeSampler.Value;
+        var biome = sampler is null
+            ? _biomes.Sample(worldX, worldZ)
+            : sampler.Sample(worldX, worldZ);
+        return _surfaceBiomes.GetOrAdd(
+            key,
+            () => biome);
+    }
+
     private SurfaceSample SurfaceAt(
         int worldX,
         int worldZ)
@@ -2582,15 +2600,14 @@ public sealed class SurfaceStructureField
             key,
             () =>
             {
-                var sampler = _activeBiomeSampler.Value;
-                var surface = sampler is null
+                var surface = _surfaceBiomes.TryGet(key, out var cachedBiome)
                     ? _terrain.SampleBaseSurfaceWithGeneratedFluid(
-                        worldX,
-                        worldZ)
-                    : _terrain.SampleBaseSurfaceWithGeneratedFluid(
-                        sampler,
-                        worldX,
-                        worldZ);
+                        cachedBiome, worldX, worldZ)
+                    : _activeBiomeSampler.Value is { } sampler
+                        ? _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                            sampler, worldX, worldZ)
+                        : _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                            worldX, worldZ);
 
                 return new SurfaceSample(
                     surface.Biome,
