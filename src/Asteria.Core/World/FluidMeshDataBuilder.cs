@@ -179,15 +179,18 @@ public static class FluidMeshDataBuilder
         var offset = FaceOffset(face);
         var neighborPosition =
             position + offset;
+        // Sample the neighbor's block and fluid with one coordinate/chunk
+        // lookup. Missing chunks produce empty data, preserving open borders.
+        world.TryGetCellAndFluid(
+            neighborPosition,
+            out var neighborCell,
+            out var neighborFluid);
+
         // A decorative sprite must not occlude the adjacent water face.
-        if (!world.CanContainFluidAt(neighborPosition))
+        if (!world.CanContainFluid(neighborCell))
         {
             return;
         }
-
-        var neighborFluid =
-            world.GetFluidOrEmpty(
-                neighborPosition);
 
         if (face == BlockFace.Top)
         {
