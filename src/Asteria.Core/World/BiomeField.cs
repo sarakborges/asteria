@@ -7,6 +7,8 @@ public readonly record struct BiomeInfluence(
 
 public sealed class BiomeSample
 {
+    private readonly BiomeInfluence? _primaryInfluence;
+
     public BiomeSample(
         string primary,
         IReadOnlyList<BiomeInfluence> influences)
@@ -25,6 +27,17 @@ public sealed class BiomeSample
 
         Primary = primary;
         Influences = influences;
+        for (var index = 0; index < influences.Count; index++)
+        {
+            if (string.Equals(
+                    influences[index].BiomeId,
+                    primary,
+                    StringComparison.Ordinal))
+            {
+                _primaryInfluence = influences[index];
+                break;
+            }
+        }
     }
 
     public string Primary { get; }
@@ -37,7 +50,11 @@ public sealed class BiomeSample
     public float PrimaryTerrainStrength =>
         PrimaryInfluence.TerrainStrength;
 
+    // The primary influence is read repeatedly in terrain-density hot paths.
+    // Resolve it once when the immutable biome sample is created rather than
+    // scanning the full influence list for every voxel.
     private BiomeInfluence PrimaryInfluence =>
+        _primaryInfluence ??
         Influences
             .First(influence =>
                 string.Equals(
