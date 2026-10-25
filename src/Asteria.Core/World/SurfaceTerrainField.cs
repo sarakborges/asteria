@@ -1232,6 +1232,14 @@ public sealed class SurfaceTerrainField
         }
     }
 
+    private sealed class CaveNoiseVolumeSampler(
+        WorldGenerationEntropy.ValueNoise3DGridSampler[][] channels,
+        WorldGenerationEntropy.ValueNoise3DGridSampler?[] chambers)
+    {
+        public WorldGenerationEntropy.ValueNoise3DGridSampler[][] Channels { get; } = channels;
+        public WorldGenerationEntropy.ValueNoise3DGridSampler?[] Chambers { get; } = chambers;
+    }
+
     private sealed class CaveRule
     {
         private readonly CaveLayerRule[] _layers;
@@ -1248,16 +1256,45 @@ public sealed class SurfaceTerrainField
         public uint MinimumDepth { get; }
         public uint MaximumDepth { get; }
 
+        public CaveNoiseVolumeSampler CreateSampler(
+            ulong seed,
+            int originX,
+            int originY,
+            int originZ,
+            int width,
+            int height,
+            int depth)
+        {
+            var channels =
+                new WorldGenerationEntropy.ValueNoise3DGridSampler[_layers.Length][];
+            var chambers =
+                new WorldGenerationEntropy.ValueNoise3DGridSampler?[_layers.Length];
+            for (var index = 0; index < _layers.Length; index++)
+            {
+                channels[index] = _layers[index].CreateChannelSamplers(
+                    seed, originX, originY, originZ, width, height, depth);
+                chambers[index] = _layers[index].CreateChamberSampler(
+                    seed, originX, originY, originZ, width, height, depth);
+            }
+
+            return new CaveNoiseVolumeSampler(channels, chambers);
+        }
+
         public double VoidDensityAt(
             ulong seed,
             int x,
             int y,
             int z,
-            long depth)
+            long depth,
+            CaveNoiseVolumeSampler? sampler = null,
+            int localX = 0,
+            int localY = 0,
+            int localZ = 0)
         {
             var result = 0d;
-            foreach (var layer in _layers)
+            for (var index = 0; index < _layers.Length; index++)
             {
+                var layer = _layers[index];
                 if (depth < layer.MinimumDepth ||
                     depth > layer.MaximumDepth)
                 {
@@ -1266,7 +1303,17 @@ public sealed class SurfaceTerrainField
 
                 result = Math.Max(
                     result,
-                    layer.VoidDensityAt(seed, x, y, z, depth));
+                    layer.VoidDensityAt(
+                        seed,
+                        x,
+                        y,
+                        z,
+                        depth,
+                        sampler?.Channels[index],
+                        sampler?.Chambers[index],
+                        localX,
+                        localY,
+                        localZ));
             }
 
             return result;
@@ -1299,26 +1346,93 @@ public sealed class SurfaceTerrainField
         public uint MinimumDepth => _authored.MinDepth;
         public uint MaximumDepth => _authored.MaxDepth;
 
+        public WorldGenerationEntropy.ValueNoise3DGridSampler[] CreateChannelSamplers(
+            ulong seed,
+            int originX,
+            int originY,
+            int originZ,
+            int width,
+            int height,
+            int depth)
+        {
+            var samplers =
+                new WorldGenerationEntropy.ValueNoise3DGridSampler[_channels.Length];
+            for (var index = 0; index < _channels.Length; index++)
+            {
+                var channel = _channels[index];
+                samplers[index] =
+                    new WorldGenerationEntropy.ValueNoise3DGridSampler(
+                        seed,
+                        channel.Domain,
+                        originX,
+                        originY,
+                        originZ,
+                        width,
+                        height,
+                        depth,
+                        channel.HorizontalScale,
+                        channel.VerticalScale);
+            }
+
+            return samplers;
+        }
+
+        public WorldGenerationEntropy.ValueNoise3DGridSampler? CreateChamberSampler(
+            ulong seed,
+            int originX,
+            int originY,
+            int originZ,
+            int width,
+            int height,
+            int depth)
+        {
+            if (_authored.Chambers is not { } chambers)
+                return null;
+
+            return new WorldGenerationEntropy.ValueNoise3DGridSampler(
+                seed,
+                _chamberDomain,
+                originX,
+                originY,
+                originZ,
+                width,
+                height,
+                depth,
+                chambers.HorizontalScale,
+                chambers.VerticalScale);
+        }
+
         public double VoidDensityAt(
             ulong seed,
             int x,
             int y,
             int z,
-            long depth)
+            long depth,
+            WorldGenerationEntropy.ValueNoise3DGridSampler[]? channelSamplers = null,
+            WorldGenerationEntropy.ValueNoise3DGridSampler? chamberSampler = null,
+            int localX = 0,
+            int localY = 0,
+            int localZ = 0)
         {
             var intersection =
                 _authored.Combination == CaveNoiseCombination.Intersection;
             var score = intersection ? 0d : double.PositiveInfinity;
-            foreach (var channel in _channels)
+            for (var channelIndex = 0; channelIndex < _channels.Length; channelIndex++)
             {
-                var noise = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
-                    seed,
-                    channel.Domain,
-                    x,
-                    y,
-                    z,
-                    channel.HorizontalScale,
-                    channel.VerticalScale));
+                var channel = _channels[channelIndex];
+                var noise = Math.Abs(channelSamplers is null
+                    ? WorldGenerationEntropy.ValueNoise3D(
+                        seed,
+                        channel.Domain,
+                        x,
+                        y,
+                        z,
+                        channel.HorizontalScale,
+                        channel.VerticalScale)
+                    : channelSamplers[channelIndex].Sample(
+                        localX,
+                        localY,
+                        localZ));
                 score = intersection
                     ? Math.Max(score, noise)
                     : Math.Min(score, noise);
@@ -1328,14 +1442,16 @@ public sealed class SurfaceTerrainField
             if (_authored.Chambers is { } chambers &&
                 score < chambers.MaxNoiseHalfWidth)
             {
-                var signal = WorldGenerationEntropy.ValueNoise3D(
-                    seed,
-                    _chamberDomain,
-                    x,
-                    y,
-                    z,
-                    chambers.HorizontalScale,
-                    chambers.VerticalScale);
+                var signal = chamberSampler is null
+                    ? WorldGenerationEntropy.ValueNoise3D(
+                        seed,
+                        _chamberDomain,
+                        x,
+                        y,
+                        z,
+                        chambers.HorizontalScale,
+                        chambers.VerticalScale)
+                    : chamberSampler.Sample(localX, localY, localZ);
                 var strength = Math.Clamp(
                     (signal - chambers.ActivationStart) /
                     (chambers.ActivationFull - chambers.ActivationStart),
