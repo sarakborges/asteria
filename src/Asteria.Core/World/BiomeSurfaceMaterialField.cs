@@ -262,6 +262,9 @@ public sealed class BiomeSurfaceMaterialField
         // vertical materialization does not repeatedly allocate them.
         var key = new MaterialColumnKey(
             sample, worldX, worldZ, placement);
+        if (_sampledColumns.TryGet(key, out var cached))
+            return cached;
+
         return _sampledColumns.GetOrAdd(
             key,
             () =>
