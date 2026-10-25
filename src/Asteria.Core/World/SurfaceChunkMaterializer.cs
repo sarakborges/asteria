@@ -133,7 +133,9 @@ public sealed class SurfaceChunkMaterializer
                 originZ);
         var topExclusive = checked(originY + Chunk.Size);
         List<PendingGeneratedObject>? pendingObjects = null;
-        var terrainBlocks = new BlockRuntimeId[Chunk.Volume];
+        Span<BlockRuntimeId> terrainBlocks =
+            stackalloc BlockRuntimeId[Chunk.Volume];
+        terrainBlocks.Clear();
         var columnMaterializationCaches =
             new ColumnMaterializationCache[Chunk.Area];
 
