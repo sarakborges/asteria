@@ -289,11 +289,17 @@ internal sealed class GeneratedSurfaceDestinationQuery
             return null;
         }
 
-        return GeneratedFeetAt(
-            worldX,
-            column.SurfaceY + 1,
-            worldZ,
-            column);
+        var feetY = column.SurfaceY + 1;
+        if (!HasValidGeneratedHeadroom(
+                column, worldX, feetY, worldZ))
+        {
+            return null;
+        }
+
+        // SampleDestinationColumn has already resolved the highest solid voxel
+        // through the authoritative density field. Re-sampling support, feet
+        // and head density here repeats work for every surface search candidate.
+        return new GeneratedSurfaceDestination(worldX, feetY, worldZ);
     }
 
     private GeneratedSurfaceDestination?
@@ -330,29 +336,14 @@ internal sealed class GeneratedSurfaceDestinationQuery
             return null;
         }
 
+        if (!HasValidGeneratedHeadroom(
+                column, worldX, feetY, worldZ))
+        {
+            return null;
+        }
+
         var supportY = feetY - 1;
         var headY = feetY + 1;
-
-        if ((_floorY is { } floorY && supportY <= floorY) ||
-            (_roofY is { } roofY &&
-                (feetY >= roofY || headY >= roofY)))
-        {
-            return null;
-        }
-
-        // A generated ocean column is normally rejected here without
-        // calculating density three more times. The fluid query is pure
-        // and remains authoritative for all authored fluid rules.
-        if (!_generatedFluids.FluidAtEmptyVoxel(
-                column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
-                worldX, feetY, worldZ).IsEmpty ||
-            !_generatedFluids.FluidAtEmptyVoxel(
-                column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
-                worldX, headY, worldZ).IsEmpty)
-        {
-            return null;
-        }
-
         return _terrain.DensityAt(
                     column.Biome, column.BaseY,
                     worldX, supportY, worldZ, column.Volume) < 0d ||
@@ -364,6 +355,39 @@ internal sealed class GeneratedSurfaceDestinationQuery
                     worldX, headY, worldZ, column.Volume) >= 0d
             ? null
             : new GeneratedSurfaceDestination(worldX, feetY, worldZ);
+    }
+
+    private bool HasValidGeneratedHeadroom(
+        (
+            BiomeSample Biome,
+            int BaseY,
+            int SurfaceFluidCutDepth,
+            int SurfaceY,
+            BiomeSample? Volume) column,
+        int worldX,
+        int feetY,
+        int worldZ)
+    {
+        if (feetY <= 0 || feetY == int.MaxValue)
+        {
+            return false;
+        }
+
+        var supportY = feetY - 1;
+        var headY = feetY + 1;
+        if ((_floorY is { } floorY && supportY <= floorY) ||
+            (_roofY is { } roofY &&
+                (feetY >= roofY || headY >= roofY)))
+        {
+            return false;
+        }
+
+        return _generatedFluids.FluidAtEmptyVoxel(
+                   column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
+                   worldX, feetY, worldZ).IsEmpty &&
+               _generatedFluids.FluidAtEmptyVoxel(
+                   column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
+                   worldX, headY, worldZ).IsEmpty;
     }
 
     private static (
