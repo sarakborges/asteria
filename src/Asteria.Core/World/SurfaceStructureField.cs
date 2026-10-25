@@ -375,6 +375,21 @@ public sealed class SurfaceStructureField
                 "Structure query area exceeds world coordinate range.");
         }
 
+        return WithBiomeSampler(() =>
+            PlacementsIntersectingCore(
+                originX,
+                originZ,
+                (int)maximumX,
+                (int)maximumZ));
+    }
+
+    private IReadOnlyList<SurfaceStructureQueryResult>
+        PlacementsIntersectingCore(
+            int originX,
+            int originZ,
+            int maximumX,
+            int maximumZ)
+    {
         var results =
             new List<SurfaceStructureQueryResult>();
         foreach (var candidate in
@@ -429,6 +444,25 @@ public sealed class SurfaceStructureField
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        return WithBiomeSampler(() =>
+            FindNearestCore(
+                reference,
+                originX,
+                originZ,
+                maxDistance,
+                structureId,
+                cancellationToken));
+    }
+
+    private SurfaceStructureQueryResult?
+        FindNearestCore(
+            string reference,
+            int originX,
+            int originZ,
+            int maxDistance,
+            string? structureId,
+            CancellationToken cancellationToken)
+    {
         StructureCandidate? best = null;
         long bestDistanceSquared = long.MaxValue;
         var maximumDistanceSquared =
@@ -783,17 +817,8 @@ public sealed class SurfaceStructureField
                 SurfaceStructurePlacement>();
         }
 
-        var previousSampler = _activeBiomeSampler.Value;
-        _activeBiomeSampler.Value =
-            previousSampler ?? _terrain.CreateBiomeSampler();
-        try
-        {
-            return ResolvePlacementsCore(chunkX, chunkZ);
-        }
-        finally
-        {
-            _activeBiomeSampler.Value = previousSampler;
-        }
+        return WithBiomeSampler(() =>
+            ResolvePlacementsCore(chunkX, chunkZ));
     }
 
     private IReadOnlyList<SurfaceStructurePlacement>
@@ -2396,6 +2421,23 @@ public sealed class SurfaceStructureField
             _ =>
                 null,
         };
+
+    private TResult WithBiomeSampler<TResult>(
+        Func<TResult> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        var previousSampler = _activeBiomeSampler.Value;
+        _activeBiomeSampler.Value =
+            previousSampler ?? _terrain.CreateBiomeSampler();
+        try
+        {
+            return query();
+        }
+        finally
+        {
+            _activeBiomeSampler.Value = previousSampler;
+        }
+    }
 
     private SurfaceSample SurfaceAt(
         int worldX,
