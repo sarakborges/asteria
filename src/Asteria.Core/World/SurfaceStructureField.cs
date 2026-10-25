@@ -183,7 +183,7 @@ public sealed class SurfaceStructureField
     {
         ArgumentNullException.ThrowIfNull(committed);
         plan = null;
-        var biome = SurfaceAt(anchorX, anchorZ).Biome.Primary;
+        var biome = SurfaceBiomeAt(anchorX, anchorZ).Primary;
         var members = Array.Empty<RuntimeStructure>();
         RuntimeStructureSet? set = null;
         if (_structureSets.TryGet(reference, out var setDefinition))
@@ -262,7 +262,7 @@ public sealed class SurfaceStructureField
         // can still expand its normal authored connector graph.
         if (definitions.Count != 1)
             return false;
-        var biome = SurfaceAt(anchorX, anchorZ).Biome.Primary;
+        var biome = SurfaceBiomeAt(anchorX, anchorZ).Primary;
         var member = new RuntimeStructure(definitions[0], _blocks, _fluids);
         var root = member.Place(reference, anchorX, anchorY, anchorZ,
             StructureRotation.Degrees0);
