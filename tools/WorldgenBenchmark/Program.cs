@@ -127,6 +127,10 @@ var initialAreaDiagnostics = new
     ChunksByY = new SortedDictionary<int, int>(),
 };
 
+object? coldMaterializationDiagnostics = null;
+object? warmMaterializationDiagnostics = null;
+var initialAreaInvocation = 0;
+
 metrics.Add("biomeScalar", Measure(
     options.Samples,
     generator =>
@@ -438,6 +442,7 @@ metrics.Add("initialAreaSynthesis", Measure(
     1,
     generator =>
     {
+        var invocation = ++initialAreaInvocation;
         var spawn =
             generator.FindGeneratedSurfaceDestination(
                 dimension.Spawn.X,
@@ -469,13 +474,33 @@ metrics.Add("initialAreaSynthesis", Measure(
                 .ToArray();
         ulong digest =
             14695981039346656037UL;
+        var materializeMsByY = new SortedDictionary<int, double>();
+        var materializeBytesByY = new SortedDictionary<int, long>();
+        var chunkCountByY = new SortedDictionary<int, int>();
+        var totalMaterializeMs = 0d;
+        var totalMaterializeBytes = 0L;
 
         foreach (var coord in
                  desired)
         {
+            var beforeChunkBytes = GC.GetAllocatedBytesForCurrentThread();
+            var chunkTimer = Stopwatch.StartNew();
             var chunk =
                 generator.Materialize(
                     coord);
+            chunkTimer.Stop();
+            var chunkMs = chunkTimer.Elapsed.TotalMilliseconds;
+            var chunkBytes = checked(
+                GC.GetAllocatedBytesForCurrentThread() - beforeChunkBytes);
+            totalMaterializeMs += chunkMs;
+            totalMaterializeBytes += chunkBytes;
+            materializeMsByY[coord.Y] =
+                materializeMsByY.GetValueOrDefault(coord.Y) + chunkMs;
+            materializeBytesByY[coord.Y] =
+                materializeBytesByY.GetValueOrDefault(coord.Y) + chunkBytes;
+            chunkCountByY[coord.Y] =
+                chunkCountByY.GetValueOrDefault(coord.Y) + 1;
+
             digest =
                 HashNumber(
                     digest,
@@ -513,6 +538,30 @@ metrics.Add("initialAreaSynthesis", Measure(
                 });
         }
 
+        var materializationByY = new SortedDictionary<int, object>();
+        foreach (var pair in chunkCountByY)
+        {
+            var y = pair.Key;
+            materializationByY[y] = new
+            {
+                ChunkCount = pair.Value,
+                MaterializeMs = materializeMsByY[y],
+                AllocatedBytes = materializeBytesByY[y],
+            };
+        }
+
+        var materializationSnapshot = new
+        {
+            ChunkCount = desired.Length,
+            TotalMaterializeMs = totalMaterializeMs,
+            TotalAllocatedBytes = totalMaterializeBytes,
+            ByY = materializationByY,
+        };
+        if (invocation == 1)
+            coldMaterializationDiagnostics = materializationSnapshot;
+        else
+            warmMaterializationDiagnostics = materializationSnapshot;
+
         digest =
             HashNumber(
                 digest,
@@ -541,6 +590,11 @@ var result = new
     options.SearchRadius,
     Metrics = metrics,
     InitialAreaDiagnostics = initialAreaDiagnostics,
+    InitialAreaMaterializationDiagnostics = new
+    {
+        Cold = coldMaterializationDiagnostics,
+        Warm = warmMaterializationDiagnostics,
+    },
     Notes = new[]
     {
         "Cold and warm passes use identical coordinates and independent generator instances per metric.",
