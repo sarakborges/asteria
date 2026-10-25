@@ -3822,6 +3822,8 @@ public sealed class SurfaceStructureField
         private readonly RuntimeClearVoxel[] _clearVoxels;
         private readonly (int X, int Z)[] _footprint;
         private readonly (int X, int Z)[] _supports;
+        private readonly IReadOnlyList<(int X, int Z)>[] _rotatedFootprints;
+        private readonly IReadOnlyList<(int X, int Z)>[] _rotatedSupports;
         private readonly RuntimeColumn[] _columns;
 
         public RuntimeStructure(
@@ -3932,6 +3934,24 @@ public sealed class SurfaceStructureField
                         .ThenBy(value =>
                             value.Z)
                         .ToArray();
+
+            // Footprints and supports are immutable for a compiled runtime
+            // structure. Precompute the four rotations once instead of running
+            // LINQ, Distinct and ToArray for every candidate placement.
+            var rotations = Enum.GetValues<StructureRotation>();
+            _rotatedFootprints =
+                new IReadOnlyList<(int X, int Z)>[rotations.Length];
+            _rotatedSupports =
+                new IReadOnlyList<(int X, int Z)>[rotations.Length];
+            foreach (var rotation in rotations)
+            {
+                var rotationIndex = (int)rotation;
+                _rotatedFootprints[rotationIndex] =
+                    RotateOffsets(_footprint, rotation);
+                _rotatedSupports[rotationIndex] =
+                    RotateOffsets(_supports, rotation);
+            }
+
             _columns =
                 payloadOffsets
                     .GroupBy(value =>
@@ -4007,16 +4027,12 @@ public sealed class SurfaceStructureField
         public IReadOnlyList<(int X, int Z)>
             HorizontalFootprint(
                 StructureRotation rotation) =>
-            RotateOffsets(
-                _footprint,
-                rotation);
+            _rotatedFootprints[(int)rotation];
 
         public IReadOnlyList<(int X, int Z)>
             SupportOffsets(
                 StructureRotation rotation) =>
-            RotateOffsets(
-                _supports,
-                rotation);
+            _rotatedSupports[(int)rotation];
 
         private static IReadOnlyList<(int X, int Z)>
             RotateOffsets(
