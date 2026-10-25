@@ -1369,7 +1369,7 @@ public sealed class SurfaceChunkMaterializer
                     baseY,
                     column.SurfaceFluidCutDepthAt(localX, localZ),
                     worldX, worldY, worldZ,
-                    targetDensity).IsEmpty;
+                    targetSolid).IsEmpty;
                 var placement = new SurfacePlacementContext(worldY, 0);
 
                 if (isFloor)
