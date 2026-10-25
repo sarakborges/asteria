@@ -166,8 +166,8 @@ public sealed class CaveSpikeField
                 var localProbeY = probeY - densityOriginY;
                 if (densityVolume is not null &&
                     (uint)localProbeY < densityVolume.Height)
-                    return densityVolume.DensityAt(
-                        localX, localProbeY, localZ) < 0d;
+                    return !densityVolume.IsSolidAt(
+                        localX, localProbeY, localZ);
 
                 return _terrain.DensityAt(
                     surfaceBiome, baseY, x, probeY, z, volumeBiome) < 0d;
