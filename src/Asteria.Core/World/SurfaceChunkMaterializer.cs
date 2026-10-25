@@ -126,6 +126,10 @@ public sealed class SurfaceChunkMaterializer
                 originX,
                 originY,
                 originZ);
+        // Noise corner cache is query-local and lazily allocates its bounded
+        // storage only if this chunk actually selects geological materials.
+        var geologyNoiseCache =
+            new WorldGenerationEntropy.ValueNoise3DSampleCache();
         var topExclusive = checked(originY + Chunk.Size);
         List<PendingGeneratedObject>? pendingObjects = null;
 
@@ -204,7 +208,8 @@ public sealed class SurfaceChunkMaterializer
                                 block = surfaceMaterials.BlockAt(depth);
                             }
                             else if (!_materials.TryGeologyBlockAt(
-                                sample, worldX, worldY, worldZ, out block))
+                                sample, worldX, worldY, worldZ,
+                                geologyNoiseCache, out block))
                             {
                                 // Biomes without authored geology preserve the
                                 // existing depth-based core-material contract.
@@ -252,7 +257,8 @@ public sealed class SurfaceChunkMaterializer
                                 block = volumeMaterials.BlockAt(depth);
                             }
                             else if (!_materials.TryGeologyBlockAt(
-                                volumeSample, worldX, worldY, worldZ, out block))
+                                volumeSample, worldX, worldY, worldZ,
+                                geologyNoiseCache, out block))
                             {
                                 block = volumeMaterials.BlockAt(depth);
                             }
@@ -301,7 +307,7 @@ public sealed class SurfaceChunkMaterializer
                                      densityVolume.VolumePlacementAt(localX, localZ))) &&
                                 _materials.TrySurfaceGeologyBlockAt(
                                     surfaceOwner, worldX, worldY, worldZ,
-                                    out var exposedBlock))
+                                    geologyNoiseCache, out var exposedBlock))
                             {
                                 block = exposedBlock;
                             }
