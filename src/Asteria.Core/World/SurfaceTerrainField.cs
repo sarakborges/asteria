@@ -1460,16 +1460,17 @@ public sealed class TerrainDensityVolume
         int worldY,
         int localZ)
     {
-        if (_volumeBiomeField is null)
+        if (_volumeBiomes is null ||
+            _volumeBiomeField is null)
         {
             throw new InvalidOperationException(
                 "Density volume does not carry volume-biome placement metadata.");
         }
 
         return _volumeBiomeField.SampleAtY(
-            VolumePlacementAt(
-                localX,
-                localZ),
-            worldY);
+            _volumeBiomes,
+            localX,
+            worldY,
+            localZ);
     }
 }
