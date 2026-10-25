@@ -12,12 +12,6 @@ public sealed class SurfaceDecorationField
     private readonly SurfaceTerrainField? _terrain;
     private readonly SurfaceHabitatField _habitats;
 
-    // Cluster noise depends only on the decoration rule and X/Z. Cave wall,
-    // ceiling and floor probes query those same horizontal samples at many Y
-    // levels, so reuse the deterministic value across vertical chunk bands.
-    private readonly BoundedMemoCache<
-        (GenerationDomain Domain, int X, int Z, int Scale, int Octaves),
-        double> _clusterNoise = new(32768);
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
     private readonly HashSet<string> _objectBiomes;
     private readonly HashSet<string> _verticalBiomes;
@@ -326,23 +320,13 @@ public sealed class SurfaceDecorationField
                 }
                 if (rule.Cluster is { } cluster)
                 {
-                    var noiseKey = (
-                        Domain: rule.ClusterDomain,
-                        X: worldX,
-                        Z: worldZ,
-                        Scale: cluster.Scale,
-                        Octaves: cluster.Octaves);
-                    var noise = _clusterNoise.TryGet(noiseKey, out var cachedNoise)
-                        ? cachedNoise
-                        : _clusterNoise.GetOrAdd(
-                            noiseKey,
-                            () => WorldGenerationNoise.FractalNoise2D(
-                                _seed,
-                                rule.ClusterDomain,
-                                worldX,
-                                worldZ,
-                                1d / cluster.Scale,
-                                octaves: cluster.Octaves));
+                    var noise = WorldGenerationNoise.FractalNoise2D(
+                        _seed,
+                        rule.ClusterDomain,
+                        worldX,
+                        worldZ,
+                        1d / cluster.Scale,
+                        octaves: cluster.Octaves);
                     var distribution = cluster.TransitionWidth <= 0f
                         ? (noise >= cluster.Threshold ? 1d : 0d)
                         : WorldGenerationEntropy.SmoothStep(
