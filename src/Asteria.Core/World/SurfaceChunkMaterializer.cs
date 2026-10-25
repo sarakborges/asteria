@@ -1085,7 +1085,7 @@ public sealed class SurfaceChunkMaterializer
                     // most one result per column, even for many Y voxels.
                     if (!ownerResolved)
                     {
-                        biome = volumes.SampleCave(worldX, worldZ);
+                        biome = column.CaveBiomeAt(x, z);
                         ownerResolved = true;
                     }
                     if (biome is not null &&
@@ -1349,7 +1349,7 @@ public sealed class SurfaceChunkMaterializer
                         !_terrain.IsCaveVoidAt(
                             baseY, new WorldVoxelCoord(worldX, worldY, worldZ)))
                         continue;
-                    underground ??= _volumeBiomes.SampleCave(worldX, worldZ);
+                    underground ??= column.CaveBiomeAt(x, z);
                     decoratorBiome = underground;
                 }
 
@@ -1565,7 +1565,7 @@ public sealed class SurfaceChunkMaterializer
                         _terrain.IsCaveVoidAt(neighborBaseY,
                             new WorldVoxelCoord(px, worldY, pz)))
                     {
-                        owner = _volumeBiomes?.SampleCave(px, pz);
+                        owner = neighborColumn.CaveBiomeAt(sx, sz);
                     }
                     else if (surfaceSupportsLayers &&
                              worldY > neighborBaseY &&
@@ -1673,7 +1673,7 @@ public sealed class SurfaceChunkMaterializer
                     continue;
                 var owner = exterior
                     ? surface
-                    : _volumeBiomes!.SampleCave(worldX, worldZ);
+                    : column.CaveBiomeAt(x, z);
                 if (owner is null ||
                     !_decorations.HasWallBlocksFor(owner.Primary))
                     continue;
@@ -1782,7 +1782,7 @@ public sealed class SurfaceChunkMaterializer
 
             var worldX = originX + x;
             var worldZ = originZ + z;
-            var biome = volumeBiomes.SampleCave(worldX, worldZ);
+            var biome = column.CaveBiomeAt(x, z);
             if (biome is null || !spikes.HasRulesFor(biome.Primary))
                 continue;
 
