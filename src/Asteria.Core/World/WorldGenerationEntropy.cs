@@ -123,6 +123,156 @@ internal static class WorldGenerationEntropy
         return new ValueNoise3DCoordinates(
             x, y, z, horizontalScale, verticalScale);
     }
+    /// <summary>
+    /// Chunk-local sampler for one 3D value-noise channel. Adjacent voxels share
+    /// lattice corners, so materialization hashes the compact lattice once and
+    /// reuses it instead of recomputing eight corner hashes per voxel.
+    /// </summary>
+    internal sealed class ValueNoise3DGridSampler
+    {
+        private readonly record struct AxisSample(int Lower, double Blend);
+
+        private readonly AxisSample[] _x;
+        private readonly AxisSample[] _y;
+        private readonly AxisSample[] _z;
+        private readonly double[] _lattice;
+        private readonly int _minimumX;
+        private readonly int _minimumY;
+        private readonly int _minimumZ;
+        private readonly int _latticeWidth;
+        private readonly int _latticeHeight;
+
+        public ValueNoise3DGridSampler(
+            ulong seed,
+            GenerationDomain domain,
+            int originX,
+            int originY,
+            int originZ,
+            int width,
+            int height,
+            int depth,
+            uint horizontalScale,
+            uint verticalScale)
+        {
+            if (originY < 0 ||
+                width <= 0 ||
+                height <= 0 ||
+                depth <= 0 ||
+                horizontalScale < 2 ||
+                verticalScale < 2)
+            {
+                throw new ArgumentOutOfRangeException(nameof(width));
+            }
+
+            _ = checked(originX + width - 1);
+            _ = checked(originY + height - 1);
+            _ = checked(originZ + depth - 1);
+
+            _x = PrepareAxis(originX, width, horizontalScale,
+                out _minimumX, out var maximumX);
+            _y = PrepareAxis(originY, height, verticalScale,
+                out _minimumY, out var maximumY);
+            _z = PrepareAxis(originZ, depth, horizontalScale,
+                out _minimumZ, out var maximumZ);
+
+            _latticeWidth = checked(maximumX - _minimumX + 1);
+            _latticeHeight = checked(maximumY - _minimumY + 1);
+            var latticeDepth = checked(maximumZ - _minimumZ + 1);
+            _lattice = new double[
+                checked(checked(_latticeWidth * _latticeHeight) * latticeDepth)];
+
+            for (var z = _minimumZ; z <= maximumZ; z++)
+            for (var y = _minimumY; y <= maximumY; y++)
+            for (var x = _minimumX; x <= maximumX; x++)
+            {
+                _lattice[Index(x, y, z)] =
+                    WorldGenerationEntropy.SignedUnit(
+                        WorldGenerationEntropy.Sample3D(seed, domain, x, y, z));
+            }
+        }
+
+        public double Sample(int localX, int localY, int localZ)
+        {
+            if ((uint)localX >= (uint)_x.Length ||
+                (uint)localY >= (uint)_y.Length ||
+                (uint)localZ >= (uint)_z.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(localX));
+            }
+
+            var x = _x[localX];
+            var y = _y[localY];
+            var z = _z[localZ];
+            var x0 = x.Lower;
+            var x1 = x0 + 1;
+            var y0 = y.Lower;
+            var y1 = y0 + 1;
+            var z0 = z.Lower;
+            var z1 = z0 + 1;
+
+            var firstZ = Lerp(
+                Lerp(Lattice(x0, y0, z0), Lattice(x1, y0, z0), x.Blend),
+                Lerp(Lattice(x0, y1, z0), Lattice(x1, y1, z0), x.Blend),
+                y.Blend);
+            var secondZ = Lerp(
+                Lerp(Lattice(x0, y0, z1), Lattice(x1, y0, z1), x.Blend),
+                Lerp(Lattice(x0, y1, z1), Lattice(x1, y1, z1), x.Blend),
+                y.Blend);
+            return Lerp(firstZ, secondZ, z.Blend);
+        }
+
+        private double Lattice(int x, int y, int z) =>
+            _lattice[
+                ((z - _minimumZ) * _latticeHeight +
+                 (y - _minimumY)) * _latticeWidth +
+                (x - _minimumX)];
+
+        private static AxisSample[] PrepareAxis(
+            int origin,
+            int length,
+            uint scale,
+            out int minimumLattice,
+            out int maximumLattice)
+        {
+            var result = new AxisSample[length];
+            minimumLattice = int.MaxValue;
+            maximumLattice = int.MinValue;
+            for (var index = 0; index < length; index++)
+            {
+                var world = checked(origin + index);
+                var lower = checked((int)FloorDivRem(world, scale, out var remainder));
+                result[index] = new AxisSample(
+                    lower,
+                    WorldGenerationEntropy.SmoothStep(remainder / (double)scale));
+                minimumLattice = Math.Min(minimumLattice, lower);
+                maximumLattice = Math.Max(maximumLattice, checked(lower + 1));
+            }
+
+            return result;
+        }
+
+        private static long FloorDivRem(
+            int value,
+            long divisor,
+            out long remainder)
+        {
+            var quotient = Math.DivRem((long)value, divisor, out remainder);
+            if (remainder >= 0)
+                return quotient;
+
+            remainder += divisor;
+            return quotient - 1;
+        }
+
+        private static double Lerp(double left, double right, double amount) =>
+            left + (right - left) * amount;
+
+        private int Index(int x, int y, int z) =>
+            ((z - _minimumZ) * _latticeHeight +
+             (y - _minimumY)) * _latticeWidth +
+            (x - _minimumX);
+    }
+
     public static ulong Sample2D(
         ulong seed,
         GenerationDomain domain,
