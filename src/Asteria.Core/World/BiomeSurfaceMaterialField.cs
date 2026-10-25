@@ -734,20 +734,20 @@ public sealed class BiomeSurfaceMaterialField
             // scratch data on this call's stack and retain a heap fallback for
             // unusually large authored material sets.
             const int StackScoreCapacity = 16;
-            Span<double> scores = stackalloc double[StackScoreCapacity];
-            Span<double> grainValues = stackalloc double[StackScoreCapacity];
-            if (needsBoundaryScores)
+            // Do not reserve per-call stack scratch for the overwhelmingly
+            // common path that only needs the winning material score.
+            Span<double> scores =
+                needsBoundaryScores && candidateBlocks.Length <= StackScoreCapacity
+                    ? stackalloc double[candidateBlocks.Length]
+                    : Span<double>.Empty;
+            Span<double> grainValues =
+                needsBoundaryScores && candidateBlocks.Length <= StackScoreCapacity
+                    ? stackalloc double[candidateBlocks.Length]
+                    : Span<double>.Empty;
+            if (needsBoundaryScores && candidateBlocks.Length > StackScoreCapacity)
             {
-                if (candidateBlocks.Length <= StackScoreCapacity)
-                {
-                    scores = scores[..candidateBlocks.Length];
-                    grainValues = grainValues[..candidateBlocks.Length];
-                }
-                else
-                {
-                    scores = new double[candidateBlocks.Length];
-                    grainValues = new double[candidateBlocks.Length];
-                }
+                scores = new double[candidateBlocks.Length];
+                grainValues = new double[candidateBlocks.Length];
             }
 
             var bestScore = double.NegativeInfinity;
