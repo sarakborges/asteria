@@ -632,6 +632,16 @@ public sealed class SurfaceTerrainField
                 Chunk.Size *
                 Chunk.Size];
         var maximumY = checked(originY + Chunk.Size - 1);
+        var minimumBaseY = int.MaxValue;
+        var maximumBaseY = int.MinValue;
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        for (var localX = 0; localX < Chunk.Size; localX++)
+        {
+            var baseY = column.BaseHeightAt(localX, localZ);
+            minimumBaseY = Math.Min(minimumBaseY, baseY);
+            maximumBaseY = Math.Max(maximumBaseY, baseY);
+        }
+
         var caveSamplerAttempted = false;
         CaveNoiseVolumeSampler? caveSampler = null;
 
@@ -674,7 +684,9 @@ public sealed class SurfaceTerrainField
                             originZ,
                             Chunk.Size,
                             Chunk.Size,
-                            Chunk.Size);
+                            Chunk.Size,
+                            minimumBaseY,
+                            maximumBaseY);
                     caveSamplerAttempted = true;
                 }
 
@@ -1253,10 +1265,10 @@ public sealed class SurfaceTerrainField
     }
 
     private sealed class CaveNoiseVolumeSampler(
-        WorldGenerationEntropy.ValueNoise3DGridSampler[][] channels,
+        WorldGenerationEntropy.ValueNoise3DGridSampler[]?[] channels,
         WorldGenerationEntropy.ValueNoise3DGridSampler?[] chambers)
     {
-        public WorldGenerationEntropy.ValueNoise3DGridSampler[][] Channels { get; } = channels;
+        public WorldGenerationEntropy.ValueNoise3DGridSampler[]?[] Channels { get; } = channels;
         public WorldGenerationEntropy.ValueNoise3DGridSampler?[] Chambers { get; } = chambers;
     }
 
@@ -1283,17 +1295,27 @@ public sealed class SurfaceTerrainField
             int originZ,
             int width,
             int height,
-            int depth)
+            int depth,
+            int minimumBaseY,
+            int maximumBaseY)
         {
+            var maximumY = checked(originY + height - 1);
             var channels =
-                new WorldGenerationEntropy.ValueNoise3DGridSampler[_layers.Length][];
+                new WorldGenerationEntropy.ValueNoise3DGridSampler[]?[_layers.Length];
             var chambers =
                 new WorldGenerationEntropy.ValueNoise3DGridSampler?[_layers.Length];
             for (var index = 0; index < _layers.Length; index++)
             {
-                channels[index] = _layers[index].CreateChannelSamplers(
+                var layer = _layers[index];
+                if (!layer.IntersectsChunkDepthRange(
+                        minimumBaseY, maximumBaseY, originY, maximumY))
+                {
+                    continue;
+                }
+
+                channels[index] = layer.CreateChannelSamplers(
                     seed, originX, originY, originZ, width, height, depth);
-                chambers[index] = _layers[index].CreateChamberSampler(
+                chambers[index] = layer.CreateChamberSampler(
                     seed, originX, originY, originZ, width, height, depth);
             }
 
@@ -1365,6 +1387,14 @@ public sealed class SurfaceTerrainField
 
         public uint MinimumDepth => _authored.MinDepth;
         public uint MaximumDepth => _authored.MaxDepth;
+
+        public bool IntersectsChunkDepthRange(
+            int minimumBaseY,
+            int maximumBaseY,
+            int originY,
+            int maximumY) =>
+            (long)originY <= (long)maximumBaseY - MinimumDepth &&
+            (long)maximumY >= (long)minimumBaseY - MaximumDepth;
 
         public WorldGenerationEntropy.ValueNoise3DGridSampler[] CreateChannelSamplers(
             ulong seed,
