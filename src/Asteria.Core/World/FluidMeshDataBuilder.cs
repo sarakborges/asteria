@@ -38,7 +38,7 @@ public static class FluidMeshDataBuilder
                 throw new ArgumentNullException(nameof(world));
         }
 
-        private FluidFaceHeights Get(
+        internal FluidFaceHeights Get(
             WorldVoxelCoord position,
             FluidRuntimeId fluid)
         {
@@ -117,9 +117,7 @@ public static class FluidMeshDataBuilder
                     // This voxel is known to belong to the current chunk, so
                     // avoid a second world-coordinate-to-chunk lookup.
                     var cell = chunk.GetCell(x, y, z);
-                    if (!cell.IsEmpty &&
-                        !FluidBlockOccupancy.AllowsFluid(
-                            blocks.GetDefinition(cell.Block)))
+                    if (!world.CanContainFluid(cell))
                     {
                         continue;
                     }
@@ -682,7 +680,7 @@ public static class FluidMeshDataBuilder
                 nameof(face)),
         };
 
-    private readonly record struct FluidFaceHeights(
+    internal readonly record struct FluidFaceHeights(
         float H00,
         float H10,
         float H11,
