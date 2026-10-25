@@ -31,6 +31,7 @@ public static class FluidMeshDataBuilder
     {
         private readonly VoxelWorld _world;
         private readonly Dictionary<FluidSurfaceCacheKey, FluidFaceHeights> _heights = [];
+        private readonly Dictionary<FluidSurfaceCacheKey, float> _cornerHeights = [];
 
         public FluidSurfaceHeightCache(VoxelWorld world)
         {
@@ -46,12 +47,42 @@ public static class FluidMeshDataBuilder
             if (_heights.TryGetValue(key, out var cached))
                 return cached;
 
-            var heights = CalculateSurfaceHeights(
-                _world,
-                position,
-                fluid);
+            var heights = CalculateSurfaceHeights(position, fluid);
             _heights.Add(key, heights);
             return heights;
+        }
+
+        private FluidFaceHeights CalculateSurfaceHeights(
+            WorldVoxelCoord position,
+            FluidRuntimeId fluid) =>
+            new(
+                GetCornerHeight(position, fluid, 0, 0),
+                GetCornerHeight(position, fluid, 1, 0),
+                GetCornerHeight(position, fluid, 1, 1),
+                GetCornerHeight(position, fluid, 0, 1));
+
+        private float GetCornerHeight(
+            WorldVoxelCoord position,
+            FluidRuntimeId fluid,
+            int xDirection,
+            int zDirection)
+        {
+            // A grid corner is shared by up to four adjacent fluid cells.
+            // Key by its world coordinate so those cells reuse the same
+            // neighborhood sample instead of probing the same voxels again.
+            var corner = position + (xDirection, 0, zDirection);
+            var key = new FluidSurfaceCacheKey(corner, fluid);
+            if (_cornerHeights.TryGetValue(key, out var cached))
+                return cached;
+
+            var height = CalculateCornerHeight(
+                _world,
+                position,
+                fluid,
+                xDirection,
+                zDirection);
+            _cornerHeights.Add(key, height);
+            return height;
         }
     }
 
@@ -486,17 +517,7 @@ public static class FluidMeshDataBuilder
                 nameof(face)),
         };
 
-    private static FluidFaceHeights CalculateSurfaceHeights(
-        VoxelWorld world,
-        WorldVoxelCoord position,
-        FluidRuntimeId fluid) =>
-        new(
-            CornerHeight(world, position, fluid, 0, 0),
-            CornerHeight(world, position, fluid, 1, 0),
-            CornerHeight(world, position, fluid, 1, 1),
-            CornerHeight(world, position, fluid, 0, 1));
-
-    private static float CornerHeight(
+    private static float CalculateCornerHeight(
         VoxelWorld world,
         WorldVoxelCoord position,
         FluidRuntimeId fluid,
