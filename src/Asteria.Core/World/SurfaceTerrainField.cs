@@ -1266,10 +1266,12 @@ public sealed class SurfaceTerrainField
 
     private sealed class CaveNoiseVolumeSampler(
         WorldGenerationEntropy.ValueNoise3DGridSampler[]?[] channels,
-        WorldGenerationEntropy.ValueNoise3DGridSampler?[] chambers)
+        WorldGenerationEntropy.ValueNoise3DGridSampler?[] chambers,
+        int[] localYOffsets)
     {
         public WorldGenerationEntropy.ValueNoise3DGridSampler[]?[] Channels { get; } = channels;
         public WorldGenerationEntropy.ValueNoise3DGridSampler?[] Chambers { get; } = chambers;
+        public int[] LocalYOffsets { get; } = localYOffsets;
     }
 
     private sealed class CaveRule
@@ -1304,22 +1306,31 @@ public sealed class SurfaceTerrainField
                 new WorldGenerationEntropy.ValueNoise3DGridSampler[]?[_layers.Length];
             var chambers =
                 new WorldGenerationEntropy.ValueNoise3DGridSampler?[_layers.Length];
+            var localYOffsets = new int[_layers.Length];
             for (var index = 0; index < _layers.Length; index++)
             {
                 var layer = _layers[index];
-                if (!layer.IntersectsChunkDepthRange(
-                        minimumBaseY, maximumBaseY, originY, maximumY))
+                var layerMinimumY = Math.Max(
+                    (long)originY,
+                    (long)minimumBaseY - layer.MaximumDepth);
+                var layerMaximumY = Math.Min(
+                    (long)maximumY,
+                    (long)maximumBaseY - layer.MinimumDepth);
+                if (layerMinimumY > layerMaximumY)
                 {
                     continue;
                 }
 
+                var sampleOriginY = checked((int)layerMinimumY);
+                var sampleHeight = checked((int)(layerMaximumY - layerMinimumY + 1L));
                 channels[index] = layer.CreateChannelSamplers(
-                    seed, originX, originY, originZ, width, height, depth);
+                    seed, originX, sampleOriginY, originZ, width, sampleHeight, depth);
                 chambers[index] = layer.CreateChamberSampler(
-                    seed, originX, originY, originZ, width, height, depth);
+                    seed, originX, sampleOriginY, originZ, width, sampleHeight, depth);
+                localYOffsets[index] = sampleOriginY - originY;
             }
 
-            return new CaveNoiseVolumeSampler(channels, chambers);
+            return new CaveNoiseVolumeSampler(channels, chambers, localYOffsets);
         }
 
         public double VoidDensityAt(
@@ -1343,6 +1354,10 @@ public sealed class SurfaceTerrainField
                     continue;
                 }
 
+                var layerChannels = sampler?.Channels[index];
+                var sampleLocalY = layerChannels is null
+                    ? localY
+                    : localY - sampler!.LocalYOffsets[index];
                 result = Math.Max(
                     result,
                     layer.VoidDensityAt(
@@ -1351,10 +1366,10 @@ public sealed class SurfaceTerrainField
                         y,
                         z,
                         depth,
-                        sampler?.Channels[index],
+                        layerChannels,
                         sampler?.Chambers[index],
                         localX,
-                        localY,
+                        sampleLocalY,
                         localZ));
             }
 
