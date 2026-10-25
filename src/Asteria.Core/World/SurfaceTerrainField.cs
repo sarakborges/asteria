@@ -321,6 +321,10 @@ public sealed class SurfaceTerrainField
     /// Pure density query with already-sampled X/Z biome and base height.
     /// Used by the chunk materializer across all Y voxels in a column.
     /// </summary>
+    internal bool HasAdditiveDensityRule(BiomeSample? volumeBiome) =>
+        volumeBiome is not null &&
+        _additiveRules.ContainsKey(volumeBiome.Primary);
+
     public double DensityAt(
         BiomeSample biome,
         int baseY,
