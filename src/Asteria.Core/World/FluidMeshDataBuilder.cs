@@ -32,11 +32,26 @@ public static class FluidMeshDataBuilder
         private readonly VoxelWorld _world;
         private readonly Dictionary<FluidSurfaceCacheKey, FluidFaceHeights> _heights = [];
         private readonly Dictionary<FluidSurfaceCacheKey, float> _cornerHeights = [];
+        private readonly Dictionary<
+            WorldVoxelCoord, (VoxelCell Cell, FluidCell Fluid)> _samples = [];
 
         public FluidSurfaceHeightCache(VoxelWorld world)
         {
             _world = world ??
                 throw new ArgumentNullException(nameof(world));
+        }
+
+        internal (VoxelCell Cell, FluidCell Fluid) GetCellAndFluid(
+            WorldVoxelCoord position)
+        {
+            if (_samples.TryGetValue(position, out var cached))
+                return cached;
+
+            _world.TryGetCellAndFluid(
+                position, out var cell, out var fluid);
+            var sample = (cell, fluid);
+            _samples.Add(position, sample);
+            return sample;
         }
 
         internal FluidFaceHeights Get(
@@ -76,7 +91,7 @@ public static class FluidMeshDataBuilder
                 return cached;
 
             var height = CalculateCornerHeight(
-                _world,
+                this,
                 position,
                 fluid,
                 xDirection,
@@ -188,10 +203,8 @@ public static class FluidMeshDataBuilder
             position + offset;
         // Sample the neighbor's block and fluid with one coordinate/chunk
         // lookup. Missing chunks produce empty data, preserving open borders.
-        world.TryGetCellAndFluid(
-            neighborPosition,
-            out var neighborCell,
-            out var neighborFluid);
+        var (neighborCell, neighborFluid) =
+            surfaceHeightCache.GetCellAndFluid(neighborPosition);
 
         // A decorative sprite must not occlude the adjacent water face.
         if (!world.CanContainFluid(neighborCell))
@@ -494,7 +507,7 @@ public static class FluidMeshDataBuilder
         };
 
     private static float CalculateCornerHeight(
-        VoxelWorld world,
+        FluidSurfaceHeightCache samples,
         WorldVoxelCoord position,
         FluidRuntimeId fluid,
         int xDirection,
@@ -510,19 +523,19 @@ public static class FluidMeshDataBuilder
             position + (x, 0, z);
 
         if (HasFluidAbove(
-                world,
+                samples,
                 position,
                 fluid) ||
             HasFluidAbove(
-                world,
+                samples,
                 xNeighbor,
                 fluid) ||
             HasFluidAbove(
-                world,
+                samples,
                 zNeighbor,
                 fluid) ||
             HasFluidAbove(
-                world,
+                samples,
                 diagonal,
                 fluid))
         {
@@ -533,25 +546,25 @@ public static class FluidMeshDataBuilder
         var count = 0;
 
         AccumulateSurfaceHeight(
-            world,
+            samples,
             position,
             fluid,
             ref total,
             ref count);
         AccumulateSurfaceHeight(
-            world,
+            samples,
             xNeighbor,
             fluid,
             ref total,
             ref count);
         AccumulateSurfaceHeight(
-            world,
+            samples,
             zNeighbor,
             fluid,
             ref total,
             ref count);
         AccumulateSurfaceHeight(
-            world,
+            samples,
             diagonal,
             fluid,
             ref total,
@@ -563,27 +576,25 @@ public static class FluidMeshDataBuilder
     }
 
     private static bool HasFluidAbove(
-        VoxelWorld world,
+        FluidSurfaceHeightCache samples,
         WorldVoxelCoord position,
         FluidRuntimeId fluid)
     {
-        var above =
-            world.GetFluidOrEmpty(
-                position + (0, 1, 0));
+        var above = samples.GetCellAndFluid(
+            position + (0, 1, 0)).Fluid;
 
         return !above.IsEmpty &&
                above.Fluid == fluid;
     }
 
     private static void AccumulateSurfaceHeight(
-        VoxelWorld world,
+        FluidSurfaceHeightCache samples,
         WorldVoxelCoord position,
         FluidRuntimeId fluid,
         ref float total,
         ref int count)
     {
-        var candidate =
-            world.GetFluidOrEmpty(position);
+        var candidate = samples.GetCellAndFluid(position).Fluid;
 
         if (candidate.IsEmpty ||
             candidate.Fluid != fluid)
