@@ -163,7 +163,7 @@ public static class ChunkMeshDataBuilder
                         cell,
                         definition,
                         tintSamples,
-                        ResolveDye(dyes, definition, chunk.GetSurfaceState(x, y, z).DyeId));
+                        ResolveDye(dyes, definition, definition.SupportsDye ? chunk.GetSurfaceState(x, y, z).DyeId : null));
                 }
             }
         }
@@ -286,7 +286,7 @@ var (originX, originY, originZ) =
                                 definition,
                                 cell,
                                 face,
-                                ResolveDye(dyes, definition, chunk.GetSurfaceState(x, y, z).DyeId));
+                                ResolveDye(dyes, definition, definition.SupportsDye ? chunk.GetSurfaceState(x, y, z).DyeId : null));
                         var topology = MeshFaceTopology.Neutral;
                         var batch = new TerrainRenderBatch(
                             definition.RenderMode,
