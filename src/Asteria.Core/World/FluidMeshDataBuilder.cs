@@ -110,6 +110,10 @@ public static class FluidMeshDataBuilder
         ArgumentNullException.ThrowIfNull(surfaceHeightCache);
 
         var chunk = world.GetChunk(coord);
+        if (!chunk.HasFluidInMeshlet(meshletIndex))
+            return new ChunkFluidMeshData(
+                Array.Empty<ChunkFluidBatchData>());
+
         var buffers =
             new Dictionary<FluidRuntimeId, List<FluidMeshVertex>>();
         var bounds =

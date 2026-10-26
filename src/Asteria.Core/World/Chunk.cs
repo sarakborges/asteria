@@ -74,6 +74,25 @@ public sealed class Chunk
     public ChunkMeshletMask OccupiedFluidMeshlets() =>
         OccupiedMeshlets(_fluids);
 
+    public bool HasTerrainInMeshlet(int meshletIndex) =>
+        HasOccupiedMeshlet(_cells, meshletIndex);
+
+    public bool HasFluidInMeshlet(int meshletIndex) =>
+        HasOccupiedMeshlet(_fluids, meshletIndex);
+
+    private static bool HasOccupiedMeshlet<T>(
+        PaletteStorage<T> storage,
+        int meshletIndex)
+        where T : struct, IEquatable<T>
+    {
+        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        return storage.AnyOccupiedInBox(
+            bounds.MinX, bounds.MinY, bounds.MinZ,
+            ChunkMeshletMask.Edge,
+            ChunkMeshletMask.Edge,
+            ChunkMeshletMask.Edge);
+    }
+
     private static ChunkMeshletMask OccupiedMeshlets<T>(
         PaletteStorage<T> storage)
         where T : struct, IEquatable<T>
@@ -159,14 +178,20 @@ public sealed class Chunk
 
     private bool SetCellAtIndex(int index, VoxelCell cell)
     {
-        var previous = _cells.Get(index);
-        if (!_cells.Set(index, cell))
+        if (!_cells.Set(index, cell, out var previous))
             return false;
 
         if (cell.IsEmpty || previous.Block != cell.Block)
         {
-            _surfaceStates.Remove(index);
-            if (_objects.Remove(index, out var detached))
+            // Surface state can only be attached to a non-empty block. Fresh
+            // procedural chunks therefore need no dictionary lookup here.
+            if (!previous.IsEmpty)
+                _surfaceStates.Remove(index);
+
+            // ObjectCount is the authoritative aggregate for this chunk. When
+            // zero, the support-index dictionary is known to be empty.
+            if (ObjectCount > 0 &&
+                _objects.Remove(index, out var detached))
             {
                 ObjectCount -= detached.Count;
                 ObjectRevision++;
@@ -290,17 +315,18 @@ public sealed class Chunk
         ValidateCoordinates(x, y, z);
 
         var index = ToIndex(x, y, z);
-        var previous = _fluids.Get(index);
-        if (!_fluids.Set(index, fluid))
+        if (!_fluids.Set(index, fluid, out var previous))
             return false;
 
         // Fluid-supported Objects are removed when their supporting surface
         // disappears, changes identity, or drops below the voxel's top face.
-        // No solid-block attachments are affected by fluid changes.
+        // No solid-block attachments are affected by fluid changes. If the
+        // chunk has no Objects, avoid a dictionary lookup on generated fluids.
         if (_cells.Get(index).IsEmpty &&
             (fluid.IsEmpty || fluid.Level != FluidCell.MaxLevel ||
              !fluid.IsSource ||
              previous.Fluid != fluid.Fluid) &&
+            ObjectCount > 0 &&
             _objects.Remove(index, out var detached))
         {
             ObjectCount -= detached.Count;

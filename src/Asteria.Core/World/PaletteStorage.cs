@@ -45,10 +45,13 @@ internal sealed class PaletteStorage<T>
             : _palette[paletteIndex - 1];
     }
 
-    public bool Set(int voxelIndex, T value)
+    public bool Set(int voxelIndex, T value) =>
+        Set(voxelIndex, value, out _);
+
+    public bool Set(int voxelIndex, T value, out T previous)
     {
         var previousIndex = _indices[voxelIndex];
-        var previous =
+        previous =
             previousIndex == 0
                 ? default
                 : _palette[previousIndex - 1];

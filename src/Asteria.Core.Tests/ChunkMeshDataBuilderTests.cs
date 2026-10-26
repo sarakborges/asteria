@@ -6,6 +6,51 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMeshDataBuilderTests
 {
     [Fact]
+    public void EmptyMeshletsSkipTerrainAndFluidGeometryEvenWhenOtherMeshletsHaveContent()
+    {
+        const string texturePath = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition(
+                "asteria:stone",
+                textures: new BlockTextureSet(
+                    top: [new BlockTextureLayer(texturePath)])),
+        ]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(79, 159, 214),
+                opacity: 0.72f),
+        ]);
+        var chunk = new Chunk();
+        chunk.SetBlock(12, 12, 12, blocks.GetId("asteria:stone"));
+        chunk.SetFluid(
+            12, 12, 12,
+            FluidCell.Source(fluids.GetId("asteria:water")));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        var terrain = ChunkMeshDataBuilder.BuildMeshlet(
+            world,
+            ChunkCoord.Zero,
+            blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>
+            {
+                [texturePath] = 0,
+            }),
+            meshletIndex: 0);
+        var fluid = FluidMeshDataBuilder.BuildMeshlet(
+            world,
+            ChunkCoord.Zero,
+            blocks,
+            fluids,
+            meshletIndex: 0);
+
+        Assert.Empty(terrain.RenderBatches);
+        Assert.Empty(terrain.CollisionFaces);
+        Assert.Empty(fluid.Batches);
+    }
+
+    [Fact]
     public void SpikeClosesItsEndsAndProvidesMatchingCollisionTriangles()
     {
         var texture = new BlockTextureLayer("textures/test/spike.png");
