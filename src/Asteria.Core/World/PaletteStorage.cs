@@ -51,6 +51,10 @@ internal sealed class PaletteStorage<T>
 
     private StorageState _state = new();
 
+    public PaletteStorage()
+    {
+    }
+
     public int OccupiedCount => _state.OccupiedCount;
 
     public int ActivePaletteEntryCount => _state.Lookup.Count;
