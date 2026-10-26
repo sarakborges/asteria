@@ -111,8 +111,7 @@ public static class FluidMeshDataBuilder
 
         var chunk = world.GetChunk(coord);
         if (!chunk.HasFluidInMeshlet(meshletIndex))
-            return new ChunkFluidMeshData(
-                Array.Empty<ChunkFluidBatchData>());
+            return ChunkFluidMeshData.Empty;
 
         var buffers =
             new Dictionary<FluidRuntimeId, List<FluidMeshVertex>>();

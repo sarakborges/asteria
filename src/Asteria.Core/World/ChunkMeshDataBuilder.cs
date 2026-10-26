@@ -51,11 +51,7 @@ public static class ChunkMeshDataBuilder
 
         var chunk = world.GetChunk(coord);
         if (!chunk.HasTerrainInMeshlet(meshletIndex))
-        {
-            return new ChunkMeshData(
-                Array.Empty<ChunkRenderBatchData>(),
-                Array.Empty<Vector3>());
-        }
+            return ChunkMeshData.Empty;
 
         var surfaces =
             new Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>>();
