@@ -85,17 +85,21 @@ public static class ChunkMeshDataBuilder
 
         // Partial geometry keeps the correctness-first fine mesher. Ordinary
         // cubes are emitted in a separate face-by-face greedy pass below.
-        // Only occupied cells are visited; clearing the compact cache first
-        // makes its default entries represent empty voxels during face passes.
-        if (selectedLayer is null)
+        for (var y = bounds.MinY; y < bounds.MaxYExclusive; y++)
         {
-            meshletCells.Clear();
-            chunk.VisitBlockCellsInMeshlet(
-                meshletIndex,
-                (x, y, z, cell) =>
+            for (var z = bounds.MinZ; z < bounds.MaxZExclusive; z++)
+            {
+                for (var x = bounds.MinX; x < bounds.MaxXExclusive; x++)
                 {
-                    var localIndex = MeshletVoxelIndex(x, y, z);
-                    meshletCells[localIndex] = cell;
+                    // A mining decal requests *only* one attached layer.
+                    // Host geometry must not receive those crack triangles.
+                    if (selectedLayer is not null)
+                        continue;
+                    var cell = chunk.GetCell(x, y, z);
+                    meshletCells[MeshletVoxelIndex(x, y, z)] = cell;
+                    if (cell.IsEmpty)
+                        continue;
+
                     var definition = blocks.GetDefinition(cell.Block);
                     var worldPosition = new WorldVoxelCoord(
                         originX + x, originY + y, originZ + z);
@@ -105,7 +109,7 @@ public static class ChunkMeshDataBuilder
                         EmitCrossedSprite(
                             surfaces, textures, x, y, z,
                             worldPosition, definition, tintSamples);
-                        return;
+                        continue;
                     }
 
                     if (definition.Visual.Kind == BlockVisualKind.GroundSprite)
@@ -113,25 +117,25 @@ public static class ChunkMeshDataBuilder
                         EmitGroundSprite(
                             surfaces, textures, x, y, z,
                             worldPosition, definition, tintSamples);
-                        return;
+                        continue;
                     }
 
                     if (definition.Shape.Kind == BlockShapeKind.Spike &&
                         !cell.HasMicroblockGeometry)
                     {
-                        fineMeshing[localIndex] = true;
+                        fineMeshing[MeshletVoxelIndex(x, y, z)] = true;
                         EmitSpike(
                             surfaces, collision, world, blocks, textures,
                             x, y, z, worldPosition, cell, definition,
                             tintSamples);
-                        return;
+                        continue;
                     }
 
                     var requiresFine = RequiresFineMeshing(
                         world, blocks, worldPosition, cell, definition);
-                    fineMeshing[localIndex] = requiresFine;
+                    fineMeshing[MeshletVoxelIndex(x, y, z)] = requiresFine;
                     if (!requiresFine)
-                        return;
+                        continue;
 
                     EmitFineCell(
                         surfaces, collision, world, blocks, textures,
@@ -142,7 +146,8 @@ public static class ChunkMeshDataBuilder
                             definition.SupportsDye
                                 ? chunk.GetSurfaceState(x, y, z).DyeId
                                 : null));
-                });
+                }
+            }
         }
 
         if (selectedLayer is null)

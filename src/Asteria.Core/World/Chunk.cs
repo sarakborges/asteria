@@ -274,25 +274,7 @@ public sealed class Chunk
         }
     }
 
-    public int VisitBlockCellsInMeshlet(
-        int meshletIndex,
-        Action<int, int, int, VoxelCell> visit)
-    {
-        ArgumentNullException.ThrowIfNull(visit);
-        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
-        return _cells.VisitOccupiedInBox(
-            bounds.MinX, bounds.MinY, bounds.MinZ,
-            ChunkMeshletMask.Edge,
-            ChunkMeshletMask.Edge,
-            ChunkMeshletMask.Edge,
-            (voxelIndex, cell) =>
-            {
-                var (x, y, z) = FromIndex(voxelIndex);
-                visit(x, y, z, cell);
-            });
-    }
-
-    public void VisitBlockCells(
+remove lambda-based terrain visitor    public void VisitBlockCells(
         Action<int, int, int, VoxelCell> visit)
     {
         ArgumentNullException.ThrowIfNull(visit);
