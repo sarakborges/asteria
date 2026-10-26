@@ -91,10 +91,18 @@ public static class FluidMeshDataBuilder
         ChunkCoord coord,
         BlockRegistry blocks,
         FluidRegistry fluids,
-        int meshletIndex) =>
-        BuildMeshlet(
+        int meshletIndex)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(fluids);
+        if (world.GetChunk(coord).FluidVoxelCountInMeshlet(meshletIndex) == 0)
+            return ChunkFluidMeshData.Empty;
+
+        return BuildMeshlet(
             world, coord, blocks, fluids, meshletIndex,
             new FluidSurfaceHeightCache(world));
+    }
 
     internal static ChunkFluidMeshData BuildMeshlet(
         VoxelWorld world,
@@ -110,9 +118,14 @@ public static class FluidMeshDataBuilder
         ArgumentNullException.ThrowIfNull(surfaceHeightCache);
 
         var chunk = world.GetChunk(coord);
-        if (!chunk.HasFluidInMeshlet(meshletIndex))
+        var occupiedFluidCount =
+            chunk.FluidVoxelCountInMeshlet(meshletIndex);
+        if (occupiedFluidCount == 0)
             return ChunkFluidMeshData.Empty;
 
+        var estimatedVertexCapacity = Math.Min(
+            checked(occupiedFluidCount * 36),
+            256);
         var buffers =
             new Dictionary<FluidRuntimeId, List<FluidMeshVertex>>();
         var bounds =
@@ -161,7 +174,7 @@ public static class FluidMeshDataBuilder
                             out var vertices))
                     {
                         vertices =
-                            new List<FluidMeshVertex>(256);
+                            new List<FluidMeshVertex>(estimatedVertexCapacity);
                         buffers.Add(
                             fluid.Fluid,
                             vertices);

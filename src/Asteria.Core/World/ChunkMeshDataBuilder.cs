@@ -50,12 +50,19 @@ public static class ChunkMeshDataBuilder
         ArgumentNullException.ThrowIfNull(textures);
 
         var chunk = world.GetChunk(coord);
-        if (!chunk.HasTerrainInMeshlet(meshletIndex))
+        var occupiedVoxelCount =
+            chunk.TerrainVoxelCountInMeshlet(meshletIndex);
+        if (occupiedVoxelCount == 0)
             return ChunkMeshData.Empty;
 
         var surfaces =
             new Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>>();
-        var collision = new List<Vector3>(1024);
+        // Dense meshlets keep the established starting capacity while sparse
+        // meshlets reserve only their bounded worst-case cube-face output.
+        var collisionCapacity = Math.Min(
+            checked(occupiedVoxelCount * 36),
+            1024);
+        var collision = new List<Vector3>(collisionCapacity);
         var bounds = ChunkMeshletMask.Bounds(meshletIndex);
         // The fine-geometry decision depends on the immutable worker snapshot.
         // Reuse it in all six greedy face passes rather than re-reading six

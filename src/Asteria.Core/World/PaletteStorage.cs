@@ -17,6 +17,7 @@ internal sealed class PaletteStorage<T>
             FreeSlots = new Stack<ushort>();
             Indices = new ushort[Chunk.Volume];
             Occupied = new ulong[(Chunk.Volume + 63) / 64];
+            MeshletOccupiedCounts = new int[ChunkMeshletMask.Count];
         }
 
         private StorageState(StorageState source)
@@ -28,6 +29,8 @@ internal sealed class PaletteStorage<T>
             Indices = (ushort[])source.Indices.Clone();
             Occupied = (ulong[])source.Occupied.Clone();
             OccupiedCount = source.OccupiedCount;
+            MeshletOccupiedCounts =
+                (int[])source.MeshletOccupiedCounts.Clone();
         }
 
         public List<T> Palette { get; }
@@ -41,6 +44,8 @@ internal sealed class PaletteStorage<T>
         public ushort[] Indices { get; }
 
         public ulong[] Occupied { get; }
+
+        public int[] MeshletOccupiedCounts { get; }
 
         public int OccupiedCount { get; set; }
 
@@ -58,6 +63,12 @@ internal sealed class PaletteStorage<T>
     public int OccupiedCount => _state.OccupiedCount;
 
     public int ActivePaletteEntryCount => _state.Lookup.Count;
+
+    public int OccupiedCountInMeshlet(int meshletIndex)
+    {
+        ChunkMeshletMask.Bounds(meshletIndex);
+        return _state.MeshletOccupiedCounts[meshletIndex];
+    }
 
     public T Get(int voxelIndex)
     {
@@ -325,5 +336,15 @@ internal sealed class PaletteStorage<T>
             state.Occupied[word] &= ~mask;
             state.OccupiedCount--;
         }
+
+        var localY = voxelIndex / Chunk.Area;
+        var localZ = voxelIndex / Chunk.Size % Chunk.Size;
+        var localX = voxelIndex % Chunk.Size;
+        var meshletIndex =
+            localX / ChunkMeshletMask.Edge +
+            localZ / ChunkMeshletMask.Edge * ChunkMeshletMask.PerAxis +
+            localY / ChunkMeshletMask.Edge *
+            ChunkMeshletMask.PerAxis * ChunkMeshletMask.PerAxis;
+        state.MeshletOccupiedCounts[meshletIndex] += isOccupied ? 1 : -1;
     }
 }

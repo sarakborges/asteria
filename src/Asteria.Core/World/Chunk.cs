@@ -80,18 +80,23 @@ public sealed class Chunk
     public bool HasFluidInMeshlet(int meshletIndex) =>
         HasOccupiedMeshlet(_fluids, meshletIndex);
 
+    public int TerrainVoxelCountInMeshlet(int meshletIndex) =>
+        CountOccupiedMeshlet(_cells, meshletIndex);
+
+    public int FluidVoxelCountInMeshlet(int meshletIndex) =>
+        CountOccupiedMeshlet(_fluids, meshletIndex);
+
     private static bool HasOccupiedMeshlet<T>(
         PaletteStorage<T> storage,
         int meshletIndex)
-        where T : struct, IEquatable<T>
-    {
-        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
-        return storage.AnyOccupiedInBox(
-            bounds.MinX, bounds.MinY, bounds.MinZ,
-            ChunkMeshletMask.Edge,
-            ChunkMeshletMask.Edge,
-            ChunkMeshletMask.Edge);
-    }
+        where T : struct, IEquatable<T> =>
+        storage.OccupiedCountInMeshlet(meshletIndex) > 0;
+
+    private static int CountOccupiedMeshlet<T>(
+        PaletteStorage<T> storage,
+        int meshletIndex)
+        where T : struct, IEquatable<T> =>
+        storage.OccupiedCountInMeshlet(meshletIndex);
 
     private static ChunkMeshletMask OccupiedMeshlets<T>(
         PaletteStorage<T> storage)
@@ -105,15 +110,8 @@ public sealed class Chunk
         byte bits = 0;
         for (var index = 0; index < ChunkMeshletMask.Count; index++)
         {
-            var bounds = ChunkMeshletMask.Bounds(index);
-            if (storage.AnyOccupiedInBox(
-                    bounds.MinX, bounds.MinY, bounds.MinZ,
-                    ChunkMeshletMask.Edge,
-                    ChunkMeshletMask.Edge,
-                    ChunkMeshletMask.Edge))
-            {
+            if (storage.OccupiedCountInMeshlet(index) > 0)
                 bits |= (byte)(1 << index);
-            }
         }
 
         return new ChunkMeshletMask(bits);
