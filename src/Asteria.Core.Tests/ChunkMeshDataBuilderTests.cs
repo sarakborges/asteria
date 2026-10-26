@@ -896,4 +896,48 @@ public sealed class ChunkMeshDataBuilderTests
             0, dyes: new DyeRegistry([])));
     }
 
+    [Fact]
+    public void FlatFluidTopFacesMergeIntoSingleDoubleSidedQuadWithinMeshlet()
+    {
+        var blocks = new BlockRegistry([]);
+        var fluids = new FluidRegistry(
+        [
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(79, 159, 214),
+                opacity: 0.72f),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var chunk = new Chunk();
+
+        for (var z = 2; z < 6; z++)
+        for (var x = 2; x < 6; x++)
+            chunk.SetFluid(x, 2, z, FluidCell.Source(water));
+
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        var data = FluidMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, fluids, meshletIndex: 0);
+        var vertices = Assert.Single(data.Batches).Vertices;
+        var topHeight = 3f;
+        var exterior = vertices.Where(vertex =>
+            vertex.Normal == System.Numerics.Vector3.UnitY &&
+            MathF.Abs(vertex.Position.Y - topHeight) < 0.0001f).ToArray();
+        var interior = vertices.Where(vertex =>
+            vertex.Normal == -System.Numerics.Vector3.UnitY &&
+            MathF.Abs(vertex.Position.Y - topHeight) < 0.0001f).ToArray();
+
+        // Sixteen adjacent flat tops collapse into one exterior quad and its
+        // interior-facing counterpart instead of emitting one pair per voxel.
+        Assert.Equal(6, exterior.Length);
+        Assert.Equal(6, interior.Length);
+        Assert.Equal(
+            new[] { 2f, 6f },
+            exterior.Select(vertex => vertex.Position.X).Distinct().Order().ToArray());
+        Assert.Equal(
+            new[] { 2f, 6f },
+            exterior.Select(vertex => vertex.Position.Z).Distinct().Order().ToArray());
+    }
+
 }
