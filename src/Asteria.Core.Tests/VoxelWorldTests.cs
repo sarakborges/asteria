@@ -573,6 +573,29 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
+    public void WorkerCloneSharesMicroblockPaletteUntilEitherSideAddsAMask()
+    {
+        var source = new Chunk();
+        source.SetBlock(1, 2, 3, new BlockRuntimeId(1));
+        var originalMask = MicroblockMask.Full.Edit(
+            0, 0, 0, MicroblockResolution.Thick, occupied: false);
+        var sourceMask = MicroblockMask.Full.Edit(
+            1, 0, 0, MicroblockResolution.Thick, occupied: false);
+        var cloneMask = MicroblockMask.Full.Edit(
+            2, 0, 0, MicroblockResolution.Thick, occupied: false);
+        source.SetMicroblockMask(1, 2, 3, originalMask);
+
+        var clone = source.CloneForWorker();
+        source.SetMicroblockMask(1, 2, 3, sourceMask);
+        Assert.Equal(originalMask, clone.GetMicroblockMask(1, 2, 3));
+        Assert.Equal(sourceMask, source.GetMicroblockMask(1, 2, 3));
+
+        clone.SetMicroblockMask(1, 2, 3, cloneMask);
+        Assert.Equal(sourceMask, source.GetMicroblockMask(1, 2, 3));
+        Assert.Equal(cloneMask, clone.GetMicroblockMask(1, 2, 3));
+    }
+
+    [Fact]
     public void WorkerCloneKeepsIndependentChunkStateAndRevision()
     {
         var world = new VoxelWorld();
