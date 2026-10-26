@@ -9,24 +9,22 @@ public sealed class Chunk
     private readonly PaletteStorage<VoxelCell> _cells;
     private readonly PaletteStorage<FluidCell> _fluids;
     private readonly MicroblockMaskPalette _microblockMasks;
-    private readonly Dictionary<int, BlockSurfaceState> _surfaceStates;
-    private readonly Dictionary<int, List<ObjectCell>> _objects;
+    private Dictionary<int, BlockSurfaceState>? _surfaceStates;
+    private Dictionary<int, List<ObjectCell>>? _objects;
 
     public Chunk()
     {
         _cells = new PaletteStorage<VoxelCell>();
         _fluids = new PaletteStorage<FluidCell>();
         _microblockMasks = new MicroblockMaskPalette();
-        _surfaceStates = [];
-        _objects = [];
     }
 
     private Chunk(
         PaletteStorage<VoxelCell> cells,
         PaletteStorage<FluidCell> fluids,
         MicroblockMaskPalette microblockMasks,
-        Dictionary<int, BlockSurfaceState> surfaceStates,
-        Dictionary<int, List<ObjectCell>> objects,
+        Dictionary<int, BlockSurfaceState>? surfaceStates,
+        Dictionary<int, List<ObjectCell>>? objects,
         ulong revision,
         ulong objectRevision)
     {
@@ -183,16 +181,24 @@ public sealed class Chunk
         {
             // Surface state can only be attached to a non-empty block. Fresh
             // procedural chunks therefore need no dictionary lookup here.
-            if (!previous.IsEmpty)
-                _surfaceStates.Remove(index);
+            if (!previous.IsEmpty &&
+                _surfaceStates is { } surfaceStates)
+            {
+                surfaceStates.Remove(index);
+                if (surfaceStates.Count == 0)
+                    _surfaceStates = null;
+            }
 
             // ObjectCount is the authoritative aggregate for this chunk. When
             // zero, the support-index dictionary is known to be empty.
             if (ObjectCount > 0 &&
-                _objects.Remove(index, out var detached))
+                _objects is { } objects &&
+                objects.Remove(index, out var detached))
             {
                 ObjectCount -= detached.Count;
                 ObjectRevision++;
+                if (objects.Count == 0)
+                    _objects = null;
             }
         }
 
@@ -207,7 +213,8 @@ public sealed class Chunk
     public IReadOnlyList<ObjectCell> ObjectsAt(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
-        return _objects.TryGetValue(ToIndex(x, y, z), out var objects)
+        return _objects is { } objectIndex &&
+               objectIndex.TryGetValue(ToIndex(x, y, z), out var objects)
             ? objects.ToArray()
             : Array.Empty<ObjectCell>();
     }
@@ -225,17 +232,17 @@ public sealed class Chunk
              _fluids.Get(index).Level != FluidCell.MaxLevel ||
              !_fluids.Get(index).IsSource))
             return false;
+        _objects ??= [];
         if (_objects.TryGetValue(index, out var current))
         {
             if (current.Count >= MaximumObjectsPerSupport || current.Contains(obj))
                 return false;
+            current.Add(obj);
         }
         else
         {
-            current = [];
-            _objects.Add(index, current);
+            _objects.Add(index, [obj]);
         }
-        current.Add(obj);
         ObjectCount++;
         ObjectRevision++;
         Revision++;
@@ -246,10 +253,14 @@ public sealed class Chunk
     {
         ValidateCoordinates(x, y, z);
         var index = ToIndex(x, y, z);
-        if (!_objects.TryGetValue(index, out var objects) || !objects.Remove(obj))
+        if (_objects is not { } objectIndex ||
+            !objectIndex.TryGetValue(index, out var objects) ||
+            !objects.Remove(obj))
             return false;
         if (objects.Count == 0)
-            _objects.Remove(index);
+            objectIndex.Remove(index);
+        if (objectIndex.Count == 0)
+            _objects = null;
         ObjectCount--;
         ObjectRevision++;
         Revision++;
@@ -263,13 +274,16 @@ public sealed class Chunk
         // Rendering/persistence can retain deterministic support order.
         // Spatial queries supply their own hit-distance and identity tie-breaks
         // and should not sort the entire support dictionary each frame.
+        if (_objects is not { } objectIndex)
+            return;
+
         IEnumerable<int> supports = ordered
-            ? _objects.Keys.OrderBy(key => key)
-            : _objects.Keys;
+            ? objectIndex.Keys.OrderBy(key => key)
+            : objectIndex.Keys;
         foreach (var index in supports)
         {
             var (x, y, z) = FromIndex(index);
-            foreach (var obj in _objects[index])
+            foreach (var obj in objectIndex[index])
                 visit(x, y, z, obj);
         }
     }
@@ -325,10 +339,13 @@ public sealed class Chunk
              !fluid.IsSource ||
              previous.Fluid != fluid.Fluid) &&
             ObjectCount > 0 &&
-            _objects.Remove(index, out var detached))
+            _objects is { } objectIndex &&
+            objectIndex.Remove(index, out var detached))
         {
             ObjectCount -= detached.Count;
             ObjectRevision++;
+            if (objectIndex.Count == 0)
+                _objects = null;
         }
 
         Revision++;
@@ -401,9 +418,13 @@ public Chunk CloneForWorker() =>
             _cells.Clone(),
             _fluids.Clone(),
             _microblockMasks.Clone(),
-            new Dictionary<int, BlockSurfaceState>(_surfaceStates),
-            _objects.ToDictionary(entry => entry.Key,
-                entry => new List<ObjectCell>(entry.Value)),
+            _surfaceStates is { Count: > 0 } surfaceStates
+                ? new Dictionary<int, BlockSurfaceState>(surfaceStates)
+                : null,
+            _objects is { Count: > 0 } objectIndex
+                ? objectIndex.ToDictionary(entry => entry.Key,
+                    entry => new List<ObjectCell>(entry.Value))
+                : null,
             Revision,
             ObjectRevision)
         { ObjectCount = this.ObjectCount };
@@ -413,12 +434,13 @@ public Chunk CloneForWorker() =>
         Action<int, int, int, BlockSurfaceState> visit)
     {
         ArgumentNullException.ThrowIfNull(visit);
-        if (_surfaceStates.Count == 0)
+        var surfaceStates = _surfaceStates;
+        if (surfaceStates is not { Count: > 0 })
             return 0;
 
         var bounds = ChunkMeshletMask.Bounds(meshletIndex);
         List<int>? selected = null;
-        foreach (var (voxelIndex, state) in _surfaceStates)
+        foreach (var (voxelIndex, state) in surfaceStates)
         {
             if (state.Layers.Count == 0)
                 continue;
@@ -442,7 +464,7 @@ public Chunk CloneForWorker() =>
         foreach (var voxelIndex in selected)
         {
             var (x, y, z) = FromIndex(voxelIndex);
-            visit(x, y, z, _surfaceStates[voxelIndex]);
+            visit(x, y, z, surfaceStates[voxelIndex]);
         }
 
         return selected.Count;
@@ -451,7 +473,8 @@ public Chunk CloneForWorker() =>
     public BlockSurfaceState GetSurfaceState(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
-        return _surfaceStates.TryGetValue(ToIndex(x, y, z), out var state)
+        return _surfaceStates is { } surfaceStates &&
+               surfaceStates.TryGetValue(ToIndex(x, y, z), out var state)
             ? state
             : BlockSurfaceState.Empty;
     }
@@ -469,9 +492,15 @@ public Chunk CloneForWorker() =>
             return false;
 
         if (state.IsEmpty)
-            _surfaceStates.Remove(index);
+        {
+            _surfaceStates?.Remove(index);
+            if (_surfaceStates is { Count: 0 })
+                _surfaceStates = null;
+        }
         else
-            _surfaceStates[index] = state;
+        {
+            (_surfaceStates ??= [])[index] = state;
+        }
 
         Revision++;
         return true;
