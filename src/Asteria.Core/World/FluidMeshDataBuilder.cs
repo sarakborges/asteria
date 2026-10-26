@@ -27,6 +27,169 @@ public static class FluidMeshDataBuilder
         WorldVoxelCoord Position,
         FluidRuntimeId Fluid);
 
+    private readonly record struct GreedyFluidTopCandidate(
+        FluidRuntimeId Fluid,
+        float Height)
+    {
+        public bool Matches(GreedyFluidTopCandidate other) =>
+            Fluid == other.Fluid &&
+            BitConverter.SingleToInt32Bits(Height) ==
+            BitConverter.SingleToInt32Bits(other.Height);
+    }
+
+    /// <summary>
+    /// Coalesces only flat, exposed fluid tops inside the current 8x8x8
+    /// meshlet. Sloped tops and all side faces keep the existing geometry path.
+    /// </summary>
+    private sealed class GreedyFluidTopFaceAccumulator
+    {
+        private readonly (
+            int MinX,
+            int MinY,
+            int MinZ,
+            int MaxXExclusive,
+            int MaxYExclusive,
+            int MaxZExclusive) _bounds;
+
+        private readonly GreedyFluidTopCandidate?[] _cells =
+            new GreedyFluidTopCandidate?[
+                ChunkMeshletMask.Edge *
+                ChunkMeshletMask.Edge *
+                ChunkMeshletMask.Edge];
+
+        public GreedyFluidTopFaceAccumulator(int meshletIndex)
+        {
+            _bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        }
+
+        public bool TryAdd(
+            int x,
+            int y,
+            int z,
+            FluidRuntimeId fluid,
+            FluidFaceHeights heights)
+        {
+            var heightBits = BitConverter.SingleToInt32Bits(heights.H00);
+            if (heightBits != BitConverter.SingleToInt32Bits(heights.H10) ||
+                heightBits != BitConverter.SingleToInt32Bits(heights.H11) ||
+                heightBits != BitConverter.SingleToInt32Bits(heights.H01))
+            {
+                return false;
+            }
+
+            var localX = x - _bounds.MinX;
+            var localY = y - _bounds.MinY;
+            var localZ = z - _bounds.MinZ;
+            _cells[Index(localX, localY, localZ)] =
+                new GreedyFluidTopCandidate(fluid, heights.H00);
+            return true;
+        }
+
+        public void Emit(
+            VoxelWorld world,
+            BlockRegistry blocks,
+            ChunkCoord coord,
+            Dictionary<FluidRuntimeId, List<FluidMeshVertex>> buffers)
+        {
+            var (originX, originY, originZ) =
+                VoxelCoordinates.ChunkOrigin(coord);
+            Span<Vector3> points = stackalloc Vector3[4];
+
+            for (var y = 0; y < ChunkMeshletMask.Edge; y++)
+            {
+                for (var z = 0; z < ChunkMeshletMask.Edge; z++)
+                {
+                    for (var x = 0; x < ChunkMeshletMask.Edge; x++)
+                    {
+                        var index = Index(x, y, z);
+                        if (_cells[index] is not { } candidate)
+                            continue;
+
+                        var width = 1;
+                        while (x + width < ChunkMeshletMask.Edge &&
+                               Matches(
+                                   _cells[Index(x + width, y, z)],
+                                   candidate))
+                        {
+                            width++;
+                        }
+
+                        var depth = 1;
+                        while (z + depth < ChunkMeshletMask.Edge)
+                        {
+                            var rowMatches = true;
+                            for (var column = x; column < x + width; column++)
+                            {
+                                if (Matches(
+                                        _cells[Index(column, y, z + depth)],
+                                        candidate))
+                                {
+                                    continue;
+                                }
+
+                                rowMatches = false;
+                                break;
+                            }
+
+                            if (!rowMatches)
+                                break;
+
+                            depth++;
+                        }
+
+                        for (var row = z; row < z + depth; row++)
+                        {
+                            for (var column = x; column < x + width; column++)
+                                _cells[Index(column, y, row)] = null;
+                        }
+
+                        if (!buffers.TryGetValue(candidate.Fluid, out var vertices))
+                            continue;
+
+                        var x0 = (float)(_bounds.MinX + x);
+                        var x1 = x0 + width;
+                        var z0 = (float)(_bounds.MinZ + z);
+                        var z1 = z0 + depth;
+                        var surfaceY = _bounds.MinY + y + candidate.Height;
+                        points[0] = new Vector3(x0, surfaceY, z1);
+                        points[1] = new Vector3(x1, surfaceY, z1);
+                        points[2] = new Vector3(x1, surfaceY, z0);
+                        points[3] = new Vector3(x0, surfaceY, z0);
+
+                        var position = new WorldVoxelCoord(
+                            originX + _bounds.MinX + x,
+                            originY + _bounds.MinY + y,
+                            originZ + _bounds.MinZ + z);
+                        EmitQuad(
+                            vertices,
+                            world,
+                            blocks,
+                            position,
+                            BlockFace.Top,
+                            points,
+                            MeshFaceTopology.Neutral);
+                        EmitTopUnderside(
+                            vertices,
+                            position,
+                            points,
+                            MeshFaceTopology.Neutral);
+                    }
+                }
+            }
+        }
+
+        private static bool Matches(
+            GreedyFluidTopCandidate? cell,
+            GreedyFluidTopCandidate expected) =>
+            cell is { } candidate &&
+            candidate.Matches(expected);
+
+        private static int Index(int x, int y, int z) =>
+            x +
+            z * ChunkMeshletMask.Edge +
+            y * ChunkMeshletMask.Edge * ChunkMeshletMask.Edge;
+    }
+
     internal sealed class FluidSurfaceHeightCache
     {
         private readonly VoxelWorld _world;
@@ -143,6 +306,7 @@ public static class FluidMeshDataBuilder
             256);
         var buffers =
             new Dictionary<FluidRuntimeId, List<FluidMeshVertex>>();
+        var greedyTopFaces = new GreedyFluidTopFaceAccumulator(meshletIndex);
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
         // Enumerate the packed occupancy bitset rather than scanning all 512
@@ -173,9 +337,11 @@ public static class FluidMeshDataBuilder
                     EmitFaceIfVisible(
                         vertices, world, blocks, position,
                         new Vector3(x, y, z), fluid, heights,
-                        surfaceHeightCache, face);
+                        surfaceHeightCache, greedyTopFaces, face);
                 }
             });
+
+        greedyTopFaces.Emit(world, blocks, coord, buffers);
 
         return new ChunkFluidMeshData(
             buffers
@@ -196,6 +362,7 @@ public static class FluidMeshDataBuilder
         FluidCell fluid,
         FluidFaceHeights heights,
         FluidSurfaceHeightCache surfaceHeightCache,
+        GreedyFluidTopFaceAccumulator greedyTopFaces,
         BlockFace face)
     {
         var offset = FaceOffset(face);
@@ -216,6 +383,16 @@ public static class FluidMeshDataBuilder
         {
             if (!neighborFluid.IsEmpty &&
                 neighborFluid.Fluid == fluid.Fluid)
+            {
+                return;
+            }
+
+            if (greedyTopFaces.TryAdd(
+                    (int)localOrigin.X,
+                    (int)localOrigin.Y,
+                    (int)localOrigin.Z,
+                    fluid.Fluid,
+                    heights))
             {
                 return;
             }
