@@ -287,9 +287,17 @@ public sealed class SurfaceChunkMaterializer
                         {
                             block = surfaceMaterials.BlockAt(depth);
                         }
-                        else if (!_materials.TryGeologyBlockAt(
-                            sample, worldX, worldY, worldZ, out block))
+                        else if (state.SurfaceCoverDepth is not null &&
+                                 _materials.TryGeologyBlockAt(
+                                     sample, worldX, worldY, worldZ,
+                                     out var geologyBlock))
                         {
+                            block = geologyBlock;
+                        }
+                        else
+                        {
+                            // A null cover depth also means this biome has no
+                            // 3D geology rule; avoid a dictionary lookup per voxel.
                             block = depth >= state.SurfaceCore.StartDepth
                                 ? state.SurfaceCore.Block
                                 : surfaceMaterials.BlockAt(depth);
@@ -322,9 +330,17 @@ public sealed class SurfaceChunkMaterializer
                         {
                             block = volumeMaterials.BlockAt(depth);
                         }
-                        else if (!_materials.TryGeologyBlockAt(
-                            volumeSample, worldX, worldY, worldZ, out block))
+                        else if (state.VolumeCoverDepth is not null &&
+                                 _materials.TryGeologyBlockAt(
+                                     volumeSample, worldX, worldY, worldZ,
+                                     out var volumeGeologyBlock))
                         {
+                            block = volumeGeologyBlock;
+                        }
+                        else
+                        {
+                            // The cached nullable cover depth also identifies
+                            // whether this volume biome has volumetric geology.
                             block = volumeMaterials.BlockAt(depth);
                         }
                     }
