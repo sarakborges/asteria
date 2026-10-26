@@ -27,6 +27,10 @@ internal sealed class MicroblockMaskPalette
 
     private PaletteState _state = new();
 
+    public MicroblockMaskPalette()
+    {
+    }
+
     public int Count => _state.Masks.Count;
 
     public ushort Intern(MicroblockMask mask)
