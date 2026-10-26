@@ -200,6 +200,72 @@ internal sealed class PaletteStorage<T>
     // A chunk row is 16 voxels wide and never crosses a 64-bit
     // occupancy word. This tests a box using only its packed bitset,
     // without visiting or unpacking voxel palette entries.
+    public int VisitOccupiedInBox(
+        int minX,
+        int minY,
+        int minZ,
+        int width,
+        int height,
+        int depth,
+        Action<int, T> visit)
+    {
+        if (width <= 0 || height <= 0 || depth <= 0 ||
+            !Chunk.Contains(minX, minY, minZ) ||
+            !Chunk.Contains(
+                minX + width - 1,
+                minY + height - 1,
+                minZ + depth - 1))
+        {
+            throw new ArgumentOutOfRangeException(nameof(width));
+        }
+
+        ArgumentNullException.ThrowIfNull(visit);
+        var state = _state;
+        if (state.OccupiedCount == 0)
+            return 0;
+
+        var visitedCount = 0;
+        var xEnd = minX + width;
+        var yEnd = minY + height;
+        var zEnd = minZ + depth;
+        for (var y = minY; y < yEnd; y++)
+        {
+            for (var z = minZ; z < zEnd; z++)
+            {
+                var x = minX;
+                while (x < xEnd)
+                {
+                    var first = x + Chunk.Size * (z + Chunk.Size * y);
+                    var bitOffset = first & 63;
+                    var segmentLength = Math.Min(xEnd - x, 64 - bitOffset);
+                    var rowMask =
+                        ((1UL << segmentLength) - 1UL) << bitOffset;
+                    var remaining = state.Occupied[first >> 6] & rowMask;
+                    var wordStart = (first >> 6) * 64;
+
+                    while (remaining != 0)
+                    {
+                        var bit = System.Numerics.BitOperations
+                            .TrailingZeroCount(remaining);
+                        var voxelIndex = wordStart + bit;
+                        var paletteIndex = state.Indices[voxelIndex];
+                        if (paletteIndex != 0)
+                        {
+                            visit(voxelIndex, state.Palette[paletteIndex - 1]);
+                            visitedCount++;
+                        }
+
+                        remaining &= remaining - 1;
+                    }
+
+                    x += segmentLength;
+                }
+            }
+        }
+
+        return visitedCount;
+    }
+
     public bool AnyOccupiedInBox(
         int minX,
         int minY,

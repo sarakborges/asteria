@@ -5,6 +5,27 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMeshletMaskTests
 {
     [Fact]
+    public void FluidMeshletVisitorReturnsOnlyFluidCellsWithinSelectedMeshlet()
+    {
+        var chunk = new Chunk();
+        var fluid = FluidCell.Source(new FluidRuntimeId(1));
+        chunk.SetFluid(1, 1, 1, fluid);
+        chunk.SetFluid(9, 9, 9, fluid);
+        chunk.SetFluid(10, 10, 10, fluid);
+
+        var visited = new List<(int X, int Y, int Z)>();
+        var count = chunk.VisitFluidCellsInMeshlet(
+            0, (x, y, z, cell) =>
+            {
+                Assert.Equal(fluid, cell);
+                visited.Add((x, y, z));
+            });
+
+        Assert.Equal(1, count);
+        Assert.Equal(new[] { (1, 1, 1) }, visited);
+    }
+
+    [Fact]
     public void ChunkTracksTerrainAndFluidOccupancyPerMeshletAcrossMutationsAndClones()
     {
         var chunk = new Chunk();

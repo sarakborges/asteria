@@ -128,79 +128,39 @@ public static class FluidMeshDataBuilder
             256);
         var buffers =
             new Dictionary<FluidRuntimeId, List<FluidMeshVertex>>();
-        var bounds =
-            ChunkMeshletMask.Bounds(meshletIndex);
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
-        // The caller owns this cache for the lifetime of the immutable worker
-        // snapshot; neighboring meshlets can reuse surface-height samples.
-        for (var y = bounds.MinY;
-             y < bounds.MaxYExclusive;
-             y++)
-        {
-            for (var z = bounds.MinZ;
-                 z < bounds.MaxZExclusive;
-                 z++)
+        // Enumerate the packed occupancy bitset rather than scanning all 512
+        // coordinates and performing a palette lookup for every empty voxel.
+        // The worker snapshot is immutable, so visit order remains stable.
+        chunk.VisitFluidCellsInMeshlet(
+            meshletIndex,
+            (x, y, z, fluid) =>
             {
-                for (var x = bounds.MinX;
-                     x < bounds.MaxXExclusive;
-                     x++)
+                var position = new WorldVoxelCoord(
+                    originX + x, originY + y, originZ + z);
+
+                // Permeable sprites and their source fluid can coexist.
+                // This voxel belongs to the current chunk; no world lookup.
+                var cell = chunk.GetCell(x, y, z);
+                if (!world.CanContainFluid(cell))
+                    return;
+
+                if (!buffers.TryGetValue(fluid.Fluid, out var vertices))
                 {
-                    var fluid =
-                        chunk.GetFluid(x, y, z);
-
-                    if (fluid.IsEmpty)
-                    {
-                        continue;
-                    }
-
-                    var position =
-                        new WorldVoxelCoord(
-                            originX + x,
-                            originY + y,
-                            originZ + z);
-
-                    // Permeable sprites and their source fluid can coexist.
-                    // This voxel is known to belong to the current chunk, so
-                    // avoid a second world-coordinate-to-chunk lookup.
-                    var cell = chunk.GetCell(x, y, z);
-                    if (!world.CanContainFluid(cell))
-                    {
-                        continue;
-                    }
-
-                    if (!buffers.TryGetValue(
-                            fluid.Fluid,
-                            out var vertices))
-                    {
-                        vertices =
-                            new List<FluidMeshVertex>(estimatedVertexCapacity);
-                        buffers.Add(
-                            fluid.Fluid,
-                            vertices);
-                    }
-
-                    var heights =
-                        surfaceHeightCache.Get(
-                            position,
-                            fluid.Fluid);
-
-                    foreach (var face in Faces)
-                    {
-                        EmitFaceIfVisible(
-                            vertices,
-                            world,
-                            blocks,
-                            position,
-                            new Vector3(x, y, z),
-                            fluid,
-                            heights,
-                            surfaceHeightCache,
-                            face);
-                    }
+                    vertices = new List<FluidMeshVertex>(estimatedVertexCapacity);
+                    buffers.Add(fluid.Fluid, vertices);
                 }
-            }
-        }
+
+                var heights = surfaceHeightCache.Get(position, fluid.Fluid);
+                foreach (var face in Faces)
+                {
+                    EmitFaceIfVisible(
+                        vertices, world, blocks, position,
+                        new Vector3(x, y, z), fluid, heights,
+                        surfaceHeightCache, face);
+                }
+            });
 
         return new ChunkFluidMeshData(
             buffers

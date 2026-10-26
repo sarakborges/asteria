@@ -335,6 +335,24 @@ public sealed class Chunk
         return true;
     }
 
+    public int VisitFluidCellsInMeshlet(
+        int meshletIndex,
+        Action<int, int, int, FluidCell> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        return _fluids.VisitOccupiedInBox(
+            bounds.MinX, bounds.MinY, bounds.MinZ,
+            ChunkMeshletMask.Edge,
+            ChunkMeshletMask.Edge,
+            ChunkMeshletMask.Edge,
+            (voxelIndex, fluid) =>
+            {
+                var (x, y, z) = FromIndex(voxelIndex);
+                visit(x, y, z, fluid);
+            });
+    }
+
     public void VisitFluidCells(
         Action<int, int, int, FluidCell> visit)
     {
