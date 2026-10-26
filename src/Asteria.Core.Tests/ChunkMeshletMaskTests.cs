@@ -5,24 +5,37 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMeshletMaskTests
 {
     [Fact]
-    public void FluidMeshletVisitorReturnsOnlyFluidCellsWithinSelectedMeshlet()
+    public void MeshletVisitorsReturnOnlyOccupiedCellsWithinSelectedMeshlet()
     {
         var chunk = new Chunk();
         var fluid = FluidCell.Source(new FluidRuntimeId(1));
+        var block = new BlockRuntimeId(1);
         chunk.SetFluid(1, 1, 1, fluid);
         chunk.SetFluid(9, 9, 9, fluid);
         chunk.SetFluid(10, 10, 10, fluid);
+        chunk.SetBlock(2, 1, 1, block);
+        chunk.SetBlock(9, 9, 10, block);
+        chunk.SetBlock(10, 10, 9, block);
 
-        var visited = new List<(int X, int Y, int Z)>();
-        var count = chunk.VisitFluidCellsInMeshlet(
+        var visitedFluids = new List<(int X, int Y, int Z)>();
+        var fluidCount = chunk.VisitFluidCellsInMeshlet(
             0, (x, y, z, cell) =>
             {
                 Assert.Equal(fluid, cell);
-                visited.Add((x, y, z));
+                visitedFluids.Add((x, y, z));
+            });
+        var visitedBlocks = new List<(int X, int Y, int Z)>();
+        var blockCount = chunk.VisitBlockCellsInMeshlet(
+            0, (x, y, z, cell) =>
+            {
+                Assert.Equal(block, cell.Block);
+                visitedBlocks.Add((x, y, z));
             });
 
-        Assert.Equal(1, count);
-        Assert.Equal(new[] { (1, 1, 1) }, visited);
+        Assert.Equal(1, fluidCount);
+        Assert.Equal(new[] { (1, 1, 1) }, visitedFluids);
+        Assert.Equal(1, blockCount);
+        Assert.Equal(new[] { (2, 1, 1) }, visitedBlocks);
     }
 
     [Fact]
