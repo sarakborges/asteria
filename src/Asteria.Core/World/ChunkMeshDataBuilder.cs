@@ -69,6 +69,13 @@ public static class ChunkMeshDataBuilder
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge];
         fineMeshing.Clear();
+        // The initial voxel pass already reads every cell in the meshlet.
+        // Cache those compact unmanaged values so six face passes do not
+        // repeat palette lookups for the same voxels.
+        Span<VoxelCell> meshletCells = stackalloc VoxelCell[
+            ChunkMeshletMask.Edge *
+            ChunkMeshletMask.Edge *
+            ChunkMeshletMask.Edge];
 
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
@@ -86,6 +93,7 @@ public static class ChunkMeshDataBuilder
                     if (selectedLayer is not null)
                         continue;
                     var cell = chunk.GetCell(x, y, z);
+                    meshletCells[MeshletVoxelIndex(x, y, z)] = cell;
                     if (cell.IsEmpty)
                     {
                         continue;
@@ -160,7 +168,8 @@ public static class ChunkMeshDataBuilder
         if (selectedLayer is null)
             EmitGreedyCubeFaces(
                 surfaces, collision, world, coord, blocks, textures,
-                bounds, tintSamples, dyes, fineMeshing, meshletIndex);
+                bounds, tintSamples, dyes, fineMeshing,
+                meshletCells, meshletIndex);
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
@@ -196,6 +205,7 @@ public static class ChunkMeshDataBuilder
         BiomeTintSampleGrid? tintSamples,
         DyeRegistry? dyes,
         ReadOnlySpan<bool> fineMeshing,
+        ReadOnlySpan<VoxelCell> meshletCells,
         int meshletIndex)
     {
         var chunk = world.GetChunk(coord);
@@ -219,8 +229,8 @@ var (originX, originY, originZ) =
                  depth < plane.DepthMaxExclusive;
                  depth++)
             {
-                Array.Clear(candidates);
-
+                // EmitGreedyCubePlane clears every populated slot while
+                // consuming rectangles, so the shared buffer is already empty.
                 for (var v = plane.VMin;
                      v < plane.VMaxExclusive;
                      v++)
@@ -231,7 +241,7 @@ var (originX, originY, originZ) =
                     {
                         var (x, y, z) =
                             PlanePosition(face, depth, u, v);
-                        var cell = chunk.GetCell(x, y, z);
+                        var cell = meshletCells[MeshletVoxelIndex(x, y, z)];
 
                         if (cell.IsEmpty)
                         {

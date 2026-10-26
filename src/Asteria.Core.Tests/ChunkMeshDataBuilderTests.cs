@@ -24,7 +24,7 @@ public sealed class ChunkMeshDataBuilderTests
         var chunk = new Chunk();
         chunk.SetBlock(12, 12, 12, blocks.GetId("asteria:stone"));
         chunk.SetFluid(
-            12, 12, 12,
+            13, 12, 12,
             FluidCell.Source(fluids.GetId("asteria:water")));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
