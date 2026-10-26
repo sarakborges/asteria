@@ -252,15 +252,44 @@ var (originX, originY, originZ) =
                             continue;
 
                         var offset = FaceOffset(face);
-                        if (!FaceIsExposed(
-                                world,
-                                blocks,
-                                cell,
-                                definition,
-                                worldPosition + offset))
+                        var neighborX = x + offset.X;
+                        var neighborY = y + offset.Y;
+                        var neighborZ = z + offset.Z;
+                        bool exposed;
+                        if (neighborX >= bounds.MinX &&
+                            neighborX < bounds.MaxXExclusive &&
+                            neighborY >= bounds.MinY &&
+                            neighborY < bounds.MaxYExclusive &&
+                            neighborZ >= bounds.MinZ &&
+                            neighborZ < bounds.MaxZExclusive)
                         {
-                            continue;
+                            // The neighboring voxel is in this meshlet's
+                            // sampled cache; do not query the world/palette.
+                            var neighbor = meshletCells[
+                                MeshletVoxelIndex(neighborX, neighborY, neighborZ)];
+                            exposed = FaceIsExposed(
+                                blocks, cell, definition, neighbor);
                         }
+                        else if ((uint)neighborX < Chunk.Size &&
+                                 (uint)neighborY < Chunk.Size &&
+                                 (uint)neighborZ < Chunk.Size)
+                        {
+                            // Adjacent meshlet, same chunk: read its storage
+                            // directly instead of resolving a world coordinate.
+                            var neighbor = chunk.GetCell(
+                                neighborX, neighborY, neighborZ);
+                            exposed = FaceIsExposed(
+                                blocks, cell, definition, neighbor);
+                        }
+                        else
+                        {
+                            exposed = FaceIsExposed(
+                                world, blocks, cell, definition,
+                                worldPosition + offset);
+                        }
+
+                        if (!exposed)
+                            continue;
 
                         var faceMaterial =
                             ResolveFaceMaterial(
@@ -518,6 +547,22 @@ var (originX, originY, originZ) =
         }
 
         return false;
+    }
+
+    private static bool FaceIsExposed(
+        BlockRegistry blocks,
+        VoxelCell source,
+        BlockDefinition sourceDefinition,
+        VoxelCell neighbor)
+    {
+        if (neighbor.IsEmpty)
+            return true;
+
+        var neighborDefinition = blocks.GetDefinition(neighbor.Block);
+        if (neighborDefinition.Visual.Kind != BlockVisualKind.Geometry)
+            return true;
+
+        return !Occludes(source, sourceDefinition, neighbor, neighborDefinition);
     }
 
     private static bool FaceIsExposed(
