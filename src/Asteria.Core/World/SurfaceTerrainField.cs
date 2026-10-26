@@ -707,6 +707,41 @@ public sealed class SurfaceTerrainField
                     originY <= additiveRule.MaximumY &&
                     maximumY >= additiveRule.MinimumY;
 
+                // With no caves or additive formations intersecting this
+                // vertical band, solidity is a prefix of the Y bits at baseY.
+                // Build it directly rather than evaluating 16 simple densities.
+                if (!mayContainCaves && !mayContainAdditive)
+                {
+                    var solidDepth = (long)baseY - originY + 1L;
+                    var solidCount = (int)Math.Clamp(
+                        solidDepth, 0L, Chunk.Size);
+                    var baselineMask = solidCount switch
+                    {
+                        0 => (ushort)0,
+                        Chunk.Size => ushort.MaxValue,
+                        _ => (ushort)((1u << solidCount) - 1u),
+                    };
+
+                    // Shell lining is defined as solid even above the terrain
+                    // surface, so restore those single bits explicitly.
+                    if (_floorY is { } floorY)
+                    {
+                        var liningY = (long)floorY + 1L - originY;
+                        if (liningY >= 0L && liningY < Chunk.Size)
+                            baselineMask |= (ushort)(1u << (int)liningY);
+                    }
+
+                    if (_roofY is { } roofY)
+                    {
+                        var liningY = (long)roofY - 1L - originY;
+                        if (liningY >= 0L && liningY < Chunk.Size)
+                            baselineMask |= (ushort)(1u << (int)liningY);
+                    }
+
+                    solidMask[solidColumnIndex] = baselineMask;
+                    continue;
+                }
+
                 for (var localY = 0;
                      localY < Chunk.Size;
                      localY++)

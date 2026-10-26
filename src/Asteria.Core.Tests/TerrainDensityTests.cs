@@ -317,6 +317,25 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CachedDensityFastPathMatchesScalarInSolidSurfaceAndSkyBands()
+    {
+        var generator = Generator();
+        foreach (var chunkY in new[] { 0, 4, 6, 7 })
+        {
+            var chunk = generator.Materialize(new ChunkCoord(0, chunkY, 0));
+            var originY = chunkY * Chunk.Size;
+            for (var z = 0; z < Chunk.Size; z += 5)
+            for (var x = 0; x < Chunk.Size; x += 5)
+            for (var y = 0; y < Chunk.Size; y += 2)
+            {
+                Assert.Equal(
+                    generator.DensityAt(x, originY + y, z) >= 0d,
+                    !chunk.GetBlock(x, y, z).IsAir);
+            }
+        }
+    }
+
+    [Fact]
     public void SampleDensityVolumeMatchesScalarAcrossNegativeCoordinates()
     {
         var generator = Generator(caves: WideCaves());
