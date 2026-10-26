@@ -80,72 +80,92 @@ public static class ChunkMeshDataBuilder
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge];
 
+        var meshletDefinitions = new BlockDefinition?[
+            ChunkMeshletMask.Edge *
+            ChunkMeshletMask.Edge *
+            ChunkMeshletMask.Edge];
+
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
 
-        // Partial geometry keeps the correctness-first fine mesher. Ordinary
-        // cubes are emitted in a separate face-by-face greedy pass below.
-        for (var y = bounds.MinY; y < bounds.MaxYExclusive; y++)
+        // First capture the meshlet's cells and immutable definitions once.
+        // The next pass reuses them for fine-geometry classification, and all
+        // six greedy face passes share the same per-voxel definition cache.
+        if (selectedLayer is null)
         {
+            for (var y = bounds.MinY; y < bounds.MaxYExclusive; y++)
             for (var z = bounds.MinZ; z < bounds.MaxZExclusive; z++)
+            for (var x = bounds.MinX; x < bounds.MaxXExclusive; x++)
             {
-                for (var x = bounds.MinX; x < bounds.MaxXExclusive; x++)
+                var index = MeshletVoxelIndex(x, y, z);
+                var cell = chunk.GetCell(x, y, z);
+                meshletCells[index] = cell;
+                if (!cell.IsEmpty)
+                    meshletDefinitions[index] = blocks.GetDefinition(cell.Block);
+            }
+
+            // Preserve the previous Y/Z/X emission order. In particular,
+            // sprites and fine geometry keep their deterministic batch order.
+            for (var y = bounds.MinY; y < bounds.MaxYExclusive; y++)
+            {
+                for (var z = bounds.MinZ; z < bounds.MaxZExclusive; z++)
                 {
-                    // A mining decal requests *only* one attached layer.
-                    // Host geometry must not receive those crack triangles.
-                    if (selectedLayer is not null)
-                        continue;
-                    var cell = chunk.GetCell(x, y, z);
-                    meshletCells[MeshletVoxelIndex(x, y, z)] = cell;
-                    if (cell.IsEmpty)
-                        continue;
-
-                    var definition = blocks.GetDefinition(cell.Block);
-                    var worldPosition = new WorldVoxelCoord(
-                        originX + x, originY + y, originZ + z);
-
-                    if (definition.Visual.Kind == BlockVisualKind.CrossedSprite)
+                    for (var x = bounds.MinX; x < bounds.MaxXExclusive; x++)
                     {
-                        EmitCrossedSprite(
-                            surfaces, textures, x, y, z,
-                            worldPosition, definition, tintSamples);
-                        continue;
-                    }
+                        var index = MeshletVoxelIndex(x, y, z);
+                        var cell = meshletCells[index];
+                        if (cell.IsEmpty)
+                            continue;
 
-                    if (definition.Visual.Kind == BlockVisualKind.GroundSprite)
-                    {
-                        EmitGroundSprite(
-                            surfaces, textures, x, y, z,
-                            worldPosition, definition, tintSamples);
-                        continue;
-                    }
+                        var definition = meshletDefinitions[index]!;
+                        var worldPosition = new WorldVoxelCoord(
+                            originX + x, originY + y, originZ + z);
 
-                    if (definition.Shape.Kind == BlockShapeKind.Spike &&
-                        !cell.HasMicroblockGeometry)
-                    {
-                        fineMeshing[MeshletVoxelIndex(x, y, z)] = true;
-                        EmitSpike(
+                        if (definition.Visual.Kind == BlockVisualKind.CrossedSprite)
+                        {
+                            EmitCrossedSprite(
+                                surfaces, textures, x, y, z,
+                                worldPosition, definition, tintSamples);
+                            continue;
+                        }
+
+                        if (definition.Visual.Kind == BlockVisualKind.GroundSprite)
+                        {
+                            EmitGroundSprite(
+                                surfaces, textures, x, y, z,
+                                worldPosition, definition, tintSamples);
+                            continue;
+                        }
+
+                        if (definition.Shape.Kind == BlockShapeKind.Spike &&
+                            !cell.HasMicroblockGeometry)
+                        {
+                            fineMeshing[index] = true;
+                            EmitSpike(
+                                surfaces, collision, world, blocks, textures,
+                                x, y, z, worldPosition, cell, definition,
+                                tintSamples);
+                            continue;
+                        }
+
+                        var requiresFine = RequiresFineMeshing(
+                            world, chunk, blocks, worldPosition,
+                            x, y, z, cell, definition, bounds,
+                            meshletCells, meshletDefinitions);
+                        fineMeshing[index] = requiresFine;
+                        if (!requiresFine)
+                            continue;
+
+                        EmitFineCell(
                             surfaces, collision, world, blocks, textures,
                             x, y, z, worldPosition, cell, definition,
-                            tintSamples);
-                        continue;
+                            tintSamples,
+                            ResolveDye(
+                                dyes, definition,
+                                definition.SupportsDye
+                                    ? chunk.GetSurfaceState(x, y, z).DyeId
+                                    : null));
                     }
-
-                    var requiresFine = RequiresFineMeshing(
-                        world, blocks, worldPosition, cell, definition);
-                    fineMeshing[MeshletVoxelIndex(x, y, z)] = requiresFine;
-                    if (!requiresFine)
-                        continue;
-
-                    EmitFineCell(
-                        surfaces, collision, world, blocks, textures,
-                        x, y, z, worldPosition, cell, definition,
-                        tintSamples,
-                        ResolveDye(
-                            dyes, definition,
-                            definition.SupportsDye
-                                ? chunk.GetSurfaceState(x, y, z).DyeId
-                                : null));
                 }
             }
         }
@@ -154,7 +174,7 @@ public static class ChunkMeshDataBuilder
             EmitGreedyCubeFaces(
                 surfaces, collision, world, coord, blocks, textures,
                 bounds, tintSamples, dyes, fineMeshing,
-                meshletCells, meshletIndex);
+                meshletCells, meshletDefinitions, meshletIndex);
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
@@ -191,6 +211,7 @@ public static class ChunkMeshDataBuilder
         DyeRegistry? dyes,
         ReadOnlySpan<bool> fineMeshing,
         ReadOnlySpan<VoxelCell> meshletCells,
+        BlockDefinition?[] meshletDefinitions,
         int meshletIndex)
     {
         var chunk = world.GetChunk(coord);
@@ -234,7 +255,7 @@ var (originX, originY, originZ) =
                         }
 
                         var definition =
-                            blocks.GetDefinition(cell.Block);
+                            meshletDefinitions[MeshletVoxelIndex(x, y, z)]!;
 
                         if (definition.Visual.Kind !=
                             BlockVisualKind.Geometry)
@@ -268,7 +289,9 @@ var (originX, originY, originZ) =
                             var neighbor = meshletCells[
                                 MeshletVoxelIndex(neighborX, neighborY, neighborZ)];
                             exposed = FaceIsExposed(
-                                blocks, cell, definition, neighbor);
+                                blocks, cell, definition, neighbor,
+                                meshletDefinitions[MeshletVoxelIndex(
+                                    neighborX, neighborY, neighborZ)]);
                         }
                         else if ((uint)neighborX < Chunk.Size &&
                                  (uint)neighborY < Chunk.Size &&
@@ -511,33 +534,63 @@ var (originX, originY, originZ) =
 
     private static bool RequiresFineMeshing(
         VoxelWorld world,
+        Chunk chunk,
         BlockRegistry blocks,
         WorldVoxelCoord position,
+        int x,
+        int y,
+        int z,
         VoxelCell cell,
-        BlockDefinition definition)
+        BlockDefinition definition,
+        (
+            int MinX,
+            int MinY,
+            int MinZ,
+            int MaxXExclusive,
+            int MaxYExclusive,
+            int MaxZExclusive) bounds,
+        ReadOnlySpan<VoxelCell> meshletCells,
+        BlockDefinition?[] meshletDefinitions)
     {
-        if (BlockGeometry.RequiresFineMeshing(
-                definition,
-                cell))
-        {
+        if (BlockGeometry.RequiresFineMeshing(definition, cell))
             return true;
-        }
 
         foreach (var face in Faces)
         {
             var offset = FaceOffset(face);
-            var neighbor =
-                world.GetCellOrEmpty(
-                    position + offset);
+            var neighborX = x + offset.X;
+            var neighborY = y + offset.Y;
+            var neighborZ = z + offset.Z;
+            VoxelCell neighbor;
+            BlockDefinition? neighborDefinition = null;
 
-            if (neighbor.IsEmpty)
+            if (neighborX >= bounds.MinX &&
+                neighborX < bounds.MaxXExclusive &&
+                neighborY >= bounds.MinY &&
+                neighborY < bounds.MaxYExclusive &&
+                neighborZ >= bounds.MinZ &&
+                neighborZ < bounds.MaxZExclusive)
             {
-                continue;
+                var index = MeshletVoxelIndex(
+                    neighborX, neighborY, neighborZ);
+                neighbor = meshletCells[index];
+                neighborDefinition = meshletDefinitions[index];
+            }
+            else if (Chunk.Contains(neighborX, neighborY, neighborZ))
+            {
+                // The adjacent meshlet is still resident in this chunk:
+                // avoid converting world coordinates and searching the world.
+                neighbor = chunk.GetCell(neighborX, neighborY, neighborZ);
+            }
+            else
+            {
+                neighbor = world.GetCellOrEmpty(position + offset);
             }
 
-            var neighborDefinition =
-                blocks.GetDefinition(neighbor.Block);
+            if (neighbor.IsEmpty)
+                continue;
 
+            neighborDefinition ??= blocks.GetDefinition(neighbor.Block);
             if (BlockGeometry.RequiresFineMeshing(
                     neighborDefinition,
                     neighbor))
@@ -553,12 +606,14 @@ var (originX, originY, originZ) =
         BlockRegistry blocks,
         VoxelCell source,
         BlockDefinition sourceDefinition,
-        VoxelCell neighbor)
+        VoxelCell neighbor,
+        BlockDefinition? cachedNeighborDefinition = null)
     {
         if (neighbor.IsEmpty)
             return true;
 
-        var neighborDefinition = blocks.GetDefinition(neighbor.Block);
+        var neighborDefinition =
+            cachedNeighborDefinition ?? blocks.GetDefinition(neighbor.Block);
         if (neighborDefinition.Visual.Kind != BlockVisualKind.Geometry)
             return true;
 
