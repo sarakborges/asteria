@@ -426,6 +426,46 @@ public Chunk CloneForWorker() =>
             ObjectRevision)
         { ObjectCount = this.ObjectCount };
 
+    public int VisitLayeredCellsInMeshlet(
+        int meshletIndex,
+        Action<int, int, int, BlockSurfaceState> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+        if (_surfaceStates.Count == 0)
+            return 0;
+
+        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        List<int>? selected = null;
+        foreach (var (voxelIndex, state) in _surfaceStates)
+        {
+            if (state.Layers.Count == 0)
+                continue;
+
+            var (x, y, z) = FromIndex(voxelIndex);
+            if (x < bounds.MinX || x >= bounds.MaxXExclusive ||
+                y < bounds.MinY || y >= bounds.MaxYExclusive ||
+                z < bounds.MinZ || z >= bounds.MaxZExclusive)
+                continue;
+
+            selected ??= [];
+            selected.Add(voxelIndex);
+        }
+
+        if (selected is null)
+            return 0;
+
+        // Match the chunk's normal Y/Z/X traversal order independent of
+        // insertion/removal history in the sparse state dictionary.
+        selected.Sort();
+        foreach (var voxelIndex in selected)
+        {
+            var (x, y, z) = FromIndex(voxelIndex);
+            visit(x, y, z, _surfaceStates[voxelIndex]);
+        }
+
+        return selected.Count;
+    }
+
     public BlockSurfaceState GetSurfaceState(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);

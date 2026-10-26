@@ -39,6 +39,34 @@ public sealed class ChunkMeshletMaskTests
     }
 
     [Fact]
+    public void LayeredStateVisitorSkipsDyeOnlyStateAndPreservesVoxelOrder()
+    {
+        var chunk = new Chunk();
+        var block = new BlockRuntimeId(1);
+        chunk.SetBlock(1, 1, 1, block);
+        chunk.SetBlock(2, 1, 1, block);
+        chunk.SetBlock(9, 9, 9, block);
+        var layer = new AttachedBlockLayer(BlockFace.Top, "asteria:top_layer");
+        Assert.True(chunk.SetSurfaceState(
+            1, 1, 1, new BlockSurfaceState(null, [layer])));
+        Assert.True(chunk.SetSurfaceState(
+            2, 1, 1, new BlockSurfaceState("asteria:red_dye")));
+        Assert.True(chunk.SetSurfaceState(
+            9, 9, 9, new BlockSurfaceState(null, [layer])));
+
+        var visited = new List<(int X, int Y, int Z)>();
+        var count = chunk.VisitLayeredCellsInMeshlet(
+            0, (x, y, z, state) =>
+            {
+                Assert.Single(state.Layers);
+                visited.Add((x, y, z));
+            });
+
+        Assert.Equal(1, count);
+        Assert.Equal(new[] { (1, 1, 1) }, visited);
+    }
+
+    [Fact]
     public void ChunkTracksTerrainAndFluidOccupancyPerMeshletAcrossMutationsAndClones()
     {
         var chunk = new Chunk();

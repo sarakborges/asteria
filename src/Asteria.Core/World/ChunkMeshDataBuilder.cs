@@ -153,7 +153,7 @@ public static class ChunkMeshDataBuilder
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
-            chunk, bounds, originX, originY, originZ,
+            chunk, meshletIndex, originX, originY, originZ,
             attachedLayers, tintSamples, selectedLayer);
 
         var batches = surfaces
@@ -1141,8 +1141,7 @@ var (originX, originY, originZ) =
         BlockRegistry blocks,
         TerrainTextureLookup textures,
         Chunk chunk,
-        (int MinX, int MinY, int MinZ,
-            int MaxXExclusive, int MaxYExclusive, int MaxZExclusive) bounds,
+        int meshletIndex,
         int originX,
         int originY,
         int originZ,
@@ -1150,78 +1149,82 @@ var (originX, originY, originZ) =
         BiomeTintSampleGrid? tintSamples,
         AttachedBlockLayer? selectedLayer)
     {
-        for (var y = bounds.MinY; y < bounds.MaxYExclusive; y++)
-        for (var z = bounds.MinZ; z < bounds.MaxZExclusive; z++)
-        for (var x = bounds.MinX; x < bounds.MaxXExclusive; x++)
-        {
-            var state = chunk.GetSurfaceState(x, y, z);
-            if (state.Layers.Count == 0)
-                continue;
-            if (registry is null)
-                throw new InvalidOperationException(
-                    "Attached voxel layers require an authored layer registry.");
-
-            var cell = chunk.GetCell(x, y, z);
-            if (cell.IsEmpty)
-                throw new InvalidOperationException("An empty voxel cannot retain attached layers.");
-            var host = blocks.GetDefinition(cell.Block);
-            if (host.Visual.Kind != BlockVisualKind.Geometry)
-                throw new InvalidOperationException("Attached layers require a geometry host.");
-
-            var origin = new Vector3(x, y, z);
-            var worldPosition = new WorldVoxelCoord(originX + x, originY + y, originZ + z);
-            var fine = BlockGeometry.RequiresFineMeshing(host, cell);
-            bool[]? fineVisible = fine ? new bool[FinePlaneArea] : null;
-            Span<int> faceStack = stackalloc int[6];
-            faceStack.Clear();
-
-            foreach (var attachment in state.Layers)
+        // Most meshlets have no attached layers. Enumerate the sparse state
+        // index rather than looking up a surface state in every voxel cell.
+        chunk.VisitLayeredCellsInMeshlet(
+            meshletIndex,
+            (x, y, z, state) =>
             {
-                var layer = registry.Get(attachment.LayerId);
-                if (!layer.Supports(attachment.Face))
+                if (registry is null)
                     throw new InvalidOperationException(
-                        $"Layer {layer.Id} does not support {attachment.Face}.");
+                        "Attached voxel layers require an authored layer registry.");
 
-                var face = attachment.Face;
-                var offset = layer.Offset + faceStack[(int)face]++ * (1f / 8192f);
-                // Preserve the position of the real top layer in a stack:
-                // earlier layers count toward the offset, but do not render.
-                if (selectedLayer is { } target && attachment != target)
-                    continue;
-                var material = new TerrainFaceMaterial(
-                    new Vector2(textures.GetIndex(layer.Texture) +
-                        (layer.Tint == BlockTint.None ? 0f : DyableLayerFlag), -1f),
-                    layer.Tint, new BlockPreviewColor(255, 255, 255), false);
-                var surface = GetSurface(surfaces, new TerrainRenderBatch(
-                    layer.RenderMode, layer.CastsShadow));
+                var cell = chunk.GetCell(x, y, z);
+                if (cell.IsEmpty)
+                    throw new InvalidOperationException(
+                        "An empty voxel cannot retain attached layers.");
+                var host = blocks.GetDefinition(cell.Block);
+                if (host.Visual.Kind != BlockVisualKind.Geometry)
+                    throw new InvalidOperationException(
+                        "Attached layers require a geometry host.");
 
-                if (fine)
-                {
-                    EmitFineFace(
-                        surface, collision, world, blocks, worldPosition,
-                        cell, host, origin, face, material, false, offset,
-                        fineVisible!, tintSamples, attachment.Rotation);
-                    continue;
-                }
-
-                if (!FaceIsExposed(
-                        world, blocks, cell, host, worldPosition + FaceOffset(face)))
-                    continue;
-
-                var corners = FaceCorners(face);
+                var origin = new Vector3(x, y, z);
+                var worldPosition = new WorldVoxelCoord(
+                    originX + x, originY + y, originZ + z);
+                var fine = BlockGeometry.RequiresFineMeshing(host, cell);
+                bool[]? fineVisible = fine ? new bool[FinePlaneArea] : null;
+                Span<int> faceStack = stackalloc int[6];
+                faceStack.Clear();
                 Span<Vector3> quad = stackalloc Vector3[4];
-                for (var corner = 0; corner < 4; corner++)
-                    quad[corner] = origin + corners[corner];
 
-                EmitQuadVertices(
-                    surface, collision, quad, FaceNormal(face), face,
-                    material, attachment.Rotation,
-                    MeshFaceTopology.Neutral,
-                    false, false, uvOrigin: origin,
-                    worldOriginX: originX, worldOriginZ: originZ,
-                    tintSamples: tintSamples, normalOffset: offset);
-            }
-        }
+                foreach (var attachment in state.Layers)
+                {
+                    var layer = registry.Get(attachment.LayerId);
+                    if (!layer.Supports(attachment.Face))
+                        throw new InvalidOperationException(
+                            $"Layer {layer.Id} does not support {attachment.Face}.");
+
+                    var face = attachment.Face;
+                    var offset = layer.Offset +
+                        faceStack[(int)face]++ * (1f / 8192f);
+                    // Preserve the position of the real top layer in a stack:
+                    // earlier layers count toward the offset, but do not render.
+                    if (selectedLayer is { } target && attachment != target)
+                        continue;
+                    var material = new TerrainFaceMaterial(
+                        new Vector2(textures.GetIndex(layer.Texture) +
+                            (layer.Tint == BlockTint.None ? 0f : DyableLayerFlag), -1f),
+                        layer.Tint, new BlockPreviewColor(255, 255, 255), false);
+                    var surface = GetSurface(surfaces, new TerrainRenderBatch(
+                        layer.RenderMode, layer.CastsShadow));
+
+                    if (fine)
+                    {
+                        EmitFineFace(
+                            surface, collision, world, blocks, worldPosition,
+                            cell, host, origin, face, material, false, offset,
+                            fineVisible!, tintSamples, attachment.Rotation);
+                        continue;
+                    }
+
+                    if (!FaceIsExposed(
+                            world, blocks, cell, host,
+                            worldPosition + FaceOffset(face)))
+                        continue;
+
+                    var corners = FaceCorners(face);
+                    for (var corner = 0; corner < 4; corner++)
+                        quad[corner] = origin + corners[corner];
+
+                    EmitQuadVertices(
+                        surface, collision, quad, FaceNormal(face), face,
+                        material, attachment.Rotation,
+                        MeshFaceTopology.Neutral,
+                        false, false, uvOrigin: origin,
+                        worldOriginX: originX, worldOriginZ: originZ,
+                        tintSamples: tintSamples, normalOffset: offset);
+                }
+            });
     }
 
     private static bool FineNeighborOccludes(
