@@ -274,7 +274,7 @@ public sealed class Chunk
         }
     }
 
-remove lambda-based terrain visitor    public void VisitBlockCells(
+    public void VisitBlockCells(
         Action<int, int, int, VoxelCell> visit)
     {
         ArgumentNullException.ThrowIfNull(visit);
