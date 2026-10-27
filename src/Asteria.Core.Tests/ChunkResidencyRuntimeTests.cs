@@ -95,6 +95,63 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void RetirementDiscardsPausedIncrementalMaterialization()
+    {
+        var fixture = CreateFixture(new StagedChunkProvider());
+        var coord = ChunkCoord.Zero;
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        var first = CollectUntilMaterializationSlice(fixture.Runtime);
+        Assert.Equal(
+            ChunkMaterializationStage.TerrainSetup,
+            Assert.Single(first.MaterializationStageTimings).Stage);
+        Assert.Equal(1, fixture.Runtime.MaterializingCount);
+
+        fixture.Runtime.BeginRetirement();
+
+        Assert.Equal(0, fixture.Runtime.MaterializingCount);
+        Assert.Empty(fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>()).Activations);
+        Assert.False(fixture.World.ContainsChunk(coord));
+    }
+
+    [Fact]
+    public void RetirementDiscardsInFlightIncrementalMaterializationResult()
+    {
+        using var provider = new BlockingChunkProvider();
+        var fixture = CreateFixture(provider);
+        var coord = ChunkCoord.Zero;
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)),
+            "Incremental worker did not enter its stage.");
+
+        fixture.Runtime.BeginRetirement();
+        Assert.Equal(1, fixture.Runtime.MaterializingCount);
+        provider.ReleaseAdvance.Set();
+
+        var drained = CollectUntilMaterializationSlice(fixture.Runtime);
+        Assert.Empty(drained.Activations);
+        Assert.False(fixture.World.ContainsChunk(coord));
+        Assert.Equal(0, fixture.Runtime.MaterializingCount);
+        Assert.Equal(0, fixture.Runtime.ActiveWorkerCount);
+    }
+
+    [Fact]
     public void PressuredGenerationPrioritizesLocalChunksAndEventuallyDispatchesDistantOnes()
     {
         var fixture = CreateFixture();
@@ -644,6 +701,72 @@ public sealed class ChunkResidencyRuntimeTests
                         throw new InvalidOperationException(
                             $"Unexpected staged provider stage: {Stage}.");
                 }
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+    }
+
+    private sealed class BlockingChunkProvider : IIncrementalChunkProvider, IDisposable
+    {
+        public ManualResetEventSlim AdvanceStarted { get; } = new(false);
+        public ManualResetEventSlim ReleaseAdvance { get; } = new(false);
+
+        public Chunk Materialize(ChunkCoord coord)
+        {
+            using var job = BeginMaterialization(coord);
+            while (!job.IsComplete)
+                job.Advance();
+            return job.Result ??
+                throw new InvalidOperationException(
+                    "Completed blocked provider returned no chunk.");
+        }
+
+        public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+            new BlockingChunkJob(this, coord);
+
+        public void Dispose()
+        {
+            ReleaseAdvance.Set();
+            AdvanceStarted.Dispose();
+            ReleaseAdvance.Dispose();
+        }
+
+        private sealed class BlockingChunkJob(
+            BlockingChunkProvider provider,
+            ChunkCoord coord) : IChunkMaterializationJob
+        {
+            private bool _waited;
+
+            public ChunkCoord Coord { get; } = coord;
+            public ChunkMaterializationStage Stage { get; private set; } =
+                ChunkMaterializationStage.TerrainSetup;
+            public bool IsComplete => Stage == ChunkMaterializationStage.Complete;
+            public Chunk? Result { get; private set; }
+
+            public void Advance()
+            {
+                if (IsComplete)
+                    throw new InvalidOperationException(
+                        "Completed blocked provider cannot advance.");
+
+                if (!_waited)
+                {
+                    _waited = true;
+                    provider.AdvanceStarted.Set();
+                    provider.ReleaseAdvance.Wait();
+                }
+
+                if (Stage == ChunkMaterializationStage.TerrainSetup)
+                {
+                    Stage = ChunkMaterializationStage.TerrainLayer;
+                    return;
+                }
+
+                Result = new Chunk();
+                Stage = ChunkMaterializationStage.Complete;
             }
 
             public void Dispose()
