@@ -136,6 +136,8 @@ public sealed class SurfaceChunkMaterializer
             return chunk;
         }
 
+        using var initialBlocks = chunk.BeginInitialBlockWrites();
+
         var column = _columns.Get(coord.X, coord.Z);
         var densityVolume =
             _terrain.SampleDensityVolume(
@@ -174,9 +176,9 @@ public sealed class SurfaceChunkMaterializer
             if (!_shellBlock.IsAir)
             {
                 SetShellIfInChunk(
-                    chunk, localX, localZ, originY, topExclusive, _floorY);
+                    initialBlocks, localX, localZ, originY, topExclusive, _floorY);
                 SetShellIfInChunk(
-                    chunk, localX, localZ, originY, topExclusive, _roofY);
+                    initialBlocks, localX, localZ, originY, topExclusive, _roofY);
             }
         }
 
@@ -345,11 +347,13 @@ public sealed class SurfaceChunkMaterializer
                         }
                     }
 
-                    chunk.SetBlockAtLinearIndex(
+                    initialBlocks.SetBlockAtLinearIndex(
                         columnIndex + Chunk.Area * localY, block);
                 }
             }
         }
+
+        initialBlocks.Complete();
 
         // Decors are evaluated only after all terrain exists, in stable
         // column order so existing placement precedence remains unchanged.
@@ -2140,7 +2144,7 @@ public sealed class SurfaceChunkMaterializer
     }
 
     private void SetShellIfInChunk(
-        Chunk chunk,
+        Chunk.InitialBlockWriter initialBlocks,
         int localX,
         int localZ,
         int originY,
@@ -2154,10 +2158,8 @@ public sealed class SurfaceChunkMaterializer
             return;
         }
 
-        chunk.SetBlock(
-            localX,
-            y - originY,
-            localZ,
+        initialBlocks.SetBlockAtLinearIndex(
+            localX + Chunk.Size * localZ + Chunk.Area * (y - originY),
             _shellBlock);
     }
 }
