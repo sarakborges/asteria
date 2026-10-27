@@ -41,6 +41,45 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void InitialBlockWritesBuildPaletteAndCommitOneRevision()
+    {
+        var registry = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:dirt"),
+        ]);
+        var stone = registry.GetId("asteria:stone");
+        var dirt = registry.GetId("asteria:dirt");
+        var chunk = new Chunk();
+        var stoneIndex = 1 + Chunk.Size * 3 + Chunk.Area * 2;
+        var dirtIndex = 2 + Chunk.Size * 3 + Chunk.Area * 2;
+
+        using (var initial = chunk.BeginInitialBlockWrites())
+        {
+            Assert.True(initial.SetBlockAtLinearIndex(stoneIndex, stone));
+            Assert.True(initial.SetBlockAtLinearIndex(dirtIndex, stone));
+            Assert.False(initial.SetBlockAtLinearIndex(stoneIndex, stone));
+            Assert.Throws<InvalidOperationException>(
+                () => initial.SetBlockAtLinearIndex(stoneIndex, dirt));
+
+            Assert.Equal(2, chunk.NonEmptyVoxelCount);
+            Assert.Equal(1, chunk.PaletteEntryCount);
+            Assert.Equal((ulong)0, chunk.Revision);
+
+            initial.Complete();
+            Assert.Equal((ulong)1, chunk.Revision);
+            Assert.Throws<ObjectDisposedException>(
+                () => initial.SetBlockAtLinearIndex(dirtIndex, dirt));
+        }
+
+        Assert.Equal(stone, chunk.GetBlock(1, 2, 3));
+        Assert.Equal(stone, chunk.GetBlock(2, 2, 3));
+        Assert.True(chunk.SetBlock(3, 2, 3, dirt));
+        Assert.Equal((ulong)2, chunk.Revision);
+        Assert.Equal(2, chunk.PaletteEntryCount);
+    }
+
+    [Fact]
     public void PaletteReusesReleasedSlotsWithoutGrowingActiveEntries()
     {
         var registry = new BlockRegistry(
