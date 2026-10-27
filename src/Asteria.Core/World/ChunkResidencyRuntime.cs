@@ -252,6 +252,12 @@ private const int FluidActivationItemsPerSlice = 32;
     public int ActiveWorkerCount =>
         _materializationTasks.Count;
 
+    public int MaterializationJobCount =>
+        _materializationJobs.Count;
+
+    public int SuspendedMaterializationCount =>
+        Math.Max(0, _materializationJobs.Count - _materializationTasks.Count);
+
     /// <summary>
     /// Stops starting chunk work and disposes paused partial builds. In-flight
     /// slices are drained cooperatively and their private results are discarded.
