@@ -197,6 +197,7 @@ public static class FluidMeshDataBuilder
         private readonly Dictionary<FluidSurfaceCacheKey, float> _cornerHeights = [];
         private readonly Dictionary<
             WorldVoxelCoord, (VoxelCell Cell, FluidCell Fluid)> _samples = [];
+        private readonly Dictionary<BlockRuntimeId, bool> _fluidPermeability = [];
 
         public FluidSurfaceHeightCache(VoxelWorld world)
         {
@@ -215,6 +216,19 @@ public static class FluidMeshDataBuilder
             var sample = (cell, fluid);
             _samples.Add(position, sample);
             return sample;
+        }
+
+        internal bool CanContainFluid(VoxelCell cell)
+        {
+            if (cell.IsEmpty)
+                return true;
+
+            if (_fluidPermeability.TryGetValue(cell.Block, out var cached))
+                return cached;
+
+            var canContainFluid = _world.CanContainFluid(cell);
+            _fluidPermeability.Add(cell.Block, canContainFluid);
+            return canContainFluid;
         }
 
         internal FluidFaceHeights Get(
@@ -322,7 +336,7 @@ public static class FluidMeshDataBuilder
                 // Permeable sprites and their source fluid can coexist.
                 // This voxel belongs to the current chunk; no world lookup.
                 var cell = chunk.GetCell(x, y, z);
-                if (!world.CanContainFluid(cell))
+                if (!surfaceHeightCache.CanContainFluid(cell))
                     return;
 
                 if (!buffers.TryGetValue(fluid.Fluid, out var vertices))
@@ -374,7 +388,7 @@ public static class FluidMeshDataBuilder
             surfaceHeightCache.GetCellAndFluid(neighborPosition);
 
         // A decorative sprite must not occlude the adjacent water face.
-        if (!world.CanContainFluid(neighborCell))
+        if (!surfaceHeightCache.CanContainFluid(neighborCell))
         {
             return;
         }
