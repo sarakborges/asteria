@@ -1076,14 +1076,10 @@ private const int FluidActivationItemsPerSlice = 32;
             return true;
         }
 
+        var voxelIndex =
+            localX + Chunk.Size * (localZ + Chunk.Size * localY);
         foreach (var offset in FluidSpreadTargets)
         {
-            var target = position + offset;
-            if (target.Y < 0)
-            {
-                continue;
-            }
-
             var targetX = localX + offset.X;
             var targetY = localY + offset.Y;
             var targetZ = localZ + offset.Z;
@@ -1095,19 +1091,27 @@ private const int FluidActivationItemsPerSlice = 32;
                 (uint)targetZ < Chunk.Size)
             {
                 // Most generated-fluid neighbors are inside this same chunk.
-                // Read its authoritative cells directly instead of paying for
-                // repeated world-coordinate/chunk lookups for every source.
-                targetCell = chunk.GetCell(targetX, targetY, targetZ);
-                neighbor = chunk.GetFluid(targetX, targetY, targetZ);
+                // Read the known-valid linear slot directly to avoid repeated
+                // coordinate validation, index calculation and world lookups.
+                var targetIndex =
+                    voxelIndex + offset.X +
+                    Chunk.Size * (offset.Z + Chunk.Size * offset.Y);
+                targetCell = chunk.GetCellAtLinearIndexUnchecked(targetIndex);
+                neighbor = chunk.GetFluidAtLinearIndexUnchecked(targetIndex);
             }
-            else if (!_world.TryGetCellAndFluid(
-                         target,
-                         out targetCell,
-                         out neighbor))
+            else
             {
-                // Missing chunks cannot accept flow. Their arrival performs
-                // the normal frontier recheck.
-                continue;
+                var target = position + offset;
+                if (target.Y < 0 ||
+                    !_world.TryGetCellAndFluid(
+                        target,
+                        out targetCell,
+                        out neighbor))
+                {
+                    // Missing chunks cannot accept flow. Their arrival performs
+                    // the normal frontier recheck.
+                    continue;
+                }
             }
 
             if (!targetCell.IsEmpty)
