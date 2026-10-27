@@ -57,6 +57,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         new double[Enum.GetValues<ChunkMaterializationStage>().Length];
     private readonly double[] _materializationStageMsMax =
         new double[Enum.GetValues<ChunkMaterializationStage>().Length];
+    private readonly int[] _materializationStageCounts =
+        new int[Enum.GetValues<ChunkMaterializationStage>().Length];
     private long _nextFlush = Stopwatch.GetTimestamp() + IntervalTicks;
     private long? _loadingStartedAt;
     private long _phaseStartedAt;
@@ -65,6 +67,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _resident;
     private int _pending;
     private int _inflight;
+    private int _activeMaterializationWorkers;
+    private int _materializationJobs;
+    private int _suspendedMaterializationJobs;
     private int _presented;
     private int _terrainMeshPending;
     private int _fluidMeshPending;
@@ -352,6 +357,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _materializationStageMsMax[index] = Math.Max(
                 _materializationStageMsMax[index],
                 sample.WorkerMilliseconds);
+            _materializationStageCounts[index]++;
         }
 
         foreach (var activation in update.Activations)
@@ -471,11 +477,17 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         int resident, int pending, int materializing,
         int presented, string loadingPhase,
         int terrainMeshPending, int fluidMeshPending,
-        bool fluidSimulationActive)
+        bool fluidSimulationActive,
+        int activeMaterializationWorkers = 0,
+        int materializationJobs = 0,
+        int suspendedMaterializationJobs = 0)
     {
         _resident = resident;
         _pending = pending;
         _inflight = materializing;
+        _activeMaterializationWorkers = activeMaterializationWorkers;
+        _materializationJobs = materializationJobs;
+        _suspendedMaterializationJobs = suspendedMaterializationJobs;
         _presented = presented;
         _terrainMeshPending = terrainMeshPending;
         _fluidMeshPending = fluidMeshPending;
@@ -515,7 +527,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
                 {
                     var index = (int)stage;
                     var name = stage.ToString().ToLowerInvariant();
-                    return $"generation_stage_{name}_ms_total={Format1(_materializationStageMsTotal[index])} " +
+                    return $"generation_stage_{name}_count={_materializationStageCounts[index]} " +
+                        $"generation_stage_{name}_ms_total={Format1(_materializationStageMsTotal[index])} " +
                         $"generation_stage_{name}_ms_max={Format1(_materializationStageMsMax[index])}";
                 }));
         var stages = string.Join(" ",
@@ -531,6 +544,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"world.snapshot uptime_s={Format1(_uptime.Elapsed.TotalSeconds)} " +
             $"phase={_phase} resident={_resident} pending={_pending} " +
             $"inflight={_inflight} presented={_presented} " +
+            $"generation_workers_active={_activeMaterializationWorkers} " +
+            $"generation_jobs={_materializationJobs} " +
+            $"generation_jobs_suspended={_suspendedMaterializationJobs} " +
             $"collision_deferred_chunks={_deferredCollisionChunks} " +
             $"collision_prewarmed_shapes={_collisionPrewarmedShapes} " +
             $"collision_emergency_shapes={_collisionEmergencyShapes} " +
@@ -611,6 +627,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         Array.Clear(_stageMsMax);
         Array.Clear(_materializationStageMsTotal);
         Array.Clear(_materializationStageMsMax);
+        Array.Clear(_materializationStageCounts);
         _creaturesPeak = _creaturesActive;
         _creatureParticlesPeak = _creatureParticlesActive;
         _ambientParticlesPeak = _ambientParticlesActive;
