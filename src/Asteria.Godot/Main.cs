@@ -20,11 +20,13 @@ public partial class Main : Node3D
         Math.Clamp(
             System.Environment.ProcessorCount - 2,
             1,
-            4);
-    // All CPU-bound world jobs share one admission budget instead of letting
-    // terrain, fluids and streaming independently saturate the pool.
+            6);
+    // Minecraft Java's chunk pipeline shares a bounded worker pool across
+    // worldgen and downstream work. Keep that shared admission model, but
+    // allow more of the available CPU to serve Asteria's smaller vertical
+    // chunks when streaming backlog is sustained.
     private static readonly int MaxConcurrentWorldJobs =
-        Math.Clamp(System.Environment.ProcessorCount - 1, 2, 6);
+        Math.Clamp(System.Environment.ProcessorCount - 1, 2, 8);
     private static readonly int MaxMaterializationDispatchesPerFrame =
         MaxMaterializationTasksInFlight;
     private const int MaxMaterializationResultsPerFrame = 8;
