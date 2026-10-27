@@ -2518,6 +2518,8 @@ public partial class Main : Node3D
         _worldDiagnostics?.Write(
             $"world.settings render_distance_chunks={_clientPreferences.RenderDistanceChunks} " +
             $"retention_margin_chunks={RetentionMarginChunks} " +
+            $"processor_count={System.Environment.ProcessorCount} " +
+            $"max_world_jobs={MaxConcurrentWorldJobs} " +
             $"max_materialization_workers={MaxMaterializationTasksInFlight}");
         GD.Print(
             $"world.start seed={_sessionStates.WorldSeed} " +
