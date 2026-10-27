@@ -139,6 +139,14 @@ public sealed class SurfaceChunkMaterializer
         switch (job.Stage)
         {
             case ChunkMaterializationStage.TerrainSetup:
+                if (_voidSpawnPlatform is not null)
+                {
+                    _voidSpawnPlatform.Apply(job.Chunk, job.Coord);
+                    job.Result = job.Chunk;
+                    job.Stage = ChunkMaterializationStage.Complete;
+                    break;
+                }
+
                 PrepareTerrain(job);
                 if (job.FirstTerrainWorldY <= job.LastTerrainWorldY)
                 {
@@ -751,17 +759,10 @@ public sealed class SurfaceChunkMaterializer
 
             Chunk = new Chunk();
             (OriginX, OriginY, OriginZ) = VoxelCoordinates.ChunkOrigin(coord);
-            if (owner._voidSpawnPlatform is not null)
-            {
-                // Void has only its small spawn platform: no authored shell,
-                // lining, terrain, caves, fluids or decorations.
-                owner._voidSpawnPlatform.Apply(Chunk, coord);
-                Result = Chunk;
-                Stage = ChunkMaterializationStage.Complete;
-                return;
-            }
-
-            InitialBlocks = Chunk.BeginInitialBlockWrites();
+            // The first stage owns even the small Void platform write so
+            // all materialization work stays inside the scheduler's measured slice.
+            if (owner._voidSpawnPlatform is null)
+                InitialBlocks = Chunk.BeginInitialBlockWrites();
             Stage = ChunkMaterializationStage.TerrainSetup;
         }
 
