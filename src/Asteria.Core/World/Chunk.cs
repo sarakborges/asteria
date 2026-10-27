@@ -187,6 +187,13 @@ public sealed class Chunk
         return _cells.Get(ToIndex(x, y, z));
     }
 
+    /// <summary>
+    /// Reads a voxel by its already-validated linear index. Internal callers
+    /// must establish that the index belongs to this chunk before using it.
+    /// </summary>
+    internal VoxelCell GetCellAtLinearIndexUnchecked(int voxelIndex) =>
+        _cells.Get(voxelIndex);
+
     public VoxelCell GetCellOrEmpty(int x, int y, int z)
     {
         if (!Contains(x, y, z))
@@ -371,6 +378,13 @@ public sealed class Chunk
         ValidateCoordinates(x, y, z);
         return _fluids.Get(ToIndex(x, y, z));
     }
+
+    /// <summary>
+    /// Reads a fluid by its already-validated linear index. Internal callers
+    /// must establish that the index belongs to this chunk before using it.
+    /// </summary>
+    internal FluidCell GetFluidAtLinearIndexUnchecked(int voxelIndex) =>
+        _fluids.Get(voxelIndex);
 
     public FluidCell GetFluidOrEmpty(int x, int y, int z)
     {
