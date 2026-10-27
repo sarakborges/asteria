@@ -100,6 +100,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _materializationMs;
     private double _terrainGenerationMs;
     private double _materializationMaxMs;
+    private double _materializationElapsedMs;
+    private double _materializationElapsedMaxMs;
     private ChunkCoord? _slowestChunk;
     private int _slowChunks;
     private int _restored;
@@ -371,6 +373,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _materialized++;
             _materializationMs += activation.WorkerMilliseconds;
             _terrainGenerationMs += activation.TerrainMilliseconds;
+            _materializationElapsedMs += activation.ElapsedMilliseconds;
+            _materializationElapsedMaxMs = Math.Max(
+                _materializationElapsedMaxMs,
+                activation.ElapsedMilliseconds);
             if (activation.WorkerMilliseconds > _materializationMaxMs)
             {
                 _materializationMaxMs = activation.WorkerMilliseconds;
@@ -593,7 +599,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"render_visible_primitives_max={_renderVisiblePrimitivesMax} " +
             $"generated={_materialized} restored={_restored} " +
             $"generation_ms_total={Format1(_materializationMs)} " +
-            $"generation_terrain_ms_total={Format1(_terrainGenerationMs)} " +            $"generation_ms_max={Format1(_materializationMaxMs)} " +
+            $"generation_terrain_ms_total={Format1(_terrainGenerationMs)} " +
+            $"generation_ms_max={Format1(_materializationMaxMs)} " +
+            $"generation_latency_ms_total={Format1(_materializationElapsedMs)} " +
+            $"generation_latency_ms_max={Format1(_materializationElapsedMaxMs)} " +
             $"generation_slow_chunks={_slowChunks} slowest_chunk={_slowestChunk} " +
             $"fluid_activation_chunks={_fluidActivationChunks} " +
             $"fluid_activation_slices={_fluidActivationSlices} " +
@@ -663,6 +672,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _materializationMs = 0d;
         _terrainGenerationMs = 0d;
         _materializationMaxMs = 0d;
+        _materializationElapsedMs = 0d;
+        _materializationElapsedMaxMs = 0d;
         _slowChunks = 0;
         _slowestChunk = null;
         _terrainMeshBatches = 0;
