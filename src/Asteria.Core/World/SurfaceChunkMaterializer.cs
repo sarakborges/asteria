@@ -118,42 +118,192 @@ public sealed class SurfaceChunkMaterializer
 
     public Chunk Materialize(ChunkCoord coord)
     {
-        if (coord.Y < 0)
+        using var job = BeginMaterialization(coord);
+        while (!job.IsComplete)
+            job.Advance();
+
+        return job.Result ??
+            throw new InvalidOperationException(
+                "Completed materialization job has no chunk result.");
+    }
+
+    public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+        new MaterializationJob(this, coord);
+
+    private void Advance(MaterializationJob job)
+    {
+        if (job.IsComplete)
+            throw new InvalidOperationException(
+                "A completed materialization job cannot advance.");
+
+        switch (job.Stage)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(coord),
-                "Sphere chunk Y cannot be negative.");
+            case ChunkMaterializationStage.TerrainSetup:
+                PrepareTerrain(job);
+                if (job.FirstTerrainWorldY <= job.LastTerrainWorldY)
+                {
+                    job.Stage = ChunkMaterializationStage.TerrainLayer;
+                }
+                else
+                {
+                    CompleteInitialBlockWrites(job);
+                    job.Stage = ChunkMaterializationStage.SurfaceDecorations;
+                }
+                break;
+
+            case ChunkMaterializationStage.TerrainLayer:
+                MaterializeTerrainLayer(job);
+                if (job.NextTerrainLocalY > job.LastTerrainWorldY - job.OriginY)
+                {
+                    CompleteInitialBlockWrites(job);
+                    job.Stage = ChunkMaterializationStage.SurfaceDecorations;
+                }
+                break;
+
+            case ChunkMaterializationStage.SurfaceDecorations:
+                MaterializeSurfaceDecorations(job);
+                job.Stage = ChunkMaterializationStage.VolumeCavePalette;
+                break;
+
+            case ChunkMaterializationStage.VolumeCavePalette:
+                MaterializeVolumeCavePalette(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ);
+                job.Stage = ChunkMaterializationStage.ExteriorFacePalette;
+                break;
+
+            case ChunkMaterializationStage.ExteriorFacePalette:
+                MaterializeExteriorFacePalette(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ);
+                job.Stage = ChunkMaterializationStage.VolumeStructures;
+                break;
+
+            case ChunkMaterializationStage.VolumeStructures:
+                MaterializeVolumeStructures(job.Chunk, job.Coord);
+                job.Stage = ChunkMaterializationStage.GeneratedFluids;
+                break;
+
+            case ChunkMaterializationStage.GeneratedFluids:
+                MaterializeGeneratedFluids(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ, job.TopExclusive);
+                job.Stage = ChunkMaterializationStage.SurfaceStructures;
+                break;
+
+            case ChunkMaterializationStage.SurfaceStructures:
+                MaterializeStructures(
+                    job.Chunk, job.Coord, job.OriginY, job.TopExclusive);
+                job.Stage = ChunkMaterializationStage.CaveSpikes;
+                break;
+
+            case ChunkMaterializationStage.CaveSpikes:
+                MaterializeCaveSpikes(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ);
+                job.Stage = ChunkMaterializationStage.VerticalDecorations;
+                break;
+
+            case ChunkMaterializationStage.VerticalDecorations:
+            {
+                var pendingObjects = job.PendingObjects;
+                MaterializeVerticalDecorations(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ,
+                    ref pendingObjects);
+                job.PendingObjects = pendingObjects;
+                job.Stage = ChunkMaterializationStage.Veins;
+                break;
+            }
+
+            case ChunkMaterializationStage.Veins:
+                _veins?.Apply(job.Chunk, job.Coord);
+                job.Stage = ChunkMaterializationStage.WallLayers;
+                break;
+
+            case ChunkMaterializationStage.WallLayers:
+            {
+                var pendingObjects = job.PendingObjects;
+                MaterializeWallLayers(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ,
+                    ref pendingObjects);
+                job.PendingObjects = pendingObjects;
+                job.Stage = ChunkMaterializationStage.WallObjects;
+                break;
+            }
+
+            case ChunkMaterializationStage.WallObjects:
+                MaterializeWallObjects(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ);
+                job.Stage = ChunkMaterializationStage.ShellFinalization;
+                break;
+
+            case ChunkMaterializationStage.ShellFinalization:
+                ConcealSphereShell(
+                    job.Chunk, RequiredColumn(job), job.OriginY, job.TopExclusive);
+                job.Stage = ChunkMaterializationStage.StructureObjects;
+                break;
+
+            case ChunkMaterializationStage.StructureObjects:
+                MaterializeStructureObjects(job.Chunk, job.Coord);
+                job.Stage = ChunkMaterializationStage.PendingObjects;
+                break;
+
+            case ChunkMaterializationStage.PendingObjects:
+                MaterializePendingObjects(job);
+                job.Result = job.Chunk;
+                job.Stage = ChunkMaterializationStage.Complete;
+                break;
+
+            case ChunkMaterializationStage.ProviderFallback:
+            case ChunkMaterializationStage.Complete:
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported materialization stage: {job.Stage}.");
         }
+    }
 
-        var chunk = new Chunk();
-        var (originX, originY, originZ) =
-            VoxelCoordinates.ChunkOrigin(coord);
-        if (_voidSpawnPlatform is not null)
-        {
-            // Void has only its small spawn platform: no authored shell,
-            // lining, terrain, caves, fluids or decorations.
-            _voidSpawnPlatform.Apply(chunk, coord);
-            return chunk;
-        }
+    private static SurfaceTerrainColumn RequiredColumn(MaterializationJob job) =>
+        job.Column ??
+        throw new InvalidOperationException("Materialization column is missing.");
 
-        using var initialBlocks = chunk.BeginInitialBlockWrites();
+    private static TerrainDensityVolume RequiredDensity(MaterializationJob job) =>
+        job.DensityVolume ??
+        throw new InvalidOperationException("Terrain density snapshot is missing.");
 
-        var column = _columns.Get(coord.X, coord.Z);
-        var densityVolume =
+    private static void CompleteInitialBlockWrites(MaterializationJob job)
+    {
+        job.InitialBlocks?.Complete();
+        job.InitialBlocks = null;
+    }
+
+    private void PrepareTerrain(MaterializationJob job)
+    {
+        var chunk = job.Chunk;
+        var originX = job.OriginX;
+        var originY = job.OriginY;
+        var originZ = job.OriginZ;
+        var initialBlocks = job.InitialBlocks ??
+            throw new InvalidOperationException("Terrain writes are already complete.");
+
+        var column = job.Column = _columns.Get(coord.X, coord.Z);
+        var densityVolume = job.DensityVolume =
             _terrain.SampleDensityVolume(
                 column,
                 originX,
                 originY,
                 originZ);
-        var topExclusive = checked(originY + Chunk.Size);
-        List<PendingGeneratedObject>? pendingObjects = null;
+        var topExclusive = job.TopExclusive = checked(originY + Chunk.Size);
+        List<PendingGeneratedObject>? pendingObjects = job.PendingObjects = null;
         var columnMaterializationCaches =
-            new ColumnMaterializationCache[Chunk.Area];
+            job.ColumnMaterializationCaches = new ColumnMaterializationCache[Chunk.Area];
 
         // Resolve column-only metadata once. Terrain voxels are then visited
         // in the same Y/Z/X order as Chunk's linear storage.
-        var firstTerrainWorldY = Math.Max(originY, _floorY ?? 0);
-        var lastTerrainWorldY = Math.Min(
+        var firstTerrainWorldY = job.FirstTerrainWorldY = Math.Max(originY, _floorY ?? 0);
+        var lastTerrainWorldY = job.LastTerrainWorldY = Math.Min(
             topExclusive - 1, _roofY ?? int.MaxValue);
         var maximumSurfaceY = int.MinValue;
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
@@ -183,11 +333,28 @@ public sealed class SurfaceChunkMaterializer
         }
 
         lastTerrainWorldY = Math.Min(lastTerrainWorldY, maximumSurfaceY);
-        for (var localY = firstTerrainWorldY - originY;
-             firstTerrainWorldY <= lastTerrainWorldY &&
-             localY <= lastTerrainWorldY - originY;
-             localY++)
-        {
+
+        job.NextTerrainLocalY = firstTerrainWorldY - originY;
+
+    }
+
+    private void MaterializeTerrainLayer(MaterializationJob job)
+    {
+        var chunk = job.Chunk;
+        var originX = job.OriginX;
+        var originY = job.OriginY;
+        var originZ = job.OriginZ;
+        var column = job.Column ??
+            throw new InvalidOperationException("Materialization column is missing.");
+        var densityVolume = job.DensityVolume ??
+            throw new InvalidOperationException("Terrain density snapshot is missing.");
+        var topExclusive = job.TopExclusive;
+        var columnMaterializationCaches = job.ColumnMaterializationCaches ??
+            throw new InvalidOperationException("Materialization column cache is missing.");
+        var initialBlocks = job.InitialBlocks ??
+            throw new InvalidOperationException("Terrain writes are already complete.");
+        var localY = job.NextTerrainLocalY;
+
             var worldY = checked(originY + localY);
             for (var localZ = 0; localZ < Chunk.Size; localZ++)
             {
@@ -351,10 +518,24 @@ public sealed class SurfaceChunkMaterializer
                         columnIndex + Chunk.Area * localY, block);
                 }
             }
-        }
+        
+        job.NextTerrainLocalY++;
+    }
 
-        initialBlocks.Complete();
-
+    private void MaterializeSurfaceDecorations(MaterializationJob job)
+    {
+        var chunk = job.Chunk;
+        var originX = job.OriginX;
+        var originY = job.OriginY;
+        var originZ = job.OriginZ;
+        var column = job.Column ??
+            throw new InvalidOperationException("Materialization column is missing.");
+        var densityVolume = job.DensityVolume ??
+            throw new InvalidOperationException("Terrain density snapshot is missing.");
+        var topExclusive = job.TopExclusive;
+        var pendingObjects = job.PendingObjects;
+        var columnMaterializationCaches = job.ColumnMaterializationCaches ??
+            throw new InvalidOperationException("Materialization column cache is missing.");
         // Decors are evaluated only after all terrain exists, in stable
         // column order so existing placement precedence remains unchanged.
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
@@ -506,49 +687,16 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        MaterializeVolumeCavePalette(
-            chunk, column, densityVolume, originX, originY, originZ);
-        MaterializeExteriorFacePalette(
-            chunk, column, densityVolume, originX, originY, originZ);
 
-        MaterializeVolumeStructures(chunk, coord);
+        job.PendingObjects = pendingObjects;
+    }
 
-        MaterializeGeneratedFluids(
-            chunk,
-            column,
-            densityVolume,
-            originX,
-            originY,
-            originZ,
-            topExclusive);
-
-        MaterializeStructures(
-            chunk,
-            coord,
-            originY,
-            topExclusive);
-        // Give whole cave formations priority over soft vegetation.
-        // Plants fill only the void cells left by spikes, including when
-        // a formation starts in the adjacent vertical chunk.
-        MaterializeCaveSpikes(
-            chunk, column, densityVolume, originX, originY, originZ);
-        MaterializeVerticalDecorations(
-            chunk, column, densityVolume,
-            originX, originY, originZ, ref pendingObjects);
-        // Veins are placed before natural face coatings, so moss stays on top.
-        _veins?.Apply(chunk, coord);
-        MaterializeWallLayers(
-            chunk, column, densityVolume, originX, originY, originZ,
-            ref pendingObjects);
-        MaterializeWallObjects(
-            chunk, column, densityVolume, originX, originY, originZ);
-        // The Sphere Shell and its opaque terrain lining are the final
-        // worldgen boundary. Structures, fluids, spikes and layers must not
-        // uncover or replace them.
-        _voidSpawnPlatform?.Apply(chunk, coord);
-        ConcealSphereShell(chunk, column, originY, topExclusive);
-        MaterializeStructureObjects(chunk, coord);
-
+    private void MaterializePendingObjects(MaterializationJob job)
+    {
+        var chunk = job.Chunk;
+        var coord = job.Coord;
+        var originY = job.OriginY;
+        var pendingObjects = job.PendingObjects;
         // The supporting block owns an Object, never its adjacent fluid cell.
         // Publish only after structures, caves, and the shell are final.
         if (pendingObjects is not null)
@@ -582,7 +730,80 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        return chunk;
+
+    }
+
+    private sealed class MaterializationJob : IChunkMaterializationJob
+    {
+        private readonly SurfaceChunkMaterializer _owner;
+
+        public MaterializationJob(
+            SurfaceChunkMaterializer owner,
+            ChunkCoord coord)
+        {
+            _owner = owner;
+            Coord = coord;
+            if (coord.Y < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(coord), "Sphere chunk Y cannot be negative.");
+
+            Chunk = new Chunk();
+            (OriginX, OriginY, OriginZ) = VoxelCoordinates.ChunkOrigin(coord);
+            if (owner._voidSpawnPlatform is not null)
+            {
+                // Void has only its small spawn platform: no authored shell,
+                // lining, terrain, caves, fluids or decorations.
+                owner._voidSpawnPlatform.Apply(Chunk, coord);
+                Result = Chunk;
+                Stage = ChunkMaterializationStage.Complete;
+                return;
+            }
+
+            InitialBlocks = Chunk.BeginInitialBlockWrites();
+            Stage = ChunkMaterializationStage.TerrainSetup;
+        }
+
+        public ChunkCoord Coord { get; }
+
+        public Chunk Chunk { get; }
+
+        public int OriginX { get; }
+
+        public int OriginY { get; }
+
+        public int OriginZ { get; }
+
+        public SurfaceTerrainColumn? Column { get; set; }
+
+        public TerrainDensityVolume? DensityVolume { get; set; }
+
+        public int TopExclusive { get; set; }
+
+        public int FirstTerrainWorldY { get; set; }
+
+        public int LastTerrainWorldY { get; set; }
+
+        public int NextTerrainLocalY { get; set; }
+
+        public ColumnMaterializationCache[]? ColumnMaterializationCaches { get; set; }
+
+        public List<PendingGeneratedObject>? PendingObjects { get; set; }
+
+        public Chunk.InitialBlockWriter? InitialBlocks { get; set; }
+
+        public ChunkMaterializationStage Stage { get; internal set; }
+
+        public bool IsComplete => Stage == ChunkMaterializationStage.Complete;
+
+        public Chunk? Result { get; internal set; }
+
+        public void Advance() => _owner.Advance(this);
+
+        public void Dispose()
+        {
+            InitialBlocks?.Dispose();
+            InitialBlocks = null;
+        }
     }
 
     /// <summary>
