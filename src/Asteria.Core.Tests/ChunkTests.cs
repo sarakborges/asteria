@@ -80,6 +80,52 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void InitialFluidWritesPreserveOccupiedCellsAndCommitOneRevision()
+    {
+        var fluids = new FluidRegistry(
+        [
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(64, 96, 255),
+                opacity: 0.7f),
+            new FluidDefinition(
+                "asteria:lava",
+                new FluidColor(255, 96, 24),
+                opacity: 1f),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var lava = fluids.GetId("asteria:lava");
+        var chunk = new Chunk();
+        const int existingIndex = 1 + Chunk.Size * 3 + Chunk.Area * 2;
+        const int newIndex = 2 + Chunk.Size * 3 + Chunk.Area * 2;
+
+        Assert.True(chunk.SetFluid(1, 2, 3, FluidCell.Source(water)));
+        var initialRevision = chunk.Revision;
+
+        using (var initial = chunk.BeginInitialFluidWrites())
+        {
+            Assert.False(initial.SetFluidAtLinearIndexIfEmpty(
+                existingIndex, FluidCell.Source(lava)));
+            Assert.True(initial.SetFluidAtLinearIndexIfEmpty(
+                newIndex, FluidCell.Source(water)));
+            Assert.False(initial.SetFluidAtLinearIndexIfEmpty(
+                newIndex, FluidCell.Source(water)));
+
+            Assert.Equal(2, chunk.FluidCount);
+            Assert.Equal(initialRevision, chunk.Revision);
+            initial.Complete();
+            Assert.Equal(initialRevision + 1, chunk.Revision);
+            Assert.Throws<ObjectDisposedException>(
+                () => initial.IsEmptyAtLinearIndex(newIndex));
+        }
+
+        Assert.Equal(water, chunk.GetFluid(1, 2, 3).Fluid);
+        Assert.Equal(water, chunk.GetFluid(2, 2, 3).Fluid);
+        Assert.True(chunk.SetFluid(3, 2, 3, FluidCell.Source(lava)));
+        Assert.Equal(initialRevision + 2, chunk.Revision);
+    }
+
+    [Fact]
     public void PaletteReusesReleasedSlotsWithoutGrowingActiveEntries()
     {
         var registry = new BlockRegistry(
