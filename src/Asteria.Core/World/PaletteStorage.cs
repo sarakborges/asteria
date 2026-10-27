@@ -145,7 +145,7 @@ internal sealed class PaletteStorage<T>
         var previousIndex = state.Indices[voxelIndex];
         if (previousIndex != 0)
         {
-            if (ValueAt(state, previousIndex).Equals(value) || skipOccupied)
+            if (skipOccupied || ValueAt(state, previousIndex).Equals(value))
                 return false;
 
             throw new InvalidOperationException(
