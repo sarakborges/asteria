@@ -53,6 +53,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         new double[Enum.GetValues<WorldFrameStage>().Length];
     private readonly double[] _stageMsMax =
         new double[Enum.GetValues<WorldFrameStage>().Length];
+    private readonly double[] _materializationStageMsTotal =
+        new double[Enum.GetValues<ChunkMaterializationStage>().Length];
+    private readonly double[] _materializationStageMsMax =
+        new double[Enum.GetValues<ChunkMaterializationStage>().Length];
     private long _nextFlush = Stopwatch.GetTimestamp() + IntervalTicks;
     private long? _loadingStartedAt;
     private long _phaseStartedAt;
@@ -341,6 +345,15 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public void Observe(ChunkResidencyUpdate update)
     {
+        foreach (var sample in update.MaterializationStageTimings)
+        {
+            var index = (int)sample.Stage;
+            _materializationStageMsTotal[index] += sample.WorkerMilliseconds;
+            _materializationStageMsMax[index] = Math.Max(
+                _materializationStageMsMax[index],
+                sample.WorkerMilliseconds);
+        }
+
         foreach (var activation in update.Activations)
         {
             if (activation.Source == ChunkActivationSource.Archive)
@@ -495,6 +508,16 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     private void FlushSnapshot()
     {
+        var materializationStages = string.Join(" ",
+            Enum.GetValues<ChunkMaterializationStage>()
+                .Where(stage => stage != ChunkMaterializationStage.Complete)
+                .Select(stage =>
+                {
+                    var index = (int)stage;
+                    var name = stage.ToString().ToLowerInvariant();
+                    return $"generation_stage_{name}_ms_total={Format1(_materializationStageMsTotal[index])} " +
+                        $"generation_stage_{name}_ms_max={Format1(_materializationStageMsMax[index])}";
+                }));
         var stages = string.Join(" ",
             Enum.GetValues<WorldFrameStage>().Select(stage =>
             {
@@ -581,10 +604,13 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"fluid_mesh_discarded_batches={_fluidMeshDiscardedBatches} " +
             $"fluid_batches={_fluidBatches} fluid_ms_total={Format1(_fluidMs)} " +
             $"fluid_changes={_fluidChanges} fluid_backlog_max={_fluidBacklogMax} " +
+            materializationStages + " " +
             stages);
 
         Array.Clear(_stageMsTotal);
         Array.Clear(_stageMsMax);
+        Array.Clear(_materializationStageMsTotal);
+        Array.Clear(_materializationStageMsMax);
         _creaturesPeak = _creaturesActive;
         _creatureParticlesPeak = _creatureParticlesActive;
         _ambientParticlesPeak = _ambientParticlesActive;
