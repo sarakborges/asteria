@@ -373,9 +373,9 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class ResolvedGeology
     {
-        // Value-noise fields are clamped to [-1 + 1e-6, 1 - 1e-6]
-        // before their Gumbel score is computed. This is an exact upper bound
-        // for any candidate, enabling safe score pruning when boundary
+        // Each blended field maps to a unit value clamped to
+        // [1e-6, 1 - 1e-6] before its Gumbel score. This is an exact upper
+        // bound for any candidate, enabling safe score pruning when boundary
         // perturbation (which needs every candidate score) is disabled.
         private static readonly double MaximumGumbelScore =
             -Math.Log(-Math.Log(1d - 1e-6d));
