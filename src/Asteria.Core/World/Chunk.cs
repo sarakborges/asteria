@@ -12,6 +12,52 @@ public sealed class Chunk
     private Dictionary<int, BlockSurfaceState>? _surfaceStates;
     private Dictionary<int, List<ObjectCell>>? _objects;
 
+    /// <summary>
+    /// Efficiently fills a fresh chunk's block storage before normal worldgen
+    /// passes begin. Initial writes cannot replace occupied cells; disposing
+    /// the writer commits one revision for the completed batch.
+    /// </summary>
+    internal sealed class InitialBlockWriter : IDisposable
+    {
+        private Chunk? _chunk;
+        private bool _changed;
+
+        internal InitialBlockWriter(Chunk chunk)
+        {
+            _chunk = chunk;
+        }
+
+        public bool SetBlockAtLinearIndex(
+            int voxelIndex,
+            BlockRuntimeId block)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialBlockWriter));
+            if ((uint)voxelIndex >= Volume)
+                throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+            var changed = chunk._cells.SetInitial(
+                voxelIndex,
+                new VoxelCell(block));
+            _changed |= changed;
+            return changed;
+        }
+
+        public void Complete()
+        {
+            var chunk = _chunk;
+            if (chunk is null)
+                return;
+
+            if (_changed)
+                chunk.Revision++;
+
+            _chunk = null;
+        }
+
+        public void Dispose() => Complete();
+    }
+
     public Chunk()
     {
         _cells = new PaletteStorage<VoxelCell>();
@@ -170,6 +216,24 @@ public sealed class Chunk
             throw new ArgumentOutOfRangeException(nameof(voxelIndex));
 
         return SetCellAtIndex(voxelIndex, new VoxelCell(block));
+    }
+
+    internal InitialBlockWriter BeginInitialBlockWrites()
+    {
+        if (Revision != 0 ||
+            ObjectRevision != 0 ||
+            NonEmptyVoxelCount != 0 ||
+            FluidCount != 0 ||
+            MicroblockMaskCount != 0 ||
+            ObjectCount != 0 ||
+            _surfaceStates is not null ||
+            _objects is not null)
+        {
+            throw new InvalidOperationException(
+                "Initial block writes require a fresh, empty chunk.");
+        }
+
+        return new InitialBlockWriter(this);
     }
 
     private bool SetCellAtIndex(int index, VoxelCell cell)
