@@ -58,6 +58,60 @@ public sealed class Chunk
         public void Dispose() => Complete();
     }
 
+    /// <summary>
+    /// Batches generation-time fluid additions into one chunk revision. This
+    /// writer may coexist with fluids already authored by structures, but it
+    /// never replaces occupied fluid cells and must run before Objects are added.
+    /// </summary>
+    internal sealed class InitialFluidWriter : IDisposable
+    {
+        private Chunk? _chunk;
+        private bool _changed;
+
+        internal InitialFluidWriter(Chunk chunk)
+        {
+            _chunk = chunk;
+        }
+
+        public bool IsEmptyAtLinearIndex(int voxelIndex)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialFluidWriter));
+            if ((uint)voxelIndex >= Volume)
+                throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+            return chunk._fluids.Get(voxelIndex).IsEmpty;
+        }
+
+        public bool SetFluidAtLinearIndexIfEmpty(
+            int voxelIndex,
+            FluidCell fluid)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialFluidWriter));
+            if ((uint)voxelIndex >= Volume)
+                throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+            var changed = chunk._fluids.SetInitialIfEmpty(voxelIndex, fluid);
+            _changed |= changed;
+            return changed;
+        }
+
+        public void Complete()
+        {
+            var chunk = _chunk;
+            if (chunk is null)
+                return;
+
+            if (_changed)
+                chunk.Revision++;
+
+            _chunk = null;
+        }
+
+        public void Dispose() => Complete();
+    }
+
     public Chunk()
     {
         _cells = new PaletteStorage<VoxelCell>();
@@ -241,6 +295,21 @@ public sealed class Chunk
         }
 
         return new InitialBlockWriter(this);
+    }
+
+    /// <summary>
+    /// Begins batched generated-fluid writes. Existing block and fluid content
+    /// is preserved, but callers must add no Objects until the batch completes.
+    /// </summary>
+    internal InitialFluidWriter BeginInitialFluidWrites()
+    {
+        if (ObjectCount != 0 || _objects is not null)
+        {
+            throw new InvalidOperationException(
+                "Initial fluid writes must complete before Objects are added.");
+        }
+
+        return new InitialFluidWriter(this);
     }
 
     private bool SetCellAtIndex(int index, VoxelCell cell)
