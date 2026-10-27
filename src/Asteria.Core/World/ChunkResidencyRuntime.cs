@@ -75,7 +75,8 @@ public readonly record struct ChunkResidencyActivation(
     ChunkCoord Coord,
     ChunkActivationSource Source,
     double WorkerMilliseconds,
-    double TerrainMilliseconds = 0d);
+    double TerrainMilliseconds = 0d,
+    double ElapsedMilliseconds = 0d);
 
 public readonly record struct FluidActivationWorkReport(
     int CompletedChunks,
@@ -466,7 +467,9 @@ private const int FluidActivationItemsPerSlice = 32;
                 coord,
                 ChunkActivationSource.Provider,
                 work.WorkerMilliseconds,
-                work.WorkerMilliseconds));
+                work.WorkerMilliseconds,
+                Stopwatch.GetElapsedTime(
+                    work.StartedTimestamp).TotalMilliseconds));
         }
 
         if (processed > 0)
@@ -730,17 +733,19 @@ private const int FluidActivationItemsPerSlice = 32;
         ChunkCoord coord,
         ChunkActivationSource source,
         double workerMilliseconds,
-        double terrainMilliseconds = 0d)
+        double terrainMilliseconds = 0d,
+        double elapsedMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
-EnqueueResidentChunkFluidActivation(coord);
+        EnqueueResidentChunkFluidActivation(coord);
         _blockPhysics.EnqueueResidentChunk(coord);
 
         return new ChunkResidencyActivation(
             coord,
             source,
             workerMilliseconds,
-            terrainMilliseconds);
+            terrainMilliseconds,
+            elapsedMilliseconds);
     }
 
     private void DiscardUndesiredPausedMaterializations()
@@ -793,9 +798,12 @@ EnqueueResidentChunkFluidActivation(coord);
         public MaterializationWork(IChunkMaterializationJob job)
         {
             Job = job ?? throw new ArgumentNullException(nameof(job));
+            StartedTimestamp = Stopwatch.GetTimestamp();
         }
 
         public IChunkMaterializationJob Job { get; }
+
+        public long StartedTimestamp { get; }
 
         public double WorkerMilliseconds { get; set; }
     }
