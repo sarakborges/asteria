@@ -40,6 +40,37 @@ public sealed class SurfaceChunkMaterializer
         };
     }
 
+    /// <summary>
+    /// Query-local cache for cave-void probes that cross the materialized
+    /// chunk boundary. Reused by the cave palette pass without per-voxel
+    /// captured local functions.
+    /// </summary>
+    private sealed class CaveVoidNeighborSampler
+    {
+        private readonly SurfaceTerrainField _terrain;
+        private BiomeField.Sampler? _haloSampler;
+        private readonly Dictionary<(int X, int Z), int> _haloBaseHeights = new();
+
+        public CaveVoidNeighborSampler(SurfaceTerrainField terrain)
+        {
+            _terrain = terrain;
+        }
+
+        public bool IsOutsideChunkCaveVoid(int x, int y, int z)
+        {
+            var key = (X: x, Z: z);
+            if (!_haloBaseHeights.TryGetValue(key, out var baseHeight))
+            {
+                _haloSampler ??= _terrain.CreateBiomeSampler();
+                baseHeight = _terrain.SampleBaseHeight(_haloSampler, x, z);
+                _haloBaseHeights.Add(key, baseHeight);
+            }
+
+            return _terrain.IsCaveVoidAt(
+                baseHeight, new WorldVoxelCoord(x, y, z));
+        }
+    }
+
     private readonly SurfaceTerrainColumnCache _columns;
     private readonly SurfaceTerrainField _terrain;
     private readonly BiomeSurfaceMaterialField _materials;
@@ -1302,38 +1333,20 @@ public sealed class SurfaceChunkMaterializer
             _materials.MaximumCavePaintDepth == 0)
             return;
 
-        // A cave face can cross a chunk edge. Neighbor base heights are
-        // immutable per X/Z column but used by many vertical face probes.
-        // Resolve each halo column once, with query-local bounded storage.
-        BiomeField.Sampler? haloSampler = null;
-        var haloBaseHeights = new Dictionary<(int X, int Z), int>();
-
-        bool OutsideCarvedVoid(int x, int y, int z)
-        {
-            var key = (X: x, Z: z);
-            if (!haloBaseHeights.TryGetValue(key, out var baseHeight))
-            {
-                haloSampler ??= _terrain.CreateBiomeSampler();
-                baseHeight = _terrain.SampleBaseHeight(haloSampler, x, z);
-                haloBaseHeights.Add(key, baseHeight);
-            }
-
-            return _terrain.IsCaveVoidAt(
-                baseHeight, new WorldVoxelCoord(x, y, z));
-        }
-
+        var outsideSampler = new CaveVoidNeighborSampler(_terrain);
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
             var baseY = column.BaseHeightAt(x, z);
-            // Chunks entirely above the carved cavern band cannot contain
-            // its rock faces. Avoid the expensive 2D biome placement query.
+            // A cave face can cross a chunk edge. Chunks entirely above the
+            // carved cavern band cannot contain its rock faces.
             if (originY > baseY - 4)
                 continue;
 
             var worldX = originX + x;
             var worldZ = originZ + z;
             BiomeSample? biome = null;
+            uint maxPaintDepth = 0;
             var ownerResolved = false;
             var reach = (int)_materials.MaximumCavePaintDepth;
             for (var y = 0; y < Chunk.Size; y++)
@@ -1346,66 +1359,101 @@ public sealed class SurfaceChunkMaterializer
                     !densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
-                bool CarvedVoid(int dx, int dy, int dz)
-                {
-                    var nx = x + dx;
-                    var ny = y + dy;
-                    var nz = z + dz;
-                    var neighborY = worldY + dy;
-                    if (neighborY <= 0 || neighborY > baseY - 3)
-                        return false;
-                    if ((uint)nx < Chunk.Size &&
-                        (uint)ny < Chunk.Size &&
-                        (uint)nz < Chunk.Size)
-                        return !densityVolume.IsSolidAtUnchecked(nx, ny, nz) &&
-                            neighborY <= column.BaseHeightAt(nx, nz) - 4;
-
-                    return OutsideCarvedVoid(
-                        worldX + dx, neighborY, worldZ + dz);
-                }
-
                 for (var depth = 0; depth < reach; depth++)
                 {
                     var distance = depth + 1;
                     BiomePaletteFace? face = null;
-                    if (CarvedVoid(0, distance, 0))
+                    if (IsCarvedVoidNeighbor(
+                            column, densityVolume, outsideSampler,
+                            x, y, z, worldX, worldY, worldZ, baseY,
+                            0, distance, 0))
                         face = BiomePaletteFace.Floor;
-                    else if (CarvedVoid(-distance, 0, 0) ||
-                             CarvedVoid(distance, 0, 0) ||
-                             CarvedVoid(0, 0, -distance) ||
-                             CarvedVoid(0, 0, distance))
+                    else if (IsCarvedVoidNeighbor(
+                                 column, densityVolume, outsideSampler,
+                                 x, y, z, worldX, worldY, worldZ, baseY,
+                                 -distance, 0, 0) ||
+                             IsCarvedVoidNeighbor(
+                                 column, densityVolume, outsideSampler,
+                                 x, y, z, worldX, worldY, worldZ, baseY,
+                                 distance, 0, 0) ||
+                             IsCarvedVoidNeighbor(
+                                 column, densityVolume, outsideSampler,
+                                 x, y, z, worldX, worldY, worldZ, baseY,
+                                 0, 0, -distance) ||
+                             IsCarvedVoidNeighbor(
+                                 column, densityVolume, outsideSampler,
+                                 x, y, z, worldX, worldY, worldZ, baseY,
+                                 0, 0, distance))
                         face = BiomePaletteFace.Walls;
-                    else if (CarvedVoid(0, -distance, 0))
+                    else if (IsCarvedVoidNeighbor(
+                                 column, densityVolume, outsideSampler,
+                                 x, y, z, worldX, worldY, worldZ, baseY,
+                                 0, -distance, 0))
                         face = BiomePaletteFace.Ceiling;
 
                     if (face is not { } exposed)
                         continue;
 
-                    // Expensive 2D volume-identity sampling is necessary
-                    // only for a genuinely exposed carved face. Cache at
-                    // most one result per column, even for many Y voxels.
+                    // The owner and its maximum paint depth are constant
+                    // across this X/Z column; resolve both only for columns
+                    // that actually touch a carved face.
                     if (!ownerResolved)
                     {
                         biome = column.CaveBiomeAt(x, z);
+                        maxPaintDepth = biome is { } owner
+                            ? _materials.MaxVolumePaintDepth(owner)
+                            : 0;
                         ownerResolved = true;
                     }
-                    if (biome is not null &&
-                        depth < _materials.MaxVolumePaintDepth(biome))
+
+                    if (biome is { } caveBiome && depth < maxPaintDepth)
+                    {
                         chunk.SetBlock(x, y, z,
                             _materials.VolumeBlockAt(
-                                biome, worldX, worldY, worldZ,
+                                caveBiome, worldX, worldY, worldZ,
                                 exposed, (uint)depth));
+                    }
+
                     break;
                 }
             }
         }
     }
 
-    /// <summary>
-    /// Directional face overrides apply to exposed exterior terrain and
-    /// additive volume solids too. Without an authored override this is a
-    /// no-op; the existing top-facing layer materialization is preserved.
-    /// </summary>
+    private static bool IsCarvedVoidNeighbor(
+        SurfaceTerrainColumn column,
+        TerrainDensityVolume densityVolume,
+        CaveVoidNeighborSampler outsideSampler,
+        int localX,
+        int localY,
+        int localZ,
+        int worldX,
+        int worldY,
+        int worldZ,
+        int baseY,
+        int dx,
+        int dy,
+        int dz)
+    {
+        var nx = localX + dx;
+        var ny = localY + dy;
+        var nz = localZ + dz;
+        var neighborY = worldY + dy;
+        if (neighborY <= 0 || neighborY > baseY - 3)
+            return false;
+
+        if ((uint)nx < Chunk.Size &&
+            (uint)ny < Chunk.Size &&
+            (uint)nz < Chunk.Size)
+        {
+            return !densityVolume.IsSolidAtUnchecked(nx, ny, nz) &&
+                neighborY <= column.BaseHeightAt(nx, nz) - 4;
+        }
+
+        return outsideSampler.IsOutsideChunkCaveVoid(
+            worldX + dx, neighborY, worldZ + dz);
+    }
+
     private void MaterializeExteriorFacePalette(
         Chunk chunk,
         SurfaceTerrainColumn column,
