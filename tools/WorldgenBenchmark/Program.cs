@@ -569,6 +569,74 @@ metrics.Add("initialAreaSynthesis", Measure(
         return digest;
     }));
 
+object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
+{
+    var center = new ChunkCoord(
+        initialAreaDiagnostics.CenterChunkX,
+        initialAreaDiagnostics.CenterChunkY,
+        initialAreaDiagnostics.CenterChunkZ);
+    var desired = ChunkStreamingSelection
+        .DesiredSurfaceChunks(center, horizontalRadius: 2, generator)
+        .OrderBy(coord => coord.Z)
+        .ThenBy(coord => coord.X)
+        .ThenBy(coord => coord.Y)
+        .ToArray();
+    var stages = Enum.GetValues<ChunkMaterializationStage>();
+    var elapsedMsByStage = new double[stages.Length];
+    var allocatedBytesByStage = new long[stages.Length];
+    var advanceCountByStage = new int[stages.Length];
+    var totalTimer = Stopwatch.StartNew();
+
+    foreach (var coord in desired)
+    {
+        using var job = generator.BeginMaterialization(coord);
+        while (!job.IsComplete)
+        {
+            var stageIndex = (int)job.Stage;
+            var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
+            var startedAt = Stopwatch.GetTimestamp();
+            job.Advance();
+            elapsedMsByStage[stageIndex] +=
+                Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
+            allocatedBytesByStage[stageIndex] +=
+                GC.GetAllocatedBytesForCurrentThread() - beforeBytes;
+            advanceCountByStage[stageIndex]++;
+        }
+    }
+
+    totalTimer.Stop();
+    var byStage = new SortedDictionary<string, object>(StringComparer.Ordinal);
+    var totalAdvanceMs = 0d;
+    for (var index = 0; index < stages.Length; index++)
+    {
+        if (advanceCountByStage[index] == 0)
+            continue;
+
+        var elapsedMs = elapsedMsByStage[index];
+        totalAdvanceMs += elapsedMs;
+        byStage.Add(stages[index].ToString(), new
+        {
+            AdvanceCount = advanceCountByStage[index],
+            ElapsedMs = elapsedMs,
+            AllocatedBytes = allocatedBytesByStage[index],
+        });
+    }
+
+    return new
+    {
+        ChunkCount = desired.Length,
+        TotalElapsedMs = totalTimer.Elapsed.TotalMilliseconds,
+        TotalAdvanceMs = totalAdvanceMs,
+        ByStage = byStage,
+    };
+}
+
+var stageTimingGenerator = NewGenerator();
+var coldStageTimingDiagnostics =
+    CaptureMaterializationStageTimings(stageTimingGenerator);
+var warmStageTimingDiagnostics =
+    CaptureMaterializationStageTimings(stageTimingGenerator);
+
 if (options.EnforceCiBudgets)
 {
     EnforceCiBudgets(
@@ -595,11 +663,17 @@ var result = new
         Cold = coldMaterializationDiagnostics,
         Warm = warmMaterializationDiagnostics,
     },
+    InitialAreaStageTimingDiagnostics = new
+    {
+        Cold = coldStageTimingDiagnostics,
+        Warm = warmStageTimingDiagnostics,
+    },
     Notes = new[]
     {
         "Cold and warm passes use identical coordinates and independent generator instances per metric.",
         "Elapsed times include immutable query/cache cost, not Godot meshing, physics or GPU publication.",
         "Allocation counters use the current benchmark thread and are comparative diagnostics, not retained-memory truth.",
+        "Initial-area stage timings isolate chunk materialization work and are diagnostic only; they are not regression thresholds.",
         "Every metric records its generated-result digest so determinism can be compared across runs.",
         "Search/destination metrics include near and far world coordinates without chunk materialization.",
         options.EnforceCiBudgets
