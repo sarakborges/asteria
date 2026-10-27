@@ -2234,6 +2234,7 @@ public sealed class SurfaceChunkMaterializer
         if (firstWorldY > lastWorldY)
             return;
 
+        using var initialFluidWrites = chunk.BeginInitialFluidWrites();
         for (var worldY = firstWorldY; worldY <= lastWorldY; worldY++)
         {
             var localY = worldY - originY;
@@ -2246,11 +2247,14 @@ public sealed class SurfaceChunkMaterializer
                         worldY > lastFluidYByColumn[columnIndex])
                         continue;
 
-                    var block = chunk.GetBlock(localX, localY, localZ);
+                    var voxelIndex =
+                        localX + Chunk.Size * (localZ + Chunk.Size * localY);
+                    var block =
+                        chunk.GetCellAtLinearIndexUnchecked(voxelIndex).Block;
                     if ((!block.IsAir &&
                          !FluidBlockOccupancy.AllowsFluid(
                              _blocks.GetDefinition(block))) ||
-                        !chunk.GetFluid(localX, localY, localZ).IsEmpty)
+                        !initialFluidWrites.IsEmptyAtLinearIndex(voxelIndex))
                         continue;
 
                     var sample = biomeSamplesByColumn[columnIndex];
@@ -2273,10 +2277,8 @@ public sealed class SurfaceChunkMaterializer
 
                     if (!fluid.IsEmpty)
                     {
-                        chunk.SetFluid(
-                            localX,
-                            localY,
-                            localZ,
+                        initialFluidWrites.SetFluidAtLinearIndexIfEmpty(
+                            voxelIndex,
                             fluid);
                     }
                 }
