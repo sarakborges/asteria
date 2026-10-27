@@ -139,6 +139,7 @@ public sealed class SurfaceChunkMaterializer
         switch (job.Stage)
         {
             case ChunkMaterializationStage.TerrainSetup:
+                job.InitializeChunk();
                 if (_voidSpawnPlatform is not null)
                 {
                     _voidSpawnPlatform.Apply(job.Chunk, job.Coord);
@@ -289,7 +290,6 @@ public sealed class SurfaceChunkMaterializer
 
     private void PrepareTerrain(MaterializationJob job)
     {
-        var chunk = job.Chunk;
         var coord = job.Coord;
         var originX = job.OriginX;
         var originY = job.OriginY;
@@ -305,7 +305,7 @@ public sealed class SurfaceChunkMaterializer
                 originY,
                 originZ);
         var topExclusive = job.TopExclusive = checked(originY + Chunk.Size);
-        List<PendingGeneratedObject>? pendingObjects = job.PendingObjects = null;
+        job.PendingObjects = null;
         var columnMaterializationCaches =
             job.ColumnMaterializationCaches = new ColumnMaterializationCache[Chunk.Area];
 
@@ -350,7 +350,6 @@ public sealed class SurfaceChunkMaterializer
 
     private void MaterializeTerrainLayer(MaterializationJob job)
     {
-        var chunk = job.Chunk;
         var originX = job.OriginX;
         var originY = job.OriginY;
         var originZ = job.OriginZ;
@@ -746,6 +745,7 @@ public sealed class SurfaceChunkMaterializer
     private sealed class MaterializationJob : IChunkMaterializationJob
     {
         private readonly SurfaceChunkMaterializer _owner;
+        private Chunk? _chunk;
 
         public MaterializationJob(
             SurfaceChunkMaterializer owner,
@@ -757,24 +757,32 @@ public sealed class SurfaceChunkMaterializer
                 throw new ArgumentOutOfRangeException(
                     nameof(coord), "Sphere chunk Y cannot be negative.");
 
-            Chunk = new Chunk();
-            (OriginX, OriginY, OriginZ) = VoxelCoordinates.ChunkOrigin(coord);
-            // The first stage owns even the small Void platform write so
-            // all materialization work stays inside the scheduler's measured slice.
-            if (owner._voidSpawnPlatform is null)
-                InitialBlocks = Chunk.BeginInitialBlockWrites();
             Stage = ChunkMaterializationStage.TerrainSetup;
         }
 
         public ChunkCoord Coord { get; }
 
-        public Chunk Chunk { get; }
+        public Chunk Chunk => _chunk ??
+            throw new InvalidOperationException(
+                "Chunk materialization has not started.");
 
-        public int OriginX { get; }
+        public int OriginX { get; private set; }
 
-        public int OriginY { get; }
+        public int OriginY { get; private set; }
 
-        public int OriginZ { get; }
+        public int OriginZ { get; private set; }
+
+        public void InitializeChunk()
+        {
+            if (_chunk is not null)
+                return;
+
+            _chunk = new Chunk();
+            (OriginX, OriginY, OriginZ) = VoxelCoordinates.ChunkOrigin(Coord);
+            // Allocation and palette setup occur on the materialization worker.
+            if (_owner._voidSpawnPlatform is null)
+                InitialBlocks = _chunk.BeginInitialBlockWrites();
+        }
 
         public SurfaceTerrainColumn? Column { get; set; }
 
