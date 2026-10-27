@@ -660,7 +660,12 @@ public partial class Main : Node3D
             _placementPreview.Hide();
             _objectPlacementPreview.Hide();
             AdvanceDimensionTransition();
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, false);
+            _worldDiagnostics?.FlushIfDue(
+                0, 0, _sessions.Active.Residency.MaterializingCount, 0,
+                "Transitioning", 0, 0, false,
+                _sessions.Active.Residency.ActiveWorkerCount,
+                _sessions.Active.Residency.MaterializationJobCount,
+                _sessions.Active.Residency.SuspendedMaterializationCount);
             return;
         }
 
@@ -835,7 +840,10 @@ public partial class Main : Node3D
             _loading.Progress.Phase.ToString(),
             _worldUpdates.DirtyChunkCount,
             _fluidMeshUpdates.DirtyChunkCount,
-            _fluidSimulationRuntime.IsRunning);
+            _fluidSimulationRuntime.IsRunning,
+            _residency.ActiveWorkerCount,
+            _residency.MaterializationJobCount,
+            _residency.SuspendedMaterializationCount);
 
         if (loadingWorld)
         {
