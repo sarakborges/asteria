@@ -254,6 +254,56 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void ResidentFluidActivationWakesSourceWhenAnInChunkFlowTargetIsOpen()
+    {
+        var fixture = CreateFixture();
+        var coord = ChunkCoord.Zero;
+        var chunk = new Chunk();
+        chunk.SetFluid(8, 8, 8,
+            FluidCell.Source(fixture.Fluids.GetId("asteria:water")));
+        fixture.World.InsertChunk(coord, chunk);
+        fixture.World.ArchiveChunk(coord);
+        fixture.Runtime.SyncSelection(
+            coord, horizontalRadius: 1, retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        CompleteFluidActivations(fixture);
+
+        Assert.True(fixture.FluidUpdates.ScheduledCount > 0);
+    }
+
+    [Fact]
+    public void ResidentFluidActivationLeavesFullyBlockedSourceDormant()
+    {
+        var fixture = CreateFixture();
+        var coord = ChunkCoord.Zero;
+        var chunk = new Chunk();
+        var stone = fixture.Blocks.GetId("asteria:stone");
+        chunk.SetFluid(8, 8, 8,
+            FluidCell.Source(fixture.Fluids.GetId("asteria:water")));
+        chunk.SetBlock(8, 7, 8, stone);
+        chunk.SetBlock(7, 8, 8, stone);
+        chunk.SetBlock(9, 8, 8, stone);
+        chunk.SetBlock(8, 8, 7, stone);
+        chunk.SetBlock(8, 8, 9, stone);
+        fixture.World.InsertChunk(coord, chunk);
+        fixture.World.ArchiveChunk(coord);
+        fixture.Runtime.SyncSelection(
+            coord, horizontalRadius: 1, retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        CompleteFluidActivations(fixture);
+
+        Assert.Equal(0, fixture.FluidUpdates.ScheduledCount);
+    }
+
+    [Fact]
     public void UnloadedSourceFluidFrontierWakesOnlyWhenTargetChunkArrives()
     {
         var fixture = CreateFixture();
