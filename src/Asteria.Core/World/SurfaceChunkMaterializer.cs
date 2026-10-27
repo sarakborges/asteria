@@ -200,7 +200,7 @@ public sealed class SurfaceChunkMaterializer
                     job.ColumnMaterializationCaches ??
                         throw new InvalidOperationException(
                             "Materialization column cache is missing."),
-                    job.OriginX, job.OriginY, job.OriginZ, job.TopExclusive);
+                    job.OriginY, job.TopExclusive);
                 job.Stage = ChunkMaterializationStage.SurfaceStructures;
                 break;
 
@@ -2177,9 +2177,7 @@ public sealed class SurfaceChunkMaterializer
         Chunk chunk,
         TerrainDensityVolume densityVolume,
         ColumnMaterializationCache[] columnMaterializationCaches,
-        int originX,
         int originY,
-        int originZ,
         int topExclusive)
     {
         if (!_generatedFluids.HasRules)
