@@ -988,7 +988,8 @@ private const int FluidActivationItemsPerSlice = 32;
                         originX + x,
                         originY + y,
                         originZ + z);
-                    if (ShouldWakeResidentFluid(position, fluid))
+                    if (ShouldWakeResidentFluid(
+                            chunk, x, y, z, position, fluid))
                     {
                         ScheduleFluidNeighborhood(fluid.Fluid, position);
                     }
@@ -1061,6 +1062,69 @@ private const int FluidActivationItemsPerSlice = 32;
     }
 
 
+
+    private bool ShouldWakeResidentFluid(
+        Chunk chunk,
+        int localX,
+        int localY,
+        int localZ,
+        WorldVoxelCoord position,
+        FluidCell fluid)
+    {
+        if (!fluid.IsSource)
+        {
+            return true;
+        }
+
+        foreach (var offset in FluidSpreadTargets)
+        {
+            var target = position + offset;
+            if (target.Y < 0)
+            {
+                continue;
+            }
+
+            var targetX = localX + offset.X;
+            var targetY = localY + offset.Y;
+            var targetZ = localZ + offset.Z;
+            VoxelCell targetCell;
+            FluidCell neighbor;
+
+            if ((uint)targetX < Chunk.Size &&
+                (uint)targetY < Chunk.Size &&
+                (uint)targetZ < Chunk.Size)
+            {
+                // Most generated-fluid neighbors are inside this same chunk.
+                // Read its authoritative cells directly instead of paying for
+                // repeated world-coordinate/chunk lookups for every source.
+                targetCell = chunk.GetCell(targetX, targetY, targetZ);
+                neighbor = chunk.GetFluid(targetX, targetY, targetZ);
+            }
+            else if (!_world.TryGetCellAndFluid(
+                         target,
+                         out targetCell,
+                         out neighbor))
+            {
+                // Missing chunks cannot accept flow. Their arrival performs
+                // the normal frontier recheck.
+                continue;
+            }
+
+            if (!targetCell.IsEmpty)
+            {
+                continue;
+            }
+
+            if (neighbor.IsEmpty ||
+                neighbor.Fluid != fluid.Fluid ||
+                neighbor.Level < fluid.Level)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private bool ShouldWakeResidentFluid(
         WorldVoxelCoord position,
