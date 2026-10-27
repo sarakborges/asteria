@@ -373,6 +373,13 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class ResolvedGeology
     {
+        // Value-noise fields are clamped to [-1 + 1e-6, 1 - 1e-6]
+        // before their Gumbel score is computed. This is an exact upper bound
+        // for any candidate, enabling safe score pruning when boundary
+        // perturbation (which needs every candidate score) is disabled.
+        private static readonly double MaximumGumbelScore =
+            -Math.Log(-Math.Log(1d - 1e-6d));
+
         private readonly record struct SpatialPosition(double X, double Y, double Z);
 
         private readonly BiomeGeologyDefinition _definition;
@@ -780,6 +787,16 @@ public sealed class BiomeSurfaceMaterialField
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
             {
+                // Every weighted noise component lies in [-1, 1], their
+                // coefficients sum to one, and the resulting Gumbel term is
+                // upper-bounded by MaximumGumbelScore. If the best score
+                // already reaches this candidate's bound, sampling its five
+                // fields cannot change the winner. Boundary roughening keeps
+                // the full candidate vector and deliberately bypasses pruning.
+                if (!needsBoundaryScores &&
+                    bestScore >= biases[index] + MaximumGumbelScore)
+                    continue;
+
                 var broad =
                     broadCoordinates.Sample(seed, broadDomains[index]);
                 var detail =
