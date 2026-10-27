@@ -377,19 +377,32 @@ internal static class WorldGenerationEntropy
         var ty = SmoothStep(ry / (double)verticalScale);
         var tz = SmoothStep(rz / (double)horizontalScale);
 
-        double Slice(int layerZ) =>
-            Lerp(
-                Lerp(
-                    SignedUnit(Sample3D(seed, domain, xBase, yBase, layerZ)),
-                    SignedUnit(Sample3D(seed, domain, x1, yBase, layerZ)),
-                    tx),
-                Lerp(
-                    SignedUnit(Sample3D(seed, domain, xBase, y1, layerZ)),
-                    SignedUnit(Sample3D(seed, domain, x1, y1, layerZ)),
-                    tx),
-                ty);
+        var firstZ = SampleValueNoise3DSlice(
+            seed, domain, xBase, x1, yBase, y1, zBase, tx, ty);
+        var secondZ = SampleValueNoise3DSlice(
+            seed, domain, xBase, x1, yBase, y1, z1, tx, ty);
+        return Lerp(firstZ, secondZ, tz);
+    }
 
-        return Lerp(Slice(zBase), Slice(z1), tz);
+    private static double SampleValueNoise3DSlice(
+        ulong seed,
+        GenerationDomain domain,
+        int x0,
+        int x1,
+        int y0,
+        int y1,
+        int z,
+        double tx,
+        double ty)
+    {
+        var lowerLeft = SignedUnit(Sample3D(seed, domain, x0, y0, z));
+        var lowerRight = SignedUnit(Sample3D(seed, domain, x1, y0, z));
+        var upperLeft = SignedUnit(Sample3D(seed, domain, x0, y1, z));
+        var upperRight = SignedUnit(Sample3D(seed, domain, x1, y1, z));
+        return Lerp(
+            Lerp(lowerLeft, lowerRight, tx),
+            Lerp(upperLeft, upperRight, tx),
+            ty);
     }
 
     /// <summary>
