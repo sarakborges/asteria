@@ -159,6 +159,7 @@ public sealed class ChunkResidencyRuntime
         _materializationJobs = [];
     private readonly Dictionary<ChunkCoord, Task<MaterializationSliceResult>>
         _materializationTasks = [];
+    private bool _acceptingMaterializationWork = true;
 private const int FluidActivationItemsPerSlice = 32;
     private const int MaximumFluidActivationSlicesPerFrame = 8;
     private readonly DeduplicatedQueue<ChunkCoord> _pendingFluidActivationCoords = new();
@@ -250,6 +251,29 @@ private const int FluidActivationItemsPerSlice = 32;
     /// <summary>Background tasks currently generating terrain data.</summary>
     public int ActiveWorkerCount =>
         _materializationTasks.Count;
+
+    /// <summary>
+    /// Stops starting chunk work and disposes paused partial builds. In-flight
+    /// slices are drained cooperatively and their private results are discarded.
+    /// </summary>
+    public void BeginRetirement()
+    {
+        if (!_acceptingMaterializationWork)
+            return;
+
+        _acceptingMaterializationWork = false;
+        var pausedJobs = _materializationJobs
+            .Where(entry => !_materializationTasks.ContainsKey(entry.Key))
+            .Select(entry => entry.Key)
+            .ToArray();
+
+        foreach (var coord in pausedJobs)
+        {
+            if (_materializationJobs.Remove(coord, out var work))
+                work.Job.Dispose();
+            _streaming.FinishMaterializing(coord);
+        }
+    }
 
     public int PresentationPendingCount =>
         _streaming.PresentationPendingCount;
@@ -376,7 +400,8 @@ private const int FluidActivationItemsPerSlice = 32;
                 if (_materializationJobs.Remove(coord, out var failedWork))
                     failedWork.Job.Dispose();
                 _streaming.FinishMaterializing(coord);
-                RequeueIfDesired(coord);
+                if (_acceptingMaterializationWork)
+                    RequeueIfDesired(coord);
                 continue;
             }
 
@@ -389,6 +414,14 @@ private const int FluidActivationItemsPerSlice = 32;
             var slice = task.Result;
             work.WorkerMilliseconds += slice.WorkerMilliseconds;
             stageTimings.AddRange(slice.StageTimings);
+
+            if (!_acceptingMaterializationWork)
+            {
+                _materializationJobs.Remove(coord);
+                work.Job.Dispose();
+                _streaming.FinishMaterializing(coord);
+                continue;
+            }
 
             if (!work.Job.IsComplete)
             {
@@ -444,6 +477,8 @@ private const int FluidActivationItemsPerSlice = 32;
         ArgumentNullException.ThrowIfNull(presented);
         if (maximumNewTasks < 0)
             throw new ArgumentOutOfRangeException(nameof(maximumNewTasks));
+        if (!_acceptingMaterializationWork)
+            return ChunkResidencyUpdate.Empty;
 
         if (deferDistantWork)
             _pressuredFramesSinceDistantDispatch = Math.Min(
