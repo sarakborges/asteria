@@ -282,6 +282,7 @@ public sealed class SurfaceChunkMaterializer
     private void PrepareTerrain(MaterializationJob job)
     {
         var chunk = job.Chunk;
+        var coord = job.Coord;
         var originX = job.OriginX;
         var originY = job.OriginY;
         var originZ = job.OriginZ;
@@ -333,6 +334,7 @@ public sealed class SurfaceChunkMaterializer
         }
 
         lastTerrainWorldY = Math.Min(lastTerrainWorldY, maximumSurfaceY);
+        job.LastTerrainWorldY = lastTerrainWorldY;
 
         job.NextTerrainLocalY = firstTerrainWorldY - originY;
 
