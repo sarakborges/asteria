@@ -122,7 +122,20 @@ internal sealed class PaletteStorage<T>
     /// replacement path. The caller owns a batch that writes each occupied
     /// index only once and commits the chunk revision after the batch.
     /// </summary>
-    public bool SetInitial(int voxelIndex, T value)
+    public bool SetInitial(int voxelIndex, T value) =>
+        SetInitialCore(voxelIndex, value, skipOccupied: false);
+
+    /// <summary>
+    /// Adds an initial value only when the slot is empty. Used by generation
+    /// passes that batch additions while preserving pre-existing structure data.
+    /// </summary>
+    public bool SetInitialIfEmpty(int voxelIndex, T value) =>
+        SetInitialCore(voxelIndex, value, skipOccupied: true);
+
+    private bool SetInitialCore(
+        int voxelIndex,
+        T value,
+        bool skipOccupied)
     {
         var state = _state;
         if (state.IsShared)
@@ -132,7 +145,7 @@ internal sealed class PaletteStorage<T>
         var previousIndex = state.Indices[voxelIndex];
         if (previousIndex != 0)
         {
-            if (ValueAt(state, previousIndex).Equals(value))
+            if (ValueAt(state, previousIndex).Equals(value) || skipOccupied)
                 return false;
 
             throw new InvalidOperationException(
