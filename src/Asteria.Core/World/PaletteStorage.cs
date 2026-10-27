@@ -117,6 +117,50 @@ internal sealed class PaletteStorage<T>
         return true;
     }
 
+    /// <summary>
+    /// Initializes one voxel in a fresh palette without running the normal
+    /// replacement path. The caller owns a batch that writes each occupied
+    /// index only once and commits the chunk revision after the batch.
+    /// </summary>
+    public bool SetInitial(int voxelIndex, T value)
+    {
+        var state = _state;
+        if (state.IsShared)
+            throw new InvalidOperationException(
+                "Initial palette writes require private chunk storage.");
+
+        var previousIndex = state.Indices[voxelIndex];
+        if (previousIndex != 0)
+        {
+            if (ValueAt(state, previousIndex).Equals(value))
+                return false;
+
+            throw new InvalidOperationException(
+                "An initial palette write cannot replace an occupied voxel.");
+        }
+
+        if (value.Equals(default))
+            return false;
+
+        ushort nextIndex;
+        if (!state.Lookup.TryGetValue(value, out nextIndex))
+        {
+            if (state.Palette.Count >= ushort.MaxValue)
+                throw new InvalidOperationException(
+                    "Chunk palette capacity was exhausted.");
+
+            state.Palette.Add(value);
+            state.Usage.Add(0);
+            nextIndex = checked((ushort)state.Palette.Count);
+            state.Lookup.Add(value, nextIndex);
+        }
+
+        Retain(nextIndex);
+        state.Indices[voxelIndex] = nextIndex;
+        UpdateOccupancy(voxelIndex, wasOccupied: false, isOccupied: true);
+        return true;
+    }
+
     public void VisitOccupied(
         Action<int, T> visit)
     {
