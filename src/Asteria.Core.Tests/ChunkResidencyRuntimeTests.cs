@@ -49,6 +49,52 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void IncrementalMaterializationDoesNotPublishUntilAllStagesComplete()
+    {
+        var fixture = CreateFixture(new StagedChunkProvider());
+        var coord = ChunkCoord.Zero;
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        var terrainSetup = CollectUntilMaterializationSlice(fixture.Runtime);
+
+        Assert.Equal(
+            ChunkMaterializationStage.TerrainSetup,
+            Assert.Single(terrainSetup.MaterializationStageTimings).Stage);
+        Assert.False(fixture.World.ContainsChunk(coord));
+        Assert.Equal(1, fixture.Runtime.MaterializingCount);
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        var terrainLayer = CollectUntilMaterializationSlice(fixture.Runtime);
+
+        Assert.Equal(
+            ChunkMaterializationStage.TerrainLayer,
+            Assert.Single(terrainLayer.MaterializationStageTimings).Stage);
+        Assert.False(fixture.World.ContainsChunk(coord));
+        Assert.Equal(1, fixture.Runtime.MaterializingCount);
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        var completed = CollectUntilMaterializationSlice(fixture.Runtime);
+
+        Assert.Equal(
+            ChunkMaterializationStage.SurfaceDecorations,
+            Assert.Single(completed.MaterializationStageTimings).Stage);
+        Assert.True(fixture.World.ContainsChunk(coord));
+        Assert.Equal(0, fixture.Runtime.MaterializingCount);
+        Assert.Equal(
+            ChunkActivationSource.Provider,
+            Assert.Single(completed.Activations).Source);
+    }
+
+    [Fact]
     public void PressuredGenerationPrioritizesLocalChunksAndEventuallyDispatchesDistantOnes()
     {
         var fixture = CreateFixture();
@@ -524,6 +570,86 @@ public sealed class ChunkResidencyRuntimeTests
             fluidUpdates,
             runtime,
             rules);
+    }
+
+    private static ChunkResidencyUpdate CollectUntilMaterializationSlice(
+        ChunkResidencyRuntime runtime)
+    {
+        ChunkResidencyUpdate? observed = null;
+        var completed = SpinWait.SpinUntil(
+            () =>
+            {
+                var update = runtime.CollectMaterializationResults(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                if (update.MaterializationStageTimings.Count == 0 &&
+                    update.Activations.Count == 0 &&
+                    update.Failures.Count == 0)
+                    return false;
+
+                observed = update;
+                return true;
+            },
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(completed, "Materialization worker did not finish its next slice.");
+        return observed!;
+    }
+
+    private sealed class StagedChunkProvider : IIncrementalChunkProvider
+    {
+        public Chunk Materialize(ChunkCoord coord)
+        {
+            using var job = BeginMaterialization(coord);
+            while (!job.IsComplete)
+                job.Advance();
+            return job.Result ??
+                throw new InvalidOperationException(
+                    "Completed staged provider returned no chunk.");
+        }
+
+        public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+            new StagedChunkJob(coord);
+
+        private sealed class StagedChunkJob(ChunkCoord coord)
+            : IChunkMaterializationJob
+        {
+            public ChunkCoord Coord { get; } = coord;
+            public ChunkMaterializationStage Stage { get; private set; } =
+                ChunkMaterializationStage.TerrainSetup;
+            public bool IsComplete => Stage == ChunkMaterializationStage.Complete;
+            public Chunk? Result { get; private set; }
+
+            public void Advance()
+            {
+                if (IsComplete)
+                    throw new InvalidOperationException(
+                        "Completed staged provider cannot advance.");
+
+                // Force one stage per scheduler slice to verify that progress
+                // is collected and interleaved without exposing the partial chunk.
+                Thread.Sleep(8);
+                switch (Stage)
+                {
+                    case ChunkMaterializationStage.TerrainSetup:
+                        Stage = ChunkMaterializationStage.TerrainLayer;
+                        break;
+                    case ChunkMaterializationStage.TerrainLayer:
+                        Stage = ChunkMaterializationStage.SurfaceDecorations;
+                        break;
+                    case ChunkMaterializationStage.SurfaceDecorations:
+                        Result = new Chunk();
+                        Stage = ChunkMaterializationStage.Complete;
+                        break;
+                    default:
+                        throw new InvalidOperationException(
+                            $"Unexpected staged provider stage: {Stage}.");
+                }
+            }
+
+            public void Dispose()
+            {
+            }
+        }
     }
 
     private sealed class EmptyChunkProvider : IChunkProvider
