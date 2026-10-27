@@ -21,6 +21,7 @@ public sealed class SurfaceChunkMaterializer
         public BiomeSample? VolumeSample;
         public BiomeSurfaceMaterialColumn? VolumeMaterials;
         public uint? VolumeCoverDepth;
+        public GeneratedFluidColumnPlan GeneratedFluidPlan;
     }
 
     private readonly record struct PendingGeneratedObject(
@@ -195,7 +196,10 @@ public sealed class SurfaceChunkMaterializer
 
             case ChunkMaterializationStage.GeneratedFluids:
                 MaterializeGeneratedFluids(
-                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.Chunk, RequiredDensity(job),
+                    job.ColumnMaterializationCaches ??
+                        throw new InvalidOperationException(
+                            "Materialization column cache is missing."),
                     job.OriginX, job.OriginY, job.OriginZ, job.TopExclusive);
                 job.Stage = ChunkMaterializationStage.SurfaceStructures;
                 break;
@@ -2171,8 +2175,8 @@ public sealed class SurfaceChunkMaterializer
 
     private void MaterializeGeneratedFluids(
         Chunk chunk,
-        SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
+        ColumnMaterializationCache[] columnMaterializationCaches,
         int originX,
         int originY,
         int originZ,
@@ -2181,14 +2185,11 @@ public sealed class SurfaceChunkMaterializer
         if (!_generatedFluids.HasRules)
             return;
 
-        // Resolve each column's fluid interval once. The subsequent pass walks
-        // the chunk in storage order (X, then Z, then Y), preserving bounded
-        // vertical work while making palette writes contiguous.
+        // Resolve the authored fluid policy once per column. The reusable
+        // column cache already carries biome, base height and surface-cut
+        // metadata, so the fluid pass does not need parallel per-column arrays.
         Span<int> firstFluidYByColumn = stackalloc int[Chunk.Area];
         Span<int> lastFluidYByColumn = stackalloc int[Chunk.Area];
-        Span<int> baseSurfaceYByColumn = stackalloc int[Chunk.Area];
-        Span<int> surfaceCutDepthByColumn = stackalloc int[Chunk.Area];
-        var biomeSamplesByColumn = new BiomeSample[Chunk.Area];
         firstFluidYByColumn.Fill(int.MaxValue);
         lastFluidYByColumn.Fill(int.MinValue);
 
@@ -2198,27 +2199,29 @@ public sealed class SurfaceChunkMaterializer
         {
             for (var localX = 0; localX < Chunk.Size; localX++)
             {
-                var sample = column.BiomeAt(localX, localZ);
-                var baseY = column.BaseHeightAt(localX, localZ);
-                var surfaceCutDepth =
-                    column.SurfaceFluidCutDepthAt(localX, localZ);
-                var worldX = checked(originX + localX);
-                var worldZ = checked(originZ + localZ);
                 var columnIndex = localX + Chunk.Size * localZ;
-                biomeSamplesByColumn[columnIndex] = sample;
-                baseSurfaceYByColumn[columnIndex] = baseY;
-                surfaceCutDepthByColumn[columnIndex] = surfaceCutDepth;
+                ref var state = ref columnMaterializationCaches[columnIndex];
+                var sample = state.Sample ??
+                    throw new InvalidOperationException(
+                        "Materialization column has no biome sample.");
+                var baseY = state.BaseY;
+                var surfaceCutDepth = state.SurfaceFluidCutDepth;
 
-                if (!_generatedFluids.TryGetColumnBounds(
+                if (!_generatedFluids.TryResolveColumn(
                         sample,
                         baseY,
                         surfaceCutDepth,
-                        worldX,
-                        worldZ,
+                        state.WorldX,
+                        state.WorldZ,
+                        out var fluidPlan,
                         out var minimumY,
                         out var maximumY))
+                {
+                    state.GeneratedFluidPlan = default;
                     continue;
+                }
 
+                state.GeneratedFluidPlan = fluidPlan;
                 var firstY = Math.Max(originY, minimumY);
                 var lastY = Math.Min(topExclusive - 1, maximumY);
                 if (firstY > lastY)
@@ -2257,19 +2260,12 @@ public sealed class SurfaceChunkMaterializer
                         !initialFluidWrites.IsEmptyAtLinearIndex(voxelIndex))
                         continue;
 
-                    var sample = biomeSamplesByColumn[columnIndex];
-                    var baseY = baseSurfaceYByColumn[columnIndex];
-                    var surfaceCutDepth =
-                        surfaceCutDepthByColumn[columnIndex];
-                    var worldX = originX + localX;
-                    var worldZ = originZ + localZ;
-                    var fluid = _generatedFluids.FluidAt(
-                        sample,
-                        baseY,
-                        surfaceCutDepth,
-                        worldX,
+                    ref var state = ref columnMaterializationCaches[columnIndex];
+                    var fluid = _generatedFluids.FluidAtResolvedColumn(
+                        state.GeneratedFluidPlan,
+                        state.BaseY,
+                        state.SurfaceFluidCutDepth,
                         worldY,
-                        worldZ,
                         densityVolume.IsSolidAtUnchecked(
                             localX,
                             localY,
