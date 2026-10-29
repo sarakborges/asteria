@@ -823,7 +823,11 @@ public sealed class BiomeWorldGenerationTests
 
         Assert.True(leftVoxel.HasValue && rightVoxel.HasValue,
             "No suitable boundary between two geology-enabled surface biomes was found.");
-        var leftCheck = leftVoxel!.Value;
+
+        AssertBiomeGridMatchesScalar(leftVoxel!.Value.X, leftVoxel.Value.Z);
+        AssertBiomeGridMatchesScalar(rightVoxel!.Value.X, rightVoxel.Value.Z);
+
+        var leftCheck = leftVoxel.Value;
         var leftActual = ReadMaterializedBlock(leftCheck.X, leftCheck.Y, leftCheck.Z);
         Assert.True(leftCheck.Expected == leftActual,
             $"Left geology mismatch at ({leftCheck.X},{leftCheck.Y},{leftCheck.Z}); " +
@@ -868,6 +872,24 @@ public sealed class BiomeWorldGenerationTests
 
             voxel = default;
             return false;
+        }
+
+        void AssertBiomeGridMatchesScalar(int x, int z)
+        {
+            var (coord, local) = VoxelCoordinates.FromWorld(x, 0, z);
+            var grid = generator.Biomes.SampleGrid(
+                checked(coord.X * Chunk.Size),
+                checked(coord.Z * Chunk.Size),
+                Chunk.Size,
+                Chunk.Size);
+            var scalar = generator.Biomes.Sample(x, z);
+            var batched = grid[local.X, local.Z];
+            Assert.Equal(
+                scalar.Primary,
+                batched.Primary);
+            Assert.Equal(
+                scalar.Influences.ToArray(),
+                batched.Influences.ToArray());
         }
 
         bool IsInteriorSolid(int x, int y, int z)
