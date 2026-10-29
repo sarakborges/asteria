@@ -2108,6 +2108,62 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void SurfacePlacementSlopeSamplingMatchesScalarTerrainQueries()
+    {
+        const ulong seed = 177UL;
+        const int worldX = 29;
+        const int worldZ = -37;
+        var blocks = LoadDefaultBlocks();
+        var fluids = LoadDefaultFluids();
+        var biomes = LoadDefaultBiomes();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var dimensionSeed = DimensionSeed.Derive(seed, dimension.Id);
+        var surfaceDefinitions = dimension.SurfaceBiomes
+            .Select(biomes.Get)
+            .ToArray();
+        var volumeDefinitions = dimension.VolumeBiomes
+            .Select(biomes.Get)
+            .ToArray();
+        var surfaceBiomes = new BiomeField(dimensionSeed, dimension, biomes);
+        var volumeBiomes = new VolumeBiomeField(dimensionSeed, dimension, biomes);
+        var generatedFluids = new GeneratedFluidField(
+            dimensionSeed, dimension, fluids);
+        var terrain = new SurfaceTerrainField(
+            dimensionSeed, dimension, surfaceBiomes, volumeBiomes,
+            generatedFluids, surfaceDefinitions, volumeDefinitions);
+
+        var xPlus = worldX + 1;
+        var xMinus = worldX - 1;
+        var zPlus = worldZ + 1;
+        var zMinus = worldZ - 1;
+        var surfaceY = terrain.SurfaceHeight(worldX, worldZ);
+        var surfaceSlope = Math.Max(
+            Math.Max(
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(xPlus, worldZ)),
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(xMinus, worldZ))),
+            Math.Max(
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(worldX, zPlus)),
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(worldX, zMinus))));
+        Assert.Equal(
+            new SurfacePlacementContext(surfaceY, surfaceSlope),
+            SurfacePlacementContext.Sample(
+                terrain, worldX, worldZ, includeSlope: true));
+
+        var baseY = terrain.SampleBaseSurface(worldX, worldZ).BaseY;
+        var baseSlope = Math.Max(
+            Math.Max(
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(xPlus, worldZ).BaseY),
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(xMinus, worldZ).BaseY)),
+            Math.Max(
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(worldX, zPlus).BaseY),
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(worldX, zMinus).BaseY)));
+        Assert.Equal(
+            new SurfacePlacementContext(baseY, baseSlope),
+            SurfacePlacementContext.Sample(
+                terrain, worldX, worldZ, includeSlope: true, baseSurface: true));
+    }
+
+    [Fact]
     public void DecorationUsesAuthoredSurfaceAndIsChunkDeterministic()
     {
         var blocks =
