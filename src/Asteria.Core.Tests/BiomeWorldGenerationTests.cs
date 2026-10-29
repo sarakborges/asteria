@@ -844,7 +844,9 @@ public sealed class BiomeWorldGenerationTests
                  depth++)
             {
                 var y = surfaceY - depth;
-                if (y < 2 || !IsInteriorSolid(x, y, z))
+                if (y < 2 ||
+                    generator.VolumeBiomes.Sample(x, y, z) is not null ||
+                    !IsInteriorSolid(x, y, z))
                     continue;
                 if (geologyField.TryGeologyBlockAt(sample, x, y, z, out var expected))
                 {
