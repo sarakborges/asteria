@@ -823,12 +823,23 @@ public sealed class BiomeWorldGenerationTests
 
         Assert.True(leftVoxel.HasValue && rightVoxel.HasValue,
             "No suitable boundary between two geology-enabled surface biomes was found.");
-        Assert.Equal(
-            leftVoxel!.Value.Expected,
-            ReadMaterializedBlock(leftVoxel.Value.X, leftVoxel.Value.Y, leftVoxel.Value.Z));
-        Assert.Equal(
-            rightVoxel!.Value.Expected,
-            ReadMaterializedBlock(rightVoxel.Value.X, rightVoxel.Value.Y, rightVoxel.Value.Z));
+        var left = leftVoxel!.Value;
+        var leftActual = ReadMaterializedBlock(left.X, left.Y, left.Z);
+        Assert.True(left.Expected == leftActual,
+            $"Left geology mismatch at ({left.X},{left.Y},{left.Z}); " +
+            $"surface={generator.SurfaceHeight(left.X, left.Z)}, " +
+            $"primary={generator.Biomes.Sample(left.X, left.Z).Primary}, " +
+            $"volumeAtVoxel={generator.VolumeBiomes.Sample(left.X, left.Y, left.Z)?.Primary ?? "none"}, " +
+            $"expected={blocks.GetDefinition(left.Expected).Id}, actual={blocks.GetDefinition(leftActual).Id}.");
+
+        var right = rightVoxel.Value;
+        var rightActual = ReadMaterializedBlock(right.X, right.Y, right.Z);
+        Assert.True(right.Expected == rightActual,
+            $"Right geology mismatch at ({right.X},{right.Y},{right.Z}); " +
+            $"surface={generator.SurfaceHeight(right.X, right.Z)}, " +
+            $"primary={generator.Biomes.Sample(right.X, right.Z).Primary}, " +
+            $"volumeAtVoxel={generator.VolumeBiomes.Sample(right.X, right.Y, right.Z)?.Primary ?? "none"}, " +
+            $"expected={blocks.GetDefinition(right.Expected).Id}, actual={blocks.GetDefinition(rightActual).Id}.");
 
         bool TryFindVoxel(
             BiomeSample sample,
