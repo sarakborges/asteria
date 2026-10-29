@@ -223,8 +223,8 @@ public sealed class SparseOverworldBiomeContentTests
     public void OceanRegressionRegionMaterializationMatchesThreeDimensionalGeology()
     {
         const ulong seed = 7808508665006554090UL;
-        const int centerX = 355;
-        const int centerZ = -230;
+        const int searchOriginX = 355;
+        const int searchOriginZ = -230;
         const int diagnosticY = 82;
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var fluids = FluidRegistry.FromJson(ReadJsonDirectory("fluids"));
@@ -240,6 +240,15 @@ public sealed class SparseOverworldBiomeContentTests
             new WorldGenerationOptions(
                 spawnStructures: false, spawnCaves: false, spawnOceans: true));
         var ocean = biomes.Get("asteria:overworld/ocean");
+        // Ocean now has authored incompatibilities with several hot-climate
+        // and mountainous biomes. Keep the fixed seed, but resolve a valid
+        // nearby ocean formation rather than pinning the fixture to a location
+        // whose primary biome is no longer guaranteed to be ocean.
+        var oceanRegion = generator.Biomes.FindNearestSurfaceBiome(
+            ocean.Id, searchOriginX, searchOriginZ, maxDistance: 4096);
+        Assert.NotNull(oceanRegion);
+        var centerX = oceanRegion!.X;
+        var centerZ = oceanRegion.Z;
         var geology = new BiomeSurfaceMaterialField(dimensionSeed, [ocean], blocks);
         var chunkCache = new Dictionary<ChunkCoord, Chunk>();
         var fixedAltitudeMaterials = new HashSet<BlockRuntimeId>();
