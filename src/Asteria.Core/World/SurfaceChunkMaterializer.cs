@@ -1302,11 +1302,227 @@ public sealed class SurfaceChunkMaterializer
             _materials.MaximumCavePaintDepth == 0)
             return;
 
-        // A cave face can cross a chunk edge. Neighbor base heights are
-        // immutable per X/Z column but used by many vertical face probes.
-        // Resolve each halo column and each queried halo voxel once. The
-        // coordinate cache avoids repeating the 3D cave-noise query when
-        // several solids probe the same voxel from different distances.
+        const byte FloorProbe = 1 << 0;
+        const byte LeftProbe = 1 << 1;
+        const byte RightProbe = 1 << 2;
+        const byte BackProbe = 1 << 3;
+        const byte FrontProbe = 1 << 4;
+        const byte CeilingProbe = 1 << 5;
+
+        var reach = (int)_materials.MaximumCavePaintDepth;
+        var volume = Chunk.Area * Chunk.Size;
+        var baseHeights = new int[Chunk.Area];
+        var caveVoids = new bool[volume];
+        var localDirectionMask = new byte[volume];
+        var nearestFaceDistance = new int[volume];
+        var nearestFace = new BiomePaletteFace[volume];
+
+        static int FacePriority(BiomePaletteFace face) => face switch
+        {
+            BiomePaletteFace.Floor => 0,
+            BiomePaletteFace.Walls => 1,
+            BiomePaletteFace.Ceiling => 2,
+            _ => throw new ArgumentOutOfRangeException(nameof(face)),
+        };
+
+        void ConsiderFace(int index, int distance, BiomePaletteFace face)
+        {
+            if (distance <= 0 || distance > reach)
+                return;
+
+            var currentDistance = nearestFaceDistance[index];
+            if (currentDistance != 0 &&
+                (distance > currentDistance ||
+                 (distance == currentDistance &&
+                  FacePriority(face) >= FacePriority(nearestFace[index]))))
+                return;
+
+            nearestFaceDistance[index] = distance;
+            nearestFace[index] = face;
+        }
+
+        // Mark the carved-void voxels once. Materialization later tests many
+        // solids along the same axis, so repeated occupancy/base-height reads
+        // can be replaced by six linear nearest-void scans.
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var columnIndex = x + Chunk.Size * z;
+            var baseY = column.BaseHeightAt(x, z);
+            baseHeights[columnIndex] = baseY;
+            if (originY > baseY - 4)
+                continue;
+
+            for (var y = 0; y < Chunk.Size; y++)
+            {
+                var worldY = originY + y;
+                if (worldY <= 0 || worldY > baseY - 4)
+                    continue;
+
+                var index = columnIndex + Chunk.Area * y;
+                caveVoids[index] =
+                    !densityVolume.IsSolidAtUnchecked(x, y, z);
+            }
+        }
+
+        // A void above a solid paints its floor-facing surface.
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var nearestVoidY = -1;
+            for (var y = Chunk.Size - 1; y >= 0; y--)
+            {
+                var index = x + Chunk.Size * z + Chunk.Area * y;
+                if (caveVoids[index])
+                {
+                    nearestVoidY = y;
+                    continue;
+                }
+
+                if (nearestVoidY < 0)
+                    continue;
+
+                var distance = nearestVoidY - y;
+                if (distance > reach)
+                    continue;
+
+                localDirectionMask[index] |= FloorProbe;
+                ConsiderFace(index, distance, BiomePaletteFace.Floor);
+            }
+        }
+
+        // A void below a solid paints its ceiling-facing surface.
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var nearestVoidY = -1;
+            for (var y = 0; y < Chunk.Size; y++)
+            {
+                var index = x + Chunk.Size * z + Chunk.Area * y;
+                if (caveVoids[index])
+                {
+                    nearestVoidY = y;
+                    continue;
+                }
+
+                if (nearestVoidY < 0)
+                    continue;
+
+                var distance = y - nearestVoidY;
+                if (distance > reach)
+                    continue;
+
+                localDirectionMask[index] |= CeilingProbe;
+                ConsiderFace(index, distance, BiomePaletteFace.Ceiling);
+            }
+        }
+
+        // A void in either X direction paints a wall. Direction priority is
+        // resolved by ConsiderFace so equal-distance faces retain floor >
+        // walls > ceiling precedence regardless of scan order.
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        {
+            var nearestVoidX = -1;
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                var index = x + Chunk.Size * z + Chunk.Area * y;
+                if (caveVoids[index])
+                {
+                    nearestVoidX = x;
+                    continue;
+                }
+
+                if (nearestVoidX < 0)
+                    continue;
+
+                var distance = x - nearestVoidX;
+                if (distance > reach)
+                    continue;
+
+                localDirectionMask[index] |= LeftProbe;
+                ConsiderFace(index, distance, BiomePaletteFace.Walls);
+            }
+        }
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        {
+            var nearestVoidX = -1;
+            for (var x = Chunk.Size - 1; x >= 0; x--)
+            {
+                var index = x + Chunk.Size * z + Chunk.Area * y;
+                if (caveVoids[index])
+                {
+                    nearestVoidX = x;
+                    continue;
+                }
+
+                if (nearestVoidX < 0)
+                    continue;
+
+                var distance = nearestVoidX - x;
+                if (distance > reach)
+                    continue;
+
+                localDirectionMask[index] |= RightProbe;
+                ConsiderFace(index, distance, BiomePaletteFace.Walls);
+            }
+        }
+
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var y = 0; y < Chunk.Size; y++)
+        {
+            var nearestVoidZ = -1;
+            for (var z = 0; z < Chunk.Size; z++)
+            {
+                var index = x + Chunk.Size * z + Chunk.Area * y;
+                if (caveVoids[index])
+                {
+                    nearestVoidZ = z;
+                    continue;
+                }
+
+                if (nearestVoidZ < 0)
+                    continue;
+
+                var distance = z - nearestVoidZ;
+                if (distance > reach)
+                    continue;
+
+                localDirectionMask[index] |= BackProbe;
+                ConsiderFace(index, distance, BiomePaletteFace.Walls);
+            }
+        }
+
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var y = 0; y < Chunk.Size; y++)
+        {
+            var nearestVoidZ = -1;
+            for (var z = Chunk.Size - 1; z >= 0; z--)
+            {
+                var index = x + Chunk.Size * z + Chunk.Area * y;
+                if (caveVoids[index])
+                {
+                    nearestVoidZ = z;
+                    continue;
+                }
+
+                if (nearestVoidZ < 0)
+                    continue;
+
+                var distance = nearestVoidZ - z;
+                if (distance > reach)
+                    continue;
+
+                localDirectionMask[index] |= FrontProbe;
+                ConsiderFace(index, distance, BiomePaletteFace.Walls);
+            }
+        }
+
+        // Boundary probes are needed only when the local scan found no void
+        // in that direction within reach. The same outside voxel can be
+        // tested from several solids, so memoize its carved-void result.
         BiomeField.Sampler? haloSampler = null;
         var haloBaseHeights = new Dictionary<(int X, int Z), int>();
         var haloCarvedVoids = new Dictionary<(int X, int Y, int Z), bool>();
@@ -1331,12 +1547,52 @@ public sealed class SurfaceChunkMaterializer
             return carvedVoid;
         }
 
+        void ConsiderOutsideFace(
+            int index,
+            byte direction,
+            int boundaryDistance,
+            int dx,
+            int dy,
+            int dz,
+            BiomePaletteFace face,
+            int baseY,
+            int worldX,
+            int worldY,
+            int worldZ)
+        {
+            if ((localDirectionMask[index] & direction) != 0 ||
+                boundaryDistance > reach)
+                return;
+
+            var currentBest = nearestFaceDistance[index];
+            var searchLimit = currentBest == 0
+                ? reach
+                : Math.Min(reach, currentBest);
+            for (var distance = boundaryDistance;
+                 distance <= searchLimit;
+                 distance++)
+            {
+                var neighborY = worldY + dy * distance;
+                if (neighborY <= 0 || neighborY > baseY - 3)
+                    break;
+
+                var neighborX = worldX + dx * distance;
+                var neighborZ = worldZ + dz * distance;
+                if (!OutsideCarvedVoid(neighborX, neighborY, neighborZ))
+                    continue;
+
+                ConsiderFace(index, distance, face);
+                break;
+            }
+        }
+
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
-            var baseY = column.BaseHeightAt(x, z);
+            var columnIndex = x + Chunk.Size * z;
+            var baseY = baseHeights[columnIndex];
             // Chunks entirely above the carved cavern band cannot contain
-            // its rock faces. Avoid the expensive 2D biome placement query.
+            // its rock faces. Avoid biome identity queries for those columns.
             if (originY > baseY - 4)
                 continue;
 
@@ -1344,7 +1600,6 @@ public sealed class SurfaceChunkMaterializer
             var worldZ = originZ + z;
             BiomeSample? biome = null;
             var ownerResolved = false;
-            var reach = (int)_materials.MaximumCavePaintDepth;
             for (var y = 0; y < Chunk.Size; y++)
             {
                 var worldY = originY + y;
@@ -1355,56 +1610,56 @@ public sealed class SurfaceChunkMaterializer
                     !densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
-                bool CarvedVoid(int dx, int dy, int dz)
-                {
-                    var nx = x + dx;
-                    var ny = y + dy;
-                    var nz = z + dz;
-                    var neighborY = worldY + dy;
-                    if (neighborY <= 0 || neighborY > baseY - 3)
-                        return false;
-                    if ((uint)nx < Chunk.Size &&
-                        (uint)ny < Chunk.Size &&
-                        (uint)nz < Chunk.Size)
-                        return !densityVolume.IsSolidAtUnchecked(nx, ny, nz) &&
-                            neighborY <= column.BaseHeightAt(nx, nz) - 4;
+                var index = columnIndex + Chunk.Area * y;
+                ConsiderOutsideFace(
+                    index, FloorProbe, Chunk.Size - y,
+                    0, 1, 0, BiomePaletteFace.Floor,
+                    baseY, worldX, worldY, worldZ);
+                ConsiderOutsideFace(
+                    index, LeftProbe, x + 1,
+                    -1, 0, 0, BiomePaletteFace.Walls,
+                    baseY, worldX, worldY, worldZ);
+                ConsiderOutsideFace(
+                    index, RightProbe, Chunk.Size - x,
+                    1, 0, 0, BiomePaletteFace.Walls,
+                    baseY, worldX, worldY, worldZ);
+                ConsiderOutsideFace(
+                    index, BackProbe, z + 1,
+                    0, 0, -1, BiomePaletteFace.Walls,
+                    baseY, worldX, worldY, worldZ);
+                ConsiderOutsideFace(
+                    index, FrontProbe, Chunk.Size - z,
+                    0, 0, 1, BiomePaletteFace.Walls,
+                    baseY, worldX, worldY, worldZ);
+                ConsiderOutsideFace(
+                    index, CeilingProbe, y + 1,
+                    0, -1, 0, BiomePaletteFace.Ceiling,
+                    baseY, worldX, worldY, worldZ);
 
-                    return OutsideCarvedVoid(
-                        worldX + dx, neighborY, worldZ + dz);
+                var distanceToFace = nearestFaceDistance[index];
+                if (distanceToFace == 0)
+                    continue;
+
+                // Expensive 2D volume-identity sampling is necessary only
+                // for a genuinely exposed cave face, once per X/Z column.
+                if (!ownerResolved)
+                {
+                    biome = column.CaveBiomeAt(x, z);
+                    ownerResolved = true;
                 }
 
-                for (var depth = 0; depth < reach; depth++)
+                var depth = checked((uint)(distanceToFace - 1));
+                if (biome is not null &&
+                    depth < _materials.MaxVolumePaintDepth(biome))
                 {
-                    var distance = depth + 1;
-                    BiomePaletteFace? face = null;
-                    if (CarvedVoid(0, distance, 0))
-                        face = BiomePaletteFace.Floor;
-                    else if (CarvedVoid(-distance, 0, 0) ||
-                             CarvedVoid(distance, 0, 0) ||
-                             CarvedVoid(0, 0, -distance) ||
-                             CarvedVoid(0, 0, distance))
-                        face = BiomePaletteFace.Walls;
-                    else if (CarvedVoid(0, -distance, 0))
-                        face = BiomePaletteFace.Ceiling;
-
-                    if (face is not { } exposed)
-                        continue;
-
-                    // Expensive 2D volume-identity sampling is necessary
-                    // only for a genuinely exposed carved face. Cache at
-                    // most one result per column, even for many Y voxels.
-                    if (!ownerResolved)
-                    {
-                        biome = column.CaveBiomeAt(x, z);
-                        ownerResolved = true;
-                    }
-                    if (biome is not null &&
-                        depth < _materials.MaxVolumePaintDepth(biome))
-                        chunk.SetBlock(x, y, z,
-                            _materials.VolumeBlockAt(
-                                biome, worldX, worldY, worldZ,
-                                exposed, (uint)depth));
-                    break;
+                    chunk.SetBlock(x, y, z,
+                        _materials.VolumeBlockAt(
+                            biome,
+                            worldX,
+                            worldY,
+                            worldZ,
+                            nearestFace[index],
+                            depth));
                 }
             }
         }
