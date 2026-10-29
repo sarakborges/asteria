@@ -6,7 +6,17 @@
     "regionSize": {
       "min": 500,
       "max": 1500
-    }
+    },
+    "cannotBorder": [
+      "asteria:overworld/alps",
+      "asteria:overworld/arctic",
+      "asteria:overworld/desert",
+      "asteria:overworld/mountain_belt",
+      "asteria:overworld/mountains",
+      "asteria:overworld/scorched_wastes",
+      "asteria:overworld/swamp",
+      "asteria:overworld/wasteland"
+    ]
   },
   "surfaceTerrain": {
     "type": "rolling",
