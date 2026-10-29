@@ -823,23 +823,23 @@ public sealed class BiomeWorldGenerationTests
 
         Assert.True(leftVoxel.HasValue && rightVoxel.HasValue,
             "No suitable boundary between two geology-enabled surface biomes was found.");
-        var left = leftVoxel!.Value;
-        var leftActual = ReadMaterializedBlock(left.X, left.Y, left.Z);
-        Assert.True(left.Expected == leftActual,
-            $"Left geology mismatch at ({left.X},{left.Y},{left.Z}); " +
-            $"surface={generator.SurfaceHeight(left.X, left.Z)}, " +
-            $"primary={generator.Biomes.Sample(left.X, left.Z).Primary}, " +
-            $"volumeAtVoxel={generator.VolumeBiomes.Sample(left.X, left.Y, left.Z)?.Primary ?? "none"}, " +
-            $"expected={blocks.GetDefinition(left.Expected).Id}, actual={blocks.GetDefinition(leftActual).Id}.");
+        var leftCheck = leftVoxel!.Value;
+        var leftActual = ReadMaterializedBlock(leftCheck.X, leftCheck.Y, leftCheck.Z);
+        Assert.True(leftCheck.Expected == leftActual,
+            $"Left geology mismatch at ({leftCheck.X},{leftCheck.Y},{leftCheck.Z}); " +
+            $"surface={generator.SurfaceHeight(leftCheck.X, leftCheck.Z)}, " +
+            $"primary={generator.Biomes.Sample(leftCheck.X, leftCheck.Z).Primary}, " +
+            $"volumeAtVoxel={generator.VolumeBiomes.Sample(leftCheck.X, leftCheck.Y, leftCheck.Z)?.Primary ?? "none"}, " +
+            $"expected={blocks.GetDefinition(leftCheck.Expected).Id}, actual={blocks.GetDefinition(leftActual).Id}.");
 
-        var right = rightVoxel.Value;
-        var rightActual = ReadMaterializedBlock(right.X, right.Y, right.Z);
-        Assert.True(right.Expected == rightActual,
-            $"Right geology mismatch at ({right.X},{right.Y},{right.Z}); " +
-            $"surface={generator.SurfaceHeight(right.X, right.Z)}, " +
-            $"primary={generator.Biomes.Sample(right.X, right.Z).Primary}, " +
-            $"volumeAtVoxel={generator.VolumeBiomes.Sample(right.X, right.Y, right.Z)?.Primary ?? "none"}, " +
-            $"expected={blocks.GetDefinition(right.Expected).Id}, actual={blocks.GetDefinition(rightActual).Id}.");
+        var rightCheck = rightVoxel.Value;
+        var rightActual = ReadMaterializedBlock(rightCheck.X, rightCheck.Y, rightCheck.Z);
+        Assert.True(rightCheck.Expected == rightActual,
+            $"Right geology mismatch at ({rightCheck.X},{rightCheck.Y},{rightCheck.Z}); " +
+            $"surface={generator.SurfaceHeight(rightCheck.X, rightCheck.Z)}, " +
+            $"primary={generator.Biomes.Sample(rightCheck.X, rightCheck.Z).Primary}, " +
+            $"volumeAtVoxel={generator.VolumeBiomes.Sample(rightCheck.X, rightCheck.Y, rightCheck.Z)?.Primary ?? "none"}, " +
+            $"expected={blocks.GetDefinition(rightCheck.Expected).Id}, actual={blocks.GetDefinition(rightActual).Id}.");
 
         bool TryFindVoxel(
             BiomeSample sample,
