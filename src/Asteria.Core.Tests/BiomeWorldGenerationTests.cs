@@ -872,17 +872,23 @@ public sealed class BiomeWorldGenerationTests
 
         bool IsInteriorSolid(int x, int y, int z)
         {
-            if (generator.DensityAt(x, y, z) < 0d ||
-                generator.IsCaveVoidAt(x, y, z))
+            if (!IsSolidVoxel(x, y, z))
                 return false;
 
-            return !generator.IsCaveVoidAt(x - 1, y, z) &&
-                !generator.IsCaveVoidAt(x + 1, y, z) &&
-                !generator.IsCaveVoidAt(x, y - 1, z) &&
-                !generator.IsCaveVoidAt(x, y + 1, z) &&
-                !generator.IsCaveVoidAt(x, y, z - 1) &&
-                !generator.IsCaveVoidAt(x, y, z + 1);
+            // Exterior face palettes intentionally paint exposed hillside
+            // walls. Compare raw volumetric geology only on true interior
+            // voxels so the regression does not reject authored wall materials.
+            return IsSolidVoxel(x - 1, y, z) &&
+                IsSolidVoxel(x + 1, y, z) &&
+                IsSolidVoxel(x, y - 1, z) &&
+                IsSolidVoxel(x, y + 1, z) &&
+                IsSolidVoxel(x, y, z - 1) &&
+                IsSolidVoxel(x, y, z + 1);
         }
+
+        bool IsSolidVoxel(int x, int y, int z) =>
+            generator.DensityAt(x, y, z) >= 0d &&
+            !generator.IsCaveVoidAt(x, y, z);
 
         BlockRuntimeId ReadMaterializedBlock(int x, int y, int z)
         {
