@@ -709,21 +709,6 @@ public sealed class BiomeSurfaceMaterialField
                 rotated.Z + warpZ * _warpHorizontalStrength + detailWarpZ * _detailWarpStrength);
         }
 
-        private static double MinimumFieldToBeat(
-            double bestScore,
-            double bias)
-        {
-            if (double.IsNegativeInfinity(bestScore))
-                return double.NegativeInfinity;
-
-            // Invert the monotonic Gumbel score once per candidate. A partial
-            // field plus the absolute remaining influence below this threshold
-            // cannot beat the current winner, avoiding repeated logarithms.
-            var scoreWithoutBias = bestScore - bias - 1e-9d;
-            var maximumUnit = Math.Exp(-Math.Exp(-scoreWithoutBias));
-            return maximumUnit * 2d - 1d;
-        }
-
         private BlockRuntimeId SelectMaterial(
             ulong seed,
             SpatialPosition position,
@@ -773,23 +758,6 @@ public sealed class BiomeSurfaceMaterialField
                     _grainScale, _grainVerticalScale);
             var needsBoundaryScores =
                 _boundaryInfluence > 0d && candidateBlocks.Length > 1;
-            var broadWeight = _remainingInfluence * 0.04d / 0.30d;
-            var detailWeight = _remainingInfluence * 0.10d / 0.30d;
-            var microWeight = _remainingInfluence * 0.16d / 0.30d;
-            var clusterWeight = _clusterInfluence;
-            var grainWeight = _grainInfluence;
-            var remainingAfterBroad =
-                Math.Abs(detailWeight) +
-                Math.Abs(microWeight) +
-                Math.Abs(clusterWeight) +
-                Math.Abs(grainWeight);
-            var remainingAfterDetail =
-                Math.Abs(microWeight) +
-                Math.Abs(clusterWeight) +
-                Math.Abs(grainWeight);
-            var remainingAfterMicro =
-                Math.Abs(clusterWeight) +
-                Math.Abs(grainWeight);
             // Most geology selections need only the winning score. Allocate
             // score vectors only for definitions that explicitly enable
             // boundary roughening; ordinary geological voxels allocate none.
@@ -829,45 +797,17 @@ public sealed class BiomeSurfaceMaterialField
                     bestScore >= biases[index] + MaximumGumbelScore)
                     continue;
 
-                var minimumFieldToBeat = needsBoundaryScores
-                    ? double.NegativeInfinity
-                    : MinimumFieldToBeat(bestScore, biases[index]);
                 var broad =
                     broadCoordinates.Sample(seed, broadDomains[index]);
-                var partialField = broad * broadWeight;
-                if (!needsBoundaryScores &&
-                    Math.Min(1d, partialField + remainingAfterBroad) <
-                    minimumFieldToBeat)
-                    continue;
-
                 var detail =
                     detailCoordinates.Sample(seed, detailDomains[index]);
-                partialField += detail * detailWeight;
-                if (!needsBoundaryScores &&
-                    Math.Min(1d, partialField + remainingAfterDetail) <
-                    minimumFieldToBeat)
-                    continue;
-
                 var micro =
                     microCoordinates.Sample(seed, microDomains[index]);
-                partialField += micro * microWeight;
-                if (!needsBoundaryScores &&
-                    Math.Min(1d, partialField + remainingAfterMicro) <
-                    minimumFieldToBeat)
-                    continue;
-
                 var cluster = _clusterInfluence > 0d
                     ? clusterCoordinates.Sample(seed, clusterDomains[index])
                     : 0d;
-                partialField += cluster * clusterWeight;
-                if (!needsBoundaryScores &&
-                    Math.Min(1d, partialField + Math.Abs(grainWeight)) <
-                    minimumFieldToBeat)
-                    continue;
-
-                var grain = _grainInfluence > 0d || needsBoundaryScores
-                    ? grainCoordinates.Sample(seed, grainDomains[index])
-                    : 0d;
+                var grain =
+                    grainCoordinates.Sample(seed, grainDomains[index]);
 
                 // Split finer detail across intermediate clusters and very
                 // fine grain. The former creates coherent mineral pockets;
