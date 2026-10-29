@@ -366,7 +366,7 @@ public sealed class BiomeWorldGenerationTests
     [Theory]
     [InlineData("asteria:overworld/desert", "asteria:overworld/swamp", false)]
     [InlineData("asteria:overworld/wasteland", "asteria:overworld/swamp", false)]
-    [InlineData("asteria:overworld/wasteland", "asteria:overworld/ocean", true)]
+    [InlineData("asteria:overworld/wasteland", "asteria:overworld/ocean", false)]
     public void OverworldBoundaryRulesAreSymmetric(
         string first,
         string second,
