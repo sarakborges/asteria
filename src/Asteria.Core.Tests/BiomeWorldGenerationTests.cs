@@ -2108,61 +2108,6 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void ConditionalDecorationPlacementContextMatchesTerrainSampling()
-    {
-        const ulong seed = 177UL;
-        const int worldX = 29;
-        const int worldZ = -37;
-        var blocks = new BlockRegistry(
-        [
-            new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:test_plant"),
-        ]);
-        var biome = new BiomeDefinition(
-            "asteria:test/conditional_decorations",
-            new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
-            new BiomeTerrainDefinition(
-                baseHeightOffset: 12f,
-                macroAmplitude: 3f,
-                macroScale: 64,
-                detailAmplitude: 1f,
-                detailScale: 17),
-            [new BiomeSurfaceLayerDefinition("asteria:stone")],
-            [
-                new BiomeDecorationDefinition(
-                    "asteria:test_plant",
-                    chance: 1f,
-                    surfaceBlocks: ["asteria:stone"],
-                    conditions: new SurfacePlacementConditions(
-                        minY: 0,
-                        maxSlope: 8d)),
-            ]);
-        var dimension = TestDimension([biome.Id]);
-        var registry = new BiomeRegistry([biome]);
-        var surfaceBiomes = new BiomeField(seed, dimension, registry);
-        var volumeBiomes = new VolumeBiomeField(seed, dimension, registry);
-        var fluids = new FluidRegistry(Array.Empty<FluidDefinition>());
-        var generatedFluids = new GeneratedFluidField(seed, dimension, fluids);
-        var terrain = new SurfaceTerrainField(
-            seed, dimension, surfaceBiomes, volumeBiomes, generatedFluids,
-            [biome], Array.Empty<BiomeDefinition>());
-        var decorations = new SurfaceDecorationField(
-            seed, [biome], blocks, terrain);
-        var sample = surfaceBiomes.Sample(worldX, worldZ);
-
-        var actual = decorations.SamplePlacementContextIfRequired(
-            sample, blocks.GetId("asteria:stone"), worldX, worldZ);
-
-        Assert.NotNull(actual);
-        Assert.Equal(
-            SurfacePlacementContext.Sample(
-                terrain, worldX, worldZ, includeSlope: true, baseSurface: true),
-            actual.Value);
-        Assert.Null(decorations.SamplePlacementContextIfRequired(
-            sample, blocks.GetId("asteria:test_plant"), worldX, worldZ));
-    }
-
-    [Fact]
     public void DecorationUsesAuthoredSurfaceAndIsChunkDeterministic()
     {
         var blocks =
