@@ -1,5 +1,10 @@
 namespace Asteria.Core.World;
 
+internal readonly record struct GeneratedFluidColumnPlan(
+    FluidRuntimeId SurfaceFluid,
+    FluidRuntimeId MosaicFluid,
+    FluidRuntimeId OceanFluid);
+
 /// <summary>
 /// Immutable generation-time fluid placement policy. It owns authored ocean
 /// fill, terrain-driven surface fluids and optional bounded local surface
@@ -159,68 +164,134 @@ public sealed class GeneratedFluidField
         int worldX,
         int worldZ,
         out int minimumY,
+        out int maximumY) =>
+        TryResolveColumn(
+            sample,
+            baseSurfaceY,
+            surfaceCutDepth,
+            worldX,
+            worldZ,
+            out _,
+            out minimumY,
+            out maximumY);
+
+    /// <summary>
+    /// Resolves the fluid policies and vertical bounds for one X/Z column.
+    /// The returned policy can be reused for every voxel in that column.
+    /// </summary>
+    internal bool TryResolveColumn(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldZ,
+        out GeneratedFluidColumnPlan plan,
+        out int minimumY,
         out int maximumY)
     {
-        ArgumentNullException.ThrowIfNull(
-            sample);
+        ArgumentNullException.ThrowIfNull(sample);
 
-        minimumY =
-            int.MaxValue;
-        maximumY =
-            int.MinValue;
+        minimumY = int.MaxValue;
+        maximumY = int.MinValue;
 
+        var surfaceFluid = FluidRuntimeId.None;
         if (surfaceCutDepth > 0 &&
-            _surface.ContainsKey(
-                sample.Primary))
+            _surface.TryGetValue(sample.Primary, out var surfaceRule))
         {
+            surfaceFluid = surfaceRule.Fluid;
             AddBounds(
-                checked(
-                    baseSurfaceY +
-                    1),
-                checked(
-                    baseSurfaceY +
-                    surfaceCutDepth),
+                checked(baseSurfaceY + 1),
+                checked(baseSurfaceY + surfaceCutDepth),
                 ref minimumY,
                 ref maximumY);
         }
 
-        if (surfaceCutDepth > 0 &&
-            _mosaic?.Sample(sample, worldX, worldZ).IsFluid == true)
+        var mosaicFluid = FluidRuntimeId.None;
+        if (surfaceCutDepth > 0 && _mosaic is not null)
         {
-            AddBounds(
-                checked(baseSurfaceY + 1),
-                checked(baseSurfaceY + 1),
-                ref minimumY, ref maximumY);
+            var mosaic = _mosaic.Sample(sample, worldX, worldZ);
+            if (mosaic.IsFluid)
+            {
+                mosaicFluid = mosaic.Fluid;
+                AddBounds(
+                    checked(baseSurfaceY + 1),
+                    checked(baseSurfaceY + 1),
+                    ref minimumY,
+                    ref maximumY);
+            }
         }
 
-        if (_ocean is
-                { } ocean &&
-            UsesStaticSea(
-                sample,
-                ocean) &&
-            baseSurfaceY <
-                ocean.MaximumY)
+        var oceanFluid = FluidRuntimeId.None;
+        if (_ocean is { } ocean &&
+            UsesStaticSea(sample, ocean) &&
+            baseSurfaceY < ocean.MaximumY)
         {
+            oceanFluid = ocean.Fluid;
             AddBounds(
                 Math.Max(
                     ocean.MinimumY,
-                    checked(
-                        baseSurfaceY +
-                        1)),
+                    checked(baseSurfaceY + 1)),
                 ocean.MaximumY,
                 ref minimumY,
                 ref maximumY);
         }
 
-        if (minimumY <=
-            maximumY)
-        {
+        plan = new GeneratedFluidColumnPlan(
+            surfaceFluid,
+            mosaicFluid,
+            oceanFluid);
+
+        if (minimumY <= maximumY)
             return true;
-        }
 
         minimumY = 0;
         maximumY = -1;
         return false;
+    }
+
+    /// <summary>
+    /// Evaluates an already-resolved column policy without biome, mosaic,
+    /// surface-rule or static-sea lookups for each voxel.
+    /// </summary>
+    internal FluidCell FluidAtResolvedColumn(
+        GeneratedFluidColumnPlan plan,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldY,
+        bool terrainSolid)
+    {
+        if (terrainSolid ||
+            worldY < _minimumInteriorY ||
+            worldY > _maximumInteriorY)
+        {
+            return FluidCell.Empty;
+        }
+
+        if (surfaceCutDepth > 0 &&
+            !plan.SurfaceFluid.IsNone &&
+            worldY > baseSurfaceY &&
+            (long)worldY <= (long)baseSurfaceY + surfaceCutDepth)
+        {
+            return FluidCell.Source(plan.SurfaceFluid);
+        }
+
+        if (surfaceCutDepth > 0 &&
+            !plan.MosaicFluid.IsNone &&
+            worldY == (long)baseSurfaceY + 1L)
+        {
+            return FluidCell.Source(plan.MosaicFluid);
+        }
+
+        if (!plan.OceanFluid.IsNone &&
+            _ocean is { } ocean &&
+            worldY >= ocean.MinimumY &&
+            worldY <= ocean.MaximumY &&
+            worldY > baseSurfaceY)
+        {
+            return FluidCell.Source(plan.OceanFluid);
+        }
+
+        return FluidCell.Empty;
     }
 
     public FluidCell FluidAtEmptyVoxel(
@@ -318,6 +389,28 @@ public sealed class GeneratedFluidField
         int worldZ,
         double terrainDensity) =>
         terrainDensity >= 0d
+            ? FluidCell.Empty
+            : FluidAtEmptyVoxel(
+                sample,
+                baseSurfaceY,
+                surfaceCutDepth,
+                worldX,
+                worldY,
+                worldZ);
+
+    /// <summary>
+    /// Resolves fluid occupancy from a precomputed terrain solidity bit,
+    /// avoiding expansion of the full numeric density volume.
+    /// </summary>
+    public FluidCell FluidAt(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldY,
+        int worldZ,
+        bool terrainSolid) =>
+        terrainSolid
             ? FluidCell.Empty
             : FluidAtEmptyVoxel(
                 sample,

@@ -3,59 +3,101 @@ namespace Asteria.Core.World;
 internal sealed class PaletteStorage<T>
     where T : struct, IEquatable<T>
 {
-    private readonly List<T> _palette;
-    private readonly List<ushort> _usage;
-    private readonly Dictionary<T, ushort> _lookup;
-    private readonly Stack<ushort> _freeSlots;
-    private readonly ushort[] _indices;
-    private readonly ulong[] _occupied;
+    // Worker snapshots share storage until one side mutates. The shared state
+    // is immutable once IsShared becomes true; Set detaches before writing.
+    // This preserves independent chunk semantics without copying a full 4096
+    // voxel index array for every mesh-worker dependency chunk.
+    private sealed class StorageState
+    {
+        public StorageState()
+        {
+            Palette = [];
+            Usage = [];
+            Lookup = [];
+            FreeSlots = new Stack<ushort>();
+            Indices = new ushort[Chunk.Volume];
+            Occupied = new ulong[(Chunk.Volume + 63) / 64];
+            MeshletOccupiedCounts = new int[ChunkMeshletMask.Count];
+        }
+
+        private StorageState(StorageState source)
+        {
+            Palette = new List<T>(source.Palette);
+            Usage = new List<ushort>(source.Usage);
+            Lookup = new Dictionary<T, ushort>(source.Lookup);
+            FreeSlots = new Stack<ushort>(source.FreeSlots.Reverse());
+            Indices = (ushort[])source.Indices.Clone();
+            Occupied = (ulong[])source.Occupied.Clone();
+            OccupiedCount = source.OccupiedCount;
+            MeshletOccupiedCounts =
+                (int[])source.MeshletOccupiedCounts.Clone();
+        }
+
+        public List<T> Palette { get; }
+
+        public List<ushort> Usage { get; }
+
+        public Dictionary<T, ushort> Lookup { get; }
+
+        public Stack<ushort> FreeSlots { get; }
+
+        public ushort[] Indices { get; }
+
+        public ulong[] Occupied { get; }
+
+        public int[] MeshletOccupiedCounts { get; }
+
+        public int OccupiedCount { get; set; }
+
+        public bool IsShared { get; set; }
+
+        public StorageState Copy() => new(this);
+    }
+
+    private StorageState _state = new();
 
     public PaletteStorage()
     {
-        _palette = [];
-        _usage = [];
-        _lookup = [];
-        _freeSlots = new Stack<ushort>();
-        _indices = new ushort[Chunk.Volume];
-        _occupied = new ulong[(Chunk.Volume + 63) / 64];
     }
 
-    private PaletteStorage(PaletteStorage<T> source)
+    public int OccupiedCount => _state.OccupiedCount;
+
+    public int ActivePaletteEntryCount => _state.Lookup.Count;
+
+    public int OccupiedCountInMeshlet(int meshletIndex)
     {
-        _palette = new List<T>(source._palette);
-        _usage = new List<ushort>(source._usage);
-        _lookup = new Dictionary<T, ushort>(source._lookup);
-        _freeSlots = new Stack<ushort>(
-            source._freeSlots.Reverse());
-        _indices = (ushort[])source._indices.Clone();
-        _occupied = (ulong[])source._occupied.Clone();
-        OccupiedCount = source.OccupiedCount;
+        ChunkMeshletMask.Bounds(meshletIndex);
+        return _state.MeshletOccupiedCounts[meshletIndex];
     }
-
-    public int OccupiedCount { get; private set; }
-
-    public int ActivePaletteEntryCount => _lookup.Count;
 
     public T Get(int voxelIndex)
     {
-        var paletteIndex = _indices[voxelIndex];
+        var state = _state;
+        var paletteIndex = state.Indices[voxelIndex];
 
         return paletteIndex == 0
             ? default
-            : _palette[paletteIndex - 1];
+            : state.Palette[paletteIndex - 1];
     }
 
-    public bool Set(int voxelIndex, T value)
+    public bool Set(int voxelIndex, T value) =>
+        Set(voxelIndex, value, out _);
+
+    public bool Set(int voxelIndex, T value, out T previous)
     {
-        var previousIndex = _indices[voxelIndex];
-        var previous =
-            previousIndex == 0
-                ? default
-                : _palette[previousIndex - 1];
+        var state = _state;
+        var previousIndex = state.Indices[voxelIndex];
+        previous = ValueAt(state, previousIndex);
 
         if (previous.Equals(value))
-        {
             return false;
+
+        // A no-op write above does not detach a shared snapshot. Any real
+        // write first obtains a private state, including palette bookkeeping.
+        if (state.IsShared)
+        {
+            state = state.Copy();
+            _state = state;
         }
 
         var nextIndex =
@@ -66,12 +108,69 @@ internal sealed class PaletteStorage<T>
         Release(previousIndex);
         Retain(nextIndex);
 
-        _indices[voxelIndex] = nextIndex;
+        state.Indices[voxelIndex] = nextIndex;
         UpdateOccupancy(
             voxelIndex,
             previousIndex != 0,
             nextIndex != 0);
 
+        return true;
+    }
+
+    /// <summary>
+    /// Initializes one voxel in a fresh palette without running the normal
+    /// replacement path. The caller owns a batch that writes each occupied
+    /// index only once and commits the chunk revision after the batch.
+    /// </summary>
+    public bool SetInitial(int voxelIndex, T value) =>
+        SetInitialCore(voxelIndex, value, skipOccupied: false);
+
+    /// <summary>
+    /// Adds an initial value only when the slot is empty. Used by generation
+    /// passes that batch additions while preserving pre-existing structure data.
+    /// </summary>
+    public bool SetInitialIfEmpty(int voxelIndex, T value) =>
+        SetInitialCore(voxelIndex, value, skipOccupied: true);
+
+    private bool SetInitialCore(
+        int voxelIndex,
+        T value,
+        bool skipOccupied)
+    {
+        var state = _state;
+        if (state.IsShared)
+            throw new InvalidOperationException(
+                "Initial palette writes require private chunk storage.");
+
+        var previousIndex = state.Indices[voxelIndex];
+        if (previousIndex != 0)
+        {
+            if (skipOccupied || ValueAt(state, previousIndex).Equals(value))
+                return false;
+
+            throw new InvalidOperationException(
+                "An initial palette write cannot replace an occupied voxel.");
+        }
+
+        if (value.Equals(default))
+            return false;
+
+        ushort nextIndex;
+        if (!state.Lookup.TryGetValue(value, out nextIndex))
+        {
+            if (state.Palette.Count >= ushort.MaxValue)
+                throw new InvalidOperationException(
+                    "Chunk palette capacity was exhausted.");
+
+            state.Palette.Add(value);
+            state.Usage.Add(0);
+            nextIndex = checked((ushort)state.Palette.Count);
+            state.Lookup.Add(value, nextIndex);
+        }
+
+        Retain(nextIndex);
+        state.Indices[voxelIndex] = nextIndex;
+        UpdateOccupancy(voxelIndex, wasOccupied: false, isOccupied: true);
         return true;
     }
 
@@ -109,8 +208,9 @@ internal sealed class PaletteStorage<T>
         ArgumentNullException.ThrowIfNull(visit);
         visitedCount = 0;
 
+        var state = _state;
         if (startVoxelIndex == Chunk.Volume ||
-            OccupiedCount == 0)
+            state.OccupiedCount == 0)
         {
             return Chunk.Volume;
         }
@@ -118,10 +218,10 @@ internal sealed class PaletteStorage<T>
         var firstWordIndex = startVoxelIndex >> 6;
         var firstBitOffset = startVoxelIndex & 63;
         for (var wordIndex = firstWordIndex;
-             wordIndex < _occupied.Length;
+             wordIndex < state.Occupied.Length;
              wordIndex++)
         {
-            var remaining = _occupied[wordIndex];
+            var remaining = state.Occupied[wordIndex];
             if (wordIndex == firstWordIndex &&
                 firstBitOffset != 0)
             {
@@ -134,19 +234,17 @@ internal sealed class PaletteStorage<T>
                     System.Numerics.BitOperations
                         .TrailingZeroCount(remaining);
                 var voxelIndex = wordIndex * 64 + bit;
-                var paletteIndex = _indices[voxelIndex];
+                var paletteIndex = state.Indices[voxelIndex];
 
                 if (paletteIndex != 0)
                 {
                     visit(
                         voxelIndex,
-                        _palette[paletteIndex - 1]);
+                        state.Palette[paletteIndex - 1]);
                     visitedCount++;
 
                     if (visitedCount >= maximumItems)
-                    {
                         return voxelIndex + 1;
-                    }
                 }
 
                 remaining &= remaining - 1;
@@ -159,6 +257,72 @@ internal sealed class PaletteStorage<T>
     // A chunk row is 16 voxels wide and never crosses a 64-bit
     // occupancy word. This tests a box using only its packed bitset,
     // without visiting or unpacking voxel palette entries.
+    public int VisitOccupiedInBox(
+        int minX,
+        int minY,
+        int minZ,
+        int width,
+        int height,
+        int depth,
+        Action<int, T> visit)
+    {
+        if (width <= 0 || height <= 0 || depth <= 0 ||
+            !Chunk.Contains(minX, minY, minZ) ||
+            !Chunk.Contains(
+                minX + width - 1,
+                minY + height - 1,
+                minZ + depth - 1))
+        {
+            throw new ArgumentOutOfRangeException(nameof(width));
+        }
+
+        ArgumentNullException.ThrowIfNull(visit);
+        var state = _state;
+        if (state.OccupiedCount == 0)
+            return 0;
+
+        var visitedCount = 0;
+        var xEnd = minX + width;
+        var yEnd = minY + height;
+        var zEnd = minZ + depth;
+        for (var y = minY; y < yEnd; y++)
+        {
+            for (var z = minZ; z < zEnd; z++)
+            {
+                var x = minX;
+                while (x < xEnd)
+                {
+                    var first = x + Chunk.Size * (z + Chunk.Size * y);
+                    var bitOffset = first & 63;
+                    var segmentLength = Math.Min(xEnd - x, 64 - bitOffset);
+                    var rowMask =
+                        ((1UL << segmentLength) - 1UL) << bitOffset;
+                    var remaining = state.Occupied[first >> 6] & rowMask;
+                    var wordStart = (first >> 6) * 64;
+
+                    while (remaining != 0)
+                    {
+                        var bit = System.Numerics.BitOperations
+                            .TrailingZeroCount(remaining);
+                        var voxelIndex = wordStart + bit;
+                        var paletteIndex = state.Indices[voxelIndex];
+                        if (paletteIndex != 0)
+                        {
+                            visit(voxelIndex, state.Palette[paletteIndex - 1]);
+                            visitedCount++;
+                        }
+
+                        remaining &= remaining - 1;
+                    }
+
+                    x += segmentLength;
+                }
+            }
+        }
+
+        return visitedCount;
+    }
+
     public bool AnyOccupiedInBox(
         int minX,
         int minY,
@@ -177,13 +341,14 @@ internal sealed class PaletteStorage<T>
             throw new ArgumentOutOfRangeException(nameof(width));
         }
 
+        var state = _state;
         var rowMask = (1UL << width) - 1UL;
         for (var y = minY; y < minY + height; y++)
         {
             for (var z = minZ; z < minZ + depth; z++)
             {
                 var first = minX + Chunk.Size * (z + Chunk.Size * y);
-                if ((_occupied[first >> 6] &
+                if ((state.Occupied[first >> 6] &
                      (rowMask << (first & 63))) != 0UL)
                 {
                     return true;
@@ -194,83 +359,82 @@ internal sealed class PaletteStorage<T>
         return false;
     }
 
-    public PaletteStorage<T> Clone() =>
-        new(this);
+    public PaletteStorage<T> Clone()
+    {
+        var state = _state;
+        state.IsShared = true;
+        return new PaletteStorage<T>(state);
+    }
+
+    private PaletteStorage(StorageState sharedState)
+    {
+        _state = sharedState;
+        sharedState.IsShared = true;
+    }
+
+    private static T ValueAt(StorageState state, ushort paletteIndex) =>
+        paletteIndex == 0
+            ? default
+            : state.Palette[paletteIndex - 1];
 
     private ushort FindOrInsert(T value)
     {
-        if (_lookup.TryGetValue(
-                value,
-                out var existing))
-        {
+        var state = _state;
+        if (state.Lookup.TryGetValue(value, out var existing))
             return existing;
-        }
 
         ushort index;
-
-        if (_freeSlots.TryPop(
-                out var reusable))
+        if (state.FreeSlots.TryPop(out var reusable))
         {
             index = reusable;
-            _palette[index - 1] = value;
+            state.Palette[index - 1] = value;
         }
         else
         {
-            if (_palette.Count >= ushort.MaxValue)
-            {
+            if (state.Palette.Count >= ushort.MaxValue)
                 throw new InvalidOperationException(
                     "Chunk palette capacity was exhausted.");
-            }
 
-            _palette.Add(value);
-            _usage.Add(0);
-            index =
-                checked((ushort)_palette.Count);
+            state.Palette.Add(value);
+            state.Usage.Add(0);
+            index = checked((ushort)state.Palette.Count);
         }
 
-        _lookup.Add(value, index);
+        state.Lookup.Add(value, index);
         return index;
     }
 
     private void Retain(ushort paletteIndex)
     {
         if (paletteIndex == 0)
-        {
             return;
-        }
 
+        var state = _state;
         var index = paletteIndex - 1;
-        _usage[index] =
-            checked((ushort)(_usage[index] + 1));
+        state.Usage[index] =
+            checked((ushort)(state.Usage[index] + 1));
     }
 
     private void Release(ushort paletteIndex)
     {
         if (paletteIndex == 0)
-        {
             return;
-        }
 
+        var state = _state;
         var index = paletteIndex - 1;
-        var usage = _usage[index];
-
+        var usage = state.Usage[index];
         if (usage == 0)
-        {
             throw new InvalidOperationException(
                 "Chunk palette usage cannot underflow.");
-        }
 
         usage--;
-        _usage[index] = usage;
-
+        state.Usage[index] = usage;
         if (usage != 0)
-        {
             return;
-        }
 
-        var value = _palette[index];
-        _lookup.Remove(value);
-        _freeSlots.Push(paletteIndex);
+        var value = state.Palette[index];
+        state.Lookup.Remove(value);
+        state.FreeSlots.Push(paletteIndex);
     }
 
     private void UpdateOccupancy(
@@ -279,23 +443,31 @@ internal sealed class PaletteStorage<T>
         bool isOccupied)
     {
         if (wasOccupied == isOccupied)
-        {
             return;
-        }
 
+        var state = _state;
         var word = voxelIndex >> 6;
-        var mask =
-            1UL << (voxelIndex & 63);
+        var mask = 1UL << (voxelIndex & 63);
 
         if (isOccupied)
         {
-            _occupied[word] |= mask;
-            OccupiedCount++;
+            state.Occupied[word] |= mask;
+            state.OccupiedCount++;
         }
         else
         {
-            _occupied[word] &= ~mask;
-            OccupiedCount--;
+            state.Occupied[word] &= ~mask;
+            state.OccupiedCount--;
         }
+
+        var localY = voxelIndex / Chunk.Area;
+        var localZ = voxelIndex / Chunk.Size % Chunk.Size;
+        var localX = voxelIndex % Chunk.Size;
+        var meshletIndex =
+            localX / ChunkMeshletMask.Edge +
+            localZ / ChunkMeshletMask.Edge * ChunkMeshletMask.PerAxis +
+            localY / ChunkMeshletMask.Edge *
+            ChunkMeshletMask.PerAxis * ChunkMeshletMask.PerAxis;
+        state.MeshletOccupiedCounts[meshletIndex] += isOccupied ? 1 : -1;
     }
 }

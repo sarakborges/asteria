@@ -53,6 +53,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         new double[Enum.GetValues<WorldFrameStage>().Length];
     private readonly double[] _stageMsMax =
         new double[Enum.GetValues<WorldFrameStage>().Length];
+    private readonly double[] _materializationStageMsTotal =
+        new double[Enum.GetValues<ChunkMaterializationStage>().Length];
+    private readonly double[] _materializationStageMsMax =
+        new double[Enum.GetValues<ChunkMaterializationStage>().Length];
+    private readonly int[] _materializationStageCounts =
+        new int[Enum.GetValues<ChunkMaterializationStage>().Length];
     private long _nextFlush = Stopwatch.GetTimestamp() + IntervalTicks;
     private long? _loadingStartedAt;
     private long _phaseStartedAt;
@@ -61,6 +67,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _resident;
     private int _pending;
     private int _inflight;
+    private int _activeMaterializationWorkers;
+    private int _materializationJobs;
+    private int _suspendedMaterializationJobs;
     private int _presented;
     private int _terrainMeshPending;
     private int _fluidMeshPending;
@@ -91,6 +100,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _materializationMs;
     private double _terrainGenerationMs;
     private double _materializationMaxMs;
+    private double _materializationElapsedMs;
+    private double _materializationElapsedMaxMs;
     private ChunkCoord? _slowestChunk;
     private int _slowChunks;
     private int _restored;
@@ -341,6 +352,16 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public void Observe(ChunkResidencyUpdate update)
     {
+        foreach (var sample in update.MaterializationStageTimings)
+        {
+            var index = (int)sample.Stage;
+            _materializationStageMsTotal[index] += sample.WorkerMilliseconds;
+            _materializationStageMsMax[index] = Math.Max(
+                _materializationStageMsMax[index],
+                sample.WorkerMilliseconds);
+            _materializationStageCounts[index]++;
+        }
+
         foreach (var activation in update.Activations)
         {
             if (activation.Source == ChunkActivationSource.Archive)
@@ -352,6 +373,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _materialized++;
             _materializationMs += activation.WorkerMilliseconds;
             _terrainGenerationMs += activation.TerrainMilliseconds;
+            _materializationElapsedMs += activation.ElapsedMilliseconds;
+            _materializationElapsedMaxMs = Math.Max(
+                _materializationElapsedMaxMs,
+                activation.ElapsedMilliseconds);
             if (activation.WorkerMilliseconds > _materializationMaxMs)
             {
                 _materializationMaxMs = activation.WorkerMilliseconds;
@@ -458,11 +483,17 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         int resident, int pending, int materializing,
         int presented, string loadingPhase,
         int terrainMeshPending, int fluidMeshPending,
-        bool fluidSimulationActive)
+        bool fluidSimulationActive,
+        int activeMaterializationWorkers = 0,
+        int materializationJobs = 0,
+        int suspendedMaterializationJobs = 0)
     {
         _resident = resident;
         _pending = pending;
         _inflight = materializing;
+        _activeMaterializationWorkers = activeMaterializationWorkers;
+        _materializationJobs = materializationJobs;
+        _suspendedMaterializationJobs = suspendedMaterializationJobs;
         _presented = presented;
         _terrainMeshPending = terrainMeshPending;
         _fluidMeshPending = fluidMeshPending;
@@ -495,6 +526,17 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     private void FlushSnapshot()
     {
+        var materializationStages = string.Join(" ",
+            Enum.GetValues<ChunkMaterializationStage>()
+                .Where(stage => stage != ChunkMaterializationStage.Complete)
+                .Select(stage =>
+                {
+                    var index = (int)stage;
+                    var name = stage.ToString().ToLowerInvariant();
+                    return $"generation_stage_{name}_count={_materializationStageCounts[index]} " +
+                        $"generation_stage_{name}_ms_total={Format1(_materializationStageMsTotal[index])} " +
+                        $"generation_stage_{name}_ms_max={Format1(_materializationStageMsMax[index])}";
+                }));
         var stages = string.Join(" ",
             Enum.GetValues<WorldFrameStage>().Select(stage =>
             {
@@ -508,6 +550,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"world.snapshot uptime_s={Format1(_uptime.Elapsed.TotalSeconds)} " +
             $"phase={_phase} resident={_resident} pending={_pending} " +
             $"inflight={_inflight} presented={_presented} " +
+            $"generation_workers_active={_activeMaterializationWorkers} " +
+            $"generation_jobs={_materializationJobs} " +
+            $"generation_jobs_suspended={_suspendedMaterializationJobs} " +
             $"collision_deferred_chunks={_deferredCollisionChunks} " +
             $"collision_prewarmed_shapes={_collisionPrewarmedShapes} " +
             $"collision_emergency_shapes={_collisionEmergencyShapes} " +
@@ -554,7 +599,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"render_visible_primitives_max={_renderVisiblePrimitivesMax} " +
             $"generated={_materialized} restored={_restored} " +
             $"generation_ms_total={Format1(_materializationMs)} " +
-            $"generation_terrain_ms_total={Format1(_terrainGenerationMs)} " +            $"generation_ms_max={Format1(_materializationMaxMs)} " +
+            $"generation_terrain_ms_total={Format1(_terrainGenerationMs)} " +
+            $"generation_ms_max={Format1(_materializationMaxMs)} " +
+            $"generation_latency_ms_total={Format1(_materializationElapsedMs)} " +
+            $"generation_latency_ms_max={Format1(_materializationElapsedMaxMs)} " +
             $"generation_slow_chunks={_slowChunks} slowest_chunk={_slowestChunk} " +
             $"fluid_activation_chunks={_fluidActivationChunks} " +
             $"fluid_activation_slices={_fluidActivationSlices} " +
@@ -581,10 +629,14 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"fluid_mesh_discarded_batches={_fluidMeshDiscardedBatches} " +
             $"fluid_batches={_fluidBatches} fluid_ms_total={Format1(_fluidMs)} " +
             $"fluid_changes={_fluidChanges} fluid_backlog_max={_fluidBacklogMax} " +
+            materializationStages + " " +
             stages);
 
         Array.Clear(_stageMsTotal);
         Array.Clear(_stageMsMax);
+        Array.Clear(_materializationStageMsTotal);
+        Array.Clear(_materializationStageMsMax);
+        Array.Clear(_materializationStageCounts);
         _creaturesPeak = _creaturesActive;
         _creatureParticlesPeak = _creatureParticlesActive;
         _ambientParticlesPeak = _ambientParticlesActive;
@@ -620,6 +672,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _materializationMs = 0d;
         _terrainGenerationMs = 0d;
         _materializationMaxMs = 0d;
+        _materializationElapsedMs = 0d;
+        _materializationElapsedMaxMs = 0d;
         _slowChunks = 0;
         _slowestChunk = null;
         _terrainMeshBatches = 0;

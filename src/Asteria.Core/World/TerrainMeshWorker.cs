@@ -116,10 +116,19 @@ public sealed class TerrainMeshWorker
                 continue;
             }
 
+            var occupiedMeshlets = world.GetChunk(coord).OccupiedTerrainMeshlets();
             BiomeTintSampleGrid? tintSamples = null;
             foreach (var meshletIndex in mask.Indices())
             {
-                // Immutable biome samples are only needed by a new mesh.
+                // Empty meshlets still publish an empty result to settle
+                // streaming readiness, but need no biome tint sampling.
+                if (!occupiedMeshlets.ContainsIndex(meshletIndex))
+                {
+                    result.Add(new TerrainMeshletBuild(
+                        coord, meshletIndex, ChunkMeshData.Empty));
+                    continue;
+                }
+
                 tintSamples ??= biomeTints.SampleChunkGrid(coord.X, coord.Z);
                 result.Add(new TerrainMeshletBuild(
                     coord, meshletIndex,

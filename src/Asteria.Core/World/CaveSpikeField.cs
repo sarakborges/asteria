@@ -9,6 +9,14 @@ public sealed class CaveSpikeField
     private readonly ulong _seed;
     private readonly SurfaceTerrainField _terrain;
     private readonly IReadOnlyDictionary<string, SpikeRule[]> _rules;
+
+    // Cave-spike spacing is purely horizontal: the same (X,Z,radius) is
+    // reconsidered for each anchor Y, both directions, and adjacent vertical
+    // chunks. Cache that decision across those repeated probes.
+    private readonly BoundedMemoCache<
+        (int X, int Z, int Radius),
+        bool> _spacingPriorities = new(32768);
+
     private static readonly GenerationDomain SpacingDomain =
         GenerationDomain.Named("worldgen/cave-spike/horizontal-spacing/v1");
 
@@ -64,6 +72,47 @@ public sealed class CaveSpikeField
         int y,
         int z,
         bool down,
+        out CaveSpikePlacement placement) =>
+        TrySampleCore(
+            undergroundBiome, surfaceBiome, volumeBiome, baseY,
+            x, y, z, down, densityVolume: null, densityOriginY: 0,
+            localX: 0, localZ: 0, out placement);
+
+    internal bool TrySample(
+        string undergroundBiome,
+        BiomeSample surfaceBiome,
+        BiomeSample? volumeBiome,
+        int baseY,
+        int x,
+        int y,
+        int z,
+        bool down,
+        TerrainDensityVolume densityVolume,
+        int densityOriginY,
+        int localX,
+        int localZ,
+        out CaveSpikePlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(densityVolume);
+        return TrySampleCore(
+            undergroundBiome, surfaceBiome, volumeBiome, baseY,
+            x, y, z, down, densityVolume, densityOriginY,
+            localX, localZ, out placement);
+    }
+
+    private bool TrySampleCore(
+        string undergroundBiome,
+        BiomeSample surfaceBiome,
+        BiomeSample? volumeBiome,
+        int baseY,
+        int x,
+        int y,
+        int z,
+        bool down,
+        TerrainDensityVolume? densityVolume,
+        int densityOriginY,
+        int localX,
+        int localZ,
         out CaveSpikePlacement placement)
     {
         placement = default;
@@ -109,10 +158,20 @@ public sealed class CaveSpikeField
             if (!HasSpacingPriority(x, z, definition.MinSpacing))
                 continue;
 
-            bool IsVoid(int probeY) =>
-                probeY > 0 && probeY < baseY &&
-                _terrain.DensityAt(
+            bool IsVoid(int probeY)
+            {
+                if (probeY <= 0 || probeY >= baseY)
+                    return false;
+
+                var localProbeY = probeY - densityOriginY;
+                if (densityVolume is not null &&
+                    (uint)localProbeY < densityVolume.Height)
+                    return !densityVolume.IsSolidAt(
+                        localX, localProbeY, localZ);
+
+                return _terrain.DensityAt(
                     surfaceBiome, baseY, x, probeY, z, volumeBiome) < 0d;
+            }
             var supportY = y + (down ? 1 : -1);
             if (!IsVoid(y) || IsVoid(supportY))
                 continue;
@@ -171,6 +230,17 @@ public sealed class CaveSpikeField
         if (radius == 0)
             return true;
 
+        var key = (X: x, Z: z, Radius: radius);
+        if (_spacingPriorities.TryGet(key, out var cached))
+            return cached;
+
+        return _spacingPriorities.GetOrAdd(
+            key,
+            () => HasSpacingPriorityUncached(x, z, radius));
+    }
+
+    private bool HasSpacingPriorityUncached(int x, int z, int radius)
+    {
         var priority = WorldGenerationEntropy.Sample2D(
             _seed, SpacingDomain, x, z);
         for (var offsetZ = -radius; offsetZ <= radius; offsetZ++)

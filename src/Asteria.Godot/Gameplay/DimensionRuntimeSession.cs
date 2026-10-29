@@ -941,6 +941,7 @@ public bool IsRetiring =>
         }
 
         _retiring = true;
+        Residency.BeginRetirement();
         Streaming.BeginRetirement();
         FluidSimulation.BeginRetirement();
 TerrainMesh.BeginRetirement();

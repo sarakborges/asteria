@@ -9,24 +9,122 @@ public sealed class Chunk
     private readonly PaletteStorage<VoxelCell> _cells;
     private readonly PaletteStorage<FluidCell> _fluids;
     private readonly MicroblockMaskPalette _microblockMasks;
-    private readonly Dictionary<int, BlockSurfaceState> _surfaceStates;
-    private readonly Dictionary<int, List<ObjectCell>> _objects;
+    private Dictionary<int, BlockSurfaceState>? _surfaceStates;
+    private Dictionary<int, List<ObjectCell>>? _objects;
+
+    /// <summary>
+    /// Efficiently fills a fresh chunk's block storage before normal worldgen
+    /// passes begin. Initial writes cannot replace occupied cells; disposing
+    /// the writer commits one revision for the completed batch.
+    /// </summary>
+    internal sealed class InitialBlockWriter : IDisposable
+    {
+        private Chunk? _chunk;
+        private bool _changed;
+
+        internal InitialBlockWriter(Chunk chunk)
+        {
+            _chunk = chunk;
+        }
+
+        public bool SetBlockAtLinearIndex(
+            int voxelIndex,
+            BlockRuntimeId block)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialBlockWriter));
+            if ((uint)voxelIndex >= Volume)
+                throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+            var changed = chunk._cells.SetInitial(
+                voxelIndex,
+                new VoxelCell(block));
+            _changed |= changed;
+            return changed;
+        }
+
+        public void Complete()
+        {
+            var chunk = _chunk;
+            if (chunk is null)
+                return;
+
+            if (_changed)
+                chunk.Revision++;
+
+            _chunk = null;
+        }
+
+        public void Dispose() => Complete();
+    }
+
+    /// <summary>
+    /// Batches generation-time fluid additions into one chunk revision. This
+    /// writer may coexist with fluids already authored by structures, but it
+    /// never replaces occupied fluid cells and must run before Objects are added.
+    /// </summary>
+    internal sealed class InitialFluidWriter : IDisposable
+    {
+        private Chunk? _chunk;
+        private bool _changed;
+
+        internal InitialFluidWriter(Chunk chunk)
+        {
+            _chunk = chunk;
+        }
+
+        public bool IsEmptyAtLinearIndex(int voxelIndex)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialFluidWriter));
+            if ((uint)voxelIndex >= Volume)
+                throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+            return chunk._fluids.Get(voxelIndex).IsEmpty;
+        }
+
+        public bool SetFluidAtLinearIndexIfEmpty(
+            int voxelIndex,
+            FluidCell fluid)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialFluidWriter));
+            if ((uint)voxelIndex >= Volume)
+                throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+            var changed = chunk._fluids.SetInitialIfEmpty(voxelIndex, fluid);
+            _changed |= changed;
+            return changed;
+        }
+
+        public void Complete()
+        {
+            var chunk = _chunk;
+            if (chunk is null)
+                return;
+
+            if (_changed)
+                chunk.Revision++;
+
+            _chunk = null;
+        }
+
+        public void Dispose() => Complete();
+    }
 
     public Chunk()
     {
         _cells = new PaletteStorage<VoxelCell>();
         _fluids = new PaletteStorage<FluidCell>();
         _microblockMasks = new MicroblockMaskPalette();
-        _surfaceStates = [];
-        _objects = [];
     }
 
     private Chunk(
         PaletteStorage<VoxelCell> cells,
         PaletteStorage<FluidCell> fluids,
         MicroblockMaskPalette microblockMasks,
-        Dictionary<int, BlockSurfaceState> surfaceStates,
-        Dictionary<int, List<ObjectCell>> objects,
+        Dictionary<int, BlockSurfaceState>? surfaceStates,
+        Dictionary<int, List<ObjectCell>>? objects,
         ulong revision,
         ulong objectRevision)
     {
@@ -74,6 +172,30 @@ public sealed class Chunk
     public ChunkMeshletMask OccupiedFluidMeshlets() =>
         OccupiedMeshlets(_fluids);
 
+    public bool HasTerrainInMeshlet(int meshletIndex) =>
+        HasOccupiedMeshlet(_cells, meshletIndex);
+
+    public bool HasFluidInMeshlet(int meshletIndex) =>
+        HasOccupiedMeshlet(_fluids, meshletIndex);
+
+    public int TerrainVoxelCountInMeshlet(int meshletIndex) =>
+        CountOccupiedMeshlet(_cells, meshletIndex);
+
+    public int FluidVoxelCountInMeshlet(int meshletIndex) =>
+        CountOccupiedMeshlet(_fluids, meshletIndex);
+
+    private static bool HasOccupiedMeshlet<T>(
+        PaletteStorage<T> storage,
+        int meshletIndex)
+        where T : struct, IEquatable<T> =>
+        storage.OccupiedCountInMeshlet(meshletIndex) > 0;
+
+    private static int CountOccupiedMeshlet<T>(
+        PaletteStorage<T> storage,
+        int meshletIndex)
+        where T : struct, IEquatable<T> =>
+        storage.OccupiedCountInMeshlet(meshletIndex);
+
     private static ChunkMeshletMask OccupiedMeshlets<T>(
         PaletteStorage<T> storage)
         where T : struct, IEquatable<T>
@@ -86,15 +208,8 @@ public sealed class Chunk
         byte bits = 0;
         for (var index = 0; index < ChunkMeshletMask.Count; index++)
         {
-            var bounds = ChunkMeshletMask.Bounds(index);
-            if (storage.AnyOccupiedInBox(
-                    bounds.MinX, bounds.MinY, bounds.MinZ,
-                    ChunkMeshletMask.Edge,
-                    ChunkMeshletMask.Edge,
-                    ChunkMeshletMask.Edge))
-            {
+            if (storage.OccupiedCountInMeshlet(index) > 0)
                 bits |= (byte)(1 << index);
-            }
         }
 
         return new ChunkMeshletMask(bits);
@@ -126,6 +241,13 @@ public sealed class Chunk
         return _cells.Get(ToIndex(x, y, z));
     }
 
+    /// <summary>
+    /// Reads a voxel by its already-validated linear index. Internal callers
+    /// must establish that the index belongs to this chunk before using it.
+    /// </summary>
+    internal VoxelCell GetCellAtLinearIndexUnchecked(int voxelIndex) =>
+        _cells.Get(voxelIndex);
+
     public VoxelCell GetCellOrEmpty(int x, int y, int z)
     {
         if (!Contains(x, y, z))
@@ -141,22 +263,85 @@ public sealed class Chunk
     public bool SetCell(int x, int y, int z, VoxelCell cell)
     {
         ValidateCoordinates(x, y, z);
-        var index = ToIndex(x, y, z);
-        var previous = _cells.Get(index);
-        if (!_cells.Set(index, cell))
+        return SetCellAtIndex(ToIndex(x, y, z), cell);
+    }
+
+    /// <summary>
+    /// Writes a block using its already-linearized chunk index. Intended for
+    /// bounded internal loops that have established X/Y/Z coordinates; normal
+    /// callers keep using the coordinate-validated SetBlock/SetCell APIs.
+    /// </summary>
+    internal bool SetBlockAtLinearIndex(int voxelIndex, BlockRuntimeId block)
+    {
+        if ((uint)voxelIndex >= Volume)
+            throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+        return SetCellAtIndex(voxelIndex, new VoxelCell(block));
+    }
+
+    internal InitialBlockWriter BeginInitialBlockWrites()
+    {
+        if (Revision != 0 ||
+            ObjectRevision != 0 ||
+            NonEmptyVoxelCount != 0 ||
+            FluidCount != 0 ||
+            MicroblockMaskCount != 0 ||
+            ObjectCount != 0 ||
+            _surfaceStates is not null ||
+            _objects is not null)
         {
-            return false;
+            throw new InvalidOperationException(
+                "Initial block writes require a fresh, empty chunk.");
         }
+
+        return new InitialBlockWriter(this);
+    }
+
+    /// <summary>
+    /// Begins batched generated-fluid writes. Existing block and fluid content
+    /// is preserved, but callers must add no Objects until the batch completes.
+    /// </summary>
+    internal InitialFluidWriter BeginInitialFluidWrites()
+    {
+        if (ObjectCount != 0 || _objects is not null)
+        {
+            throw new InvalidOperationException(
+                "Initial fluid writes must complete before Objects are added.");
+        }
+
+        return new InitialFluidWriter(this);
+    }
+
+    private bool SetCellAtIndex(int index, VoxelCell cell)
+    {
+        if (!_cells.Set(index, cell, out var previous))
+            return false;
 
         if (cell.IsEmpty || previous.Block != cell.Block)
         {
-            _surfaceStates.Remove(index);
-            if (_objects.Remove(index, out var detached))
+            // Surface state can only be attached to a non-empty block. Fresh
+            // procedural chunks therefore need no dictionary lookup here.
+            if (!previous.IsEmpty &&
+                _surfaceStates is { } surfaceStates)
+            {
+                surfaceStates.Remove(index);
+                if (surfaceStates.Count == 0)
+                    _surfaceStates = null;
+            }
+
+            // ObjectCount is the authoritative aggregate for this chunk. When
+            // zero, the support-index dictionary is known to be empty.
+            if (ObjectCount > 0 &&
+                _objects is { } objects &&
+                objects.Remove(index, out var detached))
             {
                 ObjectCount -= detached.Count;
                 ObjectRevision++;
+                if (objects.Count == 0)
+                    _objects = null;
             }
         }
+
         Revision++;
         return true;
     }
@@ -168,7 +353,8 @@ public sealed class Chunk
     public IReadOnlyList<ObjectCell> ObjectsAt(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
-        return _objects.TryGetValue(ToIndex(x, y, z), out var objects)
+        return _objects is { } objectIndex &&
+               objectIndex.TryGetValue(ToIndex(x, y, z), out var objects)
             ? objects.ToArray()
             : Array.Empty<ObjectCell>();
     }
@@ -186,17 +372,17 @@ public sealed class Chunk
              _fluids.Get(index).Level != FluidCell.MaxLevel ||
              !_fluids.Get(index).IsSource))
             return false;
+        _objects ??= [];
         if (_objects.TryGetValue(index, out var current))
         {
             if (current.Count >= MaximumObjectsPerSupport || current.Contains(obj))
                 return false;
+            current.Add(obj);
         }
         else
         {
-            current = [];
-            _objects.Add(index, current);
+            _objects.Add(index, [obj]);
         }
-        current.Add(obj);
         ObjectCount++;
         ObjectRevision++;
         Revision++;
@@ -207,10 +393,14 @@ public sealed class Chunk
     {
         ValidateCoordinates(x, y, z);
         var index = ToIndex(x, y, z);
-        if (!_objects.TryGetValue(index, out var objects) || !objects.Remove(obj))
+        if (_objects is not { } objectIndex ||
+            !objectIndex.TryGetValue(index, out var objects) ||
+            !objects.Remove(obj))
             return false;
         if (objects.Count == 0)
-            _objects.Remove(index);
+            objectIndex.Remove(index);
+        if (objectIndex.Count == 0)
+            _objects = null;
         ObjectCount--;
         ObjectRevision++;
         Revision++;
@@ -224,13 +414,16 @@ public sealed class Chunk
         // Rendering/persistence can retain deterministic support order.
         // Spatial queries supply their own hit-distance and identity tie-breaks
         // and should not sort the entire support dictionary each frame.
+        if (_objects is not { } objectIndex)
+            return;
+
         IEnumerable<int> supports = ordered
-            ? _objects.Keys.OrderBy(key => key)
-            : _objects.Keys;
+            ? objectIndex.Keys.OrderBy(key => key)
+            : objectIndex.Keys;
         foreach (var index in supports)
         {
             var (x, y, z) = FromIndex(index);
-            foreach (var obj in _objects[index])
+            foreach (var obj in objectIndex[index])
                 visit(x, y, z, obj);
         }
     }
@@ -255,6 +448,13 @@ public sealed class Chunk
         return _fluids.Get(ToIndex(x, y, z));
     }
 
+    /// <summary>
+    /// Reads a fluid by its already-validated linear index. Internal callers
+    /// must establish that the index belongs to this chunk before using it.
+    /// </summary>
+    internal FluidCell GetFluidAtLinearIndexUnchecked(int voxelIndex) =>
+        _fluids.Get(voxelIndex);
+
     public FluidCell GetFluidOrEmpty(int x, int y, int z)
     {
         if (!Contains(x, y, z))
@@ -274,25 +474,47 @@ public sealed class Chunk
         ValidateCoordinates(x, y, z);
 
         var index = ToIndex(x, y, z);
-        var previous = _fluids.Get(index);
-        if (!_fluids.Set(index, fluid))
+        if (!_fluids.Set(index, fluid, out var previous))
             return false;
 
         // Fluid-supported Objects are removed when their supporting surface
         // disappears, changes identity, or drops below the voxel's top face.
-        // No solid-block attachments are affected by fluid changes.
+        // No solid-block attachments are affected by fluid changes. If the
+        // chunk has no Objects, avoid a dictionary lookup on generated fluids.
         if (_cells.Get(index).IsEmpty &&
             (fluid.IsEmpty || fluid.Level != FluidCell.MaxLevel ||
              !fluid.IsSource ||
              previous.Fluid != fluid.Fluid) &&
-            _objects.Remove(index, out var detached))
+            ObjectCount > 0 &&
+            _objects is { } objectIndex &&
+            objectIndex.Remove(index, out var detached))
         {
             ObjectCount -= detached.Count;
             ObjectRevision++;
+            if (objectIndex.Count == 0)
+                _objects = null;
         }
 
         Revision++;
         return true;
+    }
+
+    public int VisitFluidCellsInMeshlet(
+        int meshletIndex,
+        Action<int, int, int, FluidCell> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        return _fluids.VisitOccupiedInBox(
+            bounds.MinX, bounds.MinY, bounds.MinZ,
+            ChunkMeshletMask.Edge,
+            ChunkMeshletMask.Edge,
+            ChunkMeshletMask.Edge,
+            (voxelIndex, fluid) =>
+            {
+                var (x, y, z) = FromIndex(voxelIndex);
+                visit(x, y, z, fluid);
+            });
     }
 
     public void VisitFluidCells(
@@ -343,17 +565,63 @@ public Chunk CloneForWorker() =>
             _cells.Clone(),
             _fluids.Clone(),
             _microblockMasks.Clone(),
-            new Dictionary<int, BlockSurfaceState>(_surfaceStates),
-            _objects.ToDictionary(entry => entry.Key,
-                entry => new List<ObjectCell>(entry.Value)),
+            _surfaceStates is { Count: > 0 } surfaceStates
+                ? new Dictionary<int, BlockSurfaceState>(surfaceStates)
+                : null,
+            _objects is { Count: > 0 } objectIndex
+                ? objectIndex.ToDictionary(entry => entry.Key,
+                    entry => new List<ObjectCell>(entry.Value))
+                : null,
             Revision,
             ObjectRevision)
         { ObjectCount = this.ObjectCount };
 
+    public int VisitLayeredCellsInMeshlet(
+        int meshletIndex,
+        Action<int, int, int, BlockSurfaceState> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+        var surfaceStates = _surfaceStates;
+        if (surfaceStates is not { Count: > 0 })
+            return 0;
+
+        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        List<int>? selected = null;
+        foreach (var (voxelIndex, state) in surfaceStates)
+        {
+            if (state.Layers.Count == 0)
+                continue;
+
+            var (x, y, z) = FromIndex(voxelIndex);
+            if (x < bounds.MinX || x >= bounds.MaxXExclusive ||
+                y < bounds.MinY || y >= bounds.MaxYExclusive ||
+                z < bounds.MinZ || z >= bounds.MaxZExclusive)
+                continue;
+
+            selected ??= [];
+            selected.Add(voxelIndex);
+        }
+
+        if (selected is null)
+            return 0;
+
+        // Match the chunk's normal Y/Z/X traversal order independent of
+        // insertion/removal history in the sparse state dictionary.
+        selected.Sort();
+        foreach (var voxelIndex in selected)
+        {
+            var (x, y, z) = FromIndex(voxelIndex);
+            visit(x, y, z, surfaceStates[voxelIndex]);
+        }
+
+        return selected.Count;
+    }
+
     public BlockSurfaceState GetSurfaceState(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
-        return _surfaceStates.TryGetValue(ToIndex(x, y, z), out var state)
+        return _surfaceStates is { } surfaceStates &&
+               surfaceStates.TryGetValue(ToIndex(x, y, z), out var state)
             ? state
             : BlockSurfaceState.Empty;
     }
@@ -371,9 +639,15 @@ public Chunk CloneForWorker() =>
             return false;
 
         if (state.IsEmpty)
-            _surfaceStates.Remove(index);
+        {
+            _surfaceStates?.Remove(index);
+            if (_surfaceStates is { Count: 0 })
+                _surfaceStates = null;
+        }
         else
-            _surfaceStates[index] = state;
+        {
+            (_surfaceStates ??= [])[index] = state;
+        }
 
         Revision++;
         return true;

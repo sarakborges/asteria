@@ -11,6 +11,7 @@ public sealed class SurfaceDecorationField
     private readonly ulong _seed;
     private readonly SurfaceTerrainField? _terrain;
     private readonly SurfaceHabitatField _habitats;
+
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
     private readonly HashSet<string> _objectBiomes;
     private readonly HashSet<string> _verticalBiomes;

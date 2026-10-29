@@ -40,6 +40,10 @@ public sealed record ChunkMeshData(
     ChunkRenderBatchData[] RenderBatches,
     Vector3[] CollisionFaces)
 {
+    public static ChunkMeshData Empty { get; } = new(
+        Array.Empty<ChunkRenderBatchData>(),
+        Array.Empty<Vector3>());
+
     public int TriangleCount =>
         RenderBatches.Sum(batch => batch.TriangleCount);
 

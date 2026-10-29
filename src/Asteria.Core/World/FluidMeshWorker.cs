@@ -92,6 +92,9 @@ public sealed class FluidMeshWorker
     {
         var result =
             new List<FluidMeshletBuild>();
+        // Created only when this batch has actual fluid geometry. All fluid
+        // meshlets in the batch share one cache over the immutable snapshot.
+        FluidMeshDataBuilder.FluidSurfaceHeightCache? surfaceHeightCache = null;
 
         foreach (var (coord, mask) in dirty
                      .OrderBy(entry => entry.Key.Y)
@@ -103,12 +106,23 @@ public sealed class FluidMeshWorker
                 continue;
             }
 
+            var occupiedMeshlets = world.GetChunk(coord).OccupiedFluidMeshlets();
             foreach (var meshletIndex in mask.Indices())
             {
+                if (!occupiedMeshlets.ContainsIndex(meshletIndex))
+                {
+                    result.Add(new FluidMeshletBuild(
+                        coord, meshletIndex, ChunkFluidMeshData.Empty));
+                    continue;
+                }
+
+                surfaceHeightCache ??=
+                    new FluidMeshDataBuilder.FluidSurfaceHeightCache(world);
                 result.Add(new FluidMeshletBuild(
                     coord, meshletIndex,
                     FluidMeshDataBuilder.BuildMeshlet(
-                        world, coord, blocks, fluids, meshletIndex)));
+                        world, coord, blocks, fluids, meshletIndex,
+                        surfaceHeightCache)));
             }
         }
 

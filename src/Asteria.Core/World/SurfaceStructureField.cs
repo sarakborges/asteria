@@ -66,6 +66,22 @@ public sealed class SurfaceStructureField
             new(
                 CandidateCacheCapacity);
 
+    private readonly BoundedMemoCache<
+        (int X, int Z),
+        SurfaceSample> _surfaceSamples =
+            new(8192);
+
+    private readonly BoundedMemoCache<
+        (int X, int Z),
+        BiomeSample> _surfaceBiomes =
+            new(8192);
+
+    // A sampler belongs to the synchronous placement query on the current
+    // worker thread. It is installed only while resolving an uncached chunk
+    // and cleared afterward, so parallel chunk generation never shares it.
+    private readonly ThreadLocal<BiomeField.Sampler?> _activeBiomeSampler =
+        new();
+
     public SurfaceStructureField(
         ulong seed,
         DimensionDefinition dimension,
@@ -167,7 +183,7 @@ public sealed class SurfaceStructureField
     {
         ArgumentNullException.ThrowIfNull(committed);
         plan = null;
-        var biome = SurfaceAt(anchorX, anchorZ).Biome.Primary;
+        var biome = SurfaceBiomeAt(anchorX, anchorZ).Primary;
         var members = Array.Empty<RuntimeStructure>();
         RuntimeStructureSet? set = null;
         if (_structureSets.TryGet(reference, out var setDefinition))
@@ -246,7 +262,7 @@ public sealed class SurfaceStructureField
         // can still expand its normal authored connector graph.
         if (definitions.Count != 1)
             return false;
-        var biome = SurfaceAt(anchorX, anchorZ).Biome.Primary;
+        var biome = SurfaceBiomeAt(anchorX, anchorZ).Primary;
         var member = new RuntimeStructure(definitions[0], _blocks, _fluids);
         var root = member.Place(reference, anchorX, anchorY, anchorZ,
             StructureRotation.Degrees0);
@@ -369,6 +385,21 @@ public sealed class SurfaceStructureField
                 "Structure query area exceeds world coordinate range.");
         }
 
+        return WithBiomeSampler(() =>
+            PlacementsIntersectingCore(
+                originX,
+                originZ,
+                (int)maximumX,
+                (int)maximumZ));
+    }
+
+    private IReadOnlyList<SurfaceStructureQueryResult>
+        PlacementsIntersectingCore(
+            int originX,
+            int originZ,
+            int maximumX,
+            int maximumZ)
+    {
         var results =
             new List<SurfaceStructureQueryResult>();
         foreach (var candidate in
@@ -423,6 +454,25 @@ public sealed class SurfaceStructureField
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        return WithBiomeSampler(() =>
+            FindNearestCore(
+                reference,
+                originX,
+                originZ,
+                maxDistance,
+                structureId,
+                cancellationToken));
+    }
+
+    private SurfaceStructureQueryResult?
+        FindNearestCore(
+            string reference,
+            int originX,
+            int originZ,
+            int maxDistance,
+            string? structureId,
+            CancellationToken cancellationToken)
+    {
         StructureCandidate? best = null;
         long bestDistanceSquared = long.MaxValue;
         var maximumDistanceSquared =
@@ -621,29 +671,73 @@ public sealed class SurfaceStructureField
                 ? point - maximum
                 : 0L;
 
+    private bool CandidateBoundsIntersect(
+        RootRule rule,
+        int cellX,
+        int cellZ,
+        int minimumX,
+        int minimumZ,
+        int maximumX,
+        int maximumZ)
+    {
+        if (rule.Chance <= 0f)
+            return false;
+
+        var anchorX = CandidateAxis(
+            cellX,
+            rule.Spacing,
+            rule.Jitter,
+            WorldGenerationEntropy.Sample2D(
+                _seed,
+                rule.JitterXDomain,
+                cellX,
+                cellZ));
+        var anchorZ = CandidateAxis(
+            cellZ,
+            rule.Spacing,
+            rule.Jitter,
+            WorldGenerationEntropy.Sample2D(
+                _seed,
+                rule.JitterZDomain,
+                cellX,
+                cellZ));
+        if (anchorX is null || anchorZ is null)
+            return false;
+
+        var radius = (long)rule.MaximumHorizontalRadius;
+        return (long)anchorX.Value + radius >= minimumX &&
+               (long)anchorX.Value - radius <= maximumX &&
+               (long)anchorZ.Value + radius >= minimumZ &&
+               (long)anchorZ.Value - radius <= maximumZ;
+    }
+
     private bool CandidateIsAccepted(
-        StructureCandidate candidate) =>
-        _candidateAcceptance.GetOrAdd(
-            new StructureCandidateKey(
-                candidate.RuleIndex,
-                candidate.CellX,
-                candidate.CellZ),
+        StructureCandidate candidate)
+    {
+        var key = new StructureCandidateKey(
+            candidate.RuleIndex,
+            candidate.CellX,
+            candidate.CellZ);
+        if (_candidateAcceptance.TryGet(key, out var cached))
+            return cached;
+
+        var relevantConflictGroups =
+            candidate.ConflictGroups.ToHashSet(StringComparer.Ordinal);
+        return _candidateAcceptance.GetOrAdd(
+            key,
             () =>
                 !CollectCandidatesIntersectingBounds(
                         candidate.MinimumX,
                         candidate.MinimumZ,
                         candidate.MaximumX,
-                        candidate.MaximumZ)
+                        candidate.MaximumZ,
+                        candidate.Priority,
+                        relevantConflictGroups)
                     .Any(other =>
-                        !SameCandidate(
-                            other,
-                            candidate) &&
-                        CandidateOutranks(
-                            other,
-                            candidate) &&
-                        CandidatesConflict(
-                            other,
-                            candidate)));
+                        !SameCandidate(other, candidate) &&
+                        CandidateOutranks(other, candidate) &&
+                        CandidatesConflict(other, candidate)));
+    }
 
     private static SurfaceStructureQueryResult
         ToQueryResult(
@@ -724,15 +818,16 @@ public sealed class SurfaceStructureField
     internal IReadOnlyList<SurfaceStructurePlacement>
         PlacementsForChunk(
             int chunkX,
-            int chunkZ) =>
-        _placements.GetOrAdd(
-            new StructureChunkKey(
-                chunkX,
-                chunkZ),
-            () =>
-                ResolvePlacements(
-                    chunkX,
-                    chunkZ));
+            int chunkZ)
+    {
+        var key = new StructureChunkKey(chunkX, chunkZ);
+        if (_placements.TryGet(key, out var cached))
+            return cached;
+
+        return _placements.GetOrAdd(
+            key,
+            () => ResolvePlacements(chunkX, chunkZ));
+    }
 
     public ChunkSurfaceRange ExpandSurfaceRange(
         ChunkSurfaceRange terrainRange,
@@ -777,6 +872,15 @@ public sealed class SurfaceStructureField
                 SurfaceStructurePlacement>();
         }
 
+        return WithBiomeSampler(() =>
+            ResolvePlacementsCore(chunkX, chunkZ));
+    }
+
+    private IReadOnlyList<SurfaceStructurePlacement>
+        ResolvePlacementsCore(
+            int chunkX,
+            int chunkZ)
+    {
         var originX =
             checked(
                 chunkX *
@@ -829,7 +933,9 @@ public sealed class SurfaceStructureField
             int minimumX,
             int minimumZ,
             int maximumX,
-            int maximumZ)
+            int maximumZ,
+            int? minimumPotentialPriority = null,
+            IReadOnlySet<string>? relevantConflictGroups = null)
     {
         var candidates =
             new List<StructureCandidate>();
@@ -840,34 +946,79 @@ public sealed class SurfaceStructureField
         {
             var rule =
                 _rules[ruleIndex];
-            var padding =
-                checked(
-                    rule.MaximumHorizontalRadius +
-                    1);
-            var minimumCellX =
-                FloorDiv(
-                    (long)minimumX -
-                    padding,
-                    rule.Spacing) -
-                1;
-            var maximumCellX =
-                FloorDiv(
-                    (long)maximumX +
-                    padding,
-                    rule.Spacing) +
-                1;
-            var minimumCellZ =
-                FloorDiv(
-                    (long)minimumZ -
-                    padding,
-                    rule.Spacing) -
-                1;
-            var maximumCellZ =
-                FloorDiv(
-                    (long)maximumZ +
-                    padding,
-                    rule.Spacing) +
-                1;
+            if (minimumPotentialPriority is { } priority &&
+                rule.MaximumPriority < priority)
+            {
+                continue;
+            }
+
+            if (relevantConflictGroups is not null &&
+                !rule.MayReserveSpace &&
+                !rule.MightConflictWith(relevantConflictGroups))
+            {
+                continue;
+            }
+
+            long minimumCellX;
+            long maximumCellX;
+            long minimumCellZ;
+            long maximumCellZ;
+            if (rule.Placement ==
+                DimensionGeneratedSurfaceStructurePlacement.BiomeInterior)
+            {
+                // A biomeInterior anchor is exactly cell * spacing +
+                // spacing/2 + jitter in [-Jitter, Jitter]. Solve those
+                // inequalities directly so irrelevant cells never need a
+                // candidate lookup or structure expansion.
+                var radius = (long)rule.MaximumHorizontalRadius;
+                var halfSpacing = rule.Spacing / 2L;
+                var jitter = (long)rule.Jitter;
+                minimumCellX = CeilingDiv(
+                    (long)minimumX - radius - halfSpacing - jitter,
+                    rule.Spacing);
+                maximumCellX = FloorDiv(
+                    (long)maximumX + radius - halfSpacing + jitter,
+                    rule.Spacing);
+                minimumCellZ = CeilingDiv(
+                    (long)minimumZ - radius - halfSpacing - jitter,
+                    rule.Spacing);
+                maximumCellZ = FloorDiv(
+                    (long)maximumZ + radius - halfSpacing + jitter,
+                    rule.Spacing);
+            }
+            else
+            {
+                // biomeMargin roots may move to a discovered biome edge, so
+                // retain the conservative padded range for those placements.
+                var padding =
+                    checked(
+                        rule.MaximumHorizontalRadius +
+                        1);
+                minimumCellX =
+                    FloorDiv(
+                        (long)minimumX -
+                        padding,
+                        rule.Spacing) -
+                    1;
+                maximumCellX =
+                    FloorDiv(
+                        (long)maximumX +
+                        padding,
+                        rule.Spacing) +
+                    1;
+                minimumCellZ =
+                    FloorDiv(
+                        (long)minimumZ -
+                        padding,
+                        rule.Spacing) -
+                    1;
+                maximumCellZ =
+                    FloorDiv(
+                        (long)maximumZ +
+                        padding,
+                        rule.Spacing) +
+                    1;
+            }
 
             for (var cellZ =
                      minimumCellZ;
@@ -891,12 +1042,34 @@ public sealed class SurfaceStructureField
                         continue;
                     }
 
+                    var candidateCellX = (int)cellX;
+                    var candidateCellZ = (int)cellZ;
+                    // Most rules are biomeInterior roots. If the root's
+                    // deterministic anchor plus the compiled maximum radius
+                    // cannot intersect this query, don't construct its full
+                    // structure payload just to reject it afterward.
+                    // biomeMargin roots are excluded because they may move
+                    // their root anchor while finding the biome boundary.
+                    if (rule.Placement ==
+                            DimensionGeneratedSurfaceStructurePlacement.BiomeInterior &&
+                        !CandidateBoundsIntersect(
+                            rule,
+                            candidateCellX,
+                            candidateCellZ,
+                            minimumX,
+                            minimumZ,
+                            maximumX,
+                            maximumZ))
+                    {
+                        continue;
+                    }
+
                     var candidate =
                         ResolveCandidate(
                             ruleIndex,
                             rule,
-                            (int)cellX,
-                            (int)cellZ);
+                            candidateCellX,
+                            candidateCellZ);
 
                     if (candidate is null ||
                         !candidate.IntersectsHorizontal(
@@ -926,61 +1099,63 @@ public sealed class SurfaceStructureField
             return Array.Empty<StructureCandidate>();
         }
 
-        var competitors =
-            new List<StructureCandidate>(
-                direct);
-        var seen =
-            direct
-                .Select(
-                    CandidateIdentity)
-                .ToHashSet();
-
-        foreach (var candidate in
-                 direct)
+        // Every direct candidate intersects the chunk being materialized.
+        // Their union is therefore bounded by that chunk plus the largest
+        // intersecting structure. Any candidate that can conflict with a
+        // direct candidate must intersect this union, so resolve the broad
+        // phase once rather than rescanning the root grid for every candidate.
+        var minimumX = int.MaxValue;
+        var minimumZ = int.MaxValue;
+        var maximumX = int.MinValue;
+        var maximumZ = int.MinValue;
+        foreach (var candidate in direct)
         {
-            foreach (var other in
-                     CollectCandidatesIntersectingBounds(
-                         candidate.MinimumX,
-                         candidate.MinimumZ,
-                         candidate.MaximumX,
-                         candidate.MaximumZ))
+            minimumX = Math.Min(minimumX, candidate.MinimumX);
+            minimumZ = Math.Min(minimumZ, candidate.MinimumZ);
+            maximumX = Math.Max(maximumX, candidate.MaximumX);
+            maximumZ = Math.Max(maximumZ, candidate.MaximumZ);
+        }
+
+        // Only a candidate that outranks at least one direct candidate
+        // and can share a conflict rule can remove it. Filter impossible
+        // contenders before expanding their full structures/connectors.
+        var minimumDirectPriority =
+            direct.Min(candidate => candidate.Priority);
+        var relevantConflictGroups =
+            direct.SelectMany(candidate => candidate.ConflictGroups)
+                .ToHashSet(StringComparer.Ordinal);
+        var possibleConflicts = CollectCandidatesIntersectingBounds(
+            minimumX,
+            minimumZ,
+            maximumX,
+            maximumZ,
+            minimumDirectPriority,
+            relevantConflictGroups);
+        var accepted = new List<StructureCandidate>(direct.Count);
+
+        foreach (var candidate in direct)
+        {
+            var blocked = false;
+            foreach (var other in possibleConflicts)
             {
-                if (SameCandidate(
-                        other,
-                        candidate) ||
-                    !CandidateOutranks(
-                        other,
-                        candidate) ||
-                    !CandidatesConflict(
-                        other,
-                        candidate))
+                if (SameCandidate(other, candidate) ||
+                    !CandidateOutranks(other, candidate) ||
+                    !CandidatesConflict(other, candidate))
                 {
                     continue;
                 }
 
-                if (seen.Add(
-                        CandidateIdentity(
-                            other)))
-                {
-                    competitors.Add(
-                        other);
-                }
+                blocked = true;
+                break;
+            }
+
+            if (!blocked)
+            {
+                accepted.Add(candidate);
             }
         }
 
-        return direct
-            .Where(candidate =>
-                !competitors.Any(other =>
-                    !SameCandidate(
-                        other,
-                        candidate) &&
-                    CandidateOutranks(
-                        other,
-                        candidate) &&
-                    CandidatesConflict(
-                        other,
-                        candidate)))
-            .ToArray();
+        return accepted;
     }
 
     private StructureCandidate?
@@ -988,18 +1163,17 @@ public sealed class SurfaceStructureField
             int ruleIndex,
             RootRule rule,
             int cellX,
-            int cellZ) =>
-        _candidates.GetOrAdd(
-            new StructureCandidateKey(
-                ruleIndex,
-                cellX,
-                cellZ),
-            () =>
-                ResolveCandidateUncached(
-                    ruleIndex,
-                    rule,
-                    cellX,
-                    cellZ));
+            int cellZ)
+    {
+        var key = new StructureCandidateKey(ruleIndex, cellX, cellZ);
+        if (_candidates.TryGet(key, out var cached))
+            return cached;
+
+        return _candidates.GetOrAdd(
+            key,
+            () => ResolveCandidateUncached(
+                ruleIndex, rule, cellX, cellZ));
+    }
 
     private StructureCandidate?
         ResolveCandidateUncached(
@@ -1058,10 +1232,9 @@ public sealed class SurfaceStructureField
             {
                 DimensionGeneratedSurfaceStructurePlacement.BiomeInterior =>
                     string.Equals(
-                        SurfaceAt(
+                        SurfaceBiomeAt(
                             anchorX.Value,
                             anchorZ.Value)
-                        .Biome
                         .Primary,
                         rule.Biome,
                         StringComparison.Ordinal)
@@ -1501,15 +1674,62 @@ public sealed class SurfaceStructureField
                     anchorZ +
                     offset.Z);
             if (string.Equals(
-                    SurfaceAt(
+                    SurfaceBiomeAt(
                         x,
                         z)
-                    .Biome
                     .Primary,
                     biome,
                     StringComparison.Ordinal))
             {
                 matchingBiome++;
+            }
+        }
+
+        var coverage =
+            matchingBiome /
+            (float)Math.Max(
+                1,
+                footprint.Count);
+        if (coverage +
+                1e-6f <
+            member.Definition
+                .Restrictions
+                .RequiredBiomeCoverage)
+        {
+            return false;
+        }
+
+        if (member.AllowedGroundBlocks.Count >
+            0)
+        {
+            foreach (var offset in
+                     member.SupportOffsets(
+                         rotation))
+            {
+                var x =
+                    checked(
+                        anchorX +
+                        offset.X);
+                var z =
+                    checked(
+                        anchorZ +
+                        offset.Z);
+                var surfaceBiome =
+                    SurfaceBiomeAt(
+                        x,
+                        z);
+                var groundBlock =
+                    _materials.BlockAt(
+                        surfaceBiome,
+                        x,
+                        z,
+                        0);
+
+                if (!member.AllowedGroundBlocks.Contains(
+                        groundBlock))
+                {
+                    return false;
+                }
             }
         }
 
@@ -1550,54 +1770,6 @@ public sealed class SurfaceStructureField
             {
                 return false;
             }
-        }
-
-        if (member.AllowedGroundBlocks.Count >
-            0)
-        {
-            foreach (var offset in
-                     member.SupportOffsets(
-                         rotation))
-            {
-                var x =
-                    checked(
-                        anchorX +
-                        offset.X);
-                var z =
-                    checked(
-                        anchorZ +
-                        offset.Z);
-                var surface =
-                    SurfaceAt(
-                        x,
-                        z);
-                var groundBlock =
-                    _materials.BlockAt(
-                        surface.Biome,
-                        x,
-                        z,
-                        0);
-
-                if (!member.AllowedGroundBlocks.Contains(
-                        groundBlock))
-                {
-                    return false;
-                }
-            }
-        }
-
-        var coverage =
-            matchingBiome /
-            (float)Math.Max(
-                1,
-                footprint.Count);
-        if (coverage +
-                1e-6f <
-            member.Definition
-                .Restrictions
-                .RequiredBiomeCoverage)
-        {
-            return false;
         }
 
         var slope =
@@ -2053,10 +2225,9 @@ public sealed class SurfaceStructureField
                         z);
                 target[index] =
                     string.Equals(
-                        SurfaceAt(
+                        SurfaceBiomeAt(
                             x,
                             z)
-                        .Biome
                         .Primary,
                         rule.Biome,
                         StringComparison.Ordinal);
@@ -2206,19 +2377,17 @@ public sealed class SurfaceStructureField
     {
         var leftIsTarget =
             string.Equals(
-                SurfaceAt(
+                SurfaceBiomeAt(
                     left.X,
                     left.Z)
-                .Biome
                 .Primary,
                 biome,
                 StringComparison.Ordinal);
         var rightIsTarget =
             string.Equals(
-                SurfaceAt(
+                SurfaceBiomeAt(
                     right.X,
                     right.Z)
-                .Biome
                 .Primary,
                 biome,
                 StringComparison.Ordinal);
@@ -2257,10 +2426,9 @@ public sealed class SurfaceStructureField
 
             var middleIsTarget =
                 string.Equals(
-                    SurfaceAt(
+                    SurfaceBiomeAt(
                         middle.X,
                         middle.Z)
-                    .Biome
                     .Primary,
                     biome,
                     StringComparison.Ordinal);
@@ -2384,21 +2552,70 @@ public sealed class SurfaceStructureField
                 null,
         };
 
+    private TResult WithBiomeSampler<TResult>(
+        Func<TResult> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        var previousSampler = _activeBiomeSampler.Value;
+        _activeBiomeSampler.Value =
+            previousSampler ?? _terrain.CreateBiomeSampler();
+        try
+        {
+            return query();
+        }
+        finally
+        {
+            _activeBiomeSampler.Value = previousSampler;
+        }
+    }
+
+    private BiomeSample SurfaceBiomeAt(
+        int worldX,
+        int worldZ)
+    {
+        var key = (X: worldX, Z: worldZ);
+        if (_surfaceSamples.TryGet(key, out var cachedSurface))
+            return cachedSurface.Biome;
+        if (_surfaceBiomes.TryGet(key, out var cachedBiome))
+            return cachedBiome;
+
+        var sampler = _activeBiomeSampler.Value;
+        var biome = sampler is null
+            ? _biomes.Sample(worldX, worldZ)
+            : sampler.Sample(worldX, worldZ);
+        return _surfaceBiomes.GetOrAdd(
+            key,
+            () => biome);
+    }
+
     private SurfaceSample SurfaceAt(
         int worldX,
         int worldZ)
     {
-        var surface =
-            _terrain.SampleBaseSurfaceWithGeneratedFluid(
-                worldX,
-                worldZ);
+        var key = (X: worldX, Z: worldZ);
+        if (_surfaceSamples.TryGet(key, out var cached))
+            return cached;
 
-        return new SurfaceSample(
-            surface.Biome,
-            surface.BaseY,
-            surface.SurfaceFluidCutDepth,
-            worldX,
-            worldZ);
+        return _surfaceSamples.GetOrAdd(
+            key,
+            () =>
+            {
+                var surface = _surfaceBiomes.TryGet(key, out var cachedBiome)
+                    ? _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                        cachedBiome, worldX, worldZ)
+                    : _activeBiomeSampler.Value is { } sampler
+                        ? _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                            sampler, worldX, worldZ)
+                        : _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                            worldX, worldZ);
+
+                return new SurfaceSample(
+                    surface.Biome,
+                    surface.BaseY,
+                    surface.SurfaceFluidCutDepth,
+                    worldX,
+                    worldZ);
+            });
     }
 
     private bool IsGeneratedFluidAbove(
@@ -2661,6 +2878,11 @@ public sealed class SurfaceStructureField
             : (int)value;
     }
 
+    private static long CeilingDiv(
+        long value,
+        int divisor) =>
+        -FloorDiv(-value, divisor);
+
     private static long FloorDiv(
         long value,
         int divisor)
@@ -2722,6 +2944,17 @@ public sealed class SurfaceStructureField
             Set = set;
             MaximumHorizontalRadius =
                 maximumHorizontalRadius;
+            MaximumPriority = set is not null
+                ? set.Priority
+                : members.Max(member => member.Definition.Priority);
+            MayReserveSpace = set is not null
+                ? set.ReserveSpace
+                : members.Any(member => member.Definition.Generation.ReserveSpace);
+            ConflictGroups = set is not null
+                ? set.ConflictGroups
+                : members.SelectMany(member => member.Definition.ConflictGroups)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
             var prefix =
                 $"surface-structure/{biome}/{reference}/v1/";
             PresenceDomain =
@@ -2765,6 +2998,23 @@ public sealed class SurfaceStructureField
         public RuntimeStructureSet? Set { get; }
 
         public int MaximumHorizontalRadius { get; }
+
+        public int MaximumPriority { get; }
+
+        public bool MayReserveSpace { get; }
+
+        public IReadOnlyList<string> ConflictGroups { get; }
+
+        public bool MightConflictWith(IReadOnlySet<string> groups)
+        {
+            foreach (var group in ConflictGroups)
+            {
+                if (groups.Contains(group))
+                    return true;
+            }
+
+            return false;
+        }
 
         public GenerationDomain PresenceDomain { get; }
 
@@ -3572,6 +3822,8 @@ public sealed class SurfaceStructureField
         private readonly RuntimeClearVoxel[] _clearVoxels;
         private readonly (int X, int Z)[] _footprint;
         private readonly (int X, int Z)[] _supports;
+        private readonly IReadOnlyList<(int X, int Z)>[] _rotatedFootprints;
+        private readonly IReadOnlyList<(int X, int Z)>[] _rotatedSupports;
         private readonly RuntimeColumn[] _columns;
 
         public RuntimeStructure(
@@ -3682,6 +3934,24 @@ public sealed class SurfaceStructureField
                         .ThenBy(value =>
                             value.Z)
                         .ToArray();
+
+            // Footprints and supports are immutable for a compiled runtime
+            // structure. Precompute the four rotations once instead of running
+            // LINQ, Distinct and ToArray for every candidate placement.
+            var rotations = Enum.GetValues<StructureRotation>();
+            _rotatedFootprints =
+                new IReadOnlyList<(int X, int Z)>[rotations.Length];
+            _rotatedSupports =
+                new IReadOnlyList<(int X, int Z)>[rotations.Length];
+            foreach (var rotation in rotations)
+            {
+                var rotationIndex = (int)rotation;
+                _rotatedFootprints[rotationIndex] =
+                    RotateOffsets(_footprint, rotation);
+                _rotatedSupports[rotationIndex] =
+                    RotateOffsets(_supports, rotation);
+            }
+
             _columns =
                 payloadOffsets
                     .GroupBy(value =>
@@ -3757,16 +4027,12 @@ public sealed class SurfaceStructureField
         public IReadOnlyList<(int X, int Z)>
             HorizontalFootprint(
                 StructureRotation rotation) =>
-            RotateOffsets(
-                _footprint,
-                rotation);
+            _rotatedFootprints[(int)rotation];
 
         public IReadOnlyList<(int X, int Z)>
             SupportOffsets(
                 StructureRotation rotation) =>
-            RotateOffsets(
-                _supports,
-                rotation);
+            _rotatedSupports[(int)rotation];
 
         private static IReadOnlyList<(int X, int Z)>
             RotateOffsets(

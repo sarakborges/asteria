@@ -11,6 +11,8 @@ public readonly record struct GeneratedSurfaceDestination(
 /// </summary>
 internal sealed class GeneratedSurfaceDestinationQuery
 {
+    private const int InitialStructureSearchRadius = 8;
+
     private readonly SurfaceTerrainField _terrain;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceStructureField _structures;
@@ -73,17 +75,10 @@ internal sealed class GeneratedSurfaceDestinationQuery
             }
         }
 
-        var structureBounds =
-            StructureBoundsForSearch(
-                preferredX,
-                preferredZ,
-                maxRadius);
-
         return FindSurface(
             preferredX,
             preferredZ,
             maxRadius,
-            structureBounds,
             acceptsColumn,
             sampler);
     }
@@ -120,17 +115,10 @@ internal sealed class GeneratedSurfaceDestinationQuery
             }
         }
 
-        var structureBounds =
-            StructureBoundsForSearch(
-                preferredX,
-                preferredZ,
-                maxRadius);
-
         return FindSurface(
             preferredX,
             preferredZ,
             maxRadius,
-            structureBounds,
             acceptsColumn,
             sampler);
     }
@@ -140,48 +128,79 @@ internal sealed class GeneratedSurfaceDestinationQuery
             int preferredX,
             int preferredZ,
             int maxRadius,
-            IReadOnlyList<(
-                int MinimumX,
-                int MaximumX,
-                int MinimumZ,
-                int MaximumZ)> structureBounds,
             Func<int, int, bool>? acceptsColumn,
             BiomeField.Sampler sampler)
     {
-        foreach (var column in
-                 SquareRings(
-                     preferredX,
-                     preferredZ,
-                     maxRadius))
+        // Do not enumerate structure candidates for the entire maximum radius
+        // when a safe destination is usually found close to the preferred
+        // point. Grow the checked square geometrically; each batch includes
+        // all structures that can overlap the rings processed in that batch.
+        var checkedThroughRadius = -1;
+        while (true)
         {
-            if (acceptsColumn is not null &&
-                !acceptsColumn(
-                    column.X,
-                    column.Z))
+            var nextRadius = checkedThroughRadius < 0
+                ? InitialStructureSearchRadius
+                : checkedThroughRadius * 2;
+            var searchRadius = Math.Min(
+                maxRadius,
+                Math.Max(
+                    checkedThroughRadius + 1,
+                    nextRadius));
+
+            var structureBounds =
+                StructureBoundsForSearch(
+                    preferredX,
+                    preferredZ,
+                    searchRadius);
+
+            foreach (var column in
+                     SquareRings(
+                         preferredX,
+                         preferredZ,
+                         searchRadius))
             {
-                continue;
+                var ring = Math.Max(
+                    Math.Abs((long)column.X - preferredX),
+                    Math.Abs((long)column.Z - preferredZ));
+                if (ring <= checkedThroughRadius)
+                {
+                    continue;
+                }
+
+                if (acceptsColumn is not null &&
+                    !acceptsColumn(
+                        column.X,
+                        column.Z))
+                {
+                    continue;
+                }
+
+                if (InsideStructureBounds(
+                        column.X,
+                        column.Z,
+                        structureBounds))
+                {
+                    continue;
+                }
+
+                var destination =
+                    GeneratedSurfaceFeetAt(
+                        sampler,
+                        column.X,
+                        column.Z);
+                if (destination is not null)
+                {
+                    return destination;
+                }
             }
 
-            if (InsideStructureBounds(
-                    column.X,
-                    column.Z,
-                    structureBounds))
+            if (searchRadius >= maxRadius)
             {
-                continue;
+                return null;
             }
 
-            var destination =
-                GeneratedSurfaceFeetAt(
-                    sampler,
-                    column.X,
-                    column.Z);
-            if (destination is not null)
-            {
-                return destination;
-            }
+            checkedThroughRadius = searchRadius;
         }
-
-        return null;
     }
 
     private IReadOnlyList<(
@@ -270,11 +289,23 @@ internal sealed class GeneratedSurfaceDestinationQuery
             return null;
         }
 
-        return GeneratedFeetAt(
-            worldX,
-            column.SurfaceY + 1,
-            worldZ,
-            column);
+        var feetY = column.SurfaceY + 1;
+        if (!HasValidGeneratedHeadroom(
+                column, worldX, feetY, worldZ))
+        {
+            return null;
+        }
+
+        // The final surface height resolves the regular terrain path. Keep the
+        // full density guard for columns with authored additive formations,
+        // whose exact density boundary must remain authoritative.
+        if (_terrain.HasAdditiveDensityRule(column.Volume) &&
+            !HasValidTerrainDensity(column, worldX, feetY, worldZ))
+        {
+            return null;
+        }
+
+        return new GeneratedSurfaceDestination(worldX, feetY, worldZ);
     }
 
     private GeneratedSurfaceDestination?
@@ -311,40 +342,73 @@ internal sealed class GeneratedSurfaceDestinationQuery
             return null;
         }
 
+        if (!HasValidGeneratedHeadroom(
+                column, worldX, feetY, worldZ))
+        {
+            return null;
+        }
+
+        return HasValidTerrainDensity(
+                column, worldX, feetY, worldZ)
+            ? new GeneratedSurfaceDestination(worldX, feetY, worldZ)
+            : null;
+    }
+
+    private bool HasValidTerrainDensity(
+        (
+            BiomeSample Biome,
+            int BaseY,
+            int SurfaceFluidCutDepth,
+            int SurfaceY,
+            BiomeSample? Volume) column,
+        int worldX,
+        int feetY,
+        int worldZ)
+    {
         var supportY = feetY - 1;
         var headY = feetY + 1;
+        return _terrain.DensityAt(
+                   column.Biome, column.BaseY,
+                   worldX, supportY, worldZ, column.Volume) >= 0d &&
+               _terrain.DensityAt(
+                   column.Biome, column.BaseY,
+                   worldX, feetY, worldZ, column.Volume) < 0d &&
+               _terrain.DensityAt(
+                   column.Biome, column.BaseY,
+                   worldX, headY, worldZ, column.Volume) < 0d;
+    }
 
+    private bool HasValidGeneratedHeadroom(
+        (
+            BiomeSample Biome,
+            int BaseY,
+            int SurfaceFluidCutDepth,
+            int SurfaceY,
+            BiomeSample? Volume) column,
+        int worldX,
+        int feetY,
+        int worldZ)
+    {
+        if (feetY <= 0 || feetY == int.MaxValue)
+        {
+            return false;
+        }
+
+        var supportY = feetY - 1;
+        var headY = feetY + 1;
         if ((_floorY is { } floorY && supportY <= floorY) ||
             (_roofY is { } roofY &&
                 (feetY >= roofY || headY >= roofY)))
         {
-            return null;
+            return false;
         }
 
-        // A generated ocean column is normally rejected here without
-        // calculating density three more times. The fluid query is pure
-        // and remains authoritative for all authored fluid rules.
-        if (!_generatedFluids.FluidAtEmptyVoxel(
-                column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
-                worldX, feetY, worldZ).IsEmpty ||
-            !_generatedFluids.FluidAtEmptyVoxel(
-                column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
-                worldX, headY, worldZ).IsEmpty)
-        {
-            return null;
-        }
-
-        return _terrain.DensityAt(
-                    column.Biome, column.BaseY,
-                    worldX, supportY, worldZ, column.Volume) < 0d ||
-               _terrain.DensityAt(
-                    column.Biome, column.BaseY,
-                    worldX, feetY, worldZ, column.Volume) >= 0d ||
-               _terrain.DensityAt(
-                    column.Biome, column.BaseY,
-                    worldX, headY, worldZ, column.Volume) >= 0d
-            ? null
-            : new GeneratedSurfaceDestination(worldX, feetY, worldZ);
+        return _generatedFluids.FluidAtEmptyVoxel(
+                   column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
+                   worldX, feetY, worldZ).IsEmpty &&
+               _generatedFluids.FluidAtEmptyVoxel(
+                   column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
+                   worldX, headY, worldZ).IsEmpty;
     }
 
     private static (

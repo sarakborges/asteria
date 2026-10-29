@@ -6,6 +6,24 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class SurfaceChunkMaterializer
 {
+    private struct ColumnMaterializationCache
+    {
+        public int SurfaceY;
+        public int BaseY;
+        public int SurfaceFluidCutDepth;
+        public int WorldX;
+        public int WorldZ;
+        public BiomeSample? Sample;
+        public (BlockRuntimeId Block, uint StartDepth) SurfaceCore;
+        public uint? SurfaceCoverDepth;
+        public bool HasSurfaceMaterialMetadata;
+        public BiomeSurfaceMaterialColumn? SurfaceMaterials;
+        public BiomeSample? VolumeSample;
+        public BiomeSurfaceMaterialColumn? VolumeMaterials;
+        public uint? VolumeCoverDepth;
+        public GeneratedFluidColumnPlan GeneratedFluidPlan;
+    }
+
     private readonly record struct PendingGeneratedObject(
         int X, int Y, int Z, string Id, BlockFace Face,
         bool Submerged = false, FluidRuntimeId SupportFluid = default)
@@ -101,213 +119,455 @@ public sealed class SurfaceChunkMaterializer
 
     public Chunk Materialize(ChunkCoord coord)
     {
-        if (coord.Y < 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(coord),
-                "Sphere chunk Y cannot be negative.");
-        }
+        using var job = BeginMaterialization(coord);
+        while (!job.IsComplete)
+            job.Advance();
 
-        var chunk = new Chunk();
-        var (originX, originY, originZ) =
-            VoxelCoordinates.ChunkOrigin(coord);
-        if (_voidSpawnPlatform is not null)
-        {
-            // Void has only its small spawn platform: no authored shell,
-            // lining, terrain, caves, fluids or decorations.
-            _voidSpawnPlatform.Apply(chunk, coord);
-            return chunk;
-        }
+        return job.Result ??
+            throw new InvalidOperationException(
+                "Completed materialization job has no chunk result.");
+    }
 
-        var column = _columns.Get(coord.X, coord.Z);
-        var densityVolume =
+    public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+        new MaterializationJob(this, coord);
+
+    private void Advance(MaterializationJob job)
+    {
+        if (job.IsComplete)
+            throw new InvalidOperationException(
+                "A completed materialization job cannot advance.");
+
+        switch (job.Stage)
+        {
+            case ChunkMaterializationStage.TerrainSetup:
+                job.InitializeChunk();
+                if (_voidSpawnPlatform is not null)
+                {
+                    _voidSpawnPlatform.Apply(job.Chunk, job.Coord);
+                    job.Result = job.Chunk;
+                    job.Stage = ChunkMaterializationStage.Complete;
+                    break;
+                }
+
+                PrepareTerrain(job);
+                if (job.FirstTerrainWorldY <= job.LastTerrainWorldY)
+                {
+                    job.Stage = ChunkMaterializationStage.TerrainLayer;
+                }
+                else
+                {
+                    CompleteInitialBlockWrites(job);
+                    job.Stage = ChunkMaterializationStage.SurfaceDecorations;
+                }
+                break;
+
+            case ChunkMaterializationStage.TerrainLayer:
+                MaterializeTerrainLayer(job);
+                if (job.NextTerrainLocalY > job.LastTerrainWorldY - job.OriginY)
+                {
+                    CompleteInitialBlockWrites(job);
+                    job.Stage = ChunkMaterializationStage.SurfaceDecorations;
+                }
+                break;
+
+            case ChunkMaterializationStage.SurfaceDecorations:
+                MaterializeSurfaceDecorations(job);
+                job.Stage = ChunkMaterializationStage.VolumeCavePalette;
+                break;
+
+            case ChunkMaterializationStage.VolumeCavePalette:
+                MaterializeVolumeCavePalette(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ);
+                job.Stage = ChunkMaterializationStage.ExteriorFacePalette;
+                break;
+
+            case ChunkMaterializationStage.ExteriorFacePalette:
+                MaterializeExteriorFacePalette(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ);
+                job.Stage = ChunkMaterializationStage.VolumeStructures;
+                break;
+
+            case ChunkMaterializationStage.VolumeStructures:
+                MaterializeVolumeStructures(job.Chunk, job.Coord);
+                job.Stage = ChunkMaterializationStage.GeneratedFluids;
+                break;
+
+            case ChunkMaterializationStage.GeneratedFluids:
+                MaterializeGeneratedFluids(
+                    job.Chunk, RequiredDensity(job),
+                    job.ColumnMaterializationCaches ??
+                        throw new InvalidOperationException(
+                            "Materialization column cache is missing."),
+                    job.OriginY, job.TopExclusive);
+                job.Stage = ChunkMaterializationStage.SurfaceStructures;
+                break;
+
+            case ChunkMaterializationStage.SurfaceStructures:
+                MaterializeStructures(
+                    job.Chunk, job.Coord, job.OriginY, job.TopExclusive);
+                job.Stage = ChunkMaterializationStage.CaveSpikes;
+                break;
+
+            case ChunkMaterializationStage.CaveSpikes:
+                MaterializeCaveSpikes(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ);
+                job.Stage = ChunkMaterializationStage.VerticalDecorations;
+                break;
+
+            case ChunkMaterializationStage.VerticalDecorations:
+            {
+                var pendingObjects = job.PendingObjects;
+                MaterializeVerticalDecorations(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ,
+                    ref pendingObjects);
+                job.PendingObjects = pendingObjects;
+                job.Stage = ChunkMaterializationStage.Veins;
+                break;
+            }
+
+            case ChunkMaterializationStage.Veins:
+                _veins?.Apply(job.Chunk, job.Coord);
+                job.Stage = ChunkMaterializationStage.WallLayers;
+                break;
+
+            case ChunkMaterializationStage.WallLayers:
+            {
+                var pendingObjects = job.PendingObjects;
+                MaterializeWallLayers(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ,
+                    ref pendingObjects);
+                job.PendingObjects = pendingObjects;
+                job.Stage = ChunkMaterializationStage.WallObjects;
+                break;
+            }
+
+            case ChunkMaterializationStage.WallObjects:
+                MaterializeWallObjects(
+                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job.OriginX, job.OriginY, job.OriginZ);
+                job.Stage = ChunkMaterializationStage.ShellFinalization;
+                break;
+
+            case ChunkMaterializationStage.ShellFinalization:
+                ConcealSphereShell(
+                    job.Chunk, RequiredColumn(job), job.OriginY, job.TopExclusive);
+                job.Stage = ChunkMaterializationStage.StructureObjects;
+                break;
+
+            case ChunkMaterializationStage.StructureObjects:
+                MaterializeStructureObjects(job.Chunk, job.Coord);
+                job.Stage = ChunkMaterializationStage.PendingObjects;
+                break;
+
+            case ChunkMaterializationStage.PendingObjects:
+                MaterializePendingObjects(job);
+                job.Result = job.Chunk;
+                job.Stage = ChunkMaterializationStage.Complete;
+                break;
+
+            case ChunkMaterializationStage.ProviderFallback:
+            case ChunkMaterializationStage.Complete:
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported materialization stage: {job.Stage}.");
+        }
+    }
+
+    private static SurfaceTerrainColumn RequiredColumn(MaterializationJob job) =>
+        job.Column ??
+        throw new InvalidOperationException("Materialization column is missing.");
+
+    private static TerrainDensityVolume RequiredDensity(MaterializationJob job) =>
+        job.DensityVolume ??
+        throw new InvalidOperationException("Terrain density snapshot is missing.");
+
+    private static void CompleteInitialBlockWrites(MaterializationJob job)
+    {
+        job.InitialBlocks?.Complete();
+        job.InitialBlocks = null;
+    }
+
+    private void PrepareTerrain(MaterializationJob job)
+    {
+        var coord = job.Coord;
+        var originX = job.OriginX;
+        var originY = job.OriginY;
+        var originZ = job.OriginZ;
+        var initialBlocks = job.InitialBlocks ??
+            throw new InvalidOperationException("Terrain writes are already complete.");
+
+        var column = job.Column = _columns.Get(coord.X, coord.Z);
+        var densityVolume = job.DensityVolume =
             _terrain.SampleDensityVolume(
                 column,
                 originX,
                 originY,
                 originZ);
-        var topExclusive = checked(originY + Chunk.Size);
-        List<PendingGeneratedObject>? pendingObjects = null;
+        var topExclusive = job.TopExclusive = checked(originY + Chunk.Size);
+        job.PendingObjects = null;
+        var columnMaterializationCaches =
+            job.ColumnMaterializationCaches = new ColumnMaterializationCache[Chunk.Area];
 
+        // Resolve column-only metadata once. Terrain voxels are then visited
+        // in the same Y/Z/X order as Chunk's linear storage.
+        var firstTerrainWorldY = job.FirstTerrainWorldY = Math.Max(originY, _floorY ?? 0);
+        var lastTerrainWorldY = job.LastTerrainWorldY = Math.Min(
+            topExclusive - 1, _roofY ?? int.MaxValue);
+        var maximumSurfaceY = int.MinValue;
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        for (var localX = 0; localX < Chunk.Size; localX++)
+        {
+            var surfaceY = column.HeightAt(localX, localZ);
+            maximumSurfaceY = Math.Max(maximumSurfaceY, surfaceY);
+            var index = localX + Chunk.Size * localZ;
+            columnMaterializationCaches[index] = new ColumnMaterializationCache
+            {
+                SurfaceY = surfaceY,
+                BaseY = column.BaseHeightAt(localX, localZ),
+                SurfaceFluidCutDepth =
+                    column.SurfaceFluidCutDepthAt(localX, localZ),
+                WorldX = checked(originX + localX),
+                WorldZ = checked(originZ + localZ),
+                Sample = column.BiomeAt(localX, localZ),
+            };
+
+            if (!_shellBlock.IsAir)
+            {
+                SetShellIfInChunk(
+                    initialBlocks, localX, localZ, originY, topExclusive, _floorY);
+                SetShellIfInChunk(
+                    initialBlocks, localX, localZ, originY, topExclusive, _roofY);
+            }
+        }
+
+        lastTerrainWorldY = Math.Min(lastTerrainWorldY, maximumSurfaceY);
+        job.LastTerrainWorldY = lastTerrainWorldY;
+
+        job.NextTerrainLocalY = firstTerrainWorldY - originY;
+
+    }
+
+    private void MaterializeTerrainLayer(MaterializationJob job)
+    {
+        var originX = job.OriginX;
+        var originY = job.OriginY;
+        var originZ = job.OriginZ;
+        var column = job.Column ??
+            throw new InvalidOperationException("Materialization column is missing.");
+        var densityVolume = job.DensityVolume ??
+            throw new InvalidOperationException("Terrain density snapshot is missing.");
+        var topExclusive = job.TopExclusive;
+        var columnMaterializationCaches = job.ColumnMaterializationCaches ??
+            throw new InvalidOperationException("Materialization column cache is missing.");
+        var initialBlocks = job.InitialBlocks ??
+            throw new InvalidOperationException("Terrain writes are already complete.");
+        var localY = job.NextTerrainLocalY;
+
+            var worldY = checked(originY + localY);
+            for (var localZ = 0; localZ < Chunk.Size; localZ++)
+            {
+                for (var localX = 0; localX < Chunk.Size; localX++)
+                {
+                    var columnIndex = localX + Chunk.Size * localZ;
+                    ref var state = ref columnMaterializationCaches[columnIndex];
+                    var sample = state.Sample ??
+                        throw new InvalidOperationException(
+                            "Materialization column has no biome sample.");
+                    var surfaceY = state.SurfaceY;
+                    var baseY = state.BaseY;
+                    var surfaceFluidCutDepth = state.SurfaceFluidCutDepth;
+                    var worldX = state.WorldX;
+                    var worldZ = state.WorldZ;
+
+                    // Shell planes were installed before terrain writes.
+                    // Skip their voxels so geology cannot overwrite them.
+                    if (!_shellBlock.IsAir &&
+                        (worldY == _floorY || worldY == _roofY))
+                        continue;
+
+                    if (worldY < (_floorY ?? 0) ||
+                        worldY > surfaceY ||
+                        worldY > (_roofY ?? int.MaxValue) ||
+                        !densityVolume.IsSolidAtUnchecked(
+                            localX, localY, localZ))
+                    {
+                        continue;
+                    }
+
+                    if (!state.HasSurfaceMaterialMetadata)
+                    {
+                        state.SurfaceCore = _materials.CoreLayer(sample);
+                        state.SurfaceCoverDepth =
+                            _materials.GeologySurfaceCoverDepth(sample);
+                        state.HasSurfaceMaterialMetadata = true;
+                    }
+
+                    var isExposedTerrainTop = worldY == surfaceY;
+                    if (!isExposedTerrainTop &&
+                        worldY < surfaceY &&
+                        (long)surfaceY - worldY <= 2L)
+                    {
+                        isExposedTerrainTop = true;
+                        for (var aboveY = worldY + 1;
+                             aboveY <= surfaceY;
+                             aboveY++)
+                        {
+                            var aboveLocalY = aboveY - originY;
+                            if (aboveLocalY < 0 ||
+                                aboveLocalY >= Chunk.Size ||
+                                densityVolume.IsSolidAtUnchecked(
+                                    localX, aboveLocalY, localZ))
+                            {
+                                isExposedTerrainTop = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    BlockRuntimeId exposedBlock = BlockRuntimeId.Air;
+                    var hasExposedGeology = false;
+                    if (isExposedTerrainTop)
+                    {
+                        var surfaceOwner = worldY > baseY
+                            ? densityVolume.VolumeBiomeAt(
+                                localX, worldY, localZ) ??
+                              throw new InvalidOperationException(
+                                  "Additive surface has no volume biome owner.")
+                            : sample;
+                        if (!_materials.SurfaceGeologyRequiresSubmerged(surfaceOwner) ||
+                            HasGeneratedFluidAboveSurface(
+                                surfaceOwner, sample, baseY,
+                                surfaceFluidCutDepth, worldX, worldY, worldZ,
+                                densityVolume.VolumePlacementAt(localX, localZ)))
+                        {
+                            hasExposedGeology = _materials.TrySurfaceGeologyBlockAt(
+                                surfaceOwner, worldX, worldY, worldZ,
+                                out exposedBlock);
+                        }
+                    }
+
+                    BlockRuntimeId block;
+                    if (hasExposedGeology)
+                    {
+                        block = exposedBlock;
+                    }
+                    else if (worldY <= baseY)
+                    {
+                        var depth = checked((uint)(baseY - worldY));
+                        var surfaceMaterials = state.SurfaceMaterials ??=
+                            _materials.SampleColumn(sample, worldX, worldZ);
+                        var useSurfaceCover =
+                            state.SurfaceCoverDepth is { } authoredCoverDepth
+                                ? depth < authoredCoverDepth
+                                : depth == 0 || depth < surfaceMaterials.FiniteDepth;
+                        if (useSurfaceCover)
+                        {
+                            block = surfaceMaterials.BlockAt(depth);
+                        }
+                        else if (state.SurfaceCoverDepth is not null &&
+                                 _materials.TryGeologyBlockAt(
+                                     sample, worldX, worldY, worldZ,
+                                     out var geologyBlock))
+                        {
+                            block = geologyBlock;
+                        }
+                        else
+                        {
+                            // A null cover depth also means this biome has no
+                            // 3D geology rule; avoid a dictionary lookup per voxel.
+                            block = depth >= state.SurfaceCore.StartDepth
+                                ? state.SurfaceCore.Block
+                                : surfaceMaterials.BlockAt(depth);
+                        }
+                    }
+                    else
+                    {
+                        var volumeSample = state.VolumeSample;
+                        if (volumeSample is null)
+                        {
+                            volumeSample = densityVolume.VolumeBiomeAt(
+                                localX, worldY, localZ) ??
+                                throw new InvalidOperationException(
+                                    "Additive solid voxel has no volume biome owner.");
+                            state.VolumeSample = volumeSample;
+                            state.VolumeCoverDepth =
+                                _materials.GeologySurfaceCoverDepth(volumeSample);
+                        }
+
+                        var volumeMaterials = state.VolumeMaterials ??=
+                            _materials.SampleColumn(volumeSample, worldX, worldZ);
+                        var depth = AdditiveDepthAt(
+                            densityVolume, sample, baseY, localX, localY, localZ,
+                            worldX, worldY, worldZ, volumeMaterials.FiniteDepth);
+                        var useSurfaceCover =
+                            state.VolumeCoverDepth is { } authoredCoverDepth
+                                ? depth < authoredCoverDepth
+                                : depth == 0 || depth < volumeMaterials.FiniteDepth;
+                        if (useSurfaceCover)
+                        {
+                            block = volumeMaterials.BlockAt(depth);
+                        }
+                        else if (state.VolumeCoverDepth is not null &&
+                                 _materials.TryGeologyBlockAt(
+                                     volumeSample, worldX, worldY, worldZ,
+                                     out var volumeGeologyBlock))
+                        {
+                            block = volumeGeologyBlock;
+                        }
+                        else
+                        {
+                            // The cached nullable cover depth also identifies
+                            // whether this volume biome has volumetric geology.
+                            block = volumeMaterials.BlockAt(depth);
+                        }
+                    }
+
+                    initialBlocks.SetBlockAtLinearIndex(
+                        columnIndex + Chunk.Area * localY, block);
+                }
+            }
+        
+        job.NextTerrainLocalY++;
+    }
+
+    private void MaterializeSurfaceDecorations(MaterializationJob job)
+    {
+        var chunk = job.Chunk;
+        var originX = job.OriginX;
+        var originY = job.OriginY;
+        var originZ = job.OriginZ;
+        var column = job.Column ??
+            throw new InvalidOperationException("Materialization column is missing.");
+        var densityVolume = job.DensityVolume ??
+            throw new InvalidOperationException("Terrain density snapshot is missing.");
+        var topExclusive = job.TopExclusive;
+        var pendingObjects = job.PendingObjects;
+        var columnMaterializationCaches = job.ColumnMaterializationCaches ??
+            throw new InvalidOperationException("Materialization column cache is missing.");
+        // Decors are evaluated only after all terrain exists, in stable
+        // column order so existing placement precedence remains unchanged.
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         {
             for (var localX = 0; localX < Chunk.Size; localX++)
             {
-                var surfaceY = column.HeightAt(localX, localZ);
-                var baseY = column.BaseHeightAt(localX, localZ);
-                var surfaceFluidCutDepth =
-                    column.SurfaceFluidCutDepthAt(
-                        localX,
-                        localZ);
-                var worldX = checked(originX + localX);
-                var worldZ = checked(originZ + localZ);
-                var sample = column.BiomeAt(localX, localZ);
-
-                // Sphere Shell planes remain authoritative even above terrain.
-                if (!_shellBlock.IsAir)
-                {
-                    SetShellIfInChunk(
-                        chunk, localX, localZ, originY, topExclusive, _floorY);
-                    SetShellIfInChunk(
-                        chunk, localX, localZ, originY, topExclusive, _roofY);
-                }
-
-                var firstSolidY = Math.Max(originY, _floorY ?? 0);
-                var lastSolidY = Math.Min(
-                    Math.Min(topExclusive - 1, surfaceY),
-                    _roofY ?? int.MaxValue);
-
-                BiomeSurfaceMaterialColumn? surfaceMaterials = null;
-                BiomeSample? volumeSample = null;
-                BiomeSurfaceMaterialColumn? volumeMaterials = null;
-
-                if (firstSolidY <= lastSolidY)
-                {
-                    var surfaceCore = _materials.CoreLayer(sample);
-
-                    for (var worldY = firstSolidY;
-                         worldY <= lastSolidY;
-                         worldY++)
-                    {
-                        if (!_shellBlock.IsAir &&
-                            (worldY == _floorY || worldY == _roofY))
-                        {
-                            continue;
-                        }
-
-                        var localY =
-                            worldY -
-                            originY;
-                        if (densityVolume.DensityAt(
-                                localX,
-                                localY,
-                                localZ) < 0d)
-                        {
-                            continue;
-                        }
-
-                        BlockRuntimeId block;
-
-                        if (worldY <= baseY)
-                        {
-                            var depth = checked((uint)(baseY - worldY));
-                            surfaceMaterials ??= _materials.SampleColumn(
-                                sample, worldX, worldZ);
-                            var coverDepth = _materials.GeologySurfaceCoverDepth(sample);
-                            var useSurfaceCover = coverDepth is { } authoredCoverDepth
-                                ? depth < authoredCoverDepth
-                                : depth == 0 || depth < surfaceMaterials.FiniteDepth;
-                            if (useSurfaceCover)
-                            {
-                                block = surfaceMaterials.BlockAt(depth);
-                            }
-                            else if (!_materials.TryGeologyBlockAt(
-                                sample, worldX, worldY, worldZ, out block))
-                            {
-                                // Biomes without authored geology preserve the
-                                // existing depth-based core-material contract.
-                                block = depth >= surfaceCore.StartDepth
-                                    ? surfaceCore.Block
-                                    : surfaceMaterials.BlockAt(depth);
-                            }
-                        }
-                        else
-                        {
-                            volumeSample ??=
-                                densityVolume.VolumeBiomeAt(
-                                    localX,
-                                    worldY,
-                                    localZ) ??
-                                throw new InvalidOperationException(
-                                    "Additive solid voxel has no volume biome owner.");
-                            volumeMaterials ??=
-                                _materials.SampleColumn(
-                                    volumeSample,
-                                    worldX,
-                                    worldZ);
-                            var depth =
-                                AdditiveDepthAt(
-                                    densityVolume,
-                                    sample,
-                                    baseY,
-                                    localX,
-                                    localY,
-                                    localZ,
-                                    worldX,
-                                    worldY,
-                                    worldZ,
-                                    volumeMaterials.FiniteDepth);
-                            var coverDepth = _materials.GeologySurfaceCoverDepth(volumeSample);
-                            var useSurfaceCover = coverDepth is { } authoredCoverDepth
-                                ? depth < authoredCoverDepth
-                                : depth == 0 || depth < volumeMaterials.FiniteDepth;
-                            if (useSurfaceCover)
-                            {
-                                block = volumeMaterials.BlockAt(depth);
-                            }
-                            else if (!_materials.TryGeologyBlockAt(
-                                volumeSample, worldX, worldY, worldZ, out block))
-                            {
-                                block = volumeMaterials.BlockAt(depth);
-                            }
-                        }
-
-                        // Exposed cover variation is decided at the actual
-                        // terrain surface, not by subsurface depth or world altitude.
-                        // Ocean deposits are exposed only where generated fluid occupies
-                        // the voxel above, preserving dry beaches as continuous sand.
-                        // The sampled height is a terrain bound, not a
-                        // guarantee that this exact voxel is solid. Density
-                        // clipping can leave the top sample empty; in that case
-                        // expose geology on the highest solid voxel immediately
-                        // beneath it instead of silently keeping the whole cover.
-                        var isExposedTerrainTop = worldY == surfaceY;
-                        if (!isExposedTerrainTop &&
-                            worldY < surfaceY &&
-                            (long)surfaceY - worldY <= 2L)
-                        {
-                            isExposedTerrainTop = true;
-                            for (var aboveY = worldY + 1;
-                                 aboveY <= surfaceY;
-                                 aboveY++)
-                            {
-                                var aboveLocalY = aboveY - originY;
-                                if (aboveLocalY < 0 || aboveLocalY >= Chunk.Size ||
-                                    densityVolume.DensityAt(
-                                        localX, aboveLocalY, localZ) >= 0d)
-                                {
-                                    isExposedTerrainTop = false;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (isExposedTerrainTop)
-                        {
-                            var surfaceOwner = worldY > baseY
-                                ? volumeSample
-                                : sample;
-                            if (surfaceOwner is not null &&
-                                (!_materials.SurfaceGeologyRequiresSubmerged(surfaceOwner) ||
-                                 HasGeneratedFluidAboveSurface(
-                                     surfaceOwner, baseY, surfaceFluidCutDepth,
-                                     worldX, worldY, worldZ)) &&
-                                _materials.TrySurfaceGeologyBlockAt(
-                                    surfaceOwner, worldX, worldY, worldZ,
-                                    out var exposedBlock))
-                            {
-                                block = exposedBlock;
-                            }
-                        }
-
-                        chunk.SetBlock(
-                            localX,
-                            worldY - originY,
-                            localZ,
-                            block);
-                    }
-                }
-
+                ref var state = ref columnMaterializationCaches[
+                    localX + Chunk.Size * localZ];
+                var surfaceY = state.SurfaceY;
+                var baseY = state.BaseY;
+                var surfaceFluidCutDepth = state.SurfaceFluidCutDepth;
+                var worldX = state.WorldX;
+                var worldZ = state.WorldZ;
+                var sample = state.Sample ??
+                    throw new InvalidOperationException(
+                        "Materialization column has no biome sample.");
+                var surfaceMaterials = state.SurfaceMaterials;
+                var volumeSample = state.VolumeSample;
+                var volumeMaterials = state.VolumeMaterials;
                 var decorationY = (long)surfaceY + 1;
                 var normalInChunk = CanPlaceDecorationAt(
                     decorationY, originY, topExclusive);
@@ -351,12 +611,12 @@ public sealed class SurfaceChunkMaterializer
                 {
                     // Generated-fluid occupancy, not only the column range,
                     // decides whether this is a submerged decorator cell.
-                    var decorationDensity = normalInChunk
-                        ? densityVolume.DensityAt(
+                    var decorationTerrainSolid = normalInChunk
+                        ? densityVolume.IsSolidAtUnchecked(
                             localX, (int)decorationY - originY, localZ)
                         : _terrain.DensityAt(
                             sample, baseY, worldX, (int)decorationY, worldZ,
-                            densityVolume.VolumePlacementAt(localX, localZ));
+                            densityVolume.VolumePlacementAt(localX, localZ)) >= 0d;
                     var submerged =
                         _generatedFluids.TryGetColumnBounds(
                             sample, baseY, surfaceFluidCutDepth,
@@ -366,7 +626,7 @@ public sealed class SurfaceChunkMaterializer
                         !_generatedFluids.FluidAt(
                             sample, baseY, surfaceFluidCutDepth,
                             worldX, (int)decorationY, worldZ,
-                            decorationDensity).IsEmpty;
+                            decorationTerrainSolid).IsEmpty;
 
                     if (normalInChunk)
                     {
@@ -440,49 +700,16 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        MaterializeVolumeCavePalette(
-            chunk, column, densityVolume, originX, originY, originZ);
-        MaterializeExteriorFacePalette(
-            chunk, column, densityVolume, originX, originY, originZ);
 
-        MaterializeVolumeStructures(chunk, coord);
+        job.PendingObjects = pendingObjects;
+    }
 
-        MaterializeGeneratedFluids(
-            chunk,
-            column,
-            densityVolume,
-            originX,
-            originY,
-            originZ,
-            topExclusive);
-
-        MaterializeStructures(
-            chunk,
-            coord,
-            originY,
-            topExclusive);
-        // Give whole cave formations priority over soft vegetation.
-        // Plants fill only the void cells left by spikes, including when
-        // a formation starts in the adjacent vertical chunk.
-        MaterializeCaveSpikes(
-            chunk, column, densityVolume, originX, originY, originZ);
-        MaterializeVerticalDecorations(
-            chunk, column, densityVolume,
-            originX, originY, originZ, ref pendingObjects);
-        // Veins are placed before natural face coatings, so moss stays on top.
-        _veins?.Apply(chunk, coord);
-        MaterializeWallLayers(
-            chunk, column, densityVolume, originX, originY, originZ,
-            ref pendingObjects);
-        MaterializeWallObjects(
-            chunk, column, densityVolume, originX, originY, originZ);
-        // The Sphere Shell and its opaque terrain lining are the final
-        // worldgen boundary. Structures, fluids, spikes and layers must not
-        // uncover or replace them.
-        _voidSpawnPlatform?.Apply(chunk, coord);
-        ConcealSphereShell(chunk, column, originY, topExclusive);
-        MaterializeStructureObjects(chunk, coord);
-
+    private void MaterializePendingObjects(MaterializationJob job)
+    {
+        var chunk = job.Chunk;
+        var coord = job.Coord;
+        var originY = job.OriginY;
+        var pendingObjects = job.PendingObjects;
         // The supporting block owns an Object, never its adjacent fluid cell.
         // Publish only after structures, caves, and the shell are final.
         if (pendingObjects is not null)
@@ -516,7 +743,82 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        return chunk;
+
+    }
+
+    private sealed class MaterializationJob : IChunkMaterializationJob
+    {
+        private readonly SurfaceChunkMaterializer _owner;
+        private Chunk? _chunk;
+
+        public MaterializationJob(
+            SurfaceChunkMaterializer owner,
+            ChunkCoord coord)
+        {
+            _owner = owner;
+            Coord = coord;
+            if (coord.Y < 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(coord), "Sphere chunk Y cannot be negative.");
+
+            Stage = ChunkMaterializationStage.TerrainSetup;
+        }
+
+        public ChunkCoord Coord { get; }
+
+        public Chunk Chunk => _chunk ??
+            throw new InvalidOperationException(
+                "Chunk materialization has not started.");
+
+        public int OriginX { get; private set; }
+
+        public int OriginY { get; private set; }
+
+        public int OriginZ { get; private set; }
+
+        public void InitializeChunk()
+        {
+            if (_chunk is not null)
+                return;
+
+            _chunk = new Chunk();
+            (OriginX, OriginY, OriginZ) = VoxelCoordinates.ChunkOrigin(Coord);
+            // Allocation and palette setup occur on the materialization worker.
+            if (_owner._voidSpawnPlatform is null)
+                InitialBlocks = _chunk.BeginInitialBlockWrites();
+        }
+
+        public SurfaceTerrainColumn? Column { get; set; }
+
+        public TerrainDensityVolume? DensityVolume { get; set; }
+
+        public int TopExclusive { get; set; }
+
+        public int FirstTerrainWorldY { get; set; }
+
+        public int LastTerrainWorldY { get; set; }
+
+        public int NextTerrainLocalY { get; set; }
+
+        public ColumnMaterializationCache[]? ColumnMaterializationCaches { get; set; }
+
+        public List<PendingGeneratedObject>? PendingObjects { get; set; }
+
+        public Chunk.InitialBlockWriter? InitialBlocks { get; set; }
+
+        public ChunkMaterializationStage Stage { get; internal set; }
+
+        public bool IsComplete => Stage == ChunkMaterializationStage.Complete;
+
+        public Chunk? Result { get; internal set; }
+
+        public void Advance() => _owner.Advance(this);
+
+        public void Dispose()
+        {
+            InitialBlocks?.Dispose();
+            InitialBlocks = null;
+        }
     }
 
     /// <summary>
@@ -592,10 +894,50 @@ public sealed class SurfaceChunkMaterializer
                 neighbor.SurfaceFluidCutDepthAt(local.X, local.Z),
                 (int)px, supportY, (int)pz);
             if (candidate.Fluid == fluid &&
-                _terrain.DensityAt((int)px, supportY, (int)pz) < 0d)
+                _terrain.DensityAt(
+                    biome,
+                    baseY,
+                    (int)px,
+                    supportY,
+                    (int)pz,
+                    neighbor.VolumeBiomes[local.X, local.Z]) < 0d)
                 return true;
         }
         return false;
+    }
+
+    private double DensityAtWorld(
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        var (coord, local) =
+            VoxelCoordinates.FromWorld(worldX, 0, worldZ);
+        var column = _columns.Get(coord.X, coord.Z);
+        var biome = column.BiomeAt(local.X, local.Z);
+        return _terrain.DensityAt(
+            biome,
+            column.BaseHeightAt(local.X, local.Z),
+            worldX,
+            worldY,
+            worldZ,
+            column.VolumeBiomes[local.X, local.Z]);
+    }
+
+    private bool IsCaveVoidAtWorld(
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        if (worldY < 0)
+            throw new ArgumentOutOfRangeException(nameof(worldY));
+
+        var (coord, local) =
+            VoxelCoordinates.FromWorld(worldX, 0, worldZ);
+        var column = _columns.Get(coord.X, coord.Z);
+        return _terrain.IsCaveVoidAt(
+            column.BaseHeightAt(local.X, local.Z),
+            new WorldVoxelCoord(worldX, worldY, worldZ));
     }
 
     private uint AdditiveDepthAt(
@@ -631,9 +973,9 @@ public sealed class SurfaceChunkMaterializer
                 (long)localY +
                 depth +
                 1L;
-            var density =
+            var isSolid =
                 localAbove < densityVolume.Height
-                    ? densityVolume.DensityAt(
+                    ? densityVolume.IsSolidAt(
                         localX,
                         (int)localAbove,
                         localZ)
@@ -643,9 +985,9 @@ public sealed class SurfaceChunkMaterializer
                         worldX,
                         (int)above,
                         worldZ,
-                        volumeBiome);
+                        volumeBiome) >= 0d;
 
-            if (density < 0d)
+            if (!isSolid)
             {
                 break;
             }
@@ -1001,7 +1343,7 @@ public sealed class SurfaceChunkMaterializer
                     (_floorY is { } floorY && worldY <= floorY) ||
                     (_roofY is { } roofY && worldY >= roofY) ||
                     chunk.GetBlock(x, y, z).IsAir ||
-                    densityVolume.DensityAt(x, y, z) < 0d)
+                    !densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
                 bool CarvedVoid(int dx, int dy, int dz)
@@ -1015,7 +1357,7 @@ public sealed class SurfaceChunkMaterializer
                     if ((uint)nx < Chunk.Size &&
                         (uint)ny < Chunk.Size &&
                         (uint)nz < Chunk.Size)
-                        return densityVolume.DensityAt(nx, ny, nz) < 0d &&
+                        return !densityVolume.IsSolidAtUnchecked(nx, ny, nz) &&
                             neighborY <= column.BaseHeightAt(nx, nz) - 4;
 
                     return OutsideCarvedVoid(
@@ -1044,7 +1386,7 @@ public sealed class SurfaceChunkMaterializer
                     // most one result per column, even for many Y voxels.
                     if (!ownerResolved)
                     {
-                        biome = volumes.SampleCave(worldX, worldZ);
+                        biome = column.CaveBiomeAt(x, z);
                         ownerResolved = true;
                     }
                     if (biome is not null &&
@@ -1099,7 +1441,7 @@ public sealed class SurfaceChunkMaterializer
                     (_floorY is { } floorY && worldY <= floorY) ||
                     (_roofY is { } roofY && worldY >= roofY) ||
                     chunk.GetBlock(x, y, z).IsAir ||
-                    densityVolume.DensityAt(x, y, z) < 0d)
+                    !densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
                 var biome = worldY > baseY
@@ -1125,8 +1467,8 @@ public sealed class SurfaceChunkMaterializer
                     var voidDensity = (uint)nx < Chunk.Size &&
                         (uint)ny < Chunk.Size &&
                         (uint)nz < Chunk.Size
-                        ? densityVolume.DensityAt(nx, ny, nz) < 0d
-                        : _terrain.DensityAt(
+                        ? !densityVolume.IsSolidAtUnchecked(nx, ny, nz)
+                        : DensityAtWorld(
                             worldX + dx, neighborY, worldZ + dz) < 0d;
                     if (!voidDensity)
                         return false;
@@ -1140,7 +1482,7 @@ public sealed class SurfaceChunkMaterializer
                                      (uint)nz < Chunk.Size
                         ? _terrain.IsCaveVoidAt(
                             column.BaseHeightAt(nx, nz), neighborPosition)
-                        : _terrain.IsCaveVoidAt(
+                        : IsCaveVoidAtWorld(
                             neighborPosition.X, neighborPosition.Y,
                             neighborPosition.Z);
                     return !carvedVoid;
@@ -1239,20 +1581,20 @@ public sealed class SurfaceChunkMaterializer
                 var volumePlacement = densityVolume.VolumePlacementAt(
                     localX, localZ);
                 var targetInChunk = (uint)localY < Chunk.Size;
-                var targetDensity = targetInChunk
-                    ? densityVolume.DensityAt(localX, localY, localZ)
+                var targetSolid = targetInChunk
+                    ? densityVolume.IsSolidAtUnchecked(localX, localY, localZ)
                     : _terrain.DensityAt(surfaceBiome, baseY,
-                        worldX, worldY, worldZ, volumePlacement);
-                if (targetDensity >= 0d ||
+                        worldX, worldY, worldZ, volumePlacement) >= 0d;
+                if (targetSolid ||
                     (targetInChunk &&
                      !chunk.GetCell(localX, localY, localZ).IsEmpty))
                     continue;
-                var belowDensity = localY > 0 && localY <= Chunk.Size
-                    ? densityVolume.DensityAt(localX, localY - 1, localZ)
+                var belowSolid = localY > 0 && localY <= Chunk.Size
+                    ? densityVolume.IsSolidAtUnchecked(localX, localY - 1, localZ)
                     : _terrain.DensityAt(
                         surfaceBiome, baseY,
-                        worldX, worldY - 1, worldZ, volumePlacement);
-                var isFloor = belowDensity >= 0d;
+                        worldX, worldY - 1, worldZ, volumePlacement) >= 0d;
+                var isFloor = belowSolid;
                 // Additive islands may expose their undersides above the
                 // base surface. Resolve the author at the solid voxel above.
                 // Do not sample unsupported sky or other volume ownership.
@@ -1271,12 +1613,12 @@ public sealed class SurfaceChunkMaterializer
                       _decorations.HasCeilingDecorationsFor(
                           additiveCeilingBiome.Primary))))
                 {
-                    var aboveDensity = localY + 1 >= 0 && localY + 1 < Chunk.Size
-                        ? densityVolume.DensityAt(localX, localY + 1, localZ)
+                    var aboveSolid = localY + 1 >= 0 && localY + 1 < Chunk.Size
+                        ? densityVolume.IsSolidAtUnchecked(localX, localY + 1, localZ)
                         : _terrain.DensityAt(
                             surfaceBiome, baseY,
-                            worldX, worldY + 1, worldZ, volumePlacement);
-                    isCeiling = aboveDensity >= 0d;
+                            worldX, worldY + 1, worldZ, volumePlacement) >= 0d;
+                    isCeiling = aboveSolid;
                 }
                 if (!isFloor && !isCeiling)
                     continue;
@@ -1308,7 +1650,7 @@ public sealed class SurfaceChunkMaterializer
                         !_terrain.IsCaveVoidAt(
                             baseY, new WorldVoxelCoord(worldX, worldY, worldZ)))
                         continue;
-                    underground ??= _volumeBiomes.SampleCave(worldX, worldZ);
+                    underground ??= column.CaveBiomeAt(localX, localZ);
                     decoratorBiome = underground;
                 }
 
@@ -1322,7 +1664,7 @@ public sealed class SurfaceChunkMaterializer
                     baseY,
                     column.SurfaceFluidCutDepthAt(localX, localZ),
                     worldX, worldY, worldZ,
-                    targetDensity).IsEmpty;
+                    targetSolid).IsEmpty;
                 var placement = new SurfacePlacementContext(worldY, 0);
 
                 if (isFloor)
@@ -1488,7 +1830,7 @@ public sealed class SurfaceChunkMaterializer
 
                 var host = chunk.GetCell(x, y, z);
                 if (host.IsEmpty ||
-                    densityVolume.DensityAt(x, y, z) < 0d)
+                    !densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
                 foreach (var side in faces)
@@ -1502,10 +1844,10 @@ public sealed class SurfaceChunkMaterializer
                     if (local)
                     {
                         if (!chunk.GetCell(nx, y, nz).IsEmpty ||
-                            densityVolume.DensityAt(nx, y, nz) >= 0d)
+                            densityVolume.IsSolidAtUnchecked(nx, y, nz))
                             continue;
                     }
-                    else if (_terrain.DensityAt(px, worldY, pz) >= 0d)
+                    else if (DensityAtWorld(px, worldY, pz) >= 0d)
                         continue;
 
                     // Resolve the actual empty-side biome without changing
@@ -1524,7 +1866,7 @@ public sealed class SurfaceChunkMaterializer
                         _terrain.IsCaveVoidAt(neighborBaseY,
                             new WorldVoxelCoord(px, worldY, pz)))
                     {
-                        owner = _volumeBiomes?.SampleCave(px, pz);
+                        owner = neighborColumn.CaveBiomeAt(sx, sz);
                     }
                     else if (surfaceSupportsLayers &&
                              worldY > neighborBaseY &&
@@ -1620,7 +1962,7 @@ public sealed class SurfaceChunkMaterializer
                     (_roofY is { } roof && worldY >= roof) ||
                     !chunk.GetCell(x, y, z).IsEmpty ||
                     !chunk.GetFluid(x, y, z).IsEmpty ||
-                    densityVolume.DensityAt(x, y, z) >= 0d)
+                    densityVolume.IsSolidAtUnchecked(x, y, z))
                     continue;
 
                 var exterior = worldY > baseY && surfaceSupportsObjects;
@@ -1632,7 +1974,7 @@ public sealed class SurfaceChunkMaterializer
                     continue;
                 var owner = exterior
                     ? surface
-                    : _volumeBiomes!.SampleCave(worldX, worldZ);
+                    : column.CaveBiomeAt(x, z);
                 if (owner is null ||
                     !_decorations.HasWallBlocksFor(owner.Primary))
                     continue;
@@ -1645,8 +1987,8 @@ public sealed class SurfaceChunkMaterializer
                     var neighborZ = worldZ + side.Dz;
                     var local = Chunk.Contains(nx, y, nz);
                     var solid = local
-                        ? densityVolume.DensityAt(nx, y, nz) >= 0d
-                        : _terrain.DensityAt(neighborX, worldY, neighborZ) >= 0d;
+                        ? densityVolume.IsSolidAtUnchecked(nx, y, nz)
+                        : DensityAtWorld(neighborX, worldY, neighborZ) >= 0d;
                     if (!solid)
                         continue;
 
@@ -1730,7 +2072,7 @@ public sealed class SurfaceChunkMaterializer
                 // not cave space. Only a carved void below the base surface
                 // could contain a generated cave spike.
                 if (originY + localY < baseY &&
-                    densityVolume.DensityAt(x, localY, z) < 0d)
+                    !densityVolume.IsSolidAtUnchecked(x, localY, z))
                 {
                     containsVoid = true;
                     break;
@@ -1741,7 +2083,7 @@ public sealed class SurfaceChunkMaterializer
 
             var worldX = originX + x;
             var worldZ = originZ + z;
-            var biome = volumeBiomes.SampleCave(worldX, worldZ);
+            var biome = column.CaveBiomeAt(x, z);
             if (biome is null || !spikes.HasRulesFor(biome.Primary))
                 continue;
 
@@ -1749,12 +2091,23 @@ public sealed class SurfaceChunkMaterializer
             var volumeBiome = densityVolume.VolumePlacementAt(x, z);
             for (var anchorY = first; anchorY <= last; anchorY++)
             {
+                // TrySample rejects a non-void anchor before producing any
+                // placement: IsVoid(anchorY) is its first density check.
+                // When the anchor is inside this chunk, reuse the already
+                // sampled density and skip both direction probes immediately.
+                var localAnchorY = anchorY - originY;
+                if ((uint)localAnchorY < Chunk.Size &&
+                    densityVolume.IsSolidAtUnchecked(x, localAnchorY, z))
+                    continue;
+
                 for (var direction = 0; direction < 2; direction++)
                 {
                     var down = direction == 1;
                     if (!spikes.TrySample(
                             biome.Primary, surfaceBiome, volumeBiome, baseY,
-                            worldX, anchorY, worldZ, down, out var placement))
+                            worldX, anchorY, worldZ, down,
+                            densityVolume, originY, x, z,
+                            out var placement))
                         continue;
 
                     // A blocked root or intermediate tier invalidates
@@ -1795,109 +2148,131 @@ public sealed class SurfaceChunkMaterializer
     }
 
     private bool HasGeneratedFluidAboveSurface(
-        BiomeSample sample,
+        BiomeSample fluidBiome,
+        BiomeSample surfaceBiome,
         int baseY,
         int surfaceFluidCutDepth,
         int worldX,
         int surfaceY,
-        int worldZ)
+        int worldZ,
+        BiomeSample? volumePlacement)
     {
         var aboveY = (long)surfaceY + 1L;
         if (aboveY < 0 || aboveY > int.MaxValue)
             return false;
 
         var y = (int)aboveY;
-        var density = _terrain.DensityAt(worldX, y, worldZ);
+        // The column and density volume already carry the authoritative
+        // surface biome, base height and volume placement for this X/Z.
+        // Reuse them instead of constructing new scalar-sample caches.
+        var density = _terrain.DensityAt(
+            surfaceBiome, baseY, worldX, y, worldZ, volumePlacement);
         var fluid = _generatedFluids.FluidAt(
-            sample, baseY, surfaceFluidCutDepth,
+            fluidBiome, baseY, surfaceFluidCutDepth,
             worldX, y, worldZ, density);
         return !fluid.IsEmpty;
     }
 
     private void MaterializeGeneratedFluids(
         Chunk chunk,
-        SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
-        int originX,
+        ColumnMaterializationCache[] columnMaterializationCaches,
         int originY,
-        int originZ,
         int topExclusive)
     {
         if (!_generatedFluids.HasRules)
-        {
             return;
-        }
 
+        // Resolve the authored fluid policy once per column. The reusable
+        // column cache already carries biome, base height and surface-cut
+        // metadata, so the fluid pass does not need parallel per-column arrays.
+        Span<int> firstFluidYByColumn = stackalloc int[Chunk.Area];
+        Span<int> lastFluidYByColumn = stackalloc int[Chunk.Area];
+        firstFluidYByColumn.Fill(int.MaxValue);
+        lastFluidYByColumn.Fill(int.MinValue);
+
+        var firstWorldY = int.MaxValue;
+        var lastWorldY = int.MinValue;
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         {
             for (var localX = 0; localX < Chunk.Size; localX++)
             {
-                var sample = column.BiomeAt(localX, localZ);
-                var baseY = column.BaseHeightAt(localX, localZ);
-                var surfaceCutDepth =
-                    column.SurfaceFluidCutDepthAt(
-                        localX,
-                        localZ);
+                var columnIndex = localX + Chunk.Size * localZ;
+                ref var state = ref columnMaterializationCaches[columnIndex];
+                var sample = state.Sample ??
+                    throw new InvalidOperationException(
+                        "Materialization column has no biome sample.");
+                var baseY = state.BaseY;
+                var surfaceCutDepth = state.SurfaceFluidCutDepth;
 
-                var worldX =
-                    checked(
-                        originX +
-                        localX);
-                var worldZ =
-                    checked(
-                        originZ +
-                        localZ);
-
-                if (!_generatedFluids.TryGetColumnBounds(
+                if (!_generatedFluids.TryResolveColumn(
                         sample,
                         baseY,
                         surfaceCutDepth,
-                        worldX,
-                        worldZ,
+                        state.WorldX,
+                        state.WorldZ,
+                        out var fluidPlan,
                         out var minimumY,
                         out var maximumY))
                 {
+                    state.GeneratedFluidPlan = default;
                     continue;
                 }
 
+                state.GeneratedFluidPlan = fluidPlan;
                 var firstY = Math.Max(originY, minimumY);
                 var lastY = Math.Min(topExclusive - 1, maximumY);
                 if (firstY > lastY)
-                {
                     continue;
-                }
 
-                for (var worldY = firstY; worldY <= lastY; worldY++)
+                firstFluidYByColumn[columnIndex] = firstY;
+                lastFluidYByColumn[columnIndex] = lastY;
+                firstWorldY = Math.Min(firstWorldY, firstY);
+                lastWorldY = Math.Max(lastWorldY, lastY);
+            }
+        }
+
+        if (firstWorldY > lastWorldY)
+            return;
+
+        using var initialFluidWrites = chunk.BeginInitialFluidWrites();
+        for (var worldY = firstWorldY; worldY <= lastWorldY; worldY++)
+        {
+            var localY = worldY - originY;
+            for (var localZ = 0; localZ < Chunk.Size; localZ++)
+            {
+                for (var localX = 0; localX < Chunk.Size; localX++)
                 {
-                    var localY = worldY - originY;
+                    var columnIndex = localX + Chunk.Size * localZ;
+                    if (worldY < firstFluidYByColumn[columnIndex] ||
+                        worldY > lastFluidYByColumn[columnIndex])
+                        continue;
 
-                    var block = chunk.GetBlock(localX, localY, localZ);
+                    var voxelIndex =
+                        localX + Chunk.Size * (localZ + Chunk.Size * localY);
+                    var block =
+                        chunk.GetCellAtLinearIndexUnchecked(voxelIndex).Block;
                     if ((!block.IsAir &&
                          !FluidBlockOccupancy.AllowsFluid(
                              _blocks.GetDefinition(block))) ||
-                        !chunk.GetFluid(localX, localY, localZ).IsEmpty)
-                    {
+                        !initialFluidWrites.IsEmptyAtLinearIndex(voxelIndex))
                         continue;
-                    }
 
-                    var fluid = _generatedFluids.FluidAt(
-                        sample,
-                        baseY,
-                        surfaceCutDepth,
-                        worldX,
+                    ref var state = ref columnMaterializationCaches[columnIndex];
+                    var fluid = _generatedFluids.FluidAtResolvedColumn(
+                        state.GeneratedFluidPlan,
+                        state.BaseY,
+                        state.SurfaceFluidCutDepth,
                         worldY,
-                        worldZ,
-                        densityVolume.DensityAt(
+                        densityVolume.IsSolidAtUnchecked(
                             localX,
                             localY,
                             localZ));
 
                     if (!fluid.IsEmpty)
                     {
-                        chunk.SetFluid(
-                            localX,
-                            localY,
-                            localZ,
+                        initialFluidWrites.SetFluidAtLinearIndexIfEmpty(
+                            voxelIndex,
                             fluid);
                     }
                 }
@@ -1997,7 +2372,7 @@ public sealed class SurfaceChunkMaterializer
     }
 
     private void SetShellIfInChunk(
-        Chunk chunk,
+        Chunk.InitialBlockWriter initialBlocks,
         int localX,
         int localZ,
         int originY,
@@ -2011,10 +2386,8 @@ public sealed class SurfaceChunkMaterializer
             return;
         }
 
-        chunk.SetBlock(
-            localX,
-            y - originY,
-            localZ,
+        initialBlocks.SetBlockAtLinearIndex(
+            localX + Chunk.Size * localZ + Chunk.Area * (y - originY),
             _shellBlock);
     }
 }

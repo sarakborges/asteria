@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -147,16 +149,76 @@ public sealed class SurfaceTerrainField
                 worldZ));
     }
 
+    // Surface placement conditions sample several adjacent heights. Keep the
+    // two biome assignment caches local to that one query so neighboring height
+    // probes reuse seed assignments instead of allocating a sampler per point.
+    internal readonly record struct TerrainSampleContext(
+        BiomeField.Sampler SurfaceBiomes,
+        BiomeField.Sampler? VolumePlacement);
+
+    internal TerrainSampleContext CreateTerrainSampleContext() =>
+        new(
+            _surfaceBiomes.CreateSampler(),
+            _volumeBiomes.CreatePlacementSampler());
+
+    internal (BiomeSample Biome, int BaseY) SampleBaseSurface(
+        TerrainSampleContext context,
+        int worldX,
+        int worldZ)
+    {
+        var biome = context.SurfaceBiomes.Sample(worldX, worldZ);
+        return (biome, BaseHeightAt(biome, worldX, worldZ));
+    }
+
     internal (
         BiomeSample Biome,
         int BaseY,
         int SurfaceFluidCutDepth)
         SampleBaseSurfaceWithGeneratedFluid(
             int worldX,
+            int worldZ) =>
+        SampleBaseSurfaceWithGeneratedFluid(
+            _surfaceBiomes.CreateSampler(),
+            worldX,
+            worldZ);
+
+    // Structure-placement queries often sample many nearby surface points.
+    // Reuse the query-owned biome sampler instead of allocating a fresh
+    // sampler and seed-assignment dictionary for every point.
+    internal (
+        BiomeSample Biome,
+        int BaseY,
+        int SurfaceFluidCutDepth)
+        SampleBaseSurfaceWithGeneratedFluid(
+            BiomeSample biome,
+            int worldX,
             int worldZ)
     {
+        ArgumentNullException.ThrowIfNull(biome);
+        var resolved =
+            BaseHeightAndSurfaceFluidCutAt(
+                biome,
+                worldX,
+                worldZ);
+
+        return (
+            biome,
+            resolved.BaseY,
+            resolved.SurfaceFluidCutDepth);
+    }
+
+    internal (
+        BiomeSample Biome,
+        int BaseY,
+        int SurfaceFluidCutDepth)
+        SampleBaseSurfaceWithGeneratedFluid(
+            BiomeField.Sampler sampler,
+            int worldX,
+            int worldZ)
+    {
+        ArgumentNullException.ThrowIfNull(sampler);
         var biome =
-            _surfaceBiomes.Sample(
+            sampler.Sample(
                 worldX,
                 worldZ);
         var resolved =
@@ -206,6 +268,24 @@ public sealed class SurfaceTerrainField
             worldX,
             worldZ,
             _volumeBiomes.SamplePlacement(
+                worldX,
+                worldZ));
+    }
+
+    internal int SurfaceHeight(
+        TerrainSampleContext context,
+        int worldX,
+        int worldZ)
+    {
+        var biome = context.SurfaceBiomes.Sample(worldX, worldZ);
+        var baseY = BaseHeightAt(biome, worldX, worldZ);
+        return FinalSurfaceHeight(
+            biome,
+            baseY,
+            worldX,
+            worldZ,
+            _volumeBiomes.SamplePlacement(
+                context.VolumePlacement,
                 worldX,
                 worldZ));
     }
@@ -282,6 +362,10 @@ public sealed class SurfaceTerrainField
     /// Pure density query with already-sampled X/Z biome and base height.
     /// Used by the chunk materializer across all Y voxels in a column.
     /// </summary>
+    internal bool HasAdditiveDensityRule(BiomeSample? volumeBiome) =>
+        volumeBiome is not null &&
+        _additiveRules.ContainsKey(volumeBiome.Primary);
+
     public double DensityAt(
         BiomeSample biome,
         int baseY,
@@ -304,7 +388,30 @@ public sealed class SurfaceTerrainField
         int worldX,
         int worldY,
         int worldZ,
-        BiomeSample? volumeBiome)
+        BiomeSample? volumeBiome) =>
+        DensityAt(
+            biome,
+            baseY,
+            worldX,
+            worldY,
+            worldZ,
+            volumeBiome,
+            caveSampler: null,
+            localX: 0,
+            localY: 0,
+            localZ: 0);
+
+    private double DensityAt(
+        BiomeSample biome,
+        int baseY,
+        int worldX,
+        int worldY,
+        int worldZ,
+        BiomeSample? volumeBiome,
+        CaveNoiseVolumeSampler? caveSampler,
+        int localX,
+        int localY,
+        int localZ)
     {
         if (worldY < 0)
         {
@@ -348,7 +455,11 @@ public sealed class SurfaceTerrainField
                     baseY,
                     worldX,
                     worldY,
-                    worldZ);
+                    worldZ,
+                    caveSampler,
+                    localX,
+                    localY,
+                    localZ);
 
             if (voidDensity > 0d)
             {
@@ -375,7 +486,11 @@ public sealed class SurfaceTerrainField
         int baseY,
         int worldX,
         int worldY,
-        int worldZ)
+        int worldZ,
+        CaveNoiseVolumeSampler? caveSampler = null,
+        int localX = 0,
+        int localY = 0,
+        int localZ = 0)
     {
         if (_caves is null ||
             BordersSphereShell(worldY))
@@ -398,7 +513,11 @@ public sealed class SurfaceTerrainField
             worldX,
             worldY,
             worldZ,
-            depth);
+            depth,
+            caveSampler,
+            localX,
+            localY,
+            localZ);
     }
 
     /// <summary>
@@ -552,12 +671,22 @@ public sealed class SurfaceTerrainField
         // The horizontal placement is immutable and was already sampled
         // with the surface column. Reuse it across vertical chunk layers.
         var volumeBiomes = column.VolumeBiomes;
-        var values =
-            new double[
-                Chunk.Size *
-                Chunk.Size *
-                Chunk.Size];
+        // A vertical column is only 16 voxels high, so one ushort stores
+        // every solid/empty decision for that X/Z without per-voxel indexing.
+        var solidMask = new ushort[Chunk.Size * Chunk.Size];
         var maximumY = checked(originY + Chunk.Size - 1);
+        var minimumBaseY = int.MaxValue;
+        var maximumBaseY = int.MinValue;
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        for (var localX = 0; localX < Chunk.Size; localX++)
+        {
+            var baseY = column.BaseHeightAt(localX, localZ);
+            minimumBaseY = Math.Min(minimumBaseY, baseY);
+            maximumBaseY = Math.Max(maximumBaseY, baseY);
+        }
+
+        var caveSamplerAttempted = false;
+        CaveNoiseVolumeSampler? caveSampler = null;
 
         for (var localZ = 0;
              localZ < Chunk.Size;
@@ -572,6 +701,7 @@ public sealed class SurfaceTerrainField
                  localX < Chunk.Size;
                  localX++)
             {
+                var solidColumnIndex = localZ * Chunk.Size + localX;
                 var worldX =
                     checked(originX + localX);
                 var baseY =
@@ -588,23 +718,87 @@ public sealed class SurfaceTerrainField
                     _caves is not null &&
                     (long)originY <= (long)baseY - _caves.MinimumDepth &&
                     (long)maximumY >= (long)baseY - _caves.MaximumDepth;
-                var mayContainAdditive =
+                if (mayContainCaves && !caveSamplerAttempted)
+                {
+                    caveSampler =
+                        _caves!.CreateSampler(
+                            _seed,
+                            originX,
+                            originY,
+                            originZ,
+                            Chunk.Size,
+                            Chunk.Size,
+                            Chunk.Size,
+                            minimumBaseY,
+                            maximumBaseY);
+                    caveSamplerAttempted = true;
+                }
+
+                var additiveRule =
                     volumeBiome is not null &&
                     _additiveRules.TryGetValue(
                         volumeBiome.Primary,
-                        out var additive) &&
-                    originY <= additive.MaximumY &&
-                    maximumY >= additive.MinimumY;
+                        out var resolvedAdditive)
+                        ? resolvedAdditive
+                        : null;
+                var mayContainAdditive =
+                    additiveRule is not null &&
+                    originY <= additiveRule.MaximumY &&
+                    maximumY >= additiveRule.MinimumY;
+
+                // With no caves or additive formations intersecting this
+                // vertical band, solidity is a prefix of the Y bits at baseY.
+                // Build it directly rather than evaluating 16 simple densities.
+                if (!mayContainCaves && !mayContainAdditive)
+                {
+                    var solidDepth = (long)baseY - originY + 1L;
+                    var solidCount = (int)Math.Clamp(
+                        solidDepth, 0L, Chunk.Size);
+                    var baselineMask = solidCount switch
+                    {
+                        0 => (ushort)0,
+                        Chunk.Size => ushort.MaxValue,
+                        _ => (ushort)((1u << solidCount) - 1u),
+                    };
+
+                    // Shell lining is defined as solid even above the terrain
+                    // surface, so restore those single bits explicitly.
+                    if (_floorY is { } floorY)
+                    {
+                        var liningY = (long)floorY + 1L - originY;
+                        if (liningY >= 0L && liningY < Chunk.Size)
+                            baselineMask |= (ushort)(1u << (int)liningY);
+                    }
+
+                    if (_roofY is { } roofY)
+                    {
+                        var liningY = (long)roofY - 1L - originY;
+                        if (liningY >= 0L && liningY < Chunk.Size)
+                            baselineMask |= (ushort)(1u << (int)liningY);
+                    }
+
+                    solidMask[solidColumnIndex] = baselineMask;
+                    continue;
+                }
 
                 for (var localY = 0;
                      localY < Chunk.Size;
                      localY++)
                 {
                     var worldY = originY + localY;
-                    values[
-                        (localZ * Chunk.Size + localY) *
-                        Chunk.Size + localX] =
-                        mayContainCaves || mayContainAdditive ||
+                    var caveDepth = (long)baseY - worldY;
+                    var caveDensityApplies =
+                        mayContainCaves &&
+                        caveDepth >= _caves!.MinimumDepth &&
+                        caveDepth <= _caves.MaximumDepth;
+                    var additiveDensityApplies =
+                        mayContainAdditive &&
+                        additiveRule is { } activeAdditive &&
+                        worldY >= activeAdditive.MinimumY &&
+                        worldY <= activeAdditive.MaximumY;
+                    var density =
+                        caveDensityApplies ||
+                        additiveDensityApplies ||
                         IsShellLining(worldY)
                             ? DensityAt(
                                 biome,
@@ -612,17 +806,45 @@ public sealed class SurfaceTerrainField
                                 worldX,
                                 worldY,
                                 worldZ,
-                                volumeBiome)
+                                volumeBiome,
+                                caveSampler,
+                                localX,
+                                localY,
+                                localZ)
                             : baseY - (double)worldY;
+                    if (density >= 0d)
+                    {
+                        solidMask[solidColumnIndex] =
+                            (ushort)(solidMask[solidColumnIndex] |
+                                     (1u << localY));
+                    }
                 }
             }
+        }
+
+        double DensityAtLocal(
+            int localX,
+            int localY,
+            int localZ)
+        {
+            var worldX = checked(originX + localX);
+            var worldY = checked(originY + localY);
+            var worldZ = checked(originZ + localZ);
+            return DensityAt(
+                column.BiomeAt(localX, localZ),
+                column.BaseHeightAt(localX, localZ),
+                worldX,
+                worldY,
+                worldZ,
+                volumeBiomes[localX, localZ]);
         }
 
         return new TerrainDensityVolume(
             Chunk.Size,
             Chunk.Size,
             Chunk.Size,
-            values,
+            solidMask,
+            DensityAtLocal,
             volumeBiomes,
             _volumeBiomes);
     }
@@ -639,6 +861,12 @@ public sealed class SurfaceTerrainField
             Chunk.Size);
         var volumeBiomes =
             _volumeBiomes.SamplePlacementGrid(
+                originX,
+                originZ,
+                Chunk.Size,
+                Chunk.Size);
+        var caveBiomes =
+            _volumeBiomes.SampleCaveGrid(
                 originX,
                 originZ,
                 Chunk.Size,
@@ -682,6 +910,7 @@ public sealed class SurfaceTerrainField
         return new SurfaceTerrainColumn(
             biomes,
             volumeBiomes,
+            caveBiomes,
             baseHeights,
             surfaceFluidCutDepths,
             surfaceHeights,
@@ -1151,6 +1380,16 @@ public sealed class SurfaceTerrainField
         }
     }
 
+    private sealed class CaveNoiseVolumeSampler(
+        WorldGenerationEntropy.ValueNoise3DGridSampler[]?[] channels,
+        WorldGenerationEntropy.ValueNoise3DGridSampler?[] chambers,
+        int[] localYOffsets)
+    {
+        public WorldGenerationEntropy.ValueNoise3DGridSampler[]?[] Channels { get; } = channels;
+        public WorldGenerationEntropy.ValueNoise3DGridSampler?[] Chambers { get; } = chambers;
+        public int[] LocalYOffsets { get; } = localYOffsets;
+    }
+
     private sealed class CaveRule
     {
         private readonly CaveLayerRule[] _layers;
@@ -1167,25 +1406,87 @@ public sealed class SurfaceTerrainField
         public uint MinimumDepth { get; }
         public uint MaximumDepth { get; }
 
+        public CaveNoiseVolumeSampler CreateSampler(
+            ulong seed,
+            int originX,
+            int originY,
+            int originZ,
+            int width,
+            int height,
+            int depth,
+            int minimumBaseY,
+            int maximumBaseY)
+        {
+            var maximumY = checked(originY + height - 1);
+            var channels =
+                new WorldGenerationEntropy.ValueNoise3DGridSampler[]?[_layers.Length];
+            var chambers =
+                new WorldGenerationEntropy.ValueNoise3DGridSampler?[_layers.Length];
+            var localYOffsets = new int[_layers.Length];
+            for (var index = 0; index < _layers.Length; index++)
+            {
+                var layer = _layers[index];
+                var layerMinimumY = Math.Max(
+                    (long)originY,
+                    (long)minimumBaseY - layer.MaximumDepth);
+                var layerMaximumY = Math.Min(
+                    (long)maximumY,
+                    (long)maximumBaseY - layer.MinimumDepth);
+                if (layerMinimumY > layerMaximumY)
+                {
+                    continue;
+                }
+
+                var sampleOriginY = checked((int)layerMinimumY);
+                var sampleHeight = checked((int)(layerMaximumY - layerMinimumY + 1L));
+                channels[index] = layer.CreateChannelSamplers(
+                    seed, originX, sampleOriginY, originZ, width, sampleHeight, depth);
+                chambers[index] = layer.CreateChamberSampler(
+                    seed, originX, sampleOriginY, originZ, width, sampleHeight, depth);
+                localYOffsets[index] = sampleOriginY - originY;
+            }
+
+            return new CaveNoiseVolumeSampler(channels, chambers, localYOffsets);
+        }
+
         public double VoidDensityAt(
             ulong seed,
             int x,
             int y,
             int z,
-            long depth)
+            long depth,
+            CaveNoiseVolumeSampler? sampler = null,
+            int localX = 0,
+            int localY = 0,
+            int localZ = 0)
         {
             var result = 0d;
-            foreach (var layer in _layers)
+            for (var index = 0; index < _layers.Length; index++)
             {
+                var layer = _layers[index];
                 if (depth < layer.MinimumDepth ||
                     depth > layer.MaximumDepth)
                 {
                     continue;
                 }
 
+                var layerChannels = sampler?.Channels[index];
+                var sampleLocalY = layerChannels is null
+                    ? localY
+                    : localY - sampler!.LocalYOffsets[index];
                 result = Math.Max(
                     result,
-                    layer.VoidDensityAt(seed, x, y, z, depth));
+                    layer.VoidDensityAt(
+                        seed,
+                        x,
+                        y,
+                        z,
+                        depth,
+                        layerChannels,
+                        sampler?.Chambers[index],
+                        localX,
+                        sampleLocalY,
+                        localZ));
             }
 
             return result;
@@ -1218,26 +1519,101 @@ public sealed class SurfaceTerrainField
         public uint MinimumDepth => _authored.MinDepth;
         public uint MaximumDepth => _authored.MaxDepth;
 
+        public bool IntersectsChunkDepthRange(
+            int minimumBaseY,
+            int maximumBaseY,
+            int originY,
+            int maximumY) =>
+            (long)originY <= (long)maximumBaseY - MinimumDepth &&
+            (long)maximumY >= (long)minimumBaseY - MaximumDepth;
+
+        public WorldGenerationEntropy.ValueNoise3DGridSampler[] CreateChannelSamplers(
+            ulong seed,
+            int originX,
+            int originY,
+            int originZ,
+            int width,
+            int height,
+            int depth)
+        {
+            var samplers =
+                new WorldGenerationEntropy.ValueNoise3DGridSampler[_channels.Length];
+            for (var index = 0; index < _channels.Length; index++)
+            {
+                var channel = _channels[index];
+                samplers[index] =
+                    new WorldGenerationEntropy.ValueNoise3DGridSampler(
+                        seed,
+                        channel.Domain,
+                        originX,
+                        originY,
+                        originZ,
+                        width,
+                        height,
+                        depth,
+                        channel.HorizontalScale,
+                        channel.VerticalScale);
+            }
+
+            return samplers;
+        }
+
+        public WorldGenerationEntropy.ValueNoise3DGridSampler? CreateChamberSampler(
+            ulong seed,
+            int originX,
+            int originY,
+            int originZ,
+            int width,
+            int height,
+            int depth)
+        {
+            if (_authored.Chambers is not { } chambers)
+                return null;
+
+            return new WorldGenerationEntropy.ValueNoise3DGridSampler(
+                seed,
+                _chamberDomain,
+                originX,
+                originY,
+                originZ,
+                width,
+                height,
+                depth,
+                chambers.HorizontalScale,
+                chambers.VerticalScale);
+        }
+
         public double VoidDensityAt(
             ulong seed,
             int x,
             int y,
             int z,
-            long depth)
+            long depth,
+            WorldGenerationEntropy.ValueNoise3DGridSampler[]? channelSamplers = null,
+            WorldGenerationEntropy.ValueNoise3DGridSampler? chamberSampler = null,
+            int localX = 0,
+            int localY = 0,
+            int localZ = 0)
         {
             var intersection =
                 _authored.Combination == CaveNoiseCombination.Intersection;
             var score = intersection ? 0d : double.PositiveInfinity;
-            foreach (var channel in _channels)
+            for (var channelIndex = 0; channelIndex < _channels.Length; channelIndex++)
             {
-                var noise = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
-                    seed,
-                    channel.Domain,
-                    x,
-                    y,
-                    z,
-                    channel.HorizontalScale,
-                    channel.VerticalScale));
+                var channel = _channels[channelIndex];
+                var noise = Math.Abs(channelSamplers is null
+                    ? WorldGenerationEntropy.ValueNoise3D(
+                        seed,
+                        channel.Domain,
+                        x,
+                        y,
+                        z,
+                        channel.HorizontalScale,
+                        channel.VerticalScale)
+                    : channelSamplers[channelIndex].Sample(
+                        localX,
+                        localY,
+                        localZ));
                 score = intersection
                     ? Math.Max(score, noise)
                     : Math.Min(score, noise);
@@ -1247,14 +1623,16 @@ public sealed class SurfaceTerrainField
             if (_authored.Chambers is { } chambers &&
                 score < chambers.MaxNoiseHalfWidth)
             {
-                var signal = WorldGenerationEntropy.ValueNoise3D(
-                    seed,
-                    _chamberDomain,
-                    x,
-                    y,
-                    z,
-                    chambers.HorizontalScale,
-                    chambers.VerticalScale);
+                var signal = chamberSampler is null
+                    ? WorldGenerationEntropy.ValueNoise3D(
+                        seed,
+                        _chamberDomain,
+                        x,
+                        y,
+                        z,
+                        chambers.HorizontalScale,
+                        chambers.VerticalScale)
+                    : chamberSampler.Sample(localX, localY, localZ);
                 var strength = Math.Clamp(
                     (signal - chambers.ActivationStart) /
                     (chambers.ActivationFull - chambers.ActivationStart),
@@ -1299,6 +1677,7 @@ public sealed class SurfaceTerrainColumn
 {
     private readonly BiomeSampleGrid _biomes;
     private readonly VolumeBiomePlacementGrid _volumeBiomes;
+    private readonly BiomeSampleGrid? _caveBiomes;
     private readonly int[] _baseHeights;
     private readonly int[] _surfaceFluidCutDepths;
     private readonly int[] _surfaceHeights;
@@ -1306,6 +1685,7 @@ public sealed class SurfaceTerrainColumn
     internal SurfaceTerrainColumn(
         BiomeSampleGrid biomes,
         VolumeBiomePlacementGrid volumeBiomes,
+        BiomeSampleGrid? caveBiomes,
         int[] baseHeights,
         int[] surfaceFluidCutDepths,
         int[] surfaceHeights,
@@ -1313,6 +1693,7 @@ public sealed class SurfaceTerrainColumn
     {
         _biomes = biomes;
         _volumeBiomes = volumeBiomes;
+        _caveBiomes = caveBiomes;
         _baseHeights = baseHeights;
         _surfaceFluidCutDepths =
             surfaceFluidCutDepths;
@@ -1323,6 +1704,9 @@ public sealed class SurfaceTerrainColumn
     public ChunkSurfaceRange Range { get; }
 
     internal VolumeBiomePlacementGrid VolumeBiomes => _volumeBiomes;
+
+    internal BiomeSample? CaveBiomeAt(int localX, int localZ) =>
+        _caveBiomes?[localX, localZ];
 
     public BiomeSample BiomeAt(int localX, int localZ) =>
         _biomes[localX, localZ];
@@ -1355,10 +1739,15 @@ public sealed class SurfaceTerrainColumn
 
 /// <summary>
 /// Immutable bounded 3D query snapshot with Z/Y/X row major storage.
+/// Solids are stored as a compact bitset; exact density values are expanded
+/// lazily for query consumers that request them.
 /// </summary>
 public sealed class TerrainDensityVolume
 {
-    private readonly double[] _densities;
+    private double[]? _densities;
+    private readonly ushort[]? _columnSolidMask;
+    private readonly Func<int, int, int, double>? _densityProvider;
+    private readonly object _densityGate = new();
     private readonly VolumeBiomePlacementGrid? _volumeBiomes;
     private readonly VolumeBiomeField? _volumeBiomeField;
 
@@ -1380,7 +1769,42 @@ public sealed class TerrainDensityVolume
         Width = width;
         Height = height;
         Depth = depth;
-        _densities = densities;
+        _densities = densities ??
+            throw new ArgumentNullException(nameof(densities));
+        _volumeBiomes = volumeBiomes;
+        _volumeBiomeField = volumeBiomeField;
+    }
+
+    internal TerrainDensityVolume(
+        int width,
+        int height,
+        int depth,
+        ushort[] columnSolidMask,
+        Func<int, int, int, double> densityProvider,
+        VolumeBiomePlacementGrid? volumeBiomes,
+        VolumeBiomeField? volumeBiomeField)
+    {
+        if ((volumeBiomes is null) !=
+            (volumeBiomeField is null))
+        {
+            throw new ArgumentException(
+                "Volume biome snapshot metadata must be supplied together.");
+        }
+
+        Width = width;
+        Height = height;
+        Depth = depth;
+        if (height > sizeof(ushort) * 8)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(height),
+                "Column solidity masks support at most 16 voxels of vertical height.");
+        }
+
+        _columnSolidMask = columnSolidMask ??
+            throw new ArgumentNullException(nameof(columnSolidMask));
+        _densityProvider = densityProvider ??
+            throw new ArgumentNullException(nameof(densityProvider));
         _volumeBiomes = volumeBiomes;
         _volumeBiomeField = volumeBiomeField;
     }
@@ -1396,19 +1820,78 @@ public sealed class TerrainDensityVolume
         int localY,
         int localZ)
     {
-        if ((uint)localX >= Width ||
-            (uint)localY >= Height ||
-            (uint)localZ >= Depth)
+        var index = Index(localX, localY, localZ);
+        var densities = Volatile.Read(ref _densities);
+        if (densities is null)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(localX));
+            lock (_densityGate)
+            {
+                densities = Volatile.Read(ref _densities);
+                if (densities is null)
+                {
+                    if (_densityProvider is null)
+                    {
+                        throw new InvalidOperationException(
+                            "Density values are unavailable for this volume.");
+                    }
+
+                    densities = new double[
+                        checked(Width * Height * Depth)];
+                    for (var z = 0; z < Depth; z++)
+                    for (var y = 0; y < Height; y++)
+                    for (var x = 0; x < Width; x++)
+                    {
+                        densities[(z * Height + y) * Width + x] =
+                            _densityProvider(x, y, z);
+                    }
+
+                    Volatile.Write(ref _densities, densities);
+                }
+            }
         }
 
-        return _densities[
-            (localZ * Height + localY) *
-            Width +
-            localX];
+        return densities[index];
     }
+
+    /// <summary>
+    /// Tests voxel occupancy without retaining a double per voxel in the
+    /// materialization path.
+    /// </summary>
+    public bool IsSolidAt(
+        int localX,
+        int localY,
+        int localZ)
+    {
+        if (_columnSolidMask is { } columnSolidMask)
+        {
+            if ((uint)localY >= Height)
+            {
+                throw new ArgumentOutOfRangeException(nameof(localY));
+            }
+
+            var columnIndex = ColumnIndex(localX, localZ);
+            return (columnSolidMask[columnIndex] & (1u << localY)) != 0;
+        }
+
+        var index = Index(localX, localY, localZ);
+        var densities = Volatile.Read(ref _densities);
+        if (densities is not null)
+        {
+            return densities[index] >= 0d;
+        }
+
+        return _densityProvider!(localX, localY, localZ) >= 0d;
+    }
+
+    /// <summary>
+    /// Fast occupancy read for materializer loops that have already proven
+    /// all coordinates are inside this chunk's compact column-mask volume.
+    /// </summary>
+    internal bool IsSolidAtUnchecked(
+        int localX,
+        int localY,
+        int localZ) =>
+        (_columnSolidMask![(localZ * Width) + localX] & (1u << localY)) != 0;
 
     internal BiomeSample? VolumePlacementAt(
         int localX,
@@ -1430,16 +1913,45 @@ public sealed class TerrainDensityVolume
         int worldY,
         int localZ)
     {
-        if (_volumeBiomeField is null)
+        if (_volumeBiomes is null ||
+            _volumeBiomeField is null)
         {
             throw new InvalidOperationException(
                 "Density volume does not carry volume-biome placement metadata.");
         }
 
         return _volumeBiomeField.SampleAtY(
-            VolumePlacementAt(
-                localX,
-                localZ),
-            worldY);
+            _volumeBiomes,
+            localX,
+            worldY,
+            localZ);
+    }
+
+    private int ColumnIndex(
+        int localX,
+        int localZ)
+    {
+        if ((uint)localX >= Width ||
+            (uint)localZ >= Depth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localX));
+        }
+
+        return localZ * Width + localX;
+    }
+
+    private int Index(
+        int localX,
+        int localY,
+        int localZ)
+    {
+        if ((uint)localX >= Width ||
+            (uint)localY >= Height ||
+            (uint)localZ >= Depth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localX));
+        }
+
+        return (localZ * Height + localY) * Width + localX;
     }
 }

@@ -366,7 +366,7 @@ public sealed class BiomeWorldGenerationTests
     [Theory]
     [InlineData("asteria:overworld/desert", "asteria:overworld/swamp", false)]
     [InlineData("asteria:overworld/wasteland", "asteria:overworld/swamp", false)]
-    [InlineData("asteria:overworld/wasteland", "asteria:overworld/ocean", true)]
+    [InlineData("asteria:overworld/wasteland", "asteria:overworld/ocean", false)]
     public void OverworldBoundaryRulesAreSymmetric(
         string first,
         string second,
@@ -788,13 +788,14 @@ public sealed class BiomeWorldGenerationTests
             DimensionSeed.Derive(seed, dimension.Id),
             dimension, blocks, LoadDefaultFluids(), biomes,
             LoadDefaultStructures(), LoadDefaultStructureSets(),
-            new WorldGenerationOptions(spawnStructures: false));
+            new WorldGenerationOptions(spawnStructures: false, spawnCaves: false));
         var geologyBiomeIds = dimension.SurfaceBiomes
             .Where(id => biomes.Get(id).Geology is not null &&
                 id != "asteria:overworld/ocean")
             .ToHashSet(StringComparer.Ordinal);
+        var dimensionSeed = DimensionSeed.Derive(seed, dimension.Id);
         var geologyField = new BiomeSurfaceMaterialField(
-            DimensionSeed.Derive(seed, dimension.Id),
+            dimensionSeed,
             geologyBiomeIds.Select(biomes.Get),
             blocks);
 
@@ -823,9 +824,11 @@ public sealed class BiomeWorldGenerationTests
 
         Assert.True(leftVoxel.HasValue && rightVoxel.HasValue,
             "No suitable boundary between two geology-enabled surface biomes was found.");
+
         Assert.Equal(
             leftVoxel!.Value.Expected,
             ReadMaterializedBlock(leftVoxel.Value.X, leftVoxel.Value.Y, leftVoxel.Value.Z));
+
         Assert.Equal(
             rightVoxel!.Value.Expected,
             ReadMaterializedBlock(rightVoxel.Value.X, rightVoxel.Value.Y, rightVoxel.Value.Z));
@@ -844,7 +847,9 @@ public sealed class BiomeWorldGenerationTests
                  depth++)
             {
                 var y = surfaceY - depth;
-                if (y < 2 || !IsInteriorSolid(x, y, z))
+                if (y < 2 ||
+                    generator.VolumeBiomes.Sample(x, y, z) is not null ||
+                    !IsInteriorSolid(x, y, z))
                     continue;
                 if (geologyField.TryGeologyBlockAt(sample, x, y, z, out var expected))
                 {
@@ -859,17 +864,20 @@ public sealed class BiomeWorldGenerationTests
 
         bool IsInteriorSolid(int x, int y, int z)
         {
-            if (generator.DensityAt(x, y, z) < 0d ||
-                generator.IsCaveVoidAt(x, y, z))
-                return false;
-
-            return !generator.IsCaveVoidAt(x - 1, y, z) &&
-                !generator.IsCaveVoidAt(x + 1, y, z) &&
-                !generator.IsCaveVoidAt(x, y - 1, z) &&
-                !generator.IsCaveVoidAt(x, y + 1, z) &&
-                !generator.IsCaveVoidAt(x, y, z - 1) &&
-                !generator.IsCaveVoidAt(x, y, z + 1);
+            // This test isolates surface geology from cave-face material
+            // painting; cave generation is disabled for its generator.
+            return IsSolidVoxel(x, y, z) &&
+                IsSolidVoxel(x - 1, y, z) &&
+                IsSolidVoxel(x + 1, y, z) &&
+                IsSolidVoxel(x, y - 1, z) &&
+                IsSolidVoxel(x, y + 1, z) &&
+                IsSolidVoxel(x, y, z - 1) &&
+                IsSolidVoxel(x, y, z + 1);
         }
+
+        bool IsSolidVoxel(int x, int y, int z) =>
+            generator.DensityAt(x, y, z) >= 0d &&
+            !generator.IsCaveVoidAt(x, y, z);
 
         BlockRuntimeId ReadMaterializedBlock(int x, int y, int z)
         {
@@ -2097,6 +2105,62 @@ public sealed class BiomeWorldGenerationTests
 
         Assert.Equal(gravel, chunk.GetBlock(2, 10, 2));
         Assert.Equal(gravel, chunk.GetBlock(2, 5, 2));
+    }
+
+    [Fact]
+    public void SurfacePlacementSlopeSamplingMatchesScalarTerrainQueries()
+    {
+        const ulong seed = 177UL;
+        const int worldX = 29;
+        const int worldZ = -37;
+        var blocks = LoadDefaultBlocks();
+        var fluids = LoadDefaultFluids();
+        var biomes = LoadDefaultBiomes();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var dimensionSeed = DimensionSeed.Derive(seed, dimension.Id);
+        var surfaceDefinitions = dimension.SurfaceBiomes
+            .Select(biomes.Get)
+            .ToArray();
+        var volumeDefinitions = dimension.VolumeBiomes
+            .Select(biomes.Get)
+            .ToArray();
+        var surfaceBiomes = new BiomeField(dimensionSeed, dimension, biomes);
+        var volumeBiomes = new VolumeBiomeField(dimensionSeed, dimension, biomes);
+        var generatedFluids = new GeneratedFluidField(
+            dimensionSeed, dimension, fluids);
+        var terrain = new SurfaceTerrainField(
+            dimensionSeed, dimension, surfaceBiomes, volumeBiomes,
+            generatedFluids, surfaceDefinitions, volumeDefinitions);
+
+        var xPlus = worldX + 1;
+        var xMinus = worldX - 1;
+        var zPlus = worldZ + 1;
+        var zMinus = worldZ - 1;
+        var surfaceY = terrain.SurfaceHeight(worldX, worldZ);
+        var surfaceSlope = Math.Max(
+            Math.Max(
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(xPlus, worldZ)),
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(xMinus, worldZ))),
+            Math.Max(
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(worldX, zPlus)),
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(worldX, zMinus))));
+        Assert.Equal(
+            new SurfacePlacementContext(surfaceY, surfaceSlope),
+            SurfacePlacementContext.Sample(
+                terrain, worldX, worldZ, includeSlope: true));
+
+        var baseY = terrain.SampleBaseSurface(worldX, worldZ).BaseY;
+        var baseSlope = Math.Max(
+            Math.Max(
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(xPlus, worldZ).BaseY),
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(xMinus, worldZ).BaseY)),
+            Math.Max(
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(worldX, zPlus).BaseY),
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(worldX, zMinus).BaseY)));
+        Assert.Equal(
+            new SurfacePlacementContext(baseY, baseSlope),
+            SurfacePlacementContext.Sample(
+                terrain, worldX, worldZ, includeSlope: true, baseSurface: true));
     }
 
     [Fact]

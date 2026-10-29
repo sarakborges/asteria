@@ -7,6 +7,8 @@ public readonly record struct BiomeInfluence(
 
 public sealed class BiomeSample
 {
+    private readonly BiomeInfluence? _primaryInfluence;
+
     public BiomeSample(
         string primary,
         IReadOnlyList<BiomeInfluence> influences)
@@ -25,6 +27,17 @@ public sealed class BiomeSample
 
         Primary = primary;
         Influences = influences;
+        for (var index = 0; index < influences.Count; index++)
+        {
+            if (string.Equals(
+                    influences[index].BiomeId,
+                    primary,
+                    StringComparison.Ordinal))
+            {
+                _primaryInfluence = influences[index];
+                break;
+            }
+        }
     }
 
     public string Primary { get; }
@@ -37,7 +50,11 @@ public sealed class BiomeSample
     public float PrimaryTerrainStrength =>
         PrimaryInfluence.TerrainStrength;
 
+    // The primary influence is read repeatedly in terrain-density hot paths.
+    // Resolve it once when the immutable biome sample is created rather than
+    // scanning the full influence list for every voxel.
     private BiomeInfluence PrimaryInfluence =>
+        _primaryInfluence ??
         Influences
             .First(influence =>
                 string.Equals(
@@ -104,6 +121,7 @@ public sealed class BiomeField
     private const int MinimumSeedSpacing = 64;
     private const int MaximumSeedSpacing = 256;
     private const int CandidateRadiusBuckets = 2;
+    private const int BiomeBorderRadiusBuckets = 1;
     private const int CompatibilityRadiusBuckets =
         CandidateRadiusBuckets * 2;
     private const int CompatibilityClassPeriod =
@@ -1087,6 +1105,10 @@ public sealed class BiomeField
         var eligibleCount =
             0;
 
+        // Growth sees the broader established neighborhood, but cannotBorder
+        // governs only adjacent seed cells. Using every established seed here
+        // creates a multi-cell exclusion moat around incompatible biomes and
+        // fragments otherwise valid formations.
         for (var candidate = 0;
              candidate < _rules.Length;
              candidate++)
@@ -1094,16 +1116,27 @@ public sealed class BiomeField
             var compatible =
                 true;
 
-            foreach (var neighbor in
-                     established)
+            for (var neighborZ = -BiomeBorderRadiusBuckets;
+                 neighborZ <= BiomeBorderRadiusBuckets && compatible;
+                 neighborZ++)
             {
-                if (!Compatible(
-                        candidate,
-                        neighbor.Rule))
+                for (var neighborX = -BiomeBorderRadiusBuckets;
+                     neighborX <= BiomeBorderRadiusBuckets;
+                     neighborX++)
                 {
-                    compatible =
-                        false;
-                    break;
+                    if ((neighborX == 0 && neighborZ == 0) ||
+                        !TryOffset(bucket, neighborX, neighborZ, out var neighborBucket) ||
+                        neighborBucket.Classification() >= classification)
+                    {
+                        continue;
+                    }
+
+                    var neighborAssignment = SeedAssignmentFor(neighborBucket, cache);
+                    if (!Compatible(candidate, neighborAssignment.Rule))
+                    {
+                        compatible = false;
+                        break;
+                    }
                 }
             }
 

@@ -41,6 +41,91 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void InitialBlockWritesBuildPaletteAndCommitOneRevision()
+    {
+        var registry = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:dirt"),
+        ]);
+        var stone = registry.GetId("asteria:stone");
+        var dirt = registry.GetId("asteria:dirt");
+        var chunk = new Chunk();
+        var stoneIndex = 1 + Chunk.Size * 3 + Chunk.Area * 2;
+        var dirtIndex = 2 + Chunk.Size * 3 + Chunk.Area * 2;
+
+        using (var initial = chunk.BeginInitialBlockWrites())
+        {
+            Assert.True(initial.SetBlockAtLinearIndex(stoneIndex, stone));
+            Assert.True(initial.SetBlockAtLinearIndex(dirtIndex, stone));
+            Assert.False(initial.SetBlockAtLinearIndex(stoneIndex, stone));
+            Assert.Throws<InvalidOperationException>(
+                () => initial.SetBlockAtLinearIndex(stoneIndex, dirt));
+
+            Assert.Equal(2, chunk.NonEmptyVoxelCount);
+            Assert.Equal(1, chunk.PaletteEntryCount);
+            Assert.Equal((ulong)0, chunk.Revision);
+
+            initial.Complete();
+            Assert.Equal((ulong)1, chunk.Revision);
+            Assert.Throws<ObjectDisposedException>(
+                () => initial.SetBlockAtLinearIndex(dirtIndex, dirt));
+        }
+
+        Assert.Equal(stone, chunk.GetBlock(1, 2, 3));
+        Assert.Equal(stone, chunk.GetBlock(2, 2, 3));
+        Assert.True(chunk.SetBlock(3, 2, 3, dirt));
+        Assert.Equal((ulong)2, chunk.Revision);
+        Assert.Equal(2, chunk.PaletteEntryCount);
+    }
+
+    [Fact]
+    public void InitialFluidWritesPreserveOccupiedCellsAndCommitOneRevision()
+    {
+        var fluids = new FluidRegistry(
+        [
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(64, 96, 255),
+                opacity: 0.7f),
+            new FluidDefinition(
+                "asteria:lava",
+                new FluidColor(255, 96, 24),
+                opacity: 1f),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var lava = fluids.GetId("asteria:lava");
+        var chunk = new Chunk();
+        const int existingIndex = 1 + Chunk.Size * 3 + Chunk.Area * 2;
+        const int newIndex = 2 + Chunk.Size * 3 + Chunk.Area * 2;
+
+        Assert.True(chunk.SetFluid(1, 2, 3, FluidCell.Source(water)));
+        var initialRevision = chunk.Revision;
+
+        using (var initial = chunk.BeginInitialFluidWrites())
+        {
+            Assert.False(initial.SetFluidAtLinearIndexIfEmpty(
+                existingIndex, FluidCell.Source(lava)));
+            Assert.True(initial.SetFluidAtLinearIndexIfEmpty(
+                newIndex, FluidCell.Source(water)));
+            Assert.False(initial.SetFluidAtLinearIndexIfEmpty(
+                newIndex, FluidCell.Source(water)));
+
+            Assert.Equal(2, chunk.FluidCount);
+            Assert.Equal(initialRevision, chunk.Revision);
+            initial.Complete();
+            Assert.Equal(initialRevision + 1, chunk.Revision);
+            Assert.Throws<ObjectDisposedException>(
+                () => initial.IsEmptyAtLinearIndex(newIndex));
+        }
+
+        Assert.Equal(water, chunk.GetFluid(1, 2, 3).Fluid);
+        Assert.Equal(water, chunk.GetFluid(2, 2, 3).Fluid);
+        Assert.True(chunk.SetFluid(3, 2, 3, FluidCell.Source(lava)));
+        Assert.Equal(initialRevision + 2, chunk.Revision);
+    }
+
+    [Fact]
     public void PaletteReusesReleasedSlotsWithoutGrowingActiveEntries()
     {
         var registry = new BlockRegistry(

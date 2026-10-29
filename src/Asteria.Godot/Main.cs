@@ -20,11 +20,13 @@ public partial class Main : Node3D
         Math.Clamp(
             System.Environment.ProcessorCount - 2,
             1,
-            4);
-    // All CPU-bound world jobs share one admission budget instead of letting
-    // terrain, fluids and streaming independently saturate the pool.
+            6);
+    // Minecraft Java's chunk pipeline shares a bounded worker pool across
+    // worldgen and downstream work. Keep that shared admission model, but
+    // allow more of the available CPU to serve Asteria's smaller vertical
+    // chunks when streaming backlog is sustained.
     private static readonly int MaxConcurrentWorldJobs =
-        Math.Clamp(System.Environment.ProcessorCount - 1, 2, 6);
+        Math.Clamp(System.Environment.ProcessorCount - 1, 2, 8);
     private static readonly int MaxMaterializationDispatchesPerFrame =
         MaxMaterializationTasksInFlight;
     private const int MaxMaterializationResultsPerFrame = 8;
@@ -658,7 +660,12 @@ public partial class Main : Node3D
             _placementPreview.Hide();
             _objectPlacementPreview.Hide();
             AdvanceDimensionTransition();
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, false);
+            _worldDiagnostics?.FlushIfDue(
+                0, 0, _sessions.Active.Residency.MaterializingCount, 0,
+                "Transitioning", 0, 0, false,
+                _sessions.Active.Residency.ActiveWorkerCount,
+                _sessions.Active.Residency.MaterializationJobCount,
+                _sessions.Active.Residency.SuspendedMaterializationCount);
             return;
         }
 
@@ -833,7 +840,10 @@ public partial class Main : Node3D
             _loading.Progress.Phase.ToString(),
             _worldUpdates.DirtyChunkCount,
             _fluidMeshUpdates.DirtyChunkCount,
-            _fluidSimulationRuntime.IsRunning);
+            _fluidSimulationRuntime.IsRunning,
+            _residency.ActiveWorkerCount,
+            _residency.MaterializationJobCount,
+            _residency.SuspendedMaterializationCount);
 
         if (loadingWorld)
         {
@@ -2516,6 +2526,8 @@ public partial class Main : Node3D
         _worldDiagnostics?.Write(
             $"world.settings render_distance_chunks={_clientPreferences.RenderDistanceChunks} " +
             $"retention_margin_chunks={RetentionMarginChunks} " +
+            $"processor_count={System.Environment.ProcessorCount} " +
+            $"max_world_jobs={MaxConcurrentWorldJobs} " +
             $"max_materialization_workers={MaxMaterializationTasksInFlight}");
         GD.Print(
             $"world.start seed={_sessionStates.WorldSeed} " +

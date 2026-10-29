@@ -317,6 +317,25 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CachedDensityFastPathMatchesScalarInSolidSurfaceAndSkyBands()
+    {
+        var generator = Generator();
+        foreach (var chunkY in new[] { 0, 4, 6, 7 })
+        {
+            var chunk = generator.Materialize(new ChunkCoord(0, chunkY, 0));
+            var originY = chunkY * Chunk.Size;
+            for (var z = 0; z < Chunk.Size; z += 5)
+            for (var x = 0; x < Chunk.Size; x += 5)
+            for (var y = 0; y < Chunk.Size; y += 2)
+            {
+                Assert.Equal(
+                    generator.DensityAt(x, originY + y, z) >= 0d,
+                    !chunk.GetBlock(x, y, z).IsAir);
+            }
+        }
+    }
+
+    [Fact]
     public void SampleDensityVolumeMatchesScalarAcrossNegativeCoordinates()
     {
         var generator = Generator(caves: WideCaves());
@@ -509,6 +528,44 @@ public sealed class TerrainDensityTests
                 address.Local.X,
                 address.Local.Y,
                 address.Local.Z));
+    }
+
+    [Fact]
+    public void CachedColumnDensityFastPathMatchesScalarAtEveryVoxel()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var point = FindVolumeSolid(generator, y: 96);
+        var horizontal = VoxelCoordinates.FromWorld(
+            point.X, 0, point.Z).Chunk;
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(horizontal);
+        const int chunkY = 5;
+        var chunk = generator.Materialize(
+            new ChunkCoord(horizontal.X, chunkY, horizontal.Z));
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var worldX = originX + x;
+            var worldY = chunkY * Chunk.Size + y;
+            var worldZ = originZ + z;
+            var expectedSolid =
+                generator.DensityAt(worldX, worldY, worldZ) >= 0d;
+            var actualSolid = !chunk.GetBlock(x, y, z).IsAir;
+            Assert.True(
+                expectedSolid == actualSolid,
+                $"Density fast path diverged at {worldX},{worldY},{worldZ}: expected {expectedSolid}, actual {actualSolid}.");
+        }
     }
 
     [Fact]

@@ -19,6 +19,9 @@ public sealed record ChunkFluidBatchData(
 public sealed record ChunkFluidMeshData(
     ChunkFluidBatchData[] Batches)
 {
+    public static ChunkFluidMeshData Empty { get; } = new(
+        Array.Empty<ChunkFluidBatchData>());
+
     public int TriangleCount =>
         Batches.Sum(batch => batch.TriangleCount);
 

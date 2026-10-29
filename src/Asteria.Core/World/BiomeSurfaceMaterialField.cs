@@ -7,6 +7,19 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class BiomeSurfaceMaterialField
 {
+    private const int SampledColumnCacheCapacity = 8192;
+
+    private readonly record struct MaterialColumnKey(
+        BiomeSample Sample,
+        int WorldX,
+        int WorldZ,
+        SurfacePlacementContext? Placement);
+
+    private readonly BoundedMemoCache<
+        MaterialColumnKey,
+        BiomeSurfaceMaterialColumn> _sampledColumns =
+            new(SampledColumnCacheCapacity);
+
     private readonly ulong _seed;
     private readonly SurfaceTerrainField? _terrain;
     private readonly SurfaceMosaicField? _mosaic;
@@ -244,13 +257,27 @@ public sealed class BiomeSurfaceMaterialField
                 $"Surface biome {sample.Primary} has no material rule.");
         }
 
-        var mosaic = _mosaic?.Sample(sample, worldX, worldZ) ?? default;
-        return rule.SampleColumn(
-            _seed,
-            worldX,
-            worldZ,
-            PlacementFor(rule, worldX, worldZ, placement),
-            mosaic.Block);
+        // The same immutable X/Z biome is sampled again for each vertical
+        // chunk band. Cache the resolved layer-depth and block arrays so
+        // vertical materialization does not repeatedly allocate them.
+        var key = new MaterialColumnKey(
+            sample, worldX, worldZ, placement);
+        if (_sampledColumns.TryGet(key, out var cached))
+            return cached;
+
+        return _sampledColumns.GetOrAdd(
+            key,
+            () =>
+            {
+                var mosaic = _mosaic?.Sample(
+                    sample, worldX, worldZ) ?? default;
+                return rule.SampleColumn(
+                    _seed,
+                    worldX,
+                    worldZ,
+                    PlacementFor(rule, worldX, worldZ, placement),
+                    mosaic.Block);
+            });
     }
 
     /// <summary>
@@ -346,6 +373,13 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class ResolvedGeology
     {
+        // Each blended field maps to a unit value clamped to
+        // [1e-6, 1 - 1e-6] before its Gumbel score. This is an exact upper
+        // bound for any candidate, enabling safe score pruning when boundary
+        // perturbation (which needs every candidate score) is disabled.
+        private static readonly double MaximumGumbelScore =
+            -Math.Log(-Math.Log(1d - 1e-6d));
+
         private readonly record struct SpatialPosition(double X, double Y, double Z);
 
         private readonly BiomeGeologyDefinition _definition;
@@ -367,6 +401,29 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain[] _surfaceGrainDomains;
         private readonly double[] _volumeBiases;
         private readonly double[] _surfaceBiases;
+        private readonly uint _surfaceExposureScale;
+        private readonly uint _warpHorizontalScale;
+        private readonly uint _warpVerticalScale;
+        private readonly double _warpHorizontalStrength;
+        private readonly double _warpVerticalStrength;
+        private readonly uint _detailWarpScale;
+        private readonly uint _detailWarpVerticalScale;
+        private readonly double _detailWarpStrength;
+        private readonly double _detailWarpVerticalStrength;
+        private readonly uint _selectionScale;
+        private readonly uint _selectionVerticalScale;
+        private readonly uint _detailScale;
+        private readonly uint _detailVerticalScale;
+        private readonly uint _microScale;
+        private readonly uint _microVerticalScale;
+        private readonly uint _clusterScale;
+        private readonly uint _clusterVerticalScale;
+        private readonly uint _grainScale;
+        private readonly uint _grainVerticalScale;
+        private readonly double _grainInfluence;
+        private readonly double _clusterInfluence;
+        private readonly double _remainingInfluence;
+        private readonly double _boundaryInfluence;
 
         private ResolvedGeology(
             BiomeGeologyDefinition definition,
@@ -375,6 +432,33 @@ public sealed class BiomeSurfaceMaterialField
             string biomeId)
         {
             _definition = definition;
+            _surfaceExposureScale = Math.Max(6u, definition.DetailScale / 2u);
+            _warpHorizontalScale = Math.Max(12u, definition.Scale / 3u);
+            _warpVerticalScale = Math.Max(10u, definition.VerticalScale / 3u);
+            _warpHorizontalStrength = Math.Max(6d, definition.DetailScale * 0.9d);
+            _warpVerticalStrength = Math.Max(5d, definition.DetailScale * 0.7d);
+            _detailWarpScale = Math.Max(6u, definition.DetailScale / 2u);
+            _detailWarpVerticalScale = Math.Max(
+                5u, Math.Min(definition.VerticalScale / 4u, definition.DetailScale / 2u));
+            _detailWarpStrength = Math.Max(2d, definition.DetailScale * 0.35d);
+            _detailWarpVerticalStrength = Math.Max(2d, definition.DetailScale * 0.28d);
+            _selectionScale = Math.Max(12u, definition.SelectionScale);
+            _selectionVerticalScale = Math.Max(10u, definition.VerticalScale);
+            _detailScale = Math.Max(6u, definition.DetailScale);
+            _detailVerticalScale = Math.Max(
+                6u, Math.Min(definition.VerticalScale / 3u, definition.DetailScale));
+            _microScale = Math.Max(4u, definition.DetailScale / 2u);
+            _microVerticalScale = Math.Max(4u, _detailVerticalScale / 2u);
+            _grainScale = definition.GrainScale ?? Math.Max(2u, _detailScale / 8u);
+            _grainVerticalScale = definition.GrainVerticalScale ??
+                Math.Max(2u, _detailVerticalScale / 8u);
+            _clusterScale = definition.ClusterScale ?? Math.Max(3u, _detailScale / 4u);
+            _clusterVerticalScale = definition.ClusterVerticalScale ??
+                Math.Max(3u, _detailVerticalScale / 4u);
+            _grainInfluence = definition.GrainInfluence;
+            _clusterInfluence = definition.ClusterInfluence;
+            _remainingInfluence = 1d - _grainInfluence - _clusterInfluence;
+            _boundaryInfluence = definition.BoundaryGrainInfluence;
             _baseBlock = baseBlock;
             _blocks = blocks;
             _volumeBlocks = [baseBlock, .. blocks];
@@ -484,9 +568,8 @@ public sealed class BiomeSurfaceMaterialField
             // Surface coverage is a dedicated shallow X/Z exposure field. It
             // must not also pass the volumetric occupancy threshold; that
             // double gate made many flat surfaces remain entirely grass/sand.
-            var exposureScale = Math.Max(6u, _definition.DetailScale / 2u);
             var exposure = WorldGenerationEntropy.SmoothNoise2D(
-                seed, _surfaceExposureDomain, x, z, exposureScale);
+                seed, _surfaceExposureDomain, x, z, _surfaceExposureScale);
             if (exposure < 1d - _definition.SurfaceCoverage * 2d)
             {
                 block = BlockRuntimeId.Air;
@@ -597,47 +680,33 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed, int x, int y, int z)
         {
             var rotated = RotateCoordinates(x, y, z);
-            var warpHorizontalScale = Math.Max(12u, _definition.Scale / 3u);
-            var warpVerticalScale = Math.Max(10u, _definition.VerticalScale / 3u);
-            var horizontalStrength = Math.Max(6d, _definition.DetailScale * 0.9d);
-            var verticalStrength = Math.Max(5d, _definition.DetailScale * 0.7d);
-
-            var warpX = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDomains[0], rotated.X, rotated.Y, rotated.Z,
-                warpHorizontalScale, warpVerticalScale);
-            var warpY = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDomains[1], rotated.X, rotated.Y, rotated.Z,
-                warpHorizontalScale, warpVerticalScale);
-            var warpZ = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDomains[2], rotated.X, rotated.Y, rotated.Z,
-                warpHorizontalScale, warpVerticalScale);
+            var warpCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    rotated.X, rotated.Y, rotated.Z,
+                    _warpHorizontalScale, _warpVerticalScale);
+            var warpX = warpCoordinates.Sample(seed, _warpDomains[0]);
+            var warpY = warpCoordinates.Sample(seed, _warpDomains[1]);
+            var warpZ = warpCoordinates.Sample(seed, _warpDomains[2]);
 
             // A second, smaller-scale warp breaks the broad domain warp's
             // smooth directional bends. It is sampled in another basis and is
             // strong enough to bend material boundaries, not to randomize voxels.
             var detailPosition = RotateFieldPosition(rotated, 2);
-            var detailWarpScale = Math.Max(6u, _definition.DetailScale / 2u);
-            var detailWarpVerticalScale = Math.Max(
-                5u, Math.Min(_definition.VerticalScale / 4u, _definition.DetailScale / 2u));
-            var detailStrength = Math.Max(2d, _definition.DetailScale * 0.35d);
-            var detailVerticalStrength = Math.Max(2d, _definition.DetailScale * 0.28d);
-            var detailWarpX = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDetailDomains[0],
-                detailPosition.X, detailPosition.Y, detailPosition.Z,
-                detailWarpScale, detailWarpVerticalScale);
-            var detailWarpY = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDetailDomains[1],
-                detailPosition.X, detailPosition.Y, detailPosition.Z,
-                detailWarpScale, detailWarpVerticalScale);
-            var detailWarpZ = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDetailDomains[2],
-                detailPosition.X, detailPosition.Y, detailPosition.Z,
-                detailWarpScale, detailWarpVerticalScale);
+            var detailWarpCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    detailPosition.X, detailPosition.Y, detailPosition.Z,
+                    _detailWarpScale, _detailWarpVerticalScale);
+            var detailWarpX =
+                detailWarpCoordinates.Sample(seed, _warpDetailDomains[0]);
+            var detailWarpY =
+                detailWarpCoordinates.Sample(seed, _warpDetailDomains[1]);
+            var detailWarpZ =
+                detailWarpCoordinates.Sample(seed, _warpDetailDomains[2]);
 
             return new SpatialPosition(
-                rotated.X + warpX * horizontalStrength + detailWarpX * detailStrength,
-                rotated.Y + warpY * verticalStrength + detailWarpY * detailVerticalStrength,
-                rotated.Z + warpZ * horizontalStrength + detailWarpZ * detailStrength);
+                rotated.X + warpX * _warpHorizontalStrength + detailWarpX * _detailWarpStrength,
+                rotated.Y + warpY * _warpVerticalStrength + detailWarpY * _detailWarpVerticalStrength,
+                rotated.Z + warpZ * _warpHorizontalStrength + detailWarpZ * _detailWarpStrength);
         }
 
         private BlockRuntimeId SelectMaterial(
@@ -651,81 +720,113 @@ public sealed class BiomeSurfaceMaterialField
             GenerationDomain[] grainDomains,
             double[] biases)
         {
-            var detailScale = Math.Max(6u, _definition.DetailScale);
-            var detailVerticalScale = Math.Max(
-                6u, Math.Min(_definition.VerticalScale / 3u, _definition.DetailScale));
-            var microScale = Math.Max(4u, _definition.DetailScale / 2u);
-            var microVerticalScale = Math.Max(4u, detailVerticalScale / 2u);
             // Fine-grain field introduces small three-dimensional pockets so
             // large formations cannot keep a single material through long
             // vertical columns merely because the broad fields change slowly.
-            var grainScale = _definition.GrainScale ??
-                Math.Max(2u, detailScale / 8u);
-            var grainVerticalScale = _definition.GrainVerticalScale ??
-                Math.Max(2u, detailVerticalScale / 8u);
-            var clusterScale = _definition.ClusterScale ??
-                Math.Max(3u, detailScale / 4u);
-            var clusterVerticalScale = _definition.ClusterVerticalScale ??
-                Math.Max(3u, detailVerticalScale / 4u);
-
-            var clusterInfluence = _definition.ClusterInfluence;
             var broadPosition = RotateFieldPosition(position, 0);
             var detailPosition = RotateFieldPosition(position, 1);
             var microPosition = RotateFieldPosition(position, 2);
-            var clusterPosition = RotateFieldPosition(position, 3);
-            // Preserve the established grain orientation for biomes that do
-            // not opt into the intermediate cluster field.
+            // The cluster field is optional. Avoid rotating its coordinate
+            // basis for biomes that do not use it; their grain basis remains
+            // the established orientation 3.
+            var clusterPosition = _clusterInfluence > 0d
+                ? RotateFieldPosition(position, 3)
+                : default;
             var grainPosition = RotateFieldPosition(
-                position, clusterInfluence > 0d ? 4 : 3);
-            var scores = new double[candidateBlocks.Length];
-            var grainValues = new double[candidateBlocks.Length];
+                position, _clusterInfluence > 0d ? 4 : 3);
+            var broadCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    broadPosition.X, broadPosition.Y, broadPosition.Z,
+                    _selectionScale,
+                    _selectionVerticalScale);
+            var detailCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    detailPosition.X, detailPosition.Y, detailPosition.Z,
+                    _detailScale, _detailVerticalScale);
+            var microCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    microPosition.X, microPosition.Y, microPosition.Z,
+                    _microScale, _microVerticalScale);
+            var clusterCoordinates = _clusterInfluence > 0d
+                ? WorldGenerationEntropy.PrepareValueNoise3D(
+                    clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
+                    _clusterScale, _clusterVerticalScale)
+                : default;
+            var grainCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    grainPosition.X, grainPosition.Y, grainPosition.Z,
+                    _grainScale, _grainVerticalScale);
+            var needsBoundaryScores =
+                _boundaryInfluence > 0d && candidateBlocks.Length > 1;
+            // Most geology selections need only the winning score. Allocate
+            // score vectors only for definitions that explicitly enable
+            // boundary roughening; ordinary geological voxels allocate none.
+            // Boundary roughening needs both vectors, but allocating two
+            // arrays for every solid voxel creates heavy GC pressure during
+            // chunk synthesis. Candidate sets are normally small, so keep the
+            // scratch data on this call's stack and retain a heap fallback for
+            // unusually large authored material sets.
+            const int StackScoreCapacity = 16;
+            // Do not reserve per-call stack scratch for the overwhelmingly
+            // common path that only needs the winning material score.
+            Span<double> scores =
+                needsBoundaryScores && candidateBlocks.Length <= StackScoreCapacity
+                    ? stackalloc double[candidateBlocks.Length]
+                    : Span<double>.Empty;
+            Span<double> grainValues =
+                needsBoundaryScores && candidateBlocks.Length <= StackScoreCapacity
+                    ? stackalloc double[candidateBlocks.Length]
+                    : Span<double>.Empty;
+            if (needsBoundaryScores && candidateBlocks.Length > StackScoreCapacity)
+            {
+                scores = new double[candidateBlocks.Length];
+                grainValues = new double[candidateBlocks.Length];
+            }
+
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
             {
-                var broad = WorldGenerationEntropy.ValueNoise3D(
-                    seed, broadDomains[index],
-                    broadPosition.X, broadPosition.Y, broadPosition.Z,
-                    Math.Max(12u, _definition.SelectionScale),
-                    Math.Max(10u, _definition.VerticalScale));
-                var detail = WorldGenerationEntropy.ValueNoise3D(
-                    seed, detailDomains[index],
-                    detailPosition.X, detailPosition.Y, detailPosition.Z,
-                    detailScale, detailVerticalScale);
-                var micro = WorldGenerationEntropy.ValueNoise3D(
-                    seed, microDomains[index],
-                    microPosition.X, microPosition.Y, microPosition.Z,
-                    microScale, microVerticalScale);
-                var cluster = 0d;
-                if (clusterInfluence > 0d)
-                {
-                    cluster = WorldGenerationEntropy.ValueNoise3D(
-                        seed, clusterDomains[index],
-                        clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
-                        clusterScale, clusterVerticalScale);
-                }
-                var grain = WorldGenerationEntropy.ValueNoise3D(
-                    seed, grainDomains[index],
-                    grainPosition.X, grainPosition.Y, grainPosition.Z,
-                    grainScale, grainVerticalScale);
+                // Every weighted noise component lies in [-1, 1], their
+                // coefficients sum to one, and the resulting Gumbel term is
+                // upper-bounded by MaximumGumbelScore. If the best score
+                // already reaches this candidate's bound, sampling its five
+                // fields cannot change the winner. Boundary roughening keeps
+                // the full candidate vector and deliberately bypasses pruning.
+                if (!needsBoundaryScores &&
+                    bestScore >= biases[index] + MaximumGumbelScore)
+                    continue;
+
+                var broad =
+                    broadCoordinates.Sample(seed, broadDomains[index]);
+                var detail =
+                    detailCoordinates.Sample(seed, detailDomains[index]);
+                var micro =
+                    microCoordinates.Sample(seed, microDomains[index]);
+                var cluster = _clusterInfluence > 0d
+                    ? clusterCoordinates.Sample(seed, clusterDomains[index])
+                    : 0d;
+                var grain =
+                    grainCoordinates.Sample(seed, grainDomains[index]);
 
                 // Split finer detail across intermediate clusters and very
                 // fine grain. The former creates coherent mineral pockets;
                 // the latter still nicks their boundaries to avoid long bands.
-                var grainInfluence = _definition.GrainInfluence;
-                var remainingInfluence = 1d - grainInfluence - clusterInfluence;
                 var field =
-                    broad * (remainingInfluence * 0.04d / 0.30d) +
-                    detail * (remainingInfluence * 0.10d / 0.30d) +
-                    micro * (remainingInfluence * 0.16d / 0.30d) +
-                    cluster * clusterInfluence +
-                    grain * grainInfluence;
+                    broad * (_remainingInfluence * 0.04d / 0.30d) +
+                    detail * (_remainingInfluence * 0.10d / 0.30d) +
+                    micro * (_remainingInfluence * 0.16d / 0.30d) +
+                    cluster * _clusterInfluence +
+                    grain * _grainInfluence;
                 var unit = Math.Clamp(
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
                 var gumbel = -Math.Log(-Math.Log(unit));
                 var score = gumbel + biases[index];
-                scores[index] = score;
-                grainValues[index] = grain;
+                if (needsBoundaryScores)
+                {
+                    scores[index] = score;
+                    grainValues[index] = grain;
+                }
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -737,11 +838,10 @@ public sealed class BiomeSurfaceMaterialField
             // perturbation near material boundaries. That keeps deposit
             // interiors coherent while letting high-frequency grain roughen
             // edges where the leading candidates are already competitive.
-            var boundaryInfluence = _definition.BoundaryGrainInfluence;
-            if (boundaryInfluence > 0d && candidateBlocks.Length > 1)
+            if (_boundaryInfluence > 0d && candidateBlocks.Length > 1)
             {
                 var secondBestScore = double.NegativeInfinity;
-                for (var index = 0; index < scores.Length; index++)
+                for (var index = 0; index < candidateBlocks.Length; index++)
                 {
                     if (index != bestIndex)
                         secondBestScore = Math.Max(secondBestScore, scores[index]);
@@ -752,17 +852,17 @@ public sealed class BiomeSurfaceMaterialField
                 // zone so large deposits do not leave occasional straight runs,
                 // while keeping the perturbation absent in confident interiors.
                 var boundaryFactor = Math.Clamp(
-                    1d - margin / (3d * boundaryInfluence),
+                    1d - margin / (3d * _boundaryInfluence),
                     0d,
                     1d);
                 if (boundaryFactor > 0d)
                 {
                     bestScore = double.NegativeInfinity;
                     bestIndex = 0;
-                    for (var index = 0; index < scores.Length; index++)
+                    for (var index = 0; index < candidateBlocks.Length; index++)
                     {
                         var score = scores[index] +
-                            grainValues[index] * boundaryInfluence * boundaryFactor;
+                            grainValues[index] * _boundaryInfluence * boundaryFactor;
                         if (score > bestScore)
                         {
                             bestScore = score;

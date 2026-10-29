@@ -707,10 +707,8 @@ foreach (var (id, instance) in build.Replacements)
 
             EnsureTerrainMesh();
             var surfaceIndex = _terrainMesh!.GetSurfaceCount();
-            var data = new ChunkMeshData(
-                [new ChunkRenderBatchData(batch, state.Vertices.ToArray())],
-                Array.Empty<System.Numerics.Vector3>());
-            if (ChunkMeshBuilder.AppendSurfaces(_terrainMesh, data, materials) > 0)
+            if (ChunkMeshBuilder.AppendSurface(
+                    _terrainMesh, batch, state.Vertices, materials))
             {
                 state.SurfaceIndex = surfaceIndex;
                 state.HasSurface = true;
@@ -866,10 +864,8 @@ foreach (var (id, instance) in build.Replacements)
 
             EnsureFluidMesh();
             var surfaceIndex = _fluidMesh!.GetSurfaceCount();
-            var data = new ChunkFluidMeshData([
-                new ChunkFluidBatchData(fluid, state.Vertices.ToArray())
-            ]);
-            if (ChunkFluidMeshBuilder.AppendSurfaces(_fluidMesh, data, materials) > 0)
+            if (ChunkFluidMeshBuilder.AppendSurface(
+                    _fluidMesh, fluid, state.Vertices, materials))
             {
                 state.SurfaceIndex = surfaceIndex;
                 state.HasSurface = true;

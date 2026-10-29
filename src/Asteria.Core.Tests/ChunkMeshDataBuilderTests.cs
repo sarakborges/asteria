@@ -6,6 +6,51 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMeshDataBuilderTests
 {
     [Fact]
+    public void EmptyMeshletsSkipTerrainAndFluidGeometryEvenWhenOtherMeshletsHaveContent()
+    {
+        const string texturePath = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition(
+                "asteria:stone",
+                textures: new BlockTextureSet(
+                    top: [new BlockTextureLayer(texturePath)])),
+        ]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(79, 159, 214),
+                opacity: 0.72f),
+        ]);
+        var chunk = new Chunk();
+        chunk.SetBlock(12, 12, 12, blocks.GetId("asteria:stone"));
+        chunk.SetFluid(
+            13, 12, 12,
+            FluidCell.Source(fluids.GetId("asteria:water")));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        var terrain = ChunkMeshDataBuilder.BuildMeshlet(
+            world,
+            ChunkCoord.Zero,
+            blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>
+            {
+                [texturePath] = 0,
+            }),
+            meshletIndex: 0);
+        var fluid = FluidMeshDataBuilder.BuildMeshlet(
+            world,
+            ChunkCoord.Zero,
+            blocks,
+            fluids,
+            meshletIndex: 0);
+
+        Assert.Empty(terrain.RenderBatches);
+        Assert.Empty(terrain.CollisionFaces);
+        Assert.Empty(fluid.Batches);
+    }
+
+    [Fact]
     public void SpikeClosesItsEndsAndProvidesMatchingCollisionTriangles()
     {
         var texture = new BlockTextureLayer("textures/test/spike.png");
@@ -849,6 +894,50 @@ public sealed class ChunkMeshDataBuilderTests
             world, ChunkCoord.Zero, blocks,
             new TerrainTextureLookup(new Dictionary<string, int>()),
             0, dyes: new DyeRegistry([])));
+    }
+
+    [Fact]
+    public void FlatFluidTopFacesMergeIntoSingleDoubleSidedQuadWithinMeshlet()
+    {
+        var blocks = new BlockRegistry([]);
+        var fluids = new FluidRegistry(
+        [
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(79, 159, 214),
+                opacity: 0.72f),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var chunk = new Chunk();
+
+        for (var z = 2; z < 6; z++)
+        for (var x = 2; x < 6; x++)
+            chunk.SetFluid(x, 2, z, FluidCell.Source(water));
+
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        var data = FluidMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, fluids, meshletIndex: 0);
+        var vertices = Assert.Single(data.Batches).Vertices;
+        var topHeight = 3f;
+        var exterior = vertices.Where(vertex =>
+            vertex.Normal == System.Numerics.Vector3.UnitY &&
+            MathF.Abs(vertex.Position.Y - topHeight) < 0.0001f).ToArray();
+        var interior = vertices.Where(vertex =>
+            vertex.Normal == -System.Numerics.Vector3.UnitY &&
+            MathF.Abs(vertex.Position.Y - topHeight) < 0.0001f).ToArray();
+
+        // Sixteen adjacent flat tops collapse into one exterior quad and its
+        // interior-facing counterpart instead of emitting one pair per voxel.
+        Assert.Equal(6, exterior.Length);
+        Assert.Equal(6, interior.Length);
+        Assert.Equal(
+            new[] { 2f, 6f },
+            exterior.Select(vertex => vertex.Position.X).Distinct().Order().ToArray());
+        Assert.Equal(
+            new[] { 2f, 6f },
+            exterior.Select(vertex => vertex.Position.Z).Distinct().Order().ToArray());
     }
 
 }
