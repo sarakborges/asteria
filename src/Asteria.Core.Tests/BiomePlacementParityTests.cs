@@ -220,7 +220,7 @@ public sealed class BiomePlacementParityTests
         var oceanSize = biomes.Get("asteria:overworld/ocean").SurfaceLayout!;
         Assert.Equal((384u, 768u), (oceanSize.RegionMin, oceanSize.RegionMax));
         Assert.True(oceanSize.RegionMin < biomes.Get("asteria:overworld/plains").SurfaceLayout!.RegionMax * 2);
-        Assert.True(oceanSize.RegionMax <= biomes.Get("asteria:overworld/plains").SurfaceLayout.RegionMax * 2);
+        Assert.True(oceanSize.RegionMax <= biomes.Get("asteria:overworld/plains").SurfaceLayout!.RegionMax * 2);
 
         AssertLayout(
             biomes,
