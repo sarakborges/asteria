@@ -280,22 +280,32 @@ public sealed class VolumeBiomeField
             owners);
     }
 
+    internal BiomeField.Sampler? CreatePlacementSampler() =>
+        _placement?.CreateSampler();
+
     internal BiomeSample? SamplePlacement(
+        int worldX,
+        int worldZ) =>
+        SamplePlacement(
+            sampler: null,
+            worldX,
+            worldZ);
+
+    internal BiomeSample? SamplePlacement(
+        BiomeField.Sampler? sampler,
         int worldX,
         int worldZ)
     {
         if (_placement is null)
-        {
             return null;
-        }
 
-        var sample =
-            _placement.Sample(
-                worldX,
-                worldZ);
+        // A caller that samples adjacent heights can reuse this query-local
+        // sampler so each point does not allocate a new seed-assignment cache.
+        var sample = sampler is null
+            ? _placement.Sample(worldX, worldZ)
+            : sampler.Sample(worldX, worldZ);
 
-        return _formations.ContainsKey(
-            sample.Primary)
+        return _formations.ContainsKey(sample.Primary)
             ? sample
             : null;
     }
