@@ -604,8 +604,6 @@ public sealed class SurfaceChunkMaterializer
                     : surfaceMaterials ??= _materials.SampleColumn(
                         sample, worldX, worldZ);
                 var topBlock = topMaterials.BlockAt(0);
-                SurfacePlacementContext? placementContext = null;
-                var placementContextResolved = false;
 
                 var considerObjects = objectSupportInChunk &&
                     _decorations.HasObjectDecorations(topSample);
@@ -632,15 +630,8 @@ public sealed class SurfaceChunkMaterializer
 
                     if (normalInChunk)
                     {
-                        if (!placementContextResolved)
-                        {
-                            placementContext = _decorations.SamplePlacementContextIfRequired(
-                                topSample, topBlock, worldX, worldZ);
-                            placementContextResolved = true;
-                        }
                         var decoration = _decorations.BlockAt(
                             topSample, topBlock, worldX, worldZ,
-                            suppliedPlacement: placementContext,
                             submerged: submerged, supportY: surfaceY,
                             nearbyFluid: _nearbyFluidQuery);
                         if (!decoration.IsAir)
@@ -649,15 +640,8 @@ public sealed class SurfaceChunkMaterializer
                     }
                     if (considerObjects)
                     {
-                        if (!placementContextResolved)
-                        {
-                            placementContext = _decorations.SamplePlacementContextIfRequired(
-                                topSample, topBlock, worldX, worldZ);
-                            placementContextResolved = true;
-                        }
                         var objectId = _decorations.ObjectAt(
                             topSample, topBlock, worldX, worldZ,
-                            placement: placementContext,
                             submerged: submerged, supportY: surfaceY,
                             nearbyFluid: _nearbyFluidQuery);
                         if (objectId is not null)
@@ -683,15 +667,8 @@ public sealed class SurfaceChunkMaterializer
                         worldX, (int)decorationY + 1, worldZ);
                     if (!supportFluid.IsEmpty && aboveFluid.IsEmpty)
                     {
-                        if (!placementContextResolved)
-                        {
-                            placementContext = _decorations.SamplePlacementContextIfRequired(
-                                topSample, topBlock, worldX, worldZ);
-                            placementContextResolved = true;
-                        }
                         var decoration = _decorations.BlockAt(
                             topSample, topBlock, worldX, worldZ,
-                            suppliedPlacement: placementContext,
                             supportY: (int)decorationY,
                             onFluidSurface: true,
                             fluidBelow: supportFluid.Fluid,
@@ -703,15 +680,8 @@ public sealed class SurfaceChunkMaterializer
                         if (fluidObjectSupportInChunk &&
                             _decorations.HasObjectDecorations(topSample))
                         {
-                            if (!placementContextResolved)
-                            {
-                                placementContext = _decorations.SamplePlacementContextIfRequired(
-                                    topSample, topBlock, worldX, worldZ);
-                                placementContextResolved = true;
-                            }
                             var objectId = _decorations.ObjectAt(
                                 topSample, topBlock, worldX, worldZ,
-                                placement: placementContext,
                                 supportY: (int)decorationY,
                                 onFluidSurface: true,
                                 fluidBelow: supportFluid.Fluid,
