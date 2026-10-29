@@ -1304,22 +1304,31 @@ public sealed class SurfaceChunkMaterializer
 
         // A cave face can cross a chunk edge. Neighbor base heights are
         // immutable per X/Z column but used by many vertical face probes.
-        // Resolve each halo column once, with query-local bounded storage.
+        // Resolve each halo column and each queried halo voxel once. The
+        // coordinate cache avoids repeating the 3D cave-noise query when
+        // several solids probe the same voxel from different distances.
         BiomeField.Sampler? haloSampler = null;
         var haloBaseHeights = new Dictionary<(int X, int Z), int>();
+        var haloCarvedVoids = new Dictionary<(int X, int Y, int Z), bool>();
 
         bool OutsideCarvedVoid(int x, int y, int z)
         {
-            var key = (X: x, Z: z);
-            if (!haloBaseHeights.TryGetValue(key, out var baseHeight))
+            var voxelKey = (X: x, Y: y, Z: z);
+            if (haloCarvedVoids.TryGetValue(voxelKey, out var carvedVoid))
+                return carvedVoid;
+
+            var columnKey = (X: x, Z: z);
+            if (!haloBaseHeights.TryGetValue(columnKey, out var baseHeight))
             {
                 haloSampler ??= _terrain.CreateBiomeSampler();
                 baseHeight = _terrain.SampleBaseHeight(haloSampler, x, z);
-                haloBaseHeights.Add(key, baseHeight);
+                haloBaseHeights.Add(columnKey, baseHeight);
             }
 
-            return _terrain.IsCaveVoidAt(
+            carvedVoid = _terrain.IsCaveVoidAt(
                 baseHeight, new WorldVoxelCoord(x, y, z));
+            haloCarvedVoids.Add(voxelKey, carvedVoid);
+            return carvedVoid;
         }
 
         for (var z = 0; z < Chunk.Size; z++)
