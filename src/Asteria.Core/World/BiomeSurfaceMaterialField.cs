@@ -709,29 +709,19 @@ public sealed class BiomeSurfaceMaterialField
                 rotated.Z + warpZ * _warpHorizontalStrength + detailWarpZ * _detailWarpStrength);
         }
 
-        private static bool CannotBeatCurrentWinner(
+        private static double MinimumFieldToBeat(
             double bestScore,
-            double bias,
-            double partialField,
-            double remainingInfluenceMagnitude)
+            double bias)
         {
             if (double.IsNegativeInfinity(bestScore))
-                return false;
+                return double.NegativeInfinity;
 
-            // Each unsampled field lies in [-1, 1]. Bound the final score
-            // from the sampled partial field plus the absolute remaining
-            // influence; the small margin keeps floating-point rounding from
-            // pruning a candidate that could tie or exceed the current winner.
-            var maximumField = Math.Min(
-                1d,
-                partialField + remainingInfluenceMagnitude);
-            var maximumUnit = Math.Clamp(
-                (maximumField + 1d) * 0.5d,
-                1e-6d,
-                1d - 1e-6d);
-            var maximumScore =
-                -Math.Log(-Math.Log(maximumUnit)) + bias;
-            return bestScore > maximumScore + 1e-9d;
+            // Invert the monotonic Gumbel score once per candidate. A partial
+            // field plus the absolute remaining influence below this threshold
+            // cannot beat the current winner, avoiding repeated logarithms.
+            var scoreWithoutBias = bestScore - bias - 1e-9d;
+            var maximumUnit = Math.Exp(-Math.Exp(-scoreWithoutBias));
+            return maximumUnit * 2d - 1d;
         }
 
         private BlockRuntimeId SelectMaterial(
@@ -839,31 +829,31 @@ public sealed class BiomeSurfaceMaterialField
                     bestScore >= biases[index] + MaximumGumbelScore)
                     continue;
 
+                var minimumFieldToBeat = needsBoundaryScores
+                    ? double.NegativeInfinity
+                    : MinimumFieldToBeat(bestScore, biases[index]);
                 var broad =
                     broadCoordinates.Sample(seed, broadDomains[index]);
                 var partialField = broad * broadWeight;
                 if (!needsBoundaryScores &&
-                    CannotBeatCurrentWinner(
-                        bestScore, biases[index], partialField,
-                        remainingAfterBroad))
+                    Math.Min(1d, partialField + remainingAfterBroad) <
+                    minimumFieldToBeat)
                     continue;
 
                 var detail =
                     detailCoordinates.Sample(seed, detailDomains[index]);
                 partialField += detail * detailWeight;
                 if (!needsBoundaryScores &&
-                    CannotBeatCurrentWinner(
-                        bestScore, biases[index], partialField,
-                        remainingAfterDetail))
+                    Math.Min(1d, partialField + remainingAfterDetail) <
+                    minimumFieldToBeat)
                     continue;
 
                 var micro =
                     microCoordinates.Sample(seed, microDomains[index]);
                 partialField += micro * microWeight;
                 if (!needsBoundaryScores &&
-                    CannotBeatCurrentWinner(
-                        bestScore, biases[index], partialField,
-                        remainingAfterMicro))
+                    Math.Min(1d, partialField + remainingAfterMicro) <
+                    minimumFieldToBeat)
                     continue;
 
                 var cluster = _clusterInfluence > 0d
@@ -871,9 +861,8 @@ public sealed class BiomeSurfaceMaterialField
                     : 0d;
                 partialField += cluster * clusterWeight;
                 if (!needsBoundaryScores &&
-                    CannotBeatCurrentWinner(
-                        bestScore, biases[index], partialField,
-                        Math.Abs(grainWeight)))
+                    Math.Min(1d, partialField + Math.Abs(grainWeight)) <
+                    minimumFieldToBeat)
                     continue;
 
                 var grain = _grainInfluence > 0d || needsBoundaryScores
