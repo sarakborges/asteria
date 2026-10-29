@@ -709,6 +709,31 @@ public sealed class BiomeSurfaceMaterialField
                 rotated.Z + warpZ * _warpHorizontalStrength + detailWarpZ * _detailWarpStrength);
         }
 
+        private static bool CannotBeatCurrentWinner(
+            double bestScore,
+            double bias,
+            double partialField,
+            double remainingInfluenceMagnitude)
+        {
+            if (double.IsNegativeInfinity(bestScore))
+                return false;
+
+            // Each unsampled field lies in [-1, 1]. Bound the final score
+            // from the sampled partial field plus the absolute remaining
+            // influence; the small margin keeps floating-point rounding from
+            // pruning a candidate that could tie or exceed the current winner.
+            var maximumField = Math.Min(
+                1d,
+                partialField + remainingInfluenceMagnitude);
+            var maximumUnit = Math.Clamp(
+                (maximumField + 1d) * 0.5d,
+                1e-6d,
+                1d - 1e-6d);
+            var maximumScore =
+                -Math.Log(-Math.Log(maximumUnit)) + bias;
+            return bestScore > maximumScore + 1e-9d;
+        }
+
         private BlockRuntimeId SelectMaterial(
             ulong seed,
             SpatialPosition position,
@@ -758,6 +783,23 @@ public sealed class BiomeSurfaceMaterialField
                     _grainScale, _grainVerticalScale);
             var needsBoundaryScores =
                 _boundaryInfluence > 0d && candidateBlocks.Length > 1;
+            var broadWeight = _remainingInfluence * 0.04d / 0.30d;
+            var detailWeight = _remainingInfluence * 0.10d / 0.30d;
+            var microWeight = _remainingInfluence * 0.16d / 0.30d;
+            var clusterWeight = _clusterInfluence;
+            var grainWeight = _grainInfluence;
+            var remainingAfterBroad =
+                Math.Abs(detailWeight) +
+                Math.Abs(microWeight) +
+                Math.Abs(clusterWeight) +
+                Math.Abs(grainWeight);
+            var remainingAfterDetail =
+                Math.Abs(microWeight) +
+                Math.Abs(clusterWeight) +
+                Math.Abs(grainWeight);
+            var remainingAfterMicro =
+                Math.Abs(clusterWeight) +
+                Math.Abs(grainWeight);
             // Most geology selections need only the winning score. Allocate
             // score vectors only for definitions that explicitly enable
             // boundary roughening; ordinary geological voxels allocate none.
@@ -799,15 +841,44 @@ public sealed class BiomeSurfaceMaterialField
 
                 var broad =
                     broadCoordinates.Sample(seed, broadDomains[index]);
+                var partialField = broad * broadWeight;
+                if (!needsBoundaryScores &&
+                    CannotBeatCurrentWinner(
+                        bestScore, biases[index], partialField,
+                        remainingAfterBroad))
+                    continue;
+
                 var detail =
                     detailCoordinates.Sample(seed, detailDomains[index]);
+                partialField += detail * detailWeight;
+                if (!needsBoundaryScores &&
+                    CannotBeatCurrentWinner(
+                        bestScore, biases[index], partialField,
+                        remainingAfterDetail))
+                    continue;
+
                 var micro =
                     microCoordinates.Sample(seed, microDomains[index]);
+                partialField += micro * microWeight;
+                if (!needsBoundaryScores &&
+                    CannotBeatCurrentWinner(
+                        bestScore, biases[index], partialField,
+                        remainingAfterMicro))
+                    continue;
+
                 var cluster = _clusterInfluence > 0d
                     ? clusterCoordinates.Sample(seed, clusterDomains[index])
                     : 0d;
-                var grain =
-                    grainCoordinates.Sample(seed, grainDomains[index]);
+                partialField += cluster * clusterWeight;
+                if (!needsBoundaryScores &&
+                    CannotBeatCurrentWinner(
+                        bestScore, biases[index], partialField,
+                        Math.Abs(grainWeight)))
+                    continue;
+
+                var grain = _grainInfluence > 0d || needsBoundaryScores
+                    ? grainCoordinates.Sample(seed, grainDomains[index])
+                    : 0d;
 
                 // Split finer detail across intermediate clusters and very
                 // fine grain. The former creates coherent mineral pockets;
