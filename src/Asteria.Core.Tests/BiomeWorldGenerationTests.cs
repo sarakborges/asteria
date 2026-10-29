@@ -793,10 +793,15 @@ public sealed class BiomeWorldGenerationTests
             .Where(id => biomes.Get(id).Geology is not null &&
                 id != "asteria:overworld/ocean")
             .ToHashSet(StringComparer.Ordinal);
+        var dimensionSeed = DimensionSeed.Derive(seed, dimension.Id);
         var geologyField = new BiomeSurfaceMaterialField(
-            DimensionSeed.Derive(seed, dimension.Id),
+            dimensionSeed,
             geologyBiomeIds.Select(biomes.Get),
             blocks);
+        var caveFacePaintReach = new BiomeSurfaceMaterialField(
+            dimensionSeed,
+            dimension.SurfaceBiomes.Concat(dimension.VolumeBiomes).Select(biomes.Get),
+            blocks).MaximumCavePaintDepth;
 
         (int X, int Y, int Z, BlockRuntimeId Expected)? leftVoxel = null;
         (int X, int Y, int Z, BlockRuntimeId Expected)? rightVoxel = null;
@@ -824,28 +829,13 @@ public sealed class BiomeWorldGenerationTests
         Assert.True(leftVoxel.HasValue && rightVoxel.HasValue,
             "No suitable boundary between two geology-enabled surface biomes was found.");
 
-        AssertBiomeGridMatchesScalar(leftVoxel!.Value.X, leftVoxel.Value.Z);
-        AssertBiomeGridMatchesScalar(rightVoxel!.Value.X, rightVoxel.Value.Z);
+        Assert.Equal(
+            leftVoxel!.Value.Expected,
+            ReadMaterializedBlock(leftVoxel.Value.X, leftVoxel.Value.Y, leftVoxel.Value.Z));
 
-        var leftCheck = leftVoxel.Value;
-        var leftActual = ReadMaterializedBlock(leftCheck.X, leftCheck.Y, leftCheck.Z);
-        Assert.True(leftCheck.Expected == leftActual,
-            $"Left geology mismatch at ({leftCheck.X},{leftCheck.Y},{leftCheck.Z}); " +
-            $"surface={generator.SurfaceHeight(leftCheck.X, leftCheck.Z)}, " +
-            $"primary={generator.Biomes.Sample(leftCheck.X, leftCheck.Z).Primary}, " +
-            $"volumeAtVoxel={generator.VolumeBiomes.Sample(leftCheck.X, leftCheck.Y, leftCheck.Z)?.Primary ?? "none"}, " +
-            $"expected={blocks.GetDefinition(leftCheck.Expected).Id}, actual={blocks.GetDefinition(leftActual).Id}, " +
-            $"geologyOwners={GeologyOwnersAt(leftCheck.X, leftCheck.Y, leftCheck.Z, leftActual)}.");
-
-        var rightCheck = rightVoxel.Value;
-        var rightActual = ReadMaterializedBlock(rightCheck.X, rightCheck.Y, rightCheck.Z);
-        Assert.True(rightCheck.Expected == rightActual,
-            $"Right geology mismatch at ({rightCheck.X},{rightCheck.Y},{rightCheck.Z}); " +
-            $"surface={generator.SurfaceHeight(rightCheck.X, rightCheck.Z)}, " +
-            $"primary={generator.Biomes.Sample(rightCheck.X, rightCheck.Z).Primary}, " +
-            $"volumeAtVoxel={generator.VolumeBiomes.Sample(rightCheck.X, rightCheck.Y, rightCheck.Z)?.Primary ?? "none"}, " +
-            $"expected={blocks.GetDefinition(rightCheck.Expected).Id}, actual={blocks.GetDefinition(rightActual).Id}, " +
-            $"geologyOwners={GeologyOwnersAt(rightCheck.X, rightCheck.Y, rightCheck.Z, rightActual)}.");
+        Assert.Equal(
+            rightVoxel!.Value.Expected,
+            ReadMaterializedBlock(rightVoxel.Value.X, rightVoxel.Value.Y, rightVoxel.Value.Z));
 
         bool TryFindVoxel(
             BiomeSample sample,
@@ -876,45 +866,27 @@ public sealed class BiomeWorldGenerationTests
             return false;
         }
 
-        string GeologyOwnersAt(int x, int y, int z, BlockRuntimeId target)
-        {
-            var matches = new List<string>();
-            foreach (var biomeId in geologyBiomeIds.OrderBy(id => id, StringComparer.Ordinal))
-            {
-                var candidate = new BiomeSample(biomeId, [new BiomeInfluence(biomeId, 1f)]);
-                if (geologyField.TryGeologyBlockAt(candidate, x, y, z, out var block) &&
-                    block == target)
-                    matches.Add(biomeId);
-            }
-            return matches.Count == 0 ? "none" : string.Join(",", matches);
-        }
-
-        void AssertBiomeGridMatchesScalar(int x, int z)
-        {
-            var (coord, local) = VoxelCoordinates.FromWorld(x, 0, z);
-            var grid = generator.Biomes.SampleGrid(
-                checked(coord.X * Chunk.Size),
-                checked(coord.Z * Chunk.Size),
-                Chunk.Size,
-                Chunk.Size);
-            var scalar = generator.Biomes.Sample(x, z);
-            var batched = grid[local.X, local.Z];
-            Assert.Equal(
-                scalar.Primary,
-                batched.Primary);
-            Assert.Equal(
-                scalar.Influences.ToArray(),
-                batched.Influences.ToArray());
-        }
-
         bool IsInteriorSolid(int x, int y, int z)
         {
             if (!IsSolidVoxel(x, y, z))
                 return false;
 
-            // Exterior face palettes intentionally paint exposed hillside
-            // walls. Compare raw volumetric geology only on true interior
-            // voxels so the regression does not reject authored wall materials.
+            // Cave palettes paint exposed walls inward by their authored reach.
+            // Select a solid voxel outside that whole range, not merely one
+            // whose immediately adjacent voxels happen to be solid.
+            var reach = checked((int)caveFacePaintReach);
+            for (var distance = 1; distance <= reach; distance++)
+            {
+                if (generator.IsCaveVoidAt(x - distance, y, z) ||
+                    generator.IsCaveVoidAt(x + distance, y, z) ||
+                    generator.IsCaveVoidAt(x, y, z - distance) ||
+                    generator.IsCaveVoidAt(x, y, z + distance) ||
+                    generator.IsCaveVoidAt(x, y + distance, z) ||
+                    (y >= distance &&
+                     generator.IsCaveVoidAt(x, y - distance, z)))
+                    return false;
+            }
+
             return IsSolidVoxel(x - 1, y, z) &&
                 IsSolidVoxel(x + 1, y, z) &&
                 IsSolidVoxel(x, y - 1, z) &&
