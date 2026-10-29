@@ -127,61 +127,6 @@ public sealed class SurfaceDecorationField
     public bool HasObjectDecorations(BiomeSample sample) =>
         sample.Influences.Any(influence => _objectBiomes.Contains(influence.BiomeId));
 
-    /// <summary>
-    /// Samples a conditional placement context once for a support column when
-    /// every eligible condition uses the same authoritative height source.
-    /// A null result means there are no eligible conditions, or independent
-    /// selection must retain its existing per-call sampling behavior.
-    /// </summary>
-    internal SurfacePlacementContext? SamplePlacementContextIfRequired(
-        BiomeSample sample,
-        BlockRuntimeId supportBlock,
-        int worldX,
-        int worldZ,
-        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor)
-    {
-        ArgumentNullException.ThrowIfNull(sample);
-
-        if (_terrain is null)
-            return null;
-
-        var foundConditions = false;
-        var useBaseSurface = false;
-        var includeSlope = false;
-        foreach (var influence in sample.Influences)
-        {
-            if (!_rules.TryGetValue(influence.BiomeId, out var rules))
-                continue;
-
-            foreach (var rule in rules)
-            {
-                if (rule.SupportSurface != supportSurface ||
-                    !rule.SurfaceBlocks.Contains(supportBlock) ||
-                    rule.Conditions is not { } conditions)
-                    continue;
-
-                if (!foundConditions)
-                {
-                    foundConditions = true;
-                    useBaseSurface = rule.UsesBaseSurface;
-                }
-                else if (useBaseSurface != rule.UsesBaseSurface)
-                {
-                    // SelectRule owns fallback behavior if authored rules
-                    // require different height sources in the same sample.
-                    return null;
-                }
-
-                includeSlope |= conditions.RequiresSlope;
-            }
-        }
-
-        return foundConditions
-            ? SurfacePlacementContext.Sample(
-                _terrain, worldX, worldZ, includeSlope, useBaseSurface)
-            : null;
-    }
-
     public bool HasVerticalDecorations => _verticalBiomes.Count > 0;
     public bool HasCeilingDecorations => _ceilingBiomes.Count > 0;
     public bool HasWallLayers => _wallLayerBiomes.Count > 0;
