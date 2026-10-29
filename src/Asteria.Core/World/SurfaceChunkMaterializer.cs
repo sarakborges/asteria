@@ -1316,6 +1316,7 @@ public sealed class SurfaceChunkMaterializer
         var localDirectionMask = new byte[volume];
         var nearestFaceDistance = new int[volume];
         var nearestFace = new BiomePaletteFace[volume];
+        var hasCaveBandColumn = false;
 
         static int FacePriority(BiomePaletteFace face) => face switch
         {
@@ -1353,6 +1354,7 @@ public sealed class SurfaceChunkMaterializer
             if (originY > baseY - 4)
                 continue;
 
+            hasCaveBandColumn = true;
             for (var y = 0; y < Chunk.Size; y++)
             {
                 var worldY = originY + y;
@@ -1364,6 +1366,11 @@ public sealed class SurfaceChunkMaterializer
                     !densityVolume.IsSolidAtUnchecked(x, y, z);
             }
         }
+
+        // Preserve the old whole-column early-out for chunks entirely above
+        // the cave band; do not run the volume scans for sky-only chunks.
+        if (!hasCaveBandColumn)
+            return;
 
         // A void above a solid paints its floor-facing surface.
         for (var z = 0; z < Chunk.Size; z++)
