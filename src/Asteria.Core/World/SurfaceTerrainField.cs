@@ -149,6 +149,27 @@ public sealed class SurfaceTerrainField
                 worldZ));
     }
 
+    // Surface placement conditions sample several adjacent heights. Keep the
+    // two biome assignment caches local to that one query so neighboring height
+    // probes reuse seed assignments instead of allocating a sampler per point.
+    internal readonly record struct TerrainSampleContext(
+        BiomeField.Sampler SurfaceBiomes,
+        BiomeField.Sampler? VolumePlacement);
+
+    internal TerrainSampleContext CreateTerrainSampleContext() =>
+        new(
+            _surfaceBiomes.CreateSampler(),
+            _volumeBiomes.CreatePlacementSampler());
+
+    internal (BiomeSample Biome, int BaseY) SampleBaseSurface(
+        TerrainSampleContext context,
+        int worldX,
+        int worldZ)
+    {
+        var biome = context.SurfaceBiomes.Sample(worldX, worldZ);
+        return (biome, BaseHeightAt(biome, worldX, worldZ));
+    }
+
     internal (
         BiomeSample Biome,
         int BaseY,
@@ -247,6 +268,24 @@ public sealed class SurfaceTerrainField
             worldX,
             worldZ,
             _volumeBiomes.SamplePlacement(
+                worldX,
+                worldZ));
+    }
+
+    internal int SurfaceHeight(
+        TerrainSampleContext context,
+        int worldX,
+        int worldZ)
+    {
+        var biome = context.SurfaceBiomes.Sample(worldX, worldZ);
+        var baseY = BaseHeightAt(biome, worldX, worldZ);
+        return FinalSurfaceHeight(
+            biome,
+            baseY,
+            worldX,
+            worldZ,
+            _volumeBiomes.SamplePlacement(
+                context.VolumePlacement,
                 worldX,
                 worldZ));
     }
