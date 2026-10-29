@@ -223,6 +223,35 @@ public sealed class BiomePlacementParityTests
         Assert.True(oceanSize.RegionMin > plainsSize.RegionMin);
         Assert.True(oceanSize.RegionMax > plainsSize.RegionMax);
 
+        var oceanExclusions =
+            new[]
+            {
+                "asteria:overworld/alps",
+                "asteria:overworld/arctic",
+                "asteria:overworld/desert",
+                "asteria:overworld/mountain_belt",
+                "asteria:overworld/mountains",
+                "asteria:overworld/scorched_wastes",
+                "asteria:overworld/swamp",
+                "asteria:overworld/wasteland",
+            };
+        Assert.Equal(
+            oceanExclusions.OrderBy(id => id, StringComparer.Ordinal),
+            oceanSize.CannotBorder.OrderBy(id => id, StringComparer.Ordinal));
+
+        var biomeField = new BiomeField(
+            0xA57E_2026UL,
+            overworld,
+            biomes);
+        foreach (var excludedBiomeId in oceanExclusions)
+        {
+            Assert.False(
+                biomeField.AreCompatible(
+                    "asteria:overworld/ocean",
+                    excludedBiomeId),
+                $"Ocean must not border {excludedBiomeId}.");
+        }
+
         AssertLayout(
             biomes,
             "asteria:umbral/umbral_reach",
@@ -316,8 +345,8 @@ public sealed class BiomePlacementParityTests
                     "asteria:overworld/arctic")
                 .SurfaceLayout!
                 .CannotBorder);
-        // The ocean itself owns its shoreline, so wasteland may border
-        // ocean while the incompatible arctic/wasteland pairing is rejected.
+        // Ocean exclusions are authored by ocean itself. Compatibility is
+        // symmetric, so wasteland does not need to duplicate the ocean rule.
         var wastelandBorders = biomes.Get(
                 "asteria:overworld/wasteland")
             .SurfaceLayout!
