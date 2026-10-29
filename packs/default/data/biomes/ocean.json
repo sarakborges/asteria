@@ -4,8 +4,8 @@
     "weight": 1,
     "spawnWeight": 1,
     "regionSize": {
-      "min": 384,
-      "max": 768
+      "min": 500,
+      "max": 1500
     }
   },
   "surfaceTerrain": {
