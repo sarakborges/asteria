@@ -788,7 +788,7 @@ public sealed class BiomeWorldGenerationTests
             DimensionSeed.Derive(seed, dimension.Id),
             dimension, blocks, LoadDefaultFluids(), biomes,
             LoadDefaultStructures(), LoadDefaultStructureSets(),
-            new WorldGenerationOptions(spawnStructures: false));
+            new WorldGenerationOptions(spawnStructures: false, spawnCaves: false));
         var geologyBiomeIds = dimension.SurfaceBiomes
             .Where(id => biomes.Get(id).Geology is not null &&
                 id != "asteria:overworld/ocean")
@@ -798,10 +798,6 @@ public sealed class BiomeWorldGenerationTests
             dimensionSeed,
             geologyBiomeIds.Select(biomes.Get),
             blocks);
-        var caveFacePaintReach = new BiomeSurfaceMaterialField(
-            dimensionSeed,
-            dimension.SurfaceBiomes.Concat(dimension.VolumeBiomes).Select(biomes.Get),
-            blocks).MaximumCavePaintDepth;
 
         (int X, int Y, int Z, BlockRuntimeId Expected)? leftVoxel = null;
         (int X, int Y, int Z, BlockRuntimeId Expected)? rightVoxel = null;
@@ -868,26 +864,10 @@ public sealed class BiomeWorldGenerationTests
 
         bool IsInteriorSolid(int x, int y, int z)
         {
-            if (!IsSolidVoxel(x, y, z))
-                return false;
-
-            // Cave palettes paint exposed walls inward by their authored reach.
-            // Select a solid voxel outside that whole range, not merely one
-            // whose immediately adjacent voxels happen to be solid.
-            var reach = checked((int)caveFacePaintReach);
-            for (var distance = 1; distance <= reach; distance++)
-            {
-                if (generator.IsCaveVoidAt(x - distance, y, z) ||
-                    generator.IsCaveVoidAt(x + distance, y, z) ||
-                    generator.IsCaveVoidAt(x, y, z - distance) ||
-                    generator.IsCaveVoidAt(x, y, z + distance) ||
-                    generator.IsCaveVoidAt(x, y + distance, z) ||
-                    (y >= distance &&
-                     generator.IsCaveVoidAt(x, y - distance, z)))
-                    return false;
-            }
-
-            return IsSolidVoxel(x - 1, y, z) &&
+            // This test isolates surface geology from cave-face material
+            // painting; cave generation is disabled for its generator.
+            return IsSolidVoxel(x, y, z) &&
+                IsSolidVoxel(x - 1, y, z) &&
                 IsSolidVoxel(x + 1, y, z) &&
                 IsSolidVoxel(x, y - 1, z) &&
                 IsSolidVoxel(x, y + 1, z) &&
