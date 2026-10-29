@@ -834,7 +834,8 @@ public sealed class BiomeWorldGenerationTests
             $"surface={generator.SurfaceHeight(leftCheck.X, leftCheck.Z)}, " +
             $"primary={generator.Biomes.Sample(leftCheck.X, leftCheck.Z).Primary}, " +
             $"volumeAtVoxel={generator.VolumeBiomes.Sample(leftCheck.X, leftCheck.Y, leftCheck.Z)?.Primary ?? "none"}, " +
-            $"expected={blocks.GetDefinition(leftCheck.Expected).Id}, actual={blocks.GetDefinition(leftActual).Id}.");
+            $"expected={blocks.GetDefinition(leftCheck.Expected).Id}, actual={blocks.GetDefinition(leftActual).Id}, " +
+            $"geologyOwners={GeologyOwnersAt(leftCheck.X, leftCheck.Y, leftCheck.Z, leftActual)}.");
 
         var rightCheck = rightVoxel.Value;
         var rightActual = ReadMaterializedBlock(rightCheck.X, rightCheck.Y, rightCheck.Z);
@@ -843,7 +844,8 @@ public sealed class BiomeWorldGenerationTests
             $"surface={generator.SurfaceHeight(rightCheck.X, rightCheck.Z)}, " +
             $"primary={generator.Biomes.Sample(rightCheck.X, rightCheck.Z).Primary}, " +
             $"volumeAtVoxel={generator.VolumeBiomes.Sample(rightCheck.X, rightCheck.Y, rightCheck.Z)?.Primary ?? "none"}, " +
-            $"expected={blocks.GetDefinition(rightCheck.Expected).Id}, actual={blocks.GetDefinition(rightActual).Id}.");
+            $"expected={blocks.GetDefinition(rightCheck.Expected).Id}, actual={blocks.GetDefinition(rightActual).Id}, " +
+            $"geologyOwners={GeologyOwnersAt(rightCheck.X, rightCheck.Y, rightCheck.Z, rightActual)}.");
 
         bool TryFindVoxel(
             BiomeSample sample,
@@ -872,6 +874,19 @@ public sealed class BiomeWorldGenerationTests
 
             voxel = default;
             return false;
+        }
+
+        string GeologyOwnersAt(int x, int y, int z, BlockRuntimeId target)
+        {
+            var matches = new List<string>();
+            foreach (var biomeId in geologyBiomeIds.OrderBy(id => id, StringComparer.Ordinal))
+            {
+                var candidate = new BiomeSample(biomeId, [new BiomeInfluence(biomeId, 1f)]);
+                if (geologyField.TryGeologyBlockAt(candidate, x, y, z, out var block) &&
+                    block == target)
+                    matches.Add(biomeId);
+            }
+            return matches.Count == 0 ? "none" : string.Join(",", matches);
         }
 
         void AssertBiomeGridMatchesScalar(int x, int z)
