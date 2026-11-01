@@ -15,6 +15,14 @@ public readonly record struct TerrainRenderBatch(
     }
 }
 
+/// <summary>Neutral triangulation topology for faces without sampled AO.</summary>
+public readonly record struct MeshFaceTopology
+{
+    public static MeshFaceTopology Neutral => default;
+
+    public bool ShouldFlipDiagonal => false;
+}
+
 // Four packed bytes instead of a 20+ byte source tuple per vertex.
 // Chunk-local x/y/z each occupy four bits, face three, corner two.
 // All GPU-irrelevant metadata stays engine-agnostic in Core.
