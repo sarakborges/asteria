@@ -46,6 +46,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly SurfaceDecorationField _decorations;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly BlockRegistry _blocks;
+    private readonly HashSet<BlockRuntimeId> _gravityBlocks;
     private readonly SurfaceStructureField _structures;
     private readonly Func<FluidRuntimeId, int, int, int, int, bool>
         _nearbyFluidQuery;
@@ -108,6 +109,10 @@ public sealed class SurfaceChunkMaterializer
         _nearbyFluidQuery = HasNearbyFluid;
         ArgumentNullException.ThrowIfNull(dimension);
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
+        _gravityBlocks = blocks.AuthoredDefinitions()
+            .Where(entry => entry.Definition.HasTag(BlockPhysicsCapabilities.Gravity))
+            .Select(entry => entry.RuntimeId)
+            .ToHashSet();
 
         // Flat and Normal respect authored Sphere Shells; Void does not.
         _shellBlock = voidSpawnPlatform is null && dimension.Shell is { } shell
@@ -266,6 +271,7 @@ public sealed class SurfaceChunkMaterializer
 
             case ChunkMaterializationStage.PendingObjects:
                 MaterializePendingObjects(job);
+                MaterializeGravityBlockSupport(job);
                 job.Result = job.Chunk;
                 job.Stage = ChunkMaterializationStage.Complete;
                 break;
@@ -285,6 +291,247 @@ public sealed class SurfaceChunkMaterializer
     private static TerrainDensityVolume RequiredDensity(MaterializationJob job) =>
         job.DensityVolume ??
         throw new InvalidOperationException("Terrain density snapshot is missing.");
+
+    /// <summary>
+    /// Enforces the gravity-support invariant over the final generated chunk,
+    /// after every stage that can write a voxel. This is a generation rule,
+    /// not a runtime-physics cleanup pass.
+    /// </summary>
+    private void MaterializeGravityBlockSupport(MaterializationJob job)
+    {
+        if (_gravityBlocks.Count == 0)
+            return;
+
+        var chunk = job.Chunk;
+        var column = RequiredColumn(job);
+        var density = RequiredDensity(job);
+        var gravityPositions = new List<(int X, int Y, int Z)>();
+        chunk.VisitBlockCells((x, y, z, cell) =>
+        {
+            if (_gravityBlocks.Contains(cell.Block))
+                gravityPositions.Add((x, y, z));
+        });
+        if (gravityPositions.Count == 0)
+            return;
+
+        var lowerChunk = job.Coord.Y > 0
+            ? new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z)
+            : (ChunkCoord?)null;
+        HashSet<WorldVoxelCoord>? volumeStructureBlocks = null;
+        IReadOnlyList<SurfaceStructurePlacement>? surfacePlacements = null;
+
+        // Resolve local cells bottom-up so a supported gravity stack remains
+        // intact and the lowest unsupported voxel is stabilized first.
+        gravityPositions.Sort(static (left, right) =>
+        {
+            var result = left.Y.CompareTo(right.Y);
+            if (result != 0) return result;
+            result = left.Z.CompareTo(right.Z);
+            return result != 0 ? result : left.X.CompareTo(right.X);
+        });
+
+        foreach (var (x, y, z) in gravityPositions)
+        {
+            var worldX = job.OriginX + x;
+            var worldY = job.OriginY + y;
+            var worldZ = job.OriginZ + z;
+            var supported = y > 0
+                ? !chunk.GetCell(x, y - 1, z).IsEmpty
+                : HasGeneratedSupportAcrossChunkBoundary(
+                    worldX, worldY - 1, worldZ,
+                    lowerChunk,
+                    ref volumeStructureBlocks,
+                    ref surfacePlacements);
+            if (supported)
+                continue;
+
+            var surfaceBiome = column.BiomeAt(x, z);
+            var owner = ResolveGravityMaterialOwner(
+                column, density, surfaceBiome,
+                x, y, z, worldX, worldY, worldZ);
+            var fallback = _materials.StableGeologyBaseBlockAt(owner);
+            if (_gravityBlocks.Contains(fallback))
+                fallback = _materials.CoreLayer(owner).Block;
+            if (fallback.IsAir || _gravityBlocks.Contains(fallback))
+            {
+                throw new InvalidOperationException(
+                    $"Biome {owner.Primary} has no stable material for unsupported " +
+                    $"gravity block at {worldX},{worldY},{worldZ}.");
+            }
+
+            chunk.SetBlock(x, y, z, fallback);
+        }
+    }
+
+    private BiomeSample ResolveGravityMaterialOwner(
+        SurfaceTerrainColumn column,
+        TerrainDensityVolume density,
+        BiomeSample surfaceBiome,
+        int localX,
+        int localY,
+        int localZ,
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        var baseY = column.BaseHeightAt(localX, localZ);
+        if (worldY > baseY)
+        {
+            return density.VolumeBiomeAt(localX, worldY, localZ) ??
+                surfaceBiome;
+        }
+
+        var below = new WorldVoxelCoord(worldX, worldY - 1, worldZ);
+        if (_volumeBiomes is { HasBiomes: true } &&
+            worldY > 0 &&
+            _terrain.IsCaveVoidAt(baseY, below) &&
+            column.CaveBiomeAt(localX, localZ) is { } caveBiome)
+        {
+            return caveBiome;
+        }
+
+        return surfaceBiome;
+    }
+
+    private bool HasGeneratedSupportAcrossChunkBoundary(
+        int worldX,
+        int supportY,
+        int worldZ,
+        ChunkCoord? lowerChunk,
+        ref HashSet<WorldVoxelCoord>? volumeStructureBlocks,
+        ref IReadOnlyList<SurfaceStructurePlacement>? surfacePlacements)
+    {
+        if (supportY < 0)
+            return true;
+        if (_floorY is { } floorY && supportY == floorY)
+            return true;
+        if (lowerChunk is null)
+            return false;
+
+        var support = new WorldVoxelCoord(worldX, supportY, worldZ);
+        var density = DensityAtWorld(worldX, supportY, worldZ);
+        var baseBlockOccupied = density >= 0d;
+
+        if (_volumeStructures is { HasRules: true } formations)
+        {
+            volumeStructureBlocks ??= formations.VoxelsForChunk(lowerChunk.Value)
+                .Select(voxel => new WorldVoxelCoord(
+                    voxel.X, voxel.Y, voxel.Z))
+                .ToHashSet();
+        }
+        var volumeStructureOccupied =
+            volumeStructureBlocks?.Contains(support) == true;
+
+        var (supportChunk, local) = VoxelCoordinates.FromWorld(
+            worldX, supportY, worldZ);
+        var supportColumn = _columns.Get(supportChunk.X, supportChunk.Z);
+        var surfaceBiome = supportColumn.BiomeAt(local.X, local.Z);
+        var baseY = supportColumn.BaseHeightAt(local.X, local.Z);
+        var generatedFluid = volumeStructureOccupied
+            ? FluidCell.Empty
+            : _generatedFluids.FluidAt(
+                surfaceBiome,
+                baseY,
+                supportColumn.SurfaceFluidCutDepthAt(local.X, local.Z),
+                worldX, supportY, worldZ, density);
+        var baseOccupied = baseBlockOccupied ||
+            volumeStructureOccupied || !generatedFluid.IsEmpty;
+        var blockOccupied = baseBlockOccupied || volumeStructureOccupied;
+
+        if (_structures.HasRules)
+        {
+            surfacePlacements ??= _structures.PlacementsForChunk(
+                supportChunk.X, supportChunk.Z);
+            var claimed = false;
+
+            foreach (var placement in surfacePlacements)
+            {
+                foreach (var clear in placement.ClearVoxels)
+                {
+                    if (clear.X != worldX || clear.Y != supportY ||
+                        clear.Z != worldZ ||
+                        !CanReplaceStructureCell(
+                            placement.Generation.ReplacePolicy,
+                            claimed, baseOccupied))
+                        continue;
+                    blockOccupied = false;
+                    claimed = true;
+                }
+
+                foreach (var voxel in placement.Voxels)
+                {
+                    if (voxel.X != worldX || voxel.Y != supportY ||
+                        voxel.Z != worldZ ||
+                        !CanReplaceStructureCell(
+                            placement.Generation.ReplacePolicy,
+                            claimed, baseOccupied))
+                        continue;
+                    blockOccupied = !voxel.Cell.IsEmpty;
+                    claimed = true;
+                }
+
+                foreach (var voxel in placement.FluidVoxels)
+                {
+                    if (voxel.X != worldX || voxel.Y != supportY ||
+                        voxel.Z != worldZ ||
+                        !CanReplaceStructureCell(
+                            placement.Generation.ReplacePolicy,
+                            claimed, baseOccupied))
+                        continue;
+                    blockOccupied = false;
+                    claimed = true;
+                }
+            }
+        }
+
+        if (blockOccupied)
+            return true;
+
+        return HasGeneratedCaveSpikeAt(
+            support, supportColumn, local.X, local.Z);
+    }
+
+    private bool HasGeneratedCaveSpikeAt(
+        WorldVoxelCoord position,
+        SurfaceTerrainColumn column,
+        int localX,
+        int localZ)
+    {
+        if (_caveSpikes is not { HasRules: true } spikes ||
+            column.CaveBiomeAt(localX, localZ) is not { } caveBiome ||
+            !spikes.HasRulesFor(caveBiome.Primary))
+            return false;
+
+        var surfaceBiome = column.BiomeAt(localX, localZ);
+        var baseY = column.BaseHeightAt(localX, localZ);
+        var firstAnchor = Math.Max(
+            1, position.Y - spikes.MaximumHeight + 1);
+        var lastAnchor = Math.Min(
+            baseY - 1, position.Y + spikes.MaximumHeight - 1);
+
+        for (var anchorY = firstAnchor; anchorY <= lastAnchor; anchorY++)
+        {
+            var volumeBiome = _volumeBiomes?.Sample(
+                position.X, anchorY, position.Z);
+            if (spikes.TrySample(
+                    caveBiome.Primary, surfaceBiome, volumeBiome,
+                    baseY, position.X, anchorY, position.Z,
+                    false, out var upward) &&
+                position.Y >= anchorY &&
+                position.Y < anchorY + upward.Height)
+                return true;
+
+            if (spikes.TrySample(
+                    caveBiome.Primary, surfaceBiome, volumeBiome,
+                    baseY, position.X, anchorY, position.Z,
+                    true, out var downward) &&
+                position.Y <= anchorY &&
+                position.Y > anchorY - downward.Height)
+                return true;
+        }
+
+        return false;
+    }
 
     private static void CompleteInitialBlockWrites(MaterializationJob job)
     {
@@ -1260,22 +1507,22 @@ public sealed class SurfaceChunkMaterializer
         int key,
         IReadOnlySet<int> claimed,
         IReadOnlySet<int>? baseOccupied) =>
+        CanReplaceStructureCell(
+            policy,
+            claimed.Contains(key),
+            baseOccupied?.Contains(key) ?? false);
+
+    private static bool CanReplaceStructureCell(
+        StructureReplacePolicy policy,
+        bool claimed,
+        bool baseOccupied) =>
         policy switch
         {
-            StructureReplacePolicy.Any =>
-                true,
-            StructureReplacePolicy.AirOnly =>
-                !claimed.Contains(
-                    key) &&
-                !(baseOccupied?.Contains(
-                      key) ??
-                  false),
-            StructureReplacePolicy.Terrain =>
-                !claimed.Contains(
-                    key),
-            _ =>
-                throw new InvalidOperationException(
-                    $"Unknown structure replace policy {policy}."),
+            StructureReplacePolicy.Any => true,
+            StructureReplacePolicy.AirOnly => !claimed && !baseOccupied,
+            StructureReplacePolicy.Terrain => !claimed,
+            _ => throw new InvalidOperationException(
+                $"Unknown structure replace policy {policy}."),
         };
 
     private static int StructureCellKey(
