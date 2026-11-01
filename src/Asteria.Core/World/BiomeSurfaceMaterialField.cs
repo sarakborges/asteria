@@ -60,6 +60,9 @@ public sealed class BiomeSurfaceMaterialField
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
                 (profile.OverrideWalls || profile.OverrideCeiling));
+        FacePalettesPreserveOccupancy =
+            _faceRules.Values.All(profile => profile.PreservesOccupancy) &&
+            _geologyRules.Values.All(rule => !rule.MayResolveAir);
         MaximumCavePaintDepth = _faceRules.Values
             .Where(profile => !profile.Exterior)
             .Select(profile => profile.MaxDepth)
@@ -79,6 +82,13 @@ public sealed class BiomeSurfaceMaterialField
     /// overrides. Cave-only wall rules do not trigger exterior scanning.
     /// </summary>
     public bool HasExteriorOverrides { get; }
+
+    /// <summary>
+    /// True when cave/exterior face palette passes can only replace an
+    /// existing solid block with another solid block. Support-face queries
+    /// may omit those presentation-material passes without changing occupancy.
+    /// </summary>
+    public bool FacePalettesPreserveOccupancy { get; }
 
     /// <summary>
     /// Immutable upper bound on cave-facing layer depth. Lets the chunk
@@ -345,6 +355,10 @@ public sealed class BiomeSurfaceMaterialField
             _ => throw new ArgumentOutOfRangeException(nameof(face)),
         };
 
+        public bool PreservesOccupancy =>
+            !Floor.MayResolveAir && !Walls.MayResolveAir &&
+            !Ceiling.MayResolveAir;
+
         public bool HasOverride(BiomePaletteFace face) => face switch
         {
             BiomePaletteFace.Floor => OverrideFloor,
@@ -381,6 +395,10 @@ public sealed class BiomeSurfaceMaterialField
             -Math.Log(-Math.Log(1d - 1e-6d));
 
         private readonly record struct SpatialPosition(double X, double Y, double Z);
+
+        public bool MayResolveAir => _baseBlock.IsAir ||
+            _blocks.Any(block => block.IsAir) ||
+            _volumeBlocks.Any(block => block.IsAir);
 
         private readonly BiomeGeologyDefinition _definition;
         private readonly BlockRuntimeId _baseBlock;
@@ -920,6 +938,7 @@ public sealed class BiomeSurfaceMaterialField
         public bool UsesBaseSurface { get; }
         public BlockRuntimeId CoreBlock { get; }
         public uint CoreStartDepth { get; }
+        public bool MayResolveAir => Layers.Any(layer => layer.MayResolveAir);
 
         public BlockRuntimeId BlockAtDepth(
             ulong seed,
@@ -1116,6 +1135,7 @@ public sealed class BiomeSurfaceMaterialField
         private ResolvedPatch? Patch { get; }
 
         public bool HasConditions => Patch?.HasConditions == true;
+        public bool MayResolveAir => Block.IsAir || Patch?.MayResolveAir == true;
 
         public bool RequiresSlope => Patch?.RequiresSlope == true;
 
@@ -1284,6 +1304,8 @@ public sealed class BiomeSurfaceMaterialField
 
             return _blocks[^1];
         }
+
+        public bool MayResolveAir => _blocks.Any(block => block.IsAir);
 
         private static double Noise(
             ulong seed,
