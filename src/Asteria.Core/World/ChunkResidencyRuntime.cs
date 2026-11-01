@@ -152,14 +152,9 @@ public sealed class ChunkResidencyRuntime
     private readonly ChunkResidencySettings _settings;
     private readonly ChunkStreamingState _streaming = new();
     private readonly ChunkPresentationSelection _presentationSelection = new();
-    // A bounded set of chunk jobs can be suspended between materialization
-    // stages. Only entries in _materializationTasks currently consume workers.
-    private const int MaximumSuspendedMaterializationsPerWorker = 4;
-    private static readonly TimeSpan MaterializationSliceBudget =
-        TimeSpan.FromMilliseconds(3);
+    // A bounded worker owns one chunk materialization from its first stage
+    // through initial lighting. Jobs are never paused and resumed by frame.
     private readonly Dictionary<ChunkCoord, MaterializationWork>
-        _materializationJobs = [];
-    private readonly Dictionary<ChunkCoord, Task<MaterializationSliceResult>>
         _materializationTasks = [];
     private bool _acceptingMaterializationWork = true;
     private const int FluidActivationItemsPerSlice = 32;
@@ -173,10 +168,6 @@ public sealed class ChunkResidencyRuntime
 
     private ChunkCoord _center;
     private int _retentionRadius;
-    // Scheduling-only state. Allow one distant launch every eight
-    // pressured frames without modifying the authoritative pending set.
-    private const int DistantDispatchIntervalFrames = 8;
-    private int _pressuredFramesSinceDistantDispatch;
 
     public ChunkResidencyRuntime(
         VoxelWorld world,
@@ -258,33 +249,16 @@ public sealed class ChunkResidencyRuntime
         _materializationTasks.Count;
 
     public int MaterializationJobCount =>
-        _materializationJobs.Count;
+        _materializationTasks.Count;
 
-    public int SuspendedMaterializationCount =>
-        Math.Max(0, _materializationJobs.Count - _materializationTasks.Count);
+    public int SuspendedMaterializationCount => 0;
 
     /// <summary>
-    /// Stops starting chunk work and disposes paused partial builds. In-flight
-    /// slices are drained cooperatively and their private results are discarded.
+    /// Stops admitting new chunks. Bounded in-flight materializations are
+    /// drained by the owning session and their private results are discarded.
     /// </summary>
-    public void BeginRetirement()
-    {
-        if (!_acceptingMaterializationWork)
-            return;
-
+    public void BeginRetirement() =>
         _acceptingMaterializationWork = false;
-        var pausedJobs = _materializationJobs
-            .Where(entry => !_materializationTasks.ContainsKey(entry.Key))
-            .Select(entry => entry.Key)
-            .ToArray();
-
-        foreach (var coord in pausedJobs)
-        {
-            if (_materializationJobs.Remove(coord, out var work))
-                work.Job.Dispose();
-            _streaming.FinishMaterializing(coord);
-        }
-    }
 
     public int PresentationPendingCount =>
         _streaming.PresentationPendingCount;
@@ -335,7 +309,6 @@ public sealed class ChunkResidencyRuntime
         _center = center;
         _retentionRadius =
             Math.Max(0, retentionRadius);
-        DiscardUndesiredPausedMaterializations();
         SyncResidentState(presented);
         return true;
     }
@@ -383,14 +356,14 @@ public sealed class ChunkResidencyRuntime
         var failures = new List<ChunkMaterializationFailure>();
         var stageTimings = new List<ChunkMaterializationStageTiming>();
         var processed = 0;
-        var completedSlices = _materializationTasks
-            .Where(entry => entry.Value.IsCompleted)
+        var completedTasks = _materializationTasks
+            .Where(entry => entry.Value.Task.IsCompleted)
             .OrderBy(entry => ChunkStreamingState.Priority(
                 entry.Key, _center, _streaming.MovementDirection))
             .Take(_settings.MaxResultsPerFrame)
             .ToArray();
 
-        foreach (var (coord, task) in completedSlices)
+        foreach (var (coord, work) in completedTasks)
         {
             if (processed >= _settings.MaxResultsPerFrame)
                 break;
@@ -399,7 +372,9 @@ public sealed class ChunkResidencyRuntime
 
             processed++;
             _materializationTasks.Remove(coord);
+            _streaming.FinishMaterializing(coord);
 
+            var task = work.Task;
             if (task.IsFaulted || task.IsCanceled)
             {
                 var error = task.IsFaulted
@@ -408,51 +383,34 @@ public sealed class ChunkResidencyRuntime
                           $"Chunk materialization failed: {coord}")
                     : new TaskCanceledException(task);
                 failures.Add(new ChunkMaterializationFailure(coord, error));
-                if (_materializationJobs.Remove(coord, out var failedWork))
-                    failedWork.Job.Dispose();
-                _streaming.FinishMaterializing(coord);
+                work.Job.Dispose();
                 if (_acceptingMaterializationWork)
                     RequeueIfDesired(coord);
                 continue;
             }
 
-            if (!_materializationJobs.TryGetValue(coord, out var work))
-            {
-                _streaming.FinishMaterializing(coord);
-                continue;
-            }
-
-            var slice = task.Result;
-            work.WorkerMilliseconds += slice.WorkerMilliseconds;
-            work.InitialLightingMilliseconds += slice.InitialLightingMilliseconds;
-            stageTimings.AddRange(slice.StageTimings);
+            var result = task.GetAwaiter().GetResult();
+            stageTimings.AddRange(result.StageTimings);
 
             if (!_acceptingMaterializationWork)
             {
-                _materializationJobs.Remove(coord);
                 work.Job.Dispose();
-                _streaming.FinishMaterializing(coord);
                 continue;
             }
 
             if (!work.Job.IsComplete)
             {
-                // A paused build that left the retention set no longer owns
-                // useful work. Drop its private partial chunk before it can
-                // be scheduled for another slice.
-                if (!_streaming.KeepsLoaded(coord))
-                {
-                    _materializationJobs.Remove(coord);
-                    work.Job.Dispose();
-                    _streaming.FinishMaterializing(coord);
-                }
+                work.Job.Dispose();
+                failures.Add(new ChunkMaterializationFailure(
+                    coord,
+                    new InvalidOperationException(
+                        $"Materialization worker returned before completing chunk {coord}.")));
+                RequeueIfDesired(coord);
                 continue;
             }
 
             var generatedChunk = work.Job.Result;
-            _materializationJobs.Remove(coord);
             work.Job.Dispose();
-            _streaming.FinishMaterializing(coord);
 
             if (generatedChunk is null)
             {
@@ -471,11 +429,11 @@ public sealed class ChunkResidencyRuntime
             activations.Add(ActivateResidentChunk(
                 coord,
                 ChunkActivationSource.Provider,
-                work.WorkerMilliseconds,
-                work.WorkerMilliseconds - work.InitialLightingMilliseconds,
+                result.WorkerMilliseconds,
+                result.WorkerMilliseconds - result.InitialLightingMilliseconds,
                 Stopwatch.GetElapsedTime(
                     work.StartedTimestamp).TotalMilliseconds,
-                work.InitialLightingMilliseconds));
+                result.InitialLightingMilliseconds));
         }
 
         if (processed > 0)
@@ -486,7 +444,6 @@ public sealed class ChunkResidencyRuntime
     public ChunkResidencyUpdate DispatchMaterializationTasks(
         WorldFrameWorkBudget budget,
         IEnumerable<ChunkCoord> presented,
-        bool deferDistantWork = false,
         int maximumNewTasks = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(presented);
@@ -495,93 +452,36 @@ public sealed class ChunkResidencyRuntime
         if (!_acceptingMaterializationWork)
             return ChunkResidencyUpdate.Empty;
 
-        if (deferDistantWork)
-            _pressuredFramesSinceDistantDispatch = Math.Min(
-                DistantDispatchIntervalFrames,
-                _pressuredFramesSinceDistantDispatch + 1);
-        else
-            _pressuredFramesSinceDistantDispatch = 0;
-
-        var allowDistant = !deferDistantWork ||
-            _pressuredFramesSinceDistantDispatch >= DistantDispatchIntervalFrames;
-        var localRadius = ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
-        var localDistanceSquared = (long)localRadius * localRadius;
-
         var activations = new List<ChunkResidencyActivation>();
         var failures = new List<ChunkMaterializationFailure>();
-        var startedSlices = 0;
+        var startedTasks = 0;
         var restored = 0;
-        var maximumSliceStarts = Math.Min(
+        var maximumTaskStarts = Math.Min(
             _settings.MaxDispatchesPerFrame, maximumNewTasks);
-        var continuationStarts = Math.Min(
-            maximumSliceStarts,
-            Math.Max(1, _settings.MaxDispatchesPerFrame / 2));
-        var maximumSuspendedJobs = (int)Math.Clamp(
-            (long)_settings.MaxMaterializationsInFlight *
-                MaximumSuspendedMaterializationsPerWorker,
-            4L,
-            32L);
 
-        // Give existing jobs a continuation slice first, but reserve the
-        // remaining dispatch slots for new nearby chunks so long multi-stage
-        // builds cannot starve streaming admission.
-        var readyJobs = _materializationJobs
-            .Where(entry =>
-                !_materializationTasks.ContainsKey(entry.Key) &&
-                _streaming.KeepsLoaded(entry.Key))
-            .OrderBy(entry => ChunkStreamingState.Priority(
-                entry.Key, _center, _streaming.MovementDirection))
-            .Take(continuationStarts)
-            .ToArray();
-
-        foreach (var (coord, work) in readyJobs)
-        {
-            if (startedSlices >= maximumSliceStarts ||
-                _materializationTasks.Count >=
-                    _settings.MaxTerrainMaterializationsInFlight ||
-                _materializationTasks.Count >=
-                    _settings.MaxMaterializationsInFlight)
-                break;
-            if (startedSlices > 0 &&
-                budget.Exhausted(Stopwatch.GetTimestamp()))
-                break;
-
-            _materializationTasks.Add(
-                coord,
-                Task.Run(() => ExecuteMaterializationSlice(work)));
-            startedSlices++;
-        }
-
-        // Archived restores wake fluid simulation and physics, but do not
-        // consume a generation worker. Bound restores independently.
+        // Archived restores do not consume a generation worker. New materialize
+        // jobs run to completion on a bounded worker and are never throttled by
+        // distance-based pressure gates; spatial priority decides what starts.
         while (_materializationTasks.Count <
                    _settings.MaxTerrainMaterializationsInFlight &&
+               _materializationTasks.Count <
+                   _settings.MaxMaterializationsInFlight &&
                restored <
                    _settings.MaxResultsPerFrame)
         {
-            if ((startedSlices > 0 || restored > 0) &&
+            if ((startedTasks > 0 || restored > 0) &&
                 budget.Exhausted(Stopwatch.GetTimestamp()))
             {
                 break;
             }
 
-            var coord = _streaming.PopPendingByPriority(
-                allowDistant ? null : localDistanceSquared);
+            var coord = _streaming.PopPendingByPriority();
             if (coord is null)
                 break;
 
-            var priority = ChunkStreamingState.Priority(
-                coord.Value, _center, _streaming.MovementDirection);
-            if (deferDistantWork &&
-                priority.HorizontalDistanceSquared > localDistanceSquared)
-            {
-                allowDistant = false;
-                _pressuredFramesSinceDistantDispatch = 0;
-            }
-
             if (!_streaming.IsDesired(coord.Value) ||
                 _world.ContainsChunk(coord.Value) ||
-                _materializationJobs.ContainsKey(coord.Value))
+                _materializationTasks.ContainsKey(coord.Value))
             {
                 continue;
             }
@@ -601,11 +501,7 @@ public sealed class ChunkResidencyRuntime
             if (restore == ChunkRestoreResult.AlreadyResident)
                 continue;
 
-            // Defer only new provider work when the per-frame launch budget or
-            // bounded suspended-job capacity is exhausted. Archived restores
-            // above remain available even when no worker slot can be started.
-            if (startedSlices >= maximumSliceStarts ||
-                _materializationJobs.Count >= maximumSuspendedJobs)
+            if (startedTasks >= maximumTaskStarts)
             {
                 _streaming.EnqueuePending(selected);
                 break;
@@ -638,21 +534,19 @@ public sealed class ChunkResidencyRuntime
 
             var work = new MaterializationWork(job);
             _streaming.MarkMaterializing(selected);
-            _materializationJobs.Add(selected, work);
+            _materializationTasks.Add(selected, work);
             try
             {
-                _materializationTasks.Add(
-                    selected,
-                    Task.Run(() => ExecuteMaterializationSlice(work)));
+                work.Task = Task.Run(() => ExecuteMaterialization(work));
             }
             catch
             {
-                _materializationJobs.Remove(selected);
+                _materializationTasks.Remove(selected);
                 work.Job.Dispose();
                 _streaming.FinishMaterializing(selected);
                 throw;
             }
-            startedSlices++;
+            startedTasks++;
         }
 
         if (restored > 0)
@@ -757,28 +651,10 @@ public sealed class ChunkResidencyRuntime
             initialLightingMilliseconds);
     }
 
-    private void DiscardUndesiredPausedMaterializations()
-    {
-        var abandoned = _materializationJobs
-            .Where(entry =>
-                !_materializationTasks.ContainsKey(entry.Key) &&
-                !_streaming.KeepsLoaded(entry.Key))
-            .Select(entry => entry.Key)
-            .ToArray();
-
-        foreach (var coord in abandoned)
-        {
-            if (_materializationJobs.Remove(coord, out var work))
-                work.Job.Dispose();
-            _streaming.FinishMaterializing(coord);
-        }
-    }
-
-    private MaterializationSliceResult ExecuteMaterializationSlice(
+    private MaterializationTaskResult ExecuteMaterialization(
         MaterializationWork work)
     {
         var stageTimings = new List<ChunkMaterializationStageTiming>();
-        var sliceStarted = Stopwatch.GetTimestamp();
         var workerMilliseconds = 0d;
 
         while (!work.Job.IsComplete)
@@ -791,27 +667,18 @@ public sealed class ChunkResidencyRuntime
             workerMilliseconds += stageMilliseconds;
             stageTimings.Add(new ChunkMaterializationStageTiming(
                 work.Job.Coord, stage, stageMilliseconds));
-
-            if (Stopwatch.GetElapsedTime(sliceStarted) >=
-                MaterializationSliceBudget)
-                break;
         }
 
-        var initialLightingMilliseconds = 0d;
-        if (work.Job.IsComplete && !work.LightingInitialized)
-        {
-            var chunk = work.Job.Result ??
-                throw new InvalidOperationException(
-                    $"Completed materialization job returned no chunk: {work.Job.Coord}");
-            var lightingStarted = Stopwatch.GetTimestamp();
-            ChunkLightingSolver.Initialize(chunk, _blocks, _fluids, _objects);
-            initialLightingMilliseconds = Stopwatch.GetElapsedTime(
-                lightingStarted).TotalMilliseconds;
-            workerMilliseconds += initialLightingMilliseconds;
-            work.LightingInitialized = true;
-        }
+        var chunk = work.Job.Result ??
+            throw new InvalidOperationException(
+                $"Completed materialization job returned no chunk: {work.Job.Coord}");
+        var lightingStarted = Stopwatch.GetTimestamp();
+        ChunkLightingSolver.Initialize(chunk, _blocks, _fluids, _objects);
+        var initialLightingMilliseconds = Stopwatch.GetElapsedTime(
+            lightingStarted).TotalMilliseconds;
+        workerMilliseconds += initialLightingMilliseconds;
 
-        return new MaterializationSliceResult(
+        return new MaterializationTaskResult(
             stageTimings,
             workerMilliseconds,
             initialLightingMilliseconds);
@@ -829,14 +696,10 @@ public sealed class ChunkResidencyRuntime
 
         public long StartedTimestamp { get; }
 
-        public double WorkerMilliseconds { get; set; }
-
-        public double InitialLightingMilliseconds { get; set; }
-
-        public bool LightingInitialized { get; set; }
+        public Task<MaterializationTaskResult> Task { get; set; } = null!;
     }
 
-    private sealed record MaterializationSliceResult(
+    private sealed record MaterializationTaskResult(
         IReadOnlyList<ChunkMaterializationStageTiming> StageTimings,
         double WorkerMilliseconds,
         double InitialLightingMilliseconds);
