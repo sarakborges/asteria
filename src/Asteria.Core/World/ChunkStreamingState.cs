@@ -284,7 +284,7 @@ public sealed class ChunkStreamingState
 
         ChunkCoord? selected = null;
         var selectedPriority =
-            default(ChunkLoadPriority);
+            default(ChunkStreamingPriority);
 
         foreach (var coord in _pending)
         {
@@ -361,7 +361,7 @@ public sealed class ChunkStreamingState
 
         ChunkCoord? selected = null;
         var selectedPriority =
-            default(ChunkLoadPriority);
+            default(ChunkStreamingPriority);
 
         foreach (var coord in
                  _presentationPending)
