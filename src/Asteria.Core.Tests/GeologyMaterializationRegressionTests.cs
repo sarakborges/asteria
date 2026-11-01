@@ -146,28 +146,45 @@ public sealed class GeologyMaterializationRegressionTests
         WorldVoxelCoord? unsupportedCandidate = null;
         WorldVoxelCoord? supportedCandidate = null;
         var seamHeights = new[] { Chunk.Size, Chunk.Size * 2 };
-        for (var z = -128; z <= 128 &&
-             (!unsupportedCandidate.HasValue || !supportedCandidate.HasValue); z += 2)
-        for (var x = -128; x <= 128 &&
-             (!unsupportedCandidate.HasValue || !supportedCandidate.HasValue); x += 2)
+
+        // The failing case must be a genuine cave roof exactly at a vertical
+        // chunk boundary: solid geology above a carved void below.
+        for (var z = -128; z <= 128 && !unsupportedCandidate.HasValue; z += 2)
+        for (var x = -128; x <= 128 && !unsupportedCandidate.HasValue; x += 2)
         foreach (var worldY in seamHeights)
         {
             if (firstGenerator.DensityAt(x, worldY, z) < 0d ||
+                firstGenerator.DensityAt(x, worldY - 1, z) >= 0d ||
                 !materials.TryGeologyBlockAt(
                     sample, x, worldY, z, out var material) ||
                 !gravityBlocks.Contains(material))
                 continue;
 
-            if (firstGenerator.DensityAt(x, worldY - 1, z) < 0d)
-                unsupportedCandidate ??= new WorldVoxelCoord(x, worldY, z);
-            else
-                supportedCandidate ??= new WorldVoxelCoord(x, worldY, z);
+            unsupportedCandidate = new WorldVoxelCoord(x, worldY, z);
+            break;
+        }
+
+        // The control case need only be a supported underground deposit; it
+        // should not depend on a rare coincidence at the cave/chunk seam.
+        for (var z = -128; z <= 128 && !supportedCandidate.HasValue; z += 2)
+        for (var x = -128; x <= 128 && !supportedCandidate.HasValue; x += 2)
+        for (var worldY = 4; worldY < 38; worldY++)
+        {
+            if (firstGenerator.DensityAt(x, worldY, z) < 0d ||
+                firstGenerator.DensityAt(x, worldY - 1, z) < 0d ||
+                !materials.TryGeologyBlockAt(
+                    sample, x, worldY, z, out var material) ||
+                !gravityBlocks.Contains(material))
+                continue;
+
+            supportedCandidate = new WorldVoxelCoord(x, worldY, z);
+            break;
         }
 
         Assert.True(unsupportedCandidate.HasValue,
             "The cave fixture did not produce an unsupported gravity deposit on a vertical chunk seam.");
         Assert.True(supportedCandidate.HasValue,
-            "The cave fixture did not produce a supported gravity deposit on a vertical chunk seam.");
+            "The geology fixture did not produce a supported underground gravity deposit.");
 
         var candidates = new[] { unsupportedCandidate.Value, supportedCandidate.Value };
         var horizontalColumns = candidates
