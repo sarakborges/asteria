@@ -129,7 +129,7 @@ public sealed class GeologyMaterializationRegressionTests
               },
               "palette": {
                 "default": [
-                  { "block": "air" }
+                  { "block": "asteria:air" }
                 ]
               }
             }
