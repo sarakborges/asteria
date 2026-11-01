@@ -34,6 +34,18 @@ public sealed class WorldUpdateQueue
     public int LightingEditCount =>
         _priorityLightingEdits.Count + _lightingEdits.Count;
 
+    public int PriorityLightingEditCount =>
+        _priorityLightingEdits.Count;
+
+    public int BackgroundLightingEditCount =>
+        _lightingEdits.Count;
+
+    public int PriorityDirtyChunkCount =>
+        _priorityMeshlets.Count;
+
+    public int BackgroundDirtyChunkCount =>
+        _backgroundMeshlets.Count;
+
     public int DirtyChunkCount
     {
         get

@@ -871,7 +871,17 @@ public partial class Main : Node3D
             _fluidSimulationRuntime.IsRunning,
             _residency.ActiveWorkerCount,
             _residency.MaterializationJobCount,
-            _residency.SuspendedMaterializationCount);
+            _residency.SuspendedMaterializationCount,
+            priorityLightingPending: _worldUpdates.PriorityLightingEditCount,
+            backgroundLightingPending: _worldUpdates.BackgroundLightingEditCount,
+            priorityTerrainMeshPending: _worldUpdates.PriorityDirtyChunkCount,
+            backgroundTerrainMeshPending: _worldUpdates.BackgroundDirtyChunkCount,
+            terrainMeshWorkersActive: _terrainMeshPipeline.ActiveWorkerCount,
+            fluidMeshWorkersActive: _fluidMeshPipeline.ActiveWorkerCount,
+            terrainPublicationsPending: _chunkPresentations.PendingTerrainPublications,
+            terrainMeshFlushPending: _chunkPresentations.PendingTerrainMeshFlushCount,
+            activeWorldWorkers: ActiveWorldWorkerCount,
+            maximumWorldWorkers: MaxConcurrentWorldJobs);
 
         if (loadingWorld)
         {

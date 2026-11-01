@@ -73,7 +73,17 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _suspendedMaterializationJobs;
     private int _presented;
     private int _lightingPending;
+    private int _priorityLightingPending;
+    private int _backgroundLightingPending;
     private int _terrainMeshPending;
+    private int _priorityTerrainMeshPending;
+    private int _backgroundTerrainMeshPending;
+    private int _terrainMeshWorkersActive;
+    private int _fluidMeshWorkersActive;
+    private int _terrainPublicationsPending;
+    private int _terrainMeshFlushPending;
+    private int _activeWorldWorkers;
+    private int _maximumWorldWorkers;
     private int _fluidMeshPending;
     private bool _fluidSimulationActive;
     private int _deferredCollisionChunks;
@@ -557,7 +567,17 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         bool fluidSimulationActive,
         int activeMaterializationWorkers = 0,
         int materializationJobs = 0,
-        int suspendedMaterializationJobs = 0)
+        int suspendedMaterializationJobs = 0,
+        int priorityLightingPending = 0,
+        int backgroundLightingPending = 0,
+        int priorityTerrainMeshPending = 0,
+        int backgroundTerrainMeshPending = 0,
+        int terrainMeshWorkersActive = 0,
+        int fluidMeshWorkersActive = 0,
+        int terrainPublicationsPending = 0,
+        int terrainMeshFlushPending = 0,
+        int activeWorldWorkers = 0,
+        int maximumWorldWorkers = 0)
     {
         _resident = resident;
         _pending = pending;
@@ -567,7 +587,17 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _suspendedMaterializationJobs = suspendedMaterializationJobs;
         _presented = presented;
         _lightingPending = lightingPending;
+        _priorityLightingPending = priorityLightingPending;
+        _backgroundLightingPending = backgroundLightingPending;
         _terrainMeshPending = terrainMeshPending;
+        _priorityTerrainMeshPending = priorityTerrainMeshPending;
+        _backgroundTerrainMeshPending = backgroundTerrainMeshPending;
+        _terrainMeshWorkersActive = terrainMeshWorkersActive;
+        _fluidMeshWorkersActive = fluidMeshWorkersActive;
+        _terrainPublicationsPending = terrainPublicationsPending;
+        _terrainMeshFlushPending = terrainMeshFlushPending;
+        _activeWorldWorkers = activeWorldWorkers;
+        _maximumWorldWorkers = maximumWorldWorkers;
         _fluidMeshPending = fluidMeshPending;
         _lightingActive = lightingActive;
         _fluidSimulationActive = fluidSimulationActive;
@@ -635,7 +665,17 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"warm_terrain_meshlets_reused={_warmTerrainMeshletsReused} " +
             $"warm_fluid_meshlets_reused={_warmFluidMeshletsReused} " +
             $"lighting_pending={_lightingPending} " +
+            $"lighting_priority_pending={_priorityLightingPending} " +
+            $"lighting_background_pending={_backgroundLightingPending} " +
             $"terrain_mesh_pending={_terrainMeshPending} " +
+            $"terrain_mesh_priority_pending={_priorityTerrainMeshPending} " +
+            $"terrain_mesh_background_pending={_backgroundTerrainMeshPending} " +
+            $"terrain_mesh_workers_active={_terrainMeshWorkersActive} " +
+            $"fluid_mesh_workers_active={_fluidMeshWorkersActive} " +
+            $"terrain_publications_pending={_terrainPublicationsPending} " +
+            $"terrain_mesh_flush_pending={_terrainMeshFlushPending} " +
+            $"active_world_workers={_activeWorldWorkers} " +
+            $"max_world_workers={_maximumWorldWorkers} " +
             $"fluid_mesh_pending={_fluidMeshPending} lighting_active={_lightingActive} " +
             $"fluid_simulation_active={_fluidSimulationActive} " +
             $"creatures_active={_creaturesActive} creatures_peak={_creaturesPeak} " +

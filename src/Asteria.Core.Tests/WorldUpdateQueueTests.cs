@@ -79,6 +79,36 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void QueueBacklogReportsPriorityAndBackgroundLanesSeparately()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+
+        var lightingQueue = new WorldUpdateQueue();
+        var backgroundSeed = new WorldVoxelCoord(2, 2, 2);
+        var promotedSeed = new WorldVoxelCoord(3, 2, 2);
+        lightingQueue.EnqueueLighting(backgroundSeed);
+        lightingQueue.EnqueueLighting(promotedSeed);
+        lightingQueue.EnqueueVoxelEdit(world, promotedSeed);
+
+        Assert.Equal(1, lightingQueue.PriorityLightingEditCount);
+        Assert.Equal(1, lightingQueue.BackgroundLightingEditCount);
+
+        var meshQueue = new WorldUpdateQueue();
+        meshQueue.EnqueuePriorityMeshlets(
+            ChunkCoord.Zero, ChunkMeshletMask.Single(0));
+        meshQueue.EnqueueMeshlets(
+            ChunkCoord.Zero, ChunkMeshletMask.Single(1));
+        meshQueue.EnqueueMeshlets(
+            new ChunkCoord(1, 0, 0), ChunkMeshletMask.Single(2));
+
+        // A chunk may have independent dirty meshlets in both lanes.
+        Assert.Equal(1, meshQueue.PriorityDirtyChunkCount);
+        Assert.Equal(2, meshQueue.BackgroundDirtyChunkCount);
+        Assert.Equal(2, meshQueue.DirtyChunkCount);
+    }
+
+    [Fact]
     public void FluidMeshDrainCapsSourceChunksAndPreservesRemainingWork()
     {
         var queue = new FluidMeshUpdateQueue();

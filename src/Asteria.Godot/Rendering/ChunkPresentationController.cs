@@ -277,6 +277,9 @@ public sealed class ChunkPresentationController
     public int PendingTerrainPublications =>
         _terrainPublications.Count;
 
+    public int PendingTerrainMeshFlushCount =>
+        _pendingTerrainMeshFlush.Count;
+
     public int PendingFluidPublications =>
         _fluidPublications.Count;
 
