@@ -357,7 +357,7 @@ public sealed class ChunkResidencyRuntime
         var stageTimings = new List<ChunkMaterializationStageTiming>();
         var processed = 0;
         var completedTasks = _materializationTasks
-            .Where(entry => entry.Value.Task.IsCompleted)
+            .Where(entry => entry.Value.WorkerTask.IsCompleted)
             .OrderBy(entry => ChunkStreamingState.Priority(
                 entry.Key, _center, _streaming.MovementDirection))
             .Take(_settings.MaxResultsPerFrame)
@@ -374,7 +374,7 @@ public sealed class ChunkResidencyRuntime
             _materializationTasks.Remove(coord);
             _streaming.FinishMaterializing(coord);
 
-            var task = work.Task;
+            var task = work.WorkerTask;
             if (task.IsFaulted || task.IsCanceled)
             {
                 var error = task.IsFaulted
@@ -537,7 +537,7 @@ public sealed class ChunkResidencyRuntime
             _materializationTasks.Add(selected, work);
             try
             {
-                work.Task = Task.Run(() => ExecuteMaterialization(work));
+                work.WorkerTask = Task.Run(() => ExecuteMaterialization(work));
             }
             catch
             {
@@ -696,7 +696,7 @@ public sealed class ChunkResidencyRuntime
 
         public long StartedTimestamp { get; }
 
-        public Task<MaterializationTaskResult> Task { get; set; } = null!;
+        public Task<MaterializationTaskResult> WorkerTask { get; set; } = null!;
     }
 
     private sealed record MaterializationTaskResult(
