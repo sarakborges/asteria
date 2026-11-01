@@ -95,9 +95,14 @@ public sealed class TerrainDensityTests
         for (var y = 0; y < 4; y++)
         for (var x = 0; x < 4; x++)
         {
+            var expectedDensity =
+                generator.DensityAt(-17 + x, 41 + y, -17 + z);
             Assert.Equal(
-                generator.DensityAt(-17 + x, 41 + y, -17 + z),
+                expectedDensity,
                 volume.DensityAt(x, y, z));
+            Assert.Equal(
+                expectedDensity >= 0d,
+                volume.IsSolidAtUnchecked(x, y, z));
         }
     }
 
