@@ -2517,7 +2517,9 @@ public sealed class BiomeWorldGenerationTests
                           "type": "rolling",
                           "baseHeight": 4,
                           "amplitude": 2,
-                          "scale": 0.012
+                          "scale": 0.012,
+                          "detailAmplitude": 1,
+                          "detailScale": 0.045
                         }
                         """);
                     root["palette"] = System.Text.Json.Nodes.JsonNode.Parse(

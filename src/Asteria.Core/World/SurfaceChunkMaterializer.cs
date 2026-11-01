@@ -1694,7 +1694,8 @@ public sealed class SurfaceChunkMaterializer
         TerrainDensityVolume densityVolume,
         int originX, int originY, int originZ)
     {
-        var hasCarvedVoidPalettes = _volumeBiomes.HasCarvedVoidBiomes &&
+        var hasCarvedVoidPalettes =
+            _volumeBiomes is { HasCarvedVoidBiomes: true } &&
             _materials.MaximumCarvedVoidPaintDepth > 0;
         var hasSurfaceOrAdditivePalettes =
             _materials.HasSurfaceOrAdditiveDirectionalOverrides;
