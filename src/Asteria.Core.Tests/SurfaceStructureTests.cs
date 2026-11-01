@@ -17,7 +17,7 @@ public sealed class SurfaceStructureTests
             new("asteria:portal",
                 shape: BlockShapeDefinition.CenteredLayer(0.10f),
                 orientations: [BlockOrientation.X, BlockOrientation.Y, BlockOrientation.Z],
-                isCollidable: false,
+                isCollidable: false, lightDampening: 0,
                 mining: new BlockMiningDefinition(unbreakable: true)),
         };
         if (includeShell)
@@ -341,6 +341,7 @@ public sealed class SurfaceStructureTests
             var block = blocks.GetDefinition(blocks.GetId(id));
             Assert.Equal("foliage", block.Category);
             Assert.True(block.IsCollidable);
+            Assert.Equal(15, block.LightDampening);
             Assert.All(block.Textures.AllLayers(), layer =>
                 Assert.Equal($"textures/blocks/coral_{id["asteria:coral_".Length..]}.png",
                     layer.Texture));

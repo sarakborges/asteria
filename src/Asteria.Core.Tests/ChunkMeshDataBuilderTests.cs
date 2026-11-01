@@ -6,6 +6,189 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMeshDataBuilderTests
 {
     [Fact]
+    public void LightSamplingProvenanceFitsWithinCompactChunkLocalEncoding()
+    {
+        foreach (var face in Enum.GetValues<BlockFace>())
+        for (byte corner = 0; corner < 4; corner++)
+        {
+            var local = new LocalVoxelCoord(15, 14, 13);
+            var sample = new ChunkMeshLightSample(local, face, corner);
+            Assert.Equal(local, sample.Source);
+            Assert.Equal(face, sample.Face);
+            Assert.Equal(corner, sample.Corner);
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ChunkMeshLightSample(new LocalVoxelCoord(16, 0, 0),
+                BlockFace.Top, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ChunkMeshLightSample(new LocalVoxelCoord(0, 0, 0),
+                BlockFace.Top, 4));
+    }
+
+    [Fact]
+    public void VertexOnlyLightingMatchesFreshCubeMeshAndReusesCollisionFaces()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var textures = new TerrainTextureLookup(
+            new Dictionary<string, int> { [texture] = 0 });
+        var chunk = new Chunk();
+        chunk.SetBlock(3, 3, 3, blocks.GetId("asteria:stone"));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        var geometry = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, textures, 0);
+        Assert.True(geometry.CanRelightWithoutRemesh);
+        Assert.True(world.TrySetLight(
+            new WorldVoxelCoord(3, 4, 3), new VoxelLight(7, 14, 0, 0)));
+
+        var updated = ChunkMeshLightingUpdater.Relight(
+            world, ChunkCoord.Zero, blocks, geometry);
+        var rebuilt = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, textures, 0);
+        Assert.Same(geometry.CollisionFaces, updated.CollisionFaces);
+        Assert.Equal(rebuilt.RenderBatches.Length, updated.RenderBatches.Length);
+        for (var i = 0; i < rebuilt.RenderBatches.Length; i++)
+        {
+            Assert.Equal(rebuilt.RenderBatches[i].Batch, updated.RenderBatches[i].Batch);
+            Assert.Equal(rebuilt.RenderBatches[i].Vertices, updated.RenderBatches[i].Vertices);
+        }
+    }
+
+    [Fact]
+    public void RelightProvenanceUsesChunkLocalCoordinatesAcrossWorldOffsets()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var textures = new TerrainTextureLookup(
+            new Dictionary<string, int> { [texture] = 0 });
+        var coord = new ChunkCoord(2, 3, -1);
+        var chunk = new Chunk();
+        chunk.SetBlock(3, 3, 3, blocks.GetId("asteria:stone"));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(coord, chunk);
+        var original = ChunkMeshDataBuilder.BuildMeshlet(
+            world, coord, blocks, textures, 0);
+        var lightPosition = new WorldVoxelCoord(
+            coord.X * Chunk.Size + 3, coord.Y * Chunk.Size + 4,
+            coord.Z * Chunk.Size + 3);
+        Assert.True(world.TrySetLight(
+            lightPosition, new VoxelLight(9, 11, 3, 2)));
+        var relit = ChunkMeshLightingUpdater.Relight(
+            world, coord, blocks, original);
+        var rebuilt = ChunkMeshDataBuilder.BuildMeshlet(
+            world, coord, blocks, textures, 0);
+        Assert.Same(original.CollisionFaces, relit.CollisionFaces);
+        Assert.Equal(rebuilt.RenderBatches.Length, relit.RenderBatches.Length);
+        for (var i = 0; i < rebuilt.RenderBatches.Length; i++)
+            Assert.Equal(rebuilt.RenderBatches[i].Vertices,
+                relit.RenderBatches[i].Vertices);
+    }
+
+    [Fact]
+    public void UniformRgbChangeRelightsMergedGreedyRectangleWithoutRebuilding()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var lookup = new TerrainTextureLookup(
+            new Dictionary<string, int> { [texture] = 0 });
+        var chunk = new Chunk();
+        var stone = blocks.GetId("asteria:stone");
+        for (var z = 2; z <= 4; z++)
+        for (var x = 2; x <= 5; x++)
+            chunk.SetBlock(x, 3, z, stone);
+        chunk.FillLight(new VoxelLight(15, 0, 0, 0));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        var original = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, lookup, 0);
+        Assert.True(original.CanRelightWithoutRemesh);
+        Assert.True(original.RenderBatches
+            .SelectMany(batch => batch.Vertices)
+            .Any(v => v.Position.X >= 5f)); // Covers merged rectangle.
+
+        chunk.FillLight(new VoxelLight(15, 7, 3, 1));
+        Assert.True(ChunkMeshLightingUpdater.TryRelight(
+            world, ChunkCoord.Zero, blocks, original, out var updated));
+        var rebuilt = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, lookup, 0);
+        Assert.Same(original.CollisionFaces, updated.CollisionFaces);
+        Assert.Equal(rebuilt.RenderBatches.Length, updated.RenderBatches.Length);
+        for (var i = 0; i < rebuilt.RenderBatches.Length; i++)
+            Assert.Equal(rebuilt.RenderBatches[i].Vertices,
+                updated.RenderBatches[i].Vertices);
+    }
+
+    [Fact]
+    public void GradientOnMergedGreedyFaceFallsBackToRemeshing()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var chunk = new Chunk();
+        var stone = blocks.GetId("asteria:stone");
+        chunk.SetBlock(3, 3, 3, stone);
+        chunk.SetBlock(4, 3, 3, stone);
+        chunk.FillLight(new VoxelLight(15, 0, 0, 0));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var geometry = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(
+                new Dictionary<string, int> { [texture] = 0 }), 0);
+        Assert.True(geometry.CanRelightWithoutRemesh);
+        Assert.True(world.TrySetLight(
+            new WorldVoxelCoord(3, 4, 3), new VoxelLight(7, 9, 0, 0)));
+        Assert.False(ChunkMeshLightingUpdater.TryRelight(
+            world, ChunkCoord.Zero, blocks, geometry, out _));
+        Assert.Throws<InvalidOperationException>(() =>
+            ChunkMeshLightingUpdater.Relight(
+                world, ChunkCoord.Zero, blocks, geometry));
+    }
+
+    [Fact]
+    public void MultiVoxelGreedyRectangleRequiresGeometryRebuildOnLightChange()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var chunk = new Chunk();
+        var stone = blocks.GetId("asteria:stone");
+        chunk.SetBlock(3, 3, 3, stone);
+        chunk.SetBlock(4, 3, 3, stone);
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var geometry = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(
+                new Dictionary<string, int> { [texture] = 0 }), 0);
+        Assert.True(geometry.CanRelightWithoutRemesh);
+        // With unchanged lighting, a merged rectangle can be reused.
+        Assert.True(ChunkMeshLightingUpdater.TryRelight(
+            world, ChunkCoord.Zero, blocks, geometry, out var relit));
+        Assert.Same(geometry.CollisionFaces, relit.CollisionFaces);
+    }
+
+    [Fact]
     public void EmptyMeshletsSkipTerrainAndFluidGeometryEvenWhenOtherMeshletsHaveContent()
     {
         const string texturePath = "textures/test/stone.png";
@@ -64,6 +247,7 @@ public sealed class ChunkMeshDataBuilderTests
         var chunk = new Chunk();
         var spike = blocks.GetId("asteria:spike_stone");
         chunk.SetCell(2, 2, 2, new VoxelCell(spike));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var mesh = ChunkMeshDataBuilder.BuildMeshlet(
@@ -137,6 +321,7 @@ public sealed class ChunkMeshDataBuilderTests
                     state: SpikeSegmentState.Encode(0, 1, false)));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
         var mesh = ChunkMeshDataBuilder.BuildMeshlet(world, ChunkCoord.Zero,
             blocks, new TerrainTextureLookup(new Dictionary<string, int> {
                 [path] = 0,
@@ -210,6 +395,7 @@ public sealed class ChunkMeshDataBuilderTests
             spike, state: SpikeSegmentState.Encode(down ? 1 : 0, 2, down)));
         chunk.SetCell(2, 3, 2, new VoxelCell(
             spike, state: SpikeSegmentState.Encode(down ? 0 : 1, 2, down)));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var textures = new TerrainTextureLookup(
@@ -297,6 +483,10 @@ public sealed class ChunkMeshDataBuilderTests
         chunk.SetBlock(1, 1, 1, stone);
 
         var fluids = new FluidRegistry([]);
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            fluids);
 
         var world = new VoxelWorld();
         world.InsertChunk(
@@ -423,6 +613,10 @@ public sealed class ChunkMeshDataBuilderTests
             1,
             blocks.GetId(
                 "asteria:block_grass"));
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            new FluidRegistry([]));
 
         var world =
             new VoxelWorld();
@@ -448,11 +642,11 @@ public sealed class ChunkMeshDataBuilderTests
                 .SelectMany(batch =>
                     batch.Vertices),
             vertex =>
-                vertex.Tint.Y >
+                vertex.TintAndAo.Y >
                     0.99f &&
-                vertex.Tint.X <
+                vertex.TintAndAo.X <
                     0.01f &&
-                vertex.Tint.Z <
+                vertex.TintAndAo.Z <
                     0.01f);
     }
 
@@ -478,6 +672,7 @@ public sealed class ChunkMeshDataBuilderTests
                     isCollidable: false,
                     renderMode: BlockRenderMode.Cutout,
                     castsShadow: false,
+                    lightDampening: 0,
                     previewColor:
                         new BlockPreviewColor(
                             111,
@@ -495,6 +690,10 @@ public sealed class ChunkMeshDataBuilderTests
             1,
             grass);
 
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            new FluidRegistry([]));
 
         var world =
             new VoxelWorld();
@@ -562,10 +761,13 @@ public sealed class ChunkMeshDataBuilderTests
                     positionJitter: Vector2.Zero),
                 isCollidable: false,
                 renderMode: BlockRenderMode.Cutout,
-                castsShadow: false),
+                castsShadow: false,
+                lightDampening: 0),
         ]);
         var chunk = new Chunk();
         chunk.SetBlock(1, 1, 1, blocks.GetId("asteria:pebble"));
+        ChunkLightingSolver.Initialize(
+            chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var mesh = ChunkMeshDataBuilder.BuildMeshlet(
@@ -610,6 +812,10 @@ public sealed class ChunkMeshDataBuilderTests
             1,
             1,
             FluidCell.Source(water));
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            fluids);
 
         var world = new VoxelWorld();
         world.InsertChunk(
@@ -861,6 +1067,7 @@ public sealed class ChunkMeshDataBuilderTests
         chunk.SetBlock(1, 1, 1, id);
         chunk.SetBlock(2, 1, 1, id);
         chunk.SetSurfaceState(1, 1, 1, new BlockSurfaceState("asteria:dye_red"));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var dyes = new DyeRegistry([
@@ -873,10 +1080,10 @@ public sealed class ChunkMeshDataBuilderTests
             }), 0, dyes: dyes);
         var vertices = data.RenderBatches.SelectMany(x => x.Vertices).ToArray();
         Assert.Contains(vertices, vertex =>
-            vertex.Tint.X > .99f && vertex.Tint.Y < .02f &&
-            vertex.Tint.Z < .02f);
+            vertex.TintAndAo.X > .99f && vertex.TintAndAo.Y < .02f &&
+            vertex.TintAndAo.Z < .02f);
         Assert.Contains(vertices, vertex =>
-            vertex.Tint.Y > .7f && vertex.Tint.X < .2f);
+            vertex.TintAndAo.Y > .7f && vertex.TintAndAo.X < .2f);
     }
 
     [Fact]

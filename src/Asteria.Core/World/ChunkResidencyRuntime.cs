@@ -41,7 +41,10 @@ public sealed class ChunkResidencySettings
 
         MaxMaterializationsInFlight =
             maxMaterializationsInFlight;
-        MaxTerrainMaterializationsInFlight = maxMaterializationsInFlight;
+        MaxInitialLightingTasksInFlight =
+            Math.Max(1, maxMaterializationsInFlight / 2);
+        MaxTerrainMaterializationsInFlight =
+            Math.Max(1, maxMaterializationsInFlight - MaxInitialLightingTasksInFlight);
         MaxDispatchesPerFrame =
             maxDispatchesPerFrame;
         MaxResultsPerFrame =
@@ -55,6 +58,7 @@ public sealed class ChunkResidencySettings
 
     public int MaxTerrainMaterializationsInFlight { get; }
 
+    public int MaxInitialLightingTasksInFlight { get; }
 
     public int MaxDispatchesPerFrame { get; }
 
@@ -76,7 +80,8 @@ public readonly record struct ChunkResidencyActivation(
     ChunkActivationSource Source,
     double WorkerMilliseconds,
     double TerrainMilliseconds = 0d,
-    double ElapsedMilliseconds = 0d);
+    double ElapsedMilliseconds = 0d,
+    double InitialLightingMilliseconds = 0d);
 
 public readonly record struct FluidActivationWorkReport(
     int CompletedChunks,
@@ -161,7 +166,9 @@ public sealed class ChunkResidencyRuntime
     private readonly Dictionary<ChunkCoord, Task<MaterializationSliceResult>>
         _materializationTasks = [];
     private bool _acceptingMaterializationWork = true;
-private const int FluidActivationItemsPerSlice = 32;
+    private readonly Dictionary<ChunkCoord, Task<MaterializedChunk>>
+        _initialLightingTasks = [];
+    private const int FluidActivationItemsPerSlice = 32;
     private const int MaximumFluidActivationSlicesPerFrame = 8;
     private readonly DeduplicatedQueue<ChunkCoord> _pendingFluidActivationCoords = new();
     private readonly Dictionary<ChunkCoord, PendingFluidActivation> _pendingFluidActivations = [];
@@ -242,6 +249,9 @@ private const int FluidActivationItemsPerSlice = 32;
 
     public bool IsDesired(ChunkCoord coord) => _streaming.IsDesired(coord);
 
+    public bool IsLightingRelevant(ChunkCoord coord) =>
+        _streaming.IsLightingRelevant(coord);
+
     public int RetainedCount => _streaming.RetainedCount;
 
     public int PendingCount => _streaming.PendingCount;
@@ -249,9 +259,12 @@ private const int FluidActivationItemsPerSlice = 32;
     public int MaterializingCount =>
         _streaming.MaterializingCount;
 
-    /// <summary>Background tasks currently generating terrain data.</summary>
+    public int InitialLightingPendingCount =>
+        _initialLightingTasks.Count;
+
+    /// <summary>Background tasks currently owning terrain or initial-light stages.</summary>
     public int ActiveWorkerCount =>
-        _materializationTasks.Count;
+        _materializationTasks.Count + _initialLightingTasks.Count;
 
     public int MaterializationJobCount =>
         _materializationJobs.Count;
@@ -372,7 +385,8 @@ private const int FluidActivationItemsPerSlice = 32;
         IEnumerable<ChunkCoord> presented)
     {
         ArgumentNullException.ThrowIfNull(presented);
-        if (_materializationTasks.Count == 0)
+
+        if (_materializationTasks.Count == 0 && _initialLightingTasks.Count == 0)
             return ChunkResidencyUpdate.Empty;
 
         var activations = new List<ChunkResidencyActivation>();
@@ -388,15 +402,14 @@ private const int FluidActivationItemsPerSlice = 32;
 
         foreach (var (coord, task) in completedSlices)
         {
-            if (processed >= _settings.MaxResultsPerFrame)
-                break;
             if (processed > 0 && budget.Exhausted(Stopwatch.GetTimestamp()))
                 break;
 
             processed++;
-            _materializationTasks.Remove(coord);
+            _initialLightingTasks.Remove(coord);
 
-            if (task.IsFaulted || task.IsCanceled)
+
+            if (task.IsFaulted)
             {
                 var error = task.IsFaulted
                     ? task.Exception?.GetBaseException() ??
@@ -420,6 +433,7 @@ private const int FluidActivationItemsPerSlice = 32;
 
             var slice = task.Result;
             work.WorkerMilliseconds += slice.WorkerMilliseconds;
+            work.InitialLightingMilliseconds += slice.InitialLightingMilliseconds;
             stageTimings.AddRange(slice.StageTimings);
 
             if (!_acceptingMaterializationWork)
@@ -459,6 +473,14 @@ private const int FluidActivationItemsPerSlice = 32;
                 continue;
             }
 
+            if (task.IsCanceled)
+            {
+                failures.Add(new ChunkMaterializationFailure(
+                    coord, new TaskCanceledException(task)));
+                RequeueIfDesired(coord);
+                continue;
+            }
+
             if (!_streaming.KeepsLoaded(coord) || _world.ContainsChunk(coord))
                 continue;
 
@@ -467,13 +489,70 @@ private const int FluidActivationItemsPerSlice = 32;
                 coord,
                 ChunkActivationSource.Provider,
                 work.WorkerMilliseconds,
-                work.WorkerMilliseconds,
+                work.WorkerMilliseconds - work.InitialLightingMilliseconds,
                 Stopwatch.GetElapsedTime(
-                    work.StartedTimestamp).TotalMilliseconds));
+                    work.StartedTimestamp).TotalMilliseconds,
+                work.InitialLightingMilliseconds));
+        }
+
+        var remainingResults = _settings.MaxResultsPerFrame - processed;
+        if (remainingResults > 0)
+        {
+            var completedTerrain = _materializationTasks
+                .Where(entry => entry.Value.IsCompleted)
+                .OrderBy(entry => ChunkStreamingState.Priority(
+                    entry.Key, _center, _streaming.MovementDirection))
+                .Take(remainingResults)
+                .ToArray();
+
+            foreach (var (coord, task) in completedTerrain)
+            {
+                if (processed >= _settings.MaxResultsPerFrame)
+                    break;
+                if (processed > 0 && budget.Exhausted(Stopwatch.GetTimestamp()))
+                    break;
+
+                // Generation failures can be retired immediately; successful
+                // terrain results wait if all initial-light slots are occupied.
+                if (task.IsFaulted || task.IsCanceled)
+                {
+                    processed++;
+                    _materializationTasks.Remove(coord);
+                    _streaming.FinishMaterializing(coord);
+                    var error = task.IsFaulted
+                        ? task.Exception?.GetBaseException() ??
+                          new InvalidOperationException(
+                              $"Chunk terrain generation failed: {coord}")
+                        : new TaskCanceledException(task);
+                    failures.Add(new ChunkMaterializationFailure(coord, error));
+                    RequeueIfDesired(coord);
+                    continue;
+                }
+
+                if (_initialLightingTasks.Count >=
+                    _settings.MaxInitialLightingTasksInFlight)
+                    break;
+
+                if (!_streaming.KeepsLoaded(coord) || _world.ContainsChunk(coord))
+                {
+                    processed++;
+                    _materializationTasks.Remove(coord);
+                    _streaming.FinishMaterializing(coord);
+                    continue;
+                }
+
+                processed++;
+                var generated = task.Result;
+                _materializationTasks.Remove(coord);
+                _initialLightingTasks.Add(
+                    coord,
+                    Task.Run(() => InitializeInitialLighting(generated)));
+            }
         }
 
         if (processed > 0)
             SyncResidentState(presented);
+
         return new ChunkResidencyUpdate(activations, failures, stageTimings);
     }
 
@@ -550,7 +629,7 @@ private const int FluidActivationItemsPerSlice = 32;
         // consume a generation worker. Bound restores independently.
         while (_materializationTasks.Count <
                    _settings.MaxTerrainMaterializationsInFlight &&
-               _materializationTasks.Count <
+               _materializationTasks.Count + _initialLightingTasks.Count <
                    _settings.MaxMaterializationsInFlight &&
                restored <
                    _settings.MaxResultsPerFrame)
@@ -714,7 +793,9 @@ private const int FluidActivationItemsPerSlice = 32;
             if (archiveResult !=
                 ChunkArchiveResult.NotResident)
             {
-    }
+                EnqueueChunkLightingReconciliation(
+                    coord.Value);
+            }
 
             _pendingFluidActivationCoords.Remove(coord.Value);
             _pendingFluidActivations.Remove(coord.Value);
@@ -737,6 +818,7 @@ private const int FluidActivationItemsPerSlice = 32;
         double elapsedMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
+        EnqueueChunkLightingReconciliation(coord);
         EnqueueResidentChunkFluidActivation(coord);
         _blockPhysics.EnqueueResidentChunk(coord);
 
@@ -765,7 +847,7 @@ private const int FluidActivationItemsPerSlice = 32;
         }
     }
 
-    private static MaterializationSliceResult ExecuteMaterializationSlice(
+    private MaterializationSliceResult ExecuteMaterializationSlice(
         MaterializationWork work)
     {
         var stageTimings = new List<ChunkMaterializationStageTiming>();
@@ -788,9 +870,24 @@ private const int FluidActivationItemsPerSlice = 32;
                 break;
         }
 
+        var initialLightingMilliseconds = 0d;
+        if (work.Job.IsComplete && !work.LightingInitialized)
+        {
+            var chunk = work.Job.Result ??
+                throw new InvalidOperationException(
+                    $"Completed materialization job returned no chunk: {work.Job.Coord}");
+            var lightingStarted = Stopwatch.GetTimestamp();
+            ChunkLightingSolver.Initialize(chunk, _blocks, _fluids, _objects);
+            initialLightingMilliseconds = Stopwatch.GetElapsedTime(
+                lightingStarted).TotalMilliseconds;
+            workerMilliseconds += initialLightingMilliseconds;
+            work.LightingInitialized = true;
+        }
+
         return new MaterializationSliceResult(
             stageTimings,
-            workerMilliseconds);
+            workerMilliseconds,
+            initialLightingMilliseconds);
     }
 
     private sealed class MaterializationWork
@@ -806,11 +903,16 @@ private const int FluidActivationItemsPerSlice = 32;
         public long StartedTimestamp { get; }
 
         public double WorkerMilliseconds { get; set; }
+
+        public double InitialLightingMilliseconds { get; set; }
+
+        public bool LightingInitialized { get; set; }
     }
 
     private sealed record MaterializationSliceResult(
         IReadOnlyList<ChunkMaterializationStageTiming> StageTimings,
-        double WorkerMilliseconds);
+        double WorkerMilliseconds,
+        double InitialLightingMilliseconds);
 
     private sealed class ProviderMaterializationJob : IChunkMaterializationJob
     {
@@ -847,6 +949,65 @@ private const int FluidActivationItemsPerSlice = 32;
         {
         }
     }
+
+    private void EnqueueChunkLightingReconciliation(
+        ChunkCoord coord)
+    {
+        var arriving = _world.ContainsChunk(coord);
+        foreach (var position in
+                 ChunkTopologyFrontier.LightingSeeds(
+                     coord,
+                     _world.ContainsChunk))
+        {
+            if (!_world.IsLoadedAt(position))
+                continue;
+
+            var needsRelight = arriving
+                ? ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
+                    _world, _blocks, _fluids, coord, position)
+                : ChunkTopologyFrontier.NeedsRetirementSeamLightSeed(
+                    _world, coord, position);
+            if (needsRelight)
+                _worldUpdates.EnqueueLighting(position);
+        }
+
+        // When an emitter's support and target are in different chunks,
+        // initially lit individual chunks cannot see the other side.
+        // Reconcile the loaded adjacent support chunks at each arrival.
+        if (_objects is null) return;
+        ReadOnlySpan<(int X, int Y, int Z)> neighbors =
+        [
+            (0, 0, 0), (1, 0, 0), (-1, 0, 0),
+            (0, 1, 0), (0, -1, 0),
+            (0, 0, 1), (0, 0, -1)
+        ];
+        foreach (var offset in neighbors)
+        {
+            var neighborCoord = new ChunkCoord(
+                coord.X + offset.X, coord.Y + offset.Y, coord.Z + offset.Z);
+            if (neighborCoord.Y < 0 ||
+                !_world.TryGetChunk(neighborCoord, out var host) ||
+                host.ObjectCount == 0)
+                continue;
+            var origin = VoxelCoordinates.ChunkOrigin(neighborCoord);
+            host.VisitObjectCells((x, y, z, obj) =>
+            {
+                if (!_objects.TryGet(obj.Id, out var definition) ||
+                    definition is null || definition.LightEmission.IsDark)
+                    return;
+                var support = new WorldVoxelCoord(
+                    origin.X + x, origin.Y + y, origin.Z + z);
+                var target = ObjectLightEmissionField.Target(support, obj.Face);
+                if (target.Y < 0 || !_world.IsLoadedAt(target))
+                    return;
+                if (neighborCoord == coord ||
+                    VoxelCoordinates.FromWorld(
+                        target.X, target.Y, target.Z).Chunk == coord)
+                    _worldUpdates.EnqueueLighting(target);
+            });
+        }
+    }
+
 
     private void EnqueueResidentChunkFluidActivation(ChunkCoord coord)
     {
@@ -1235,4 +1396,9 @@ private const int FluidActivationItemsPerSlice = 32;
         public int FrontierFaceIndex { get; set; }
     }
 
+    private sealed record MaterializedChunk(
+        Chunk Chunk,
+        double WorkerMilliseconds,
+        double TerrainMilliseconds,
+        double InitialLightingMilliseconds);
 }

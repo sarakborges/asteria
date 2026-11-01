@@ -32,6 +32,7 @@ public static class ChunkFluidMeshBuilder
 
         return mesh.GetSurfaceCount() - initialSurfaceCount;
     }
+            var light = new byte[vertices.Length * 4];
 
     /// <summary>Publishes a retained fluid surface without an intermediate vertex-array copy.</summary>
     internal static bool AppendSurface(
@@ -50,6 +51,8 @@ public static class ChunkFluidMeshBuilder
         var normals = new Vector3[vertices.Count];
         var uvs = new Vector2[vertices.Count];
         var colors = new Color[vertices.Count];
+        var light = new byte[vertices.Count * 4];
+            arrays[(int)Mesh.ArrayType.Custom0] = light;
 
         for (var index = 0; index < vertices.Count; index++)
         {
@@ -60,8 +63,13 @@ public static class ChunkFluidMeshBuilder
                 vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z);
             uvs[index] = new Vector2(vertex.Uv.X, vertex.Uv.Y);
             colors[index] = new Color(
-                vertex.Tint.X, vertex.Tint.Y,
-                vertex.Tint.Z, vertex.Tint.W);
+                vertex.TintAndAo.X, vertex.TintAndAo.Y,
+                vertex.TintAndAo.Z, vertex.TintAndAo.W);
+            var offset = index * 4;
+            light[offset] = PackUnorm8(vertex.VoxelLight.X);
+            light[offset + 1] = PackUnorm8(vertex.VoxelLight.Y);
+            light[offset + 2] = PackUnorm8(vertex.VoxelLight.Z);
+            light[offset + 3] = PackUnorm8(vertex.VoxelLight.W);
         }
 
         Godot.Collections.Array arrays = [];
@@ -70,6 +78,7 @@ public static class ChunkFluidMeshBuilder
         arrays[(int)Mesh.ArrayType.Normal] = normals;
         arrays[(int)Mesh.ArrayType.TexUV] = uvs;
         arrays[(int)Mesh.ArrayType.Color] = colors;
+        arrays[(int)Mesh.ArrayType.Custom0] = light;
 
         var surfaceIndex = mesh.GetSurfaceCount();
         mesh.AddSurfaceFromArrays(
@@ -79,5 +88,24 @@ public static class ChunkFluidMeshBuilder
         return true;
     }
 
+    public static bool TryUpdateLighting(ArrayMesh mesh, ChunkFluidMeshData data) =>
+        MeshLightAttributePatcher.TryUpdate(mesh, data);
 
+    public static bool TryUpdateLighting(
+        ArrayMesh mesh, ChunkFluidMeshData data,
+        int firstSurface, int surfaceCount) =>
+        MeshLightAttributePatcher.TryUpdate(
+            mesh, data, firstSurface, surfaceCount);
+
+    public static bool TryUpdateLightingRange(
+        ArrayMesh mesh,
+        int surfaceIndex,
+        int firstVertex,
+        int surfaceVertexCount,
+        ChunkFluidBatchData batch) =>
+        MeshLightAttributePatcher.TryUpdateSurfaceRange(
+            mesh, surfaceIndex, firstVertex, surfaceVertexCount, batch);
+
+    private static byte PackUnorm8(float value) =>
+        (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
 }

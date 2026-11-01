@@ -13,6 +13,8 @@ namespace Asteria.Client.Rendering;
 internal static class WorldObjectMaterials
 {
     private const string ObjectShader = "res://shaders/voxel_object.gdshader";
+    private const string ShadowOverlayShader = "res://shaders/voxel_object_shadow_overlay.gdshader";
+    internal const string SunShadowGlobal = "object_sun_shadow_strength";
 
     public static ShaderMaterial CreateLit(
         ObjectDefinition definition, Texture2D texture,
@@ -20,7 +22,8 @@ internal static class WorldObjectMaterials
     {
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(texture);
-        // All world objects use an unshaded material; lighting and shadow overlays are disabled.
+        // Voxel light remains authoritative for the base color; authored
+        // sunlight shadow reception is a separate, transparent overlay.
         var shader = ResourceLoader.Load<Shader>(ObjectShader) ??
             throw new FileNotFoundException($"Missing Object shader: {ObjectShader}");
         var material = new ShaderMaterial { Shader = shader };
@@ -28,6 +31,8 @@ internal static class WorldObjectMaterials
         material.SetShaderParameter("alpha_cutoff", alphaCutoff);
         if (albedo is { } color)
             material.SetShaderParameter("model_albedo_color", color);
+        if (definition.ReceivesShadow)
+            material.NextPass = CreateShadowOverlay(texture, alphaCutoff, albedo?.A ?? 1f);
         return material;
     }
 
@@ -45,13 +50,27 @@ internal static class WorldObjectMaterials
             VertexColorUseAsAlbedo = preserveVertexColors ||
                 definition.Tint != BlockTint.None,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            DisableReceiveShadows = true,
+            // Independent of castsShadow (GeometryInstance3D-owned).
+            DisableReceiveShadows = !definition.ReceivesShadow,
             Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
             AlphaScissorThreshold = alphaCutoff,
             TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
         };
+        if (definition.ReceivesShadow)
+            material.NextPass = CreateShadowOverlay(texture, alphaCutoff, albedo?.A ?? 1f);
         return material;
     }
 
+    private static ShaderMaterial CreateShadowOverlay(Texture2D texture,
+        float alphaCutoff, float alphaMultiplier)
+    {
+        var shader = ResourceLoader.Load<Shader>(ShadowOverlayShader) ??
+            throw new FileNotFoundException($"Missing Object shadow shader: {ShadowOverlayShader}");
+        var pass = new ShaderMaterial { Shader = shader };
+        pass.SetShaderParameter("object_texture", texture);
+        pass.SetShaderParameter("alpha_cutoff", alphaCutoff);
+        pass.SetShaderParameter("alpha_multiplier", alphaMultiplier);
+        return pass;
+    }
 }

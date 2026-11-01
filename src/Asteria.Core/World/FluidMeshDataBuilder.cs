@@ -519,8 +519,12 @@ public static class FluidMeshDataBuilder
             origin +
             new Vector3(0f, heights.H00, 0f);
 
-        var topology =
-            MeshFaceTopology.Neutral;
+        var lighting =
+            VoxelMeshLighting.SampleFace(
+                world,
+                blocks,
+                position,
+                BlockFace.Top);
 
         EmitQuad(
             vertices,
@@ -529,24 +533,51 @@ public static class FluidMeshDataBuilder
             position,
             BlockFace.Top,
             points,
-            topology);
+            lighting);
         EmitTopUnderside(
             vertices,
             position,
             points,
-            topology);
+            lighting);
     }
 
     private static void EmitTopUnderside(
         List<FluidMeshVertex> vertices,
         WorldVoxelCoord position,
         ReadOnlySpan<Vector3> points,
-        MeshFaceTopology topology)
+        VoxelFaceLighting lighting)
     {
-        foreach (var index in ReverseTriangleOrder)
-            vertices.Add(new FluidMeshVertex(
-                points[index], -Vector3.UnitY,
-                FaceUv(BlockFace.Top, points[index]), Vector4.One));
+        var triangleOrder =
+            lighting.ShouldFlipDiagonal
+                ? ReverseFlippedTriangleOrder
+                : ReverseTriangleOrder;
+
+        foreach (var index in triangleOrder)
+        {
+            var light = lighting[index];
+
+            vertices.Add(
+                new FluidMeshVertex(
+                    points[index],
+                    -Vector3.UnitY,
+                    FaceUv(
+                        BlockFace.Top,
+                        points[index]),
+                    new Vector4(
+                        1f,
+                        1f,
+                        1f,
+                        light.AmbientOcclusion),
+                    new Vector4(
+                        light.Sky,
+                        light.BlockRed,
+                        light.BlockGreen,
+                        light.BlockBlue),
+                    new ChunkMeshLightSample(
+                        VoxelCoordinates.FromWorld(
+                            position.X, position.Y, position.Z).Local,
+                        BlockFace.Top, (byte)index)));
+        }
     }
 
     private static void EmitSide(
@@ -665,12 +696,47 @@ public static class FluidMeshDataBuilder
         WorldVoxelCoord position,
         BlockFace face,
         ReadOnlySpan<Vector3> points,
-        MeshFaceTopology? sampledTopology = null)
+        VoxelFaceLighting? sampledLighting = null)
     {
-        var normal = FaceNormal(face);
-        foreach (var index in TriangleOrder)
-            vertices.Add(new FluidMeshVertex(
-                points[index], normal, FaceUv(face, points[index]), Vector4.One));
+        var lighting =
+            sampledLighting ??
+            VoxelMeshLighting.SampleFace(
+                world,
+                blocks,
+                position,
+                face);
+        var triangleOrder =
+            lighting.ShouldFlipDiagonal
+                ? FlippedTriangleOrder
+                : TriangleOrder;
+        var normal =
+            FaceNormal(face);
+
+        foreach (var index in triangleOrder)
+        {
+            var light = lighting[index];
+            vertices.Add(
+                new FluidMeshVertex(
+                    points[index],
+                    normal,
+                    FaceUv(
+                        face,
+                        points[index]),
+                    new Vector4(
+                        1f,
+                        1f,
+                        1f,
+                        light.AmbientOcclusion),
+                    new Vector4(
+                        light.Sky,
+                        light.BlockRed,
+                        light.BlockGreen,
+                        light.BlockBlue),
+                    new ChunkMeshLightSample(
+                        VoxelCoordinates.FromWorld(
+                            position.X, position.Y, position.Z).Local,
+                        face, (byte)index)));
+        }
     }
 
     private static Vector2 FaceUv(

@@ -21,6 +21,7 @@ internal enum WorldFrameStage : byte
     TerrainPoll,
     TerrainPublication,
     ObjectPresentation,
+    LightingPoll,
     WorkerDispatch,
     StreamingEnd,
     Gameplay,
@@ -71,6 +72,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _materializationJobs;
     private int _suspendedMaterializationJobs;
     private int _presented;
+    private int _lightingPending;
     private int _terrainMeshPending;
     private int _fluidMeshPending;
     private bool _fluidSimulationActive;
@@ -82,6 +84,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _warmPresentationEvictions;
     private int _warmTerrainMeshletsReused;
     private int _warmFluidMeshletsReused;
+    private bool _lightingActive;
     private long _frames;
     private double _frameMsTotal;
     private double _frameMsMax;
@@ -99,6 +102,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _materialized;
     private double _materializationMs;
     private double _terrainGenerationMs;
+    private double _initialLightingMs;
     private double _materializationMaxMs;
     private double _materializationElapsedMs;
     private double _materializationElapsedMaxMs;
@@ -119,9 +123,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _terrainMeshCaptureMaxMs;
     private int _terrainMeshAccepted;
     private int _terrainMeshStale;
+    private int _terrainLightOnlyMeshlets;
     private int _terrainSalvagedMeshlets;
     private int _terrainMeshDiscardedBatches;
     private int _fluidMeshDiscardedBatches;
+    private double _lightingDiscardedWorkerMs;
     private double _meshPublicationRenderMs;
     private double _meshPublicationCollisionMs;
     private double _meshPublicationRenderMaxMs;
@@ -129,17 +135,38 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private long _meshPublicationCollisionTriangles;
     private int _meshPublicationPublished;
     private int _meshPublicationStale;
+    private int _terrainGpuAttributePatches;
+    private int _fluidGpuAttributePatches;
     private int _fluidMeshBatches;
     private double _fluidMeshMs;
     private double _fluidMeshCaptureMs;
     private double _fluidMeshCaptureMaxMs;
     private int _fluidMeshAccepted;
     private int _fluidMeshStale;
+    private int _fluidLightOnlyMeshlets;
     private int _fluidSalvagedMeshlets;
     private int _fluidBatches;
     private double _fluidMs;
     private int _fluidChanges;
     private int _fluidBacklogMax;
+    private int _lightingBatches;
+    private int _lightingSeedCount;
+    private int _lightingStaleSeedCount;
+    private int _lightingSeedBatchMax;
+    private double _lightingMs;
+    private int _lightingVoxels;
+    private int _lightingMediumSampleRequests;
+    private int _lightingMediumSampleCacheMisses;
+    private int _lightingChanged;
+    private int _lightingDirtyChunks;
+    private int _lightingStaleBatches;
+    private int _lightingStaleContentBatches;
+    private int _lightingStaleResidencyBatches;
+    private int _lightingStaleUnknownBatches;
+    private double _lightingCaptureMs;
+    private double _lightingCaptureMaxMs;
+    private double _lightingApplyMs;
+    private double _lightingApplyMaxMs;
     private int _creaturesActive;
     private int _creaturesPeak;
     private int _projectilesActive;
@@ -373,6 +400,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _materialized++;
             _materializationMs += activation.WorkerMilliseconds;
             _terrainGenerationMs += activation.TerrainMilliseconds;
+            _initialLightingMs += activation.InitialLightingMilliseconds;
             _materializationElapsedMs += activation.ElapsedMilliseconds;
             _materializationElapsedMaxMs = Math.Max(
                 _materializationElapsedMaxMs,
@@ -409,10 +437,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     public void ObserveTerrainMesh(
         double workerMilliseconds, int accepted, int stale,
         double captureMilliseconds = 0d, bool discarded = false,
-        int salvagedFromStaleBatch = 0)
+        int relitWithoutMeshing = 0, int salvagedFromStaleBatch = 0)
     {
         _terrainSalvagedMeshlets += salvagedFromStaleBatch;
         _terrainMeshBatches++;
+        _terrainLightOnlyMeshlets += relitWithoutMeshing;
         if (discarded)
             _terrainMeshDiscardedBatches++;
         _terrainMeshMs += workerMilliseconds;
@@ -442,8 +471,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     public void ObserveCollisionEmergencyShapes(int builtShapes) =>
         _collisionEmergencyShapes += builtShapes;
 
+    public void ObserveFluidPublication(ChunkPresentationIntegrationStats stats) =>
+        _fluidGpuAttributePatches += stats.GpuAttributePatches;
+
     public void ObserveTerrainPublication(ChunkPresentationIntegrationStats stats)
     {
+        _terrainGpuAttributePatches += stats.GpuAttributePatches;
         _meshPublicationRenderMs += stats.RenderBuildMilliseconds;
         _meshPublicationCollisionMs += stats.CollisionBuildMilliseconds;
         _meshPublicationRenderMaxMs = Math.Max(
@@ -455,14 +488,15 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     }
 
     public void ObserveFluidMesh(double workerMilliseconds, int accepted, int stale,
-        bool discarded = false, int salvagedFromStaleBatch = 0,
-        double captureMilliseconds = 0d)
+        bool discarded = false, int relitWithoutMeshing = 0,
+        int salvagedFromStaleBatch = 0, double captureMilliseconds = 0d)
     {
         _fluidSalvagedMeshlets += salvagedFromStaleBatch;
         _fluidMeshBatches++;
         _fluidMeshCaptureMs += captureMilliseconds;
         _fluidMeshCaptureMaxMs = Math.Max(
             _fluidMeshCaptureMaxMs, captureMilliseconds);
+        _fluidLightOnlyMeshlets += relitWithoutMeshing;
         if (discarded)
             _fluidMeshDiscardedBatches++;
         _fluidMeshMs += workerMilliseconds;
@@ -478,11 +512,48 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fluidBacklogMax = Math.Max(_fluidBacklogMax, backlog);
     }
 
+    public void ObserveLighting(LightingRuntimeReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+
+        _lightingCaptureMs += report.CaptureMilliseconds;
+        _lightingCaptureMaxMs = Math.Max(
+            _lightingCaptureMaxMs, report.CaptureMilliseconds);
+
+        _lightingSeedBatchMax = Math.Max(
+            _lightingSeedBatchMax, report.SeedCount);
+        if (report.Kind == LightingCompletionKind.RequeuedStale)
+        {
+            _lightingStaleSeedCount += report.SeedCount;
+            _lightingStaleBatches++;
+            if ((report.StaleDependencies & LightingDependencyChanges.Content) != 0)
+                _lightingStaleContentBatches++;
+            if ((report.StaleDependencies & LightingDependencyChanges.Residency) != 0)
+                _lightingStaleResidencyBatches++;
+            if (report.StaleDependencies == LightingDependencyChanges.None)
+                _lightingStaleUnknownBatches++;
+            _lightingDiscardedWorkerMs += report.WorkerMilliseconds;
+            return;
+        }
+
+        _lightingBatches++;
+        _lightingSeedCount += report.SeedCount;
+        _lightingMs += report.WorkerMilliseconds;
+        _lightingVoxels += report.ProcessedVoxelCount;
+        _lightingMediumSampleRequests += report.MediumSampleRequests;
+        _lightingMediumSampleCacheMisses += report.MediumSampleCacheMisses;
+        _lightingChanged += report.ChangedVoxelCount;
+        _lightingDirtyChunks += report.DirtyChunkCount;
+        _lightingApplyMs += report.ApplyMilliseconds;
+        _lightingApplyMaxMs = Math.Max(
+            _lightingApplyMaxMs, report.ApplyMilliseconds);
+    }
 
     public void FlushIfDue(
         int resident, int pending, int materializing,
         int presented, string loadingPhase,
-        int terrainMeshPending, int fluidMeshPending,
+        int lightingPending, int terrainMeshPending,
+        int fluidMeshPending, bool lightingActive,
         bool fluidSimulationActive,
         int activeMaterializationWorkers = 0,
         int materializationJobs = 0,
@@ -495,8 +566,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _materializationJobs = materializationJobs;
         _suspendedMaterializationJobs = suspendedMaterializationJobs;
         _presented = presented;
+        _lightingPending = lightingPending;
         _terrainMeshPending = terrainMeshPending;
         _fluidMeshPending = fluidMeshPending;
+        _lightingActive = lightingActive;
         _fluidSimulationActive = fluidSimulationActive;
         var now = Stopwatch.GetTimestamp();
         if (_phase != loadingPhase)
@@ -560,8 +633,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"warm_presentation_reuses={_warmPresentationReuses} " +
             $"warm_presentation_evictions={_warmPresentationEvictions} " +
             $"warm_terrain_meshlets_reused={_warmTerrainMeshletsReused} " +
-            $"warm_fluid_meshlets_reused={_warmFluidMeshletsReused} " +            $"terrain_mesh_pending={_terrainMeshPending} " +
-            $"fluid_mesh_pending={_fluidMeshPending} " +
+            $"warm_fluid_meshlets_reused={_warmFluidMeshletsReused} " +
+            $"lighting_pending={_lightingPending} " +
+            $"terrain_mesh_pending={_terrainMeshPending} " +
+            $"fluid_mesh_pending={_fluidMeshPending} lighting_active={_lightingActive} " +
             $"fluid_simulation_active={_fluidSimulationActive} " +
             $"creatures_active={_creaturesActive} creatures_peak={_creaturesPeak} " +
             $"projectiles_active={_projectilesActive} " +
@@ -600,6 +675,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"generated={_materialized} restored={_restored} " +
             $"generation_ms_total={Format1(_materializationMs)} " +
             $"generation_terrain_ms_total={Format1(_terrainGenerationMs)} " +
+            $"generation_initial_light_ms_total={Format1(_initialLightingMs)} " +
             $"generation_ms_max={Format1(_materializationMaxMs)} " +
             $"generation_latency_ms_total={Format1(_materializationElapsedMs)} " +
             $"generation_latency_ms_max={Format1(_materializationElapsedMaxMs)} " +
@@ -615,9 +691,14 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"mesh_batches={_terrainMeshBatches} mesh_ms_total={Format1(_terrainMeshMs)} " +
             $"mesh_capture_ms_total={Format1(_terrainMeshCaptureMs)} " +
             $"mesh_capture_ms_max={Format1(_terrainMeshCaptureMaxMs)} " +
-            $"mesh_accepted={_terrainMeshAccepted} mesh_stale={_terrainMeshStale} " +            $"mesh_salvaged_from_stale_batch={_terrainSalvagedMeshlets} " +
+            $"mesh_accepted={_terrainMeshAccepted} mesh_stale={_terrainMeshStale} " +
+            $"mesh_light_only={_terrainLightOnlyMeshlets} " +
+            $"mesh_salvaged_from_stale_batch={_terrainSalvagedMeshlets} " +
             $"mesh_discarded_batches={_terrainMeshDiscardedBatches} " +
-            $"mesh_publish_count={_meshPublicationPublished} mesh_publish_stale={_meshPublicationStale} " +            $"mesh_publish_render_ms_total={Format1(_meshPublicationRenderMs)} " +
+            $"mesh_publish_count={_meshPublicationPublished} mesh_publish_stale={_meshPublicationStale} " +
+            $"mesh_gpu_attribute_patches={_terrainGpuAttributePatches} " +
+            $"fluid_gpu_attribute_patches={_fluidGpuAttributePatches} " +
+            $"mesh_publish_render_ms_total={Format1(_meshPublicationRenderMs)} " +
             $"mesh_publish_render_ms_max={Format1(_meshPublicationRenderMaxMs)} " +
             $"mesh_publish_collision_ms_total={Format1(_meshPublicationCollisionMs)} " +
             $"mesh_publish_vertices={_meshPublicationVertices} " +
@@ -625,10 +706,30 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"fluid_mesh_batches={_fluidMeshBatches} fluid_mesh_ms_total={Format1(_fluidMeshMs)} " +
             $"fluid_mesh_capture_ms_total={Format1(_fluidMeshCaptureMs)} " +
             $"fluid_mesh_capture_ms_max={Format1(_fluidMeshCaptureMaxMs)} " +
-            $"fluid_mesh_accepted={_fluidMeshAccepted} fluid_mesh_stale={_fluidMeshStale} " +            $"fluid_mesh_salvaged_from_stale_batch={_fluidSalvagedMeshlets} " +
+            $"fluid_mesh_accepted={_fluidMeshAccepted} fluid_mesh_stale={_fluidMeshStale} " +
+            $"fluid_light_only={_fluidLightOnlyMeshlets} " +
+            $"fluid_mesh_salvaged_from_stale_batch={_fluidSalvagedMeshlets} " +
             $"fluid_mesh_discarded_batches={_fluidMeshDiscardedBatches} " +
             $"fluid_batches={_fluidBatches} fluid_ms_total={Format1(_fluidMs)} " +
             $"fluid_changes={_fluidChanges} fluid_backlog_max={_fluidBacklogMax} " +
+            $"lighting_batches={_lightingBatches} lighting_ms_total={Format1(_lightingMs)} " +
+            $"lighting_seed_count={_lightingSeedCount} " +
+            $"lighting_stale_seed_count={_lightingStaleSeedCount} " +
+            $"lighting_seed_batch_max={_lightingSeedBatchMax} " +
+            $"lighting_voxels={_lightingVoxels} " +
+            $"lighting_medium_cache_queries={_lightingMediumSampleRequests} " +
+            $"lighting_medium_cache_misses={_lightingMediumSampleCacheMisses} " +
+            $"lighting_changed={_lightingChanged} " +
+            $"lighting_dirty_chunks={_lightingDirtyChunks} " +
+            $"lighting_stale={_lightingStaleBatches} " +
+            $"lighting_stale_content={_lightingStaleContentBatches} " +
+            $"lighting_stale_residency={_lightingStaleResidencyBatches} " +
+            $"lighting_stale_unknown={_lightingStaleUnknownBatches} " +
+            $"lighting_discarded_worker_ms_total={Format1(_lightingDiscardedWorkerMs)} " +
+            $"lighting_capture_ms_total={Format1(_lightingCaptureMs)} " +
+            $"lighting_capture_ms_max={Format1(_lightingCaptureMaxMs)} " +
+            $"lighting_apply_ms_total={Format1(_lightingApplyMs)} " +
+            $"lighting_apply_ms_max={Format1(_lightingApplyMaxMs)} " +
             materializationStages + " " +
             stages);
 
@@ -671,6 +772,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fluidActivationMaxMs = 0d;
         _materializationMs = 0d;
         _terrainGenerationMs = 0d;
+        _initialLightingMs = 0d;
         _materializationMaxMs = 0d;
         _materializationElapsedMs = 0d;
         _materializationElapsedMaxMs = 0d;
@@ -682,9 +784,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _terrainMeshCaptureMaxMs = 0d;
         _terrainMeshAccepted = 0;
         _terrainMeshStale = 0;
+        _terrainLightOnlyMeshlets = 0;
         _terrainSalvagedMeshlets = 0;
         _terrainMeshDiscardedBatches = 0;
         _fluidMeshDiscardedBatches = 0;
+        _lightingDiscardedWorkerMs = 0d;
         _meshPublicationRenderMs = 0d;
         _meshPublicationCollisionMs = 0d;
         _meshPublicationRenderMaxMs = 0d;
@@ -692,17 +796,38 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _meshPublicationCollisionTriangles = 0;
         _meshPublicationPublished = 0;
         _meshPublicationStale = 0;
+        _terrainGpuAttributePatches = 0;
+        _fluidGpuAttributePatches = 0;
         _fluidMeshBatches = 0;
         _fluidMeshMs = 0d;
         _fluidMeshCaptureMs = 0d;
         _fluidMeshCaptureMaxMs = 0d;
         _fluidMeshAccepted = 0;
         _fluidMeshStale = 0;
+        _fluidLightOnlyMeshlets = 0;
         _fluidSalvagedMeshlets = 0;
         _fluidBatches = 0;
         _fluidMs = 0d;
         _fluidChanges = 0;
         _fluidBacklogMax = 0;
+        _lightingBatches = 0;
+        _lightingSeedCount = 0;
+        _lightingStaleSeedCount = 0;
+        _lightingSeedBatchMax = 0;
+        _lightingMs = 0d;
+        _lightingVoxels = 0;
+        _lightingMediumSampleRequests = 0;
+        _lightingMediumSampleCacheMisses = 0;
+        _lightingChanged = 0;
+        _lightingDirtyChunks = 0;
+        _lightingStaleBatches = 0;
+        _lightingStaleContentBatches = 0;
+        _lightingStaleResidencyBatches = 0;
+        _lightingStaleUnknownBatches = 0;
+        _lightingCaptureMs = 0d;
+        _lightingCaptureMaxMs = 0d;
+        _lightingApplyMs = 0d;
+        _lightingApplyMaxMs = 0d;
     }
 
     private static bool IsTimedLoadingPhase(string phase) =>

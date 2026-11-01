@@ -5,7 +5,8 @@ namespace Asteria.Core.World;
 public sealed record TerrainMeshletBuild(
     ChunkCoord Coord,
     int MeshletIndex,
-    ChunkMeshData Data);
+    ChunkMeshData Data,
+    bool LightOnly = false);
 
 public sealed record TerrainMeshWorkerResult(
     WorldMeshBatch SourceBatch,
@@ -33,7 +34,8 @@ public sealed class TerrainMeshWorker
         AttachedLayerRegistry layers,
         DyeRegistry dyes,
         WorldMeshBatch batch,
-        MeshletContentRevisions revisions)
+        MeshletContentRevisions revisions,
+        IReadOnlyDictionary<ChunkMeshletKey, ChunkMeshData>? relightable = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -72,7 +74,8 @@ public sealed class TerrainMeshWorker
                     biomeTints,
                     layers,
                     dyes,
-                    batch.DirtyMeshlets);
+                    batch.DirtyMeshlets,
+                    relightable);
             stopwatch.Stop();
 
             return new TerrainMeshWorkerResult(
@@ -101,7 +104,8 @@ public sealed class TerrainMeshWorker
             BiomeTintField biomeTints,
             AttachedLayerRegistry layers,
             DyeRegistry dyes,
-            IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty)
+            IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty,
+            IReadOnlyDictionary<ChunkMeshletKey, ChunkMeshData>? relightable)
     {
         var result =
             new List<TerrainMeshletBuild>();
@@ -120,6 +124,17 @@ public sealed class TerrainMeshWorker
             BiomeTintSampleGrid? tintSamples = null;
             foreach (var meshletIndex in mask.Indices())
             {
+                var key = new ChunkMeshletKey(coord, meshletIndex);
+                if (relightable is not null &&
+                    relightable.TryGetValue(key, out var geometry) &&
+                    ChunkMeshLightingUpdater.TryRelight(
+                        world, coord, blocks, geometry, out var relit))
+                {
+                    result.Add(new TerrainMeshletBuild(
+                        coord, meshletIndex, relit, LightOnly: true));
+                    continue;
+                }
+
                 // Empty meshlets still publish an empty result to settle
                 // streaming readiness, but need no biome tint sampling.
                 if (!occupiedMeshlets.ContainsIndex(meshletIndex))
