@@ -670,12 +670,19 @@ public partial class Main : Node3D
             _objectPlacementPreview.Hide();
             _heldDynamicLight.Clear();
             AdvanceDimensionTransition();
-            _worldDiagnostics?.FlushIfDue(
-                0, 0, _sessions.Active.Residency.MaterializingCount, 0,
-                "Transitioning", 0, 0, 0, false, false,
-                _sessions.Active.Residency.ActiveWorkerCount,
-                _sessions.Active.Residency.MaterializationJobCount,
-                _sessions.Active.Residency.SuspendedMaterializationCount);
+
+            // A successful Save and Leave completes the transition by
+            // clearing _sessions. Do not dereference Active afterward.
+            if (_sessions is { Active: { } activeSession })
+            {
+                _worldDiagnostics?.FlushIfDue(
+                    0, 0, activeSession.Residency.MaterializingCount, 0,
+                    "Transitioning", 0, 0, 0, false, false,
+                    activeSession.Residency.ActiveWorkerCount,
+                    activeSession.Residency.MaterializationJobCount,
+                    activeSession.Residency.SuspendedMaterializationCount);
+            }
+
             return;
         }
 
