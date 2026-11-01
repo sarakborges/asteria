@@ -1,5 +1,5 @@
-using Asteria.Core.Content;
 using System.Numerics;
+using Asteria.Core.Content;
 
 namespace Asteria.Core.World;
 

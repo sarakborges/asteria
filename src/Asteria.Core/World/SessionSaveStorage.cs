@@ -1,4 +1,5 @@
 using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -66,7 +67,7 @@ public static class SessionSaveStorage
                         saved.SpawnCreatures, saved.Spatial.Generation);
                     var restored = GameplaySessionSaveCodec.Restore(
                         creation, dimensions, saved, blocks, fluids, dyes, layers,
-                    objects, initializeLighting);
+                        objects, initializeLighting);
                     return (saved, restored);
                 }
                 catch (Exception error) when (error is ArgumentException or

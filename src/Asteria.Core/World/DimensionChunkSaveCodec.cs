@@ -1,4 +1,5 @@
 using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 /// <summary>Complete spatial snapshot of one initialized Sphere.</summary>
