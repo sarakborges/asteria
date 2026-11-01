@@ -251,6 +251,31 @@ public sealed class GeologyMaterializationRegressionTests
                     $"{coord.X * Chunk.Size + x},{worldY},{coord.Z * Chunk.Size + z}.");
             }
         }
+
+        // Generated chunks enter physics through the same resident-chunk
+        // activation path as restored chunks. A valid generated world must
+        // produce no gravity wakeups when these chunks become resident.
+        var world = new VoxelWorld();
+        foreach (var (coord, chunk) in firstChunks)
+            world.InsertChunk(coord, chunk);
+
+        var physicsUpdates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(
+            world,
+            new WorldUpdateQueue(),
+            new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(),
+            physicsUpdates,
+            new MeshletContentRevisions(),
+            new MeshletContentRevisions());
+        var droppedBlocks = new DroppedBlockRuntime(world, blocks);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, physicsUpdates, droppedBlocks);
+
+        var queuedWakeups = coords.Sum(physics.EnqueueResidentChunk);
+        Assert.Equal(0, queuedWakeups);
+        Assert.Equal(0, physicsUpdates.Count);
+        Assert.Equal(0, physics.ProcessWakeups().FallingStarted);
     }
 
     private static void AssertChunksEqual(Chunk expected, Chunk actual)
