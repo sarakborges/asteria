@@ -1774,7 +1774,15 @@ public sealed class BiomeWorldGenerationTests
             new BiomeRegistry([biome]));
 
         Assert.Equal(8, generator.SurfaceHeight(0, 0));
+        Assert.Equal(
+            blocks.GetId("asteria:gravel"),
+            generator.Materialize(new ChunkCoord(0, 1, 0)).GetBlock(0, 0, 0));
 
+        generator = new BiomeWorldGenerator(
+            101UL,
+            TestDimension([biome.Id]),
+            blocks,
+            new BiomeRegistry([biome]));
         using var job = generator.BeginMaterialization(
             new ChunkCoord(0, 1, 0));
         while (job.Stage != ChunkMaterializationStage.GravitySupport)
