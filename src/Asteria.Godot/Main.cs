@@ -726,7 +726,6 @@ public partial class Main : Node3D
                 _worldFrameBudget,
                 streamingRadius,
                 RequiresPortalSurfaceAccess,
-                streamingPressure,
                 materializationSlots);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.StreamingBegin, stageStart);
