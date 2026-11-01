@@ -53,7 +53,7 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-    public void IncrementalMaterializationDoesNotPublishUntilAllStagesComplete()
+    public void MaterializationWorkerCompletesAllStagesBeforePublishingChunk()
     {
         var fixture = CreateFixture(new StagedChunkProvider());
         var coord = ChunkCoord.Zero;
@@ -66,31 +66,19 @@ public sealed class ChunkResidencyRuntimeTests
 
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
-        var terrainSetup = CollectUntilMaterializationSlice(fixture.Runtime);
-
-        Assert.Equal(
-            ChunkMaterializationStage.TerrainSetup,
-            Assert.Single(terrainSetup.MaterializationStageTimings).Stage);
         Assert.False(fixture.World.ContainsChunk(coord));
         Assert.Equal(1, fixture.Runtime.MaterializingCount);
 
-        fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>());
-        var terrainLayer = CollectUntilMaterializationSlice(fixture.Runtime);
+        var completed = CollectUntilMaterializationResult(fixture.Runtime);
 
         Assert.Equal(
-            ChunkMaterializationStage.TerrainLayer,
-            Assert.Single(terrainLayer.MaterializationStageTimings).Stage);
-        Assert.False(fixture.World.ContainsChunk(coord));
-        Assert.Equal(1, fixture.Runtime.MaterializingCount);
-
-        fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>());
-        var completed = CollectUntilMaterializationSlice(fixture.Runtime);
-
-        Assert.Equal(
-            ChunkMaterializationStage.SurfaceDecorations,
-            Assert.Single(completed.MaterializationStageTimings).Stage);
+            new[]
+            {
+                ChunkMaterializationStage.TerrainSetup,
+                ChunkMaterializationStage.TerrainLayer,
+                ChunkMaterializationStage.SurfaceDecorations,
+            },
+            completed.MaterializationStageTimings.Select(timing => timing.Stage));
         Assert.True(fixture.World.ContainsChunk(coord));
         Assert.Equal(0, fixture.Runtime.MaterializingCount);
         Assert.Equal(
@@ -99,35 +87,7 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-    public void RetirementDiscardsPausedIncrementalMaterialization()
-    {
-        var fixture = CreateFixture(new StagedChunkProvider());
-        var coord = ChunkCoord.Zero;
-        fixture.Runtime.SyncSelection(
-            coord,
-            horizontalRadius: 1,
-            retentionRadius: 2,
-            desired: new HashSet<ChunkCoord> { coord },
-            presented: Array.Empty<ChunkCoord>());
-
-        fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>());
-        var first = CollectUntilMaterializationSlice(fixture.Runtime);
-        Assert.Equal(
-            ChunkMaterializationStage.TerrainSetup,
-            Assert.Single(first.MaterializationStageTimings).Stage);
-        Assert.Equal(1, fixture.Runtime.MaterializingCount);
-
-        fixture.Runtime.BeginRetirement();
-
-        Assert.Equal(0, fixture.Runtime.MaterializingCount);
-        Assert.Empty(fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>()).Activations);
-        Assert.False(fixture.World.ContainsChunk(coord));
-    }
-
-    [Fact]
-    public void RetirementDiscardsInFlightIncrementalMaterializationResult()
+    public void RetirementDiscardsInFlightMaterializationResult()
     {
         using var provider = new BlockingChunkProvider();
         var fixture = CreateFixture(provider);
@@ -142,13 +102,13 @@ public sealed class ChunkResidencyRuntimeTests
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
         Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)),
-            "Incremental worker did not enter its stage.");
+            "Materialization worker did not enter its stage.");
 
         fixture.Runtime.BeginRetirement();
         Assert.Equal(1, fixture.Runtime.MaterializingCount);
         provider.ReleaseAdvance.Set();
 
-        var drained = CollectUntilMaterializationSlice(fixture.Runtime);
+        var drained = CollectUntilMaterializationResult(fixture.Runtime);
         Assert.Empty(drained.Activations);
         Assert.False(fixture.World.ContainsChunk(coord));
         Assert.Equal(0, fixture.Runtime.MaterializingCount);
@@ -156,7 +116,7 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-    public void PressuredGenerationPrioritizesLocalChunksAndEventuallyDispatchesDistantOnes()
+    public void DistantRestoresContinueUnderStreamingPressureAfterLocalChunks()
     {
         var fixture = CreateFixture();
         var near = new ChunkCoord(1, 0, 0);
@@ -172,43 +132,14 @@ public sealed class ChunkResidencyRuntimeTests
             desired: new HashSet<ChunkCoord> { near, far },
             presented: Array.Empty<ChunkCoord>());
 
-        var first = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(),
-            deferDistantWork: true);
-        Assert.Equal(near, Assert.Single(first.Activations).Coord);
-        Assert.False(fixture.World.ContainsChunk(far));
-        Assert.Equal(1, fixture.Runtime.PendingCount);
-
-        for (var frame = 2; frame < 8; frame++)
-            Assert.Empty(fixture.Runtime.DispatchMaterializationTasks(
-                GenerousBudget(), Array.Empty<ChunkCoord>(),
-                deferDistantWork: true).Activations);
-
-        var eighth = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(),
-            deferDistantWork: true);
-        Assert.Equal(far, Assert.Single(eighth.Activations).Coord);
-        Assert.Equal(0, fixture.Runtime.PendingCount);
-    }
-
-    [Fact]
-    public void UnpressuredGenerationImmediatelyResumesDistantDispatch()
-    {
-        var fixture = CreateFixture();
-        var far = new ChunkCoord(5, 0, 0);
-        fixture.World.InsertChunk(far, new Chunk());
-        fixture.World.ArchiveChunk(far);
-        fixture.Runtime.SyncSelection(ChunkCoord.Zero,
-            horizontalRadius: 5, retentionRadius: 6,
-            desired: new HashSet<ChunkCoord> { far },
-            presented: Array.Empty<ChunkCoord>());
-
-        Assert.Empty(fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(),
-            deferDistantWork: true).Activations);
-        var resumed = fixture.Runtime.DispatchMaterializationTasks(
+        // The local chunk retains first priority, but distant work is no
+        // longer held behind an eight-frame pressure throttle.
+        var restored = fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.Equal(far, Assert.Single(resumed.Activations).Coord);
+        Assert.Equal(
+            new[] { near, far },
+            restored.Activations.Select(activation => activation.Coord));
+        Assert.Equal(0, fixture.Runtime.PendingCount);
     }
 
     [Fact]
@@ -753,7 +684,7 @@ public sealed class ChunkResidencyRuntimeTests
             rules);
     }
 
-    private static ChunkResidencyUpdate CollectUntilMaterializationSlice(
+    private static ChunkResidencyUpdate CollectUntilMaterializationResult(
         ChunkResidencyRuntime runtime)
     {
         ChunkResidencyUpdate? observed = null;
@@ -772,7 +703,7 @@ public sealed class ChunkResidencyRuntimeTests
             },
             TimeSpan.FromSeconds(5));
 
-        Assert.True(completed, "Materialization worker did not finish its next slice.");
+        Assert.True(completed, "Materialization worker did not finish its chunk.");
         return observed!;
     }
 
@@ -806,8 +737,8 @@ public sealed class ChunkResidencyRuntimeTests
                     throw new InvalidOperationException(
                         "Completed staged provider cannot advance.");
 
-                // Force one stage per scheduler slice to verify that progress
-                // is collected and interleaved without exposing the partial chunk.
+                // Force separate stage costs and verify the worker completes
+                // the full job before the partial chunk can be published.
                 Thread.Sleep(8);
                 switch (Stage)
                 {
