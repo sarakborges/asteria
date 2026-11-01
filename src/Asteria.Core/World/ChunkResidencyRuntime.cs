@@ -460,9 +460,9 @@ public sealed class ChunkResidencyRuntime
         var maximumTaskStarts = Math.Min(
             _settings.MaxDispatchesPerFrame, maximumNewTasks);
 
-        // Archived restores do not consume a generation worker. New materialize
-        // jobs run to completion on a bounded worker and are never throttled by
-        // distance-based pressure gates; spatial priority decides what starts.
+        // Archived restores do not consume a generation worker. The caller may
+        // cap new materialization starts when downstream work is pressured;
+        // spatial priority decides which chunk starts when admission opens.
         while (_materializationTasks.Count <
                    _settings.MaxTerrainMaterializationsInFlight &&
                _materializationTasks.Count <

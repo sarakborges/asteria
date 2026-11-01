@@ -711,7 +711,8 @@ public partial class Main : Node3D
             _worldUpdates.DirtyChunkCount,
             loadingWorld,
             pendingLightingSeeds: _worldUpdates.LightingEditCount,
-            pendingPhysicsWakeups: _blockPhysicsUpdates.Count);
+            pendingPhysicsWakeups: _blockPhysicsUpdates.Count,
+            pendingTerrainPublications: _chunkPresentations.PendingTerrainPublications);
         var stageStart = Stopwatch.GetTimestamp();
         var availableWorkerSlots = Math.Max(
             0, MaxConcurrentWorldJobs - ActiveWorldWorkerCount);
@@ -720,13 +721,16 @@ public partial class Main : Node3D
             : 0;
         var materializationSlots = Math.Max(
             0, availableWorkerSlots - reservedWorkerSlots);
+        var materializationStarts = streamingPressure.IsPressured
+            ? 0
+            : materializationSlots;
         var streamingBegin =
             _chunkStreaming.BeginFrame(
                 streamingCenter,
                 _worldFrameBudget,
                 streamingRadius,
                 RequiresPortalSurfaceAccess,
-                materializationSlots);
+                materializationStarts);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.StreamingBegin, stageStart);
         ReportStreamingSelection(
