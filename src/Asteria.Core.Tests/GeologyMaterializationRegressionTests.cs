@@ -167,6 +167,7 @@ public sealed class GeologyMaterializationRegressionTests
         var secondGenerator = new BiomeWorldGenerator(
             Seed, dimension, blocks, biomes);
         var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
+        Assert.True(materials.FacePalettesPreserveOccupancy);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
         var gravityBlocks = new HashSet<BlockRuntimeId>
