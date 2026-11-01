@@ -721,9 +721,16 @@ public sealed class SurfaceChunkMaterializer
     /// </summary>
     private void AdvanceGravitySupport(MaterializationJob job)
     {
-        if (job.GravityPositions is null)
+        if (_gravityBlocks.Count == 0)
         {
-            var positions = new List<(int X, int Y, int Z)>();
+            CompleteGravitySupportStage(job);
+            return;
+        }
+
+        var positions = job.GravityPositions;
+        if (positions is null)
+        {
+            positions = new List<(int X, int Y, int Z)>();
             job.Chunk.VisitBlockCells((x, y, z, cell) =>
             {
                 if (_gravityBlocks.Contains(cell.Block))
@@ -738,15 +745,15 @@ public sealed class SurfaceChunkMaterializer
                 return result != 0 ? result : left.X.CompareTo(right.X);
             });
             job.GravityPositions = positions;
+        }
 
-            if (!job.SupportOnly && job.OriginY > 0 &&
+        if (!job.SupportOnly && job.OriginY > 0 &&
                 positions.Any(position => position.Y == 0))
             {
                 job.SupportChunkJob = new MaterializationJob(
                     this,
                     new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
                     supportOnly: true);
-            }
         }
 
         if (job.SupportChunkJob is { IsComplete: false } pendingSupport)
@@ -772,17 +779,17 @@ public sealed class SurfaceChunkMaterializer
         // it. Any gravity block directly above that unresolved row is anchored
         // to stable host rock before the queried top row can support the parent.
         HashSet<int>? unresolvedBottomGravity = null;
-        if (job.SupportOnly && job.GravityPositions.Count > 0)
+        if (job.SupportOnly && job.OriginY > 0 && positions.Count > 0)
         {
-            unresolvedBottomGravity = job.GravityPositions
+            unresolvedBottomGravity = positions
                 .Where(position => position.Y == 0)
                 .Select(position => position.X + Chunk.Size * position.Z)
                 .ToHashSet();
         }
 
-        foreach (var (x, y, z) in job.GravityPositions)
+        foreach (var (x, y, z) in positions)
         {
-            if (job.SupportOnly && y == 0)
+            if (job.SupportOnly && job.OriginY > 0 && y == 0)
                 continue;
 
             var worldX = job.OriginX + x;

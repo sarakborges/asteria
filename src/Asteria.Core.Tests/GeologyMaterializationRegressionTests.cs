@@ -110,6 +110,143 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
+    public void MaterializedGravityGeologyNeverLeavesUnsupportedCellsAcrossVerticalSeams()
+    {
+        var blocks = CreateBlocks(gravityBlocks: true);
+        var biome = CreateBiome();
+        var caves = new DimensionCaveDefinition(
+        [
+            new DimensionCaveLayerDefinition(
+                minDepth: 8,
+                maxDepth: 80,
+                channels:
+                [
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                ],
+                noiseHalfWidth: 1f,
+                densityScale: 24f,
+                boundaryFade: 6),
+        ]);
+        var dimension = CreateDimension(biome.Id, caves);
+        var biomes = new BiomeRegistry([biome]);
+        var firstGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes);
+        var secondGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes);
+        var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var gravityBlocks = new HashSet<BlockRuntimeId>
+        {
+            blocks.GetId("asteria:sand"),
+            blocks.GetId("asteria:gravel"),
+        };
+
+        WorldVoxelCoord? unsupportedCandidate = null;
+        WorldVoxelCoord? supportedCandidate = null;
+        var seamHeights = new[] { Chunk.Size, Chunk.Size * 2 };
+        for (var z = -128; z <= 128 &&
+             (!unsupportedCandidate.HasValue || !supportedCandidate.HasValue); z += 2)
+        for (var x = -128; x <= 128 &&
+             (!unsupportedCandidate.HasValue || !supportedCandidate.HasValue); x += 2)
+        foreach (var worldY in seamHeights)
+        {
+            if (firstGenerator.DensityAt(x, worldY, z) < 0d ||
+                !materials.TryGeologyBlockAt(
+                    sample, x, worldY, z, out var material) ||
+                !gravityBlocks.Contains(material))
+                continue;
+
+            if (firstGenerator.DensityAt(x, worldY - 1, z) < 0d)
+                unsupportedCandidate ??= new WorldVoxelCoord(x, worldY, z);
+            else
+                supportedCandidate ??= new WorldVoxelCoord(x, worldY, z);
+        }
+
+        Assert.True(unsupportedCandidate.HasValue,
+            "The cave fixture did not produce an unsupported gravity deposit on a vertical chunk seam.");
+        Assert.True(supportedCandidate.HasValue,
+            "The cave fixture did not produce a supported gravity deposit on a vertical chunk seam.");
+
+        var candidates = new[] { unsupportedCandidate.Value, supportedCandidate.Value };
+        var horizontalColumns = candidates
+            .Select(position => VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk)
+            .Select(coord => (coord.X, coord.Z))
+            .Distinct()
+            .ToArray();
+        var coords = horizontalColumns
+            .SelectMany(column => Enumerable.Range(0, 3)
+                .Select(y => new ChunkCoord(column.X, y, column.Z)))
+            .ToArray();
+
+        var firstChunks = new Dictionary<ChunkCoord, Chunk>();
+        foreach (var coord in coords.OrderByDescending(coord => coord.Y)
+                     .ThenBy(coord => coord.Z).ThenBy(coord => coord.X))
+            firstChunks.Add(coord, firstGenerator.Materialize(coord));
+
+        var secondChunks = new Dictionary<ChunkCoord, Chunk>();
+        foreach (var coord in coords.OrderBy(coord => coord.Y)
+                     .ThenBy(coord => coord.Z).ThenBy(coord => coord.X))
+            secondChunks.Add(coord, secondGenerator.Materialize(coord));
+
+        foreach (var coord in coords)
+            AssertChunksEqual(firstChunks[coord], secondChunks[coord]);
+
+        var unsupported = unsupportedCandidate.Value;
+        var (unsupportedCoord, unsupportedLocal) = VoxelCoordinates.FromWorld(
+            unsupported.X, unsupported.Y, unsupported.Z);
+        Assert.False(gravityBlocks.Contains(firstChunks[unsupportedCoord].GetBlock(
+            unsupportedLocal.X, unsupportedLocal.Y, unsupportedLocal.Z)),
+            "Unsupported generated sand/gravel should be replaced by stable host rock.");
+
+        var supported = supportedCandidate.Value;
+        var (supportedCoord, supportedLocal) = VoxelCoordinates.FromWorld(
+            supported.X, supported.Y, supported.Z);
+        Assert.True(gravityBlocks.Contains(firstChunks[supportedCoord].GetBlock(
+            supportedLocal.X, supportedLocal.Y, supportedLocal.Z)),
+            "A generated sand/gravel deposit with solid support must retain its material.");
+
+        foreach (var (coord, chunk) in firstChunks)
+        {
+            var lower = coord.Y > 0
+                ? firstChunks[new ChunkCoord(coord.X, coord.Y - 1, coord.Z)]
+                : null;
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var y = 0; y < Chunk.Size; y++)
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                var cell = chunk.GetCell(x, y, z);
+                if (cell.IsEmpty || !gravityBlocks.Contains(cell.Block))
+                    continue;
+
+                var worldY = coord.Y * Chunk.Size + y;
+                if (worldY == 0)
+                    continue;
+
+                var supportedBelow = y > 0
+                    ? !chunk.GetCell(x, y - 1, z).IsEmpty
+                    : lower is not null &&
+                      !lower.GetCell(x, Chunk.Size - 1, z).IsEmpty;
+                Assert.True(supportedBelow,
+                    $"Generated unsupported gravity block remains at " +
+                    $"{coord.X * Chunk.Size + x},{worldY},{coord.Z * Chunk.Size + z}.");
+            }
+        }
+    }
+
+    private static void AssertChunksEqual(Chunk expected, Chunk actual)
+    {
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var x = 0; x < Chunk.Size; x++)
+            Assert.Equal(
+                expected.GetCell(x, y, z),
+                actual.GetCell(x, y, z));
+    }
+
+    [Fact]
     public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns()
     {
         var blocks = CreateBlocks();
@@ -233,12 +370,15 @@ public sealed class GeologyMaterializationRegressionTests
             "A flat surface should retain its grass cover while exposing varied geological materials.");
     }
 
-    private static BlockRegistry CreateBlocks() => new(
+    private static BlockRegistry CreateBlocks(bool gravityBlocks = false) => new(
     [
         new BlockDefinition("asteria:grass"),
         new BlockDefinition("asteria:dirt"),
         new BlockDefinition("asteria:stone"),
-        new BlockDefinition("asteria:gravel"),
+        new BlockDefinition("asteria:sand", tags: gravityBlocks
+            ? [BlockPhysicsCapabilities.Gravity] : null),
+        new BlockDefinition("asteria:gravel", tags: gravityBlocks
+            ? [BlockPhysicsCapabilities.Gravity] : null),
         new BlockDefinition("asteria:clay"),
     ]);
 
@@ -258,7 +398,7 @@ public sealed class GeologyMaterializationRegressionTests
         ],
         geology: new BiomeGeologyDefinition(
             "asteria:stone",
-            ["asteria:gravel", "asteria:clay", "asteria:dirt"],
+            ["asteria:sand", "asteria:gravel", "asteria:clay", "asteria:dirt"],
             scale: 24,
             verticalScale: 6,
             detailScale: 5,
@@ -268,7 +408,9 @@ public sealed class GeologyMaterializationRegressionTests
             surfaceCoverDepth: 3,
             surfaceCoverage: surfaceCoverage));
 
-    private static DimensionDefinition CreateDimension(string biomeId) => new(
+    private static DimensionDefinition CreateDimension(
+        string biomeId,
+        DimensionCaveDefinition? caves = null) => new(
         new DimensionId("asteria:test"),
         [biomeId],
         seaLevel: 0,
@@ -279,5 +421,6 @@ public sealed class GeologyMaterializationRegressionTests
             new DimensionColor(255, 255, 255),
             1f,
             new DimensionColor(0, 0, 0),
-            0f));
+            0f),
+        caves: caves);
 }
