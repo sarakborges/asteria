@@ -175,8 +175,12 @@ public sealed class GeologyMaterializationRegressionTests
             unsupported.X, unsupported.Y, unsupported.Z);
         var lowerCoord = new ChunkCoord(
             upperCoord.X, upperCoord.Y - 1, upperCoord.Z);
+        var bottomCoord = new ChunkCoord(
+            upperCoord.X, upperCoord.Y - 2, upperCoord.Z);
         var firstUpper = firstGenerator.Materialize(upperCoord);
         var firstLower = firstGenerator.Materialize(lowerCoord);
+        var firstBottom = firstGenerator.Materialize(bottomCoord);
+        var secondBottom = secondGenerator.Materialize(bottomCoord);
         var secondLower = secondGenerator.Materialize(lowerCoord);
         var secondUpper = secondGenerator.Materialize(upperCoord);
 
@@ -186,6 +190,7 @@ public sealed class GeologyMaterializationRegressionTests
                 upperLocal.X, upperLocal.Y, upperLocal.Z));
         AssertChunksEqual(firstUpper, secondUpper);
         AssertChunksEqual(firstLower, secondLower);
+        AssertChunksEqual(firstBottom, secondBottom);
 
         var supported = supportedAtSeam.Value;
         var (supportedCoord, supportedLocal) = VoxelCoordinates.FromWorld(
@@ -200,6 +205,7 @@ public sealed class GeologyMaterializationRegressionTests
                  {
                      (upperCoord, firstUpper),
                      (lowerCoord, firstLower),
+                     (bottomCoord, firstBottom),
                  })
         {
             for (var z = 0; z < Chunk.Size; z++)
@@ -216,8 +222,11 @@ public sealed class GeologyMaterializationRegressionTests
 
                 var belowOccupied = y > 0
                     ? !chunk.GetCell(x, y - 1, z).IsEmpty
-                    : coord == upperCoord &&
-                      !firstLower.GetCell(x, Chunk.Size - 1, z).IsEmpty;
+                    : coord == upperCoord
+                        ? !firstLower.GetCell(x, Chunk.Size - 1, z).IsEmpty
+                        : coord == lowerCoord
+                            ? !firstBottom.GetCell(x, Chunk.Size - 1, z).IsEmpty
+                            : true;
                 Assert.True(belowOccupied,
                     $"Unsupported generated gravity block remains at " +
                     $"{coord.X * Chunk.Size + x},{worldY},{coord.Z * Chunk.Size + z}.");
