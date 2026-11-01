@@ -368,22 +368,26 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
-    public void LoadPriorityFavorsMovementDirectionAfterDistance()
+    public void LoadPriorityPrefersLocalChunksThenTheForwardPrefetchCorridor()
     {
         var center = ChunkCoord.Zero;
-        var movement =
-            new ChunkMovementDirection(1, 0);
+        var movement = new ChunkMovementDirection(1, 0);
 
+        var localBehind = ChunkStreamingState.Priority(
+            new ChunkCoord(-1, 0, 0), center, movement);
         var forward = ChunkStreamingState.Priority(
-            new ChunkCoord(2, 0, 0),
-            center,
-            movement);
-        var backward = ChunkStreamingState.Priority(
-            new ChunkCoord(-2, 0, 0),
-            center,
-            movement);
+            new ChunkCoord(4, 0, 0), center, movement);
+        var lateral = ChunkStreamingState.Priority(
+            new ChunkCoord(0, 0, 3), center, movement);
+        var behind = ChunkStreamingState.Priority(
+            new ChunkCoord(-4, 0, 0), center, movement);
+        var outsideCorridor = ChunkStreamingState.Priority(
+            new ChunkCoord(3, 0, 4), center, movement);
 
-        Assert.True(forward.CompareTo(backward) < 0);
+        Assert.True(localBehind.CompareTo(forward) < 0);
+        Assert.True(forward.CompareTo(lateral) < 0);
+        Assert.True(lateral.CompareTo(behind) < 0);
+        Assert.True(forward.CompareTo(outsideCorridor) < 0);
     }
 
     [Fact]
