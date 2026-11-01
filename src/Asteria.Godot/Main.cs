@@ -4820,6 +4820,11 @@ public partial class Main : Node3D
         string type,
         object payload)
     {
+        // Main can receive a final frame while its WebUi child is being freed.
+        // HUD updates are best-effort and must not take down the client.
+        if (_webUi is null || !GodotObject.IsInstanceValid(_webUi))
+            return;
+
         _webUi.Call(
             "post_message",
             JsonSerializer.Serialize(
