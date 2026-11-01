@@ -171,7 +171,15 @@ public sealed class SurfaceChunkMaterializer
                 if (job.NextTerrainLocalY > job.LastTerrainWorldY - job.OriginY)
                 {
                     CompleteInitialBlockWrites(job);
-                    job.Stage = ChunkMaterializationStage.SurfaceDecorations;
+                    if (job.SupportFaceFastPath)
+                    {
+                        job.Result = job.Chunk;
+                        job.Stage = ChunkMaterializationStage.Complete;
+                    }
+                    else
+                    {
+                        job.Stage = ChunkMaterializationStage.SurfaceDecorations;
+                    }
                 }
                 break;
 
@@ -325,8 +333,9 @@ public sealed class SurfaceChunkMaterializer
             throw new InvalidOperationException("Terrain writes are already complete.");
 
         var column = job.Column = _columns.Get(coord.X, coord.Z);
-        var densityVolume = job.DensityVolume =
-            _terrain.SampleDensityVolume(
+        var densityVolume = job.DensityVolume = job.SupportFaceFastPath
+            ? _terrain.CreateLazyDensityVolume(column, originX, originY, originZ)
+            : _terrain.SampleDensityVolume(
                 column,
                 originX,
                 originY,
@@ -345,9 +354,14 @@ public sealed class SurfaceChunkMaterializer
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
+            var index = localX + Chunk.Size * localZ;
+            if (job.SupportFaceFastPath &&
+                !(job.SupportFaceColumns ?? throw new InvalidOperationException(
+                    "Support-face query has no requested-column mask."))[index])
+                continue;
+
             var surfaceY = column.HeightAt(localX, localZ);
             maximumSurfaceY = Math.Max(maximumSurfaceY, surfaceY);
-            var index = localX + Chunk.Size * localZ;
             columnMaterializationCaches[index] = new ColumnMaterializationCache
             {
                 SurfaceY = surfaceY,
@@ -370,6 +384,16 @@ public sealed class SurfaceChunkMaterializer
 
         lastTerrainWorldY = Math.Min(lastTerrainWorldY, maximumSurfaceY);
         job.LastTerrainWorldY = lastTerrainWorldY;
+
+        if (job.SupportFaceFastPath)
+        {
+            // Only the requested top-face cells and their immediate supports
+            // are needed to establish ordinary terrain occupancy.
+            job.FirstTerrainWorldY = checked(originY + Chunk.Size - 2);
+            job.LastTerrainWorldY = checked(originY + Chunk.Size - 1);
+            job.NextTerrainLocalY = Chunk.Size - 2;
+            return;
+        }
 
         job.NextTerrainLocalY = firstTerrainWorldY - originY;
 
@@ -397,6 +421,11 @@ public sealed class SurfaceChunkMaterializer
                 for (var localX = 0; localX < Chunk.Size; localX++)
                 {
                     var columnIndex = localX + Chunk.Size * localZ;
+                    if (job.SupportFaceFastPath &&
+                        !(job.SupportFaceColumns ?? throw new InvalidOperationException(
+                            "Support-face query has no requested-column mask."))[columnIndex])
+                        continue;
+
                     ref var state = ref columnMaterializationCaches[columnIndex];
                     var sample = state.Sample ??
                         throw new InvalidOperationException(
@@ -783,10 +812,18 @@ public sealed class SurfaceChunkMaterializer
             if (!job.SupportOnly && job.OriginY > 0 &&
                 positions.Any(position => position.Y == 0))
             {
+                var supportColumns = new bool[Chunk.Area];
+                foreach (var position in positions)
+                {
+                    if (position.Y == 0)
+                        supportColumns[position.X + Chunk.Size * position.Z] = true;
+                }
                 job.SupportChunkJob = new MaterializationJob(
                     this,
                     new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
-                    supportOnly: true);
+                    supportOnly: true,
+                    supportFaceFastPath: true,
+                    supportFaceColumns: supportColumns);
                 supportJobCreated = true;
             }
         }
@@ -809,14 +846,59 @@ public sealed class SurfaceChunkMaterializer
             var supportChunk = completedSupport.Result ??
                 throw new InvalidOperationException(
                     "Completed gravity-support chunk has no result.");
-            var supportFace = new bool[Chunk.Area];
-            for (var z = 0; z < Chunk.Size; z++)
-            for (var x = 0; x < Chunk.Size; x++)
-                supportFace[x + Chunk.Size * z] =
-                    !supportChunk.GetCell(x, Chunk.Size - 1, z).IsEmpty;
-            job.SupportChunkTopOccupancy = supportFace;
-            completedSupport.Dispose();
-            job.SupportChunkJob = null;
+
+            if (completedSupport.SupportFaceFastPath)
+            {
+                var supportFace = new bool[Chunk.Area];
+                var fallbackColumns = new bool[Chunk.Area];
+                foreach (var (x, y, z) in positions)
+                {
+                    if (y != 0)
+                        continue;
+
+                    var index = x + Chunk.Size * z;
+                    supportFace[index] = CanResolveSupportFaceFromTerrain(
+                        completedSupport, x, z);
+                    fallbackColumns[index] = !supportFace[index];
+                }
+
+                completedSupport.Dispose();
+                if (fallbackColumns.Any(value => value))
+                {
+                    job.SupportChunkTopOccupancy = supportFace;
+                    job.SupportChunkFallbackColumns = fallbackColumns;
+                    job.SupportChunkJob = new MaterializationJob(
+                        this,
+                        new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
+                        supportOnly: true);
+                    return;
+                }
+
+                job.SupportChunkTopOccupancy = supportFace;
+                job.SupportChunkJob = null;
+            }
+            else
+            {
+                var supportFace = job.SupportChunkTopOccupancy ??
+                    throw new InvalidOperationException(
+                        "Fallback gravity-support query has no fast-path result.");
+                var fallbackColumns = job.SupportChunkFallbackColumns ??
+                    throw new InvalidOperationException(
+                        "Fallback gravity-support query has no unresolved-column mask.");
+                for (var z = 0; z < Chunk.Size; z++)
+                for (var x = 0; x < Chunk.Size; x++)
+                {
+                    var index = x + Chunk.Size * z;
+                    if (fallbackColumns[index])
+                        supportFace[index] =
+                            !supportChunk.GetCell(x, Chunk.Size - 1, z).IsEmpty;
+                }
+
+                job.SupportChunkTopOccupancy = supportFace;
+                job.SupportChunkFallbackColumns = null;
+                completedSupport.Dispose();
+                job.SupportChunkJob = null;
+            }
         }
 
         foreach (var (x, y, z) in positions)
@@ -867,6 +949,80 @@ public sealed class SurfaceChunkMaterializer
         }
 
         CompleteGravitySupportStage(job);
+    }
+
+    private bool CanResolveSupportFaceFromTerrain(
+        MaterializationJob supportJob,
+        int localX,
+        int localZ)
+    {
+        // Void dimensions use a dedicated spawn-platform writer. Keep those
+        // queries on the authoritative fallback path.
+        if (supportJob.Column is null || supportJob.DensityVolume is null)
+            return false;
+
+        var topLocalY = Chunk.Size - 1;
+        var belowLocalY = topLocalY - 1;
+        var top = supportJob.Chunk.GetCell(localX, topLocalY, localZ);
+        if (top.IsEmpty || !_materials.FacePalettesPreserveOccupancy)
+            return false;
+
+        var topWorldY = supportJob.OriginY + topLocalY;
+        var belowWorldY = topWorldY - 1;
+        if (IsSphereShellBoundaryOrLining(topWorldY) ||
+            IsSphereShellBoundaryOrLining(belowWorldY))
+            return false;
+
+        var worldX = supportJob.OriginX + localX;
+        var worldZ = supportJob.OriginZ + localZ;
+        if (HasSurfaceStructurePayloadAt(
+                supportJob.Coord, worldX, topWorldY, worldZ) ||
+            HasSurfaceStructurePayloadAt(
+                supportJob.Coord, worldX, belowWorldY, worldZ))
+            return false;
+
+        // A gravity voxel on the requested face must itself be stable before
+        // it can be trusted as support. If its lower cell is empty, retain the
+        // complete materialization path so decorations/structures and the
+        // generated-gravity invariant are evaluated in their normal order.
+        if (_gravityBlocks.Contains(top.Block) &&
+            supportJob.Chunk.GetCell(localX, belowLocalY, localZ).IsEmpty)
+            return false;
+
+        return true;
+    }
+
+    private bool IsSphereShellBoundaryOrLining(int worldY) =>
+        (_floorY is { } floorY &&
+         (worldY == floorY || (long)worldY == (long)floorY + 1L)) ||
+        (_roofY is { } roofY &&
+         (worldY == roofY || (long)worldY == (long)roofY - 1L));
+
+    private bool HasSurfaceStructurePayloadAt(
+        ChunkCoord coord,
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        if (!_structures.HasRules)
+            return false;
+
+        foreach (var placement in _structures.PlacementsForChunk(coord.X, coord.Z))
+        {
+            if (worldY < placement.MinimumY ||
+                worldY > placement.MaximumY)
+                continue;
+
+            if (placement.ClearVoxels.Any(voxel =>
+                    voxel.X == worldX && voxel.Y == worldY && voxel.Z == worldZ) ||
+                placement.Voxels.Any(voxel =>
+                    voxel.X == worldX && voxel.Y == worldY && voxel.Z == worldZ) ||
+                placement.FluidVoxels.Any(voxel =>
+                    voxel.X == worldX && voxel.Y == worldY && voxel.Z == worldZ))
+                return true;
+        }
+
+        return false;
     }
 
     private static void CompleteGravitySupportStage(MaterializationJob job)
@@ -961,11 +1117,22 @@ public sealed class SurfaceChunkMaterializer
         public MaterializationJob(
             SurfaceChunkMaterializer owner,
             ChunkCoord coord,
-            bool supportOnly = false)
+            bool supportOnly = false,
+            bool supportFaceFastPath = false,
+            bool[]? supportFaceColumns = null)
         {
             _owner = owner;
             Coord = coord;
             SupportOnly = supportOnly;
+            if (supportFaceFastPath &&
+                (!supportOnly || supportFaceColumns is null ||
+                 supportFaceColumns.Length != Chunk.Area ||
+                 !supportFaceColumns.Any(value => value)))
+                throw new ArgumentException(
+                    "A support-face fast path requires a non-empty chunk-area column mask.",
+                    nameof(supportFaceColumns));
+            SupportFaceFastPath = supportFaceFastPath;
+            SupportFaceColumns = supportFaceColumns;
             if (coord.Y < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(coord), "Sphere chunk Y cannot be negative.");
@@ -986,6 +1153,12 @@ public sealed class SurfaceChunkMaterializer
                 : Stage;
 
         public bool SupportOnly { get; }
+
+        public bool SupportFaceFastPath { get; }
+
+        public bool[]? SupportFaceColumns { get; }
+
+        public bool[]? SupportChunkFallbackColumns { get; set; }
 
         public List<(int X, int Y, int Z)>? GravityPositions { get; set; }
 

@@ -1798,6 +1798,20 @@ public sealed class BiomeWorldGenerationTests
         job.Advance();
         Assert.Equal(ChunkMaterializationStage.TerrainLayer,
             job.ActiveWorkStage);
+
+        job.Advance();
+        Assert.Equal(ChunkMaterializationStage.TerrainLayer,
+            job.ActiveWorkStage);
+        job.Advance();
+        Assert.Equal(ChunkMaterializationStage.GravitySupport,
+            job.ActiveWorkStage);
+
+        // The support face is ordinary solid core terrain with no structures
+        // or occupancy-changing face palette. It resolves from the sparse
+        // terrain slice without starting the full lower-chunk pipeline.
+        job.Advance();
+        Assert.Equal(ChunkMaterializationStage.StructureObjects, job.Stage);
+        Assert.Equal(new ChunkCoord(0, 1, 0), job.ActiveWorkCoord);
     }
 
     [Fact]

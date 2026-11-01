@@ -849,6 +849,48 @@ public sealed class SurfaceTerrainField
             _volumeBiomes);
     }
 
+    /// <summary>
+    /// Creates a deterministic, on-demand density view for support queries.
+    /// The caller may inspect a small set of voxels without sampling all 4096
+    /// cells in the owning chunk.
+    /// </summary>
+    internal TerrainDensityVolume CreateLazyDensityVolume(
+        SurfaceTerrainColumn column,
+        int originX,
+        int originY,
+        int originZ)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        if (originY < 0)
+            throw new ArgumentOutOfRangeException(nameof(originY));
+
+        _ = checked(originX + Chunk.Size - 1);
+        _ = checked(originY + Chunk.Size - 1);
+        _ = checked(originZ + Chunk.Size - 1);
+
+        double DensityAtLocal(int localX, int localY, int localZ)
+        {
+            var worldX = checked(originX + localX);
+            var worldY = checked(originY + localY);
+            var worldZ = checked(originZ + localZ);
+            return DensityAt(
+                column.BiomeAt(localX, localZ),
+                column.BaseHeightAt(localX, localZ),
+                worldX,
+                worldY,
+                worldZ,
+                column.VolumeBiomes[localX, localZ]);
+        }
+
+        return new TerrainDensityVolume(
+            Chunk.Size,
+            Chunk.Size,
+            Chunk.Size,
+            DensityAtLocal,
+            column.VolumeBiomes,
+            _volumeBiomes);
+    }
+
     public SurfaceTerrainColumn SampleColumn(int chunkX, int chunkZ)
     {
         var (originX, _, originZ) =
@@ -1809,6 +1851,34 @@ public sealed class TerrainDensityVolume
         _volumeBiomeField = volumeBiomeField;
     }
 
+    internal TerrainDensityVolume(
+        int width,
+        int height,
+        int depth,
+        Func<int, int, int, double> densityProvider,
+        VolumeBiomePlacementGrid? volumeBiomes,
+        VolumeBiomeField? volumeBiomeField)
+    {
+        if ((volumeBiomes is null) != (volumeBiomeField is null))
+        {
+            throw new ArgumentException(
+                "Volume biome snapshot metadata must be supplied together.");
+        }
+
+        if (width is < 1 or > Chunk.Size ||
+            height is < 1 or > Chunk.Size ||
+            depth is < 1 or > Chunk.Size)
+            throw new ArgumentOutOfRangeException(nameof(width));
+
+        Width = width;
+        Height = height;
+        Depth = depth;
+        _densityProvider = densityProvider ??
+            throw new ArgumentNullException(nameof(densityProvider));
+        _volumeBiomes = volumeBiomes;
+        _volumeBiomeField = volumeBiomeField;
+    }
+
     public int Width { get; }
 
     public int Height { get; }
@@ -1821,6 +1891,10 @@ public sealed class TerrainDensityVolume
         int localZ)
     {
         var index = Index(localX, localY, localZ);
+        if (_columnSolidMask is null &&
+            Volatile.Read(ref _densities) is null)
+            return _densityProvider!(localX, localY, localZ);
+
         var densities = Volatile.Read(ref _densities);
         if (densities is null)
         {
@@ -1891,7 +1965,9 @@ public sealed class TerrainDensityVolume
         int localX,
         int localY,
         int localZ) =>
-        (_columnSolidMask![(localZ * Width) + localX] & (1u << localY)) != 0;
+        _columnSolidMask is { } mask
+            ? (mask[(localZ * Width) + localX] & (1u << localY)) != 0
+            : _densityProvider!(localX, localY, localZ) >= 0d;
 
     internal BiomeSample? VolumePlacementAt(
         int localX,
