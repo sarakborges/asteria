@@ -46,7 +46,6 @@ public sealed class SurfaceChunkMaterializer
     private readonly SurfaceDecorationField _decorations;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly BlockRegistry _blocks;
-    private readonly HashSet<BlockRuntimeId> _gravityBlocks;
     private readonly SurfaceStructureField _structures;
     private readonly Func<FluidRuntimeId, int, int, int, int, bool>
         _nearbyFluidQuery;
@@ -109,10 +108,6 @@ public sealed class SurfaceChunkMaterializer
         _nearbyFluidQuery = HasNearbyFluid;
         ArgumentNullException.ThrowIfNull(dimension);
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
-        _gravityBlocks = blocks.AuthoredDefinitions()
-            .Where(entry => entry.Definition.HasTag(BlockPhysicsCapabilities.Gravity))
-            .Select(entry => entry.RuntimeId)
-            .ToHashSet();
 
         // Flat and Normal respect authored Sphere Shells; Void does not.
         _shellBlock = voidSpawnPlatform is null && dimension.Shell is { } shell
@@ -291,32 +286,6 @@ public sealed class SurfaceChunkMaterializer
         job.DensityVolume ??
         throw new InvalidOperationException("Terrain density snapshot is missing.");
 
-    private BlockRuntimeId EnsureGravityMaterialHasSupport(
-        Chunk chunk,
-        BiomeSample biome,
-        int localX,
-        int localY,
-        int localZ,
-        BlockRuntimeId material)
-    {
-        if (!_gravityBlocks.Contains(material) || localY == 0)
-            return material;
-
-        // Match BlockMaterializationRules: any non-empty voxel is occupied.
-        // At a vertical chunk seam, the lower chunk may contain structure
-        // support not represented by terrain density. Leave that dependency
-        // to the runtime's existing wait-for-residency physics queue.
-        if (!chunk.GetCell(localX, localY - 1, localZ).IsEmpty)
-            return material;
-
-        var fallback = _materials.StableGeologyBaseBlockAt(biome);
-        if (_gravityBlocks.Contains(fallback))
-            fallback = _materials.CoreLayer(biome).Block;
-        return _gravityBlocks.Contains(fallback)
-            ? material
-            : fallback;
-    }
-
     private static void CompleteInitialBlockWrites(MaterializationJob job)
     {
         job.InitialBlocks?.Complete();
@@ -461,7 +430,6 @@ public sealed class SurfaceChunkMaterializer
                     }
 
                     BlockRuntimeId exposedBlock = BlockRuntimeId.Air;
-                    BiomeSample? exposedGeologyOwner = null;
                     var hasExposedGeology = false;
                     if (isExposedTerrainTop)
                     {
@@ -471,7 +439,6 @@ public sealed class SurfaceChunkMaterializer
                               throw new InvalidOperationException(
                                   "Additive surface has no volume biome owner.")
                             : sample;
-                        exposedGeologyOwner = surfaceOwner;
                         if (!_materials.SurfaceGeologyRequiresSubmerged(surfaceOwner) ||
                             HasGeneratedFluidAboveSurface(
                                 surfaceOwner, sample, baseY,
@@ -487,12 +454,7 @@ public sealed class SurfaceChunkMaterializer
                     BlockRuntimeId block;
                     if (hasExposedGeology)
                     {
-                        block = EnsureGravityMaterialHasSupport(
-                            job.Chunk,
-                            exposedGeologyOwner ??
-                                throw new InvalidOperationException(
-                                    "Exposed geology has no biome owner."),
-                            localX, localY, localZ, exposedBlock);
+                        block = exposedBlock;
                     }
                     else if (worldY <= baseY)
                     {
@@ -512,9 +474,7 @@ public sealed class SurfaceChunkMaterializer
                                      sample, worldX, worldY, worldZ,
                                      out var geologyBlock))
                         {
-                            block = EnsureGravityMaterialHasSupport(
-                                job.Chunk, sample,
-                                localX, localY, localZ, geologyBlock);
+                            block = geologyBlock;
                         }
                         else
                         {
@@ -557,9 +517,7 @@ public sealed class SurfaceChunkMaterializer
                                      volumeSample, worldX, worldY, worldZ,
                                      out var volumeGeologyBlock))
                         {
-                            block = EnsureGravityMaterialHasSupport(
-                                job.Chunk, volumeSample,
-                                localX, localY, localZ, volumeGeologyBlock);
+                            block = volumeGeologyBlock;
                         }
                         else
                         {
@@ -1433,14 +1391,10 @@ public sealed class SurfaceChunkMaterializer
                     }
                     if (biome is not null &&
                         depth < _materials.MaxVolumePaintDepth(biome))
-                    {
-                        var material = _materials.VolumeBlockAt(
-                            biome, worldX, worldY, worldZ,
-                            exposed, (uint)depth);
                         chunk.SetBlock(x, y, z,
-                            EnsureGravityMaterialHasSupport(
-                                chunk, biome, x, y, z, material));
-                    }
+                            _materials.VolumeBlockAt(
+                                biome, worldX, worldY, worldZ,
+                                exposed, (uint)depth));
                     break;
                 }
             }
@@ -1551,10 +1505,8 @@ public sealed class SurfaceChunkMaterializer
                     if (face is not { } exposed)
                         continue;
 
-                    var material = _materials.VolumeBlockAt(
-                        biome, worldX, worldY, worldZ, exposed, (uint)depth);
-                    chunk.SetBlock(x, y, z, EnsureGravityMaterialHasSupport(
-                        chunk, biome, x, y, z, material));
+                    chunk.SetBlock(x, y, z, _materials.VolumeBlockAt(
+                        biome, worldX, worldY, worldZ, exposed, (uint)depth));
                     break;
                 }
             }
