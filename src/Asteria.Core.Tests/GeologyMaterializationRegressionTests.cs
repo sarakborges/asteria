@@ -117,7 +117,7 @@ public sealed class GeologyMaterializationRegressionTests
         var caves = new DimensionCaveDefinition(
         [
             new DimensionCaveLayerDefinition(
-                minDepth: 8,
+                minDepth: 20,
                 maxDepth: 80,
                 channels:
                 [
@@ -168,7 +168,7 @@ public sealed class GeologyMaterializationRegressionTests
         // should not depend on a rare coincidence at the cave/chunk seam.
         for (var z = -128; z <= 128 && !supportedCandidate.HasValue; z += 2)
         for (var x = -128; x <= 128 && !supportedCandidate.HasValue; x += 2)
-        for (var worldY = 4; worldY < 38; worldY++)
+        for (var worldY = 21; worldY < 38; worldY++)
         {
             if (firstGenerator.DensityAt(x, worldY, z) < 0d ||
                 firstGenerator.DensityAt(x, worldY - 1, z) < 0d ||
