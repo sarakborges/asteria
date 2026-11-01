@@ -177,7 +177,14 @@ public sealed class SurfaceChunkMaterializer
 
             case ChunkMaterializationStage.SurfaceDecorations:
                 MaterializeSurfaceDecorations(job);
-                job.Stage = ChunkMaterializationStage.VolumeCavePalette;
+                // A support-only job returns only the upper face's occupancy.
+                // Cave/exterior palettes normally recolor already-solid cells;
+                // when every loaded palette is occupancy-preserving, those
+                // full-chunk scans cannot change the support-face answer.
+                job.Stage = job.SupportOnly &&
+                    _materials.FacePalettesPreserveOccupancy
+                        ? ChunkMaterializationStage.VolumeStructures
+                        : ChunkMaterializationStage.VolumeCavePalette;
                 break;
 
             case ChunkMaterializationStage.VolumeCavePalette:
