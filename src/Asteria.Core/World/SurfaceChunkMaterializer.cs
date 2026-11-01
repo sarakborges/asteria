@@ -745,15 +745,16 @@ public sealed class SurfaceChunkMaterializer
                 return result != 0 ? result : left.X.CompareTo(right.X);
             });
             job.GravityPositions = positions;
-        }
 
-        if (!job.SupportOnly && job.OriginY > 0 &&
+            // The child dependency must survive across multiple worker slices.
+            if (!job.SupportOnly && job.OriginY > 0 &&
                 positions.Any(position => position.Y == 0))
             {
                 job.SupportChunkJob = new MaterializationJob(
                     this,
                     new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
                     supportOnly: true);
+            }
         }
 
         if (job.SupportChunkJob is { IsComplete: false } pendingSupport)
