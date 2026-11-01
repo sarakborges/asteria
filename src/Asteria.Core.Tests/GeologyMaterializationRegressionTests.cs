@@ -113,11 +113,11 @@ public sealed class GeologyMaterializationRegressionTests
     public void MaterializedGravityGeologyNeverLeavesUnsupportedCellsAcrossVerticalSeams()
     {
         var blocks = CreateBlocks(gravityBlocks: true);
-        var biome = CreateBiome(gravityOnly: true);
+        var biome = CreateBiome();
         var caves = new DimensionCaveDefinition(
         [
             new DimensionCaveLayerDefinition(
-                minDepth: 16,
+                minDepth: 8,
                 maxDepth: 80,
                 channels:
                 [
@@ -168,7 +168,7 @@ public sealed class GeologyMaterializationRegressionTests
         // should not depend on a rare coincidence at the cave/chunk seam.
         for (var z = -128; z <= 128 && !supportedCandidate.HasValue; z += 2)
         for (var x = -128; x <= 128 && !supportedCandidate.HasValue; x += 2)
-        for (var worldY = 26; worldY < 38; worldY++)
+        for (var worldY = 4; worldY < 38; worldY++)
         {
             if (firstGenerator.DensityAt(x, worldY, z) < 0d ||
                 firstGenerator.DensityAt(x, worldY - 1, z) < 0d ||
@@ -399,9 +399,7 @@ public sealed class GeologyMaterializationRegressionTests
         new BlockDefinition("asteria:clay"),
     ]);
 
-    private static BiomeDefinition CreateBiome(
-        float surfaceCoverage = 0f,
-        bool gravityOnly = false) => new(
+    private static BiomeDefinition CreateBiome(float surfaceCoverage = 0f) => new(
         "asteria:test/geology",
         new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
         new BiomeTerrainDefinition(
@@ -417,14 +415,12 @@ public sealed class GeologyMaterializationRegressionTests
         ],
         geology: new BiomeGeologyDefinition(
             "asteria:stone",
-            gravityOnly
-                ? ["asteria:gravel"]
-                : ["asteria:sand", "asteria:gravel", "asteria:clay", "asteria:dirt"],
+            ["asteria:sand", "asteria:gravel", "asteria:clay", "asteria:dirt"],
             scale: 24,
             verticalScale: 6,
             detailScale: 5,
             selectionScale: 12,
-            coverage: gravityOnly ? 1f : 0.78f,
+            coverage: 0.78f,
             roughness: 0.32f,
             surfaceCoverDepth: 3,
             surfaceCoverage: surfaceCoverage));
