@@ -246,7 +246,8 @@ public sealed class ChunkResidencyRuntime
 
     /// <summary>Background tasks currently owning terrain or initial-light stages.</summary>
     public int ActiveWorkerCount =>
-        _materializationTasks.Count;
+        _materializationTasks.Values.Count(work =>
+            !work.WorkerTask.IsCompleted);
 
     public int MaterializationJobCount =>
         _materializationTasks.Count;
