@@ -114,11 +114,14 @@ public static class VoxelWorldSaveCodec
         {
             var chunk = ChunkSaveCodec.Decode(
                 entry.EncodedChunk, blocks, fluids, dyes, layers);
-            if (initializeLighting)
+            if (initializeLighting && !entry.Resident)
                 ChunkLightingSolver.Initialize(chunk, blocks, fluids, objects);
             restored.RestoreSavedChunk(
                 entry.Coordinate, chunk, entry.Resident, entry.Dirty);
         }
+
+        if (initializeLighting)
+            VoxelWorldLightingSolver.Initialize(restored, blocks, fluids, objects);
 
         return restored;
     }

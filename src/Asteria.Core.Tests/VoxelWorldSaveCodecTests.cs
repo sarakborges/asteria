@@ -195,12 +195,14 @@ public sealed class VoxelWorldSaveCodecTests
         var content = Content();
         var lamp = content.Blocks.GetId("asteria:lamp");
         var residentCoord = ChunkCoord.Zero;
-        var archivedCoord = new ChunkCoord(1, 0, 0);
+        var neighborCoord = new ChunkCoord(1, 0, 0);
+        var archivedCoord = new ChunkCoord(2, 0, 0);
         var world = new VoxelWorld();
 
         var resident = new Chunk();
-        resident.SetBlock(8, 8, 8, lamp);
+        resident.SetBlock(Chunk.Size - 1, 8, 8, lamp);
         world.InsertChunk(residentCoord, resident);
+        world.InsertChunk(neighborCoord, new Chunk());
         world.InsertChunk(archivedCoord, new Chunk());
         Assert.Equal(
             ChunkArchiveResult.ArchivedPristine,
@@ -208,8 +210,12 @@ public sealed class VoxelWorldSaveCodecTests
 
         var restored = Restore(Capture(world, content), content);
         Assert.Equal(
+            (byte)15,
+            restored.GetChunk(residentCoord).GetLight(
+                Chunk.Size - 1, 8, 8).Red);
+        Assert.Equal(
             (byte)14,
-            restored.GetChunk(residentCoord).GetLight(9, 8, 8).Red);
+            restored.GetChunk(neighborCoord).GetLight(0, 8, 8).Red);
         Assert.Equal(
             VoxelLight.MaxLevel,
             restored.GetChunk(residentCoord).GetLight(0, 0, 0).Sky);

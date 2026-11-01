@@ -232,12 +232,6 @@ public sealed class ChunkResidencyRuntime
             settings ??
             throw new ArgumentNullException(nameof(settings));
         _objects = objects;
-
-        foreach (var coord in _world.LoadedChunkCoords
-                     .OrderBy(coord => coord.Y)
-                     .ThenBy(coord => coord.Z)
-                     .ThenBy(coord => coord.X))
-            EnqueueChunkLightingReconciliation(coord);
     }
 
     public ChunkCoord Center => _center;
