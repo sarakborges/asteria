@@ -620,8 +620,10 @@ public sealed class Chunk
             _fluids.Clone(),
             _microblockMasks.Clone(),
             [],
-            _objects.ToDictionary(entry => entry.Key,
-                entry => new List<ObjectCell>(entry.Value)),
+            _objects is { Count: > 0 } objectIndex
+                ? objectIndex.ToDictionary(entry => entry.Key,
+                    entry => new List<ObjectCell>(entry.Value))
+                : null,
             (VoxelLight[])_light.Clone(),
             Revision,
             ObjectRevision)
