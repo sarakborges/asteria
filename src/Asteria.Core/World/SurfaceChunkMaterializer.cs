@@ -261,6 +261,7 @@ public sealed class SurfaceChunkMaterializer
             case ChunkMaterializationStage.ShellFinalization:
                 ConcealSphereShell(
                     job.Chunk, RequiredColumn(job), job.OriginY, job.TopExclusive);
+                MaterializeGravityBlockSupport(job);
                 job.Stage = ChunkMaterializationStage.StructureObjects;
                 break;
 
@@ -271,7 +272,6 @@ public sealed class SurfaceChunkMaterializer
 
             case ChunkMaterializationStage.PendingObjects:
                 MaterializePendingObjects(job);
-                MaterializeGravityBlockSupport(job);
                 job.Result = job.Chunk;
                 job.Stage = ChunkMaterializationStage.Complete;
                 break;

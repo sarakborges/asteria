@@ -117,7 +117,7 @@ public sealed class GeologyMaterializationRegressionTests
         var caves = new DimensionCaveDefinition(
         [
             new DimensionCaveLayerDefinition(
-                minDepth: 10,
+                minDepth: 8,
                 maxDepth: 80,
                 channels:
                 [
@@ -144,14 +144,14 @@ public sealed class GeologyMaterializationRegressionTests
         WorldVoxelCoord? unsupportedAtSeam = null;
         WorldVoxelCoord? supportedAtSeam = null;
 
-        // The flat surface is Y=40. Probe the Y=16 vertical chunk seam:
-        // cave roofs create solid voxels immediately above a carved void.
+        // The flat surface is Y=40. With caves beginning at depth eight,
+        // the roof crosses the Y=32 vertical chunk seam.
         for (var z = -128; z <= 128 &&
              (!unsupportedAtSeam.HasValue || !supportedAtSeam.HasValue); z += 2)
         for (var x = -128; x <= 128 &&
              (!unsupportedAtSeam.HasValue || !supportedAtSeam.HasValue); x += 2)
         {
-            const int worldY = Chunk.Size;
+            const int worldY = Chunk.Size * 2;
             if (firstGenerator.DensityAt(x, worldY, z) < 0d ||
                 !materials.TryGeologyBlockAt(
                     sample, x, worldY, z, out var material) ||
