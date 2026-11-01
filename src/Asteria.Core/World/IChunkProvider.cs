@@ -31,6 +31,7 @@ public enum ChunkMaterializationStage : byte
     WallLayers,
     WallObjects,
     ShellFinalization,
+    GravitySupport,
     StructureObjects,
     PendingObjects,
     Complete,

@@ -46,6 +46,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly SurfaceDecorationField _decorations;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly BlockRegistry _blocks;
+    private readonly HashSet<BlockRuntimeId> _gravityBlocks;
     private readonly SurfaceStructureField _structures;
     private readonly Func<FluidRuntimeId, int, int, int, int, bool>
         _nearbyFluidQuery;
@@ -108,6 +109,10 @@ public sealed class SurfaceChunkMaterializer
         _nearbyFluidQuery = HasNearbyFluid;
         ArgumentNullException.ThrowIfNull(dimension);
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
+        _gravityBlocks = blocks.AuthoredDefinitions()
+            .Where(entry => entry.Definition.HasTag(BlockPhysicsCapabilities.Gravity))
+            .Select(entry => entry.RuntimeId)
+            .ToHashSet();
 
         // Flat and Normal respect authored Sphere Shells; Void does not.
         _shellBlock = voidSpawnPlatform is null && dimension.Shell is { } shell
@@ -256,7 +261,11 @@ public sealed class SurfaceChunkMaterializer
             case ChunkMaterializationStage.ShellFinalization:
                 ConcealSphereShell(
                     job.Chunk, RequiredColumn(job), job.OriginY, job.TopExclusive);
-                job.Stage = ChunkMaterializationStage.StructureObjects;
+                job.Stage = ChunkMaterializationStage.GravitySupport;
+                break;
+
+            case ChunkMaterializationStage.GravitySupport:
+                AdvanceGravitySupport(job);
                 break;
 
             case ChunkMaterializationStage.StructureObjects:
@@ -704,6 +713,169 @@ public sealed class SurfaceChunkMaterializer
         job.PendingObjects = pendingObjects;
     }
 
+    /// <summary>
+    /// Enforces the generated-world gravity invariant after every voxel-writing
+    /// stage and before Objects are attached. Unsupported deposits are replaced
+    /// with their biome's stable core material; physics remains responsible for
+    /// gravity blocks placed or uncovered during gameplay.
+    /// </summary>
+    private void AdvanceGravitySupport(MaterializationJob job)
+    {
+        if (job.GravityPositions is null)
+        {
+            var positions = new List<(int X, int Y, int Z)>();
+            job.Chunk.VisitBlockCells((x, y, z, cell) =>
+            {
+                if (_gravityBlocks.Contains(cell.Block))
+                    positions.Add((x, y, z));
+            });
+
+            positions.Sort(static (left, right) =>
+            {
+                var result = left.Y.CompareTo(right.Y);
+                if (result != 0) return result;
+                result = left.Z.CompareTo(right.Z);
+                return result != 0 ? result : left.X.CompareTo(right.X);
+            });
+            job.GravityPositions = positions;
+
+            if (!job.SupportOnly && job.OriginY > 0 &&
+                positions.Any(position => position.Y == 0))
+            {
+                job.SupportChunkJob = new MaterializationJob(
+                    this,
+                    new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
+                    supportOnly: true);
+            }
+        }
+
+        if (job.SupportChunkJob is { IsComplete: false } pendingSupport)
+        {
+            // Advance the support query by one normal materialization slice.
+            // The lower chunk is never published to the world by this job.
+            pendingSupport.Advance();
+            return;
+        }
+
+        if (job.SupportChunkJob is { IsComplete: true } completedSupport)
+        {
+            job.SupportChunk = completedSupport.Result ??
+                throw new InvalidOperationException(
+                    "Completed gravity-support chunk has no result.");
+            completedSupport.Dispose();
+            job.SupportChunkJob = null;
+        }
+
+        // A support-only chunk is queried only to answer the upper chunk's
+        // bottom face. Its own bottom face belongs to an even lower chunk, so
+        // treat bottom-row gravity as unresolved when validating a stack above
+        // it. Any gravity block directly above that unresolved row is anchored
+        // to stable host rock before the queried top row can support the parent.
+        HashSet<int>? unresolvedBottomGravity = null;
+        if (job.SupportOnly && job.GravityPositions.Count > 0)
+        {
+            unresolvedBottomGravity = job.GravityPositions
+                .Where(position => position.Y == 0)
+                .Select(position => position.X + Chunk.Size * position.Z)
+                .ToHashSet();
+        }
+
+        foreach (var (x, y, z) in job.GravityPositions)
+        {
+            if (job.SupportOnly && y == 0)
+                continue;
+
+            var worldX = job.OriginX + x;
+            var worldY = job.OriginY + y;
+            var worldZ = job.OriginZ + z;
+            bool supported;
+
+            if (y > 0)
+            {
+                var below = job.Chunk.GetCell(x, y - 1, z);
+                var restsOnUnresolvedGravity = job.SupportOnly &&
+                    y == 1 &&
+                    unresolvedBottomGravity?.Contains(
+                        x + Chunk.Size * z) == true &&
+                    _gravityBlocks.Contains(below.Block);
+                supported = !below.IsEmpty && !restsOnUnresolvedGravity;
+            }
+            else if (worldY == 0)
+            {
+                // The world floor is the same terminal support understood by
+                // BlockMaterializationRules.BelowWorld.
+                supported = true;
+            }
+            else
+            {
+                var supportChunk = job.SupportChunk ??
+                    throw new InvalidOperationException(
+                        "A bottom-seam gravity block has no generated support chunk.");
+                supported = !supportChunk.GetCell(
+                    x, Chunk.Size - 1, z).IsEmpty;
+            }
+
+            if (supported)
+                continue;
+
+            var column = RequiredColumn(job);
+            var surfaceBiome = column.BiomeAt(x, z);
+            var owner = ResolveGravityMaterialOwner(
+                column, RequiredDensity(job), surfaceBiome,
+                x, y, z, worldX, worldY, worldZ);
+            var stableBlock = _materials.CoreLayer(owner).Block;
+            if (stableBlock.IsAir || _gravityBlocks.Contains(stableBlock))
+            {
+                throw new InvalidOperationException(
+                    $"Biome {owner.Primary} has no stable core material for unsupported " +
+                    $"gravity block at {worldX},{worldY},{worldZ}.");
+            }
+
+            // SetBlock replaces the full VoxelCell (including sculpt mask,
+            // facing and state) and clears any attached face-layer state.
+            job.Chunk.SetBlock(x, y, z, stableBlock);
+        }
+
+        if (job.SupportOnly)
+        {
+            job.Result = job.Chunk;
+            job.Stage = ChunkMaterializationStage.Complete;
+        }
+        else
+        {
+            job.Stage = ChunkMaterializationStage.StructureObjects;
+        }
+    }
+
+    private BiomeSample ResolveGravityMaterialOwner(
+        SurfaceTerrainColumn column,
+        TerrainDensityVolume density,
+        BiomeSample surfaceBiome,
+        int localX,
+        int localY,
+        int localZ,
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        var baseY = column.BaseHeightAt(localX, localZ);
+        if (worldY > baseY)
+        {
+            return density.VolumeBiomeAt(localX, localY, localZ) ??
+                surfaceBiome;
+        }
+
+        var below = new WorldVoxelCoord(worldX, worldY - 1, worldZ);
+        if (worldY > 0 &&
+            _terrain.IsCaveVoidAt(baseY, below) &&
+            column.CaveBiomeAt(localX, localZ) is { } caveBiome)
+        {
+            return caveBiome;
+        }
+
+        return surfaceBiome;
+    }
+
     private void MaterializePendingObjects(MaterializationJob job)
     {
         var chunk = job.Chunk;
@@ -753,10 +925,12 @@ public sealed class SurfaceChunkMaterializer
 
         public MaterializationJob(
             SurfaceChunkMaterializer owner,
-            ChunkCoord coord)
+            ChunkCoord coord,
+            bool supportOnly = false)
         {
             _owner = owner;
             Coord = coord;
+            SupportOnly = supportOnly;
             if (coord.Y < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(coord), "Sphere chunk Y cannot be negative.");
@@ -765,6 +939,14 @@ public sealed class SurfaceChunkMaterializer
         }
 
         public ChunkCoord Coord { get; }
+
+        public bool SupportOnly { get; }
+
+        public List<(int X, int Y, int Z)>? GravityPositions { get; set; }
+
+        public MaterializationJob? SupportChunkJob { get; set; }
+
+        public Chunk? SupportChunk { get; set; }
 
         public Chunk Chunk => _chunk ??
             throw new InvalidOperationException(
@@ -816,6 +998,8 @@ public sealed class SurfaceChunkMaterializer
 
         public void Dispose()
         {
+            SupportChunkJob?.Dispose();
+            SupportChunkJob = null;
             InitialBlocks?.Dispose();
             InitialBlocks = null;
         }
