@@ -2136,12 +2136,6 @@ public sealed class SurfaceChunkMaterializer
         }
     }
 
-    /// <summary>
-    /// Renders physical wall plants as actual objects in the adjacent air
-    /// voxel. Flat coatings are owned separately by MaterializeWallLayers on
-    /// the solid host's BlockSurfaceState, never as projected block objects.
-    /// Neighboring chunks are queried without mutating their cells.
-    /// </summary>
     private bool CaveNeighborSupportsWallDecorations(
         SurfaceTerrainColumn column,
         int localX,
@@ -2170,6 +2164,12 @@ public sealed class SurfaceChunkMaterializer
              _decorations.HasWallObjectsFor(caveBiome.Primary));
     }
 
+    /// <summary>
+    /// Renders physical wall plants as actual objects in the adjacent air
+    /// voxel. Flat coatings are owned separately by MaterializeWallLayers on
+    /// the solid host's BlockSurfaceState, never as projected block objects.
+    /// Neighboring chunks are queried without mutating their cells.
+    /// </summary>
     private void MaterializeWallObjects(
         Chunk chunk,
         SurfaceTerrainColumn column,
