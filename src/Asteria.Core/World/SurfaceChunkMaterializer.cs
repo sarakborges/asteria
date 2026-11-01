@@ -844,6 +844,11 @@ public sealed class SurfaceChunkMaterializer
             job.Chunk.SetBlock(x, y, z, stableBlock);
         }
 
+        CompleteGravitySupportStage(job);
+    }
+
+    private static void CompleteGravitySupportStage(MaterializationJob job)
+    {
         if (job.SupportOnly)
         {
             job.Result = job.Chunk;
