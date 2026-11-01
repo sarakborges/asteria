@@ -37,7 +37,6 @@ public static class ChunkMeshBuilder
 
         return mesh.GetSurfaceCount() - initialSurfaceCount;
     }
-            var light = new byte[vertices.Length * 4];
 
     /// <summary>
     /// Publishes one material surface directly from the presentation's retained
@@ -61,7 +60,6 @@ public static class ChunkMeshBuilder
         var uvs = new Vector2[vertices.Count];
         var uv2s = new Vector2[vertices.Count];
         var light = new byte[vertices.Count * 4];
-            arrays[(int)Mesh.ArrayType.Custom0] = light;
 
         for (var index = 0; index < vertices.Count; index++)
         {
