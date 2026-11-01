@@ -110,6 +110,38 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
+    public void FacePaletteAirMaterialsDisableSupportOccupancyFastPath()
+    {
+        var blocks = CreateBlocks();
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/air_palette",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 64,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [
+                  { "block": "air" }
+                ]
+              }
+            }
+            """);
+
+        var materials = new BiomeSurfaceMaterialField(
+            Seed, [biome], blocks);
+
+        Assert.False(materials.FacePalettesPreserveOccupancy);
+    }
+
+    [Fact]
     public void MaterializedGravityGeologyNeverLeavesUnsupportedCellsAcrossVerticalSeams()
     {
         var blocks = CreateBlocks(gravityBlocks: true);
