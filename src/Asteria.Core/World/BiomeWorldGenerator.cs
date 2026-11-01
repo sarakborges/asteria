@@ -142,6 +142,11 @@ public sealed class BiomeWorldGenerator :
                 .Concat(volumeDefinitions)
                 .OrderBy(definition => definition.Id, StringComparer.Ordinal)
                 .ToArray();
+        var carvedVoidBiomeIds = volumeDefinitions
+            .Where(definition =>
+                definition.VolumeLayout?.Placement == VolumeBiomePlacement.CarvedVoid)
+            .Select(definition => definition.Id)
+            .ToArray();
         var decorationDefinitions = materialDefinitions;
 
         _generation = generation;
@@ -192,7 +197,8 @@ public sealed class BiomeWorldGenerator :
                 materialDefinitions,
                 blocks,
                 _terrain,
-                mosaic);
+                mosaic,
+                carvedVoidBiomeIds);
         // Structure roots are authored for the full Sphere, even when a
         // generation preset omits one of its surface biomes (e.g. ocean).
         // Keep their habitat definitions available for validation without

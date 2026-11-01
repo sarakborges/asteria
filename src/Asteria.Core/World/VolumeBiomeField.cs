@@ -102,6 +102,12 @@ public sealed class VolumeBiomeField
     public bool HasBiomes =>
         _placement is not null || _cavePlacement is not null;
 
+    /// <summary>
+    /// True when the dimension selects at least one carved-void biome.
+    /// This describes placement ownership, not a separate material palette.
+    /// </summary>
+    public bool HasCarvedVoidBiomes => _cavePlacement is not null;
+
     /// <summary>Volume identity at a carved cave surface. Density owns occupancy.</summary>
     public BiomeSample? SampleCave(int worldX, int worldZ) =>
         _cavePlacement?.Sample(worldX, worldZ);

@@ -2502,6 +2502,24 @@ public sealed class BiomeWorldGenerationTests
                     if (!path.EndsWith("caverns.json", StringComparison.Ordinal))
                         return content;
                     var root = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                    // Surface metadata must not reclassify this biome's palette:
+                    // the dimension selects Caverns exclusively as a carved-void owner.
+                    root["surfaceLayout"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """
+                        {
+                          "weight": 1,
+                          "regionSize": { "min": 128, "max": 256 }
+                        }
+                        """);
+                    root["surfaceTerrain"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """
+                        {
+                          "type": "rolling",
+                          "baseHeight": 4,
+                          "amplitude": 2,
+                          "scale": 0.012
+                        }
+                        """);
                     root["palette"] = System.Text.Json.Nodes.JsonNode.Parse(
                         """
                         {
@@ -2516,6 +2534,11 @@ public sealed class BiomeWorldGenerationTests
                     root["caveSpikes"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
                     return root.ToJsonString();
                 }));
+        var caverns = biomes.Get("asteria:overworld/caverns");
+        Assert.NotNull(caverns.SurfaceLayout);
+        Assert.Contains(caverns.Id, dimension.VolumeBiomes);
+        Assert.DoesNotContain(caverns.Id, dimension.SurfaceBiomes);
+
         var generator = new BiomeWorldGenerator(
             DimensionSeed.Derive(0xA57E_2026UL, dimension.Id), dimension,
             blocks, LoadDefaultFluids(), biomes, LoadDefaultStructures(),
