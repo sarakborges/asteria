@@ -32,7 +32,6 @@ public static class ChunkFluidMeshBuilder
 
         return mesh.GetSurfaceCount() - initialSurfaceCount;
     }
-            var light = new byte[vertices.Length * 4];
 
     /// <summary>Publishes a retained fluid surface without an intermediate vertex-array copy.</summary>
     internal static bool AppendSurface(
@@ -52,7 +51,6 @@ public static class ChunkFluidMeshBuilder
         var uvs = new Vector2[vertices.Count];
         var colors = new Color[vertices.Count];
         var light = new byte[vertices.Count * 4];
-            arrays[(int)Mesh.ArrayType.Custom0] = light;
 
         for (var index = 0; index < vertices.Count; index++)
         {
