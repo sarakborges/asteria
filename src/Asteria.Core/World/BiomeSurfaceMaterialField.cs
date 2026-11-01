@@ -297,6 +297,18 @@ public sealed class BiomeSurfaceMaterialField
         return (rule.CoreBlock, rule.CoreStartDepth);
     }
 
+    /// <summary>
+    /// Returns the stable host material used when a gravity-tagged geological
+    /// deposit has no voxel support below it.
+    /// </summary>
+    public BlockRuntimeId StableGeologyBaseBlockAt(BiomeSample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return _geologyRules.TryGetValue(sample.Primary, out var geology)
+            ? geology.BaseBlock
+            : CoreLayer(sample).Block;
+    }
+
     private SurfacePlacementContext? PlacementFor(
         MaterialRule rule,
         int worldX,
@@ -540,6 +552,7 @@ public sealed class BiomeSurfaceMaterialField
                 .ToArray();
         }
 
+        public BlockRuntimeId BaseBlock => _baseBlock;
         public uint SurfaceCoverDepth => _definition.SurfaceCoverDepth;
         public float SurfaceCoverage => _definition.SurfaceCoverage;
         public bool SurfaceSubmergedOnly => _definition.SurfaceSubmergedOnly;

@@ -110,6 +110,88 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
+    public void UnsupportedGravityGeologyFallsBackToStableHostRock()
+    {
+        var blocks = CreateBlocks(gravityGravel: true);
+        var biome = CreateBiome();
+        var caves = new DimensionCaveDefinition(
+        [
+            new DimensionCaveLayerDefinition(
+                minDepth: 10,
+                maxDepth: 80,
+                channels:
+                [
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                ],
+                noiseHalfWidth: 1f,
+                densityScale: 24f,
+                boundaryFade: 6),
+        ]);
+        var generator = new BiomeWorldGenerator(
+            Seed,
+            CreateDimension(biome.Id, caves),
+            blocks,
+            new BiomeRegistry([biome]));
+        var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var gravel = blocks.GetId("asteria:gravel");
+        var stone = blocks.GetId("asteria:stone");
+        WorldVoxelCoord? unsupported = null;
+        WorldVoxelCoord? supported = null;
+
+        // Locate both deposit types in real cave-cut terrain. Candidates are
+        // selected by the same 3D geology field and density used by generation.
+        for (var z = -24; z <= 8 && (!unsupported.HasValue || !supported.HasValue); z++)
+        for (var x = -12; x <= 20 && (!unsupported.HasValue || !supported.HasValue); x++)
+        {
+            var surfaceY = generator.SurfaceHeight(x, z);
+            for (var depth = 10; depth <= 36; depth++)
+            {
+                var worldY = surfaceY - depth;
+                if (worldY <= 0 ||
+                    generator.DensityAt(x, worldY, z) < 0d ||
+                    !materials.TryGeologyBlockAt(
+                        sample, x, worldY, z, out var candidate) ||
+                    candidate != gravel)
+                    continue;
+
+                var candidatePosition = new WorldVoxelCoord(x, worldY, z);
+                if (generator.DensityAt(x, worldY - 1, z) >= 0d)
+                    supported ??= candidatePosition;
+                else
+                    unsupported ??= candidatePosition;
+
+                if (unsupported.HasValue && supported.HasValue)
+                    break;
+            }
+        }
+
+        Assert.True(unsupported.HasValue,
+            "The cave fixture did not produce an unsupported gravity deposit.");
+        Assert.True(supported.HasValue,
+            "The cave fixture did not produce a supported gravity deposit.");
+
+        var chunks = new Dictionary<ChunkCoord, Chunk>();
+        BlockRuntimeId MaterializedBlockAt(WorldVoxelCoord position)
+        {
+            var (coord, local) = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            if (!chunks.TryGetValue(coord, out var chunk))
+            {
+                chunk = generator.Materialize(coord);
+                chunks.Add(coord, chunk);
+            }
+
+            return chunk.GetBlock(local.X, local.Y, local.Z);
+        }
+
+        Assert.Equal(stone, MaterializedBlockAt(unsupported.Value));
+        Assert.Equal(gravel, MaterializedBlockAt(supported.Value));
+    }
+
+    [Fact]
     public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns()
     {
         var blocks = CreateBlocks();
@@ -233,12 +315,13 @@ public sealed class GeologyMaterializationRegressionTests
             "A flat surface should retain its grass cover while exposing varied geological materials.");
     }
 
-    private static BlockRegistry CreateBlocks() => new(
+    private static BlockRegistry CreateBlocks(bool gravityGravel = false) => new(
     [
         new BlockDefinition("asteria:grass"),
         new BlockDefinition("asteria:dirt"),
         new BlockDefinition("asteria:stone"),
-        new BlockDefinition("asteria:gravel"),
+        new BlockDefinition("asteria:gravel",
+            tags: gravityGravel ? new[] { BlockPhysicsCapabilities.Gravity } : null),
         new BlockDefinition("asteria:clay"),
     ]);
 
@@ -268,7 +351,9 @@ public sealed class GeologyMaterializationRegressionTests
             surfaceCoverDepth: 3,
             surfaceCoverage: surfaceCoverage));
 
-    private static DimensionDefinition CreateDimension(string biomeId) => new(
+    private static DimensionDefinition CreateDimension(
+        string biomeId,
+        DimensionCaveDefinition? caves = null) => new(
         new DimensionId("asteria:test"),
         [biomeId],
         seaLevel: 0,
@@ -279,5 +364,6 @@ public sealed class GeologyMaterializationRegressionTests
             new DimensionColor(255, 255, 255),
             1f,
             new DimensionColor(0, 0, 0),
-            0f));
+            0f),
+        caves: caves);
 }
