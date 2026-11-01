@@ -777,6 +777,84 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void ExteriorWallPaletteOverridesOnlySolidFacesFacingExteriorAir()
+    {
+        const ulong seed = 0xA57E_2026UL;
+        const string mountainId = "asteria:overworld/mountains";
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var biomes = BiomeRegistry.FromJson(
+            Directory.EnumerateFiles(
+                Path.Combine(AppContext.BaseDirectory, "packs", "default", "data", "biomes"),
+                "*.json").OrderBy(path => path, StringComparer.Ordinal)
+                .Select(path =>
+                {
+                    var content = File.ReadAllText(path);
+                    if (!path.EndsWith("mountains.json", StringComparison.Ordinal))
+                        return content;
+                    var root = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                    root["palette"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """
+                        {
+                          "default":[{"block":"asteria:stone"}],
+                          "walls":[
+                            {"block":"asteria:basalt","depth":1},
+                            {"block":"asteria:stone"}
+                          ]
+                        }
+                        """);
+                    root["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
+                    return root.ToJsonString();
+                }));
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id), dimension, blocks,
+            LoadDefaultFluids(), biomes, LoadDefaultStructures(),
+            LoadDefaultStructureSets(),
+            generation: new WorldGenerationOptions(
+                spawnStructures: false, spawnCaves: false));
+
+        (int X, int Y, int Z)? wall = null;
+        var directions = new (int X, int Z)[]
+        {
+            (1, 0), (-1, 0), (0, 1), (0, -1),
+        };
+        for (var z = -2048; z <= 2048 && wall is null; z += 16)
+        for (var x = -2048; x <= 2048 && wall is null; x += 16)
+        {
+            if (generator.Biomes.Sample(x, z).Primary != mountainId)
+                continue;
+
+            var surfaceY = generator.SurfaceHeight(x, z);
+            for (var y = surfaceY; y >= Math.Max(1, surfaceY - 8) && wall is null; y--)
+            {
+                if (generator.DensityAt(x, y, z) < 0d)
+                    continue;
+
+                foreach (var (dx, dz) in directions)
+                {
+                    var neighborX = x + dx;
+                    var neighborZ = z + dz;
+                    if (generator.DensityAt(neighborX, y, neighborZ) >= 0d ||
+                        generator.IsCaveVoidAt(neighborX, y, neighborZ))
+                        continue;
+
+                    wall = (x, y, z);
+                    break;
+                }
+            }
+        }
+
+        Assert.True(wall.HasValue,
+            "The fixed seed did not produce an exposed mountain wall in the search area.");
+        var target = wall!.Value;
+        var (coord, local) = VoxelCoordinates.FromWorld(
+            target.X, target.Y, target.Z);
+        var actual = generator.Materialize(coord).GetBlock(
+            local.X, local.Y, local.Z);
+        Assert.Equal(blocks.GetId("asteria:basalt"), actual);
+    }
+
+    [Fact]
     public void MaterializedGeologyFollowsSurfaceBiomeAcrossABiomeTransition()
     {
         const ulong seed = 0xA57E_2026UL;

@@ -192,18 +192,11 @@ public sealed class SurfaceChunkMaterializer
                 job.Stage = job.SupportOnly &&
                     _materials.FacePalettesPreserveOccupancy
                         ? ChunkMaterializationStage.VolumeStructures
-                        : ChunkMaterializationStage.VolumeCavePalette;
+                        : ChunkMaterializationStage.DirectionalFacePalettes;
                 break;
 
-            case ChunkMaterializationStage.VolumeCavePalette:
-                MaterializeVolumeCavePalette(
-                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
-                    job.OriginX, job.OriginY, job.OriginZ);
-                job.Stage = ChunkMaterializationStage.ExteriorFacePalette;
-                break;
-
-            case ChunkMaterializationStage.ExteriorFacePalette:
-                MaterializeExteriorFacePalette(
+            case ChunkMaterializationStage.DirectionalFacePalettes:
+                MaterializeDirectionalFacePalettes(
                     job.Chunk, RequiredColumn(job), RequiredDensity(job),
                     job.OriginX, job.OriginY, job.OriginZ);
                 job.Stage = ChunkMaterializationStage.VolumeStructures;
@@ -1690,161 +1683,161 @@ public sealed class SurfaceChunkMaterializer
         z << 16;
 
     /// <summary>
-    /// Paints the nearest carved-void face with its authored palette profile.
-    /// The nearest void is resolved in terrain-density space (including across
-    /// chunk boundaries), so thickness always extends inward from the face.
-    /// Equal-distance corners prefer floor, then walls, then ceiling.
+    /// Applies cave and exterior directional face palettes in one voxel
+    /// traversal. Each face keeps its own void classification and biome
+    /// owner; cave painting is evaluated first to preserve the previous
+    /// stage precedence and floor -> walls -> ceiling tie-breaking.
     /// </summary>
-    private void MaterializeVolumeCavePalette(
+    private void MaterializeDirectionalFacePalettes(
         Chunk chunk,
         SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
         int originX, int originY, int originZ)
     {
-        if (_volumeBiomes is not { HasBiomes: true } volumes ||
-            _materials.MaximumCavePaintDepth == 0)
+        var hasCavePalette = _volumeBiomes is { HasBiomes: true } &&
+            _materials.MaximumCavePaintDepth > 0;
+        var hasExteriorOverrides = _materials.HasExteriorOverrides;
+        if (!hasCavePalette && !hasExteriorOverrides)
             return;
 
-        // A cave face can cross a chunk edge. Neighbor base heights are
-        // immutable per X/Z column but used by many vertical face probes.
-        // Resolve each halo column once, with query-local bounded storage.
+        // Cave faces may cross a chunk edge. Neighbor base heights are
+        // immutable per X/Z column, so resolve each halo column once.
         BiomeField.Sampler? haloSampler = null;
-        var haloBaseHeights = new Dictionary<(int X, int Z), int>();
+        Dictionary<(int X, int Z), int>? haloBaseHeights =
+            hasCavePalette
+                ? new Dictionary<(int X, int Z), int>()
+                : null;
 
         bool OutsideCarvedVoid(int x, int y, int z)
         {
+            var cache = haloBaseHeights ??
+                throw new InvalidOperationException(
+                    "Cave face palette has no halo-height cache.");
             var key = (X: x, Z: z);
-            if (!haloBaseHeights.TryGetValue(key, out var baseHeight))
+            if (!cache.TryGetValue(key, out var baseHeight))
             {
                 haloSampler ??= _terrain.CreateBiomeSampler();
                 baseHeight = _terrain.SampleBaseHeight(haloSampler, x, z);
-                haloBaseHeights.Add(key, baseHeight);
+                cache.Add(key, baseHeight);
             }
 
             return _terrain.IsCaveVoidAt(
                 baseHeight, new WorldVoxelCoord(x, y, z));
         }
 
+        bool HasExteriorOverride(BiomeSample sample) =>
+            _materials.HasDirectionalOverride(
+                sample, BiomePaletteFace.Walls) ||
+            _materials.HasDirectionalOverride(
+                sample, BiomePaletteFace.Ceiling);
+
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
             var baseY = column.BaseHeightAt(x, z);
-            // Chunks entirely above the carved cavern band cannot contain
-            // its rock faces. Avoid the expensive 2D biome placement query.
-            if (originY > baseY - 4)
-                continue;
-
             var worldX = originX + x;
             var worldZ = originZ + z;
-            BiomeSample? biome = null;
-            var ownerResolved = false;
-            var reach = (int)_materials.MaximumCavePaintDepth;
-            for (var y = 0; y < Chunk.Size; y++)
+            // Resolve exterior ownership only when the exterior palette
+            // has an authored override. Cave-only chunks retain the former
+            // early-out without sampling the surface/additive owners.
+            BiomeSample? surfaceBiome = null;
+            BiomeSample? volumePlacement = null;
+            if (hasExteriorOverrides)
             {
-                var worldY = originY + y;
-                if (worldY <= 0 || worldY > baseY - 4 ||
-                    (_floorY is { } floorY && worldY <= floorY) ||
-                    (_roofY is { } roofY && worldY >= roofY) ||
-                    chunk.GetBlock(x, y, z).IsAir ||
-                    !densityVolume.IsSolidAtUnchecked(x, y, z))
-                    continue;
-
-                bool CarvedVoid(int dx, int dy, int dz)
-                {
-                    var nx = x + dx;
-                    var ny = y + dy;
-                    var nz = z + dz;
-                    var neighborY = worldY + dy;
-                    if (neighborY <= 0 || neighborY > baseY - 3)
-                        return false;
-                    if ((uint)nx < Chunk.Size &&
-                        (uint)ny < Chunk.Size &&
-                        (uint)nz < Chunk.Size)
-                        return !densityVolume.IsSolidAtUnchecked(nx, ny, nz) &&
-                            neighborY <= column.BaseHeightAt(nx, nz) - 4;
-
-                    return OutsideCarvedVoid(
-                        worldX + dx, neighborY, worldZ + dz);
-                }
-
-                for (var depth = 0; depth < reach; depth++)
-                {
-                    var distance = depth + 1;
-                    BiomePaletteFace? face = null;
-                    if (CarvedVoid(0, distance, 0))
-                        face = BiomePaletteFace.Floor;
-                    else if (CarvedVoid(-distance, 0, 0) ||
-                             CarvedVoid(distance, 0, 0) ||
-                             CarvedVoid(0, 0, -distance) ||
-                             CarvedVoid(0, 0, distance))
-                        face = BiomePaletteFace.Walls;
-                    else if (CarvedVoid(0, -distance, 0))
-                        face = BiomePaletteFace.Ceiling;
-
-                    if (face is not { } exposed)
-                        continue;
-
-                    // Expensive 2D volume-identity sampling is necessary
-                    // only for a genuinely exposed carved face. Cache at
-                    // most one result per column, even for many Y voxels.
-                    if (!ownerResolved)
-                    {
-                        biome = column.CaveBiomeAt(x, z);
-                        ownerResolved = true;
-                    }
-                    if (biome is not null &&
-                        depth < _materials.MaxVolumePaintDepth(biome))
-                        chunk.SetBlock(x, y, z,
-                            _materials.VolumeBlockAt(
-                                biome, worldX, worldY, worldZ,
-                                exposed, (uint)depth));
-                    break;
-                }
+                surfaceBiome = column.BiomeAt(x, z);
+                volumePlacement = densityVolume.VolumePlacementAt(x, z);
             }
-        }
-    }
 
-    /// <summary>
-    /// Directional face overrides apply to exposed exterior terrain and
-    /// additive volume solids too. Without an authored override this is a
-    /// no-op; the existing top-facing layer materialization is preserved.
-    /// </summary>
-    private void MaterializeExteriorFacePalette(
-        Chunk chunk,
-        SurfaceTerrainColumn column,
-        TerrainDensityVolume densityVolume,
-        int originX, int originY, int originZ)
-    {
-        if (!_materials.HasExteriorOverrides)
-            return;
-
-        for (var z = 0; z < Chunk.Size; z++)
-        for (var x = 0; x < Chunk.Size; x++)
-        {
-            var worldX = originX + x;
-            var worldZ = originZ + z;
-            var surfaceBiome = column.BiomeAt(x, z);
-            var baseY = column.BaseHeightAt(x, z);
-            var volumePlacement = densityVolume.VolumePlacementAt(x, z);
-            // The exterior-face pass is unnecessary when neither the
-            // surface nor the possible additive owner overrides walls or
-            // ceilings. Avoid scanning all solid voxels in these columns.
-            bool HasExteriorOverride(BiomeSample sample) =>
-                _materials.HasDirectionalOverride(sample, BiomePaletteFace.Walls) ||
-                _materials.HasDirectionalOverride(sample, BiomePaletteFace.Ceiling);
-            if (!HasExteriorOverride(surfaceBiome) &&
-                (volumePlacement is null ||
-                 !HasExteriorOverride(volumePlacement)))
+            // Cave palettes cannot affect chunks whose entire vertical range
+            // is above the carved-cavern band. Exterior palettes can.
+            var caveColumn = hasCavePalette && originY <= baseY - 4;
+            var exteriorColumn = hasExteriorOverrides &&
+                ((surfaceBiome is { } surfaceOwner &&
+                  HasExteriorOverride(surfaceOwner)) ||
+                 (volumePlacement is { } placementOwner &&
+                  HasExteriorOverride(placementOwner)));
+            if (!caveColumn && !exteriorColumn)
                 continue;
+
+            BiomeSample? caveBiome = null;
+            var caveOwnerResolved = false;
+            var caveReach = (int)_materials.MaximumCavePaintDepth;
 
             for (var y = 0; y < Chunk.Size; y++)
             {
                 var worldY = originY + y;
+                var currentBlock = chunk.GetBlock(x, y, z);
                 if (worldY <= 0 ||
                     (_floorY is { } floorY && worldY <= floorY) ||
                     (_roofY is { } roofY && worldY >= roofY) ||
-                    chunk.GetBlock(x, y, z).IsAir ||
+                    currentBlock.IsAir ||
                     !densityVolume.IsSolidAtUnchecked(x, y, z))
+                    continue;
+
+                var cavePaintedAir = false;
+
+                // Carved-void faces retain floor -> walls -> ceiling
+                // precedence, nearest-depth painting, and cross-chunk probes.
+                if (caveColumn && worldY <= baseY - 4)
+                {
+                    bool CarvedVoid(int dx, int dy, int dz)
+                    {
+                        var nx = x + dx;
+                        var ny = y + dy;
+                        var nz = z + dz;
+                        var neighborY = worldY + dy;
+                        if (neighborY <= 0 || neighborY > baseY - 3)
+                            return false;
+                        if ((uint)nx < Chunk.Size &&
+                            (uint)ny < Chunk.Size &&
+                            (uint)nz < Chunk.Size)
+                            return !densityVolume.IsSolidAtUnchecked(nx, ny, nz) &&
+                                neighborY <= column.BaseHeightAt(nx, nz) - 4;
+
+                        return OutsideCarvedVoid(
+                            worldX + dx, neighborY, worldZ + dz);
+                    }
+
+                    for (var depth = 0; depth < caveReach; depth++)
+                    {
+                        var distance = depth + 1;
+                        BiomePaletteFace? face = null;
+                        if (CarvedVoid(0, distance, 0))
+                            face = BiomePaletteFace.Floor;
+                        else if (CarvedVoid(-distance, 0, 0) ||
+                                 CarvedVoid(distance, 0, 0) ||
+                                 CarvedVoid(0, 0, -distance) ||
+                                 CarvedVoid(0, 0, distance))
+                            face = BiomePaletteFace.Walls;
+                        else if (CarvedVoid(0, -distance, 0))
+                            face = BiomePaletteFace.Ceiling;
+
+                        if (face is not { } exposed)
+                            continue;
+
+                        // Resolve cave ownership only after finding a real
+                        // carved face, and at most once for this X/Z column.
+                        if (!caveOwnerResolved)
+                        {
+                            caveBiome = column.CaveBiomeAt(x, z);
+                            caveOwnerResolved = true;
+                        }
+                        if (caveBiome is not null &&
+                            depth < _materials.MaxVolumePaintDepth(caveBiome))
+                        {
+                            var caveBlock = _materials.VolumeBlockAt(
+                                caveBiome, worldX, worldY, worldZ,
+                                exposed, (uint)depth);
+                            chunk.SetBlock(x, y, z, caveBlock);
+                            cavePaintedAir = caveBlock.IsAir;
+                        }
+                        break;
+                    }
+                }
+
+                // The former exterior stage observed cave-palette writes
+                // before deciding whether the current voxel remained solid.
+                if (!exteriorColumn || cavePaintedAir)
                     continue;
 
                 var biome = worldY > baseY
@@ -1878,9 +1871,8 @@ public sealed class SurfaceChunkMaterializer
 
                     var neighborPosition = new WorldVoxelCoord(
                         worldX + dx, neighborY, worldZ + dz);
-                    // The X/Z column already contains the base heights
-                    // needed to classify carved voids inside this tile,
-                    // including probes across its vertical chunk faces.
+                    // Carved cave air is not an exterior face, including
+                    // across horizontal and vertical chunk boundaries.
                     var carvedVoid = (uint)nx < Chunk.Size &&
                                      (uint)nz < Chunk.Size
                         ? _terrain.IsCaveVoidAt(
@@ -1916,11 +1908,6 @@ public sealed class SurfaceChunkMaterializer
         }
     }
 
-    /// <summary>
-    /// Decorates exposed additive tops and carved cave floors or ceilings.
-    /// All candidate support checks use immutable terrain density, including
-    /// faces crossing vertical chunk boundaries.
-    /// </summary>
     /// <summary>
     /// Applies approved, density-safe authored volume templates. They are
     /// queried by world-space anchor; this stage alone writes chunk cells.
