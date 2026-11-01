@@ -47,6 +47,17 @@ public interface IChunkMaterializationJob : IDisposable
 
     ChunkMaterializationStage Stage { get; }
 
+    /// <summary>
+    /// Coordinate of the leaf work unit advanced by the next Advance call.
+    /// Composite jobs expose their active child for accurate stage diagnostics.
+    /// </summary>
+    ChunkCoord ActiveWorkCoord => Coord;
+
+    /// <summary>
+    /// Stage of the leaf work unit advanced by the next Advance call.
+    /// </summary>
+    ChunkMaterializationStage ActiveWorkStage => Stage;
+
     bool IsComplete { get; }
 
     Chunk? Result { get; }

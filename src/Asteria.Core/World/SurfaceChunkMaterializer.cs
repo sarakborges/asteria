@@ -742,6 +742,7 @@ public sealed class SurfaceChunkMaterializer
             return;
         }
 
+        var supportJobCreated = false;
         var positions = job.GravityPositions;
         if (positions is null)
         {
@@ -786,8 +787,14 @@ public sealed class SurfaceChunkMaterializer
                     this,
                     new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
                     supportOnly: true);
+                supportJobCreated = true;
             }
         }
+
+        // Keep creation separate from advancement so the worker can attribute
+        // the child job's first stage to its own coordinate and stage.
+        if (supportJobCreated)
+            return;
 
         if (job.SupportChunkJob is { IsComplete: false } pendingSupport)
         {
@@ -967,6 +974,16 @@ public sealed class SurfaceChunkMaterializer
         }
 
         public ChunkCoord Coord { get; }
+
+        public ChunkCoord ActiveWorkCoord =>
+            SupportChunkJob is { IsComplete: false } child
+                ? child.ActiveWorkCoord
+                : Coord;
+
+        public ChunkMaterializationStage ActiveWorkStage =>
+            SupportChunkJob is { IsComplete: false } child
+                ? child.ActiveWorkStage
+                : Stage;
 
         public bool SupportOnly { get; }
 

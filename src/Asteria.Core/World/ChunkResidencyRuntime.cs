@@ -660,14 +660,15 @@ public sealed class ChunkResidencyRuntime
 
         while (!work.Job.IsComplete)
         {
-            var stage = work.Job.Stage;
+            var stage = work.Job.ActiveWorkStage;
+            var coord = work.Job.ActiveWorkCoord;
             var stageStarted = Stopwatch.GetTimestamp();
             work.Job.Advance();
             var stageMilliseconds = Stopwatch.GetElapsedTime(
                 stageStarted).TotalMilliseconds;
             workerMilliseconds += stageMilliseconds;
             stageTimings.Add(new ChunkMaterializationStageTiming(
-                work.Job.Coord, stage, stageMilliseconds));
+                coord, stage, stageMilliseconds));
         }
 
         var chunk = work.Job.Result ??

@@ -1745,6 +1745,54 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void NestedGravitySupportMaterializationReportsItsOwnStageAndCoordinate()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                8f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 1),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        var generator = new BiomeWorldGenerator(
+            101UL,
+            TestDimension([biome.Id]),
+            blocks,
+            new BiomeRegistry([biome]));
+
+        Assert.Equal(8, generator.SurfaceHeight(0, 0));
+
+        using var job = generator.BeginMaterialization(
+            new ChunkCoord(0, 1, 0));
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        // The first parent advance creates, but does not advance, the lower
+        // support-face job. Its own first stage is visible to the worker.
+        job.Advance();
+        Assert.Equal(new ChunkCoord(0, 0, 0), job.ActiveWorkCoord);
+        Assert.Equal(ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
+
+        job.Advance();
+        Assert.Equal(ChunkMaterializationStage.TerrainLayer,
+            job.ActiveWorkStage);
+    }
+
+    [Fact]
     public void SphereShellMaterializesFloorAndRoofAndRejectsNegativeChunks()
     {
         var blocks =
