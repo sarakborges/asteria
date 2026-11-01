@@ -6,14 +6,43 @@ public readonly record struct ChunkMovementDirection(int X, int Z)
 }
 
 public readonly record struct ChunkLoadPriority(
-    int StreamingBand,
     long HorizontalDistanceSquared,
     long TotalDistanceSquared,
+    int DirectionalBand,
     int Y,
     int Z,
     int X) : IComparable<ChunkLoadPriority>
 {
     public int CompareTo(ChunkLoadPriority other)
+    {
+        var result = HorizontalDistanceSquared.CompareTo(
+            other.HorizontalDistanceSquared);
+        if (result != 0) return result;
+
+        result = TotalDistanceSquared.CompareTo(
+            other.TotalDistanceSquared);
+        if (result != 0) return result;
+
+        result = DirectionalBand.CompareTo(other.DirectionalBand);
+        if (result != 0) return result;
+
+        result = Y.CompareTo(other.Y);
+        if (result != 0) return result;
+
+        result = Z.CompareTo(other.Z);
+        return result != 0 ? result : X.CompareTo(other.X);
+    }
+}
+
+public readonly record struct ChunkStreamingPriority(
+    int StreamingBand,
+    long HorizontalDistanceSquared,
+    long TotalDistanceSquared,
+    int Y,
+    int Z,
+    int X) : IComparable<ChunkStreamingPriority>
+{
+    public int CompareTo(ChunkStreamingPriority other)
     {
         var result = StreamingBand.CompareTo(other.StreamingBand);
         if (result != 0) return result;
@@ -260,7 +289,7 @@ public sealed class ChunkStreamingState
         foreach (var coord in _pending)
         {
             var priority =
-                Priority(
+                StreamingPriority(
                     coord,
                     center,
                     MovementDirection);
@@ -346,7 +375,7 @@ public sealed class ChunkStreamingState
             }
 
             var priority =
-                Priority(
+                StreamingPriority(
                     coord,
                     center,
                     MovementDirection);
@@ -397,10 +426,38 @@ public sealed class ChunkStreamingState
         var dx = (long)coord.X - center.X;
         var dy = (long)coord.Y - center.Y;
         var dz = (long)coord.Z - center.Z;
-        var horizontalDistance =
-            dx * dx + dz * dz;
-        var totalDistance =
-            horizontalDistance + dy * dy;
+        var horizontalDistance = dx * dx + dz * dz;
+        var totalDistance = horizontalDistance + dy * dy;
+        var forward =
+            dx * movementDirection.X +
+            dz * movementDirection.Z;
+        var directionalBand =
+            movementDirection == ChunkMovementDirection.Zero ||
+            forward == 0
+                ? 1
+                : forward > 0
+                    ? 0
+                    : 2;
+
+        return new ChunkLoadPriority(
+            horizontalDistance,
+            totalDistance,
+            directionalBand,
+            coord.Y,
+            coord.Z,
+            coord.X);
+    }
+
+    public static ChunkStreamingPriority StreamingPriority(
+        ChunkCoord coord,
+        ChunkCoord center,
+        ChunkMovementDirection movementDirection)
+    {
+        var dx = (long)coord.X - center.X;
+        var dy = (long)coord.Y - center.Y;
+        var dz = (long)coord.Z - center.Z;
+        var horizontalDistance = dx * dx + dz * dz;
+        var totalDistance = horizontalDistance + dy * dy;
         var forward =
             dx * movementDirection.X +
             dz * movementDirection.Z;
@@ -428,7 +485,7 @@ public sealed class ChunkStreamingState
                     ? 2
                     : 3;
 
-        return new ChunkLoadPriority(
+        return new ChunkStreamingPriority(
             streamingBand,
             horizontalDistance,
             totalDistance,
@@ -436,7 +493,6 @@ public sealed class ChunkStreamingState
             coord.Z,
             coord.X);
     }
-
     private static int CompareRetirementPriority(
         ChunkCoord left,
         ChunkCoord right,
