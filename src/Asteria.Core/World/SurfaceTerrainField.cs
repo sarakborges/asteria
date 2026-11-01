@@ -1964,10 +1964,17 @@ public sealed class TerrainDensityVolume
     internal bool IsSolidAtUnchecked(
         int localX,
         int localY,
-        int localZ) =>
-        _columnSolidMask is { } mask
-            ? (mask[(localZ * Width) + localX] & (1u << localY)) != 0
+        int localZ)
+    {
+        if (_columnSolidMask is { } mask)
+            return (mask[(localZ * Width) + localX] & (1u << localY)) != 0;
+
+        var index = (localZ * Height + localY) * Width + localX;
+        var densities = Volatile.Read(ref _densities);
+        return densities is not null
+            ? densities[index] >= 0d
             : _densityProvider!(localX, localY, localZ) >= 0d;
+    }
 
     internal BiomeSample? VolumePlacementAt(
         int localX,
