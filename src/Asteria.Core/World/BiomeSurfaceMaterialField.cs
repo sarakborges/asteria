@@ -301,7 +301,7 @@ public sealed class BiomeSurfaceMaterialField
     /// Returns the stable host material used when a gravity-tagged geological
     /// deposit has no voxel support below it.
     /// </summary>
-    public BlockRuntimeId StableGeologyBaseBlockAt(BiomeSample sample)
+    internal BlockRuntimeId StableGeologyBaseBlockAt(BiomeSample sample)
     {
         ArgumentNullException.ThrowIfNull(sample);
         return _geologyRules.TryGetValue(sample.Primary, out var geology)
