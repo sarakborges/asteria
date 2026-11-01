@@ -373,15 +373,15 @@ public sealed class ChunkStreamingStateTests
         var center = ChunkCoord.Zero;
         var movement = new ChunkMovementDirection(1, 0);
 
-        var localBehind = ChunkStreamingState.Priority(
+        var localBehind = ChunkStreamingState.StreamingPriority(
             new ChunkCoord(-1, 0, 0), center, movement);
-        var forward = ChunkStreamingState.Priority(
+        var forward = ChunkStreamingState.StreamingPriority(
             new ChunkCoord(4, 0, 0), center, movement);
-        var lateral = ChunkStreamingState.Priority(
+        var lateral = ChunkStreamingState.StreamingPriority(
             new ChunkCoord(0, 0, 3), center, movement);
-        var behind = ChunkStreamingState.Priority(
+        var behind = ChunkStreamingState.StreamingPriority(
             new ChunkCoord(-4, 0, 0), center, movement);
-        var outsideCorridor = ChunkStreamingState.Priority(
+        var outsideCorridor = ChunkStreamingState.StreamingPriority(
             new ChunkCoord(3, 0, 4), center, movement);
 
         Assert.True(localBehind.CompareTo(forward) < 0);
