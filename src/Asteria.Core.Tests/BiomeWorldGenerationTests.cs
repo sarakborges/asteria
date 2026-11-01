@@ -1758,13 +1758,13 @@ public sealed class BiomeWorldGenerationTests
             "asteria:test/plain",
             new BiomeSurfaceLayoutDefinition(),
             new BiomeTerrainDefinition(
-                8f,
+                20f,
                 macroAmplitude: 0f,
                 macroScale: 128,
                 detailAmplitude: 0f,
                 detailScale: 32),
             [
-                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 1),
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 5),
                 new BiomeSurfaceLayerDefinition("asteria:stone"),
             ]);
         var generator = new BiomeWorldGenerator(
@@ -1773,7 +1773,7 @@ public sealed class BiomeWorldGenerationTests
             blocks,
             new BiomeRegistry([biome]));
 
-        Assert.Equal(8, generator.SurfaceHeight(0, 0));
+        Assert.Equal(20, generator.SurfaceHeight(0, 0));
         Assert.Equal(
             blocks.GetId("asteria:gravel"),
             generator.Materialize(new ChunkCoord(0, 1, 0)).GetBlock(0, 0, 0));
