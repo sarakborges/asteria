@@ -87,6 +87,34 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void CompletedMaterializationReleasesWorkerSlotBeforeResultCollection()
+    {
+        var fixture = CreateFixture(new StagedChunkProvider());
+        var coord = ChunkCoord.Zero;
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Completed materialization did not release its worker slot.");
+        Assert.Equal(1, fixture.Runtime.MaterializationJobCount);
+        Assert.False(fixture.World.ContainsChunk(coord));
+
+        var completed = CollectUntilMaterializationResult(fixture.Runtime);
+        Assert.Single(completed.Activations);
+        Assert.True(fixture.World.ContainsChunk(coord));
+    }
+
+    [Fact]
     public void RetirementDiscardsInFlightMaterializationResult()
     {
         using var provider = new BlockingChunkProvider();
