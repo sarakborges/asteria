@@ -6,24 +6,24 @@ public readonly record struct ChunkMovementDirection(int X, int Z)
 }
 
 public readonly record struct ChunkLoadPriority(
+    int StreamingBand,
     long HorizontalDistanceSquared,
     long TotalDistanceSquared,
-    int DirectionalBand,
     int Y,
     int Z,
     int X) : IComparable<ChunkLoadPriority>
 {
     public int CompareTo(ChunkLoadPriority other)
     {
-        var result = HorizontalDistanceSquared.CompareTo(
+        var result = StreamingBand.CompareTo(other.StreamingBand);
+        if (result != 0) return result;
+
+        result = HorizontalDistanceSquared.CompareTo(
             other.HorizontalDistanceSquared);
         if (result != 0) return result;
 
         result = TotalDistanceSquared.CompareTo(
             other.TotalDistanceSquared);
-        if (result != 0) return result;
-
-        result = DirectionalBand.CompareTo(other.DirectionalBand);
         if (result != 0) return result;
 
         result = Y.CompareTo(other.Y);
@@ -36,6 +36,11 @@ public readonly record struct ChunkLoadPriority(
 
 public sealed class ChunkStreamingState
 {
+    private const int ForwardPrefetchProjectionChunks =
+        ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks * 3;
+    private const int ForwardPrefetchLateralChunks =
+        ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
+
     private readonly HashSet<ChunkCoord> _desired = [];
     // Light snapshots span neighboring horizontal columns at resident Y levels.
     private readonly HashSet<(int X, int Z)> _lightingRelevantColumns = [];
@@ -399,19 +404,34 @@ public sealed class ChunkStreamingState
         var forward =
             dx * movementDirection.X +
             dz * movementDirection.Z;
+        var lateral =
+            Math.Abs(dx * movementDirection.Z -
+                     dz * movementDirection.X);
+        var localRadius = ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
+        var inPlayerLocalNeighborhood =
+            horizontalDistance <= (long)localRadius * localRadius;
+        var inForwardPrefetchCorridor =
+            movementDirection != ChunkMovementDirection.Zero &&
+            forward > 0 &&
+            forward <= ForwardPrefetchProjectionChunks &&
+            lateral <= ForwardPrefetchLateralChunks;
 
-        var directionalBand =
-            movementDirection == ChunkMovementDirection.Zero ||
-            forward == 0
+        // Keep the immediate playable neighborhood complete first. Beyond it,
+        // materialize a bounded corridor ahead of movement before lateral or
+        // rear chunks so streaming work anticipates the player's direction.
+        var streamingBand = inPlayerLocalNeighborhood
+            ? 0
+            : inForwardPrefetchCorridor
                 ? 1
-                : forward > 0
-                    ? 0
-                    : 2;
+                : movementDirection == ChunkMovementDirection.Zero ||
+                  forward >= 0
+                    ? 2
+                    : 3;
 
         return new ChunkLoadPriority(
+            streamingBand,
             horizontalDistance,
             totalDistance,
-            directionalBand,
             coord.Y,
             coord.Z,
             coord.X);
