@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using System.Numerics;
 
 namespace Asteria.Core.World;
@@ -251,7 +252,9 @@ public static class GameplaySessionSaveCodec
         WorldCreationOptions creation, DimensionRegistry dimensions,
         GameplaySessionSnapshot snapshot,
         BlockRegistry blocks, FluidRegistry fluids,
-        DyeRegistry dyes, AttachedLayerRegistry layers)
+        DyeRegistry dyes, AttachedLayerRegistry layers,
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        bool initializeLighting = true)
     {
         ArgumentNullException.ThrowIfNull(creation);
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -262,7 +265,7 @@ public static class GameplaySessionSaveCodec
         // before an active or loaded state is published.
         var restored = DimensionChunkSaveCodec.Restore(
             creation, dimensions, snapshot.Spatial,
-            blocks, fluids, dyes, layers);
+            blocks, fluids, dyes, layers, objects, initializeLighting);
         restored.GameRules.SetTicksPerSecond(snapshot.TicksPerSecond);
         restored.GameRules.SetSpawnCreatures(snapshot.SpawnCreatures);
         restored.GameRules.SetKeepInventory(snapshot.KeepInventory);

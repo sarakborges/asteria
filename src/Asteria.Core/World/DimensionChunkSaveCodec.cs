@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 namespace Asteria.Core.World;
 
 /// <summary>Complete spatial snapshot of one initialized Sphere.</summary>
@@ -86,7 +87,9 @@ public static class DimensionChunkSaveCodec
         BlockRegistry blocks,
         FluidRegistry fluids,
         DyeRegistry dyes,
-        AttachedLayerRegistry layers)
+        AttachedLayerRegistry layers,
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        bool initializeLighting = true)
     {
         ArgumentNullException.ThrowIfNull(creation);
         ArgumentNullException.ThrowIfNull(dimensions);
@@ -108,7 +111,8 @@ public static class DimensionChunkSaveCodec
             return (
                 saved.Dimension,
                 World: VoxelWorldSaveCodec.Restore(
-                    saved.Chunks, blocks, fluids, dyes, layers));
+                    saved.Chunks, blocks, fluids, dyes, layers,
+                    objects, initializeLighting));
         }).ToArray();
 
         var restored = new DimensionSessionStateStore(creation, dimensions);

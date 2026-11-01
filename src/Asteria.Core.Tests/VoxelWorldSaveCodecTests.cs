@@ -7,7 +7,12 @@ public sealed class VoxelWorldSaveCodecTests
     private static (BlockRegistry Blocks, FluidRegistry Fluids,
         DyeRegistry Dyes, AttachedLayerRegistry Layers) Content() =>
         (
-            new BlockRegistry([new BlockDefinition("asteria:stone")]),
+            new BlockRegistry([
+                new BlockDefinition("asteria:stone"),
+                new BlockDefinition("asteria:lamp",
+                    lightDampening: 0,
+                    lightEmission: new BlockLightEmission(15, 0, 0)),
+            ]),
             new FluidRegistry([
                 new FluidDefinition("asteria:water", new FluidColor(5, 100, 240), 0.7f),
             ]),
@@ -182,6 +187,40 @@ public sealed class VoxelWorldSaveCodecTests
         Assert.Same(world.GetChunk(coord), world.GetChunk(coord));
         Assert.Equal(1, world.ChunkCount);
         Assert.Equal(0, world.ArchivedChunkCount);
+    }
+
+    [Fact]
+    public void RestoreRebuildsDerivedLightingForResidentAndArchivedChunks()
+    {
+        var content = Content();
+        var lamp = content.Blocks.GetId("asteria:lamp");
+        var residentCoord = ChunkCoord.Zero;
+        var archivedCoord = new ChunkCoord(1, 0, 0);
+        var world = new VoxelWorld();
+
+        var resident = new Chunk();
+        resident.SetBlock(8, 8, 8, lamp);
+        world.InsertChunk(residentCoord, resident);
+        world.InsertChunk(archivedCoord, new Chunk());
+        Assert.Equal(
+            ChunkArchiveResult.ArchivedPristine,
+            world.ArchiveChunk(archivedCoord));
+
+        var restored = Restore(Capture(world, content), content);
+        Assert.Equal(
+            (byte)14,
+            restored.GetChunk(residentCoord).GetLight(9, 8, 8).Red);
+        Assert.Equal(
+            VoxelLight.MaxLevel,
+            restored.GetChunk(residentCoord).GetLight(0, 0, 0).Sky);
+
+        Assert.True(restored.HasArchivedChunk(archivedCoord));
+        Assert.Equal(
+            ChunkRestoreResult.Restored,
+            restored.RestoreChunk(archivedCoord));
+        Assert.Equal(
+            VoxelLight.MaxLevel,
+            restored.GetChunk(archivedCoord).GetLight(0, 0, 0).Sky);
     }
 
     [Fact]

@@ -326,7 +326,7 @@ public partial class Main : Node3D
             _dimensions, _blocks, _fluids, _dyes, _layers);
         _worldLoad = new WorldLoadController(
             WorldSaveDirectories.Root,
-            _dimensions, _blocks, _fluids, _dyes, _layers);
+            _dimensions, _blocks, _fluids, _dyes, _layers, _objects);
         _worldDelete = new WorldDeleteController(
             WorldSaveDirectories.Root);
         _structures.ValidateBlocks(

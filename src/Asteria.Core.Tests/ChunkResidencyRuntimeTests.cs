@@ -5,6 +5,23 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkResidencyRuntimeTests
 {
     [Fact]
+    public void RuntimeStartupReconcilesLightingAcrossPreloadedResidentChunks()
+    {
+        var world = new VoxelWorld();
+        var source = new Chunk();
+        var neighbor = new Chunk();
+        source.SetLight(
+            Chunk.Size - 1, 8, 8,
+            new VoxelLight(0, VoxelLight.MaxLevel, 0, 0));
+        world.InsertChunk(ChunkCoord.Zero, source);
+        world.InsertChunk(new ChunkCoord(1, 0, 0), neighbor);
+
+        var fixture = CreateFixture(existingWorld: world);
+
+        Assert.True(fixture.WorldUpdates.HasLightingWork);
+    }
+
+    [Fact]
     public void DispatchRestoresArchivedChunkBeforeProviderWork()
     {
         var fixture = CreateFixture();
@@ -668,7 +685,9 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(0, report.PendingChunks);
     }
 
-    private static RuntimeFixture CreateFixture(IChunkProvider? chunkProvider = null)
+    private static RuntimeFixture CreateFixture(
+        IChunkProvider? chunkProvider = null,
+        VoxelWorld? existingWorld = null)
     {
         var blocks =
             new BlockRegistry(
@@ -690,7 +709,7 @@ public sealed class ChunkResidencyRuntimeTests
                     opacity: 0.72f),
             ]);
 
-        var world = new VoxelWorld();
+        var world = existingWorld ?? new VoxelWorld();
         var worldUpdates = new WorldUpdateQueue();
         var fluidUpdates = new FluidUpdateQueue();
         var fluidMeshUpdates =
