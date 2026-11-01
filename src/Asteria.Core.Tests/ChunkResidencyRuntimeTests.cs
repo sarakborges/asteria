@@ -538,7 +538,7 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-    public void TerrainGenerationAndInitialLightingAreSeparateReadinessStages()
+    public void InitialLightingCompletesOnMaterializationWorkerBeforeChunkPublication()
     {
         using var provider = new SignalingChunkProvider();
         var fixture = CreateFixture(provider);
@@ -554,35 +554,31 @@ public sealed class ChunkResidencyRuntimeTests
             GenerousBudget(), Array.Empty<ChunkCoord>());
         Assert.True(provider.Materialized.Wait(TimeSpan.FromSeconds(10)));
 
-        // Promotion happens during collection. The generated chunk must stay
-        // outside VoxelWorld until its initial-light worker has been collected.
-        for (var attempt = 0;
-             attempt < 2000 && fixture.Runtime.InitialLightingPendingCount == 0;
-             attempt++)
-        {
-            fixture.Runtime.CollectMaterializationResults(
-                GenerousBudget(), Array.Empty<ChunkCoord>());
-            if (fixture.Runtime.InitialLightingPendingCount == 0)
-                Thread.Sleep(1);
-        }
-
-        Assert.Equal(1, fixture.Runtime.InitialLightingPendingCount);
+        // The worker owns generation and initial lighting. A completed chunk
+        // is not published to the world until the main thread collects it.
         Assert.Equal(1, fixture.Runtime.MaterializingCount);
         Assert.False(fixture.World.ContainsChunk(coord));
 
+        ChunkResidencyUpdate? completed = null;
         for (var attempt = 0;
-             attempt < 2000 && !fixture.World.ContainsChunk(coord);
+             attempt < 2000 && completed is null;
              attempt++)
         {
-            fixture.Runtime.CollectMaterializationResults(
+            var update = fixture.Runtime.CollectMaterializationResults(
                 GenerousBudget(), Array.Empty<ChunkCoord>());
-            if (!fixture.World.ContainsChunk(coord))
+            if (update.Activations.Count > 0)
+                completed = update;
+            else
                 Thread.Sleep(1);
         }
 
-        Assert.True(fixture.World.ContainsChunk(coord));
-        Assert.Equal(0, fixture.Runtime.InitialLightingPendingCount);
+        Assert.NotNull(completed);
+        Assert.Single(completed!.Activations);
         Assert.Equal(0, fixture.Runtime.MaterializingCount);
+        Assert.True(fixture.World.TryGetChunk(coord, out var resident));
+        Assert.Equal(
+            VoxelLight.MaxLevel,
+            resident.GetLight(0, 0, 0).Sky);
     }
 
     [Fact]
