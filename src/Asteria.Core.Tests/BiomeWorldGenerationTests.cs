@@ -1767,24 +1767,19 @@ public sealed class BiomeWorldGenerationTests
                 new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 5),
                 new BiomeSurfaceLayerDefinition("asteria:stone"),
             ]);
-        var generator = new BiomeWorldGenerator(
-            101UL,
-            TestDimension([biome.Id]),
-            blocks,
-            new BiomeRegistry([biome]));
+        BiomeWorldGenerator CreateGenerator(DimensionDefinition dimension) =>
+            new(101UL, dimension, blocks, new BiomeRegistry([biome]));
 
-        Assert.Equal(20, generator.SurfaceHeight(0, 0));
-        Assert.Equal(
-            blocks.GetId("asteria:gravel"),
-            generator.Materialize(new ChunkCoord(0, 1, 0)).GetBlock(0, 0, 0));
+        var coord = new ChunkCoord(0, 1, 0);
+        var expected = CreateGenerator(TestDimension([biome.Id]))
+            .Materialize(coord);
+        Assert.Equal(20, CreateGenerator(TestDimension([biome.Id]))
+            .SurfaceHeight(0, 0));
+        Assert.Equal(blocks.GetId("asteria:gravel"),
+            expected.GetBlock(0, 0, 0));
 
-        generator = new BiomeWorldGenerator(
-            101UL,
-            TestDimension([biome.Id]),
-            blocks,
-            new BiomeRegistry([biome]));
-        using var job = generator.BeginMaterialization(
-            new ChunkCoord(0, 1, 0));
+        using var job = CreateGenerator(TestDimension([biome.Id]))
+            .BeginMaterialization(coord);
         while (job.Stage != ChunkMaterializationStage.GravitySupport)
             job.Advance();
 
@@ -1811,7 +1806,81 @@ public sealed class BiomeWorldGenerationTests
         // terrain slice without starting the full lower-chunk pipeline.
         job.Advance();
         Assert.Equal(ChunkMaterializationStage.StructureObjects, job.Stage);
-        Assert.Equal(new ChunkCoord(0, 1, 0), job.ActiveWorkCoord);
+        Assert.Equal(coord, job.ActiveWorkCoord);
+
+        while (!job.IsComplete)
+            job.Advance();
+        var actual = job.Result ??
+            throw new InvalidOperationException("Materialization returned no chunk.");
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var x = 0; x < Chunk.Size; x++)
+            Assert.Equal(expected.GetCell(x, y, z), actual.GetCell(x, y, z));
+    }
+
+    [Fact]
+    public void NestedGravitySupportFallsBackWhenSphereShellOwnsSupportFace()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition(
+                "asteria:shell_sphere",
+                mining: new BlockMiningDefinition(unbreakable: true)),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                20f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 5),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            seaLevel: 0,
+            gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f),
+            new DimensionShellDefinition(
+                "asteria:shell_sphere",
+                floorY: 14));
+        var generator = new BiomeWorldGenerator(
+            101UL,
+            dimension,
+            blocks,
+            new BiomeRegistry([biome]));
+
+        using var job = generator.BeginMaterialization(
+            new ChunkCoord(0, 1, 0));
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        job.Advance(); // Create the sparse face query.
+        job.Advance(); // Terrain setup.
+        job.Advance(); // Y=14.
+        job.Advance(); // Y=15, then complete the sparse query.
+        Assert.Equal(ChunkMaterializationStage.GravitySupport,
+            job.ActiveWorkStage);
+
+        job.Advance(); // Reject the fast result and schedule full fallback.
+        Assert.Equal(new ChunkCoord(0, 0, 0), job.ActiveWorkCoord);
+        Assert.Equal(ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
     }
 
     [Fact]
