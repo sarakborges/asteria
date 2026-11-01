@@ -160,6 +160,12 @@ public static class FluidMeshDataBuilder
                             originX + _bounds.MinX + x,
                             originY + _bounds.MinY + y,
                             originZ + _bounds.MinZ + z);
+                        var lighting =
+                            VoxelMeshLighting.SampleFace(
+                                world,
+                                blocks,
+                                position,
+                                BlockFace.Top);
                         EmitQuad(
                             vertices,
                             world,
@@ -167,12 +173,12 @@ public static class FluidMeshDataBuilder
                             position,
                             BlockFace.Top,
                             points,
-                            MeshFaceTopology.Neutral);
+                            lighting);
                         EmitTopUnderside(
                             vertices,
                             position,
                             points,
-                            MeshFaceTopology.Neutral);
+                            lighting);
                     }
                 }
             }
