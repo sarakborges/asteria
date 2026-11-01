@@ -358,7 +358,7 @@ public sealed class ChunkResidencyRuntime
         var processed = 0;
         var completedTasks = _materializationTasks
             .Where(entry => entry.Value.WorkerTask.IsCompleted)
-            .OrderBy(entry => ChunkStreamingState.Priority(
+            .OrderBy(entry => ChunkStreamingState.StreamingPriority(
                 entry.Key, _center, _streaming.MovementDirection))
             .Take(_settings.MaxResultsPerFrame)
             .ToArray();
