@@ -2020,8 +2020,21 @@ public sealed class SurfaceChunkMaterializer
                 _decorations.HasWallLayersFor(surface.Primary) ||
                 _decorations.HasWallObjectsFor(surface.Primary);
             if (!surfaceSupportsLayers &&
-                _volumeBiomes is not { HasBiomes: true })
+                !CaveNeighborSupportsWallDecorations(
+                    column, x, z, worldX, worldZ, 1, 0) &&
+                !CaveNeighborSupportsWallDecorations(
+                    column, x, z, worldX, worldZ, -1, 0) &&
+                !CaveNeighborSupportsWallDecorations(
+                    column, x, z, worldX, worldZ, 0, 1) &&
+                !CaveNeighborSupportsWallDecorations(
+                    column, x, z, worldX, worldZ, 0, -1))
+            {
+                // A cave wall overlay is owned by the adjacent empty-side
+                // column. If none of the four possible owners has wall
+                // decorations, this host column cannot receive any layer or
+                // projected wall Object at any Y.
                 continue;
+            }
 
             // No exterior or cave face below this column can occur in
             // sky-only vertical chunks.
@@ -2129,6 +2142,34 @@ public sealed class SurfaceChunkMaterializer
     /// the solid host's BlockSurfaceState, never as projected block objects.
     /// Neighboring chunks are queried without mutating their cells.
     /// </summary>
+    private bool CaveNeighborSupportsWallDecorations(
+        SurfaceTerrainColumn column,
+        int localX,
+        int localZ,
+        int worldX,
+        int worldZ,
+        int dx,
+        int dz)
+    {
+        var neighborX = localX + dx;
+        var neighborZ = localZ + dz;
+        var neighborWorldX = worldX + dx;
+        var neighborWorldZ = worldZ + dz;
+        var local = (uint)neighborX < Chunk.Size &&
+            (uint)neighborZ < Chunk.Size;
+        var neighborColumn = local
+            ? column
+            : _columns.Get(
+                (int)Math.Floor((double)neighborWorldX / Chunk.Size),
+                (int)Math.Floor((double)neighborWorldZ / Chunk.Size));
+        var sampleX = (neighborX + Chunk.Size) % Chunk.Size;
+        var sampleZ = (neighborZ + Chunk.Size) % Chunk.Size;
+        var caveBiome = neighborColumn.CaveBiomeAt(sampleX, sampleZ);
+        return caveBiome is not null &&
+            (_decorations.HasWallLayersFor(caveBiome.Primary) ||
+             _decorations.HasWallObjectsFor(caveBiome.Primary));
+    }
+
     private void MaterializeWallObjects(
         Chunk chunk,
         SurfaceTerrainColumn column,
@@ -2157,8 +2198,10 @@ public sealed class SurfaceChunkMaterializer
             var surface = column.BiomeAt(x, z);
             var baseY = column.BaseHeightAt(x, z);
             var surfaceSupportsObjects = _decorations.HasWallBlocksFor(surface.Primary);
-            if (!surfaceSupportsObjects &&
-                _volumeBiomes is not { HasBiomes: true })
+            var caveBiome = column.CaveBiomeAt(x, z);
+            var caveSupportsObjects = caveBiome is not null &&
+                _decorations.HasWallBlocksFor(caveBiome.Primary);
+            if (!surfaceSupportsObjects && !caveSupportsObjects)
                 continue;
             if (originY > baseY && !surfaceSupportsObjects)
                 continue;
@@ -2183,7 +2226,7 @@ public sealed class SurfaceChunkMaterializer
                     continue;
                 var owner = exterior
                     ? surface
-                    : column.CaveBiomeAt(x, z);
+                    : caveBiome;
                 if (owner is null ||
                     !_decorations.HasWallBlocksFor(owner.Primary))
                     continue;
