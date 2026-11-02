@@ -1894,7 +1894,7 @@ public sealed class SurfaceChunkMaterializer
                     // 3D noise work for every internal face probe. Outside
                     // this chunk there is no local mask, so keep the field query.
                     return !local
-                        ? IsCaveVoidAtWorld(worldX + dx, neighborY, worldZ + dz)
+                        ? !IsCaveVoidAtWorld(worldX + dx, neighborY, worldZ + dz)
                         : !IsLocalDensityCaveVoid(
                             column, nx, nz, neighborY);
                 }
