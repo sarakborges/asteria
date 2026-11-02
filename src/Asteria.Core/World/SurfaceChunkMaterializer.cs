@@ -1903,6 +1903,80 @@ public sealed class SurfaceChunkMaterializer
                     CreateColumnData(neighborColumn, x, neighborLocal.Z);
         }
 
+        // Horizontal face probes revisit the same neighboring X/Z columns
+        // from many solid voxels. Cache one compact vertical occupancy mask
+        // per boundary column, initialized only when the column is first read.
+        // These caches are local to this materialization pass and cannot grow
+        // across chunks or generator lifetimes.
+        var xBoundarySolidMasks = new ushort[xDirectionalPaletteColumns.Length];
+        var xBoundarySolidMasksReady = new bool[xDirectionalPaletteColumns.Length];
+        var zBoundarySolidMasks = new ushort[zDirectionalPaletteColumns.Length];
+        var zBoundarySolidMasksReady = new bool[zDirectionalPaletteColumns.Length];
+
+        bool IsXBoundarySolid(int localX, int localY, int localZ)
+        {
+            var regionX = localX + maximumPaintDepth;
+            var index = regionX * Chunk.Size + localZ;
+            if (!xBoundarySolidMasksReady[index])
+            {
+                var neighborData = xDirectionalPaletteColumns[regionX, localZ];
+                var worldX = originX + localX;
+                var worldZ = originZ + localZ;
+                ushort mask = 0;
+                for (var y = 0; y < Chunk.Size; y++)
+                {
+                    var worldY = originY + y;
+                    if (_terrain.DensityAt(
+                            neighborData.SurfaceBiome,
+                            neighborData.BaseY,
+                            worldX,
+                            worldY,
+                            worldZ,
+                            neighborData.VolumeBiome) >= 0d)
+                    {
+                        mask |= (ushort)(1u << y);
+                    }
+                }
+
+                xBoundarySolidMasks[index] = mask;
+                xBoundarySolidMasksReady[index] = true;
+            }
+
+            return (xBoundarySolidMasks[index] & (1u << localY)) != 0;
+        }
+
+        bool IsZBoundarySolid(int localX, int localY, int localZ)
+        {
+            var regionZ = localZ + maximumPaintDepth;
+            var index = localX * regionSize + regionZ;
+            if (!zBoundarySolidMasksReady[index])
+            {
+                var neighborData = zDirectionalPaletteColumns[localX, regionZ];
+                var worldX = originX + localX;
+                var worldZ = originZ + localZ;
+                ushort mask = 0;
+                for (var y = 0; y < Chunk.Size; y++)
+                {
+                    var worldY = originY + y;
+                    if (_terrain.DensityAt(
+                            neighborData.SurfaceBiome,
+                            neighborData.BaseY,
+                            worldX,
+                            worldY,
+                            worldZ,
+                            neighborData.VolumeBiome) >= 0d)
+                    {
+                        mask |= (ushort)(1u << y);
+                    }
+                }
+
+                zBoundarySolidMasks[index] = mask;
+                zBoundarySolidMasksReady[index] = true;
+            }
+
+            return (zBoundarySolidMasks[index] & (1u << localY)) != 0;
+        }
+
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
@@ -2082,13 +2156,17 @@ public sealed class SurfaceChunkMaterializer
 #endif
                         var empty = localDensity
                             ? !densityVolume.IsSolidAtUnchecked(nx, ny, nz)
-                            : _terrain.DensityAt(
-                                neighborData.SurfaceBiome,
-                                neighborData.BaseY,
-                                neighborX,
-                                neighborY,
-                                neighborZ,
-                                neighborData.VolumeBiome) < 0d;
+                            : dx != 0
+                                ? !IsXBoundarySolid(nx, ny, nz)
+                                : dz != 0
+                                    ? !IsZBoundarySolid(nx, ny, nz)
+                                    : _terrain.DensityAt(
+                                        neighborData.SurfaceBiome,
+                                        neighborData.BaseY,
+                                        neighborX,
+                                        neighborY,
+                                        neighborZ,
+                                        neighborData.VolumeBiome) < 0d;
 #if DEBUG
                         if (measureDensity)
                             densityProbeTicks +=

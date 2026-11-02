@@ -110,6 +110,93 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
+    public void DirectionalFaceBoundaryMasksPreserveGenerationAcrossHorizontalChunkOrder()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/directional_palette_seam",
+              "surfaceLayout": {
+                "regionSize": { "min": 96, "max": 96 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 14,
+                "macroScale": 20,
+                "detailAmplitude": 3,
+                "detailScale": 9
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }],
+                "walls": [
+                  { "block": "asteria:clay", "depth": 3 },
+                  { "block": "asteria:stone" }
+                ]
+              }
+            }
+            """);
+        var blocks = CreateBlocks();
+        var dimension = CreateDimension(biome.Id);
+        var biomes = new BiomeRegistry([biome]);
+        var materials = new BiomeSurfaceMaterialField(
+            Seed, [biome], blocks);
+        Assert.True(materials.HasDirectionalFacePalettes);
+
+        var coordinates = (
+            from z in Enumerable.Range(-1, 3)
+            from x in Enumerable.Range(-1, 3)
+            select new ChunkCoord(x, 2, z)).ToArray();
+
+        static (Dictionary<ChunkCoord, ulong> Digests, int BoundaryProbes) Capture(
+            BiomeWorldGenerator generator,
+            IEnumerable<ChunkCoord> order)
+        {
+            var digests = new Dictionary<ChunkCoord, ulong>();
+            var boundaryProbes = 0;
+            foreach (var coord in order)
+            {
+                using var job = generator.BeginMaterialization(coord);
+                while (!job.IsComplete)
+                    job.Advance();
+
+                if (job.DirectionalFacePaletteMetrics is { } metrics)
+                    boundaryProbes += metrics.BoundaryDensityProbes;
+
+                var chunk = job.Result ??
+                    throw new InvalidOperationException(
+                        "Completed materialization did not publish its chunk.");
+                var digest = 14695981039346656037UL;
+                for (var z = 0; z < Chunk.Size; z++)
+                for (var y = 0; y < Chunk.Size; y++)
+                for (var x = 0; x < Chunk.Size; x++)
+                {
+                    digest = unchecked(
+                        (digest ^ chunk.GetBlock(x, y, z).Value) *
+                        1099511628211UL);
+                }
+
+                digests.Add(coord, digest);
+            }
+
+            return (digests, boundaryProbes);
+        }
+
+        var first = Capture(
+            new BiomeWorldGenerator(Seed, dimension, blocks, biomes),
+            coordinates);
+        var second = Capture(
+            new BiomeWorldGenerator(Seed, dimension, blocks, biomes),
+            coordinates.Reverse());
+
+        Assert.True(first.BoundaryProbes > 0,
+            "The fixture must exercise horizontal boundary density probes.");
+        Assert.Equal(coordinates.Length, first.Digests.Count);
+        Assert.Equal(coordinates.Length, second.Digests.Count);
+        foreach (var coord in coordinates)
+            Assert.Equal(first.Digests[coord], second.Digests[coord]);
+    }
+
+    [Fact]
     public void FacePaletteAirMaterialsDisableSupportOccupancyFastPath()
     {
         var blocks = CreateBlocks();
