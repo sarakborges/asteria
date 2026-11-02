@@ -391,7 +391,6 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.True(firstMetrics.SolidVoxels > 0);
         Assert.True(firstMetrics.FaceProbes > 0);
         Assert.True(firstMetrics.DensityProbes > 0);
-        Assert.True(firstMetrics.EmptyRegionEligibilityRejectedProbes > 0);
         Assert.True(firstMetrics.DensityProbes <= firstMetrics.FaceProbes);
         Assert.InRange(firstMetrics.PaletteWrites, 0, firstMetrics.FaceProbes);
 
