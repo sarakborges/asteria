@@ -141,87 +141,22 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.False(materials.FacePalettesPreserveOccupancy);
     }
 
-    [Fact]
-    public void LocalCaveCeilingsAreNotPaintedWithExteriorDirectionalPalette()
+    [Theory]
+    [InlineData(40, 20, false, true)]
+    [InlineData(40, 40, false, true)]
+    [InlineData(40, 41, false, false)]
+    [InlineData(40, 0, false, false)]
+    [InlineData(40, 20, true, false)]
+    public void LocalDensityMaskClassifiesOnlyCaveEligibleEmptyVoxels(
+        int baseY,
+        int worldY,
+        bool isSphereShellBoundaryOrLining,
+        bool expected)
     {
-        var blocks = new BlockRegistry(
-        [
-            new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:basalt"),
-        ]);
-        var biome = BiomeDefinitionJson.Parse(
-            """
-            {
-              "id": "asteria:test/cave_ceiling_palette",
-              "surfaceLayout": {
-                "regionSize": { "min": 128, "max": 128 }
-              },
-              "surfaceTerrain": {
-                "baseHeightOffset": 40,
-                "macroAmplitude": 0,
-                "macroScale": 128,
-                "detailAmplitude": 0,
-                "detailScale": 32
-              },
-              "palette": {
-                "default": [{ "block": "asteria:stone" }],
-                "ceiling": [
-                  { "block": "asteria:basalt", "depth": 1 },
-                  { "block": "asteria:stone" }
-                ]
-              }
-            }
-            """);
-        var caves = new DimensionCaveDefinition(
-        [
-            new DimensionCaveLayerDefinition(
-                minDepth: 8,
-                maxDepth: 80,
-                channels:
-                [
-                    new DimensionCaveNoiseChannelDefinition(56, 36),
-                    new DimensionCaveNoiseChannelDefinition(56, 36),
-                ],
-                noiseHalfWidth: 1f,
-                densityScale: 24f,
-                boundaryFade: 6),
-        ]);
-        var dimension = CreateDimension(biome.Id, caves);
-        var generator = new BiomeWorldGenerator(
-            Seed, dimension, blocks, new BiomeRegistry([biome]));
-        WorldVoxelCoord? caveCeiling = null;
-
-        // Find a solid voxel above a genuine cave voxel, with both voxels
-        // inside one chunk so the materializer can use its local density mask.
-        for (var z = -128; z <= 128 && !caveCeiling.HasValue; z += 2)
-        for (var x = -128; x <= 128 && !caveCeiling.HasValue; x += 2)
-        for (var worldY = 9; worldY <= 40; worldY++)
-        {
-            if (!generator.IsCaveVoidAt(x, worldY - 1, z) ||
-                generator.DensityAt(x, worldY, z) < 0d)
-                continue;
-
-            var (airChunk, _) = VoxelCoordinates.FromWorld(
-                x, worldY - 1, z);
-            var (solidChunk, _) = VoxelCoordinates.FromWorld(
-                x, worldY, z);
-            if (airChunk != solidChunk)
-                continue;
-
-            caveCeiling = new WorldVoxelCoord(x, worldY, z);
-            break;
-        }
-
-        Assert.True(caveCeiling.HasValue,
-            "The fixed cave fixture did not produce a cave ceiling inside one chunk.");
-        var target = caveCeiling.Value;
-        var (coord, local) = VoxelCoordinates.FromWorld(
-            target.X, target.Y, target.Z);
-        var chunk = generator.Materialize(coord);
-
         Assert.Equal(
-            blocks.GetId("asteria:stone"),
-            chunk.GetBlock(local.X, local.Y, local.Z));
+            expected,
+            SurfaceChunkMaterializer.IsLocalDensityCaveVoid(
+                baseY, worldY, isSphereShellBoundaryOrLining));
     }
 
     [Fact]

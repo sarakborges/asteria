@@ -995,14 +995,23 @@ public sealed class SurfaceChunkMaterializer
         SurfaceTerrainColumn column,
         int localX,
         int localZ,
-        int worldY)
+        int worldY) =>
+        IsLocalDensityCaveVoid(
+            column.BaseHeightAt(localX, localZ),
+            worldY,
+            IsSphereShellBoundaryOrLining(worldY));
+
+    internal static bool IsLocalDensityCaveVoid(
+        int baseY,
+        int worldY,
+        bool isSphereShellBoundaryOrLining)
     {
         // Within a sampled chunk, empty density at/below the base surface can
         // only come from cave carving, except at the sphere shell boundary.
         // The caller has already established that the local density bit is empty.
         return worldY > 0 &&
-            worldY <= column.BaseHeightAt(localX, localZ) &&
-            !IsSphereShellBoundaryOrLining(worldY);
+            worldY <= baseY &&
+            !isSphereShellBoundaryOrLining;
     }
 
     private bool HasSurfaceStructurePayloadAt(
