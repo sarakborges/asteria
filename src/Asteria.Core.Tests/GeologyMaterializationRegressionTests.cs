@@ -218,7 +218,7 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
-    public void DirectionalPaletteDispatchIsSharedByEveryVolumeBiome()
+    public void DirectionalPaletteDispatchUsesBiomeMaterialCapabilities()
     {
         var blocks = CreateBlocks();
         var surface = BiomeDefinitionJson.Parse(
@@ -241,25 +241,59 @@ public sealed class GeologyMaterializationRegressionTests
               }
             }
             """);
-        var volume = BiomeDefinitionJson.Parse(
+        var emptyRegionVolume = BiomeDefinitionJson.Parse(
             """
             {
-              "id": "asteria:test/volume_owner",
+              "id": "asteria:test/empty_region_owner",
               "volumeLayout": { "placement": "carvedVoid" },
               "palette": {
                 "default": [{ "block": "asteria:stone" }]
               }
             }
             """);
+        var additiveVolume = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/additive_geology_owner",
+              "volumeLayout": { "weight": 0.25 },
+              "terrain3d": {
+                "additive": [{
+                  "minY": 200,
+                  "maxY": 280,
+                  "horizontalScale": 112,
+                  "detailScale": 40,
+                  "coverage": 0.55,
+                  "roughness": 0.18,
+                  "densityScale": 28
+                }]
+              },
+              "geology": {
+                "baseBlock": "asteria:stone",
+                "blocks": ["asteria:dirt", "asteria:gravel"],
+                "scale": 24,
+                "verticalScale": 6,
+                "coverage": 0.78
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }],
+                "walls": [{ "block": "asteria:clay" }]
+              }
+            }
+            """);
         var materials = new BiomeSurfaceMaterialField(
-            Seed, [surface, volume], blocks);
+            Seed, [surface, emptyRegionVolume, additiveVolume], blocks);
         var surfaceOwner = new BiomeRegionOwner(
             new BiomeSample(
                 surface.Id, [new BiomeInfluence(surface.Id, 1f)]),
             BiomeRegionOwnerKind.Surface);
-        var volumeOwner = new BiomeRegionOwner(
+        var emptyRegionOwner = new BiomeRegionOwner(
             new BiomeSample(
-                volume.Id, [new BiomeInfluence(volume.Id, 1f)]),
+                emptyRegionVolume.Id,
+                [new BiomeInfluence(emptyRegionVolume.Id, 1f)]),
+            BiomeRegionOwnerKind.Volume);
+        var additiveOwner = new BiomeRegionOwner(
+            new BiomeSample(
+                additiveVolume.Id, [new BiomeInfluence(additiveVolume.Id, 1f)]),
             BiomeRegionOwnerKind.Volume);
 
         Assert.True(materials.ShouldApplyDirectionalFacePalette(
@@ -269,12 +303,23 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.False(materials.ShouldApplyDirectionalFacePalette(
             surfaceOwner, BiomePaletteFace.Floor));
 
+        // A volume biome without geology uses its default material palette
+        // for every exposed orientation.
         Assert.True(materials.ShouldApplyDirectionalFacePalette(
-            volumeOwner, BiomePaletteFace.Floor));
+            emptyRegionOwner, BiomePaletteFace.Floor));
         Assert.True(materials.ShouldApplyDirectionalFacePalette(
-            volumeOwner, BiomePaletteFace.Walls));
+            emptyRegionOwner, BiomePaletteFace.Walls));
         Assert.True(materials.ShouldApplyDirectionalFacePalette(
-            volumeOwner, BiomePaletteFace.Ceiling));
+            emptyRegionOwner, BiomePaletteFace.Ceiling));
+
+        // A volume biome with geology keeps that 3D field unless it explicitly
+        // authors a directional override.
+        Assert.False(materials.ShouldApplyDirectionalFacePalette(
+            additiveOwner, BiomePaletteFace.Floor));
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            additiveOwner, BiomePaletteFace.Walls));
+        Assert.False(materials.ShouldApplyDirectionalFacePalette(
+            additiveOwner, BiomePaletteFace.Ceiling));
     }
 
     [Fact]

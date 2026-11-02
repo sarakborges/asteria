@@ -63,9 +63,11 @@ public sealed class BiomeSurfaceMaterialField
             .Select(biome => biome.Id)
             .ToHashSet(StringComparer.Ordinal);
         HasDirectionalFacePalettes = _faceRules.Any(pair =>
-            volumeBiomeIds.Contains(pair.Key) ||
             pair.Value.OverrideWalls ||
-            pair.Value.OverrideCeiling);
+            pair.Value.OverrideCeiling ||
+            (volumeBiomeIds.Contains(pair.Key) &&
+             (!_geologyRules.ContainsKey(pair.Key) ||
+              pair.Value.OverrideFloor)));
         MaximumDirectionalPaintDepth = _faceRules.Values
             .Select(rule => rule.MaxDepth)
             .DefaultIfEmpty(0u)
@@ -265,11 +267,15 @@ public sealed class BiomeSurfaceMaterialField
         if (!_faceRules.TryGetValue(owner.Biome.Primary, out var rules))
             return false;
 
-        // A volume biome describes a three-dimensional region, so its
-        // Default palette is valid for every exposed orientation. Surface
-        // Floor is already materialized by the surface-layer pass.
-        return owner.Kind == BiomeRegionOwnerKind.Volume ||
-            (face != BiomePaletteFace.Floor && rules.HasOverride(face));
+        if (owner.Kind == BiomeRegionOwnerKind.Surface)
+            return face != BiomePaletteFace.Floor && rules.HasOverride(face);
+
+        // A volume biome with geology already supplies the 3D material field;
+        // only explicitly authored face overrides replace that geology.
+        // Without geology, the default palette is the material source for all
+        // exposed faces, including floor/ceiling transitions.
+        return rules.HasOverride(face) ||
+            !_geologyRules.ContainsKey(owner.Biome.Primary);
     }
 
     public BiomeSurfaceMaterialColumn SampleColumn(
