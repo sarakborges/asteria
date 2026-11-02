@@ -1,9 +1,9 @@
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Debug-oriented counters and sampled timings for one directional face-palette
-/// pass. Counts are collected in every build; substage timings are sampled in
-/// Debug builds so profiling does not add timestamp calls to Release hot loops.
+/// Diagnostic counters and sampled timings for one directional face-palette
+/// pass. Counts are collected in every build; substage timings are sampled only
+/// in Debug builds.
 /// </summary>
 public readonly record struct DirectionalFacePaletteMetrics(
     bool HasTimingBreakdown,

@@ -377,13 +377,16 @@ public sealed class GeologyMaterializationRegressionTests
 
         var first = Capture(firstGenerator);
         var second = Capture(secondGenerator);
-#if DEBUG
         Assert.True(first.HasValue);
         Assert.True(second.HasValue);
         var firstMetrics = first.Value;
         var secondMetrics = second.Value;
 
+#if DEBUG
         Assert.True(firstMetrics.HasTimingBreakdown);
+#else
+        Assert.False(firstMetrics.HasTimingBreakdown);
+#endif
         Assert.Equal(Chunk.Area, firstMetrics.SurfaceColumns);
         Assert.True(firstMetrics.SolidVoxels > 0);
         Assert.True(firstMetrics.FaceProbes > 0);
@@ -403,10 +406,6 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.Equal(firstMetrics.PaletteRejectedProbes, secondMetrics.PaletteRejectedProbes);
         Assert.Equal(firstMetrics.DepthRejectedProbes, secondMetrics.DepthRejectedProbes);
         Assert.Equal(firstMetrics.PaletteWrites, secondMetrics.PaletteWrites);
-#else
-        Assert.Null(first);
-        Assert.Null(second);
-#endif
     }
 
     [Fact]
