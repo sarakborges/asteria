@@ -1785,30 +1785,62 @@ public sealed class SurfaceChunkMaterializer
         long paletteWriteTicks = 0;
 #endif
 
-        var neighborColumnDataCache =
-            new Dictionary<(int X, int Z), DirectionalPaletteColumnData>();
+        // Face-palette probes only read X/Z biome ownership within the
+        // maximum paint radius. Materialize that small region once so the
+        // voxel hot loop uses direct array access rather than hashing a key
+        // and resolving the same column/palette millions of times.
+        var maximumPaintDepth = _materials.MaximumDirectionalPaintDepth;
+        var regionSize = checked(Chunk.Size + maximumPaintDepth * 2);
+        var regionMinimumX = originX - maximumPaintDepth;
+        var regionMinimumZ = originZ - maximumPaintDepth;
+        var (minimumRegionChunk, _) = VoxelCoordinates.FromWorld(
+            regionMinimumX, originY, regionMinimumZ);
+        var (maximumRegionChunk, _) = VoxelCoordinates.FromWorld(
+            regionMinimumX + regionSize - 1,
+            originY,
+            regionMinimumZ + regionSize - 1);
+        var (currentChunkCoord, _) = VoxelCoordinates.FromWorld(
+            originX, originY, originZ);
 
-        DirectionalPaletteColumnData GetNeighborColumnData(
-            int neighborX,
-            int neighborZ)
+        var minimumChunkX = minimumRegionChunk.X;
+        var minimumChunkZ = minimumRegionChunk.Z;
+        var chunkColumnCountX =
+            maximumRegionChunk.X - minimumChunkX + 1;
+        var chunkColumnCountZ =
+            maximumRegionChunk.Z - minimumChunkZ + 1;
+        var terrainColumns = new SurfaceTerrainColumn[
+            chunkColumnCountX, chunkColumnCountZ];
+
+        for (var chunkZ = minimumChunkZ;
+             chunkZ < minimumChunkZ + chunkColumnCountZ;
+             chunkZ++)
+        for (var chunkX = minimumChunkX;
+             chunkX < minimumChunkX + chunkColumnCountX;
+             chunkX++)
         {
-            var key = (neighborX, neighborZ);
-            if (neighborColumnDataCache.TryGetValue(key, out var cached))
-                return cached;
-
-            var (neighborCoord, neighborLocal) =
-                VoxelCoordinates.FromWorld(
-                    neighborX, originY, neighborZ);
-            var isCurrentColumn =
-                neighborX >= originX &&
-                neighborX < originX + Chunk.Size &&
-                neighborZ >= originZ &&
-                neighborZ < originZ + Chunk.Size;
-            var neighborColumn = isCurrentColumn
-                ? column
-                : _columns.Get(neighborCoord.X, neighborCoord.Z);
-            if (!isCurrentColumn)
+            var current = chunkX == currentChunkCoord.X &&
+                chunkZ == currentChunkCoord.Z;
+            terrainColumns[
+                chunkX - minimumChunkX,
+                chunkZ - minimumChunkZ] = current
+                    ? column
+                    : _columns.Get(chunkX, chunkZ);
+            if (!current)
                 neighborColumnLookups++;
+        }
+
+        var directionalPaletteColumns =
+            new DirectionalPaletteColumnData[regionSize, regionSize];
+        for (var regionZ = 0; regionZ < regionSize; regionZ++)
+        for (var regionX = 0; regionX < regionSize; regionX++)
+        {
+            var worldX = regionMinimumX + regionX;
+            var worldZ = regionMinimumZ + regionZ;
+            var (neighborCoord, neighborLocal) =
+                VoxelCoordinates.FromWorld(worldX, originY, worldZ);
+            var neighborColumn = terrainColumns[
+                neighborCoord.X - minimumChunkX,
+                neighborCoord.Z - minimumChunkZ];
 
             var surfaceBiome = neighborColumn.BiomeAt(
                 neighborLocal.X, neighborLocal.Z);
@@ -1823,18 +1855,17 @@ public sealed class SurfaceChunkMaterializer
             if (emptyRegionBiome is not null)
                 emptyRegionPaletteLookups++;
 
-            var result = new DirectionalPaletteColumnData(
-                surfaceBiome,
-                emptyRegionBiome,
-                neighborColumn.VolumeBiomes[
-                    neighborLocal.X, neighborLocal.Z],
-                neighborColumn.BaseHeightAt(
-                    neighborLocal.X, neighborLocal.Z),
-                neighborColumn.SurfaceFluidCutDepthAt(
-                    neighborLocal.X, neighborLocal.Z),
-                emptyRegionPalette);
-            neighborColumnDataCache.Add(key, result);
-            return result;
+            directionalPaletteColumns[regionX, regionZ] =
+                new DirectionalPaletteColumnData(
+                    surfaceBiome,
+                    emptyRegionBiome,
+                    neighborColumn.VolumeBiomes[
+                        neighborLocal.X, neighborLocal.Z],
+                    neighborColumn.BaseHeightAt(
+                        neighborLocal.X, neighborLocal.Z),
+                    neighborColumn.SurfaceFluidCutDepthAt(
+                        neighborLocal.X, neighborLocal.Z),
+                    emptyRegionPalette);
         }
 
         for (var z = 0; z < Chunk.Size; z++)
@@ -1848,10 +1879,13 @@ public sealed class SurfaceChunkMaterializer
                 ? Stopwatch.GetTimestamp()
                 : 0L;
 #endif
-            var baseY = column.BaseHeightAt(x, z);
+            var currentColumnData = directionalPaletteColumns[
+                x + maximumPaintDepth,
+                z + maximumPaintDepth];
+            var baseY = currentColumnData.BaseY;
             var worldX = originX + x;
             var worldZ = originZ + z;
-            var surfaceBiome = column.BiomeAt(x, z);
+            var surfaceBiome = currentColumnData.SurfaceBiome;
             var surfaceOwner = new BiomeRegionOwner(
                 surfaceBiome, BiomeRegionOwnerKind.Surface);
             var surfacePalette = _materials.DirectionalPaletteFor(surfaceOwner);
@@ -1951,11 +1985,12 @@ public sealed class SurfaceChunkMaterializer
                         var ny = y + dy;
                         var nz = z + dz;
 
-                        // Biome ownership and its directional palette only
-                        // depend on X/Z. Cache that immutable selection across
-                        // every Y, face and paint-depth probe in this chunk.
-                        var neighborData = GetNeighborColumnData(
-                            neighborX, neighborZ);
+                        // Every face offset is bounded by maximumPaintDepth,
+                        // so the corresponding X/Z ownership entry is in this
+                        // precomputed region and requires no lookup or hashing.
+                        var neighborData = directionalPaletteColumns[
+                            nx + maximumPaintDepth,
+                            nz + maximumPaintDepth];
                         var emptyRegionOwner = neighborData.EmptyRegionPalette;
 
                         // An empty-region volume can only own empty cells below
