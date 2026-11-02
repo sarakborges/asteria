@@ -62,7 +62,10 @@ class CompareWorldgenAbTests(unittest.TestCase):
         self.assertEqual(50.0, palette["candidateMedianMs"])
         self.assertAlmostEqual(28.5714, palette["reductionPercent"], places=3)
 
-        terrain = result["metrics"][1]
+        terrain = next(
+            metric for metric in result["metrics"]
+            if metric["metric"] == "TerrainLayer (warm)"
+        )
         self.assertEqual("TerrainLayer (warm)", terrain["metric"])
         self.assertEqual(110.0, terrain["baselineMedianMs"])
         self.assertEqual(90.0, terrain["candidateMedianMs"])
