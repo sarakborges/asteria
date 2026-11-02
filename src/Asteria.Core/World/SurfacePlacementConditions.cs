@@ -70,6 +70,30 @@ public readonly record struct SurfacePlacementContext(int Y, double Slope)
         }
 
         var context = terrain.CreateTerrainSampleContext();
+        return Sample(
+            terrain, context, worldX, worldZ,
+            includeSlope: true, baseSurface);
+    }
+
+    // Materialization evaluates many neighboring slope conditions in one chunk.
+    // Reusing its sampler pair avoids allocating two biome samplers per column
+    // and lets adjacent columns share their cached biome assignments.
+    internal static SurfacePlacementContext Sample(
+        SurfaceTerrainField terrain,
+        SurfaceTerrainField.TerrainSampleContext context,
+        int worldX,
+        int worldZ,
+        bool includeSlope = true,
+        bool baseSurface = false)
+    {
+        ArgumentNullException.ThrowIfNull(terrain);
+        if (!includeSlope)
+        {
+            return new SurfacePlacementContext(
+                HeightAt(terrain, worldX, worldZ, baseSurface),
+                0d);
+        }
+
         var y = HeightAt(terrain, context, worldX, worldZ, baseSurface);
         var xPlus = worldX == int.MaxValue ? worldX : worldX + 1;
         var xMinus = worldX == int.MinValue ? worldX : worldX - 1;

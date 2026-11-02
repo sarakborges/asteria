@@ -582,6 +582,13 @@ public sealed class SurfaceChunkMaterializer
 
     private void MaterializeSurfaceDecorations(MaterializationJob job)
     {
+        // Slope conditions inspect the current and four adjacent columns.
+        // Keep the memoizing biome samplers alive for this chunk instead of
+        // allocating a new pair for every decorated X/Z column.
+        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext =
+            _decorations.HasSlopeConditions
+                ? _terrain.CreateTerrainSampleContext()
+                : null;
         var chunk = job.Chunk;
         var originX = job.OriginX;
         var originY = job.OriginY;
@@ -675,20 +682,34 @@ public sealed class SurfaceChunkMaterializer
 
                     if (normalInChunk)
                     {
-                        var decoration = _decorations.BlockAt(
+                        var decoration = _decorations.BlockAtWithTerrainSampleContext(
                             topSample, topBlock, worldX, worldZ,
-                            submerged: submerged, supportY: surfaceY,
-                            nearbyFluid: _nearbyFluidQuery);
+                            suppliedPlacement: null,
+                            verticalY: null,
+                            submerged: submerged,
+                            supportY: surfaceY,
+                            onFluidSurface: false,
+                            fluidBelow: default,
+                            nearbyFluid: _nearbyFluidQuery,
+                            supportSurface: DecorationSupportSurface.Floor,
+                            terrainSampleContext: terrainSampleContext);
                         if (!decoration.IsAir)
                             chunk.SetBlock(localX, (int)decorationY - originY,
                                 localZ, decoration);
                     }
                     if (!job.SupportOnly && considerObjects)
                     {
-                        var objectId = _decorations.ObjectAt(
+                        var objectId = _decorations.ObjectAtWithTerrainSampleContext(
                             topSample, topBlock, worldX, worldZ,
-                            submerged: submerged, supportY: surfaceY,
-                            nearbyFluid: _nearbyFluidQuery);
+                            placement: null,
+                            verticalY: null,
+                            submerged: submerged,
+                            supportY: surfaceY,
+                            nearbyFluid: _nearbyFluidQuery,
+                            supportSurface: DecorationSupportSurface.Floor,
+                            onFluidSurface: false,
+                            fluidBelow: default,
+                            terrainSampleContext: terrainSampleContext);
                         if (objectId is not null)
                         {
                             pendingObjects ??= [];
@@ -712,12 +733,17 @@ public sealed class SurfaceChunkMaterializer
                         worldX, (int)decorationY + 1, worldZ);
                     if (!supportFluid.IsEmpty && aboveFluid.IsEmpty)
                     {
-                        var decoration = _decorations.BlockAt(
+                        var decoration = _decorations.BlockAtWithTerrainSampleContext(
                             topSample, topBlock, worldX, worldZ,
+                            suppliedPlacement: null,
+                            verticalY: null,
+                            submerged: false,
                             supportY: (int)decorationY,
                             onFluidSurface: true,
                             fluidBelow: supportFluid.Fluid,
-                            nearbyFluid: _nearbyFluidQuery);
+                            nearbyFluid: _nearbyFluidQuery,
+                            supportSurface: DecorationSupportSurface.Floor,
+                            terrainSampleContext: terrainSampleContext);
                         if (fluidTopInChunk && !decoration.IsAir)
                             chunk.SetBlock(
                                 localX, (int)decorationY + 1 - originY,
@@ -726,12 +752,17 @@ public sealed class SurfaceChunkMaterializer
                             fluidObjectSupportInChunk &&
                             _decorations.HasObjectDecorations(topSample))
                         {
-                            var objectId = _decorations.ObjectAt(
+                            var objectId = _decorations.ObjectAtWithTerrainSampleContext(
                                 topSample, topBlock, worldX, worldZ,
+                                placement: null,
+                                verticalY: null,
+                                submerged: false,
                                 supportY: (int)decorationY,
+                                nearbyFluid: _nearbyFluidQuery,
+                                supportSurface: DecorationSupportSurface.Floor,
                                 onFluidSurface: true,
                                 fluidBelow: supportFluid.Fluid,
-                                nearbyFluid: _nearbyFluidQuery);
+                                terrainSampleContext: terrainSampleContext);
                             if (objectId is not null)
                             {
                                 pendingObjects ??= [];

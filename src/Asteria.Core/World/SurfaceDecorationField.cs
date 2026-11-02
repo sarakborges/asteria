@@ -134,6 +134,9 @@ public sealed class SurfaceDecorationField
     public bool HasWallObjects => _wallObjectBiomes.Count > 0;
     public bool HasWallObjectsFor(string biomeId) =>
         _wallObjectBiomes.Contains(biomeId);
+    internal bool HasSlopeConditions =>
+        _rules.Values.Any(rules =>
+            rules.Any(rule => rule.Conditions?.RequiresSlope == true));
     public bool HasWallBlocksFor(string biomeId) =>
         _wallBlockBiomes.Contains(biomeId);
     public bool HasWallLayersFor(string biomeId) =>
@@ -179,13 +182,33 @@ public sealed class SurfaceDecorationField
         bool onFluidSurface = false,
         FluidRuntimeId fluidBelow = default,
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null,
-        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor)
+        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor) =>
+        BlockAtWithTerrainSampleContext(
+            sample, surfaceBlock, worldX, worldZ, suppliedPlacement,
+            verticalY, submerged, supportY, onFluidSurface, fluidBelow,
+            nearbyFluid, supportSurface, null);
+
+    internal BlockRuntimeId BlockAtWithTerrainSampleContext(
+        BiomeSample sample,
+        BlockRuntimeId surfaceBlock,
+        int worldX,
+        int worldZ,
+        SurfacePlacementContext? suppliedPlacement,
+        int? verticalY,
+        bool submerged,
+        int? supportY,
+        bool onFluidSurface,
+        FluidRuntimeId fluidBelow,
+        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid,
+        DecorationSupportSurface supportSurface,
+        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext)
     {
         if (supportSurface == DecorationSupportSurface.Wall)
             return BlockRuntimeId.Air;
         return SelectRule(sample, surfaceBlock, worldX, worldZ,
             suppliedPlacement, verticalY, submerged, supportY, onFluidSurface,
-            fluidBelow, nearbyFluid, supportSurface, requireObject: false)?.Block ?? BlockRuntimeId.Air;
+            fluidBelow, nearbyFluid, supportSurface, requireObject: false,
+            terrainSampleContext: terrainSampleContext)?.Block ?? BlockRuntimeId.Air;
     }
 
     public string? ObjectAt(BiomeSample sample, BlockRuntimeId supportBlock,
@@ -195,13 +218,33 @@ public sealed class SurfaceDecorationField
         int? supportY = null,
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null,
         DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor,
-        bool onFluidSurface = false, FluidRuntimeId fluidBelow = default)
+        bool onFluidSurface = false, FluidRuntimeId fluidBelow = default) =>
+        ObjectAtWithTerrainSampleContext(
+            sample, supportBlock, worldX, worldZ, placement, verticalY,
+            submerged, supportY, nearbyFluid, supportSurface,
+            onFluidSurface, fluidBelow, null);
+
+    internal string? ObjectAtWithTerrainSampleContext(
+        BiomeSample sample,
+        BlockRuntimeId supportBlock,
+        int worldX,
+        int worldZ,
+        SurfacePlacementContext? placement,
+        int? verticalY,
+        bool submerged,
+        int? supportY,
+        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid,
+        DecorationSupportSurface supportSurface,
+        bool onFluidSurface,
+        FluidRuntimeId fluidBelow,
+        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext)
     {
         if (!HasObjectDecorations(sample)) return null;
         return SelectRule(sample, supportBlock, worldX, worldZ,
             placement, verticalY, submerged, supportY,
             onFluidSurface, fluidBelow, nearbyFluid, supportSurface,
-            requireLayer: false, requireObject: true)?.ObjectId;
+            requireLayer: false, requireObject: true,
+            terrainSampleContext: terrainSampleContext)?.ObjectId;
     }
 
     public string? WallObjectAt(
@@ -252,7 +295,8 @@ public sealed class SurfaceDecorationField
         FluidRuntimeId fluidBelow,
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid,
         DecorationSupportSurface supportSurface,
-        bool? requireLayer = null, bool? requireObject = null)
+        bool? requireLayer = null, bool? requireObject = null,
+        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext = null)
     {
         SurfacePlacementContext? placement = suppliedPlacement;
         var slopeSampled = suppliedPlacement.HasValue;
@@ -295,10 +339,13 @@ public sealed class SurfaceDecorationField
                                 "Conditional ground decorators require a terrain field.");
                         }
 
-                        placement = SurfacePlacementContext.Sample(
-                            _terrain, worldX, worldZ,
-                            conditions.RequiresSlope,
-                            rule.UsesBaseSurface);
+                        placement = terrainSampleContext is { } sharedContext
+                            ? SurfacePlacementContext.Sample(
+                                _terrain, sharedContext, worldX, worldZ,
+                                conditions.RequiresSlope, rule.UsesBaseSurface)
+                            : SurfacePlacementContext.Sample(
+                                _terrain, worldX, worldZ,
+                                conditions.RequiresSlope, rule.UsesBaseSurface);
                         slopeSampled = conditions.RequiresSlope;
                     }
 

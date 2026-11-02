@@ -2363,10 +2363,24 @@ public sealed class BiomeWorldGenerationTests
             Math.Max(
                 Math.Abs((long)surfaceY - terrain.SurfaceHeight(worldX, zPlus)),
                 Math.Abs((long)surfaceY - terrain.SurfaceHeight(worldX, zMinus))));
+        var expectedSurfacePlacement =
+            new SurfacePlacementContext(surfaceY, surfaceSlope);
         Assert.Equal(
-            new SurfacePlacementContext(surfaceY, surfaceSlope),
+            expectedSurfacePlacement,
             SurfacePlacementContext.Sample(
                 terrain, worldX, worldZ, includeSlope: true));
+
+        var sharedTerrainSampleContext = terrain.CreateTerrainSampleContext();
+        Assert.Equal(
+            expectedSurfacePlacement,
+            SurfacePlacementContext.Sample(
+                terrain, sharedTerrainSampleContext,
+                worldX, worldZ, includeSlope: true));
+        Assert.Equal(
+            expectedSurfacePlacement,
+            SurfacePlacementContext.Sample(
+                terrain, sharedTerrainSampleContext,
+                worldX + 1, worldZ, includeSlope: true));
 
         var baseY = terrain.SampleBaseSurface(worldX, worldZ).BaseY;
         var baseSlope = Math.Max(
@@ -2376,10 +2390,16 @@ public sealed class BiomeWorldGenerationTests
             Math.Max(
                 Math.Abs((long)baseY - terrain.SampleBaseSurface(worldX, zPlus).BaseY),
                 Math.Abs((long)baseY - terrain.SampleBaseSurface(worldX, zMinus).BaseY)));
+        var expectedBasePlacement = new SurfacePlacementContext(baseY, baseSlope);
         Assert.Equal(
-            new SurfacePlacementContext(baseY, baseSlope),
+            expectedBasePlacement,
             SurfacePlacementContext.Sample(
                 terrain, worldX, worldZ, includeSlope: true, baseSurface: true));
+        Assert.Equal(
+            expectedBasePlacement,
+            SurfacePlacementContext.Sample(
+                terrain, sharedTerrainSampleContext,
+                worldX, worldZ, includeSlope: true, baseSurface: true));
     }
 
     [Fact]
