@@ -335,6 +335,73 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
+    public void DirectionalPaletteDiagnosticsAreReproducibleForFixedSeedAndChunk()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/directional_palette_diagnostics",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 64,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }],
+                "walls": [{ "block": "asteria:clay" }]
+              }
+            }
+            """);
+        var blocks = CreateBlocks();
+        var dimension = CreateDimension(biome.Id);
+        var biomes = new BiomeRegistry([biome]);
+        var firstGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes);
+        var secondGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes);
+
+        static DirectionalFacePaletteMetrics Capture(
+            BiomeWorldGenerator generator)
+        {
+            using var job = generator.BeginMaterialization(
+                new ChunkCoord(0, 2, 0));
+            while (!job.IsComplete)
+                job.Advance();
+
+            Assert.True(job.DirectionalFacePaletteMetrics.HasValue);
+            return job.DirectionalFacePaletteMetrics.Value;
+        }
+
+        var first = Capture(firstGenerator);
+        var second = Capture(secondGenerator);
+
+        Assert.Equal(Chunk.Area, first.SurfaceColumns);
+        Assert.True(first.SolidVoxels > 0);
+        Assert.True(first.FaceProbes > 0);
+        Assert.True(first.DensityProbes > 0);
+        Assert.InRange(first.PaletteWrites, 0, first.FaceProbes);
+
+        Assert.Equal(first.SurfaceColumns, second.SurfaceColumns);
+        Assert.Equal(first.SolidVoxels, second.SolidVoxels);
+        Assert.Equal(first.FaceProbes, second.FaceProbes);
+        Assert.Equal(first.NeighborColumnLookups, second.NeighborColumnLookups);
+        Assert.Equal(first.SolidPaletteLookups, second.SolidPaletteLookups);
+        Assert.Equal(first.EmptyRegionPaletteLookups, second.EmptyRegionPaletteLookups);
+        Assert.Equal(first.DensityProbes, second.DensityProbes);
+        Assert.Equal(first.BoundaryDensityProbes, second.BoundaryDensityProbes);
+        Assert.Equal(first.EmptyRegionOwnerResolutions, second.EmptyRegionOwnerResolutions);
+        Assert.Equal(first.MaskRejectedProbes, second.MaskRejectedProbes);
+        Assert.Equal(first.PaletteRejectedProbes, second.PaletteRejectedProbes);
+        Assert.Equal(first.DepthRejectedProbes, second.DepthRejectedProbes);
+        Assert.Equal(first.PaletteWrites, second.PaletteWrites);
+    }
+
+    [Fact]
     public void MaterializedGravityGeologyNeverLeavesUnsupportedCellsAcrossVerticalSeams()
     {
         var blocks = CreateBlocks(gravityBlocks: true);

@@ -1,3 +1,7 @@
+#if DEBUG
+using System.Diagnostics;
+#endif
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -196,9 +200,10 @@ public sealed class SurfaceChunkMaterializer
                 break;
 
             case ChunkMaterializationStage.DirectionalFacePalettes:
-                MaterializeDirectionalFacePalettes(
-                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
-                    job.OriginX, job.OriginY, job.OriginZ);
+                job.DirectionalFacePaletteMetrics =
+                    MaterializeDirectionalFacePalettes(
+                        job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                        job.OriginX, job.OriginY, job.OriginZ);
                 job.Stage = ChunkMaterializationStage.VolumeStructures;
                 break;
 
@@ -1262,6 +1267,8 @@ public sealed class SurfaceChunkMaterializer
 
         public Chunk? Result { get; internal set; }
 
+        public DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics { get; set; }
+
         public void Advance() => _owner.Advance(this);
 
         public void Dispose()
@@ -1729,18 +1736,50 @@ public sealed class SurfaceChunkMaterializer
     /// orientation only determine which biome owns an exposed face. Carved-void
     /// faces retain floor -> walls -> ceiling tie-breaking.
     /// </summary>
-    private void MaterializeDirectionalFacePalettes(
+    private DirectionalFacePaletteMetrics? MaterializeDirectionalFacePalettes(
         Chunk chunk,
         SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
         int originX, int originY, int originZ)
     {
         if (!_materials.HasDirectionalFacePalettes)
-            return;
+            return null;
+
+        const int timingSampleInterval = 32;
+        var surfaceColumns = 0;
+        var solidVoxels = 0;
+        var faceProbes = 0;
+        var neighborColumnLookups = 0;
+        var solidPaletteLookups = 0;
+        var emptyRegionPaletteLookups = 0;
+        var densityProbes = 0;
+        var boundaryDensityProbes = 0;
+        var emptyRegionOwnerResolutions = 0;
+        var maskRejectedProbes = 0;
+        var paletteRejectedProbes = 0;
+        var depthRejectedProbes = 0;
+        var paletteWrites = 0;
+#if DEBUG
+        var totalStarted = Stopwatch.GetTimestamp();
+        long surfaceColumnTicks = 0;
+        long solidOwnerTicks = 0;
+        long neighborOwnerTicks = 0;
+        long densityProbeTicks = 0;
+        long emptyOwnerTicks = 0;
+        long paletteWriteTicks = 0;
+#endif
 
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
+            surfaceColumns++;
+#if DEBUG
+            var measureSurfaceColumn =
+                surfaceColumns % timingSampleInterval == 0;
+            var surfaceColumnStarted = measureSurfaceColumn
+                ? Stopwatch.GetTimestamp()
+                : 0L;
+#endif
             var baseY = column.BaseHeightAt(x, z);
             var worldX = originX + x;
             var worldZ = originZ + z;
@@ -1748,6 +1787,11 @@ public sealed class SurfaceChunkMaterializer
             var surfaceOwner = new BiomeRegionOwner(
                 surfaceBiome, BiomeRegionOwnerKind.Surface);
             var surfacePalette = _materials.DirectionalPaletteFor(surfaceOwner);
+#if DEBUG
+            if (measureSurfaceColumn)
+                surfaceColumnTicks +=
+                    Stopwatch.GetTimestamp() - surfaceColumnStarted;
+#endif
 
             for (var y = 0; y < Chunk.Size; y++)
             {
@@ -1762,6 +1806,14 @@ public sealed class SurfaceChunkMaterializer
                 if (currentBlock.IsAir)
                     continue;
 
+                solidVoxels++;
+#if DEBUG
+                var measureSolidOwner =
+                    solidVoxels % timingSampleInterval == 0;
+                var solidOwnerStarted = measureSolidOwner
+                    ? Stopwatch.GetTimestamp()
+                    : 0L;
+#endif
                 var solidVolumeBiome = worldY > baseY
                     ? densityVolume.VolumeBiomeAt(x, worldY, z)
                     : null;
@@ -1772,6 +1824,13 @@ public sealed class SurfaceChunkMaterializer
                 var solidPalette = solidVolumeBiome is null
                     ? surfacePalette
                     : _materials.DirectionalPaletteFor(solidOwner);
+                if (solidVolumeBiome is not null)
+                    solidPaletteLookups++;
+#if DEBUG
+                if (measureSolidOwner)
+                    solidOwnerTicks +=
+                        Stopwatch.GetTimestamp() - solidOwnerStarted;
+#endif
 
                 for (var depth = 0;
                      depth < _materials.MaximumDirectionalPaintDepth;
@@ -1806,6 +1865,14 @@ public sealed class SurfaceChunkMaterializer
                         BiomeRegionOwner exposedSolidOwner,
                         BiomeDirectionalPalette exposedSolidPalette)
                     {
+                        faceProbes++;
+#if DEBUG
+                        var measureNeighborOwner =
+                            faceProbes % timingSampleInterval == 0;
+                        var neighborOwnerStarted = measureNeighborOwner
+                            ? Stopwatch.GetTimestamp()
+                            : 0L;
+#endif
                         var neighborX = worldX + dx;
                         var neighborY = worldY + dy;
                         var neighborZ = worldZ + dz;
@@ -1837,6 +1904,7 @@ public sealed class SurfaceChunkMaterializer
                                 neighborCoord.X, neighborCoord.Z);
                             neighborLocalX = neighborLocal.X;
                             neighborLocalZ = neighborLocal.Z;
+                            neighborColumnLookups++;
                         }
 
                         var emptyRegionBiome = neighborColumn.CaveBiomeAt(
@@ -1847,21 +1915,46 @@ public sealed class SurfaceChunkMaterializer
                                 new BiomeRegionOwner(
                                     emptyRegionBiome,
                                     BiomeRegionOwnerKind.Volume));
+                        if (emptyRegionBiome is not null)
+                            emptyRegionPaletteLookups++;
+#if DEBUG
+                        if (measureNeighborOwner)
+                            neighborOwnerTicks +=
+                                Stopwatch.GetTimestamp() - neighborOwnerStarted;
+#endif
 
                         // Do not evaluate density when neither the exposed
                         // solid nor the adjacent empty-region owner declares
                         // this face orientation.
                         if (!exposedSolidPalette.Has(face) &&
                             !emptyRegionOwner.Has(face))
+                        {
+                            maskRejectedProbes++;
                             return false;
+                        }
 
                         var localDensity = (uint)nx < Chunk.Size &&
                             (uint)ny < Chunk.Size &&
                             (uint)nz < Chunk.Size;
+                        densityProbes++;
+                        if (!localDensity)
+                            boundaryDensityProbes++;
+#if DEBUG
+                        var measureDensity =
+                            densityProbes % timingSampleInterval == 0;
+                        var densityStarted = measureDensity
+                            ? Stopwatch.GetTimestamp()
+                            : 0L;
+#endif
                         var empty = localDensity
                             ? !densityVolume.IsSolidAtUnchecked(nx, ny, nz)
                             : DensityAtWorld(
                                 neighborX, neighborY, neighborZ) < 0d;
+#if DEBUG
+                        if (measureDensity)
+                            densityProbeTicks +=
+                                Stopwatch.GetTimestamp() - densityStarted;
+#endif
                         if (!empty)
                             return false;
 
@@ -1869,6 +1962,14 @@ public sealed class SurfaceChunkMaterializer
                         var palette = exposedSolidPalette;
                         if (emptyRegionOwner.Has(face))
                         {
+                            emptyRegionOwnerResolutions++;
+#if DEBUG
+                            var measureEmptyOwner =
+                                emptyRegionOwnerResolutions % timingSampleInterval == 0;
+                            var emptyOwnerStarted = measureEmptyOwner
+                                ? Stopwatch.GetTimestamp()
+                                : 0L;
+#endif
                             var resolvedEmptyOwner = _terrain.ResolveRegionOwnerAt(
                                 neighborColumn,
                                 neighborLocalX,
@@ -1878,6 +1979,11 @@ public sealed class SurfaceChunkMaterializer
                                 isEmpty: true,
                                 isSphereShellBoundaryOrLining:
                                     IsSphereShellBoundaryOrLining(neighborY));
+#if DEBUG
+                            if (measureEmptyOwner)
+                                emptyOwnerTicks +=
+                                    Stopwatch.GetTimestamp() - emptyOwnerStarted;
+#endif
                             if (resolvedEmptyOwner.Kind == BiomeRegionOwnerKind.Volume)
                             {
                                 owner = resolvedEmptyOwner;
@@ -1885,21 +1991,106 @@ public sealed class SurfaceChunkMaterializer
                             }
                         }
 
-                        if (!palette.Has(face) ||
-                            (uint)depth >= palette.MaxDepth)
+                        if (!palette.Has(face))
+                        {
+                            paletteRejectedProbes++;
                             return false;
+                        }
 
-                        chunk.SetBlock(
-                            x, y, z,
-                            _materials.VolumeBlockAt(
-                                owner.Biome,
-                                worldX, worldY, worldZ,
-                                face, (uint)depth));
+                        if ((uint)depth >= palette.MaxDepth)
+                        {
+                            depthRejectedProbes++;
+                            return false;
+                        }
+
+                        paletteWrites++;
+#if DEBUG
+                        var measurePaletteWrite =
+                            paletteWrites % timingSampleInterval == 0;
+                        var paletteWriteStarted = measurePaletteWrite
+                            ? Stopwatch.GetTimestamp()
+                            : 0L;
+#endif
+                        var replacement = _materials.VolumeBlockAt(
+                            owner.Biome,
+                            worldX, worldY, worldZ,
+                            face, (uint)depth);
+                        chunk.SetBlock(x, y, z, replacement);
+#if DEBUG
+                        if (measurePaletteWrite)
+                            paletteWriteTicks +=
+                                Stopwatch.GetTimestamp() - paletteWriteStarted;
+#endif
                         return true;
                     }
                 }
             }
         }
+
+#if DEBUG
+        var totalMilliseconds = Stopwatch.GetElapsedTime(
+            totalStarted).TotalMilliseconds;
+        var surfaceColumnMilliseconds = Stopwatch.GetElapsedTime(
+            surfaceColumnTicks * timingSampleInterval).TotalMilliseconds;
+        var solidOwnerMilliseconds = Stopwatch.GetElapsedTime(
+            solidOwnerTicks * timingSampleInterval).TotalMilliseconds;
+        var neighborOwnerMilliseconds = Stopwatch.GetElapsedTime(
+            neighborOwnerTicks * timingSampleInterval).TotalMilliseconds;
+        var densityProbeMilliseconds = Stopwatch.GetElapsedTime(
+            densityProbeTicks * timingSampleInterval).TotalMilliseconds;
+        var emptyOwnerMilliseconds = Stopwatch.GetElapsedTime(
+            emptyOwnerTicks * timingSampleInterval).TotalMilliseconds;
+        var paletteWriteMilliseconds = Stopwatch.GetElapsedTime(
+            paletteWriteTicks * timingSampleInterval).TotalMilliseconds;
+        var estimatedSubstageMilliseconds =
+            surfaceColumnMilliseconds +
+            solidOwnerMilliseconds +
+            neighborOwnerMilliseconds +
+            densityProbeMilliseconds +
+            emptyOwnerMilliseconds +
+            paletteWriteMilliseconds;
+        var otherMilliseconds = Math.Max(
+            0d,
+            totalMilliseconds - estimatedSubstageMilliseconds);
+#else
+        const double totalMilliseconds = 0d;
+        const double surfaceColumnMilliseconds = 0d;
+        const double solidOwnerMilliseconds = 0d;
+        const double neighborOwnerMilliseconds = 0d;
+        const double densityProbeMilliseconds = 0d;
+        const double emptyOwnerMilliseconds = 0d;
+        const double paletteWriteMilliseconds = 0d;
+        const double otherMilliseconds = 0d;
+#endif
+
+        return new DirectionalFacePaletteMetrics(
+#if DEBUG
+            HasTimingBreakdown: true,
+#else
+            HasTimingBreakdown: false,
+#endif
+            TimingSampleInterval: timingSampleInterval,
+            SurfaceColumns: surfaceColumns,
+            SolidVoxels: solidVoxels,
+            FaceProbes: faceProbes,
+            NeighborColumnLookups: neighborColumnLookups,
+            SolidPaletteLookups: solidPaletteLookups,
+            EmptyRegionPaletteLookups: emptyRegionPaletteLookups,
+            DensityProbes: densityProbes,
+            BoundaryDensityProbes: boundaryDensityProbes,
+            EmptyRegionOwnerResolutions: emptyRegionOwnerResolutions,
+            MaskRejectedProbes: maskRejectedProbes,
+            PaletteRejectedProbes: paletteRejectedProbes,
+            DepthRejectedProbes: depthRejectedProbes,
+            PaletteWrites: paletteWrites,
+            TotalMilliseconds: totalMilliseconds,
+            SurfaceColumnPreparationEstimatedMilliseconds: surfaceColumnMilliseconds,
+            SolidOwnerResolutionEstimatedMilliseconds: solidOwnerMilliseconds,
+            NeighborOwnerLookupEstimatedMilliseconds: neighborOwnerMilliseconds,
+            DensityProbeEstimatedMilliseconds: densityProbeMilliseconds,
+            EmptyRegionOwnerResolutionEstimatedMilliseconds: emptyOwnerMilliseconds,
+            PaletteWriteEstimatedMilliseconds: paletteWriteMilliseconds,
+            OtherEstimatedMilliseconds: otherMilliseconds);
     }
 
     /// <summary>

@@ -100,7 +100,8 @@ public readonly record struct ChunkMaterializationFailure(
 public readonly record struct ChunkMaterializationStageTiming(
     ChunkCoord Coord,
     ChunkMaterializationStage Stage,
-    double WorkerMilliseconds);
+    double WorkerMilliseconds,
+    DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics = null);
 
 public sealed record ChunkResidencyUpdate(
     IReadOnlyList<ChunkResidencyActivation> Activations,
@@ -667,8 +668,12 @@ public sealed class ChunkResidencyRuntime
             var stageMilliseconds = Stopwatch.GetElapsedTime(
                 stageStarted).TotalMilliseconds;
             workerMilliseconds += stageMilliseconds;
+            var directionalPaletteMetrics =
+                stage == ChunkMaterializationStage.DirectionalFacePalettes
+                    ? work.Job.DirectionalFacePaletteMetrics
+                    : null;
             stageTimings.Add(new ChunkMaterializationStageTiming(
-                coord, stage, stageMilliseconds));
+                coord, stage, stageMilliseconds, directionalPaletteMetrics));
         }
 
         var chunk = work.Job.Result ??

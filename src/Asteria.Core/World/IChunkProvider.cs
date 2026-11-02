@@ -1,6 +1,36 @@
 namespace Asteria.Core.World;
 
 /// <summary>
+/// Debug-oriented counters and sampled timings for one directional face-palette
+/// pass. Counts are collected in every build; substage timings are sampled in
+/// Debug builds so profiling does not add timestamp calls to Release hot loops.
+/// </summary>
+public readonly record struct DirectionalFacePaletteMetrics(
+    bool HasTimingBreakdown,
+    int TimingSampleInterval,
+    int SurfaceColumns,
+    int SolidVoxels,
+    int FaceProbes,
+    int NeighborColumnLookups,
+    int SolidPaletteLookups,
+    int EmptyRegionPaletteLookups,
+    int DensityProbes,
+    int BoundaryDensityProbes,
+    int EmptyRegionOwnerResolutions,
+    int MaskRejectedProbes,
+    int PaletteRejectedProbes,
+    int DepthRejectedProbes,
+    int PaletteWrites,
+    double TotalMilliseconds,
+    double SurfaceColumnPreparationEstimatedMilliseconds,
+    double SolidOwnerResolutionEstimatedMilliseconds,
+    double NeighborOwnerLookupEstimatedMilliseconds,
+    double DensityProbeEstimatedMilliseconds,
+    double EmptyRegionOwnerResolutionEstimatedMilliseconds,
+    double PaletteWriteEstimatedMilliseconds,
+    double OtherEstimatedMilliseconds);
+
+/// <summary>
 /// Pure chunk materialization boundary consumed by residency workers.
 /// Implementations may be invoked concurrently and therefore must be
 /// deterministic for the same immutable inputs and safe for concurrent reads.
@@ -60,6 +90,9 @@ public interface IChunkMaterializationJob : IDisposable
     bool IsComplete { get; }
 
     Chunk? Result { get; }
+
+    /// <summary>Optional profile for the completed directional-palette stage.</summary>
+    DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics => null;
 
     void Advance();
 }
