@@ -142,6 +142,101 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
+    public void LocalCaveWallsAreNotPaintedWithExteriorDirectionalPalette()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:basalt"),
+        ]);
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/cave_wall_palette",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 128,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }],
+                "walls": [
+                  { "block": "asteria:basalt", "depth": 1 },
+                  { "block": "asteria:stone" }
+                ]
+              }
+            }
+            """);
+        var caves = new DimensionCaveDefinition(
+        [
+            new DimensionCaveLayerDefinition(
+                minDepth: 8,
+                maxDepth: 80,
+                channels:
+                [
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                ],
+                noiseHalfWidth: 1f,
+                densityScale: 24f,
+                boundaryFade: 6),
+        ]);
+        var dimension = CreateDimension(biome.Id, caves);
+        var generator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, new BiomeRegistry([biome]));
+        WorldVoxelCoord? caveWall = null;
+        var directions = new (int X, int Z)[]
+        {
+            (1, 0), (-1, 0), (0, 1), (0, -1),
+        };
+
+        // Find a solid voxel beside a genuine cave voxel, with both voxels
+        // inside one chunk so the materializer can use its local density mask.
+        for (var z = -128; z <= 128 && !caveWall.HasValue; z += 2)
+        for (var x = -128; x <= 128 && !caveWall.HasValue; x += 2)
+        foreach (var worldY in new[] { 16, 32 })
+        {
+            if (!generator.IsCaveVoidAt(x, worldY, z))
+                continue;
+
+            var (caveChunk, _) = VoxelCoordinates.FromWorld(x, worldY, z);
+            foreach (var (dx, dz) in directions)
+            {
+                var neighborX = x + dx;
+                var neighborZ = z + dz;
+                var (solidChunk, _) = VoxelCoordinates.FromWorld(
+                    neighborX, worldY, neighborZ);
+                if (caveChunk != solidChunk ||
+                    generator.DensityAt(neighborX, worldY, neighborZ) < 0d)
+                    continue;
+
+                caveWall = new WorldVoxelCoord(
+                    neighborX, worldY, neighborZ);
+                break;
+            }
+
+            if (caveWall.HasValue)
+                break;
+        }
+
+        Assert.True(caveWall.HasValue,
+            "The fixed cave fixture did not produce a horizontal cave wall inside one chunk.");
+        var target = caveWall.Value;
+        var (coord, local) = VoxelCoordinates.FromWorld(
+            target.X, target.Y, target.Z);
+        var chunk = generator.Materialize(coord);
+
+        Assert.Equal(
+            blocks.GetId("asteria:stone"),
+            chunk.GetBlock(local.X, local.Y, local.Z));
+    }
+
+    [Fact]
     public void MaterializedGravityGeologyNeverLeavesUnsupportedCellsAcrossVerticalSeams()
     {
         var blocks = CreateBlocks(gravityBlocks: true);

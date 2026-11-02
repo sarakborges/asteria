@@ -991,6 +991,20 @@ public sealed class SurfaceChunkMaterializer
         (_roofY is { } roofY &&
          (worldY == roofY || (long)worldY == (long)roofY - 1L));
 
+    private bool IsLocalDensityCaveVoid(
+        SurfaceTerrainColumn column,
+        int localX,
+        int localZ,
+        int worldY)
+    {
+        // Within a sampled chunk, empty density at/below the base surface can
+        // only come from cave carving, except at the sphere shell boundary.
+        // The caller has already established that the local density bit is empty.
+        return worldY > 0 &&
+            worldY <= column.BaseHeightAt(localX, localZ) &&
+            !IsSphereShellBoundaryOrLining(worldY);
+    }
+
     private bool HasSurfaceStructurePayloadAt(
         ChunkCoord coord,
         int worldX,
@@ -1865,27 +1879,24 @@ public sealed class SurfaceChunkMaterializer
                     var nx = x + dx;
                     var ny = y + dy;
                     var nz = z + dz;
-                    var voidDensity = (uint)nx < Chunk.Size &&
+                    var local = (uint)nx < Chunk.Size &&
                         (uint)ny < Chunk.Size &&
-                        (uint)nz < Chunk.Size
+                        (uint)nz < Chunk.Size;
+                    var voidDensity = local
                         ? !densityVolume.IsSolidAtUnchecked(nx, ny, nz)
                         : DensityAtWorld(
                             worldX + dx, neighborY, worldZ + dz) < 0d;
                     if (!voidDensity)
                         return false;
 
-                    var neighborPosition = new WorldVoxelCoord(
-                        worldX + dx, neighborY, worldZ + dz);
-                    // Air owned by a carved-void biome is not a surface or
-                    // additive face, including across chunk boundaries.
-                    var carvedVoid = (uint)nx < Chunk.Size &&
-                                     (uint)nz < Chunk.Size
-                        ? _terrain.IsCaveVoidAt(
-                            column.BaseHeightAt(nx, nz), neighborPosition)
-                        : IsCaveVoidAtWorld(
-                            neighborPosition.X, neighborPosition.Y,
-                            neighborPosition.Z);
-                    return !carvedVoid;
+                    // The local density mask already includes cave carving.
+                    // Re-sampling CaveVoidDensityAt here repeated the same
+                    // 3D noise work for every internal face probe. Outside
+                    // this chunk there is no local mask, so keep the field query.
+                    return !local
+                        ? IsCaveVoidAtWorld(worldX + dx, neighborY, worldZ + dz)
+                        : !IsLocalDensityCaveVoid(
+                            column, nx, nz, neighborY);
                 }
 
                 var reach = (int)_materials.MaxVolumePaintDepth(biome);
@@ -2274,8 +2285,11 @@ public sealed class SurfaceChunkMaterializer
                         neighborColumn.BaseHeightAt(sx, sz);
                     BiomeSample? owner;
                     if (worldY <= neighborBaseY &&
-                        _terrain.IsCaveVoidAt(neighborBaseY,
-                            new WorldVoxelCoord(px, worldY, pz)))
+                        (local
+                            ? IsLocalDensityCaveVoid(
+                                neighborColumn, sx, sz, worldY)
+                            : _terrain.IsCaveVoidAt(neighborBaseY,
+                                new WorldVoxelCoord(px, worldY, pz))))
                     {
                         owner = neighborColumn.CaveBiomeAt(sx, sz);
                     }
