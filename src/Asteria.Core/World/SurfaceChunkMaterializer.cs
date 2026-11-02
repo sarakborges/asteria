@@ -1267,7 +1267,14 @@ public sealed class SurfaceChunkMaterializer
 
         public Chunk? Result { get; internal set; }
 
-        public DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics { get; set; }
+        private DirectionalFacePaletteMetrics? _directionalFacePaletteMetrics;
+
+        public DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics
+        {
+            get => SupportChunkJob?.DirectionalFacePaletteMetrics ??
+                _directionalFacePaletteMetrics;
+            set => _directionalFacePaletteMetrics = value;
+        }
 
         public void Advance() => _owner.Advance(this);
 

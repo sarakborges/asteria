@@ -593,7 +593,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         using var job = generator.BeginMaterialization(coord);
         while (!job.IsComplete)
         {
-            var stage = job.Stage;
+            var stage = job.ActiveWorkStage;
             var stageIndex = (int)stage;
             var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
             var startedAt = Stopwatch.GetTimestamp();
