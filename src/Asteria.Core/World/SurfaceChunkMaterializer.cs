@@ -1747,30 +1747,41 @@ public sealed class SurfaceChunkMaterializer
             var baseY = column.BaseHeightAt(x, z);
             var worldX = originX + x;
             var worldZ = originZ + z;
+            var surfaceBiome = column.BiomeAt(x, z);
+            var surfaceOwner = new BiomeRegionOwner(
+                surfaceBiome, BiomeRegionOwnerKind.Surface);
+            var surfacePalette = _materials.DirectionalPaletteFor(surfaceOwner);
 
             for (var y = 0; y < Chunk.Size; y++)
             {
                 var worldY = originY + y;
-                var currentBlock = chunk.GetBlock(x, y, z);
                 if (worldY <= 0 ||
                     (_floorY is { } floorY && worldY <= floorY) ||
                     (_roofY is { } roofY && worldY >= roofY) ||
-                    currentBlock.IsAir ||
                     !densityVolume.IsSolidAtUnchecked(x, y, z))
+                    continue;
+
+                var currentBlock = chunk.GetBlock(x, y, z);
+                if (currentBlock.IsAir)
                     continue;
 
                 var solidVolumeBiome = worldY > baseY
                     ? densityVolume.VolumeBiomeAt(x, worldY, z)
                     : null;
-                var solidOwner = _terrain.ResolveRegionOwnerAt(
-                    column,
-                    x,
-                    z,
-                    worldY,
-                    solidVolumeBiome,
-                    isEmpty: false,
-                    isSphereShellBoundaryOrLining:
-                        IsSphereShellBoundaryOrLining(worldY));
+                var solidOwner = solidVolumeBiome is null
+                    ? surfaceOwner
+                    : new BiomeRegionOwner(
+                        solidVolumeBiome, BiomeRegionOwnerKind.Volume);
+                var solidPalette = solidVolumeBiome is null
+                    ? surfacePalette
+                    : _materials.DirectionalPaletteFor(solidOwner);
+
+                // Surface biomes only author wall/ceiling overrides. Volume
+                // palettes are considered only when selected by the adjacent
+                // empty region or by the actual additive solid voxel.
+                if (solidPalette.Faces == BiomePaletteFaceMask.None &&
+                    column.CaveBiomeAt(x, z) is null)
+                    continue;
 
                 for (var depth = 0;
                      depth < _materials.MaximumDirectionalPaintDepth;
@@ -1778,21 +1789,32 @@ public sealed class SurfaceChunkMaterializer
                 {
                     var distance = depth + 1;
                     if (TryApplyFacePalette(
-                            0, distance, 0, BiomePaletteFace.Floor) ||
+                            0, distance, 0, BiomePaletteFace.Floor,
+                            solidOwner, solidPalette) ||
                         TryApplyFacePalette(
-                            -distance, 0, 0, BiomePaletteFace.Walls) ||
+                            -distance, 0, 0, BiomePaletteFace.Walls,
+                            solidOwner, solidPalette) ||
                         TryApplyFacePalette(
-                            distance, 0, 0, BiomePaletteFace.Walls) ||
+                            distance, 0, 0, BiomePaletteFace.Walls,
+                            solidOwner, solidPalette) ||
                         TryApplyFacePalette(
-                            0, 0, -distance, BiomePaletteFace.Walls) ||
+                            0, 0, -distance, BiomePaletteFace.Walls,
+                            solidOwner, solidPalette) ||
                         TryApplyFacePalette(
-                            0, 0, distance, BiomePaletteFace.Walls) ||
+                            0, 0, distance, BiomePaletteFace.Walls,
+                            solidOwner, solidPalette) ||
                         TryApplyFacePalette(
-                            0, -distance, 0, BiomePaletteFace.Ceiling))
+                            0, -distance, 0, BiomePaletteFace.Ceiling,
+                            solidOwner, solidPalette))
                         break;
 
                     bool TryApplyFacePalette(
-                        int dx, int dy, int dz, BiomePaletteFace face)
+                        int dx,
+                        int dy,
+                        int dz,
+                        BiomePaletteFace face,
+                        BiomeRegionOwner exposedSolidOwner,
+                        BiomeDirectionalPalette exposedSolidPalette)
                     {
                         var neighborX = worldX + dx;
                         var neighborY = worldY + dy;
@@ -1803,6 +1825,46 @@ public sealed class SurfaceChunkMaterializer
                         var nx = x + dx;
                         var ny = y + dy;
                         var nz = z + dz;
+
+                        // Biome ownership is horizontal. Reuse this column
+                        // for vertical probes and all neighbours that remain
+                        // inside it; only cross the cache boundary at X/Z edges.
+                        SurfaceTerrainColumn neighborColumn;
+                        int neighborLocalX;
+                        int neighborLocalZ;
+                        if ((uint)nx < Chunk.Size && (uint)nz < Chunk.Size)
+                        {
+                            neighborColumn = column;
+                            neighborLocalX = nx;
+                            neighborLocalZ = nz;
+                        }
+                        else
+                        {
+                            var (neighborCoord, neighborLocal) =
+                                VoxelCoordinates.FromWorld(
+                                    neighborX, originY, neighborZ);
+                            neighborColumn = _columns.Get(
+                                neighborCoord.X, neighborCoord.Z);
+                            neighborLocalX = neighborLocal.X;
+                            neighborLocalZ = neighborLocal.Z;
+                        }
+
+                        var emptyRegionBiome = neighborColumn.CaveBiomeAt(
+                            neighborLocalX, neighborLocalZ);
+                        var emptyRegionOwner = emptyRegionBiome is null
+                            ? default(BiomeDirectionalPalette)
+                            : _materials.DirectionalPaletteFor(
+                                new BiomeRegionOwner(
+                                    emptyRegionBiome,
+                                    BiomeRegionOwnerKind.Volume));
+
+                        // Do not evaluate density when neither the exposed
+                        // solid nor the adjacent empty-region owner declares
+                        // this face orientation.
+                        if (!exposedSolidPalette.Has(face) &&
+                            !emptyRegionOwner.Has(face))
+                            return false;
+
                         var localDensity = (uint)nx < Chunk.Size &&
                             (uint)ny < Chunk.Size &&
                             (uint)nz < Chunk.Size;
@@ -1813,42 +1875,28 @@ public sealed class SurfaceChunkMaterializer
                         if (!empty)
                             return false;
 
-                        var (neighborCoord, neighborLocal) =
-                            VoxelCoordinates.FromWorld(
-                                neighborX, neighborY, neighborZ);
-                        var sameHorizontalChunk =
-                            neighborCoord.X == chunkCoord.X &&
-                            neighborCoord.Z == chunkCoord.Z;
-                        var neighborColumn = sameHorizontalChunk
-                            ? column
-                            : _columns.Get(
-                                neighborCoord.X, neighborCoord.Z);
-                        var neighborVolumeBiome = sameHorizontalChunk
-                            ? densityVolume.VolumeBiomeAt(
-                                neighborLocal.X, neighborY, neighborLocal.Z)
-                            : _terrain.VolumeBiomeAt(
-                                neighborX, neighborY, neighborZ);
-                        var adjacentOwner = _terrain.ResolveRegionOwnerAt(
-                            neighborColumn,
-                            neighborLocal.X,
-                            neighborLocal.Z,
-                            neighborY,
-                            neighborVolumeBiome,
-                            isEmpty: true,
-                            isSphereShellBoundaryOrLining:
-                                IsSphereShellBoundaryOrLining(neighborY));
+                        var owner = exposedSolidOwner;
+                        var palette = exposedSolidPalette;
+                        if (emptyRegionOwner.Has(face))
+                        {
+                            var resolvedEmptyOwner = _terrain.ResolveRegionOwnerAt(
+                                neighborColumn,
+                                neighborLocalX,
+                                neighborLocalZ,
+                                neighborY,
+                                volumeBiome: null,
+                                isEmpty: true,
+                                isSphereShellBoundaryOrLining:
+                                    IsSphereShellBoundaryOrLining(neighborY));
+                            if (resolvedEmptyOwner.Kind == BiomeRegionOwnerKind.Volume)
+                            {
+                                owner = resolvedEmptyOwner;
+                                palette = emptyRegionOwner;
+                            }
+                        }
 
-                        // A selected volume biome owns its authored 3D
-                        // region. Ordinary exterior void falls back to the
-                        // biome that owns the exposed solid voxel.
-                        var owner = adjacentOwner.Kind ==
-                            BiomeRegionOwnerKind.Volume
-                                ? adjacentOwner
-                                : solidOwner;
-                        if (!_materials.ShouldApplyDirectionalFacePalette(
-                                owner, face) ||
-                            (uint)depth >=
-                                _materials.MaxVolumePaintDepth(owner.Biome))
+                        if (!palette.Has(face) ||
+                            (uint)depth >= palette.MaxDepth)
                             return false;
 
                         chunk.SetBlock(

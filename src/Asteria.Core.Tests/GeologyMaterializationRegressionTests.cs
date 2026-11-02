@@ -320,6 +320,20 @@ public sealed class GeologyMaterializationRegressionTests
             additiveOwner, BiomePaletteFace.Walls));
         Assert.False(materials.ShouldApplyDirectionalFacePalette(
             additiveOwner, BiomePaletteFace.Ceiling));
+
+        var surfaceMask = materials.DirectionalPaletteFor(surfaceOwner);
+        Assert.Equal(
+            BiomePaletteFaceMask.Walls | BiomePaletteFaceMask.Ceiling,
+            surfaceMask.Faces);
+        var emptyRegionMask = materials.DirectionalPaletteFor(emptyRegionOwner);
+        Assert.Equal(
+            BiomePaletteFaceMask.Floor |
+            BiomePaletteFaceMask.Walls |
+            BiomePaletteFaceMask.Ceiling,
+            emptyRegionMask.Faces);
+        var additiveMask = materials.DirectionalPaletteFor(additiveOwner);
+        Assert.Equal(BiomePaletteFaceMask.Walls, additiveMask.Faces);
+        Assert.True(additiveMask.MaxDepth > 0);
     }
 
     [Fact]

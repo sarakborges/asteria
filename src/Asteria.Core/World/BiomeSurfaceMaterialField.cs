@@ -1,5 +1,28 @@
 namespace Asteria.Core.World;
 
+[Flags]
+internal enum BiomePaletteFaceMask : byte
+{
+    None = 0,
+    Floor = 1 << 0,
+    Walls = 1 << 1,
+    Ceiling = 1 << 2,
+}
+
+internal readonly record struct BiomeDirectionalPalette(
+    BiomePaletteFaceMask Faces,
+    uint MaxDepth)
+{
+    public bool Has(BiomePaletteFace face) =>
+        (Faces & face switch
+        {
+            BiomePaletteFace.Floor => BiomePaletteFaceMask.Floor,
+            BiomePaletteFace.Walls => BiomePaletteFaceMask.Walls,
+            BiomePaletteFace.Ceiling => BiomePaletteFaceMask.Ceiling,
+            _ => throw new ArgumentOutOfRangeException(nameof(face)),
+        }) != 0;
+}
+
 /// <summary>
 /// Resolves authored surface coatings and three-dimensional solid geology.
 /// Terrain height may blend biome influences; material ownership stays with
@@ -260,23 +283,40 @@ public sealed class BiomeSurfaceMaterialField
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
         rules.HasOverride(face);
 
-    internal bool ShouldApplyDirectionalFacePalette(
-        BiomeRegionOwner owner,
-        BiomePaletteFace face)
+    internal BiomeDirectionalPalette DirectionalPaletteFor(
+        BiomeRegionOwner owner)
     {
         if (!_faceRules.TryGetValue(owner.Biome.Primary, out var rules))
-            return false;
+            return default;
 
+        var faces = BiomePaletteFaceMask.None;
         if (owner.Kind == BiomeRegionOwnerKind.Surface)
-            return face != BiomePaletteFace.Floor && rules.HasOverride(face);
+        {
+            if (rules.OverrideWalls)
+                faces |= BiomePaletteFaceMask.Walls;
+            if (rules.OverrideCeiling)
+                faces |= BiomePaletteFaceMask.Ceiling;
+        }
+        else
+        {
+            var hasGeology = _geologyRules.ContainsKey(owner.Biome.Primary);
+            if (rules.OverrideFloor || !hasGeology)
+                faces |= BiomePaletteFaceMask.Floor;
+            if (rules.OverrideWalls || !hasGeology)
+                faces |= BiomePaletteFaceMask.Walls;
+            if (rules.OverrideCeiling || !hasGeology)
+                faces |= BiomePaletteFaceMask.Ceiling;
+        }
 
-        // A volume biome with geology already supplies the 3D material field;
-        // only explicitly authored face overrides replace that geology.
-        // Without geology, the default palette is the material source for all
-        // exposed faces, including floor/ceiling transitions.
-        return rules.HasOverride(face) ||
-            !_geologyRules.ContainsKey(owner.Biome.Primary);
+        return faces == BiomePaletteFaceMask.None
+            ? default
+            : new BiomeDirectionalPalette(faces, rules.MaxDepth);
     }
+
+    internal bool ShouldApplyDirectionalFacePalette(
+        BiomeRegionOwner owner,
+        BiomePaletteFace face) =>
+        DirectionalPaletteFor(owner).Has(face);
 
     public BiomeSurfaceMaterialColumn SampleColumn(
         BiomeSample sample,
