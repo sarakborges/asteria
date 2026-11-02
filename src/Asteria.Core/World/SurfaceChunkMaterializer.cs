@@ -2028,18 +2028,19 @@ public sealed class SurfaceChunkMaterializer
         }
 
 #if DEBUG
-        static double ToEstimatedMilliseconds(long sampledTicks) =>
-            sampledTicks * (double)timingSampleInterval *
+        static double ToEstimatedMilliseconds(
+            long sampledTicks, int sampleInterval) =>
+            sampledTicks * (double)sampleInterval *
             1000d / Stopwatch.Frequency;
 
         var totalMilliseconds = Stopwatch.GetElapsedTime(
             totalStarted).TotalMilliseconds;
-        var surfaceColumnMilliseconds = ToEstimatedMilliseconds(surfaceColumnTicks);
-        var solidOwnerMilliseconds = ToEstimatedMilliseconds(solidOwnerTicks);
-        var neighborOwnerMilliseconds = ToEstimatedMilliseconds(neighborOwnerTicks);
-        var densityProbeMilliseconds = ToEstimatedMilliseconds(densityProbeTicks);
-        var emptyOwnerMilliseconds = ToEstimatedMilliseconds(emptyOwnerTicks);
-        var paletteWriteMilliseconds = ToEstimatedMilliseconds(paletteWriteTicks);
+        var surfaceColumnMilliseconds = ToEstimatedMilliseconds(surfaceColumnTicks, timingSampleInterval);
+        var solidOwnerMilliseconds = ToEstimatedMilliseconds(solidOwnerTicks, timingSampleInterval);
+        var neighborOwnerMilliseconds = ToEstimatedMilliseconds(neighborOwnerTicks, timingSampleInterval);
+        var densityProbeMilliseconds = ToEstimatedMilliseconds(densityProbeTicks, timingSampleInterval);
+        var emptyOwnerMilliseconds = ToEstimatedMilliseconds(emptyOwnerTicks, timingSampleInterval);
+        var paletteWriteMilliseconds = ToEstimatedMilliseconds(paletteWriteTicks, timingSampleInterval);
         var estimatedSubstageMilliseconds =
             surfaceColumnMilliseconds +
             solidOwnerMilliseconds +
