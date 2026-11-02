@@ -28,6 +28,14 @@ public sealed class SurfaceChunkMaterializer
         public GeneratedFluidColumnPlan GeneratedFluidPlan;
     }
 
+    private readonly record struct DirectionalPaletteColumnData(
+        BiomeSample SurfaceBiome,
+        BiomeSample? EmptyRegionBiome,
+        BiomeSample? VolumeBiome,
+        int BaseY,
+        int SurfaceFluidCutDepth,
+        BiomeDirectionalPalette EmptyRegionPalette);
+
     private readonly record struct PendingGeneratedObject(
         int X, int Y, int Z, string Id, BlockFace Face,
         bool Submerged = false, FluidRuntimeId SupportFluid = default)
@@ -1765,6 +1773,7 @@ public sealed class SurfaceChunkMaterializer
         var maskRejectedProbes = 0;
         var paletteRejectedProbes = 0;
         var depthRejectedProbes = 0;
+        var emptyRegionEligibilityRejectedProbes = 0;
         var paletteWrites = 0;
 #if DEBUG
         var totalStarted = Stopwatch.GetTimestamp();
@@ -1775,6 +1784,58 @@ public sealed class SurfaceChunkMaterializer
         long emptyOwnerTicks = 0;
         long paletteWriteTicks = 0;
 #endif
+
+        var neighborColumnDataCache =
+            new Dictionary<(int X, int Z), DirectionalPaletteColumnData>();
+
+        DirectionalPaletteColumnData GetNeighborColumnData(
+            int neighborX,
+            int neighborZ)
+        {
+            var key = (neighborX, neighborZ);
+            if (neighborColumnDataCache.TryGetValue(key, out var cached))
+                return cached;
+
+            var (neighborCoord, neighborLocal) =
+                VoxelCoordinates.FromWorld(
+                    neighborX, originY, neighborZ);
+            var isCurrentColumn =
+                neighborX >= originX &&
+                neighborX < originX + Chunk.Size &&
+                neighborZ >= originZ &&
+                neighborZ < originZ + Chunk.Size;
+            var neighborColumn = isCurrentColumn
+                ? column
+                : _columns.Get(neighborCoord.X, neighborCoord.Z);
+            if (!isCurrentColumn)
+                neighborColumnLookups++;
+
+            var surfaceBiome = neighborColumn.BiomeAt(
+                neighborLocal.X, neighborLocal.Z);
+            var emptyRegionBiome = neighborColumn.CaveBiomeAt(
+                neighborLocal.X, neighborLocal.Z);
+            var emptyRegionPalette = emptyRegionBiome is null
+                ? default(BiomeDirectionalPalette)
+                : _materials.DirectionalPaletteFor(
+                    new BiomeRegionOwner(
+                        emptyRegionBiome,
+                        BiomeRegionOwnerKind.Volume));
+            if (emptyRegionBiome is not null)
+                emptyRegionPaletteLookups++;
+
+            var result = new DirectionalPaletteColumnData(
+                surfaceBiome,
+                emptyRegionBiome,
+                neighborColumn.VolumeBiomes[
+                    neighborLocal.X, neighborLocal.Z],
+                neighborColumn.BaseHeightAt(
+                    neighborLocal.X, neighborLocal.Z),
+                neighborColumn.SurfaceFluidCutDepthAt(
+                    neighborLocal.X, neighborLocal.Z),
+                emptyRegionPalette);
+            neighborColumnDataCache.Add(key, result);
+            return result;
+        }
 
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
@@ -1890,40 +1951,31 @@ public sealed class SurfaceChunkMaterializer
                         var ny = y + dy;
                         var nz = z + dz;
 
-                        // Biome ownership is horizontal. Reuse this column
-                        // for vertical probes and all neighbours that remain
-                        // inside it; only cross the cache boundary at X/Z edges.
-                        SurfaceTerrainColumn neighborColumn;
-                        int neighborLocalX;
-                        int neighborLocalZ;
-                        if ((uint)nx < Chunk.Size && (uint)nz < Chunk.Size)
-                        {
-                            neighborColumn = column;
-                            neighborLocalX = nx;
-                            neighborLocalZ = nz;
-                        }
-                        else
-                        {
-                            var (neighborCoord, neighborLocal) =
-                                VoxelCoordinates.FromWorld(
-                                    neighborX, originY, neighborZ);
-                            neighborColumn = _columns.Get(
-                                neighborCoord.X, neighborCoord.Z);
-                            neighborLocalX = neighborLocal.X;
-                            neighborLocalZ = neighborLocal.Z;
-                            neighborColumnLookups++;
-                        }
+                        // Biome ownership and its directional palette only
+                        // depend on X/Z. Cache that immutable selection across
+                        // every Y, face and paint-depth probe in this chunk.
+                        var neighborData = GetNeighborColumnData(
+                            neighborX, neighborZ);
+                        var emptyRegionOwner = neighborData.EmptyRegionPalette;
 
-                        var emptyRegionBiome = neighborColumn.CaveBiomeAt(
-                            neighborLocalX, neighborLocalZ);
-                        var emptyRegionOwner = emptyRegionBiome is null
-                            ? default(BiomeDirectionalPalette)
-                            : _materials.DirectionalPaletteFor(
-                                new BiomeRegionOwner(
-                                    emptyRegionBiome,
-                                    BiomeRegionOwnerKind.Volume));
-                        if (emptyRegionBiome is not null)
-                            emptyRegionPaletteLookups++;
+                        // An empty-region volume can only own empty cells below
+                        // the local surface cut and outside the sphere-shell
+                        // lining. Reject ineligible candidates before density.
+                        var isSphereShellBoundaryOrLining = false;
+                        var emptyRegionCanOwnFace =
+                            emptyRegionOwner.Has(face) &&
+                            neighborData.EmptyRegionBiome is not null &&
+                            neighborY > 0 &&
+                            (long)neighborY <=
+                                (long)neighborData.BaseY -
+                                neighborData.SurfaceFluidCutDepth;
+                        if (emptyRegionCanOwnFace)
+                        {
+                            isSphereShellBoundaryOrLining =
+                                IsSphereShellBoundaryOrLining(neighborY);
+                            emptyRegionCanOwnFace =
+                                !isSphereShellBoundaryOrLining;
+                        }
 #if DEBUG
                         if (measureNeighborOwner)
                             neighborOwnerTicks +=
@@ -1931,12 +1983,15 @@ public sealed class SurfaceChunkMaterializer
 #endif
 
                         // Do not evaluate density when neither the exposed
-                        // solid nor the adjacent empty-region owner declares
+                        // solid nor an eligible empty-region owner declares
                         // this face orientation.
                         if (!exposedSolidPalette.Has(face) &&
-                            !emptyRegionOwner.Has(face))
+                            !emptyRegionCanOwnFace)
                         {
-                            maskRejectedProbes++;
+                            if (emptyRegionOwner.Has(face))
+                                emptyRegionEligibilityRejectedProbes++;
+                            else
+                                maskRejectedProbes++;
                             return false;
                         }
 
@@ -1955,8 +2010,13 @@ public sealed class SurfaceChunkMaterializer
 #endif
                         var empty = localDensity
                             ? !densityVolume.IsSolidAtUnchecked(nx, ny, nz)
-                            : DensityAtWorld(
-                                neighborX, neighborY, neighborZ) < 0d;
+                            : _terrain.DensityAt(
+                                neighborData.SurfaceBiome,
+                                neighborData.BaseY,
+                                neighborX,
+                                neighborY,
+                                neighborZ,
+                                neighborData.VolumeBiome) < 0d;
 #if DEBUG
                         if (measureDensity)
                             densityProbeTicks +=
@@ -1967,7 +2027,7 @@ public sealed class SurfaceChunkMaterializer
 
                         var owner = exposedSolidOwner;
                         var palette = exposedSolidPalette;
-                        if (emptyRegionOwner.Has(face))
+                        if (emptyRegionCanOwnFace)
                         {
                             emptyRegionOwnerResolutions++;
 #if DEBUG
@@ -1977,15 +2037,16 @@ public sealed class SurfaceChunkMaterializer
                                 ? Stopwatch.GetTimestamp()
                                 : 0L;
 #endif
-                            var resolvedEmptyOwner = _terrain.ResolveRegionOwnerAt(
-                                neighborColumn,
-                                neighborLocalX,
-                                neighborLocalZ,
-                                neighborY,
-                                volumeBiome: null,
+                            var resolvedEmptyOwner = SurfaceTerrainField.ResolveRegionOwner(
+                                neighborData.SurfaceBiome,
+                                additiveVolumeBiome: null,
+                                emptyRegionVolumeBiome: neighborData.EmptyRegionBiome,
+                                baseY: neighborData.BaseY,
+                                surfaceFluidCutDepth: neighborData.SurfaceFluidCutDepth,
+                                worldY: neighborY,
                                 isEmpty: true,
                                 isSphereShellBoundaryOrLining:
-                                    IsSphereShellBoundaryOrLining(neighborY));
+                                    isSphereShellBoundaryOrLining);
 #if DEBUG
                             if (measureEmptyOwner)
                                 emptyOwnerTicks +=
@@ -2086,6 +2147,8 @@ public sealed class SurfaceChunkMaterializer
             BoundaryDensityProbes: boundaryDensityProbes,
             EmptyRegionOwnerResolutions: emptyRegionOwnerResolutions,
             MaskRejectedProbes: maskRejectedProbes,
+            EmptyRegionEligibilityRejectedProbes:
+                emptyRegionEligibilityRejectedProbes,
             PaletteRejectedProbes: paletteRejectedProbes,
             DepthRejectedProbes: depthRejectedProbes,
             PaletteWrites: paletteWrites,

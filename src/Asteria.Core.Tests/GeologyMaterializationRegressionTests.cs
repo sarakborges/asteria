@@ -391,6 +391,8 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.True(firstMetrics.SolidVoxels > 0);
         Assert.True(firstMetrics.FaceProbes > 0);
         Assert.True(firstMetrics.DensityProbes > 0);
+        Assert.True(firstMetrics.EmptyRegionEligibilityRejectedProbes > 0);
+        Assert.True(firstMetrics.DensityProbes <= firstMetrics.FaceProbes);
         Assert.InRange(firstMetrics.PaletteWrites, 0, firstMetrics.FaceProbes);
 
         Assert.Equal(firstMetrics.SurfaceColumns, secondMetrics.SurfaceColumns);
@@ -403,6 +405,9 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.Equal(firstMetrics.BoundaryDensityProbes, secondMetrics.BoundaryDensityProbes);
         Assert.Equal(firstMetrics.EmptyRegionOwnerResolutions, secondMetrics.EmptyRegionOwnerResolutions);
         Assert.Equal(firstMetrics.MaskRejectedProbes, secondMetrics.MaskRejectedProbes);
+        Assert.Equal(
+            firstMetrics.EmptyRegionEligibilityRejectedProbes,
+            secondMetrics.EmptyRegionEligibilityRejectedProbes);
         Assert.Equal(firstMetrics.PaletteRejectedProbes, secondMetrics.PaletteRejectedProbes);
         Assert.Equal(firstMetrics.DepthRejectedProbes, secondMetrics.DepthRejectedProbes);
         Assert.Equal(firstMetrics.PaletteWrites, secondMetrics.PaletteWrites);

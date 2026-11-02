@@ -657,6 +657,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         BoundaryDensityProbes = paletteProfiles.Sum(profile => (long)profile.BoundaryDensityProbes),
         EmptyRegionOwnerResolutions = paletteProfiles.Sum(profile => (long)profile.EmptyRegionOwnerResolutions),
         MaskRejectedProbes = paletteProfiles.Sum(profile => (long)profile.MaskRejectedProbes),
+        EmptyRegionEligibilityRejectedProbes = paletteProfiles.Sum(profile => (long)profile.EmptyRegionEligibilityRejectedProbes),
         PaletteRejectedProbes = paletteProfiles.Sum(profile => (long)profile.PaletteRejectedProbes),
         DepthRejectedProbes = paletteProfiles.Sum(profile => (long)profile.DepthRejectedProbes),
         PaletteWrites = paletteProfiles.Sum(profile => (long)profile.PaletteWrites),

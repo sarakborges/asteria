@@ -18,6 +18,7 @@ public readonly record struct DirectionalFacePaletteMetrics(
     int BoundaryDensityProbes,
     int EmptyRegionOwnerResolutions,
     int MaskRejectedProbes,
+    int EmptyRegionEligibilityRejectedProbes,
     int PaletteRejectedProbes,
     int DepthRejectedProbes,
     int PaletteWrites,

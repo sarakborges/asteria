@@ -212,6 +212,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private long _directionalPaletteBoundaryDensityProbes;
     private long _directionalPaletteEmptyRegionOwnerResolutions;
     private long _directionalPaletteMaskRejectedProbes;
+    private long _directionalPaletteEmptyRegionEligibilityRejectedProbes;
     private long _directionalPalettePaletteRejectedProbes;
     private long _directionalPaletteDepthRejectedProbes;
     private long _directionalPaletteWrites;
@@ -438,6 +439,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _directionalPaletteBoundaryDensityProbes += palette.BoundaryDensityProbes;
             _directionalPaletteEmptyRegionOwnerResolutions += palette.EmptyRegionOwnerResolutions;
             _directionalPaletteMaskRejectedProbes += palette.MaskRejectedProbes;
+            _directionalPaletteEmptyRegionEligibilityRejectedProbes +=
+                palette.EmptyRegionEligibilityRejectedProbes;
             _directionalPalettePaletteRejectedProbes += palette.PaletteRejectedProbes;
             _directionalPaletteDepthRejectedProbes += palette.DepthRejectedProbes;
             _directionalPaletteWrites += palette.PaletteWrites;
@@ -844,6 +847,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"directional_palette_boundary_density_probes={_directionalPaletteBoundaryDensityProbes} " +
             $"directional_palette_empty_region_owner_resolutions={_directionalPaletteEmptyRegionOwnerResolutions} " +
             $"directional_palette_mask_rejected_probes={_directionalPaletteMaskRejectedProbes} " +
+            $"directional_palette_empty_region_eligibility_rejected_probes={_directionalPaletteEmptyRegionEligibilityRejectedProbes} " +
             $"directional_palette_palette_rejected_probes={_directionalPalettePaletteRejectedProbes} " +
             $"directional_palette_depth_rejected_probes={_directionalPaletteDepthRejectedProbes} " +
             $"directional_palette_writes={_directionalPaletteWrites} " +
@@ -876,6 +880,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _directionalPaletteBoundaryDensityProbes = 0;
         _directionalPaletteEmptyRegionOwnerResolutions = 0;
         _directionalPaletteMaskRejectedProbes = 0;
+        _directionalPaletteEmptyRegionEligibilityRejectedProbes = 0;
         _directionalPalettePaletteRejectedProbes = 0;
         _directionalPaletteDepthRejectedProbes = 0;
         _directionalPaletteWrites = 0;
