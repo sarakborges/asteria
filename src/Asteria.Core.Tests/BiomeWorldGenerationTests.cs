@@ -354,11 +354,17 @@ public sealed class BiomeWorldGenerationTests
                     total,
                     0.9999f,
                     1.0001f);
-                Assert.Contains(
-                    sample.Influences,
-                    influence =>
-                        influence.BiomeId ==
-                        sample.Primary);
+                Assert.Equal(
+                    sample.Primary,
+                    sample.Influences[0].BiomeId);
+                for (var index = 2;
+                     index < sample.Influences.Count;
+                     index++)
+                {
+                    var previous = sample.Influences[index - 1];
+                    var current = sample.Influences[index];
+                    Assert.True(previous.Weight >= current.Weight);
+                }
             }
         }
     }

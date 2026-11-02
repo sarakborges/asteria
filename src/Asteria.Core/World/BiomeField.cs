@@ -126,6 +126,11 @@ public sealed class BiomeField
         CandidateRadiusBuckets * 2;
     private const int CompatibilityClassPeriod =
         CompatibilityRadiusBuckets * 2 + 1;
+
+    private readonly record struct WeightedInfluence(
+        int Rule,
+        double Weight,
+        double TerrainStrength);
     private readonly BiomeBlendingDefinition _blending;
     private readonly GenerationDomain[] _contourDomains;
 
@@ -769,40 +774,30 @@ public sealed class BiomeField
                 "Biome field did not produce a candidate.");
         }
 
-        var weighted =
-            new List<(
-                int Rule,
-                double Weight,
-                double TerrainStrength)>(
-                _rules.Length);
-        var total =
-            0d;
+        // Biome sampling is on the decoration hot path when slope conditions
+        // inspect neighboring columns. Keep the small weighted candidate set
+        // in stack storage instead of allocating a List, its backing array,
+        // a capturing sort delegate and a LINQ projection for every sample.
+        Span<WeightedInfluence> weighted =
+            _rules.Length <= 64
+                ? stackalloc WeightedInfluence[_rules.Length]
+                : new WeightedInfluence[_rules.Length];
+        var weightedCount = 0;
+        var total = 0d;
 
         for (var rule = 0;
              rule < _rules.Length;
              rule++)
         {
-            var score =
-                bestScores[rule];
-            if (double.IsNegativeInfinity(
-                    score))
-            {
+            var score = bestScores[rule];
+            if (double.IsNegativeInfinity(score))
                 continue;
-            }
 
-            var delta =
-                primaryScore -
-                score;
-            if (delta >
-                _blending.ScoreBand)
-            {
+            var delta = primaryScore - score;
+            if (delta > _blending.ScoreBand)
                 continue;
-            }
 
-            var proximity =
-                1d -
-                delta /
-                _blending.ScoreBand;
+            var proximity = 1d - delta / _blending.ScoreBand;
             var weight = _blending.WeightAt(proximity);
             if (hasBestSeed[rule] == 0)
             {
@@ -810,63 +805,68 @@ public sealed class BiomeField
                     "Biome score is missing its formation seed.");
             }
 
-            weighted.Add(
-                (
-                    rule,
-                    weight,
-                    FormationStrength(
-                        bestSeeds[rule].Assignment,
-                        warpedX,
-                        warpedZ)));
+            weighted[weightedCount++] = new WeightedInfluence(
+                rule,
+                weight,
+                FormationStrength(
+                    bestSeeds[rule].Assignment,
+                    warpedX,
+                    warpedZ));
             total += weight;
         }
 
-        weighted.Sort(
-            (left, right) =>
+        // The candidate set is bounded by the active biome count (normally
+        // below 20). An in-place insertion sort keeps the exact established
+        // primary -> descending weight -> ordinal biome-id ordering without
+        // allocating a comparer closure or sorting scratch buffer.
+        for (var index = 1; index < weightedCount; index++)
+        {
+            var candidate = weighted[index];
+            var destination = index;
+            while (destination > 0 &&
+                   CompareWeightedInfluences(
+                       candidate,
+                       weighted[destination - 1],
+                       primaryRule) < 0)
             {
-                var leftPrimary =
-                    left.Rule ==
-                    primaryRule;
-                var rightPrimary =
-                    right.Rule ==
-                    primaryRule;
+                weighted[destination] = weighted[destination - 1];
+                destination--;
+            }
 
-                if (leftPrimary !=
-                    rightPrimary)
-                {
-                    return rightPrimary
-                        .CompareTo(
-                            leftPrimary);
-                }
+            weighted[destination] = candidate;
+        }
 
-                var byWeight =
-                    right.Weight
-                        .CompareTo(
-                            left.Weight);
-                return byWeight != 0
-                    ? byWeight
-                    : string.CompareOrdinal(
-                        _rules[left.Rule].Id,
-                        _rules[right.Rule].Id);
-            });
-
-        var influences =
-            weighted
-                .Select(entry =>
-                    new BiomeInfluence(
-                        _rules[
-                            entry.Rule].Id,
-                        checked((float)(
-                            entry.Weight /
-                            total)),
-                        checked((float)
-                            entry.TerrainStrength)))
-                .ToArray();
+        var influences = new BiomeInfluence[weightedCount];
+        for (var index = 0; index < weightedCount; index++)
+        {
+            var entry = weighted[index];
+            influences[index] = new BiomeInfluence(
+                _rules[entry.Rule].Id,
+                checked((float)(entry.Weight / total)),
+                checked((float)entry.TerrainStrength));
+        }
 
         return new BiomeSample(
-            _rules[
-                primaryRule].Id,
+            _rules[primaryRule].Id,
             influences);
+    }
+
+    private int CompareWeightedInfluences(
+        in WeightedInfluence left,
+        in WeightedInfluence right,
+        int primaryRule)
+    {
+        var leftPrimary = left.Rule == primaryRule;
+        var rightPrimary = right.Rule == primaryRule;
+        if (leftPrimary != rightPrimary)
+            return leftPrimary ? -1 : 1;
+
+        var byWeight = right.Weight.CompareTo(left.Weight);
+        return byWeight != 0
+            ? byWeight
+            : string.CompareOrdinal(
+                _rules[left.Rule].Id,
+                _rules[right.Rule].Id);
     }
 
     private (int X, int Z)[]

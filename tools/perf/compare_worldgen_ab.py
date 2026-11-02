@@ -71,6 +71,8 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
         _at(run, "metrics", "initialAreaSynthesis", "warmMs")
         _at(run, "initialAreaMaterializationDiagnostics", "warm", "totalMaterializeMs")
         _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "DirectionalFacePalettes", "elapsedMs")
+        _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "SurfaceDecorations", "elapsedMs")
+        _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "SurfaceDecorations", "allocatedBytes")
         _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "TerrainLayer", "elapsedMs")
 
     return runs
@@ -152,6 +154,10 @@ def compare(
             ("initialAreaStageTimingDiagnostics", "warm", "byStage", "DirectionalFacePalettes", "elapsedMs"),
         ),
         (
+            "SurfaceDecorations (warm)",
+            ("initialAreaStageTimingDiagnostics", "warm", "byStage", "SurfaceDecorations", "elapsedMs"),
+        ),
+        (
             "TerrainLayer (warm)",
             ("initialAreaStageTimingDiagnostics", "warm", "byStage", "TerrainLayer", "elapsedMs"),
         ),
@@ -176,7 +182,30 @@ def compare(
             "reductionPercent": reduction,
         })
 
+    baseline_surface_decoration_bytes = median_metric(
+        baseline,
+        "initialAreaStageTimingDiagnostics", "warm", "byStage",
+        "SurfaceDecorations", "allocatedBytes",
+    )
+    candidate_surface_decoration_bytes = median_metric(
+        candidate,
+        "initialAreaStageTimingDiagnostics", "warm", "byStage",
+        "SurfaceDecorations", "allocatedBytes",
+    )
+    baseline_surface_decoration_mib = baseline_surface_decoration_bytes / (1024 * 1024)
+    candidate_surface_decoration_mib = candidate_surface_decoration_bytes / (1024 * 1024)
+    allocation_reduction = (
+        0.0 if baseline_surface_decoration_bytes == 0
+        else (baseline_surface_decoration_bytes - candidate_surface_decoration_bytes)
+        / baseline_surface_decoration_bytes * 100.0
+    )
+
     return {
+        "surfaceDecorationAllocations": {
+            "baselineMedianMiB": baseline_surface_decoration_mib,
+            "candidateMedianMiB": candidate_surface_decoration_mib,
+            "reductionPercent": allocation_reduction,
+        },
         "seed": _at(baseline_first, "seed"),
         "dimension": _at(baseline_first, "dimension"),
         "baselineCommit": baseline_sha,
@@ -215,6 +244,17 @@ def render_report(result: dict[str, Any]) -> str:
             f"| {metric['candidateMedianMs']:.2f} "
             f"| {metric['reductionPercent']:+.1f}% |"
         )
+    allocations = result["surfaceDecorationAllocations"]
+    lines.extend([
+        "",
+        "## SurfaceDecorations allocations",
+        "",
+        "| Métrica | Baseline (MiB) | Otimizada (MiB) | Redução |",
+        "|---|---:|---:|---:|",
+        f"| Alocações warm | {allocations['baselineMedianMiB']:.2f} "
+        f"| {allocations['candidateMedianMiB']:.2f} "
+        f"| {allocations['reductionPercent']:+.1f}% |",
+    ])
     lines.extend(["", *[f"- {note}" for note in result["notes"]], ""])
     return "\n".join(lines)
 
