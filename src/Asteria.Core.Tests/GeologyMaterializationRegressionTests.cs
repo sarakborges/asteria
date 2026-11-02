@@ -163,6 +163,121 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
+    public void BiomeRegionOwnershipUsesVolumeIdentityBeforeSurfaceFallback()
+    {
+        static BiomeSample Sample(string id) =>
+            new(id, [new BiomeInfluence(id, 1f)]);
+
+        var surface = Sample("asteria:test/surface");
+        var carvedVolume = Sample("asteria:test/carved_volume");
+        var additiveVolume = Sample("asteria:test/additive_volume");
+
+        var carvedRegion = SurfaceTerrainField.ResolveRegionOwner(
+            surface, null, carvedVolume,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 20,
+            isEmpty: true, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Volume, carvedRegion.Kind);
+        Assert.Equal(carvedVolume.Primary, carvedRegion.Biome.Primary);
+
+        var additiveSolid = SurfaceTerrainField.ResolveRegionOwner(
+            surface, additiveVolume, null,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 220,
+            isEmpty: false, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Volume, additiveSolid.Kind);
+        Assert.Equal(additiveVolume.Primary, additiveSolid.Biome.Primary);
+
+        // An additive formation does not own an empty voxel merely because
+        // the voxel's Y lies inside its authored vertical interval.
+        var additiveEmpty = SurfaceTerrainField.ResolveRegionOwner(
+            surface, additiveVolume, null,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 220,
+            isEmpty: true, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Surface, additiveEmpty.Kind);
+        Assert.Equal(surface.Primary, additiveEmpty.Biome.Primary);
+
+        // Empty cells removed by a surface-fluid cut are not owned by a
+        // carved-volume biome, even if one is selected for that column.
+        var surfaceCut = SurfaceTerrainField.ResolveRegionOwner(
+            surface, null, carvedVolume,
+            baseY: 40, surfaceFluidCutDepth: 4, worldY: 38,
+            isEmpty: true, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Surface, surfaceCut.Kind);
+        Assert.Equal(surface.Primary, surfaceCut.Biome.Primary);
+
+        var shellLining = SurfaceTerrainField.ResolveRegionOwner(
+            surface, null, carvedVolume,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 20,
+            isEmpty: true, isSphereShellBoundaryOrLining: true);
+        Assert.Equal(BiomeRegionOwnerKind.Surface, shellLining.Kind);
+
+        var solidCell = SurfaceTerrainField.ResolveRegionOwner(
+            surface, null, carvedVolume,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 20,
+            isEmpty: false, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Surface, solidCell.Kind);
+    }
+
+    [Fact]
+    public void DirectionalPaletteDispatchIsSharedByEveryVolumeBiome()
+    {
+        var blocks = CreateBlocks();
+        var surface = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/surface_owner",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 64,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }],
+                "walls": [{ "block": "asteria:clay" }]
+              }
+            }
+            """);
+        var volume = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/volume_owner",
+              "volumeLayout": { "placement": "carvedVoid" },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }]
+              }
+            }
+            """);
+        var materials = new BiomeSurfaceMaterialField(
+            Seed, [surface, volume], blocks);
+        var surfaceOwner = new BiomeRegionOwner(
+            new BiomeSample(
+                surface.Id, [new BiomeInfluence(surface.Id, 1f)]),
+            BiomeRegionOwnerKind.Surface);
+        var volumeOwner = new BiomeRegionOwner(
+            new BiomeSample(
+                volume.Id, [new BiomeInfluence(volume.Id, 1f)]),
+            BiomeRegionOwnerKind.Volume);
+
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            surfaceOwner, BiomePaletteFace.Walls));
+        Assert.False(materials.ShouldApplyDirectionalFacePalette(
+            surfaceOwner, BiomePaletteFace.Ceiling));
+        Assert.False(materials.ShouldApplyDirectionalFacePalette(
+            surfaceOwner, BiomePaletteFace.Floor));
+
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            volumeOwner, BiomePaletteFace.Floor));
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            volumeOwner, BiomePaletteFace.Walls));
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            volumeOwner, BiomePaletteFace.Ceiling));
+    }
+
+    [Fact]
     public void MaterializedGravityGeologyNeverLeavesUnsupportedCellsAcrossVerticalSeams()
     {
         var blocks = CreateBlocks(gravityBlocks: true);

@@ -32,8 +32,7 @@ public sealed class BiomeSurfaceMaterialField
         IEnumerable<BiomeDefinition> biomes,
         BlockRegistry blocks,
         SurfaceTerrainField? terrain = null,
-        SurfaceMosaicField? mosaic = null,
-        IEnumerable<string>? carvedVoidBiomeIds = null)
+        SurfaceMosaicField? mosaic = null)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -42,19 +41,6 @@ public sealed class BiomeSurfaceMaterialField
         _terrain = terrain;
         _mosaic = mosaic;
         var biomeDefinitions = biomes.ToArray();
-        var knownBiomeIds = biomeDefinitions
-            .Select(biome => biome.Id)
-            .ToHashSet(StringComparer.Ordinal);
-        var carvedVoidIds = carvedVoidBiomeIds?.ToHashSet(StringComparer.Ordinal) ??
-            biomeDefinitions
-                .Where(biome =>
-                    biome.VolumeLayout?.Placement == VolumeBiomePlacement.CarvedVoid)
-                .Select(biome => biome.Id)
-                .ToHashSet(StringComparer.Ordinal);
-        if (carvedVoidIds.Any(id => !knownBiomeIds.Contains(id)))
-            throw new ArgumentException(
-                "Carved-void palette owners must be included in the biome definitions.",
-                nameof(carvedVoidBiomeIds));
         _faceRules = biomeDefinitions
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
@@ -71,17 +57,22 @@ public sealed class BiomeSurfaceMaterialField
                 biome => biome.Id,
                 biome => ResolvedGeology.Create(biome.Id, biome.Geology!, blocks),
                 StringComparer.Ordinal);
-        HasSurfaceOrAdditiveDirectionalOverrides = _faceRules.Any(
-            pair => !carvedVoidIds.Contains(pair.Key) &&
-                (pair.Value.OverrideWalls || pair.Value.OverrideCeiling));
+
+        var volumeBiomeIds = biomeDefinitions
+            .Where(biome => biome.VolumeLayout is not null)
+            .Select(biome => biome.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        HasDirectionalFacePalettes = _faceRules.Any(pair =>
+            volumeBiomeIds.Contains(pair.Key) ||
+            pair.Value.OverrideWalls ||
+            pair.Value.OverrideCeiling);
+        MaximumDirectionalPaintDepth = _faceRules.Values
+            .Select(rule => rule.MaxDepth)
+            .DefaultIfEmpty(0u)
+            .Max();
         FacePalettesPreserveOccupancy =
             _faceRules.Values.All(profile => profile.PreservesOccupancy) &&
             _geologyRules.Values.All(rule => !rule.MayResolveAir);
-        MaximumCarvedVoidPaintDepth = _faceRules
-            .Where(pair => carvedVoidIds.Contains(pair.Key))
-            .Select(pair => pair.Value.MaxDepth)
-            .DefaultIfEmpty(0u)
-            .Max();
 
         if (_rules.Count == 0)
         {
@@ -92,10 +83,16 @@ public sealed class BiomeSurfaceMaterialField
     }
 
     /// <summary>
-    /// True when a biome selected as a surface or additive volume owner
-    /// authors wall or ceiling palette overrides.
+    /// True when at least one selected volume biome or authored surface
+    /// wall/ceiling override can contribute a directional face material.
     /// </summary>
-    public bool HasSurfaceOrAdditiveDirectionalOverrides { get; }
+    public bool HasDirectionalFacePalettes { get; }
+
+    /// <summary>
+    /// Global upper bound for exposed-face search. The selected owner's
+    /// individual palette depth is checked before painting.
+    /// </summary>
+    public uint MaximumDirectionalPaintDepth { get; }
 
     /// <summary>
     /// True when directional face palettes can only replace an existing
@@ -103,12 +100,6 @@ public sealed class BiomeSurfaceMaterialField
     /// these presentation-material rules without changing occupancy.
     /// </summary>
     public bool FacePalettesPreserveOccupancy { get; }
-
-    /// <summary>
-    /// Immutable upper bound on face-palette depth among this dimension's
-    /// carved-void biome owners.
-    /// </summary>
-    public uint MaximumCarvedVoidPaintDepth { get; }
 
     public BlockRuntimeId BlockAt(
         BiomeSample sample,
@@ -266,6 +257,20 @@ public sealed class BiomeSurfaceMaterialField
         BiomeSample sample, BiomePaletteFace face) =>
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
         rules.HasOverride(face);
+
+    internal bool ShouldApplyDirectionalFacePalette(
+        BiomeRegionOwner owner,
+        BiomePaletteFace face)
+    {
+        if (!_faceRules.TryGetValue(owner.Biome.Primary, out var rules))
+            return false;
+
+        // A volume biome describes a three-dimensional region, so its
+        // Default palette is valid for every exposed orientation. Surface
+        // Floor is already materialized by the surface-layer pass.
+        return owner.Kind == BiomeRegionOwnerKind.Volume ||
+            (face != BiomePaletteFace.Floor && rules.HasOverride(face));
+    }
 
     public BiomeSurfaceMaterialColumn SampleColumn(
         BiomeSample sample,

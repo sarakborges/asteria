@@ -2,6 +2,16 @@ using System.Threading;
 
 namespace Asteria.Core.World;
 
+internal enum BiomeRegionOwnerKind : byte
+{
+    Surface,
+    Volume,
+}
+
+internal readonly record struct BiomeRegionOwner(
+    BiomeSample Biome,
+    BiomeRegionOwnerKind Kind);
+
 /// <summary>
 /// Single authoritative terrain field: a surface crossing plus optional
 /// subtractive cave layers and additive biome-authored density formations.
@@ -357,6 +367,67 @@ public sealed class SurfaceTerrainField
             position.X,
             position.Y,
             position.Z) > 0d;
+
+    /// <summary>
+    /// Resolves the biome that owns a sampled world region. Volume identity
+    /// owns its authored region; otherwise the surface biome is the fallback.
+    /// </summary>
+    internal BiomeRegionOwner ResolveRegionOwnerAt(
+        SurfaceTerrainColumn column,
+        int localX,
+        int localZ,
+        int worldY,
+        BiomeSample? volumeBiome,
+        bool isEmpty,
+        bool isSphereShellBoundaryOrLining)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        return ResolveRegionOwner(
+            column.BiomeAt(localX, localZ),
+            volumeBiome,
+            isEmpty ? column.CaveBiomeAt(localX, localZ) : null,
+            column.BaseHeightAt(localX, localZ),
+            column.SurfaceFluidCutDepthAt(localX, localZ),
+            worldY,
+            isEmpty,
+            isSphereShellBoundaryOrLining);
+    }
+
+    internal static BiomeRegionOwner ResolveRegionOwner(
+        BiomeSample surfaceBiome,
+        BiomeSample? additiveVolumeBiome,
+        BiomeSample? emptyRegionVolumeBiome,
+        int baseY,
+        int surfaceFluidCutDepth,
+        int worldY,
+        bool isEmpty,
+        bool isSphereShellBoundaryOrLining)
+    {
+        ArgumentNullException.ThrowIfNull(surfaceBiome);
+
+        // Empty-region ownership is selected by the volume biome field;
+        // the local density result establishes that the voxel is actually
+        // empty. Surface-fluid cuts and Sphere shell lining are excluded.
+        if (isEmpty &&
+            emptyRegionVolumeBiome is not null &&
+            worldY > 0 &&
+            (long)worldY <= (long)baseY - surfaceFluidCutDepth &&
+            !isSphereShellBoundaryOrLining)
+        {
+            return new BiomeRegionOwner(
+                emptyRegionVolumeBiome, BiomeRegionOwnerKind.Volume);
+        }
+
+        // An additive biome owns only cells occupied by its formation.
+        if (!isEmpty && additiveVolumeBiome is not null)
+        {
+            return new BiomeRegionOwner(
+                additiveVolumeBiome, BiomeRegionOwnerKind.Volume);
+        }
+
+        return new BiomeRegionOwner(
+            surfaceBiome, BiomeRegionOwnerKind.Surface);
+    }
 
     /// <summary>
     /// Pure density query with already-sampled X/Z biome and base height.
