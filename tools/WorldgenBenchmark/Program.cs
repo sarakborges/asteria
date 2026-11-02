@@ -585,6 +585,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     var elapsedMsByStage = new double[stages.Length];
     var allocatedBytesByStage = new long[stages.Length];
     var advanceCountByStage = new int[stages.Length];
+    var paletteProfiles = new List<DirectionalFacePaletteMetrics>();
     var totalTimer = Stopwatch.StartNew();
 
     foreach (var coord in desired)
@@ -592,7 +593,8 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         using var job = generator.BeginMaterialization(coord);
         while (!job.IsComplete)
         {
-            var stageIndex = (int)job.Stage;
+            var stage = job.Stage;
+            var stageIndex = (int)stage;
             var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
             var startedAt = Stopwatch.GetTimestamp();
             job.Advance();
@@ -601,6 +603,12 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             allocatedBytesByStage[stageIndex] +=
                 GC.GetAllocatedBytesForCurrentThread() - beforeBytes;
             advanceCountByStage[stageIndex]++;
+
+            if (stage == ChunkMaterializationStage.DirectionalFacePalettes &&
+                job.DirectionalFacePaletteMetrics is { } profile)
+            {
+                paletteProfiles.Add(profile);
+            }
         }
     }
 
@@ -622,12 +630,58 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         });
     }
 
+    var paletteProfile = new
+    {
+        ProfiledChunkCount = paletteProfiles.Count,
+        TimedChunkCount = paletteProfiles.Count(profile => profile.HasTimingBreakdown),
+        TimingSampleInterval = paletteProfiles
+            .Select(profile => profile.TimingSampleInterval)
+            .DefaultIfEmpty(0)
+            .Max(),
+        SurfaceColumns = paletteProfiles.Sum(profile => (long)profile.SurfaceColumns),
+        SolidVoxels = paletteProfiles.Sum(profile => (long)profile.SolidVoxels),
+        FaceProbes = paletteProfiles.Sum(profile => (long)profile.FaceProbes),
+        NeighborColumnLookups = paletteProfiles.Sum(profile => (long)profile.NeighborColumnLookups),
+        SolidPaletteLookups = paletteProfiles.Sum(profile => (long)profile.SolidPaletteLookups),
+        EmptyRegionPaletteLookups = paletteProfiles.Sum(profile => (long)profile.EmptyRegionPaletteLookups),
+        DensityProbes = paletteProfiles.Sum(profile => (long)profile.DensityProbes),
+        BoundaryDensityProbes = paletteProfiles.Sum(profile => (long)profile.BoundaryDensityProbes),
+        EmptyRegionOwnerResolutions = paletteProfiles.Sum(profile => (long)profile.EmptyRegionOwnerResolutions),
+        MaskRejectedProbes = paletteProfiles.Sum(profile => (long)profile.MaskRejectedProbes),
+        PaletteRejectedProbes = paletteProfiles.Sum(profile => (long)profile.PaletteRejectedProbes),
+        DepthRejectedProbes = paletteProfiles.Sum(profile => (long)profile.DepthRejectedProbes),
+        PaletteWrites = paletteProfiles.Sum(profile => (long)profile.PaletteWrites),
+        TotalMeasuredMilliseconds = paletteProfiles.Sum(profile => profile.TotalMilliseconds),
+        TotalMeasuredMaximumMilliseconds = paletteProfiles
+            .Select(profile => profile.TotalMilliseconds)
+            .DefaultIfEmpty(0d)
+            .Max(),
+        EstimatedSurfaceColumnPreparationMilliseconds = paletteProfiles.Sum(
+            profile => profile.SurfaceColumnPreparationEstimatedMilliseconds),
+        EstimatedSolidOwnerResolutionMilliseconds = paletteProfiles.Sum(
+            profile => profile.SolidOwnerResolutionEstimatedMilliseconds),
+        EstimatedNeighborOwnerLookupMilliseconds = paletteProfiles.Sum(
+            profile => profile.NeighborOwnerLookupEstimatedMilliseconds),
+        EstimatedDensityProbeMilliseconds = paletteProfiles.Sum(
+            profile => profile.DensityProbeEstimatedMilliseconds),
+        EstimatedEmptyRegionOwnerResolutionMilliseconds = paletteProfiles.Sum(
+            profile => profile.EmptyRegionOwnerResolutionEstimatedMilliseconds),
+        EstimatedPaletteWriteMilliseconds = paletteProfiles.Sum(
+            profile => profile.PaletteWriteEstimatedMilliseconds),
+        EstimatedOtherMilliseconds = paletteProfiles.Sum(
+            profile => profile.OtherEstimatedMilliseconds),
+        AverageMillisecondsPerChunk = paletteProfiles.Count == 0
+            ? 0d
+            : paletteProfiles.Average(profile => profile.TotalMilliseconds),
+    };
+
     return new
     {
         ChunkCount = desired.Length,
         TotalElapsedMs = totalTimer.Elapsed.TotalMilliseconds,
         TotalAdvanceMs = totalAdvanceMs,
         ByStage = byStage,
+        DirectionalFacePaletteProfile = paletteProfile,
     };
 }
 
@@ -674,6 +728,7 @@ var result = new
         "Elapsed times include immutable query/cache cost, not Godot meshing, physics or GPU publication.",
         "Allocation counters use the current benchmark thread and are comparative diagnostics, not retained-memory truth.",
         "Initial-area stage timings isolate chunk materialization work and are diagnostic only; they are not regression thresholds.",
+        "Directional face-palette profiles use operation counters and sampled Debug timings; cold and warm passes use the same fixed-seed chunk selection.",
         "Every metric records its generated-result digest so determinism can be compared across runs.",
         "Search/destination metrics include near and far world coordinates without chunk materialization.",
         options.EnforceCiBudgets

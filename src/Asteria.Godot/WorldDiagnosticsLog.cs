@@ -200,6 +200,30 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private string _physicsGravityWaitingTopSources = "none";
     private string _physicsGravityWaitingTopTargets = "none";
     private int _physicsUpdatesPeak;
+    private int _directionalPaletteProfileChunks;
+    private int _directionalPaletteTimedChunks;
+    private long _directionalPaletteSurfaceColumns;
+    private long _directionalPaletteSolidVoxels;
+    private long _directionalPaletteFaceProbes;
+    private long _directionalPaletteNeighborColumnLookups;
+    private long _directionalPaletteSolidPaletteLookups;
+    private long _directionalPaletteEmptyRegionPaletteLookups;
+    private long _directionalPaletteDensityProbes;
+    private long _directionalPaletteBoundaryDensityProbes;
+    private long _directionalPaletteEmptyRegionOwnerResolutions;
+    private long _directionalPaletteMaskRejectedProbes;
+    private long _directionalPalettePaletteRejectedProbes;
+    private long _directionalPaletteDepthRejectedProbes;
+    private long _directionalPaletteWrites;
+    private double _directionalPaletteTotalMs;
+    private double _directionalPaletteTotalMaxMs;
+    private double _directionalPaletteSurfaceColumnMs;
+    private double _directionalPaletteSolidOwnerMs;
+    private double _directionalPaletteNeighborOwnerMs;
+    private double _directionalPaletteDensityMs;
+    private double _directionalPaletteEmptyOwnerMs;
+    private double _directionalPaletteWriteMs;
+    private double _directionalPaletteOtherMs;
 
     private WorldDiagnosticsLog(DiagnosticSessionLog session)
     {
@@ -397,6 +421,44 @@ internal sealed class WorldDiagnosticsLog : IDisposable
                 _materializationStageMsMax[index],
                 sample.WorkerMilliseconds);
             _materializationStageCounts[index]++;
+
+            if (sample.DirectionalFacePaletteMetrics is not { } palette)
+                continue;
+
+            _directionalPaletteProfileChunks++;
+            if (palette.HasTimingBreakdown)
+                _directionalPaletteTimedChunks++;
+            _directionalPaletteSurfaceColumns += palette.SurfaceColumns;
+            _directionalPaletteSolidVoxels += palette.SolidVoxels;
+            _directionalPaletteFaceProbes += palette.FaceProbes;
+            _directionalPaletteNeighborColumnLookups += palette.NeighborColumnLookups;
+            _directionalPaletteSolidPaletteLookups += palette.SolidPaletteLookups;
+            _directionalPaletteEmptyRegionPaletteLookups += palette.EmptyRegionPaletteLookups;
+            _directionalPaletteDensityProbes += palette.DensityProbes;
+            _directionalPaletteBoundaryDensityProbes += palette.BoundaryDensityProbes;
+            _directionalPaletteEmptyRegionOwnerResolutions += palette.EmptyRegionOwnerResolutions;
+            _directionalPaletteMaskRejectedProbes += palette.MaskRejectedProbes;
+            _directionalPalettePaletteRejectedProbes += palette.PaletteRejectedProbes;
+            _directionalPaletteDepthRejectedProbes += palette.DepthRejectedProbes;
+            _directionalPaletteWrites += palette.PaletteWrites;
+            _directionalPaletteTotalMs += palette.TotalMilliseconds;
+            _directionalPaletteTotalMaxMs = Math.Max(
+                _directionalPaletteTotalMaxMs,
+                palette.TotalMilliseconds);
+            _directionalPaletteSurfaceColumnMs +=
+                palette.SurfaceColumnPreparationEstimatedMilliseconds;
+            _directionalPaletteSolidOwnerMs +=
+                palette.SolidOwnerResolutionEstimatedMilliseconds;
+            _directionalPaletteNeighborOwnerMs +=
+                palette.NeighborOwnerLookupEstimatedMilliseconds;
+            _directionalPaletteDensityMs +=
+                palette.DensityProbeEstimatedMilliseconds;
+            _directionalPaletteEmptyOwnerMs +=
+                palette.EmptyRegionOwnerResolutionEstimatedMilliseconds;
+            _directionalPaletteWriteMs +=
+                palette.PaletteWriteEstimatedMilliseconds;
+            _directionalPaletteOtherMs +=
+                palette.OtherEstimatedMilliseconds;
         }
 
         foreach (var activation in update.Activations)
@@ -770,6 +832,30 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"lighting_capture_ms_max={Format1(_lightingCaptureMaxMs)} " +
             $"lighting_apply_ms_total={Format1(_lightingApplyMs)} " +
             $"lighting_apply_ms_max={Format1(_lightingApplyMaxMs)} " +
+            $"directional_palette_profile_chunks={_directionalPaletteProfileChunks} " +
+            $"directional_palette_timed_chunks={_directionalPaletteTimedChunks} " +
+            $"directional_palette_surface_columns={_directionalPaletteSurfaceColumns} " +
+            $"directional_palette_solid_voxels={_directionalPaletteSolidVoxels} " +
+            $"directional_palette_face_probes={_directionalPaletteFaceProbes} " +
+            $"directional_palette_neighbor_column_lookups={_directionalPaletteNeighborColumnLookups} " +
+            $"directional_palette_solid_palette_lookups={_directionalPaletteSolidPaletteLookups} " +
+            $"directional_palette_empty_region_palette_lookups={_directionalPaletteEmptyRegionPaletteLookups} " +
+            $"directional_palette_density_probes={_directionalPaletteDensityProbes} " +
+            $"directional_palette_boundary_density_probes={_directionalPaletteBoundaryDensityProbes} " +
+            $"directional_palette_empty_region_owner_resolutions={_directionalPaletteEmptyRegionOwnerResolutions} " +
+            $"directional_palette_mask_rejected_probes={_directionalPaletteMaskRejectedProbes} " +
+            $"directional_palette_palette_rejected_probes={_directionalPalettePaletteRejectedProbes} " +
+            $"directional_palette_depth_rejected_probes={_directionalPaletteDepthRejectedProbes} " +
+            $"directional_palette_writes={_directionalPaletteWrites} " +
+            $"directional_palette_total_ms={Format1(_directionalPaletteTotalMs)} " +
+            $"directional_palette_total_ms_max={Format1(_directionalPaletteTotalMaxMs)} " +
+            $"directional_palette_surface_column_estimated_ms={Format1(_directionalPaletteSurfaceColumnMs)} " +
+            $"directional_palette_solid_owner_estimated_ms={Format1(_directionalPaletteSolidOwnerMs)} " +
+            $"directional_palette_neighbor_owner_estimated_ms={Format1(_directionalPaletteNeighborOwnerMs)} " +
+            $"directional_palette_density_estimated_ms={Format1(_directionalPaletteDensityMs)} " +
+            $"directional_palette_empty_owner_estimated_ms={Format1(_directionalPaletteEmptyOwnerMs)} " +
+            $"directional_palette_write_estimated_ms={Format1(_directionalPaletteWriteMs)} " +
+            $"directional_palette_other_estimated_ms={Format1(_directionalPaletteOtherMs)} " +
             materializationStages + " " +
             stages);
 
@@ -778,6 +864,30 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         Array.Clear(_materializationStageMsTotal);
         Array.Clear(_materializationStageMsMax);
         Array.Clear(_materializationStageCounts);
+        _directionalPaletteProfileChunks = 0;
+        _directionalPaletteTimedChunks = 0;
+        _directionalPaletteSurfaceColumns = 0;
+        _directionalPaletteSolidVoxels = 0;
+        _directionalPaletteFaceProbes = 0;
+        _directionalPaletteNeighborColumnLookups = 0;
+        _directionalPaletteSolidPaletteLookups = 0;
+        _directionalPaletteEmptyRegionPaletteLookups = 0;
+        _directionalPaletteDensityProbes = 0;
+        _directionalPaletteBoundaryDensityProbes = 0;
+        _directionalPaletteEmptyRegionOwnerResolutions = 0;
+        _directionalPaletteMaskRejectedProbes = 0;
+        _directionalPalettePaletteRejectedProbes = 0;
+        _directionalPaletteDepthRejectedProbes = 0;
+        _directionalPaletteWrites = 0;
+        _directionalPaletteTotalMs = 0d;
+        _directionalPaletteTotalMaxMs = 0d;
+        _directionalPaletteSurfaceColumnMs = 0d;
+        _directionalPaletteSolidOwnerMs = 0d;
+        _directionalPaletteNeighborOwnerMs = 0d;
+        _directionalPaletteDensityMs = 0d;
+        _directionalPaletteEmptyOwnerMs = 0d;
+        _directionalPaletteWriteMs = 0d;
+        _directionalPaletteOtherMs = 0d;
         _creaturesPeak = _creaturesActive;
         _creatureParticlesPeak = _creatureParticlesActive;
         _ambientParticlesPeak = _ambientParticlesActive;

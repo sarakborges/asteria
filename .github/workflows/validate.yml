@@ -76,6 +76,13 @@ jobs:
             --enforce-ci-budgets true \
             --output worldgen-benchmark.json
 
+      - name: Profile fixed-seed directional face palettes
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Debug -- \
+            --seed 181960897289965 --dimension asteria:overworld \
+            --samples 2 --area-size 4 --chunks 1 \
+            --output worldgen-directional-face-palette-profile.json
+
       - name: Render fixed-seed biome map fixtures
         run: |
           dotnet run --project tools/BiomeMap --configuration Release -- \
@@ -109,7 +116,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: worldgen-query-baseline
-          path: worldgen-benchmark.json
+          path: |
+            worldgen-benchmark.json
+            worldgen-directional-face-palette-profile.json
           if-no-files-found: ignore
 
       - name: Upload biome map fixture
