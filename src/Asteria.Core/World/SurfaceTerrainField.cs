@@ -2029,6 +2029,55 @@ public sealed class TerrainDensityVolume
     }
 
     /// <summary>
+    /// Counts the contiguous solid voxels immediately above a position while
+    /// they remain inside this snapshot. The result is capped by the caller's
+    /// finite material depth. The caller can continue with world density only
+    /// when this run reaches the top of the sampled volume.
+    /// </summary>
+    internal uint ContiguousSolidDepthAboveInVolume(
+        int localX,
+        int localY,
+        int localZ,
+        uint maximumDepth)
+    {
+        if ((uint)localX >= Width ||
+            (uint)localZ >= Depth)
+            throw new ArgumentOutOfRangeException(nameof(localX));
+        if (localY < -1)
+            throw new ArgumentOutOfRangeException(nameof(localY));
+        if (maximumDepth == 0 || localY >= Height - 1)
+            return 0;
+
+        var firstAboveY = localY + 1;
+        var availableHeight = Height - firstAboveY;
+        var limit = Math.Min(maximumDepth, (uint)availableHeight);
+        if (limit == 0)
+            return 0;
+
+        if (_columnSolidMask is { } columnSolidMask)
+        {
+            var shiftedMask = (uint)(
+                columnSolidMask[ColumnIndex(localX, localZ)] >>
+                firstAboveY);
+            var contiguous = (uint)System.Numerics.BitOperations
+                .TrailingZeroCount(~shiftedMask);
+            return Math.Min(limit, contiguous);
+        }
+
+        var depth = 0u;
+        while (depth < limit &&
+               IsSolidAtUnchecked(
+                   localX,
+                   firstAboveY + (int)depth,
+                   localZ))
+        {
+            depth++;
+        }
+
+        return depth;
+    }
+
+    /// <summary>
     /// Fast occupancy read for materializer loops that have already proven
     /// all coordinates are inside this chunk's compact column-mask volume.
     /// </summary>

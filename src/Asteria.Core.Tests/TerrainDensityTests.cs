@@ -5,6 +5,72 @@ namespace Asteria.Core.Tests;
 public sealed class TerrainDensityTests
 {
     [Fact]
+    public void ContiguousSolidDepthAboveMatchesScalarScanForEveryDensityStorageMode()
+    {
+        const int width = 3;
+        const int height = 16;
+        const int depth = 2;
+        var masks = new ushort[]
+        {
+            ushort.MaxValue,
+            0b1011_1100_0001_1111,
+            0b0000_0000_0000_0000,
+            0b1000_0000_0000_0001,
+            0b1110_1111_1111_1111,
+            0b0000_1111_0000_1111,
+        };
+        var densities = new double[width * height * depth];
+
+        for (var z = 0; z < depth; z++)
+        for (var y = 0; y < height; y++)
+        for (var x = 0; x < width; x++)
+        {
+            var index = z * width * height + y * width + x;
+            densities[index] =
+                (masks[z * width + x] & (1 << y)) != 0
+                    ? 1d
+                    : -1d;
+        }
+
+        double DensityAt(int x, int y, int z) =>
+            densities[(z * height + y) * width + x];
+
+        var volumes = new[]
+        {
+            new TerrainDensityVolume(
+                width, height, depth, masks, DensityAt,
+                volumeBiomes: null, volumeBiomeField: null),
+            new TerrainDensityVolume(
+                width, height, depth, densities),
+            new TerrainDensityVolume(
+                width, height, depth, DensityAt,
+                volumeBiomes: null, volumeBiomeField: null),
+        };
+
+        uint[] maximumDepths = [0, 1, 2, 4, 15, 16, 32];
+        foreach (var volume in volumes)
+        for (var z = 0; z < depth; z++)
+        for (var x = 0; x < width; x++)
+        for (var y = -1; y < height; y++)
+        foreach (var maximumDepth in maximumDepths)
+        {
+            var expected = 0u;
+            while (expected < maximumDepth &&
+                   y + (long)expected + 1L < height &&
+                   volume.IsSolidAt(
+                       x, y + (int)expected + 1, z))
+            {
+                expected++;
+            }
+
+            Assert.Equal(
+                expected,
+                volume.ContiguousSolidDepthAboveInVolume(
+                    x, y, z, maximumDepth));
+        }
+    }
+
+    [Fact]
     public void CaveDensityIsSubtractiveAndCannotPierceTheSurface()
     {
         var generator = Generator(

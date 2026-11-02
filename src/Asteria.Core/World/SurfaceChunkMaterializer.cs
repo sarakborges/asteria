@@ -1411,42 +1411,32 @@ public sealed class SurfaceChunkMaterializer
         int worldZ,
         uint finiteDepth)
     {
-        var volumeBiome =
-            densityVolume.VolumePlacementAt(
-                localX,
-                localZ);
-        uint depth = 0;
+        if (finiteDepth == 0)
+            return 0;
 
+        var depth = densityVolume.ContiguousSolidDepthAboveInVolume(
+            localX, localY, localZ, finiteDepth);
+        if (depth >= finiteDepth ||
+            (long)localY + depth + 1L < densityVolume.Height)
+        {
+            return depth;
+        }
+
+        // The contiguous run reached the top of the chunk snapshot. Only
+        // this short remainder needs world-space density queries.
+        var volumeBiome = densityVolume.VolumePlacementAt(
+            localX, localZ);
         while (depth < finiteDepth)
         {
-            var above =
-                (long)worldY +
-                depth +
-                1L;
-            if (above > int.MaxValue)
-            {
-                break;
-            }
-
-            var localAbove =
-                (long)localY +
-                depth +
-                1L;
-            var isSolid =
-                localAbove < densityVolume.Height
-                    ? densityVolume.IsSolidAt(
-                        localX,
-                        (int)localAbove,
-                        localZ)
-                    : _terrain.DensityAt(
-                        surfaceBiome,
-                        baseY,
-                        worldX,
-                        (int)above,
-                        worldZ,
-                        volumeBiome) >= 0d;
-
-            if (!isSolid)
+            var above = (long)worldY + depth + 1L;
+            if (above > int.MaxValue ||
+                _terrain.DensityAt(
+                    surfaceBiome,
+                    baseY,
+                    worldX,
+                    (int)above,
+                    worldZ,
+                    volumeBiome) < 0d)
             {
                 break;
             }
