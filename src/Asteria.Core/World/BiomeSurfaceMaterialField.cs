@@ -14,13 +14,13 @@ internal readonly record struct BiomeDirectionalPalette(
     uint MaxDepth)
 {
     public bool Has(BiomePaletteFace face) =>
-        (Faces & face switch
+        (Faces & (face switch
         {
             BiomePaletteFace.Floor => BiomePaletteFaceMask.Floor,
             BiomePaletteFace.Walls => BiomePaletteFaceMask.Walls,
             BiomePaletteFace.Ceiling => BiomePaletteFaceMask.Ceiling,
             _ => throw new ArgumentOutOfRangeException(nameof(face)),
-        }) != 0;
+        })) != 0;
 }
 
 /// <summary>

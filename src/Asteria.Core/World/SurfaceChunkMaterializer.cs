@@ -1776,13 +1776,6 @@ public sealed class SurfaceChunkMaterializer
                     ? surfacePalette
                     : _materials.DirectionalPaletteFor(solidOwner);
 
-                // Surface biomes only author wall/ceiling overrides. Volume
-                // palettes are considered only when selected by the adjacent
-                // empty region or by the actual additive solid voxel.
-                if (solidPalette.Faces == BiomePaletteFaceMask.None &&
-                    column.CaveBiomeAt(x, z) is null)
-                    continue;
-
                 for (var depth = 0;
                      depth < _materials.MaximumDirectionalPaintDepth;
                      depth++)
