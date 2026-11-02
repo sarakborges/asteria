@@ -142,7 +142,7 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
-    public void LocalCaveWallsAreNotPaintedWithExteriorDirectionalPalette()
+    public void LocalCaveCeilingsAreNotPaintedWithExteriorDirectionalPalette()
     {
         var blocks = new BlockRegistry(
         [
@@ -152,7 +152,7 @@ public sealed class GeologyMaterializationRegressionTests
         var biome = BiomeDefinitionJson.Parse(
             """
             {
-              "id": "asteria:test/cave_wall_palette",
+              "id": "asteria:test/cave_ceiling_palette",
               "surfaceLayout": {
                 "regionSize": { "min": 128, "max": 128 }
               },
@@ -165,7 +165,7 @@ public sealed class GeologyMaterializationRegressionTests
               },
               "palette": {
                 "default": [{ "block": "asteria:stone" }],
-                "walls": [
+                "ceiling": [
                   { "block": "asteria:basalt", "depth": 1 },
                   { "block": "asteria:stone" }
                 ]
@@ -189,44 +189,32 @@ public sealed class GeologyMaterializationRegressionTests
         var dimension = CreateDimension(biome.Id, caves);
         var generator = new BiomeWorldGenerator(
             Seed, dimension, blocks, new BiomeRegistry([biome]));
-        WorldVoxelCoord? caveWall = null;
-        var directions = new (int X, int Z)[]
-        {
-            (1, 0), (-1, 0), (0, 1), (0, -1),
-        };
+        WorldVoxelCoord? caveCeiling = null;
 
-        // Find a solid voxel beside a genuine cave voxel, with both voxels
+        // Find a solid voxel above a genuine cave voxel, with both voxels
         // inside one chunk so the materializer can use its local density mask.
-        for (var z = -128; z <= 128 && !caveWall.HasValue; z += 2)
-        for (var x = -128; x <= 128 && !caveWall.HasValue; x += 2)
-        foreach (var worldY in new[] { 16, 32 })
+        for (var z = -128; z <= 128 && !caveCeiling.HasValue; z += 2)
+        for (var x = -128; x <= 128 && !caveCeiling.HasValue; x += 2)
+        for (var worldY = 9; worldY <= 40; worldY++)
         {
-            if (!generator.IsCaveVoidAt(x, worldY, z))
+            if (!generator.IsCaveVoidAt(x, worldY - 1, z) ||
+                generator.DensityAt(x, worldY, z) < 0d)
                 continue;
 
-            var (caveChunk, _) = VoxelCoordinates.FromWorld(x, worldY, z);
-            foreach (var (dx, dz) in directions)
-            {
-                var neighborX = x + dx;
-                var neighborZ = z + dz;
-                var (solidChunk, _) = VoxelCoordinates.FromWorld(
-                    neighborX, worldY, neighborZ);
-                if (caveChunk != solidChunk ||
-                    generator.DensityAt(neighborX, worldY, neighborZ) < 0d)
-                    continue;
+            var (airChunk, _) = VoxelCoordinates.FromWorld(
+                x, worldY - 1, z);
+            var (solidChunk, _) = VoxelCoordinates.FromWorld(
+                x, worldY, z);
+            if (airChunk != solidChunk)
+                continue;
 
-                caveWall = new WorldVoxelCoord(
-                    neighborX, worldY, neighborZ);
-                break;
-            }
-
-            if (caveWall.HasValue)
-                break;
+            caveCeiling = new WorldVoxelCoord(x, worldY, z);
+            break;
         }
 
-        Assert.True(caveWall.HasValue,
-            "The fixed cave fixture did not produce a horizontal cave wall inside one chunk.");
-        var target = caveWall.Value;
+        Assert.True(caveCeiling.HasValue,
+            "The fixed cave fixture did not produce a cave ceiling inside one chunk.");
+        var target = caveCeiling.Value;
         var (coord, local) = VoxelCoordinates.FromWorld(
             target.X, target.Y, target.Z);
         var chunk = generator.Materialize(coord);
