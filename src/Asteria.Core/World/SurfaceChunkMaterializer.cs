@@ -1028,19 +1028,22 @@ public sealed class SurfaceChunkMaterializer
         int localZ,
         int worldY) =>
         IsLocalDensityCaveVoid(
+            column.CaveBiomeAt(localX, localZ) is not null,
             column.BaseHeightAt(localX, localZ),
             worldY,
             IsSphereShellBoundaryOrLining(worldY));
 
     internal static bool IsLocalDensityCaveVoid(
+        bool hasCaveBiome,
         int baseY,
         int worldY,
         bool isSphereShellBoundaryOrLining)
     {
-        // Within a sampled chunk, empty density at/below the base surface can
-        // only come from cave carving, except at the sphere shell boundary.
+        // Density establishes that this local voxel is empty; the assigned
+        // cave biome establishes that the empty region is owned by a cave.
         // The caller has already established that the local density bit is empty.
-        return worldY > 0 &&
+        return hasCaveBiome &&
+            worldY > 0 &&
             worldY <= baseY &&
             !isSphereShellBoundaryOrLining;
     }

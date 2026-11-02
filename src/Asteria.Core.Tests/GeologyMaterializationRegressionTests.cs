@@ -142,12 +142,14 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Theory]
-    [InlineData(40, 20, false, true)]
-    [InlineData(40, 40, false, true)]
-    [InlineData(40, 41, false, false)]
-    [InlineData(40, 0, false, false)]
-    [InlineData(40, 20, true, false)]
-    public void LocalDensityMaskClassifiesOnlyCaveEligibleEmptyVoxels(
+    [InlineData(true, 40, 20, false, true)]
+    [InlineData(true, 40, 40, false, true)]
+    [InlineData(true, 40, 41, false, false)]
+    [InlineData(true, 40, 0, false, false)]
+    [InlineData(true, 40, 20, true, false)]
+    [InlineData(false, 40, 20, false, false)]
+    public void LocalDensityMaskRequiresCaveBiomeOwnership(
+        bool hasCaveBiome,
         int baseY,
         int worldY,
         bool isSphereShellBoundaryOrLining,
@@ -156,7 +158,8 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.Equal(
             expected,
             SurfaceChunkMaterializer.IsLocalDensityCaveVoid(
-                baseY, worldY, isSphereShellBoundaryOrLining));
+                hasCaveBiome, baseY, worldY,
+                isSphereShellBoundaryOrLining));
     }
 
     [Fact]
