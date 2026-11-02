@@ -1745,6 +1745,9 @@ public sealed class SurfaceChunkMaterializer
         if (!_materials.HasDirectionalFacePalettes)
             return null;
 
+#if !DEBUG
+        return null;
+#else
         const int timingSampleInterval = 32;
         var surfaceColumns = 0;
         var solidVoxels = 0;
@@ -2090,6 +2093,7 @@ public sealed class SurfaceChunkMaterializer
             EmptyRegionOwnerResolutionEstimatedMilliseconds: emptyOwnerMilliseconds,
             PaletteWriteEstimatedMilliseconds: paletteWriteMilliseconds,
             OtherEstimatedMilliseconds: otherMilliseconds);
+#endif
     }
 
     /// <summary>

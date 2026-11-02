@@ -630,6 +630,15 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         });
     }
 
+#if DEBUG
+    if (paletteProfiles.Count != desired.Length ||
+        paletteProfiles.Any(profile => !profile.HasTimingBreakdown))
+    {
+        throw new InvalidOperationException(
+            "Debug directional face-palette profile is missing chunk timing data.");
+    }
+#endif
+
     var paletteProfile = new
     {
         ProfiledChunkCount = paletteProfiles.Count,

@@ -38,6 +38,11 @@ jobs:
       - name: Test engine-agnostic core
         run: dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --configuration Release
 
+      - name: Test directional palette diagnostics in Debug
+        run: |
+          dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --configuration Debug \
+            --filter FullyQualifiedName~DirectionalPaletteDiagnosticsAreReproducibleForFixedSeedAndChunk
+
       - name: Build Godot C# Debug assembly for native script loading
         run: dotnet build Asteria.csproj --configuration Debug
 

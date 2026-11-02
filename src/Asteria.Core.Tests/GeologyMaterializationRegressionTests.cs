@@ -365,40 +365,48 @@ public sealed class GeologyMaterializationRegressionTests
         var secondGenerator = new BiomeWorldGenerator(
             Seed, dimension, blocks, biomes);
 
-        static DirectionalFacePaletteMetrics Capture(
+        static DirectionalFacePaletteMetrics? Capture(
             BiomeWorldGenerator generator)
         {
             using var job = generator.BeginMaterialization(
                 new ChunkCoord(0, 2, 0));
             while (!job.IsComplete)
                 job.Advance();
-
-            Assert.True(job.DirectionalFacePaletteMetrics.HasValue);
-            return job.DirectionalFacePaletteMetrics.Value;
+            return job.DirectionalFacePaletteMetrics;
         }
 
         var first = Capture(firstGenerator);
         var second = Capture(secondGenerator);
+#if DEBUG
+        Assert.True(first.HasValue);
+        Assert.True(second.HasValue);
+        var firstMetrics = first.Value;
+        var secondMetrics = second.Value;
 
-        Assert.Equal(Chunk.Area, first.SurfaceColumns);
-        Assert.True(first.SolidVoxels > 0);
-        Assert.True(first.FaceProbes > 0);
-        Assert.True(first.DensityProbes > 0);
-        Assert.InRange(first.PaletteWrites, 0, first.FaceProbes);
+        Assert.True(firstMetrics.HasTimingBreakdown);
+        Assert.Equal(Chunk.Area, firstMetrics.SurfaceColumns);
+        Assert.True(firstMetrics.SolidVoxels > 0);
+        Assert.True(firstMetrics.FaceProbes > 0);
+        Assert.True(firstMetrics.DensityProbes > 0);
+        Assert.InRange(firstMetrics.PaletteWrites, 0, firstMetrics.FaceProbes);
 
-        Assert.Equal(first.SurfaceColumns, second.SurfaceColumns);
-        Assert.Equal(first.SolidVoxels, second.SolidVoxels);
-        Assert.Equal(first.FaceProbes, second.FaceProbes);
-        Assert.Equal(first.NeighborColumnLookups, second.NeighborColumnLookups);
-        Assert.Equal(first.SolidPaletteLookups, second.SolidPaletteLookups);
-        Assert.Equal(first.EmptyRegionPaletteLookups, second.EmptyRegionPaletteLookups);
-        Assert.Equal(first.DensityProbes, second.DensityProbes);
-        Assert.Equal(first.BoundaryDensityProbes, second.BoundaryDensityProbes);
-        Assert.Equal(first.EmptyRegionOwnerResolutions, second.EmptyRegionOwnerResolutions);
-        Assert.Equal(first.MaskRejectedProbes, second.MaskRejectedProbes);
-        Assert.Equal(first.PaletteRejectedProbes, second.PaletteRejectedProbes);
-        Assert.Equal(first.DepthRejectedProbes, second.DepthRejectedProbes);
-        Assert.Equal(first.PaletteWrites, second.PaletteWrites);
+        Assert.Equal(firstMetrics.SurfaceColumns, secondMetrics.SurfaceColumns);
+        Assert.Equal(firstMetrics.SolidVoxels, secondMetrics.SolidVoxels);
+        Assert.Equal(firstMetrics.FaceProbes, secondMetrics.FaceProbes);
+        Assert.Equal(firstMetrics.NeighborColumnLookups, secondMetrics.NeighborColumnLookups);
+        Assert.Equal(firstMetrics.SolidPaletteLookups, secondMetrics.SolidPaletteLookups);
+        Assert.Equal(firstMetrics.EmptyRegionPaletteLookups, secondMetrics.EmptyRegionPaletteLookups);
+        Assert.Equal(firstMetrics.DensityProbes, secondMetrics.DensityProbes);
+        Assert.Equal(firstMetrics.BoundaryDensityProbes, secondMetrics.BoundaryDensityProbes);
+        Assert.Equal(firstMetrics.EmptyRegionOwnerResolutions, secondMetrics.EmptyRegionOwnerResolutions);
+        Assert.Equal(firstMetrics.MaskRejectedProbes, secondMetrics.MaskRejectedProbes);
+        Assert.Equal(firstMetrics.PaletteRejectedProbes, secondMetrics.PaletteRejectedProbes);
+        Assert.Equal(firstMetrics.DepthRejectedProbes, secondMetrics.DepthRejectedProbes);
+        Assert.Equal(firstMetrics.PaletteWrites, secondMetrics.PaletteWrites);
+#else
+        Assert.Null(first);
+        Assert.Null(second);
+#endif
     }
 
     [Fact]
