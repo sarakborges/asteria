@@ -1738,9 +1738,6 @@ public sealed class SurfaceChunkMaterializer
         if (!_materials.HasDirectionalFacePalettes)
             return;
 
-        var chunkCoord = VoxelCoordinates.FromWorld(
-            originX, originY, originZ).Chunk;
-
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
