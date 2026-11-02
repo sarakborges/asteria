@@ -1789,7 +1789,7 @@ public sealed class SurfaceChunkMaterializer
         // maximum paint radius. Materialize that small region once so the
         // voxel hot loop uses direct array access rather than hashing a key
         // and resolving the same column/palette millions of times.
-        var maximumPaintDepth = _materials.MaximumDirectionalPaintDepth;
+        var maximumPaintDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
         var regionSize = checked(Chunk.Size + maximumPaintDepth * 2);
         var regionMinimumX = originX - maximumPaintDepth;
         var regionMinimumZ = originZ - maximumPaintDepth;
