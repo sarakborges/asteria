@@ -2376,8 +2376,11 @@ public sealed class BiomeWorldGenerationTests
             SurfacePlacementContext.Sample(
                 terrain, sharedTerrainSampleContext,
                 worldX, worldZ, includeSlope: true));
+        var expectedNeighborSurfacePlacement =
+            SurfacePlacementContext.Sample(
+                terrain, worldX + 1, worldZ, includeSlope: true);
         Assert.Equal(
-            expectedSurfacePlacement,
+            expectedNeighborSurfacePlacement,
             SurfacePlacementContext.Sample(
                 terrain, sharedTerrainSampleContext,
                 worldX + 1, worldZ, includeSlope: true));

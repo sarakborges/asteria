@@ -72,7 +72,7 @@ public readonly record struct SurfacePlacementContext(int Y, double Slope)
         var context = terrain.CreateTerrainSampleContext();
         return Sample(
             terrain, context, worldX, worldZ,
-            includeSlope: true, baseSurface);
+            includeSlope: true, baseSurface: baseSurface);
     }
 
     // Materialization evaluates many neighboring slope conditions in one chunk.
