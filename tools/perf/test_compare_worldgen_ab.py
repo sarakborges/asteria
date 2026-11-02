@@ -8,7 +8,7 @@ from pathlib import Path
 from compare_worldgen_ab import compare, load_repetitions, render_report
 
 
-def sample_run(*, stage_ms: float = 100.0, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67) -> dict:
+def sample_run(*, palette_ms: float = 50.0, stage_ms: float = 100.0, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67) -> dict:
     return {
         "seed": 181960897289965,
         "dimension": "asteria:overworld",
@@ -31,23 +31,41 @@ def sample_run(*, stage_ms: float = 100.0, materialize_ms: float = 200.0, synthe
             "warm": {"totalMaterializeMs": materialize_ms},
         },
         "initialAreaStageTimingDiagnostics": {
-            "warm": {"byStage": {"TerrainLayer": {"elapsedMs": stage_ms}}},
+            "warm": {"byStage": {
+                "DirectionalFacePalettes": {"elapsedMs": palette_ms},
+                "TerrainLayer": {"elapsedMs": stage_ms},
+            }},
         },
     }
 
 
 class CompareWorldgenAbTests(unittest.TestCase):
-    def test_reports_medians_and_reduction(self) -> None:
-        baseline = [sample_run(stage_ms=value) for value in (100.0, 120.0, 110.0)]
-        candidate = [sample_run(stage_ms=value) for value in (80.0, 90.0, 100.0)]
+    def test_reports_directional_palette_and_materialization_medians(self) -> None:
+        baseline = [
+            sample_run(palette_ms=value, stage_ms=stage)
+            for value, stage in zip((60.0, 80.0, 70.0), (100.0, 120.0, 110.0))
+        ]
+        candidate = [
+            sample_run(palette_ms=value, stage_ms=stage)
+            for value, stage in zip((40.0, 50.0, 60.0), (80.0, 90.0, 100.0))
+        ]
 
         result = compare(baseline, candidate, expected_chunks=67)
 
-        terrain = result["metrics"][0]
+        palette = result["metrics"][0]
+        self.assertEqual("DirectionalFacePalettes (warm)", palette["metric"])
+        self.assertEqual(70.0, palette["baselineMedianMs"])
+        self.assertEqual(50.0, palette["candidateMedianMs"])
+        self.assertAlmostEqual(28.5714, palette["reductionPercent"], places=3)
+
+        terrain = result["metrics"][1]
+        self.assertEqual("TerrainLayer (warm)", terrain["metric"])
         self.assertEqual(110.0, terrain["baselineMedianMs"])
         self.assertEqual(90.0, terrain["candidateMedianMs"])
         self.assertAlmostEqual(18.1818, terrain["reductionPercent"], places=3)
-        self.assertIn("identical", render_report(result))
+        report = render_report(result)
+        self.assertIn("DirectionalFacePalettes", report)
+        self.assertIn("identical", report)
 
     def test_rejects_different_chunk_count(self) -> None:
         with self.assertRaisesRegex(ValueError, "Expected 67 initial-area chunks"):

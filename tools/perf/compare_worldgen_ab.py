@@ -70,6 +70,7 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
         # result JSON for cross-build parity checks.
         _at(run, "metrics", "initialAreaSynthesis", "warmMs")
         _at(run, "initialAreaMaterializationDiagnostics", "warm", "totalMaterializeMs")
+        _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "DirectionalFacePalettes", "elapsedMs")
         _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "TerrainLayer", "elapsedMs")
 
     return runs
@@ -146,6 +147,10 @@ def compare(
         )
 
     definitions = [
+        (
+            "DirectionalFacePalettes (warm)",
+            ("initialAreaStageTimingDiagnostics", "warm", "byStage", "DirectionalFacePalettes", "elapsedMs"),
+        ),
         (
             "TerrainLayer (warm)",
             ("initialAreaStageTimingDiagnostics", "warm", "byStage", "TerrainLayer", "elapsedMs"),
