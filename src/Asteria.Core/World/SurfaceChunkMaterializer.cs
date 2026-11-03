@@ -600,7 +600,9 @@ public sealed class SurfaceChunkMaterializer
         // allocating a new pair for every decorated X/Z column.
         SurfaceTerrainField.TerrainSampleContext? terrainSampleContext =
             _decorations.HasSlopeConditions
-                ? _terrain.CreateTerrainSampleContext()
+                ? _terrain.CreateTerrainSampleContext(
+                biomeSampleCacheCapacity: checked(
+                    (Chunk.Size + 2) * (Chunk.Size + 2)))
                 : null;
         var chunk = job.Chunk;
         var originX = job.OriginX;

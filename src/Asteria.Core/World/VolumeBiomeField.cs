@@ -286,8 +286,9 @@ public sealed class VolumeBiomeField
             owners);
     }
 
-    internal BiomeField.Sampler? CreatePlacementSampler() =>
-        _placement?.CreateSampler();
+    internal BiomeField.Sampler? CreatePlacementSampler(
+        int sampleCacheCapacity = 0) =>
+        _placement?.CreateSampler(sampleCacheCapacity);
 
     internal BiomeSample? SamplePlacement(
         int worldX,

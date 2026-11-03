@@ -166,10 +166,11 @@ public sealed class SurfaceTerrainField
         BiomeField.Sampler SurfaceBiomes,
         BiomeField.Sampler? VolumePlacement);
 
-    internal TerrainSampleContext CreateTerrainSampleContext() =>
+    internal TerrainSampleContext CreateTerrainSampleContext(
+        int biomeSampleCacheCapacity = 0) =>
         new(
-            _surfaceBiomes.CreateSampler(),
-            _volumeBiomes.CreatePlacementSampler());
+            _surfaceBiomes.CreateSampler(biomeSampleCacheCapacity),
+            _volumeBiomes.CreatePlacementSampler(biomeSampleCacheCapacity));
 
     internal (BiomeSample Biome, int BaseY) SampleBaseSurface(
         TerrainSampleContext context,

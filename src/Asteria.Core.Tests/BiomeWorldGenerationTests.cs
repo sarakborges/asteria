@@ -314,6 +314,36 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void BiomeSampleMemoReusesNearbyResultsAndEvictsWithinCapacity()
+    {
+        var definitions = StandardBiomeDefinitions();
+        var dimension = TestDimension(definitions.Select(x => x.Id));
+        var field = new BiomeField(
+            157UL,
+            dimension,
+            new BiomeRegistry(definitions));
+        var sampler = field.CreateSampler(sampleCacheCapacity: 2);
+
+        var first = sampler.Sample(-128, 256);
+        Assert.Same(first, sampler.Sample(-128, 256));
+
+        var second = sampler.Sample(-96, 256);
+        var third = sampler.Sample(-64, 256);
+        Assert.Same(second, sampler.Sample(-96, 256));
+        Assert.Same(third, sampler.Sample(-64, 256));
+
+        // The third distinct sample evicts the first from the two-entry FIFO.
+        var recomputedFirst = sampler.Sample(-128, 256);
+        Assert.NotSame(first, recomputedFirst);
+
+        var expected = field.Sample(-128, 256);
+        Assert.Equal(expected.Primary, recomputedFirst.Primary);
+        Assert.Equal(
+            expected.Influences.ToArray(),
+            recomputedFirst.Influences.ToArray());
+    }
+
+    [Fact]
     public void BiomeInfluencesAreNormalizedAndContainPrimary()
     {
         var field =

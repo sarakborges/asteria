@@ -372,17 +372,54 @@ public sealed class BiomeField
     // A bounded query (such as nearby destination search) reuses its seed
     // assignments across columns instead of allocating a cache per voxel.
     // Never share a sampler across workers or retain it after the query.
-    internal Sampler CreateSampler() => new(this);
+    internal Sampler CreateSampler(int sampleCacheCapacity = 0) =>
+        new(this, sampleCacheCapacity);
 
     internal sealed class Sampler
     {
         private readonly BiomeField _field;
         private readonly Dictionary<SeedBucket, SeedAssignment> _assignments = [];
+        private readonly Dictionary<(int X, int Z), BiomeSample>? _samples;
+        private readonly (int X, int Z)[]? _sampleOrder;
+        private int _nextSampleOrderIndex;
 
-        internal Sampler(BiomeField field) => _field = field;
+        internal Sampler(BiomeField field, int sampleCacheCapacity)
+        {
+            if (sampleCacheCapacity < 0)
+                throw new ArgumentOutOfRangeException(nameof(sampleCacheCapacity));
 
-        public BiomeSample Sample(int x, int z) =>
-            _field.SampleCached(x, z, _assignments);
+            _field = field;
+            if (sampleCacheCapacity == 0)
+                return;
+
+            _samples = new Dictionary<(int X, int Z), BiomeSample>(
+                sampleCacheCapacity);
+            _sampleOrder = new (int X, int Z)[sampleCacheCapacity];
+        }
+
+        public BiomeSample Sample(int x, int z)
+        {
+            if (_samples is not { } samples)
+                return _field.SampleCached(x, z, _assignments);
+
+            var coordinate = (X: x, Z: z);
+            if (samples.TryGetValue(coordinate, out var cached))
+                return cached;
+
+            var sample = _field.SampleCached(x, z, _assignments);
+            var sampleOrder = _sampleOrder ??
+                throw new InvalidOperationException(
+                    "Biome sample cache has no eviction order.");
+
+            if (samples.Count == sampleOrder.Length)
+                samples.Remove(sampleOrder[_nextSampleOrderIndex]);
+
+            samples.Add(coordinate, sample);
+            sampleOrder[_nextSampleOrderIndex] = coordinate;
+            _nextSampleOrderIndex =
+                (_nextSampleOrderIndex + 1) % sampleOrder.Length;
+            return sample;
+        }
     }
 
     public BiomeSampleGrid SampleGrid(
