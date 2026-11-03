@@ -507,8 +507,9 @@ public sealed class SurfaceChunkMaterializer
                                 surfaceFluidCutDepth, worldX, worldY, worldZ,
                                 densityVolume.VolumePlacementAt(localX, localZ)))
                         {
-                            hasExposedGeology = _materials.TrySurfaceGeologyBlockAt(
+                            hasExposedGeology = _materials.TrySurfaceGeologyBlockAtCached(
                                 surfaceOwner, worldX, worldY, worldZ,
+                                job.GetGeologyNoiseCache(),
                                 out exposedBlock);
                         }
                     }
@@ -532,8 +533,9 @@ public sealed class SurfaceChunkMaterializer
                             block = surfaceMaterials.BlockAt(depth);
                         }
                         else if (state.SurfaceCoverDepth is not null &&
-                                 _materials.TryGeologyBlockAt(
+                                 _materials.TryGeologyBlockAtCached(
                                      sample, worldX, worldY, worldZ,
+                                     job.GetGeologyNoiseCache(),
                                      out var geologyBlock))
                         {
                             block = geologyBlock;
@@ -575,8 +577,9 @@ public sealed class SurfaceChunkMaterializer
                             block = volumeMaterials.BlockAt(depth);
                         }
                         else if (state.VolumeCoverDepth is not null &&
-                                 _materials.TryGeologyBlockAt(
+                                 _materials.TryGeologyBlockAtCached(
                                      volumeSample, worldX, worldY, worldZ,
+                                     job.GetGeologyNoiseCache(),
                                      out var volumeGeologyBlock))
                         {
                             block = volumeGeologyBlock;
@@ -1180,6 +1183,7 @@ public sealed class SurfaceChunkMaterializer
     private sealed class MaterializationJob : IChunkMaterializationJob
     {
         private readonly SurfaceChunkMaterializer _owner;
+        private WorldGenerationEntropy.ValueNoise3DLatticeCache? _geologyNoiseCache;
         private Chunk? _chunk;
 
         public MaterializationJob(
@@ -1298,7 +1302,13 @@ public sealed class SurfaceChunkMaterializer
             SupportChunkTopOccupancy = null;
             InitialBlocks?.Dispose();
             InitialBlocks = null;
+            _geologyNoiseCache?.Dispose();
+            _geologyNoiseCache = null;
         }
+
+        internal WorldGenerationEntropy.ValueNoise3DLatticeCache
+            GetGeologyNoiseCache() =>
+            _geologyNoiseCache ??= new WorldGenerationEntropy.ValueNoise3DLatticeCache();
     }
 
     /// <summary>
@@ -1856,12 +1866,8 @@ public sealed class SurfaceChunkMaterializer
                 emptyRegionPalette);
         }
 
-        var currentColumnData =
-            new DirectionalPaletteColumnData[Chunk.Size, Chunk.Size];
-        for (var z = 0; z < Chunk.Size; z++)
-        for (var x = 0; x < Chunk.Size; x++)
-            currentColumnData[x, z] = CreateColumnData(column, x, z);
-
+        // X-direction data also owns every current-chunk column. Z probes
+        // reuse those entries and only retain their external Z strips.
         var xDirectionalPaletteColumns =
             new DirectionalPaletteColumnData[regionSize, Chunk.Size];
         for (var regionX = 0; regionX < regionSize; regionX++)
@@ -1871,7 +1877,7 @@ public sealed class SurfaceChunkMaterializer
             {
                 for (var z = 0; z < Chunk.Size; z++)
                     xDirectionalPaletteColumns[regionX, z] =
-                        currentColumnData[localX, z];
+                        CreateColumnData(column, localX, z);
                 continue;
             }
 
@@ -1885,26 +1891,21 @@ public sealed class SurfaceChunkMaterializer
                     CreateColumnData(neighborColumn, neighborLocal.X, z);
         }
 
-        var zDirectionalPaletteColumns =
-            new DirectionalPaletteColumnData[Chunk.Size, regionSize];
-        for (var regionZ = 0; regionZ < regionSize; regionZ++)
+        var boundaryRegionSize = checked(maximumPaintDepth * 2);
+        var zBoundaryPaletteColumns =
+            new DirectionalPaletteColumnData[boundaryRegionSize * Chunk.Size];
+        for (var boundaryZ = 0; boundaryZ < boundaryRegionSize; boundaryZ++)
         {
-            var localZ = regionZ - maximumPaintDepth;
-            if ((uint)localZ < Chunk.Size)
-            {
-                for (var x = 0; x < Chunk.Size; x++)
-                    zDirectionalPaletteColumns[x, regionZ] =
-                        currentColumnData[x, localZ];
-                continue;
-            }
-
+            var localZ = boundaryZ < maximumPaintDepth
+                ? boundaryZ - maximumPaintDepth
+                : Chunk.Size + boundaryZ - maximumPaintDepth;
             var worldZ = checked(originZ + localZ);
             var (neighborCoord, neighborLocal) =
                 VoxelCoordinates.FromWorld(originX, originY, worldZ);
             var neighborColumn =
                 zTerrainColumns[neighborCoord.Z - minimumZChunk.Z];
             for (var x = 0; x < Chunk.Size; x++)
-                zDirectionalPaletteColumns[x, regionZ] =
+                zBoundaryPaletteColumns[boundaryZ * Chunk.Size + x] =
                     CreateColumnData(neighborColumn, x, neighborLocal.Z);
         }
 
@@ -1915,8 +1916,8 @@ public sealed class SurfaceChunkMaterializer
         // across chunks or generator lifetimes.
         var xBoundarySolidMasks = new ushort[xDirectionalPaletteColumns.Length];
         var xBoundarySolidMasksReady = new bool[xDirectionalPaletteColumns.Length];
-        var zBoundarySolidMasks = new ushort[zDirectionalPaletteColumns.Length];
-        var zBoundarySolidMasksReady = new bool[zDirectionalPaletteColumns.Length];
+        var zBoundarySolidMasks = new ushort[zBoundaryPaletteColumns.Length];
+        var zBoundarySolidMasksReady = new bool[zBoundaryPaletteColumns.Length];
 
         bool IsXBoundarySolid(int localX, int localY, int localZ)
         {
@@ -1952,11 +1953,13 @@ public sealed class SurfaceChunkMaterializer
 
         bool IsZBoundarySolid(int localX, int localY, int localZ)
         {
-            var regionZ = localZ + maximumPaintDepth;
-            var index = localX * regionSize + regionZ;
+            var boundaryZ = localZ < 0
+                ? localZ + maximumPaintDepth
+                : localZ - Chunk.Size + maximumPaintDepth;
+            var index = boundaryZ * Chunk.Size + localX;
             if (!zBoundarySolidMasksReady[index])
             {
-                var neighborData = zDirectionalPaletteColumns[localX, regionZ];
+                var neighborData = zBoundaryPaletteColumns[index];
                 var worldX = originX + localX;
                 var worldZ = originZ + localZ;
                 ushort mask = 0;
@@ -1993,7 +1996,7 @@ public sealed class SurfaceChunkMaterializer
                 ? Stopwatch.GetTimestamp()
                 : 0L;
 #endif
-            var currentColumn = currentColumnData[x, z];
+            var currentColumn = xDirectionalPaletteColumns[x + maximumPaintDepth, z];
             var baseY = currentColumn.BaseY;
             var worldX = originX + x;
             var worldZ = originZ + z;
@@ -2100,13 +2103,15 @@ public sealed class SurfaceChunkMaterializer
                         // Every face offset is bounded by maximumPaintDepth,
                         // so the corresponding X/Z ownership entry is in this
                         // precomputed region and requires no lookup or hashing.
-                        var neighborData = dx != 0
+                        var neighborData = dx != 0 ||
+                            (uint)nz < Chunk.Size
                             ? xDirectionalPaletteColumns[
                                 nx + maximumPaintDepth, nz]
-                            : dz != 0
-                                ? zDirectionalPaletteColumns[
-                                    nx, nz + maximumPaintDepth]
-                                : currentColumnData[nx, nz];
+                            : zBoundaryPaletteColumns[
+                                (nz < 0
+                                    ? nz + maximumPaintDepth
+                                    : nz - Chunk.Size + maximumPaintDepth) *
+                                Chunk.Size + nx];
                         var emptyRegionOwner = neighborData.EmptyRegionPalette;
 
                         // An empty-region volume can only own empty cells below

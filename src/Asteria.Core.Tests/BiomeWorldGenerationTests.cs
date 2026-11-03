@@ -644,6 +644,40 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void ValueNoise3DLatticeCachePreservesSamplesAcrossDirectMappedCollisions()
+    {
+        const ulong seed = 0xA57E_3D10_2026UL;
+        var domain = GenerationDomain.Named("tests/geology-lattice-cache/v1");
+        using var cache = new WorldGenerationEntropy.ValueNoise3DLatticeCache(capacity: 8);
+
+        for (var z = -12; z <= 12; z += 3)
+        for (var y = -9; y <= 9; y += 3)
+        for (var x = -15; x <= 15; x += 3)
+        {
+            var coordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                x * 1.37d + z * 0.11d,
+                y * 1.19d + x * 0.07d,
+                z * 1.23d - y * 0.09d,
+                horizontalScale: 9,
+                verticalScale: 7);
+            var expected = coordinates.Sample(seed, domain);
+
+            Assert.Equal(
+                expected,
+                coordinates.Sample(seed, domain, cache));
+            Assert.Equal(
+                expected,
+                coordinates.Sample(seed, domain, cache));
+        }
+
+        cache.Dispose();
+        var disposedCoordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+            1d, 2d, 3d, horizontalScale: 9, verticalScale: 7);
+        Assert.Throws<ObjectDisposedException>(() =>
+            disposedCoordinates.Sample(seed, domain, cache));
+    }
+
+    [Fact]
     public void PlainsKeepsShallowGrassCoverAndUsesThreeDimensionalGeology()
     {
         var blocks = LoadDefaultBlocks();
