@@ -180,7 +180,7 @@ jobs:
         if: steps.terrain_scope.outputs.run == 'true'
         shell: bash
         env:
-          BASELINE_SHA: ${{ env.TERRAIN_AB_BASELINE_SHA }}
+          BASELINE_SHA: ${{ steps.terrain_scope.outputs.baseline_commit }}
           CANDIDATE_SHA: ${{ steps.terrain_scope.outputs.terrain_commit }}
         run: |
           set -euo pipefail
@@ -218,7 +218,7 @@ jobs:
         if: steps.terrain_scope.outputs.run == 'true'
         shell: bash
         env:
-          BASELINE_SHA: ${{ steps.terrain_scope.outputs.baseline_commit }}
+          BASELINE_SHA: ${{ env.TERRAIN_AB_BASELINE_SHA }}
           CANDIDATE_SHA: ${{ steps.terrain_scope.outputs.terrain_commit }}
         run: |
           set -euo pipefail
