@@ -234,6 +234,7 @@ jobs:
           root="$RUNNER_TEMP/cellular-cache-ab"
           python3 - "$root/results" "$root/report.md" "$root/summary.json" <<'PY'
           import json
+          import os
           import pathlib
           import statistics
           import sys
@@ -277,8 +278,8 @@ jobs:
               "algorithm": "WeightedCellular",
               "repetitions": repetitions,
               "expectedInitialAreaChunks": 67,
-              "baselineSha": __import__("os").environ["CELLULAR_CACHE_BASELINE_SHA"],
-              "candidateSha": __import__("os").environ["CELLULAR_CACHE_CANDIDATE_SHA"],
+              "baselineSha": os.environ["CELLULAR_CACHE_BASELINE_SHA"],
+              "candidateSha": os.environ["CELLULAR_CACHE_CANDIDATE_SHA"],
               "metrics": {},
           }
           lines = [
