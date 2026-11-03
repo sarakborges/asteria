@@ -341,7 +341,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: geology-model-ab
-          path: ${{ runner.temp }}/geology-model-ab/results/
+          path: |
+            ${{ runner.temp }}/geology-model-ab/results/
+            ${{ runner.temp }}/geology-model-ab/report.md
+            ${{ runner.temp }}/geology-model-ab/summary.json
           if-no-files-found: ignore
 
   terrain-ab:
