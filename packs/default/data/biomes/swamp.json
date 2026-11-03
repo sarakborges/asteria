@@ -326,7 +326,12 @@
       "asteria:dirt": 2,
       "asteria:gravel": 1
     },
-    "surfaceCoverDepth": 6
+    "surfaceCoverDepth": 6,
+    "pattern": "clusters",
+    "clusterCellScale": 24,
+    "clusterCellVerticalScale": 16,
+    "clusterJitter": 0.6,
+    "boundaryGrainInfluence": 0.25
   },
   "palette": {
     "default": [
