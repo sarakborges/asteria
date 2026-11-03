@@ -172,7 +172,6 @@ internal static class WorldGenerationEntropy
 
         private readonly int _mask;
         private readonly ulong[] _keys;
-        private readonly ulong[] _hashes;
         private readonly double[] _values;
         private readonly bool[] _occupied;
         private bool _disposed;
@@ -184,7 +183,6 @@ internal static class WorldGenerationEntropy
 
             _mask = capacity - 1;
             _keys = ArrayPool<ulong>.Shared.Rent(capacity);
-            _hashes = ArrayPool<ulong>.Shared.Rent(capacity);
             _values = ArrayPool<double>.Shared.Rent(capacity);
             _occupied = ArrayPool<bool>.Shared.Rent(capacity);
             Array.Clear(_occupied, 0, capacity);
@@ -204,28 +202,17 @@ internal static class WorldGenerationEntropy
         // lifetime and nullable-buffer checks for the same query.
         internal double SampleUnchecked(ulong domainCoordinate)
         {
-            _ = GetOrComputeHash(domainCoordinate, out var index);
-            return _values[index];
-        }
-
-        internal ulong SampleHashUnchecked(ulong domainCoordinate) =>
-            GetOrComputeHash(domainCoordinate, out _);
-
-        private ulong GetOrComputeHash(
-            ulong domainCoordinate,
-            out int index)
-        {
             var folded = domainCoordinate ^ (domainCoordinate >> 32);
-            index = (int)(folded & (uint)_mask);
+            var index = (int)(folded & (uint)_mask);
             if (_occupied[index] && _keys[index] == domainCoordinate)
-                return _hashes[index];
+                return _values[index];
 
-            var hash = WorldGenerationEntropy.Mix(domainCoordinate);
+            var value = WorldGenerationEntropy.SignedUnit(
+                WorldGenerationEntropy.Mix(domainCoordinate));
             _keys[index] = domainCoordinate;
-            _hashes[index] = hash;
-            _values[index] = WorldGenerationEntropy.SignedUnit(hash);
+            _values[index] = value;
             _occupied[index] = true;
-            return hash;
+            return value;
         }
 
         public void Dispose()
@@ -235,7 +222,6 @@ internal static class WorldGenerationEntropy
 
             _disposed = true;
             ArrayPool<ulong>.Shared.Return(_keys);
-            ArrayPool<ulong>.Shared.Return(_hashes);
             ArrayPool<double>.Shared.Return(_values);
             ArrayPool<bool>.Shared.Return(_occupied);
         }
@@ -456,24 +442,6 @@ internal static class WorldGenerationEntropy
         Sample3DHashed(
             seed,
             domain,
-            HashXCoordinate(x) ^
-            HashYCoordinate(y) ^
-            HashZCoordinate(z));
-
-    /// <summary>
-    /// Resolves a discrete 3D site hash through a caller-owned bounded cache.
-    /// The cache lifetime must already have been validated by the caller.
-    /// </summary>
-    internal static ulong Sample3D(
-        ulong seed,
-        GenerationDomain domain,
-        int x,
-        int y,
-        int z,
-        ValueNoise3DLatticeCache latticeCache) =>
-        latticeCache.SampleHashUnchecked(
-            seed ^
-            domain.Key ^
             HashXCoordinate(x) ^
             HashYCoordinate(y) ^
             HashZCoordinate(z));
