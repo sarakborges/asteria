@@ -162,6 +162,19 @@ internal static class WorldGenerationEntropy
         }
     }
 
+    internal readonly record struct ValueNoise3DLatticeCacheDiagnostics(
+        long LatticeLookups,
+        long LatticeCacheHits,
+        long LatticeCacheMisses,
+        long LatticeCacheCollisionMisses,
+        long VolumeGeologyQueries,
+        long SurfaceGeologyQueries,
+        long ValueNoise3DSamples,
+        long WarpNoiseSamples,
+        long CandidateNoiseSamples,
+        long CandidateEvaluations,
+        long CandidatesPruned);
+
     /// <summary>
     /// Bounded, chunk-local memoization of domain-salted 3D lattice values.
     /// Direct-mapped collisions only evict an entry; they never affect results.
@@ -174,6 +187,19 @@ internal static class WorldGenerationEntropy
         private readonly ulong[] _keys;
         private readonly double[] _values;
         private readonly bool[] _occupied;
+#if DEBUG
+        private long _debugLatticeLookups;
+        private long _debugLatticeCacheHits;
+        private long _debugLatticeCacheMisses;
+        private long _debugLatticeCacheCollisionMisses;
+        private long _debugVolumeGeologyQueries;
+        private long _debugSurfaceGeologyQueries;
+        private long _debugValueNoise3DSamples;
+        private long _debugWarpNoiseSamples;
+        private long _debugCandidateNoiseSamples;
+        private long _debugCandidateEvaluations;
+        private long _debugCandidatesPruned;
+#endif
         private bool _disposed;
 
         internal ValueNoise3DLatticeCache(int capacity = DefaultCapacity)
@@ -204,15 +230,84 @@ internal static class WorldGenerationEntropy
         {
             var folded = domainCoordinate ^ (domainCoordinate >> 32);
             var index = (int)(folded & (uint)_mask);
-            if (_occupied[index] && _keys[index] == domainCoordinate)
+#if DEBUG
+            _debugLatticeLookups++;
+#endif
+            var occupied = _occupied[index];
+            if (occupied && _keys[index] == domainCoordinate)
+            {
+#if DEBUG
+                _debugLatticeCacheHits++;
+#endif
                 return _values[index];
+            }
 
+#if DEBUG
+            _debugLatticeCacheMisses++;
+            if (occupied)
+                _debugLatticeCacheCollisionMisses++;
+#endif
             var value = WorldGenerationEntropy.SignedUnit(
                 WorldGenerationEntropy.Mix(domainCoordinate));
             _keys[index] = domainCoordinate;
             _values[index] = value;
             _occupied[index] = true;
             return value;
+        }
+
+#if DEBUG
+        internal ValueNoise3DLatticeCacheDiagnostics GetDiagnostics() =>
+            new(
+                _debugLatticeLookups,
+                _debugLatticeCacheHits,
+                _debugLatticeCacheMisses,
+                _debugLatticeCacheCollisionMisses,
+                _debugVolumeGeologyQueries,
+                _debugSurfaceGeologyQueries,
+                _debugValueNoise3DSamples,
+                _debugWarpNoiseSamples,
+                _debugCandidateNoiseSamples,
+                _debugCandidateEvaluations,
+                _debugCandidatesPruned);
+#endif
+
+        [System.Diagnostics.Conditional("DEBUG")]
+        internal void RecordGeologyQuery(bool surface)
+        {
+#if DEBUG
+            if (surface)
+                _debugSurfaceGeologyQueries++;
+            else
+                _debugVolumeGeologyQueries++;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("DEBUG")]
+        internal void RecordValueNoiseSample(bool candidate)
+        {
+#if DEBUG
+            _debugValueNoise3DSamples++;
+            if (candidate)
+                _debugCandidateNoiseSamples++;
+            else
+                _debugWarpNoiseSamples++;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("DEBUG")]
+        internal void RecordCandidateEvaluated()
+        {
+#if DEBUG
+            _debugCandidateEvaluations++;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("DEBUG")]
+        internal void RecordCandidatePruned()
+        {
+#if DEBUG
+            _debugCandidatesPruned++;
+#endif
         }
 
         public void Dispose()

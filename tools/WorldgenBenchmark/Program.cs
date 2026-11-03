@@ -586,6 +586,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     var allocatedBytesByStage = new long[stages.Length];
     var advanceCountByStage = new int[stages.Length];
     var paletteProfiles = new List<DirectionalFacePaletteMetrics>();
+    var terrainLayerProfiles = new List<TerrainLayerProfileMetrics>();
     var totalTimer = Stopwatch.StartNew();
 
     foreach (var coord in desired)
@@ -610,6 +611,9 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                 paletteProfiles.Add(profile);
             }
         }
+
+        if (job.TerrainLayerProfile is { } chunkTerrainLayerProfile)
+            terrainLayerProfiles.Add(chunkTerrainLayerProfile);
     }
 
     totalTimer.Stop();
@@ -636,6 +640,15 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     {
         throw new InvalidOperationException(
             "Debug directional face-palette profile is missing chunk timing data.");
+    }
+#endif
+
+#if DEBUG
+    if (terrainLayerProfiles.Count != desired.Length ||
+        terrainLayerProfiles.Any(profile => !profile.HasDiagnosticBreakdown))
+    {
+        throw new InvalidOperationException(
+            "Debug terrain-layer profile is missing per-chunk diagnostic counters.");
     }
 #endif
 
@@ -685,12 +698,71 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             : paletteProfiles.Average(profile => profile.TotalMilliseconds),
     };
 
+    var solidVoxels = terrainLayerProfiles.Sum(profile => profile.SolidVoxels);
+    var volumeGeologyQueries = terrainLayerProfiles.Sum(
+        profile => profile.VolumeGeologyQueries);
+    var surfaceGeologyQueries = terrainLayerProfiles.Sum(
+        profile => profile.SurfaceGeologyQueries);
+    var valueNoiseSamples = terrainLayerProfiles.Sum(
+        profile => profile.ValueNoise3DSamples);
+    var warpNoiseSamples = terrainLayerProfiles.Sum(
+        profile => profile.WarpNoiseSamples);
+    var candidateNoiseSamples = terrainLayerProfiles.Sum(
+        profile => profile.CandidateNoiseSamples);
+    var candidateEvaluations = terrainLayerProfiles.Sum(
+        profile => profile.CandidateEvaluations);
+    var candidatesPruned = terrainLayerProfiles.Sum(
+        profile => profile.CandidatesPruned);
+    var latticeLookups = terrainLayerProfiles.Sum(
+        profile => profile.LatticeLookups);
+    var latticeCacheHits = terrainLayerProfiles.Sum(
+        profile => profile.LatticeCacheHits);
+    var latticeCacheMisses = terrainLayerProfiles.Sum(
+        profile => profile.LatticeCacheMisses);
+    var latticeCacheCollisionMisses = terrainLayerProfiles.Sum(
+        profile => profile.LatticeCacheCollisionMisses);
+
+    var terrainLayerProfile = new
+    {
+        ProfiledChunkCount = terrainLayerProfiles.Count,
+        SolidVoxels = solidVoxels,
+        VolumeGeologyQueries = volumeGeologyQueries,
+        SurfaceGeologyQueries = surfaceGeologyQueries,
+        TotalGeologyQueries = volumeGeologyQueries + surfaceGeologyQueries,
+        AdditiveDepthQueries = terrainLayerProfiles.Sum(
+            profile => profile.AdditiveDepthQueries),
+        AdditiveDepthOverflowDensityProbes = terrainLayerProfiles.Sum(
+            profile => profile.AdditiveDepthOverflowDensityProbes),
+        ValueNoise3DSamples = valueNoiseSamples,
+        WarpNoiseSamples = warpNoiseSamples,
+        CandidateNoiseSamples = candidateNoiseSamples,
+        CandidateEvaluations = candidateEvaluations,
+        CandidatesPruned = candidatesPruned,
+        CandidatePruneRate = candidateEvaluations + candidatesPruned == 0
+            ? 0d
+            : candidatesPruned / (double)(candidateEvaluations + candidatesPruned),
+        LatticeLookups = latticeLookups,
+        LatticeCacheHits = latticeCacheHits,
+        LatticeCacheMisses = latticeCacheMisses,
+        LatticeCacheCollisionMisses = latticeCacheCollisionMisses,
+        LatticeCacheHitRate = latticeLookups == 0
+            ? 0d
+            : latticeCacheHits / (double)latticeLookups,
+        LatticeCacheCollisionMissRate = latticeCacheMisses == 0
+            ? 0d
+            : latticeCacheCollisionMisses / (double)latticeCacheMisses,
+        LatticeLookupsPerNoiseSample = valueNoiseSamples == 0
+            ? 0d
+            : latticeLookups / (double)valueNoiseSamples,
+    };
+
     return new
     {
         ChunkCount = desired.Length,
         TotalElapsedMs = totalTimer.Elapsed.TotalMilliseconds,
         TotalAdvanceMs = totalAdvanceMs,
         ByStage = byStage,
+        TerrainLayerProfile = terrainLayerProfile,
         DirectionalFacePaletteProfile = paletteProfile,
     };
 }
@@ -739,6 +811,7 @@ var result = new
         "Allocation counters use the current benchmark thread and are comparative diagnostics, not retained-memory truth.",
         "Initial-area stage timings isolate chunk materialization work and are diagnostic only; they are not regression thresholds.",
         "Directional face-palette profiles use operation counters and sampled Debug timings; cold and warm passes use the same fixed-seed chunk selection.",
+        "Terrain-layer Debug profiles count geology queries, noise samples, candidate pruning, additive-depth overflow probes and per-job lattice-cache hits/misses/collisions.",
         "Every metric records its generated-result digest so determinism can be compared across runs.",
         "Search/destination metrics include near and far world coordinates without chunk materialization.",
         options.EnforceCiBudgets

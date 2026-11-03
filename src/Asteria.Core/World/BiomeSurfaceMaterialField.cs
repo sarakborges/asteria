@@ -199,6 +199,7 @@ public sealed class BiomeSurfaceMaterialField
         out BlockRuntimeId block)
     {
         ArgumentNullException.ThrowIfNull(latticeCache);
+        latticeCache.RecordGeologyQuery(surface: false);
         return TryGeologyBlockAtCore(
             sample, worldX, worldY, worldZ, latticeCache, out block);
     }
@@ -247,6 +248,7 @@ public sealed class BiomeSurfaceMaterialField
         out BlockRuntimeId block)
     {
         ArgumentNullException.ThrowIfNull(latticeCache);
+        latticeCache.RecordGeologyQuery(surface: true);
         return TrySurfaceGeologyBlockAtCore(
             sample, worldX, worldY, worldZ, latticeCache, out block);
     }
@@ -802,10 +804,14 @@ public sealed class BiomeSurfaceMaterialField
             WorldGenerationEntropy.ValueNoise3DCoordinates coordinates,
             ulong seed,
             GenerationDomain domain,
-            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache) =>
-            latticeCache is null
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache,
+            bool candidateSample = false)
+        {
+            latticeCache?.RecordValueNoiseSample(candidateSample);
+            return latticeCache is null
                 ? coordinates.Sample(seed, domain)
                 : coordinates.Sample(seed, domain, latticeCache);
+        }
 
         private SpatialPosition WarpCoordinates(
             ulong seed, int x, int y, int z,
@@ -928,19 +934,29 @@ public sealed class BiomeSurfaceMaterialField
                 // the full candidate vector and deliberately bypasses pruning.
                 if (!needsBoundaryScores &&
                     bestScore >= biases[index] + MaximumGumbelScore)
+                {
+                    latticeCache?.RecordCandidatePruned();
                     continue;
+                }
 
-                var broad =
-                    SampleNoise(broadCoordinates, seed, broadDomains[index], latticeCache);
-                var detail =
-                    SampleNoise(detailCoordinates, seed, detailDomains[index], latticeCache);
-                var micro =
-                    SampleNoise(microCoordinates, seed, microDomains[index], latticeCache);
+                latticeCache?.RecordCandidateEvaluated();
+                var broad = SampleNoise(
+                    broadCoordinates, seed, broadDomains[index],
+                    latticeCache, candidateSample: true);
+                var detail = SampleNoise(
+                    detailCoordinates, seed, detailDomains[index],
+                    latticeCache, candidateSample: true);
+                var micro = SampleNoise(
+                    microCoordinates, seed, microDomains[index],
+                    latticeCache, candidateSample: true);
                 var cluster = _clusterInfluence > 0d
-                    ? SampleNoise(clusterCoordinates, seed, clusterDomains[index], latticeCache)
+                    ? SampleNoise(
+                        clusterCoordinates, seed, clusterDomains[index],
+                        latticeCache, candidateSample: true)
                     : 0d;
-                var grain =
-                    SampleNoise(grainCoordinates, seed, grainDomains[index], latticeCache);
+                var grain = SampleNoise(
+                    grainCoordinates, seed, grainDomains[index],
+                    latticeCache, candidateSample: true);
 
                 // Split finer detail across intermediate clusters and very
                 // fine grain. The former creates coherent mineral pockets;

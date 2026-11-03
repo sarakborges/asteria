@@ -251,7 +251,7 @@ public sealed class SurfaceChunkMaterializer
             {
                 var pendingObjects = job.PendingObjects;
                 MaterializeVerticalDecorations(
-                    job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                    job, RequiredColumn(job), RequiredDensity(job),
                     job.OriginX, job.OriginY, job.OriginZ,
                     ref pendingObjects,
                     includeObjects: !job.SupportOnly);
@@ -461,6 +461,7 @@ public sealed class SurfaceChunkMaterializer
                         continue;
                     }
 
+                    job.RecordSolidVoxel();
                     if (!state.HasSurfaceMaterialMetadata)
                     {
                         state.SurfaceCore = _materials.CoreLayer(sample);
@@ -566,7 +567,7 @@ public sealed class SurfaceChunkMaterializer
                         var volumeMaterials = state.VolumeMaterials ??=
                             _materials.SampleColumn(volumeSample, worldX, worldZ);
                         var depth = AdditiveDepthAt(
-                            densityVolume, sample, baseY, localX, localY, localZ,
+                            job, densityVolume, sample, baseY, localX, localY, localZ,
                             worldX, worldY, worldZ, volumeMaterials.FiniteDepth);
                         var useSurfaceCover =
                             state.VolumeCoverDepth is { } authoredCoverDepth
@@ -1284,6 +1285,11 @@ public sealed class SurfaceChunkMaterializer
 
         public Chunk? Result { get; internal set; }
 
+#if DEBUG
+        private long _debugSolidVoxels;
+        private long _debugAdditiveDepthQueries;
+        private long _debugAdditiveDepthOverflowDensityProbes;
+#endif
         private DirectionalFacePaletteMetrics? _directionalFacePaletteMetrics;
 
         public DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics
@@ -1291,6 +1297,60 @@ public sealed class SurfaceChunkMaterializer
             get => SupportChunkJob?.DirectionalFacePaletteMetrics ??
                 _directionalFacePaletteMetrics;
             set => _directionalFacePaletteMetrics = value;
+        }
+
+        public TerrainLayerProfileMetrics? TerrainLayerProfile
+        {
+            get
+            {
+#if DEBUG
+                var cache = _geologyNoiseCache?.GetDiagnostics() ?? default;
+                return new TerrainLayerProfileMetrics(
+                    HasDiagnosticBreakdown: true,
+                    SolidVoxels: _debugSolidVoxels,
+                    VolumeGeologyQueries: cache.VolumeGeologyQueries,
+                    SurfaceGeologyQueries: cache.SurfaceGeologyQueries,
+                    AdditiveDepthQueries: _debugAdditiveDepthQueries,
+                    AdditiveDepthOverflowDensityProbes:
+                        _debugAdditiveDepthOverflowDensityProbes,
+                    ValueNoise3DSamples: cache.ValueNoise3DSamples,
+                    WarpNoiseSamples: cache.WarpNoiseSamples,
+                    CandidateNoiseSamples: cache.CandidateNoiseSamples,
+                    CandidateEvaluations: cache.CandidateEvaluations,
+                    CandidatesPruned: cache.CandidatesPruned,
+                    LatticeLookups: cache.LatticeLookups,
+                    LatticeCacheHits: cache.LatticeCacheHits,
+                    LatticeCacheMisses: cache.LatticeCacheMisses,
+                    LatticeCacheCollisionMisses:
+                        cache.LatticeCacheCollisionMisses);
+#else
+                return null;
+#endif
+            }
+        }
+
+        [System.Diagnostics.Conditional("DEBUG")]
+        internal void RecordSolidVoxel()
+        {
+#if DEBUG
+            _debugSolidVoxels++;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("DEBUG")]
+        internal void RecordAdditiveDepthQuery()
+        {
+#if DEBUG
+            _debugAdditiveDepthQueries++;
+#endif
+        }
+
+        [System.Diagnostics.Conditional("DEBUG")]
+        internal void RecordAdditiveDepthOverflowDensityProbe()
+        {
+#if DEBUG
+            _debugAdditiveDepthOverflowDensityProbes++;
+#endif
         }
 
         public void Advance() => _owner.Advance(this);
@@ -1415,6 +1475,7 @@ public sealed class SurfaceChunkMaterializer
     }
 
     private uint AdditiveDepthAt(
+        MaterializationJob job,
         TerrainDensityVolume densityVolume,
         BiomeSample surfaceBiome,
         int baseY,
@@ -1426,6 +1487,7 @@ public sealed class SurfaceChunkMaterializer
         int worldZ,
         uint finiteDepth)
     {
+        job.RecordAdditiveDepthQuery();
         if (finiteDepth == 0)
             return 0;
 
@@ -1444,8 +1506,11 @@ public sealed class SurfaceChunkMaterializer
         while (depth < finiteDepth)
         {
             var above = (long)worldY + depth + 1L;
-            if (above > int.MaxValue ||
-                _terrain.DensityAt(
+            if (above > int.MaxValue)
+                break;
+
+            job.RecordAdditiveDepthOverflowDensityProbe();
+            if (_terrain.DensityAt(
                     surfaceBiome,
                     baseY,
                     worldX,
@@ -2584,7 +2649,7 @@ public sealed class SurfaceChunkMaterializer
     }
 
     private void MaterializeVerticalDecorations(
-        Chunk chunk,
+        MaterializationJob job,
         SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
         int originX,
@@ -2593,6 +2658,7 @@ public sealed class SurfaceChunkMaterializer
         ref List<PendingGeneratedObject>? pendingObjects,
         bool includeObjects)
     {
+        var chunk = job.Chunk;
         if (!_decorations.HasVerticalDecorations)
             return;
 
@@ -2764,7 +2830,7 @@ public sealed class SurfaceChunkMaterializer
                     volumeMaterials ??= _materials.SampleColumn(
                         decoratorBiome, worldX, worldZ);
                     var depth = AdditiveDepthAt(
-                        densityVolume, surfaceBiome, baseY,
+                        job, densityVolume, surfaceBiome, baseY,
                         localX, localY + 1, localZ,
                         worldX, worldY + 1, worldZ,
                         volumeMaterials.FiniteDepth);

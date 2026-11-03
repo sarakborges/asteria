@@ -32,6 +32,27 @@ public readonly record struct DirectionalFacePaletteMetrics(
     double OtherEstimatedMilliseconds);
 
 /// <summary>
+/// Operation counters for the terrain-materialization stage. Detailed values
+/// are populated by Debug profiling; Release materializers return null.
+/// </summary>
+public readonly record struct TerrainLayerProfileMetrics(
+    bool HasDiagnosticBreakdown,
+    long SolidVoxels,
+    long VolumeGeologyQueries,
+    long SurfaceGeologyQueries,
+    long AdditiveDepthQueries,
+    long AdditiveDepthOverflowDensityProbes,
+    long ValueNoise3DSamples,
+    long WarpNoiseSamples,
+    long CandidateNoiseSamples,
+    long CandidateEvaluations,
+    long CandidatesPruned,
+    long LatticeLookups,
+    long LatticeCacheHits,
+    long LatticeCacheMisses,
+    long LatticeCacheCollisionMisses);
+
+/// <summary>
 /// Pure chunk materialization boundary consumed by residency workers.
 /// Implementations may be invoked concurrently and therefore must be
 /// deterministic for the same immutable inputs and safe for concurrent reads.
@@ -94,6 +115,9 @@ public interface IChunkMaterializationJob : IDisposable
 
     /// <summary>Optional profile for the completed directional-palette stage.</summary>
     DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics => null;
+
+    /// <summary>Optional Debug-only profile for terrain materialization.</summary>
+    TerrainLayerProfileMetrics? TerrainLayerProfile => null;
 
     void Advance();
 }
