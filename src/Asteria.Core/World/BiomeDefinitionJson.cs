@@ -69,7 +69,27 @@ public static class BiomeDefinitionJson
             OptionalUInt32(value, "clusterScale"),
             OptionalUInt32(value, "clusterVerticalScale"),
             OptionalSingle(value, "clusterInfluence") ?? 0f,
-            OptionalSingle(value, "boundaryGrainInfluence") ?? 0f);
+            OptionalSingle(value, "boundaryGrainInfluence") ?? 0f,
+            ParseGeologyPattern(value),
+            OptionalUInt32(value, "clusterCellScale"),
+            OptionalUInt32(value, "clusterCellVerticalScale"),
+            OptionalSingle(value, "clusterJitter") ?? 0.6f);
+    }
+
+    private static BiomeGeologyPattern ParseGeologyPattern(JsonElement geology)
+    {
+        if (!geology.TryGetProperty("pattern", out var value))
+            return BiomeGeologyPattern.Continuous;
+        if (value.ValueKind != JsonValueKind.String)
+            throw new FormatException("geology.pattern must be a string.");
+
+        return value.GetString() switch
+        {
+            "continuous" => BiomeGeologyPattern.Continuous,
+            "clusters" => BiomeGeologyPattern.Clusters,
+            _ => throw new FormatException(
+                "Unknown geology.pattern (expected continuous or clusters)."),
+        };
     }
 
     private static PlacementLayoutValues?
