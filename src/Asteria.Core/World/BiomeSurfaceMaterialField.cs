@@ -773,9 +773,15 @@ public sealed class BiomeSurfaceMaterialField
                 var worldY = checked(originY + localY);
                 while (worldY > upperAnchorY)
                 {
-                    (lowerScores, upperScores) = (upperScores, lowerScores);
+                    var previousScores = lowerScores;
+                    lowerScores = upperScores;
+                    upperScores = previousScores;
                     if (needsBoundaryScores)
-                        (lowerGrains, upperGrains) = (upperGrains, lowerGrains);
+                    {
+                        var previousGrains = lowerGrains;
+                        lowerGrains = upperGrains;
+                        upperGrains = previousGrains;
+                    }
                     lowerAnchorY = upperAnchorY;
                     upperAnchorY = checked(upperAnchorY + stride);
                     WriteColumnScores(
