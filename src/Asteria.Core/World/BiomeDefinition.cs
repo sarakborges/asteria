@@ -717,10 +717,14 @@ public sealed class BiomeGeologyDefinition
             throw new ArgumentOutOfRangeException(
                 nameof(clusterCellVerticalScale),
                 "Geology vertical cluster cell scale must be within 4..1024.");
-        if (!float.IsFinite(clusterJitter) || clusterJitter is < 0f or > 0.9f)
+        if (!Enum.IsDefined(pattern))
+            throw new ArgumentOutOfRangeException(
+                nameof(pattern),
+                "Unknown geology pattern.");
+        if (!float.IsFinite(clusterJitter) || clusterJitter is < 0f or > 0.6f)
             throw new ArgumentOutOfRangeException(
                 nameof(clusterJitter),
-                "Geology cluster jitter must be within 0..0.9.");
+                "Geology cluster jitter must be within 0..0.6.");
 
         if (surfaceCoverDepth > 64)
             throw new ArgumentOutOfRangeException(
