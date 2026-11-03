@@ -72,7 +72,8 @@ BiomeWorldGenerator NewGenerator(
     biomes,
     structures,
     structureSets,
-    generation);
+    generation,
+    geologyColumnSampleStride: options.GeologyColumnSampleStride);
 
 var targetProbeGenerator =
     NewGenerator();
@@ -720,6 +721,7 @@ var result = new
     options.MapStep,
     options.Chunks,
     options.SearchRadius,
+    options.GeologyColumnSampleStride,
     Metrics = metrics,
     InitialAreaDiagnostics = initialAreaDiagnostics,
     InitialAreaMaterializationDiagnostics = new
@@ -1261,6 +1263,7 @@ internal sealed record Arguments(
     int MapStep,
     int Chunks,
     int SearchRadius,
+    int GeologyColumnSampleStride,
     bool EnforceCiBudgets,
     string? Output,
     string? MaterialMapOutput,
@@ -1280,6 +1283,7 @@ internal sealed record Arguments(
         var mapStep = 4;
         var chunks = 2;
         var searchRadius = 1024;
+        var geologyColumnSampleStride = 1;
         var enforceCiBudgets = false;
         string? output = null;
         string? materialMapOutput = null;
@@ -1336,6 +1340,9 @@ internal sealed record Arguments(
                 case "--search-radius":
                     searchRadius = int.Parse(value);
                     break;
+                case "--geology-column-sample-stride":
+                    geologyColumnSampleStride = int.Parse(value);
+                    break;
                 case "--enforce-ci-budgets":
                     enforceCiBudgets =
                         bool.Parse(
@@ -1360,11 +1367,12 @@ internal sealed record Arguments(
             mapSize is < 1 or > 512 ||
             mapStep is < 1 or > 4096 ||
             chunks is < 1 or > 16 ||
-            searchRadius is < 1 or > 8192)
+            searchRadius is < 1 or > 8192 ||
+            geologyColumnSampleStride is < 1 or > Chunk.Size)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(input),
-                "Samples must be 1–4096, area-size 1–128, map-size 1–512, map-step 1–4096, chunks 1–16 and search-radius 1–8192.");
+                $"Samples must be 1–4096, area-size 1–128, map-size 1–512, map-step 1–4096, chunks 1–16, search-radius 1–8192 and geology-column-sample-stride 1–{Chunk.Size}.");
         }
 
         return new Arguments(
@@ -1380,6 +1388,7 @@ internal sealed record Arguments(
             mapStep,
             chunks,
             searchRadius,
+            geologyColumnSampleStride,
             enforceCiBudgets,
             output,
             materialMapOutput,
