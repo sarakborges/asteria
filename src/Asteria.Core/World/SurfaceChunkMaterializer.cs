@@ -1,6 +1,7 @@
 #if DEBUG
 using System.Diagnostics;
 #endif
+using System.Buffers;
 
 namespace Asteria.Core.World;
 
@@ -29,6 +30,8 @@ public sealed class SurfaceChunkMaterializer
         public BiomeSample? VolumeSample;
         public BiomeSurfaceMaterialColumn? VolumeMaterials;
         public uint? VolumeCoverDepth;
+        public bool HasSurfaceGeologyColumnProfile;
+        public bool HasVolumeGeologyColumnProfile;
         public GeneratedFluidColumnPlan GeneratedFluidPlan;
     }
 
@@ -533,10 +536,9 @@ public sealed class SurfaceChunkMaterializer
                             block = surfaceMaterials.BlockAt(depth);
                         }
                         else if (state.SurfaceCoverDepth is not null &&
-                                 _materials.TryGeologyBlockAtCached(
-                                     sample, worldX, worldY, worldZ,
-                                     job.GetGeologyNoiseCache(),
-                                     out var geologyBlock))
+                                 TryGetGeologyColumnBlock(
+                                     job, ref state, columnIndex, localY,
+                                     sample, isVolume: false, out var geologyBlock))
                         {
                             block = geologyBlock;
                         }
@@ -577,10 +579,9 @@ public sealed class SurfaceChunkMaterializer
                             block = volumeMaterials.BlockAt(depth);
                         }
                         else if (state.VolumeCoverDepth is not null &&
-                                 _materials.TryGeologyBlockAtCached(
-                                     volumeSample, worldX, worldY, worldZ,
-                                     job.GetGeologyNoiseCache(),
-                                     out var volumeGeologyBlock))
+                                 TryGetGeologyColumnBlock(
+                                     job, ref state, columnIndex, localY,
+                                     volumeSample, isVolume: true, out var volumeGeologyBlock))
                         {
                             block = volumeGeologyBlock;
                         }
@@ -598,6 +599,55 @@ public sealed class SurfaceChunkMaterializer
             }
         
         job.NextTerrainLocalY++;
+    }
+
+    private bool TryGetGeologyColumnBlock(
+        MaterializationJob job,
+        ref ColumnMaterializationCache state,
+        int columnIndex,
+        int localY,
+        BiomeSample sample,
+        bool isVolume,
+        out BlockRuntimeId block)
+    {
+        if (_materials.GeologyColumnSampleStride <= 1)
+        {
+            return _materials.TryGeologyBlockAtCached(
+                sample,
+                state.WorldX,
+                checked(job.OriginY + localY),
+                state.WorldZ,
+                job.GetGeologyNoiseCache(),
+                out block);
+        }
+
+        var profile = job.GetGeologyColumnProfile(columnIndex, isVolume);
+        var hasProfile = isVolume
+            ? state.HasVolumeGeologyColumnProfile
+            : state.HasSurfaceGeologyColumnProfile;
+        if (!hasProfile)
+        {
+            if (!_materials.TryFillGeologyColumnCached(
+                    sample,
+                    state.WorldX,
+                    state.WorldZ,
+                    job.OriginY,
+                    Chunk.Size,
+                    job.GetGeologyNoiseCache(),
+                    profile))
+            {
+                block = BlockRuntimeId.Air;
+                return false;
+            }
+
+            if (isVolume)
+                state.HasVolumeGeologyColumnProfile = true;
+            else
+                state.HasSurfaceGeologyColumnProfile = true;
+        }
+
+        block = profile[localY];
+        return true;
     }
 
     private void MaterializeSurfaceDecorations(MaterializationJob job)
@@ -1184,6 +1234,7 @@ public sealed class SurfaceChunkMaterializer
     {
         private readonly SurfaceChunkMaterializer _owner;
         private WorldGenerationEntropy.ValueNoise3DLatticeCache? _geologyNoiseCache;
+        private BlockRuntimeId[]? _geologyColumnProfiles;
         private Chunk? _chunk;
 
         public MaterializationJob(
@@ -1304,6 +1355,27 @@ public sealed class SurfaceChunkMaterializer
             InitialBlocks = null;
             _geologyNoiseCache?.Dispose();
             _geologyNoiseCache = null;
+            if (_geologyColumnProfiles is { } profiles)
+            {
+                ArrayPool<BlockRuntimeId>.Shared.Return(profiles);
+                _geologyColumnProfiles = null;
+            }
+        }
+
+        internal Span<BlockRuntimeId> GetGeologyColumnProfile(
+            int columnIndex,
+            bool isVolume)
+        {
+            if ((uint)columnIndex >= Chunk.Area)
+                throw new ArgumentOutOfRangeException(nameof(columnIndex));
+
+            var profiles = _geologyColumnProfiles ??=
+                ArrayPool<BlockRuntimeId>.Shared.Rent(
+                    Chunk.Area * Chunk.Size * 2);
+            var profileIndex = columnIndex * 2 + (isVolume ? 1 : 0);
+            return profiles.AsSpan(
+                profileIndex * Chunk.Size,
+                Chunk.Size);
         }
 
         internal WorldGenerationEntropy.ValueNoise3DLatticeCache
