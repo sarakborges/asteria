@@ -151,6 +151,7 @@ jobs:
         run: |
           set -euo pipefail
           terrain_commit="$(git log --first-parent -1 --format=%H HEAD -- \
+            src/Asteria.Core/World/CaveSpikeField.cs \
             src/Asteria.Core/World/SurfaceChunkMaterializer.cs \
             src/Asteria.Core/World/SurfaceTerrainField.cs \
             src/Asteria.Core/World/BiomeSurfaceMaterialField.cs \
