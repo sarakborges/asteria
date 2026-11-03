@@ -158,13 +158,22 @@ public sealed class CaveSpikeField
             if (!HasSpacingPriority(x, z, definition.MinSpacing))
                 continue;
 
+            bool IsVoid(int probeY)
+            {
+                if (probeY <= 0 || probeY >= baseY)
+                    return false;
+
+                var localProbeY = probeY - densityOriginY;
+                if (densityVolume is not null &&
+                    (uint)localProbeY < densityVolume.Height)
+                    return !densityVolume.IsSolidAt(
+                        localX, localProbeY, localZ);
+
+                return _terrain.DensityAt(
+                    surfaceBiome, baseY, x, probeY, z, volumeBiome) < 0d;
+            }
             var supportY = y + (down ? 1 : -1);
-            if (!IsVoidAt(
-                    y, surfaceBiome, volumeBiome, baseY, x, z,
-                    densityVolume, densityOriginY, localX, localZ) ||
-                IsVoidAt(
-                    supportY, surfaceBiome, volumeBiome, baseY, x, z,
-                    densityVolume, densityOriginY, localX, localZ))
+            if (!IsVoid(y) || IsVoid(supportY))
                 continue;
 
             if (definition.Cluster is { } cluster)
@@ -189,10 +198,7 @@ public sealed class CaveSpikeField
                 definition.MinClearance, definition.MaxHeight * 2 + 1);
             for (var i = 0; i < probeLength; i++)
             {
-                if (!IsVoidAt(
-                        y + (down ? -i : i),
-                        surfaceBiome, volumeBiome, baseY, x, z,
-                        densityVolume, densityOriginY, localX, localZ))
+                if (!IsVoid(y + (down ? -i : i)))
                     break;
                 clear++;
             }
@@ -217,31 +223,6 @@ public sealed class CaveSpikeField
         }
 
         return false;
-    }
-
-    private bool IsVoidAt(
-        int probeY,
-        BiomeSample surfaceBiome,
-        BiomeSample? volumeBiome,
-        int baseY,
-        int x,
-        int z,
-        TerrainDensityVolume? densityVolume,
-        int densityOriginY,
-        int localX,
-        int localZ)
-    {
-        if (probeY <= 0 || probeY >= baseY)
-            return false;
-
-        var localProbeY = probeY - densityOriginY;
-        if (densityVolume is not null &&
-            (uint)localProbeY < densityVolume.Height)
-            return !densityVolume.IsSolidAt(
-                localX, localProbeY, localZ);
-
-        return _terrain.DensityAt(
-            surfaceBiome, baseY, x, probeY, z, volumeBiome) < 0d;
     }
 
     private bool HasSpacingPriority(int x, int z, int radius)
