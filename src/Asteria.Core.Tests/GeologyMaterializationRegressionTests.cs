@@ -7,6 +7,131 @@ public sealed class GeologyMaterializationRegressionTests
     private const ulong Seed = 0xA57E_3D10_2026UL;
 
     [Fact]
+    public void GeologyPatternDefaultsToContinuousAndCanBeAuthoredAsClusters()
+    {
+        const string json = """
+            {
+              "id": "asteria:test/geology_pattern",
+              "surfaceLayout": {
+                "regionSize": { "min": 64, "max": 64 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 64,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "geology": {
+                "baseBlock": "asteria:stone",
+                "blocks": ["asteria:mud", "asteria:clay"],
+                "scale": 48,
+                "verticalScale": 24,
+                "detailScale": 12,
+                "coverage": 0.7,
+                "pattern": "clusters",
+                "clusterCellScale": 20,
+                "clusterCellVerticalScale": 12,
+                "clusterJitter": 0.55,
+                "boundaryGrainInfluence": 0.25
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }]
+              }
+            }
+            """;
+
+        var clustered = BiomeDefinitionJson.Parse(json);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(clustered.Geology);
+        Assert.Equal(BiomeGeologyPattern.Clusters, geology.Pattern);
+        Assert.Equal(20u, geology.ClusterCellScale);
+        Assert.Equal(12u, geology.ClusterCellVerticalScale);
+        Assert.Equal(0.55f, geology.ClusterJitter);
+
+        var continuous = BiomeDefinitionJson.Parse(json.Replace(
+            "\"pattern\": \"clusters\",",
+            string.Empty,
+            StringComparison.Ordinal));
+        Assert.Equal(
+            BiomeGeologyPattern.Continuous,
+            Assert.IsType<BiomeGeologyDefinition>(continuous.Geology).Pattern);
+
+        Assert.Throws<FormatException>(() => BiomeDefinitionJson.Parse(
+            json.Replace("\"clusters\"", "\"bands\"", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void ClusteredGeologyFormsIrregularVolumesAndIsStableAcrossChunkSeams()
+    {
+        var blocks = CreateBlocks();
+        var biome = CreateBiome(
+            pattern: BiomeGeologyPattern.Clusters,
+            clusterCellScale: 12,
+            clusterCellVerticalScale: 10,
+            clusterJitter: 0.6f,
+            boundaryGrainInfluence: 0.3f);
+        var dimension = CreateDimension(biome.Id);
+        var biomes = new BiomeRegistry([biome]);
+        var firstGenerator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
+        var secondGenerator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
+        var coordinates = (
+            from y in Enumerable.Range(0, 3)
+            from x in new[] { -1, 0 }
+            select new ChunkCoord(x, y, 0)).ToArray();
+
+        var first = coordinates.ToDictionary(
+            coordinate => coordinate,
+            firstGenerator.Materialize);
+        var second = coordinates.Reverse().ToDictionary(
+            coordinate => coordinate,
+            secondGenerator.Materialize);
+
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
+        var distinctMaterials = new HashSet<BlockRuntimeId>();
+        var variedColumns = 0;
+        for (var worldX = -Chunk.Size; worldX < Chunk.Size; worldX++)
+        for (var worldZ = 0; worldZ < Chunk.Size; worldZ++)
+        {
+            var columnMaterials = new HashSet<BlockRuntimeId>();
+            for (var worldY = 4; worldY < 40; worldY++)
+            {
+                var chunkCoordinate = new ChunkCoord(
+                    worldX < 0 ? -1 : 0,
+                    worldY / Chunk.Size,
+                    0);
+                var localX = worldX < 0
+                    ? worldX + Chunk.Size
+                    : worldX;
+                var localY = worldY % Chunk.Size;
+                var actual = first[chunkCoordinate].GetBlock(
+                    localX, localY, worldZ);
+                var repeated = second[chunkCoordinate].GetBlock(
+                    localX, localY, worldZ);
+                Assert.Equal(actual, repeated);
+                distinctMaterials.Add(actual);
+                columnMaterials.Add(actual);
+
+                if (40 - worldY >= 3)
+                {
+                    Assert.True(materials.TryGeologyBlockAt(
+                        sample, worldX, worldY, worldZ, out var expected));
+                    Assert.Equal(expected, actual);
+                }
+            }
+
+            if (columnMaterials.Count > 1)
+                variedColumns++;
+        }
+
+        Assert.True(distinctMaterials.Count >= 4,
+            $"Expected host rock and several cluster materials; found {distinctMaterials.Count}.");
+        Assert.True(variedColumns >= 64,
+            $"Expected irregular three-dimensional deposits across most columns; found {variedColumns}/32.");
+    }
+
+    [Fact]
     public void MaterializedChunksMatchWorldSpaceGeologyAcrossChunkSeamsAndGenerationOrder()
     {
         var blocks = CreateBlocks();
@@ -815,7 +940,13 @@ public sealed class GeologyMaterializationRegressionTests
         new BlockDefinition("asteria:clay"),
     ]);
 
-    private static BiomeDefinition CreateBiome(float surfaceCoverage = 0f) => new(
+    private static BiomeDefinition CreateBiome(
+        float surfaceCoverage = 0f,
+        BiomeGeologyPattern pattern = BiomeGeologyPattern.Continuous,
+        uint? clusterCellScale = null,
+        uint? clusterCellVerticalScale = null,
+        float clusterJitter = 0.6f,
+        float boundaryGrainInfluence = 0f) => new(
         "asteria:test/geology",
         new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
         new BiomeTerrainDefinition(
@@ -839,7 +970,12 @@ public sealed class GeologyMaterializationRegressionTests
             coverage: 0.78f,
             roughness: 0.32f,
             surfaceCoverDepth: 3,
-            surfaceCoverage: surfaceCoverage));
+            surfaceCoverage: surfaceCoverage,
+            boundaryGrainInfluence: boundaryGrainInfluence,
+            pattern: pattern,
+            clusterCellScale: clusterCellScale,
+            clusterCellVerticalScale: clusterCellVerticalScale,
+            clusterJitter: clusterJitter));
 
     private static DimensionDefinition CreateDimension(
         string biomeId,
