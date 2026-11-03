@@ -55,8 +55,17 @@ public sealed class BiomeSurfaceMaterialField
         IEnumerable<BiomeDefinition> biomes,
         BlockRegistry blocks,
         SurfaceTerrainField? terrain = null,
-        SurfaceMosaicField? mosaic = null)
+        SurfaceMosaicField? mosaic = null,
+        int geologyColumnSampleStride = 1)
     {
+        if (geologyColumnSampleStride is < 1 or > Chunk.Size)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(geologyColumnSampleStride),
+                $"Geology column sample stride must be between 1 and {Chunk.Size}.");
+        }
+
+        GeologyColumnSampleStride = geologyColumnSampleStride;
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -125,6 +134,12 @@ public sealed class BiomeSurfaceMaterialField
     /// these presentation-material rules without changing occupancy.
     /// </summary>
     public bool FacePalettesPreserveOccupancy { get; }
+
+    /// <summary>
+    /// Vertical spacing, in world voxels, between geological score-profile
+    /// anchors. A value of one preserves exact per-voxel sampling.
+    /// </summary>
+    public int GeologyColumnSampleStride { get; }
 
     public BlockRuntimeId BlockAt(
         BiomeSample sample,
@@ -201,6 +216,37 @@ public sealed class BiomeSurfaceMaterialField
         ArgumentNullException.ThrowIfNull(latticeCache);
         return TryGeologyBlockAtCore(
             sample, worldX, worldY, worldZ, latticeCache, out block);
+    }
+
+    internal bool TryFillGeologyColumnCached(
+        BiomeSample sample,
+        int worldX,
+        int worldZ,
+        int originY,
+        int height,
+        WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+        Span<BlockRuntimeId> destination)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        ArgumentNullException.ThrowIfNull(latticeCache);
+        if (height < 1 || destination.Length < height)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height));
+        }
+
+        if (!_geologyRules.TryGetValue(sample.Primary, out var geology))
+            return false;
+
+        geology.FillColumn(
+            _seed,
+            worldX,
+            worldZ,
+            originY,
+            height,
+            GeologyColumnSampleStride,
+            latticeCache,
+            destination[..height]);
+        return true;
     }
 
     private bool TryGeologyBlockAtCore(
@@ -674,6 +720,192 @@ public sealed class BiomeSurfaceMaterialField
                 _volumeMaterialDomains, _volumeDetailDomains, _volumeMicroDomains,
                 _volumeClusterDomains, _volumeGrainDomains, _volumeBiases,
                 latticeCache);
+        }
+
+        public void FillColumn(
+            ulong seed,
+            int x,
+            int z,
+            int originY,
+            int height,
+            int stride,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+            Span<BlockRuntimeId> destination)
+        {
+            ArgumentNullException.ThrowIfNull(latticeCache);
+            if (height < 1 || destination.Length < height)
+                throw new ArgumentOutOfRangeException(nameof(height));
+            if (stride < 2 || stride > Chunk.Size)
+                throw new ArgumentOutOfRangeException(nameof(stride));
+
+            const int StackScoreCapacity = 24;
+            var candidateCount = _volumeBlocks.Length;
+            Span<double> lowerScores = candidateCount <= StackScoreCapacity
+                ? stackalloc double[candidateCount]
+                : new double[candidateCount];
+            Span<double> upperScores = candidateCount <= StackScoreCapacity
+                ? stackalloc double[candidateCount]
+                : new double[candidateCount];
+            var needsBoundaryScores =
+                _boundaryInfluence > 0d && candidateCount > 1;
+            Span<double> lowerGrains = needsBoundaryScores
+                ? candidateCount <= StackScoreCapacity
+                    ? stackalloc double[candidateCount]
+                    : new double[candidateCount]
+                : Span<double>.Empty;
+            Span<double> upperGrains = needsBoundaryScores
+                ? candidateCount <= StackScoreCapacity
+                    ? stackalloc double[candidateCount]
+                    : new double[candidateCount]
+                : Span<double>.Empty;
+
+            var lowerAnchorY = FloorToMultiple(originY, stride);
+            var upperAnchorY = checked(lowerAnchorY + stride);
+            WriteColumnScores(
+                seed, x, lowerAnchorY, z,
+                lowerScores, lowerGrains, latticeCache);
+            WriteColumnScores(
+                seed, x, upperAnchorY, z,
+                upperScores, upperGrains, latticeCache);
+
+            for (var localY = 0; localY < height; localY++)
+            {
+                var worldY = checked(originY + localY);
+                while (worldY > upperAnchorY)
+                {
+                    (lowerScores, upperScores) = (upperScores, lowerScores);
+                    if (needsBoundaryScores)
+                        (lowerGrains, upperGrains) = (upperGrains, lowerGrains);
+                    lowerAnchorY = upperAnchorY;
+                    upperAnchorY = checked(upperAnchorY + stride);
+                    WriteColumnScores(
+                        seed, x, upperAnchorY, z,
+                        upperScores, upperGrains, latticeCache);
+                }
+
+                var interpolation = (worldY - lowerAnchorY) / (double)stride;
+                var bestScore = double.NegativeInfinity;
+                var bestIndex = 0;
+                for (var index = 0; index < candidateCount; index++)
+                {
+                    var score = lowerScores[index] +
+                        (upperScores[index] - lowerScores[index]) * interpolation;
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        bestIndex = index;
+                    }
+                }
+
+                destination[localY] = _volumeBlocks[bestIndex];
+            }
+        }
+
+        private static int FloorToMultiple(int value, int divisor)
+        {
+            var quotient = Math.DivRem(value, divisor, out var remainder);
+            if (remainder < 0)
+                quotient--;
+            return checked(quotient * divisor);
+        }
+
+        private void WriteColumnScores(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            Span<double> scores,
+            Span<double> grainValues,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache)
+        {
+            var position = WarpCoordinates(seed, x, y, z, latticeCache);
+            var broadPosition = RotateFieldPosition(position, 0);
+            var detailPosition = RotateFieldPosition(position, 1);
+            var microPosition = RotateFieldPosition(position, 2);
+            var clusterPosition = _clusterInfluence > 0d
+                ? RotateFieldPosition(position, 3)
+                : default;
+            var grainPosition = RotateFieldPosition(
+                position, _clusterInfluence > 0d ? 4 : 3);
+
+            var broadCoordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                broadPosition.X, broadPosition.Y, broadPosition.Z,
+                _selectionScale, _selectionVerticalScale);
+            var detailCoordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                detailPosition.X, detailPosition.Y, detailPosition.Z,
+                _detailScale, _detailVerticalScale);
+            var microCoordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                microPosition.X, microPosition.Y, microPosition.Z,
+                _microScale, _microVerticalScale);
+            var clusterCoordinates = _clusterInfluence > 0d
+                ? WorldGenerationEntropy.PrepareValueNoise3D(
+                    clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
+                    _clusterScale, _clusterVerticalScale)
+                : default;
+            var grainCoordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                grainPosition.X, grainPosition.Y, grainPosition.Z,
+                _grainScale, _grainVerticalScale);
+
+            for (var index = 0; index < _volumeBlocks.Length; index++)
+            {
+                var broad = SampleNoise(
+                    broadCoordinates, seed, _volumeMaterialDomains[index], latticeCache);
+                var detail = SampleNoise(
+                    detailCoordinates, seed, _volumeDetailDomains[index], latticeCache);
+                var micro = SampleNoise(
+                    microCoordinates, seed, _volumeMicroDomains[index], latticeCache);
+                var cluster = _clusterInfluence > 0d
+                    ? SampleNoise(
+                        clusterCoordinates, seed, _volumeClusterDomains[index], latticeCache)
+                    : 0d;
+                var grain = SampleNoise(
+                    grainCoordinates, seed, _volumeGrainDomains[index], latticeCache);
+
+                var field =
+                    broad * (_remainingInfluence * 0.04d / 0.30d) +
+                    detail * (_remainingInfluence * 0.10d / 0.30d) +
+                    micro * (_remainingInfluence * 0.16d / 0.30d) +
+                    cluster * _clusterInfluence +
+                    grain * _grainInfluence;
+                var unit = Math.Clamp(
+                    (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
+                scores[index] = -Math.Log(-Math.Log(unit)) + _volumeBiases[index];
+                if (_boundaryInfluence > 0d && _volumeBlocks.Length > 1)
+                    grainValues[index] = grain;
+            }
+
+            if (_boundaryInfluence <= 0d || _volumeBlocks.Length <= 1)
+                return;
+
+            var bestIndex = 0;
+            var bestScore = double.NegativeInfinity;
+            for (var index = 0; index < _volumeBlocks.Length; index++)
+            {
+                if (scores[index] > bestScore)
+                {
+                    bestScore = scores[index];
+                    bestIndex = index;
+                }
+            }
+
+            var secondBestScore = double.NegativeInfinity;
+            for (var index = 0; index < _volumeBlocks.Length; index++)
+            {
+                if (index != bestIndex)
+                    secondBestScore = Math.Max(secondBestScore, scores[index]);
+            }
+
+            var margin = bestScore - secondBestScore;
+            var boundaryFactor = Math.Clamp(
+                1d - margin / (3d * _boundaryInfluence),
+                0d,
+                1d);
+            if (boundaryFactor <= 0d)
+                return;
+
+            for (var index = 0; index < _volumeBlocks.Length; index++)
+                scores[index] +=
+                    grainValues[index] * _boundaryInfluence * boundaryFactor;
         }
 
         public bool TrySurfaceBlockAt(
