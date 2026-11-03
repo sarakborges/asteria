@@ -137,25 +137,25 @@ internal static class WorldGenerationEntropy
         {
             ArgumentNullException.ThrowIfNull(latticeCache);
             var domainSeed = seed ^ domain.Key;
+            Span<double> samples = stackalloc double[8];
+            latticeCache.SampleEight(
+                domainSeed ^ _c000,
+                domainSeed ^ _c100,
+                domainSeed ^ _c010,
+                domainSeed ^ _c110,
+                domainSeed ^ _c001,
+                domainSeed ^ _c101,
+                domainSeed ^ _c011,
+                domainSeed ^ _c111,
+                samples);
+
             var firstZ = WorldGenerationEntropy.Lerp(
-                WorldGenerationEntropy.Lerp(
-                    latticeCache.Sample(domainSeed ^ _c000),
-                    latticeCache.Sample(domainSeed ^ _c100),
-                    _tx),
-                WorldGenerationEntropy.Lerp(
-                    latticeCache.Sample(domainSeed ^ _c010),
-                    latticeCache.Sample(domainSeed ^ _c110),
-                    _tx),
+                WorldGenerationEntropy.Lerp(samples[0], samples[1], _tx),
+                WorldGenerationEntropy.Lerp(samples[2], samples[3], _tx),
                 _ty);
             var secondZ = WorldGenerationEntropy.Lerp(
-                WorldGenerationEntropy.Lerp(
-                    latticeCache.Sample(domainSeed ^ _c001),
-                    latticeCache.Sample(domainSeed ^ _c101),
-                    _tx),
-                WorldGenerationEntropy.Lerp(
-                    latticeCache.Sample(domainSeed ^ _c011),
-                    latticeCache.Sample(domainSeed ^ _c111),
-                    _tx),
+                WorldGenerationEntropy.Lerp(samples[4], samples[5], _tx),
+                WorldGenerationEntropy.Lerp(samples[6], samples[7], _tx),
                 _ty);
             return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
         }
@@ -199,8 +199,66 @@ internal static class WorldGenerationEntropy
                 throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
             var occupied = _occupied ??
                 throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
+            return SampleCore(
+                domainCoordinate, _mask, keys, values, occupied);
+        }
+
+        // A 3D value-noise query always samples all eight corners. Resolve the
+        // pooled buffers and validate the cache lifetime once, then perform
+        // those eight lookups in their original order. Collisions therefore
+        // evict exactly the same way as eight scalar Sample calls.
+        internal void SampleEight(
+            ulong coordinate0,
+            ulong coordinate1,
+            ulong coordinate2,
+            ulong coordinate3,
+            ulong coordinate4,
+            ulong coordinate5,
+            ulong coordinate6,
+            ulong coordinate7,
+            Span<double> destination)
+        {
+            if (destination.Length < 8)
+                throw new ArgumentException(
+                    "Eight lattice samples are required.",
+                    nameof(destination));
+
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var keys = _keys ??
+                throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
+            var values = _values ??
+                throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
+            var occupied = _occupied ??
+                throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
+            var mask = _mask;
+
+            destination[0] = SampleCore(
+                coordinate0, mask, keys, values, occupied);
+            destination[1] = SampleCore(
+                coordinate1, mask, keys, values, occupied);
+            destination[2] = SampleCore(
+                coordinate2, mask, keys, values, occupied);
+            destination[3] = SampleCore(
+                coordinate3, mask, keys, values, occupied);
+            destination[4] = SampleCore(
+                coordinate4, mask, keys, values, occupied);
+            destination[5] = SampleCore(
+                coordinate5, mask, keys, values, occupied);
+            destination[6] = SampleCore(
+                coordinate6, mask, keys, values, occupied);
+            destination[7] = SampleCore(
+                coordinate7, mask, keys, values, occupied);
+        }
+
+        private static double SampleCore(
+            ulong domainCoordinate,
+            int mask,
+            ulong[] keys,
+            double[] values,
+            bool[] occupied)
+        {
             var folded = domainCoordinate ^ (domainCoordinate >> 32);
-            var index = (int)(folded & (uint)_mask);
+            var index = (int)(folded & (uint)mask);
             if (occupied[index] && keys[index] == domainCoordinate)
                 return values[index];
 
