@@ -277,8 +277,8 @@ jobs:
               "algorithm": "WeightedCellular",
               "repetitions": repetitions,
               "expectedInitialAreaChunks": 67,
-              "baselineSha": "${{ env.CELLULAR_CACHE_BASELINE_SHA }}",
-              "candidateSha": "${{ env.CELLULAR_CACHE_CANDIDATE_SHA }}",
+              "baselineSha": __import__("os").environ["CELLULAR_CACHE_BASELINE_SHA"],
+              "candidateSha": __import__("os").environ["CELLULAR_CACHE_CANDIDATE_SHA"],
               "metrics": {},
           }
           lines = [
