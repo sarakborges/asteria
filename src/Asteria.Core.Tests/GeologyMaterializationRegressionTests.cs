@@ -110,6 +110,57 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Fact]
+    public void GeologicalColumnProfilesAreDeterministicAcrossChunkSeamsAndGenerationOrder()
+    {
+        var blocks = CreateBlocks();
+        var biome = CreateBiome();
+        var dimension = CreateDimension(biome.Id);
+        var biomes = new BiomeRegistry([biome]);
+        var firstGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes, geologyColumnSampleStride: 4);
+        var secondGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes, geologyColumnSampleStride: 4);
+        var coordinates = new[]
+        {
+            new ChunkCoord(0, 1, 0),
+            new ChunkCoord(1, 1, 0),
+            new ChunkCoord(0, 2, 0),
+            new ChunkCoord(1, 2, 0),
+        };
+
+        var first = coordinates.ToDictionary(
+            coordinate => coordinate,
+            firstGenerator.Materialize);
+        var second = coordinates.Reverse().ToDictionary(
+            coordinate => coordinate,
+            secondGenerator.Materialize);
+
+        Assert.Equal(coordinates.Length, first.Count);
+        Assert.Equal(coordinates.Length, second.Count);
+        foreach (var coordinate in coordinates)
+            AssertChunksEqual(first[coordinate], second[coordinate]);
+
+        // Both sides of a horizontal seam and both sides of a vertical seam
+        // must resolve from the same world-aligned score anchors.
+        for (var y = 16; y < 48; y++)
+        for (var z = 0; z < Chunk.Size; z++)
+        {
+            var left = first[new ChunkCoord(0, y / Chunk.Size, 0)]
+                .GetBlock(Chunk.Size - 1, y % Chunk.Size, z);
+            var right = first[new ChunkCoord(1, y / Chunk.Size, 0)]
+                .GetBlock(0, y % Chunk.Size, z);
+            Assert.Equal(
+                left,
+                second[new ChunkCoord(0, y / Chunk.Size, 0)]
+                    .GetBlock(Chunk.Size - 1, y % Chunk.Size, z));
+            Assert.Equal(
+                right,
+                second[new ChunkCoord(1, y / Chunk.Size, 0)]
+                    .GetBlock(0, y % Chunk.Size, z));
+        }
+    }
+
+    [Fact]
     public void DirectionalFaceBoundaryMasksPreserveGenerationAcrossHorizontalChunkOrder()
     {
         var biome = BiomeDefinitionJson.Parse(
@@ -722,7 +773,8 @@ public sealed class GeologyMaterializationRegressionTests
         var biome = CreateBiome();
         var dimension = CreateDimension(biome.Id);
         var generator = new BiomeWorldGenerator(
-            Seed, dimension, blocks, new BiomeRegistry([biome]));
+            Seed, dimension, blocks, new BiomeRegistry([biome]),
+            geologyColumnSampleStride: 4);
         var chunks = new Dictionary<ChunkCoord, Chunk>();
         var materials = new HashSet<BlockRuntimeId>();
         var columnsWithVariation = 0;
