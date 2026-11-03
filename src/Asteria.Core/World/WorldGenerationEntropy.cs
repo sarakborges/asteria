@@ -136,25 +136,26 @@ internal static class WorldGenerationEntropy
             ValueNoise3DLatticeCache latticeCache)
         {
             ArgumentNullException.ThrowIfNull(latticeCache);
+            latticeCache.EnsureAlive();
             var domainSeed = seed ^ domain.Key;
             var firstZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
-                    latticeCache.Sample(domainSeed ^ _c000),
-                    latticeCache.Sample(domainSeed ^ _c100),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c000),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c100),
                     _tx),
                 WorldGenerationEntropy.Lerp(
-                    latticeCache.Sample(domainSeed ^ _c010),
-                    latticeCache.Sample(domainSeed ^ _c110),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c010),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c110),
                     _tx),
                 _ty);
             var secondZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
-                    latticeCache.Sample(domainSeed ^ _c001),
-                    latticeCache.Sample(domainSeed ^ _c101),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c001),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c101),
                     _tx),
                 WorldGenerationEntropy.Lerp(
-                    latticeCache.Sample(domainSeed ^ _c011),
-                    latticeCache.Sample(domainSeed ^ _c111),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c011),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c111),
                     _tx),
                 _ty);
             return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
@@ -170,9 +171,9 @@ internal static class WorldGenerationEntropy
         private const int DefaultCapacity = 16384;
 
         private readonly int _mask;
-        private ulong[]? _keys;
-        private double[]? _values;
-        private bool[]? _occupied;
+        private readonly ulong[] _keys;
+        private readonly double[] _values;
+        private readonly bool[] _occupied;
         private bool _disposed;
 
         internal ValueNoise3DLatticeCache(int capacity = DefaultCapacity)
@@ -181,34 +182,36 @@ internal static class WorldGenerationEntropy
                 throw new ArgumentOutOfRangeException(nameof(capacity));
 
             _mask = capacity - 1;
-            var keys = ArrayPool<ulong>.Shared.Rent(capacity);
-            var values = ArrayPool<double>.Shared.Rent(capacity);
-            var occupied = ArrayPool<bool>.Shared.Rent(capacity);
-            Array.Clear(occupied, 0, capacity);
-            _keys = keys;
-            _values = values;
-            _occupied = occupied;
+            _keys = ArrayPool<ulong>.Shared.Rent(capacity);
+            _values = ArrayPool<double>.Shared.Rent(capacity);
+            _occupied = ArrayPool<bool>.Shared.Rent(capacity);
+            Array.Clear(_occupied, 0, capacity);
         }
+
+        internal void EnsureAlive() =>
+            ObjectDisposedException.ThrowIf(_disposed, this);
 
         internal double Sample(ulong domainCoordinate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            var keys = _keys ??
-                throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
-            var values = _values ??
-                throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
-            var occupied = _occupied ??
-                throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
+            EnsureAlive();
+            return SampleUnchecked(domainCoordinate);
+        }
+
+        // Callers sampling a full 3D value-noise lattice validate the cache
+        // once before resolving its eight corners, avoiding eight repeated
+        // lifetime and nullable-buffer checks for the same query.
+        internal double SampleUnchecked(ulong domainCoordinate)
+        {
             var folded = domainCoordinate ^ (domainCoordinate >> 32);
             var index = (int)(folded & (uint)_mask);
-            if (occupied[index] && keys[index] == domainCoordinate)
-                return values[index];
+            if (_occupied[index] && _keys[index] == domainCoordinate)
+                return _values[index];
 
             var value = WorldGenerationEntropy.SignedUnit(
                 WorldGenerationEntropy.Mix(domainCoordinate));
-            keys[index] = domainCoordinate;
-            values[index] = value;
-            occupied[index] = true;
+            _keys[index] = domainCoordinate;
+            _values[index] = value;
+            _occupied[index] = true;
             return value;
         }
 
@@ -218,19 +221,9 @@ internal static class WorldGenerationEntropy
                 return;
 
             _disposed = true;
-            var keys = _keys;
-            var values = _values;
-            var occupied = _occupied;
-            _keys = null;
-            _values = null;
-            _occupied = null;
-
-            if (keys is not null)
-                ArrayPool<ulong>.Shared.Return(keys);
-            if (values is not null)
-                ArrayPool<double>.Shared.Return(values);
-            if (occupied is not null)
-                ArrayPool<bool>.Shared.Return(occupied);
+            ArrayPool<ulong>.Shared.Return(_keys);
+            ArrayPool<double>.Shared.Return(_values);
+            ArrayPool<bool>.Shared.Return(_occupied);
         }
     }
 
