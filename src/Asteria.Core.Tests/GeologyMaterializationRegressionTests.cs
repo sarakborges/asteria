@@ -455,9 +455,9 @@ public sealed class GeologyMaterializationRegressionTests
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
         var firstGenerator = new BiomeWorldGenerator(
-            Seed, dimension, blocks, biomes);
+            Seed, dimension, blocks, biomes, geologySelectionAlgorithm);
         var secondGenerator = new BiomeWorldGenerator(
-            Seed, dimension, blocks, biomes);
+            Seed, dimension, blocks, biomes, geologySelectionAlgorithm);
 
         static DirectionalFacePaletteMetrics? Capture(
             BiomeWorldGenerator generator)
@@ -506,8 +506,11 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.Equal(firstMetrics.PaletteWrites, secondMetrics.PaletteWrites);
     }
 
-    [Fact]
-    public void MaterializedGravityGeologyNeverLeavesUnsupportedCellsAcrossVerticalSeams()
+    [Theory]
+    [InlineData(BiomeGeologySelectionAlgorithm.NoiseFields)]
+    [InlineData(BiomeGeologySelectionAlgorithm.WeightedCellular)]
+    public void MaterializedGravityGeologyNeverLeavesUnsupportedCellsAcrossVerticalSeams(
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm)
     {
         var blocks = CreateBlocks(gravityBlocks: true);
         var biome = CreateBiome();
