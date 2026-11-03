@@ -27,6 +27,37 @@ public sealed class WorldGenerationNoiseTests
         Assert.Equal(expected, actual);
     }
 
+    [Theory]
+    [InlineData(-31, 7, -19)]
+    [InlineData(13, 24, -42)]
+    [InlineData(-128, 3, 64)]
+    public void CachedDiscreteSiteHashesMatchScalarHashesAcrossCacheCollisions(
+        int x,
+        int y,
+        int z)
+    {
+        const ulong seed = 0xA57E_3D10_2026UL;
+        var domain = GenerationDomain.Named("tests/cached-discrete-site-hash");
+        using var cache = new WorldGenerationEntropy.ValueNoise3DLatticeCache(
+            capacity: 1);
+
+        var expected = WorldGenerationEntropy.Sample3D(
+            seed, domain, x, y, z);
+        var actual = WorldGenerationEntropy.Sample3D(
+            seed, domain, x, y, z, cache);
+        Assert.Equal(expected, actual);
+
+        // A one-slot cache forces every different coordinate to evict the
+        // previous site. Returning to the original site must still reproduce
+        // exactly the same hash after that collision.
+        _ = WorldGenerationEntropy.Sample3D(
+            seed, domain, x + 17, y - 11, z + 29, cache);
+        var afterCollision = WorldGenerationEntropy.Sample3D(
+            seed, domain, x, y, z, cache);
+
+        Assert.Equal(expected, afterCollision);
+    }
+
     private static double ReferenceContinuousNoise(
         ulong seed,
         GenerationDomain domain,
