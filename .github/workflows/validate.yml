@@ -116,6 +116,27 @@ jobs:
             --material-map-biome asteria:overworld/mountains \
             --material-map-output biome-map-geology-mountains.svg
 
+      - name: Render weighted-cellular geology benchmark and regression maps
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 181960897289965 --dimension asteria:overworld \
+            --samples 2 --area-size 4 --chunks 1 \
+            --geology-algorithm cellular \
+            --output worldgen-geology-cellular.json
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 64 \
+            --geology-algorithm cellular \
+            --material-map-output biome-map-geology-ocean-cellular.svg
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --geology-algorithm cellular \
+            --material-map-biome asteria:overworld/mountains \
+            --material-map-output biome-map-geology-mountains-cellular.svg
+
       - name: Upload worldgen query baseline
         if: always()
         uses: actions/upload-artifact@v4
@@ -124,6 +145,7 @@ jobs:
           path: |
             worldgen-benchmark.json
             worldgen-directional-face-palette-profile.json
+            worldgen-geology-cellular.json
           if-no-files-found: ignore
 
       - name: Upload biome map fixture
@@ -132,6 +154,197 @@ jobs:
         with:
           name: worldgen-biome-map
           path: biome-map-*.svg
+          if-no-files-found: ignore
+
+  geology-model-ab:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build worldgen benchmark
+        run: dotnet build tools/WorldgenBenchmark/WorldgenBenchmark.csproj --configuration Release --nologo
+
+      - name: Run alternating noise-field and weighted-cellular benchmarks
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/geology-model-ab"
+          mkdir -p "$root/results"
+
+          run_benchmark() {
+            local algorithm="$1"
+            local repetition="$2"
+            local output="$root/results/$algorithm-$repetition.json"
+            local log="$root/results/$algorithm-$repetition.log"
+
+            if ! dotnet run \
+              --project tools/WorldgenBenchmark/WorldgenBenchmark.csproj \
+              --configuration Release --no-build -- \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --samples 2 --area-size 4 --chunks 1 \
+              --geology-algorithm "$algorithm" \
+              --output "$output" > "$log" 2>&1; then
+              cat "$log"
+              return 1
+            fi
+          }
+
+          for repetition in 1 2 3 4; do
+            if [ "$((repetition % 2))" -eq 1 ]; then
+              run_benchmark fields "$repetition"
+              run_benchmark cellular "$repetition"
+            else
+              run_benchmark cellular "$repetition"
+              run_benchmark fields "$repetition"
+            fi
+          done
+
+      - name: Compare independent repetitions and verify determinism
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/geology-model-ab"
+          python3 - "$root/results" "$root/report.md" "$root/summary.json" <<'PY'
+          import json
+          import pathlib
+          import statistics
+          import sys
+
+          results_dir = pathlib.Path(sys.argv[1])
+          report_path = pathlib.Path(sys.argv[2])
+          summary_path = pathlib.Path(sys.argv[3])
+          algorithms = ("fields", "cellular")
+          metrics = ("chunkSynthesis", "initialAreaSynthesis")
+          repetitions = 4
+
+          runs = {
+              algorithm: [
+                  json.loads((results_dir / f"{algorithm}-{rep}.json").read_text())
+                  for rep in range(1, repetitions + 1)
+              ]
+              for algorithm in algorithms
+          }
+
+          def metric_rows(algorithm, metric_name):
+              return [run["metrics"][metric_name] for run in runs[algorithm]]
+
+          for algorithm in algorithms:
+              for metric_name in metrics:
+                  rows = metric_rows(algorithm, metric_name)
+                  digests = {row["digest"] for row in rows}
+                  if len(digests) != 1:
+                      raise SystemExit(
+                          f"{algorithm}/{metric_name} is not deterministic across repetitions: {sorted(digests)}"
+                      )
+
+          summary = {
+              "seed": 181960897289965,
+              "dimension": "asteria:overworld",
+              "repetitions": repetitions,
+              "expectedInitialAreaChunks": 67,
+              "metrics": {},
+              "determinism": {
+                  algorithm: {
+                      metric_name: metric_rows(algorithm, metric_name)[0]["digest"]
+                      for metric_name in metrics
+                  }
+                  for algorithm in algorithms
+              },
+          }
+
+          lines = [
+              "# Weighted-cellular vs noise-field geology",
+              "",
+              "Fixed seed 181960897289965, Overworld, four independent Release processes per algorithm.",
+              "Execution order alternates between algorithms to reduce runner-order bias.",
+              "Each process measures one cold and three warm passes; the table reports medians across independent processes.",
+              "Digests are checked for repeatability within each algorithm. Different algorithms are expected to generate different digests.",
+              "",
+              "| Metric | Algorithm | Cold median | Warm median | Cold allocation median | Warm allocation median |",
+              "|---|---|---:|---:|---:|---:|",
+          ]
+
+          fields_values = {}
+          for metric_name in metrics:
+              summary["metrics"][metric_name] = {}
+              for algorithm in algorithms:
+                  rows = metric_rows(algorithm, metric_name)
+                  values = {
+                      "coldMsMedian": statistics.median(row["coldMs"] for row in rows),
+                      "warmMsMedian": statistics.median(row["warmMs"] for row in rows),
+                      "coldAllocatedBytesMedian": int(statistics.median(row["coldAllocatedBytes"] for row in rows)),
+                      "warmAllocatedBytesMedian": int(statistics.median(row["warmAllocatedBytes"] for row in rows)),
+                      "operations": rows[0]["operations"],
+                      "digest": rows[0]["digest"],
+                  }
+                  summary["metrics"][metric_name][algorithm] = values
+                  lines.append(
+                      f"| {metric_name} | {algorithm} | "
+                      f"{values['coldMsMedian']:.2f} ms | {values['warmMsMedian']:.2f} ms | "
+                      f"{values['coldAllocatedBytesMedian']:,} B | {values['warmAllocatedBytesMedian']:,} B |"
+                  )
+
+              field = summary["metrics"][metric_name]["fields"]
+              cellular = summary["metrics"][metric_name]["cellular"]
+              fields_values[metric_name] = {
+                  "coldMsPercentChange": (cellular["coldMsMedian"] / field["coldMsMedian"] - 1) * 100
+                      if field["coldMsMedian"] else None,
+                  "warmMsPercentChange": (cellular["warmMsMedian"] / field["warmMsMedian"] - 1) * 100
+                      if field["warmMsMedian"] else None,
+                  "coldAllocatedBytesPercentChange": (
+                      cellular["coldAllocatedBytesMedian"] / field["coldAllocatedBytesMedian"] - 1
+                  ) * 100 if field["coldAllocatedBytesMedian"] else None,
+                  "warmAllocatedBytesPercentChange": (
+                      cellular["warmAllocatedBytesMedian"] / field["warmAllocatedBytesMedian"] - 1
+                  ) * 100 if field["warmAllocatedBytesMedian"] else None,
+              }
+
+          summary["cellularVsFieldsPercentChange"] = fields_values
+          lines.extend(["", "## Cellular vs fields", ""])
+          for metric_name, changes in fields_values.items():
+              lines.append(f"### {metric_name}")
+              lines.append("")
+              lines.append(
+                  f"- Warm time: {changes['warmMsPercentChange']:+.2f}% "
+                  "(negative means cellular is faster)."
+              )
+              lines.append(
+                  f"- Cold time: {changes['coldMsPercentChange']:+.2f}%."
+              )
+              lines.append(
+                  f"- Warm allocation: {changes['warmAllocatedBytesPercentChange']:+.2f}%."
+              )
+              lines.append(
+                  f"- Cold allocation: {changes['coldAllocatedBytesPercentChange']:+.2f}%."
+              )
+              lines.append("")
+
+          report = "\n".join(lines) + "\n"
+          report_path.write_text(report)
+          summary_path.write_text(json.dumps(summary, indent=2) + "\n")
+          print(report)
+          PY
+          cat "$root/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload geology-model A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: geology-model-ab
+          path: |
+            ${{ runner.temp }}/geology-model-ab/results/
+            ${{ runner.temp }}/geology-model-ab/report.md
+            ${{ runner.temp }}/geology-model-ab/summary.json
           if-no-files-found: ignore
 
   terrain-ab:

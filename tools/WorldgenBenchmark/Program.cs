@@ -72,7 +72,8 @@ BiomeWorldGenerator NewGenerator(
     biomes,
     structures,
     structureSets,
-    generation);
+    generation,
+    geologySelectionAlgorithm: options.GeologyAlgorithm);
 
 var targetProbeGenerator =
     NewGenerator();
@@ -720,6 +721,7 @@ var result = new
     options.MapStep,
     options.Chunks,
     options.SearchRadius,
+    GeologyAlgorithm = options.GeologyAlgorithm.ToString(),
     Metrics = metrics,
     InitialAreaDiagnostics = initialAreaDiagnostics,
     InitialAreaMaterializationDiagnostics = new
@@ -735,6 +737,7 @@ var result = new
     Notes = new[]
     {
         "Cold and warm passes use identical coordinates and independent generator instances per metric.",
+        "Geology algorithm: " + options.GeologyAlgorithm + ".",
         "Elapsed times include immutable query/cache cost, not Godot meshing, physics or GPU publication.",
         "Allocation counters use the current benchmark thread and are comparative diagnostics, not retained-memory truth.",
         "Initial-area stage timings isolate chunk materialization work and are diagnostic only; they are not regression thresholds.",
@@ -1261,6 +1264,7 @@ internal sealed record Arguments(
     int MapStep,
     int Chunks,
     int SearchRadius,
+    BiomeGeologySelectionAlgorithm GeologyAlgorithm,
     bool EnforceCiBudgets,
     string? Output,
     string? MaterialMapOutput,
@@ -1280,6 +1284,7 @@ internal sealed record Arguments(
         var mapStep = 4;
         var chunks = 2;
         var searchRadius = 1024;
+        var geologyAlgorithm = BiomeGeologySelectionAlgorithm.NoiseFields;
         var enforceCiBudgets = false;
         string? output = null;
         string? materialMapOutput = null;
@@ -1336,6 +1341,15 @@ internal sealed record Arguments(
                 case "--search-radius":
                     searchRadius = int.Parse(value);
                     break;
+                case "--geology-algorithm":
+                    geologyAlgorithm = value switch
+                    {
+                        "fields" => BiomeGeologySelectionAlgorithm.NoiseFields,
+                        "cellular" => BiomeGeologySelectionAlgorithm.WeightedCellular,
+                        _ => throw new ArgumentException(
+                            "--geology-algorithm must be 'fields' or 'cellular'."),
+                    };
+                    break;
                 case "--enforce-ci-budgets":
                     enforceCiBudgets =
                         bool.Parse(
@@ -1380,6 +1394,7 @@ internal sealed record Arguments(
             mapStep,
             chunks,
             searchRadius,
+            geologyAlgorithm,
             enforceCiBudgets,
             output,
             materialMapOutput,

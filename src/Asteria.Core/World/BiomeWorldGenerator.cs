@@ -28,14 +28,17 @@ public sealed class BiomeWorldGenerator :
         ulong seed,
         DimensionDefinition dimension,
         BlockRegistry blocks,
-        BiomeRegistry biomes)
+        BiomeRegistry biomes,
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm =
+            BiomeGeologySelectionAlgorithm.NoiseFields)
         : this(
             seed,
             dimension,
             blocks,
             EmptyFluids,
             biomes,
-            StructureRegistry.Empty)
+            StructureRegistry.Empty,
+            geologySelectionAlgorithm: geologySelectionAlgorithm)
     {
     }
 
@@ -44,14 +47,17 @@ public sealed class BiomeWorldGenerator :
         DimensionDefinition dimension,
         BlockRegistry blocks,
         FluidRegistry fluids,
-        BiomeRegistry biomes)
+        BiomeRegistry biomes,
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm =
+            BiomeGeologySelectionAlgorithm.NoiseFields)
         : this(
             seed,
             dimension,
             blocks,
             fluids,
             biomes,
-            StructureRegistry.Empty)
+            StructureRegistry.Empty,
+            geologySelectionAlgorithm: geologySelectionAlgorithm)
     {
     }
 
@@ -65,7 +71,9 @@ public sealed class BiomeWorldGenerator :
         StructureSetRegistry? structureSets = null,
         WorldGenerationOptions? generation = null,
         AttachedLayerRegistry? layers = null,
-        PackContentRegistry<ObjectDefinition>? objects = null)
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm =
+            BiomeGeologySelectionAlgorithm.NoiseFields)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -192,7 +200,8 @@ public sealed class BiomeWorldGenerator :
                 materialDefinitions,
                 blocks,
                 _terrain,
-                mosaic);
+                mosaic,
+                geologySelectionAlgorithm);
         // Structure roots are authored for the full Sphere, even when a
         // generation preset omits one of its surface biomes (e.g. ocean).
         // Keep their habitat definitions available for validation without
