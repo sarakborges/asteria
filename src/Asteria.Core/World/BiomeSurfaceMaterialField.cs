@@ -55,12 +55,18 @@ public sealed class BiomeSurfaceMaterialField
         IEnumerable<BiomeDefinition> biomes,
         BlockRegistry blocks,
         SurfaceTerrainField? terrain = null,
-        SurfaceMosaicField? mosaic = null)
+        SurfaceMosaicField? mosaic = null,
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm =
+            BiomeGeologySelectionAlgorithm.NoiseFields)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
 
+        if (!Enum.IsDefined(geologySelectionAlgorithm))
+            throw new ArgumentOutOfRangeException(nameof(geologySelectionAlgorithm));
+
         _seed = seed;
+        GeologySelectionAlgorithm = geologySelectionAlgorithm;
         _terrain = terrain;
         _mosaic = mosaic;
         var biomeDefinitions = biomes.ToArray();
@@ -78,7 +84,8 @@ public sealed class BiomeSurfaceMaterialField
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
                 biome => biome.Id,
-                biome => ResolvedGeology.Create(biome.Id, biome.Geology!, blocks),
+                biome => ResolvedGeology.Create(
+                    biome.Id, biome.Geology!, blocks, geologySelectionAlgorithm),
                 StringComparer.Ordinal);
 
         var volumeBiomeIds = biomeDefinitions
@@ -111,6 +118,8 @@ public sealed class BiomeSurfaceMaterialField
     /// True when at least one selected volume biome or authored surface
     /// wall/ceiling override can contribute a directional face material.
     /// </summary>
+    public BiomeGeologySelectionAlgorithm GeologySelectionAlgorithm { get; }
+
     public bool HasDirectionalFacePalettes { get; }
 
     /// <summary>
@@ -495,11 +504,22 @@ public sealed class BiomeSurfaceMaterialField
 
         private readonly record struct SpatialPosition(double X, double Y, double Z);
 
+        private const double MinimumCellScale = 4d;
+        private const double FeatureJitterMinimum = 0.2d;
+        private const double FeatureJitterRange = 0.6d;
+
         public bool MayResolveAir => _baseBlock.IsAir ||
             _blocks.Any(block => block.IsAir) ||
             _volumeBlocks.Any(block => block.IsAir);
 
         private readonly BiomeGeologyDefinition _definition;
+        private readonly BiomeGeologySelectionAlgorithm _selectionAlgorithm;
+        private readonly GenerationDomain _cellularDomain;
+        private readonly GenerationDomain _cellularBoundaryDomain;
+        private readonly double[] _volumeCumulativeWeights;
+        private readonly double[] _surfaceCumulativeWeights;
+        private readonly double _cellularHorizontalScale;
+        private readonly double _cellularVerticalScale;
         private readonly BlockRuntimeId _baseBlock;
         private readonly BlockRuntimeId[] _blocks;
         private readonly BlockRuntimeId[] _volumeBlocks;
@@ -546,9 +566,11 @@ public sealed class BiomeSurfaceMaterialField
             BiomeGeologyDefinition definition,
             BlockRuntimeId baseBlock,
             BlockRuntimeId[] blocks,
-            string biomeId)
+            string biomeId,
+            BiomeGeologySelectionAlgorithm selectionAlgorithm)
         {
             _definition = definition;
+            _selectionAlgorithm = selectionAlgorithm;
             _surfaceExposureScale = Math.Max(6u, definition.DetailScale / 2u);
             _warpHorizontalScale = Math.Max(12u, definition.Scale / 3u);
             _warpVerticalScale = Math.Max(10u, definition.VerticalScale / 3u);
@@ -579,6 +601,16 @@ public sealed class BiomeSurfaceMaterialField
             _baseBlock = baseBlock;
             _blocks = blocks;
             _volumeBlocks = [baseBlock, .. blocks];
+            _cellularDomain = GenerationDomain.Named(
+                $"material/geology/weighted-cellular/v1/{biomeId}");
+            _cellularBoundaryDomain = GenerationDomain.Named(
+                $"material/geology/weighted-cellular-boundary/v1/{biomeId}");
+            _cellularHorizontalScale = Math.Max(
+                MinimumCellScale,
+                Math.Sqrt(_selectionScale * (double)_grainScale));
+            _cellularVerticalScale = Math.Max(
+                MinimumCellScale,
+                Math.Sqrt(_selectionVerticalScale * (double)_grainVerticalScale));
             _surfaceExposureDomain = GenerationDomain.Named(
                 $"material/geology/surface-exposure/v2/{biomeId}");
             _warpDomains = new[] { "x", "y", "z" }
@@ -655,6 +687,30 @@ public sealed class BiomeSurfaceMaterialField
             _surfaceBiases = definition.BlockWeights
                 .Select(weight => biasStrength * Math.Log(weight / alternativeWeightTotal))
                 .ToArray();
+            _volumeCumulativeWeights = CreateCumulativeWeights(_volumeBiases);
+            _surfaceCumulativeWeights = CreateCumulativeWeights(_surfaceBiases);
+        }
+
+        private static double[] CreateCumulativeWeights(double[] biases)
+        {
+            var cumulative = new double[biases.Length];
+            var total = 0d;
+            for (var index = 0; index < biases.Length; index++)
+            {
+                total += double.IsNegativeInfinity(biases[index])
+                    ? 0d
+                    : Math.Exp(biases[index]);
+                cumulative[index] = total;
+            }
+
+            if (!(total > 0d) || !double.IsFinite(total))
+                throw new InvalidOperationException(
+                    "Geology material weights must have a finite positive total.");
+
+            for (var index = 0; index < cumulative.Length; index++)
+                cumulative[index] /= total;
+            cumulative[^1] = 1d;
+            return cumulative;
         }
 
         public uint SurfaceCoverDepth => _definition.SurfaceCoverDepth;
@@ -669,6 +725,12 @@ public sealed class BiomeSurfaceMaterialField
             // The previous separate formation mask created a second set of
             // broad, continuous boundaries that looked like columns/sheets.
             var position = WarpCoordinates(seed, x, y, z, latticeCache);
+            if (_selectionAlgorithm == BiomeGeologySelectionAlgorithm.WeightedCellular)
+            {
+                return SelectWeightedCellularMaterial(
+                    seed, position, _volumeBlocks, _volumeCumulativeWeights);
+            }
+
             return SelectMaterial(
                 seed, position, _volumeBlocks,
                 _volumeMaterialDomains, _volumeDetailDomains, _volumeMicroDomains,
@@ -698,12 +760,126 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             var position = WarpCoordinates(seed, x, y, z, latticeCache);
-            block = SelectMaterial(
-                seed, position, _blocks,
+            block = _selectionAlgorithm == BiomeGeologySelectionAlgorithm.WeightedCellular
+                ? SelectWeightedCellularMaterial(
+                    seed, position, _blocks, _surfaceCumulativeWeights)
+                : SelectMaterial(
+                    seed, position, _blocks,
                 _surfaceMaterialDomains, _surfaceDetailDomains, _surfaceMicroDomains,
-                _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases,
-                latticeCache);
+                    _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases,
+                    latticeCache);
             return true;
+        }
+
+        private BlockRuntimeId SelectWeightedCellularMaterial(
+            ulong seed,
+            SpatialPosition position,
+            BlockRuntimeId[] candidateBlocks,
+            double[] cumulativeWeights)
+        {
+            var gridX = position.X / _cellularHorizontalScale;
+            var gridY = position.Y / _cellularVerticalScale;
+            var gridZ = position.Z / _cellularHorizontalScale;
+            var centerX = CellIndex(gridX);
+            var centerY = CellIndex(gridY);
+            var centerZ = CellIndex(gridZ);
+
+            var bestDistance = double.PositiveInfinity;
+            var secondDistance = double.PositiveInfinity;
+            var bestHash = 0UL;
+            var secondHash = 0UL;
+
+            // Every feature is jittered within the inner 60% of its cell, so
+            // the nearest feature must be in this 3x3x3 neighborhood. The
+            // fixed traversal order is the deterministic tie-breaker.
+            for (var offsetZ = -1; offsetZ <= 1; offsetZ++)
+            for (var offsetY = -1; offsetY <= 1; offsetY++)
+            for (var offsetX = -1; offsetX <= 1; offsetX++)
+            {
+                var cellX = OffsetCell(centerX, offsetX);
+                var cellY = OffsetCell(centerY, offsetY);
+                var cellZ = OffsetCell(centerZ, offsetZ);
+                var hash = WorldGenerationEntropy.Sample3D(
+                    seed, _cellularDomain, cellX, cellY, cellZ);
+                var featureX = cellX + FeatureOffset(hash, 0);
+                var featureY = cellY + FeatureOffset(hash, 16);
+                var featureZ = cellZ + FeatureOffset(hash, 32);
+                var dx = gridX - featureX;
+                var dy = gridY - featureY;
+                var dz = gridZ - featureZ;
+                var distance = dx * dx + dy * dy + dz * dz;
+
+                if (distance < bestDistance)
+                {
+                    secondDistance = bestDistance;
+                    secondHash = bestHash;
+                    bestDistance = distance;
+                    bestHash = hash;
+                }
+                else if (distance < secondDistance)
+                {
+                    secondDistance = distance;
+                    secondHash = hash;
+                }
+            }
+
+            var selectedHash = bestHash;
+            if (_boundaryInfluence > 0d &&
+                secondDistance < double.PositiveInfinity)
+            {
+                // Boundary roughening is only evaluated near a Voronoi
+                // boundary; the ordinary cellular interior needs no extra
+                // noise sample. The scalar grain perturbs the nearest-cell
+                // decision rather than creating a second per-material field.
+                var boundaryBand = Math.Max(0.2d, _boundaryInfluence * 0.8d);
+                var boundaryFactor = Math.Clamp(
+                    1d - (secondDistance - bestDistance) / boundaryBand,
+                    0d,
+                    1d);
+                if (boundaryFactor > 0d)
+                {
+                    var grainPosition = RotateFieldPosition(position, 4);
+                    var grainCoordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                        grainPosition.X, grainPosition.Y, grainPosition.Z,
+                        _grainScale, _grainVerticalScale);
+                    var grain = SampleNoise(
+                        grainCoordinates, seed, _cellularBoundaryDomain, null);
+                    var grainUnit = (grain + 1d) * 0.5d;
+                    var switchChance = boundaryFactor *
+                        Math.Clamp(_boundaryInfluence * 0.5d, 0d, 0.5d);
+                    if (grainUnit < switchChance)
+                        selectedHash = secondHash;
+                }
+            }
+
+            var selection = (selectedHash >> 48) * (1d / 65536d);
+            for (var index = 0; index < candidateBlocks.Length; index++)
+            {
+                if (selection < cumulativeWeights[index])
+                    return candidateBlocks[index];
+            }
+
+            return candidateBlocks[^1];
+        }
+
+        private static int CellIndex(double coordinate)
+        {
+            var cell = Math.Floor(coordinate);
+            return cell switch
+            {
+                <= int.MinValue => int.MinValue,
+                >= int.MaxValue => int.MaxValue,
+                _ => (int)cell,
+            };
+        }
+
+        private static int OffsetCell(int cell, int offset) =>
+            (int)Math.Clamp((long)cell + offset, int.MinValue, int.MaxValue);
+
+        private static double FeatureOffset(ulong hash, int shift)
+        {
+            var unit = ((hash >> shift) & 0xFFFFUL) / 65535d;
+            return FeatureJitterMinimum + unit * FeatureJitterRange;
         }
 
         private static SpatialPosition RotateCoordinates(int x, int y, int z)
@@ -1011,12 +1187,14 @@ public sealed class BiomeSurfaceMaterialField
         public static ResolvedGeology Create(
             string biomeId,
             BiomeGeologyDefinition definition,
-            BlockRegistry blocks) =>
+            BlockRegistry blocks,
+            BiomeGeologySelectionAlgorithm selectionAlgorithm) =>
             new ResolvedGeology(
                 definition,
                 blocks.GetId(definition.BaseBlock),
                 definition.Blocks.Select(blocks.GetId).ToArray(),
-                biomeId);
+                biomeId,
+                selectionAlgorithm);
     }
 
     private sealed class MaterialRule
