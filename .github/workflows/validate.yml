@@ -116,6 +116,27 @@ jobs:
             --material-map-biome asteria:overworld/mountains \
             --material-map-output biome-map-geology-mountains.svg
 
+      - name: Render weighted-cellular geology benchmark and regression maps
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 181960897289965 --dimension asteria:overworld \
+            --samples 2 --area-size 4 --chunks 1 \
+            --geology-algorithm cellular \
+            --output worldgen-geology-cellular.json
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 64 \
+            --geology-algorithm cellular \
+            --material-map-output biome-map-geology-ocean-cellular.svg
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --geology-algorithm cellular \
+            --material-map-biome asteria:overworld/mountains \
+            --material-map-output biome-map-geology-mountains-cellular.svg
+
       - name: Upload worldgen query baseline
         if: always()
         uses: actions/upload-artifact@v4
@@ -124,6 +145,7 @@ jobs:
           path: |
             worldgen-benchmark.json
             worldgen-directional-face-palette-profile.json
+            worldgen-geology-cellular.json
           if-no-files-found: ignore
 
       - name: Upload biome map fixture
