@@ -780,6 +780,8 @@ public sealed class BiomeSurfaceMaterialField
             double[] cumulativeWeights,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
         {
+            latticeCache?.EnsureAlive();
+
             var gridX = position.X / _cellularHorizontalScale;
             var gridY = position.Y / _cellularVerticalScale;
             var gridZ = position.Z / _cellularHorizontalScale;
@@ -802,8 +804,12 @@ public sealed class BiomeSurfaceMaterialField
                 var cellX = OffsetCell(centerX, offsetX);
                 var cellY = OffsetCell(centerY, offsetY);
                 var cellZ = OffsetCell(centerZ, offsetZ);
-                var hash = WorldGenerationEntropy.Sample3D(
-                    seed, _cellularDomain, cellX, cellY, cellZ);
+                var hash = latticeCache is null
+                    ? WorldGenerationEntropy.Sample3D(
+                        seed, _cellularDomain, cellX, cellY, cellZ)
+                    : WorldGenerationEntropy.Sample3D(
+                        seed, _cellularDomain, cellX, cellY, cellZ,
+                        latticeCache);
                 var featureX = cellX + FeatureOffset(hash, 0);
                 var featureY = cellY + FeatureOffset(hash, 16);
                 var featureZ = cellZ + FeatureOffset(hash, 32);
