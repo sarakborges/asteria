@@ -1953,11 +1953,13 @@ public sealed class SurfaceChunkMaterializer
 
         bool IsZBoundarySolid(int localX, int localY, int localZ)
         {
-            var regionZ = localZ + maximumPaintDepth;
-            var index = localX * regionSize + regionZ;
+            var boundaryZ = localZ < 0
+                ? localZ + maximumPaintDepth
+                : localZ - Chunk.Size + maximumPaintDepth;
+            var index = boundaryZ * Chunk.Size + localX;
             if (!zBoundarySolidMasksReady[index])
             {
-                var neighborData = zDirectionalPaletteColumns[localX, regionZ];
+                var neighborData = zBoundaryPaletteColumns[index];
                 var worldX = originX + localX;
                 var worldZ = originZ + localZ;
                 ushort mask = 0;
