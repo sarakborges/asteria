@@ -65,7 +65,8 @@ public sealed class BiomeWorldGenerator :
         StructureSetRegistry? structureSets = null,
         WorldGenerationOptions? generation = null,
         AttachedLayerRegistry? layers = null,
-        PackContentRegistry<ObjectDefinition>? objects = null)
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        int geologyColumnSampleStride = 1)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -192,7 +193,8 @@ public sealed class BiomeWorldGenerator :
                 materialDefinitions,
                 blocks,
                 _terrain,
-                mosaic);
+                mosaic,
+                geologyColumnSampleStride);
         // Structure roots are authored for the full Sphere, even when a
         // generation preset omits one of its surface biomes (e.g. ocean).
         // Keep their habitat definitions available for validation without
