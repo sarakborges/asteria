@@ -696,7 +696,9 @@ public sealed class GeologyMaterializationRegressionTests
     {
         var blocks = CreateBlocks();
         var biome = CreateBiome();
-        var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
+        var materials = new BiomeSurfaceMaterialField(
+            Seed, [biome], blocks,
+            geologySelectionAlgorithm: geologySelectionAlgorithm);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
         var sameAltitude = new HashSet<BlockRuntimeId>();
