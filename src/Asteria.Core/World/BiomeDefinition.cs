@@ -621,6 +621,18 @@ public sealed class BiomeSurfacePatchDefinition
 }
 
 /// <summary>
+/// Controls how a biome's volumetric materials are spatially grouped.
+/// </summary>
+public enum BiomeGeologyPattern
+{
+    /// <summary>Continuous three-dimensional noise fields select each material.</summary>
+    Continuous,
+
+    /// <summary>Deterministic irregular 3D clusters assign one material per formation.</summary>
+    Clusters,
+}
+
+/// <summary>
 /// Authored volumetric geology. The base material fills the host rock; coherent
 /// three-dimensional formations replace it with weighted materials.
 /// </summary>
@@ -645,7 +657,11 @@ public sealed class BiomeGeologyDefinition
         uint? clusterScale = null,
         uint? clusterVerticalScale = null,
         float clusterInfluence = 0f,
-        float boundaryGrainInfluence = 0f)
+        float boundaryGrainInfluence = 0f,
+        BiomeGeologyPattern pattern = BiomeGeologyPattern.Continuous,
+        uint? clusterCellScale = null,
+        uint? clusterCellVerticalScale = null,
+        float clusterJitter = 0.6f)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(baseBlock);
         if (scale is < 2 or > 2048 ||
@@ -692,6 +708,19 @@ public sealed class BiomeGeologyDefinition
             throw new ArgumentOutOfRangeException(
                 nameof(boundaryGrainInfluence),
                 "Geology boundary grain influence must be within 0..0.6.");
+        if (clusterCellScale.HasValue && clusterCellScale.Value is < 4 or > 2048)
+            throw new ArgumentOutOfRangeException(
+                nameof(clusterCellScale),
+                "Geology cluster cell scale must be within 4..2048.");
+        if (clusterCellVerticalScale.HasValue &&
+            clusterCellVerticalScale.Value is < 4 or > 1024)
+            throw new ArgumentOutOfRangeException(
+                nameof(clusterCellVerticalScale),
+                "Geology vertical cluster cell scale must be within 4..1024.");
+        if (!float.IsFinite(clusterJitter) || clusterJitter is < 0f or > 0.9f)
+            throw new ArgumentOutOfRangeException(
+                nameof(clusterJitter),
+                "Geology cluster jitter must be within 0..0.9.");
 
         if (surfaceCoverDepth > 64)
             throw new ArgumentOutOfRangeException(
@@ -771,6 +800,10 @@ public sealed class BiomeGeologyDefinition
         ClusterVerticalScale = clusterVerticalScale;
         ClusterInfluence = clusterInfluence;
         BoundaryGrainInfluence = boundaryGrainInfluence;
+        Pattern = pattern;
+        ClusterCellScale = clusterCellScale;
+        ClusterCellVerticalScale = clusterCellVerticalScale;
+        ClusterJitter = clusterJitter;
     }
 
     public string BaseBlock { get; }
@@ -815,6 +848,18 @@ public sealed class BiomeGeologyDefinition
 
     /// <summary>Maximum additional fine-grain score perturbation where the top material candidates are close.</summary>
     public float BoundaryGrainInfluence { get; }
+
+    /// <summary>Spatial distribution pattern; continuous noise remains the default.</summary>
+    public BiomeGeologyPattern Pattern { get; }
+
+    /// <summary>Horizontal voxel size of a geological cluster; null derives it from existing scales.</summary>
+    public uint? ClusterCellScale { get; }
+
+    /// <summary>Vertical voxel size of a geological cluster; null derives it from existing scales.</summary>
+    public uint? ClusterCellVerticalScale { get; }
+
+    /// <summary>Maximum cluster feature displacement as a fraction of one cell, from 0 to 0.9.</summary>
+    public float ClusterJitter { get; }
 }
 
 /// <summary>Required fluid occupancy of a decorator's placement voxel.</summary>
