@@ -816,41 +816,41 @@ public sealed class BiomeSurfaceMaterialField
                 : default;
             var grainPosition = RotateFieldPosition(
                 position, _clusterInfluence > 0d ? 4 : 3);
+
+            // Each candidate shares these transformed coordinates, but a
+            // losing candidate often needs only one or two of the five fields.
+            // Prepare the more expensive lattice coordinate sets on demand.
             var broadCoordinates =
                 WorldGenerationEntropy.PrepareValueNoise3D(
                     broadPosition.X, broadPosition.Y, broadPosition.Z,
                     _selectionScale,
                     _selectionVerticalScale);
-            var detailCoordinates =
-                WorldGenerationEntropy.PrepareValueNoise3D(
-                    detailPosition.X, detailPosition.Y, detailPosition.Z,
-                    _detailScale, _detailVerticalScale);
-            var microCoordinates =
-                WorldGenerationEntropy.PrepareValueNoise3D(
-                    microPosition.X, microPosition.Y, microPosition.Z,
-                    _microScale, _microVerticalScale);
-            var clusterCoordinates = _clusterInfluence > 0d
-                ? WorldGenerationEntropy.PrepareValueNoise3D(
-                    clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
-                    _clusterScale, _clusterVerticalScale)
-                : default;
-            var grainCoordinates =
-                WorldGenerationEntropy.PrepareValueNoise3D(
-                    grainPosition.X, grainPosition.Y, grainPosition.Z,
-                    _grainScale, _grainVerticalScale);
+            WorldGenerationEntropy.ValueNoise3DCoordinates detailCoordinates = default;
+            WorldGenerationEntropy.ValueNoise3DCoordinates microCoordinates = default;
+            WorldGenerationEntropy.ValueNoise3DCoordinates clusterCoordinates = default;
+            WorldGenerationEntropy.ValueNoise3DCoordinates grainCoordinates = default;
+            var hasDetailCoordinates = false;
+            var hasMicroCoordinates = false;
+            var hasClusterCoordinates = false;
+            var hasGrainCoordinates = false;
+
+            var broadWeight = _remainingInfluence * 0.04d / 0.30d;
+            var detailWeight = _remainingInfluence * 0.10d / 0.30d;
+            var microWeight = _remainingInfluence * 0.16d / 0.30d;
+            var remainingAfterBroad =
+                detailWeight + microWeight + _clusterInfluence + _grainInfluence;
+            var remainingAfterDetail =
+                microWeight + _clusterInfluence + _grainInfluence;
+            var remainingAfterMicro =
+                _clusterInfluence + _grainInfluence;
             var needsBoundaryScores =
                 _boundaryInfluence > 0d && candidateBlocks.Length > 1;
-            // Most geology selections need only the winning score. Allocate
-            // score vectors only for definitions that explicitly enable
-            // boundary roughening; ordinary geological voxels allocate none.
-            // Boundary roughening needs both vectors, but allocating two
-            // arrays for every solid voxel creates heavy GC pressure during
-            // chunk synthesis. Candidate sets are normally small, so keep the
-            // scratch data on this call's stack and retain a heap fallback for
-            // unusually large authored material sets.
+
+            // Boundary roughening needs each candidate's complete score and
+            // grain sample, so it deliberately bypasses score pruning. Keep
+            // that scratch data on the stack for the usual small candidate
+            // sets; retain a bounded-by-authored-count heap fallback otherwise.
             const int StackScoreCapacity = 16;
-            // Do not reserve per-call stack scratch for the overwhelmingly
-            // common path that only needs the winning material score.
             Span<double> scores =
                 needsBoundaryScores && candidateBlocks.Length <= StackScoreCapacity
                     ? stackalloc double[candidateBlocks.Length]
@@ -869,31 +869,99 @@ public sealed class BiomeSurfaceMaterialField
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
             {
-                // Every weighted noise component lies in [-1, 1], their
-                // coefficients sum to one, and the resulting Gumbel term is
-                // upper-bounded by MaximumGumbelScore. If the best score
-                // already reaches this candidate's bound, sampling its five
-                // fields cannot change the winner. Boundary roughening keeps
-                // the full candidate vector and deliberately bypasses pruning.
+                // This global bound remains useful when the first candidate
+                // already has an exceptionally high score.
                 if (!needsBoundaryScores &&
                     bestScore >= biases[index] + MaximumGumbelScore)
                     continue;
 
                 var broad =
                     broadCoordinates.Sample(seed, broadDomains[index]);
+                var partialField = broad * broadWeight;
+                if (!needsBoundaryScores &&
+                    !double.IsNegativeInfinity(bestScore) &&
+                    bestScore >= MaximumPossibleGeologyScore(
+                        partialField, remainingAfterBroad, biases[index]))
+                {
+                    continue;
+                }
+
+                if (!hasDetailCoordinates)
+                {
+                    detailCoordinates =
+                        WorldGenerationEntropy.PrepareValueNoise3D(
+                            detailPosition.X, detailPosition.Y, detailPosition.Z,
+                            _detailScale, _detailVerticalScale);
+                    hasDetailCoordinates = true;
+                }
+
                 var detail =
                     detailCoordinates.Sample(seed, detailDomains[index]);
+                partialField += detail * detailWeight;
+                if (!needsBoundaryScores &&
+                    bestScore >= MaximumPossibleGeologyScore(
+                        partialField, remainingAfterDetail, biases[index]))
+                {
+                    continue;
+                }
+
+                if (!hasMicroCoordinates)
+                {
+                    microCoordinates =
+                        WorldGenerationEntropy.PrepareValueNoise3D(
+                            microPosition.X, microPosition.Y, microPosition.Z,
+                            _microScale, _microVerticalScale);
+                    hasMicroCoordinates = true;
+                }
+
                 var micro =
                     microCoordinates.Sample(seed, microDomains[index]);
-                var cluster = _clusterInfluence > 0d
-                    ? clusterCoordinates.Sample(seed, clusterDomains[index])
-                    : 0d;
+                partialField += micro * microWeight;
+                if (!needsBoundaryScores &&
+                    bestScore >= MaximumPossibleGeologyScore(
+                        partialField, remainingAfterMicro, biases[index]))
+                {
+                    continue;
+                }
+
+                var cluster = 0d;
+                if (_clusterInfluence > 0d)
+                {
+                    if (!hasClusterCoordinates)
+                    {
+                        clusterCoordinates =
+                            WorldGenerationEntropy.PrepareValueNoise3D(
+                                clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
+                                _clusterScale, _clusterVerticalScale);
+                        hasClusterCoordinates = true;
+                    }
+
+                    cluster = clusterCoordinates.Sample(
+                        seed, clusterDomains[index]);
+                }
+                partialField += cluster * _clusterInfluence;
+                if (!needsBoundaryScores &&
+                    bestScore >= MaximumPossibleGeologyScore(
+                        partialField, _grainInfluence, biases[index]))
+                {
+                    continue;
+                }
+
+                if (!hasGrainCoordinates)
+                {
+                    grainCoordinates =
+                        WorldGenerationEntropy.PrepareValueNoise3D(
+                            grainPosition.X, grainPosition.Y, grainPosition.Z,
+                            _grainScale, _grainVerticalScale);
+                    hasGrainCoordinates = true;
+                }
+
                 var grain =
                     grainCoordinates.Sample(seed, grainDomains[index]);
 
-                // Split finer detail across intermediate clusters and very
-                // fine grain. The former creates coherent mineral pockets;
-                // the latter still nicks their boundaries to avoid long bands.
+                // Keep the established expression and candidate order intact:
+                // the progressive values above are used only to prove that a
+                // candidate cannot win, never to approximate its final score.
                 var field =
                     broad * (_remainingInfluence * 0.04d / 0.30d) +
                     detail * (_remainingInfluence * 0.10d / 0.30d) +
@@ -920,7 +988,7 @@ public sealed class BiomeSurfaceMaterialField
             // perturbation near material boundaries. That keeps deposit
             // interiors coherent while letting high-frequency grain roughen
             // edges where the leading candidates are already competitive.
-            if (_boundaryInfluence > 0d && candidateBlocks.Length > 1)
+            if (needsBoundaryScores)
             {
                 var secondBestScore = double.NegativeInfinity;
                 for (var index = 0; index < candidateBlocks.Length; index++)
@@ -955,6 +1023,23 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             return candidateBlocks[bestIndex];
+        }
+
+        private static double MaximumPossibleGeologyScore(
+            double partialField,
+            double remainingWeight,
+            double bias)
+        {
+            // Value-noise samples are in [-1, 1]. The small positive margin
+            // covers floating-point accumulation so this remains an upper
+            // bound even when the final weighted expression rounds upward.
+            var maximumField = Math.BitIncrement(
+                partialField + remainingWeight + 1e-12d);
+            var maximumUnit = Math.Clamp(
+                (maximumField + 1d) * 0.5d,
+                1e-6d,
+                1d - 1e-6d);
+            return -Math.Log(-Math.Log(maximumUnit)) + bias;
         }
 
         public static ResolvedGeology Create(
