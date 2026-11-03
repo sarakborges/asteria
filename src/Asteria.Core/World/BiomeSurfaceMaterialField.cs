@@ -855,12 +855,13 @@ public sealed class BiomeSurfaceMaterialField
                         seed,
                         _clusterBoundaryDomain,
                         latticeCache);
-                    var switchChance = Math.Clamp(
-                        (boundaryNoise + 1d) * 0.5d *
-                        _boundaryInfluence * boundaryFactor,
-                        0d,
-                        0.6d);
-                    if (switchChance > 0.5d)
+                    var boundaryNoiseUnit = (boundaryNoise + 1d) * 0.5d;
+                    var switchChance =
+                        boundaryFactor * Math.Clamp(
+                            _boundaryInfluence / 0.6d,
+                            0d,
+                            1d) * 0.5d;
+                    if (boundaryNoiseUnit < switchChance)
                         selectedHash = secondHash;
                 }
             }
