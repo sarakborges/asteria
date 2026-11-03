@@ -128,7 +128,7 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.True(distinctMaterials.Count >= 4,
             $"Expected host rock and several cluster materials; found {distinctMaterials.Count}.");
         Assert.True(variedColumns >= 64,
-            $"Expected irregular three-dimensional deposits across most columns; found {variedColumns}/32.");
+            $"Expected irregular three-dimensional deposits across most columns; found {variedColumns}/512.");
     }
 
     [Fact]
