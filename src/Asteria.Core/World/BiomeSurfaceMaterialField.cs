@@ -518,6 +518,10 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain[] _surfaceGrainDomains;
         private readonly double[] _volumeBiases;
         private readonly double[] _surfaceBiases;
+        private readonly double[] _volumeSelectionScales;
+        private readonly double[] _surfaceSelectionScales;
+        private readonly double[] _volumePruneThresholds;
+        private readonly double[] _surfacePruneThresholds;
         private readonly uint _surfaceExposureScale;
         private readonly uint _warpHorizontalScale;
         private readonly uint _warpVerticalScale;
@@ -655,6 +659,26 @@ public sealed class BiomeSurfaceMaterialField
             _surfaceBiases = definition.BlockWeights
                 .Select(weight => biasStrength * Math.Log(weight / alternativeWeightTotal))
                 .ToArray();
+
+            (_volumeSelectionScales, _volumePruneThresholds) =
+                CreateSelectionFactors(_volumeBiases);
+            (_surfaceSelectionScales, _surfacePruneThresholds) =
+                CreateSelectionFactors(_surfaceBiases);
+        }
+
+        private static (double[] SelectionScales, double[] PruneThresholds)
+            CreateSelectionFactors(double[] biases)
+        {
+            var selectionScales = new double[biases.Length];
+            var pruneThresholds = new double[biases.Length];
+            for (var index = 0; index < biases.Length; index++)
+            {
+                selectionScales[index] = Math.Exp(-biases[index]);
+                pruneThresholds[index] =
+                    Math.Exp(-(biases[index] + MaximumGumbelScore));
+            }
+
+            return (selectionScales, pruneThresholds);
         }
 
         public uint SurfaceCoverDepth => _definition.SurfaceCoverDepth;
@@ -673,7 +697,7 @@ public sealed class BiomeSurfaceMaterialField
                 seed, position, _volumeBlocks,
                 _volumeMaterialDomains, _volumeDetailDomains, _volumeMicroDomains,
                 _volumeClusterDomains, _volumeGrainDomains, _volumeBiases,
-                latticeCache);
+                _volumeSelectionScales, _volumePruneThresholds, latticeCache);
         }
 
         public bool TrySurfaceBlockAt(
@@ -702,7 +726,7 @@ public sealed class BiomeSurfaceMaterialField
                 seed, position, _blocks,
                 _surfaceMaterialDomains, _surfaceDetailDomains, _surfaceMicroDomains,
                 _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases,
-                latticeCache);
+                _surfaceSelectionScales, _surfacePruneThresholds, latticeCache);
             return true;
         }
 
@@ -851,6 +875,8 @@ public sealed class BiomeSurfaceMaterialField
             GenerationDomain[] clusterDomains,
             GenerationDomain[] grainDomains,
             double[] biases,
+            double[] selectionScales,
+            double[] pruneThresholds,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
         {
             // Fine-grain field introduces small three-dimensional pockets so
@@ -917,17 +943,17 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             var bestScore = double.NegativeInfinity;
+            var bestSelectionValue = double.PositiveInfinity;
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
             {
-                // Every weighted noise component lies in [-1, 1], their
-                // coefficients sum to one, and the resulting Gumbel term is
-                // upper-bounded by MaximumGumbelScore. If the best score
-                // already reaches this candidate's bound, sampling its five
-                // fields cannot change the winner. Boundary roughening keeps
-                // the full candidate vector and deliberately bypasses pruning.
+                // In the ordinary path, minimizing
+                // -ln(unit) * exp(-bias) is equivalent to maximizing
+                // -ln(-ln(unit)) + bias. The transformed upper bound keeps
+                // the existing candidate-pruning rule without a second log.
+                // Boundary roughening still requires the original full scores.
                 if (!needsBoundaryScores &&
-                    bestScore >= biases[index] + MaximumGumbelScore)
+                    bestSelectionValue <= pruneThresholds[index])
                     continue;
 
                 var broad =
@@ -953,17 +979,26 @@ public sealed class BiomeSurfaceMaterialField
                     grain * _grainInfluence;
                 var unit = Math.Clamp(
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
-                var gumbel = -Math.Log(-Math.Log(unit));
-                var score = gumbel + biases[index];
                 if (needsBoundaryScores)
                 {
+                    var gumbel = -Math.Log(-Math.Log(unit));
+                    var score = gumbel + biases[index];
                     scores[index] = score;
                     grainValues[index] = grain;
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        bestIndex = index;
+                    }
                 }
-                if (score > bestScore)
+                else
                 {
-                    bestScore = score;
-                    bestIndex = index;
+                    var selectionValue = -Math.Log(unit) * selectionScales[index];
+                    if (selectionValue < bestSelectionValue)
+                    {
+                        bestSelectionValue = selectionValue;
+                        bestIndex = index;
+                    }
                 }
             }
 
