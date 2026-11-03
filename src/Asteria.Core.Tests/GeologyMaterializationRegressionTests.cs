@@ -6,16 +6,23 @@ public sealed class GeologyMaterializationRegressionTests
 {
     private const ulong Seed = 0xA57E_3D10_2026UL;
 
-    [Fact]
-    public void MaterializedChunksMatchWorldSpaceGeologyAcrossChunkSeamsAndGenerationOrder()
+    [Theory]
+    [InlineData(BiomeGeologySelectionAlgorithm.NoiseFields)]
+    [InlineData(BiomeGeologySelectionAlgorithm.WeightedCellular)]
+    public void MaterializedChunksMatchWorldSpaceGeologyAcrossChunkSeamsAndGenerationOrder(
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm)
     {
         var blocks = CreateBlocks();
         var biome = CreateBiome();
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
-        var firstGenerator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
-        var secondGenerator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
-        var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
+        var firstGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes, geologySelectionAlgorithm);
+        var secondGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes, geologySelectionAlgorithm);
+        var materials = new BiomeSurfaceMaterialField(
+            Seed, [biome], blocks,
+            geologySelectionAlgorithm: geologySelectionAlgorithm);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
 
@@ -524,7 +531,9 @@ public sealed class GeologyMaterializationRegressionTests
             Seed, dimension, blocks, biomes);
         var secondGenerator = new BiomeWorldGenerator(
             Seed, dimension, blocks, biomes);
-        var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
+        var materials = new BiomeSurfaceMaterialField(
+            Seed, [biome], blocks,
+            geologySelectionAlgorithm: geologySelectionAlgorithm);
         Assert.True(materials.FacePalettesPreserveOccupancy);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
@@ -679,8 +688,11 @@ public sealed class GeologyMaterializationRegressionTests
                 actual.GetCell(x, y, z));
     }
 
-    [Fact]
-    public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns()
+    [Theory]
+    [InlineData(BiomeGeologySelectionAlgorithm.NoiseFields)]
+    [InlineData(BiomeGeologySelectionAlgorithm.WeightedCellular)]
+    public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns(
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm)
     {
         var blocks = CreateBlocks();
         var biome = CreateBiome();
@@ -715,14 +727,18 @@ public sealed class GeologyMaterializationRegressionTests
             "No sampled world-space column changed geological material with Y.");
     }
 
-    [Fact]
-    public void MaterializedVerticalWallBreaksLongMaterialColumns()
+    [Theory]
+    [InlineData(BiomeGeologySelectionAlgorithm.NoiseFields)]
+    [InlineData(BiomeGeologySelectionAlgorithm.WeightedCellular)]
+    public void MaterializedVerticalWallBreaksLongMaterialColumns(
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm)
     {
         var blocks = CreateBlocks();
         var biome = CreateBiome();
         var dimension = CreateDimension(biome.Id);
         var generator = new BiomeWorldGenerator(
-            Seed, dimension, blocks, new BiomeRegistry([biome]));
+            Seed, dimension, blocks, new BiomeRegistry([biome]),
+            geologySelectionAlgorithm);
         var chunks = new Dictionary<ChunkCoord, Chunk>();
         var materials = new HashSet<BlockRuntimeId>();
         var columnsWithVariation = 0;
@@ -764,14 +780,18 @@ public sealed class GeologyMaterializationRegressionTests
             $"Material boundaries are still too continuous on the wall: {horizontalTransitions} transitions.");
     }
 
-    [Fact]
-    public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation()
+    [Theory]
+    [InlineData(BiomeGeologySelectionAlgorithm.NoiseFields)]
+    [InlineData(BiomeGeologySelectionAlgorithm.WeightedCellular)]
+    public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation(
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm)
     {
         var blocks = CreateBlocks();
         var biome = CreateBiome(surfaceCoverage: 0.4f);
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
-        var generator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
+        var generator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes, geologySelectionAlgorithm);
         var surfaceMaterials = new HashSet<BlockRuntimeId>();
 
         // Sample a 64x64 flat surface so low authored exposure coverage remains
