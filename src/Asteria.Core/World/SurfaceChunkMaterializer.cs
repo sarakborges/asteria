@@ -507,8 +507,9 @@ public sealed class SurfaceChunkMaterializer
                                 surfaceFluidCutDepth, worldX, worldY, worldZ,
                                 densityVolume.VolumePlacementAt(localX, localZ)))
                         {
-                            hasExposedGeology = _materials.TrySurfaceGeologyBlockAt(
+                            hasExposedGeology = _materials.TrySurfaceGeologyBlockAtCached(
                                 surfaceOwner, worldX, worldY, worldZ,
+                                job.GetGeologyNoiseCache(),
                                 out exposedBlock);
                         }
                     }
@@ -532,8 +533,9 @@ public sealed class SurfaceChunkMaterializer
                             block = surfaceMaterials.BlockAt(depth);
                         }
                         else if (state.SurfaceCoverDepth is not null &&
-                                 _materials.TryGeologyBlockAt(
+                                 _materials.TryGeologyBlockAtCached(
                                      sample, worldX, worldY, worldZ,
+                                     job.GetGeologyNoiseCache(),
                                      out var geologyBlock))
                         {
                             block = geologyBlock;
@@ -575,8 +577,9 @@ public sealed class SurfaceChunkMaterializer
                             block = volumeMaterials.BlockAt(depth);
                         }
                         else if (state.VolumeCoverDepth is not null &&
-                                 _materials.TryGeologyBlockAt(
+                                 _materials.TryGeologyBlockAtCached(
                                      volumeSample, worldX, worldY, worldZ,
+                                     job.GetGeologyNoiseCache(),
                                      out var volumeGeologyBlock))
                         {
                             block = volumeGeologyBlock;
@@ -1180,6 +1183,7 @@ public sealed class SurfaceChunkMaterializer
     private sealed class MaterializationJob : IChunkMaterializationJob
     {
         private readonly SurfaceChunkMaterializer _owner;
+        private WorldGenerationEntropy.ValueNoise3DLatticeCache? _geologyNoiseCache;
         private Chunk? _chunk;
 
         public MaterializationJob(
@@ -1298,7 +1302,13 @@ public sealed class SurfaceChunkMaterializer
             SupportChunkTopOccupancy = null;
             InitialBlocks?.Dispose();
             InitialBlocks = null;
+            _geologyNoiseCache?.Dispose();
+            _geologyNoiseCache = null;
         }
+
+        internal WorldGenerationEntropy.ValueNoise3DLatticeCache
+            GetGeologyNoiseCache() =>
+            _geologyNoiseCache ??= new WorldGenerationEntropy.ValueNoise3DLatticeCache();
     }
 
     /// <summary>

@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace Asteria.Core.World;
 
 internal readonly record struct GenerationDomain(ulong Key)
@@ -126,6 +128,109 @@ internal static class WorldGenerationEntropy
                     _tx),
                 _ty);
             return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
+        }
+
+        internal double Sample(
+            ulong seed,
+            GenerationDomain domain,
+            ValueNoise3DLatticeCache latticeCache)
+        {
+            ArgumentNullException.ThrowIfNull(latticeCache);
+            var domainSeed = seed ^ domain.Key;
+            var firstZ = WorldGenerationEntropy.Lerp(
+                WorldGenerationEntropy.Lerp(
+                    latticeCache.Sample(domainSeed ^ _c000),
+                    latticeCache.Sample(domainSeed ^ _c100),
+                    _tx),
+                WorldGenerationEntropy.Lerp(
+                    latticeCache.Sample(domainSeed ^ _c010),
+                    latticeCache.Sample(domainSeed ^ _c110),
+                    _tx),
+                _ty);
+            var secondZ = WorldGenerationEntropy.Lerp(
+                WorldGenerationEntropy.Lerp(
+                    latticeCache.Sample(domainSeed ^ _c001),
+                    latticeCache.Sample(domainSeed ^ _c101),
+                    _tx),
+                WorldGenerationEntropy.Lerp(
+                    latticeCache.Sample(domainSeed ^ _c011),
+                    latticeCache.Sample(domainSeed ^ _c111),
+                    _tx),
+                _ty);
+            return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
+        }
+    }
+
+    /// <summary>
+    /// Bounded, chunk-local memoization of domain-salted 3D lattice values.
+    /// Direct-mapped collisions only evict an entry; they never affect results.
+    /// </summary>
+    internal sealed class ValueNoise3DLatticeCache : IDisposable
+    {
+        private const int DefaultCapacity = 8192;
+
+        private readonly int _mask;
+        private ulong[]? _keys;
+        private double[]? _values;
+        private bool[]? _occupied;
+        private bool _disposed;
+
+        internal ValueNoise3DLatticeCache(int capacity = DefaultCapacity)
+        {
+            if (capacity < 1 || (capacity & (capacity - 1)) != 0)
+                throw new ArgumentOutOfRangeException(nameof(capacity));
+
+            _mask = capacity - 1;
+            var keys = ArrayPool<ulong>.Shared.Rent(capacity);
+            var values = ArrayPool<double>.Shared.Rent(capacity);
+            var occupied = ArrayPool<bool>.Shared.Rent(capacity);
+            Array.Clear(occupied, 0, capacity);
+            _keys = keys;
+            _values = values;
+            _occupied = occupied;
+        }
+
+        internal double Sample(ulong domainCoordinate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var keys = _keys ??
+                throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
+            var values = _values ??
+                throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
+            var occupied = _occupied ??
+                throw new ObjectDisposedException(nameof(ValueNoise3DLatticeCache));
+            var folded = domainCoordinate ^ (domainCoordinate >> 32);
+            var index = (int)(folded & (uint)_mask);
+            if (occupied[index] && keys[index] == domainCoordinate)
+                return values[index];
+
+            var value = WorldGenerationEntropy.SignedUnit(
+                WorldGenerationEntropy.Mix(domainCoordinate));
+            keys[index] = domainCoordinate;
+            values[index] = value;
+            occupied[index] = true;
+            return value;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            var keys = _keys;
+            var values = _values;
+            var occupied = _occupied;
+            _keys = null;
+            _values = null;
+            _occupied = null;
+
+            if (keys is not null)
+                ArrayPool<ulong>.Shared.Return(keys);
+            if (values is not null)
+                ArrayPool<double>.Shared.Return(values);
+            if (occupied is not null)
+                ArrayPool<bool>.Shared.Return(occupied);
         }
     }
 
