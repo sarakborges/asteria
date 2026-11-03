@@ -728,7 +728,8 @@ public sealed class BiomeSurfaceMaterialField
             if (_selectionAlgorithm == BiomeGeologySelectionAlgorithm.WeightedCellular)
             {
                 return SelectWeightedCellularMaterial(
-                    seed, position, _volumeBlocks, _volumeCumulativeWeights);
+                    seed, position, _volumeBlocks, _volumeCumulativeWeights,
+                    latticeCache);
             }
 
             return SelectMaterial(
@@ -762,10 +763,11 @@ public sealed class BiomeSurfaceMaterialField
             var position = WarpCoordinates(seed, x, y, z, latticeCache);
             block = _selectionAlgorithm == BiomeGeologySelectionAlgorithm.WeightedCellular
                 ? SelectWeightedCellularMaterial(
-                    seed, position, _blocks, _surfaceCumulativeWeights)
+                    seed, position, _blocks, _surfaceCumulativeWeights,
+                    latticeCache)
                 : SelectMaterial(
                     seed, position, _blocks,
-                _surfaceMaterialDomains, _surfaceDetailDomains, _surfaceMicroDomains,
+                    _surfaceMaterialDomains, _surfaceDetailDomains, _surfaceMicroDomains,
                     _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases,
                     latticeCache);
             return true;
@@ -775,7 +777,8 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed,
             SpatialPosition position,
             BlockRuntimeId[] candidateBlocks,
-            double[] cumulativeWeights)
+            double[] cumulativeWeights,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
         {
             var gridX = position.X / _cellularHorizontalScale;
             var gridY = position.Y / _cellularVerticalScale;
@@ -843,7 +846,7 @@ public sealed class BiomeSurfaceMaterialField
                         grainPosition.X, grainPosition.Y, grainPosition.Z,
                         _grainScale, _grainVerticalScale);
                     var grain = SampleNoise(
-                        grainCoordinates, seed, _cellularBoundaryDomain, null);
+                        grainCoordinates, seed, _cellularBoundaryDomain, latticeCache);
                     var grainUnit = (grain + 1d) * 0.5d;
                     var switchChance = boundaryFactor *
                         Math.Clamp(_boundaryInfluence * 0.5d, 0d, 0.5d);
