@@ -28,14 +28,17 @@ public sealed class BiomeWorldGenerator :
         ulong seed,
         DimensionDefinition dimension,
         BlockRegistry blocks,
-        BiomeRegistry biomes)
+        BiomeRegistry biomes,
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm =
+            BiomeGeologySelectionAlgorithm.NoiseFields)
         : this(
             seed,
             dimension,
             blocks,
             EmptyFluids,
             biomes,
-            StructureRegistry.Empty)
+            StructureRegistry.Empty,
+            geologySelectionAlgorithm: geologySelectionAlgorithm)
     {
     }
 
@@ -44,14 +47,17 @@ public sealed class BiomeWorldGenerator :
         DimensionDefinition dimension,
         BlockRegistry blocks,
         FluidRegistry fluids,
-        BiomeRegistry biomes)
+        BiomeRegistry biomes,
+        BiomeGeologySelectionAlgorithm geologySelectionAlgorithm =
+            BiomeGeologySelectionAlgorithm.NoiseFields)
         : this(
             seed,
             dimension,
             blocks,
             fluids,
             biomes,
-            StructureRegistry.Empty)
+            StructureRegistry.Empty,
+            geologySelectionAlgorithm: geologySelectionAlgorithm)
     {
     }
 
