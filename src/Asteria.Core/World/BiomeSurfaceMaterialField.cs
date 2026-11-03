@@ -541,6 +541,14 @@ public sealed class BiomeSurfaceMaterialField
         private readonly double _clusterInfluence;
         private readonly double _remainingInfluence;
         private readonly double _boundaryInfluence;
+        private readonly BiomeGeologyPattern _pattern;
+        private readonly GenerationDomain _clusterPatternDomain;
+        private readonly GenerationDomain _clusterBoundaryDomain;
+        private readonly double[] _volumeCumulativeWeights;
+        private readonly double[] _surfaceCumulativeWeights;
+        private readonly double _clusterCellHorizontalScale;
+        private readonly double _clusterCellVerticalScale;
+        private readonly double _clusterJitter;
 
         private ResolvedGeology(
             BiomeGeologyDefinition definition,
@@ -576,11 +584,23 @@ public sealed class BiomeSurfaceMaterialField
             _clusterInfluence = definition.ClusterInfluence;
             _remainingInfluence = 1d - _grainInfluence - _clusterInfluence;
             _boundaryInfluence = definition.BoundaryGrainInfluence;
+            _pattern = definition.Pattern;
+            _clusterCellHorizontalScale = definition.ClusterCellScale ??
+                Math.Max(4u, (uint)Math.Round(
+                    Math.Sqrt(_selectionScale * (double)_grainScale)));
+            _clusterCellVerticalScale = definition.ClusterCellVerticalScale ??
+                Math.Max(4u, (uint)Math.Round(
+                    Math.Sqrt(_selectionVerticalScale * (double)_grainVerticalScale)));
+            _clusterJitter = definition.ClusterJitter;
             _baseBlock = baseBlock;
             _blocks = blocks;
             _volumeBlocks = [baseBlock, .. blocks];
             _surfaceExposureDomain = GenerationDomain.Named(
                 $"material/geology/surface-exposure/v2/{biomeId}");
+            _clusterPatternDomain = GenerationDomain.Named(
+                $"material/geology/cluster-pattern/v1/{biomeId}");
+            _clusterBoundaryDomain = GenerationDomain.Named(
+                $"material/geology/cluster-boundary-deformation/v1/{biomeId}");
             _warpDomains = new[] { "x", "y", "z" }
                 .Select(axis => GenerationDomain.Named(
                     $"material/geology/domain-warp/v4/{biomeId}/{axis}"))
@@ -655,6 +675,34 @@ public sealed class BiomeSurfaceMaterialField
             _surfaceBiases = definition.BlockWeights
                 .Select(weight => biasStrength * Math.Log(weight / alternativeWeightTotal))
                 .ToArray();
+
+            var volumeProbabilities = new double[_volumeBlocks.Length];
+            volumeProbabilities[0] = baseProbability;
+            for (var index = 0; index < definition.BlockWeights.Count; index++)
+            {
+                volumeProbabilities[index + 1] =
+                    definition.Coverage *
+                    definition.BlockWeights[index] /
+                    alternativeWeightTotal;
+            }
+            _volumeCumulativeWeights = CreateCumulativeWeights(volumeProbabilities);
+            _surfaceCumulativeWeights = CreateCumulativeWeights(
+                definition.BlockWeights.ToArray());
+        }
+
+        private static double[] CreateCumulativeWeights(double[] weights)
+        {
+            var total = weights.Sum();
+            var cumulative = new double[weights.Length];
+            var running = 0d;
+            for (var index = 0; index < weights.Length; index++)
+            {
+                running += weights[index] / total;
+                cumulative[index] = running;
+            }
+
+            cumulative[^1] = 1d;
+            return cumulative;
         }
 
         public uint SurfaceCoverDepth => _definition.SurfaceCoverDepth;
@@ -665,9 +713,21 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed, int x, int y, int z,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
         {
-            // Base material and deposits now compete in one spatial selector.
-            // The previous separate formation mask created a second set of
-            // broad, continuous boundaries that looked like columns/sheets.
+            // Clustered geology uses one deterministic material per irregular
+            // three-dimensional cell. It deliberately skips per-voxel domain
+            // warp and candidate noise fields; cell jitter supplies the broad
+            // boundary deformation, with extra noise sampled only at edges.
+            if (_pattern == BiomeGeologyPattern.Clusters)
+            {
+                return SelectClusterMaterial(
+                    seed,
+                    RotateCoordinates(x, y, z),
+                    _volumeBlocks,
+                    _volumeCumulativeWeights,
+                    latticeCache);
+            }
+
+            // Continuous geology retains the established per-voxel noise selector.
             var position = WarpCoordinates(seed, x, y, z, latticeCache);
             return SelectMaterial(
                 seed, position, _volumeBlocks,
@@ -697,6 +757,17 @@ public sealed class BiomeSurfaceMaterialField
                 return false;
             }
 
+            if (_pattern == BiomeGeologyPattern.Clusters)
+            {
+                block = SelectClusterMaterial(
+                    seed,
+                    RotateCoordinates(x, y, z),
+                    _blocks,
+                    _surfaceCumulativeWeights,
+                    latticeCache);
+                return true;
+            }
+
             var position = WarpCoordinates(seed, x, y, z, latticeCache);
             block = SelectMaterial(
                 seed, position, _blocks,
@@ -704,6 +775,124 @@ public sealed class BiomeSurfaceMaterialField
                 _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases,
                 latticeCache);
             return true;
+        }
+
+        private BlockRuntimeId SelectClusterMaterial(
+            ulong seed,
+            SpatialPosition position,
+            BlockRuntimeId[] candidateBlocks,
+            double[] cumulativeWeights,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
+        {
+            var gridX = position.X / _clusterCellHorizontalScale;
+            var gridY = position.Y / _clusterCellVerticalScale;
+            var gridZ = position.Z / _clusterCellHorizontalScale;
+            var centerX = CellIndex(gridX);
+            var centerY = CellIndex(gridY);
+            var centerZ = CellIndex(gridZ);
+
+            var bestDistance = double.PositiveInfinity;
+            var secondDistance = double.PositiveInfinity;
+            var bestHash = 0UL;
+            var secondHash = 0UL;
+
+            // One deterministic jittered feature site per cell. With bounded
+            // jitter, the nearest site is always in this fixed 3x3x3 window.
+            for (var offsetZ = -1; offsetZ <= 1; offsetZ++)
+            for (var offsetY = -1; offsetY <= 1; offsetY++)
+            for (var offsetX = -1; offsetX <= 1; offsetX++)
+            {
+                var cellX = OffsetCell(centerX, offsetX);
+                var cellY = OffsetCell(centerY, offsetY);
+                var cellZ = OffsetCell(centerZ, offsetZ);
+                var hash = WorldGenerationEntropy.Sample3D(
+                    seed, _clusterPatternDomain, cellX, cellY, cellZ);
+                var featureX = cellX + FeatureOffset(hash, 0);
+                var featureY = cellY + FeatureOffset(hash, 16);
+                var featureZ = cellZ + FeatureOffset(hash, 32);
+                var dx = gridX - featureX;
+                var dy = gridY - featureY;
+                var dz = gridZ - featureZ;
+                var distance = dx * dx + dy * dy + dz * dz;
+
+                if (distance < bestDistance)
+                {
+                    secondDistance = bestDistance;
+                    secondHash = bestHash;
+                    bestDistance = distance;
+                    bestHash = hash;
+                }
+                else if (distance < secondDistance)
+                {
+                    secondDistance = distance;
+                    secondHash = hash;
+                }
+            }
+
+            var selectedHash = bestHash;
+            if (_boundaryInfluence > 0d &&
+                secondDistance < double.PositiveInfinity)
+            {
+                // The roughening field is evaluated only in a narrow band
+                // around a formation boundary, never throughout its interior.
+                var boundaryGap =
+                    Math.Sqrt(secondDistance) - Math.Sqrt(bestDistance);
+                var boundaryFactor = Math.Clamp(
+                    1d - boundaryGap / Math.Max(0.2d, _boundaryInfluence),
+                    0d,
+                    1d);
+                if (boundaryFactor > 0d)
+                {
+                    var boundaryCoordinates =
+                        WorldGenerationEntropy.PrepareValueNoise3D(
+                            position.X,
+                            position.Y,
+                            position.Z,
+                            _grainScale,
+                            _grainVerticalScale);
+                    var boundaryNoise = SampleNoise(
+                        boundaryCoordinates,
+                        seed,
+                        _clusterBoundaryDomain,
+                        latticeCache);
+                    var switchChance = Math.Clamp(
+                        (boundaryNoise + 1d) * 0.5d *
+                        _boundaryInfluence * boundaryFactor,
+                        0d,
+                        0.6d);
+                    if (switchChance > 0.5d)
+                        selectedHash = secondHash;
+                }
+            }
+
+            var selection = WorldGenerationEntropy.Unit(selectedHash);
+            for (var index = 0; index < candidateBlocks.Length; index++)
+            {
+                if (selection < cumulativeWeights[index])
+                    return candidateBlocks[index];
+            }
+
+            return candidateBlocks[^1];
+        }
+
+        private static int CellIndex(double coordinate)
+        {
+            var cell = Math.Floor(coordinate);
+            return cell switch
+            {
+                <= int.MinValue => int.MinValue,
+                >= int.MaxValue => int.MaxValue,
+                _ => (int)cell,
+            };
+        }
+
+        private static int OffsetCell(int cell, int offset) =>
+            (int)Math.Clamp((long)cell + offset, int.MinValue, int.MaxValue);
+
+        private double FeatureOffset(ulong hash, int shift)
+        {
+            var random = ((hash >> shift) & 0xFFFFUL) / 65535d;
+            return 0.5d + (random - 0.5d) * _clusterJitter;
         }
 
         private static SpatialPosition RotateCoordinates(int x, int y, int z)
