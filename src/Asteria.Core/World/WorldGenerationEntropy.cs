@@ -217,22 +217,9 @@ internal static class WorldGenerationEntropy
         {
             var folded = domainCoordinate ^ (domainCoordinate >> 32);
             index = (int)(folded & (uint)_mask);
-#if DEBUG
-            _debugLatticeLookups++;
-#endif
             if (_occupied[index] && _keys[index] == domainCoordinate)
-            {
-#if DEBUG
-                _debugLatticeCacheHits++;
-#endif
                 return _hashes[index];
-            }
 
-#if DEBUG
-            _debugLatticeCacheMisses++;
-            if (_occupied[index])
-                _debugLatticeCacheCollisionMisses++;
-#endif
             var hash = WorldGenerationEntropy.Mix(domainCoordinate);
             _keys[index] = domainCoordinate;
             _hashes[index] = hash;
