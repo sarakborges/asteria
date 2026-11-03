@@ -454,10 +454,8 @@ public sealed class GeologyMaterializationRegressionTests
         var blocks = CreateBlocks();
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
-        var firstGenerator = new BiomeWorldGenerator(
-            Seed, dimension, blocks, biomes, geologySelectionAlgorithm);
-        var secondGenerator = new BiomeWorldGenerator(
-            Seed, dimension, blocks, biomes, geologySelectionAlgorithm);
+        var firstGenerator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
+        var secondGenerator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
 
         static DirectionalFacePaletteMetrics? Capture(
             BiomeWorldGenerator generator)
