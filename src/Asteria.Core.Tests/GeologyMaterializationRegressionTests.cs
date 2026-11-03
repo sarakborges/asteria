@@ -529,9 +529,9 @@ public sealed class GeologyMaterializationRegressionTests
         var dimension = CreateDimension(biome.Id, caves);
         var biomes = new BiomeRegistry([biome]);
         var firstGenerator = new BiomeWorldGenerator(
-            Seed, dimension, blocks, biomes);
+            Seed, dimension, blocks, biomes, geologySelectionAlgorithm);
         var secondGenerator = new BiomeWorldGenerator(
-            Seed, dimension, blocks, biomes);
+            Seed, dimension, blocks, biomes, geologySelectionAlgorithm);
         var materials = new BiomeSurfaceMaterialField(
             Seed, [biome], blocks,
             geologySelectionAlgorithm: geologySelectionAlgorithm);
