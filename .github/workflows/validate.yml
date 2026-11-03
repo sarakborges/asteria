@@ -156,6 +156,188 @@ jobs:
           path: biome-map-*.svg
           if-no-files-found: ignore
 
+  cellular-cache-ab:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout pull request head and history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build pre-cache and cached cellular benchmark tools
+        shell: bash
+        env:
+          BASELINE_SHA: c25b2aa3e031e074e46372d3f62fd55e2c7b99fb
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/cellular-cache-ab"
+          baseline="$root/baseline"
+          candidate="$root/candidate"
+          mkdir -p "$root/results"
+          git worktree add --detach "$baseline" "$BASELINE_SHA"
+          git worktree add --detach "$candidate" "$CANDIDATE_SHA"
+          dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" --configuration Release --nologo
+          dotnet build "$candidate/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" --configuration Release --nologo
+          echo "CELLULAR_CACHE_BASELINE_SHA=$BASELINE_SHA" >> "$GITHUB_ENV"
+          echo "CELLULAR_CACHE_CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"
+
+      - name: Run alternating pre-cache and cached cellular benchmarks
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/cellular-cache-ab"
+          run_benchmark() {
+            local version="$1"
+            local project_root="$2"
+            local repetition="$3"
+            local output="$root/results/$version-$repetition.json"
+            local log="$root/results/$version-$repetition.log"
+
+            if ! dotnet run \
+              --project "$project_root/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+              --configuration Release --no-build -- \
+              --project-root "$project_root" \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --samples 2 --area-size 4 --chunks 1 \
+              --geology-algorithm cellular \
+              --output "$output" > "$log" 2>&1; then
+              cat "$log"
+              return 1
+            fi
+          }
+
+          baseline="$root/baseline"
+          candidate="$root/candidate"
+          for repetition in 1 2 3 4; do
+            if [ "$((repetition % 2))" -eq 1 ]; then
+              run_benchmark precache "$baseline" "$repetition"
+              run_benchmark cached "$candidate" "$repetition"
+            else
+              run_benchmark cached "$candidate" "$repetition"
+              run_benchmark precache "$baseline" "$repetition"
+            fi
+          done
+
+      - name: Compare cache impact and require identical generated output
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/cellular-cache-ab"
+          python3 - "$root/results" "$root/report.md" "$root/summary.json" <<'PY'
+          import json
+          import pathlib
+          import statistics
+          import sys
+
+          results_dir = pathlib.Path(sys.argv[1])
+          report_path = pathlib.Path(sys.argv[2])
+          summary_path = pathlib.Path(sys.argv[3])
+          versions = ("precache", "cached")
+          metrics = ("chunkSynthesis", "initialAreaSynthesis")
+          repetitions = 4
+          runs = {
+              version: [
+                  json.loads((results_dir / f"{version}-{rep}.json").read_text())
+                  for rep in range(1, repetitions + 1)
+              ]
+              for version in versions
+          }
+
+          for metric_name in metrics:
+              digests = {
+                  version: {
+                      run["metrics"][metric_name]["digest"]
+                      for run in runs[version]
+                  }
+                  for version in versions
+              }
+              for version in versions:
+                  if len(digests[version]) != 1:
+                      raise SystemExit(
+                          f"{version}/{metric_name} changed digest across repetitions: {sorted(digests[version])}"
+                      )
+              if digests["precache"] != digests["cached"]:
+                  raise SystemExit(
+                      f"Cached cellular site hashes changed generated output for {metric_name}: "
+                      f"{digests['precache']} != {digests['cached']}"
+                  )
+
+          summary = {
+              "seed": 181960897289965,
+              "dimension": "asteria:overworld",
+              "algorithm": "WeightedCellular",
+              "repetitions": repetitions,
+              "expectedInitialAreaChunks": 67,
+              "baselineSha": "${{ env.CELLULAR_CACHE_BASELINE_SHA }}",
+              "candidateSha": "${{ env.CELLULAR_CACHE_CANDIDATE_SHA }}",
+              "metrics": {},
+          }
+          lines = [
+              "# Weighted-cellular site-hash cache A/B",
+              "",
+              "Both versions use the same WeightedCellular algorithm. The candidate adds bounded reuse of raw site hashes through the existing per-materialization lattice cache.",
+              "Fixed seed 181960897289965, Overworld, four independent Release processes per version, alternating execution order.",
+              "Each process measures one cold and three warm passes; medians are across the four processes.",
+              "The workflow fails if any digest differs across repetitions or between pre-cache and cached versions.",
+              "",
+              "| Metric | Pre-cache | Cached | Time change | Allocation change |",
+              "|---|---:|---:|---:|---:|",
+          ]
+
+          for metric_name in metrics:
+              summary["metrics"][metric_name] = {}
+              for version in versions:
+                  rows = [run["metrics"][metric_name] for run in runs[version]]
+                  summary["metrics"][metric_name][version] = {
+                      "coldMsMedian": statistics.median(row["coldMs"] for row in rows),
+                      "warmMsMedian": statistics.median(row["warmMs"] for row in rows),
+                      "coldAllocatedBytesMedian": int(statistics.median(row["coldAllocatedBytes"] for row in rows)),
+                      "warmAllocatedBytesMedian": int(statistics.median(row["warmAllocatedBytes"] for row in rows)),
+                      "digest": rows[0]["digest"],
+                  }
+
+              before = summary["metrics"][metric_name]["precache"]
+              after = summary["metrics"][metric_name]["cached"]
+              warm_time = (after["warmMsMedian"] / before["warmMsMedian"] - 1) * 100
+              cold_time = (after["coldMsMedian"] / before["coldMsMedian"] - 1) * 100
+              warm_alloc = (after["warmAllocatedBytesMedian"] / before["warmAllocatedBytesMedian"] - 1) * 100
+              summary["metrics"][metric_name]["changesPercent"] = {
+                  "warmTime": warm_time,
+                  "coldTime": cold_time,
+                  "warmAllocation": warm_alloc,
+              }
+              lines.append(
+                  f"| {metric_name} | {before['warmMsMedian']:.2f} ms | "
+                  f"{after['warmMsMedian']:.2f} ms | {warm_time:+.2f}% | {warm_alloc:+.2f}% |"
+              )
+
+          report = "\n".join(lines) + "\n"
+          report_path.write_text(report)
+          summary_path.write_text(json.dumps(summary, indent=2) + "\n")
+          print(report)
+          PY
+          cat "$root/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload cellular cache A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cellular-cache-ab
+          path: |
+            ${{ runner.temp }}/cellular-cache-ab/results/
+            ${{ runner.temp }}/cellular-cache-ab/report.md
+            ${{ runner.temp }}/cellular-cache-ab/summary.json
+          if-no-files-found: ignore
+
   geology-model-ab:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
