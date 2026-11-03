@@ -371,7 +371,8 @@ public sealed class BiomeField
 
     // A bounded query (such as nearby destination search) reuses its seed
     // assignments across columns instead of allocating a cache per voxel.
-    // Never share a sampler across workers or retain it after the query.
+    // Selected chunk-local probes can additionally memoize completed samples
+    // when neighboring coordinates overlap. Samplers remain query-local.
     internal Sampler CreateSampler(int sampleCacheCapacity = 0) =>
         new(this, sampleCacheCapacity);
 

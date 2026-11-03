@@ -10,6 +10,10 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class SurfaceChunkMaterializer
 {
+    // A 16x16 chunk plus its one-column cardinal slope-probe halo is 18x18.
+    private const int SlopeProbeSampleCacheCapacity =
+        (Chunk.Size + 2) * (Chunk.Size + 2);
+
     private struct ColumnMaterializationCache
     {
         public int SurfaceY;
@@ -601,8 +605,7 @@ public sealed class SurfaceChunkMaterializer
         SurfaceTerrainField.TerrainSampleContext? terrainSampleContext =
             _decorations.HasSlopeConditions
                 ? _terrain.CreateTerrainSampleContext(
-                biomeSampleCacheCapacity: checked(
-                    (Chunk.Size + 2) * (Chunk.Size + 2)))
+                    biomeSampleCacheCapacity: SlopeProbeSampleCacheCapacity)
                 : null;
         var chunk = job.Chunk;
         var originX = job.OriginX;
