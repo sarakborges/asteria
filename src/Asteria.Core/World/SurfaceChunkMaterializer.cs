@@ -40,6 +40,123 @@ public sealed class SurfaceChunkMaterializer
         int SurfaceFluidCutDepth,
         BiomeDirectionalPalette EmptyRegionPalette);
 
+    private sealed class DirectionalFaceOccupancyMasks
+    {
+        private readonly int _maximumDepth;
+        private readonly int _wordCount;
+        private readonly ulong[] _xRows;
+        private readonly ulong[] _zRows;
+        private readonly ulong[] _yRows;
+
+        public DirectionalFaceOccupancyMasks(
+            int maximumDepth,
+            int wordCount,
+            ulong[] xRows,
+            ulong[] zRows,
+            ulong[] yRows)
+        {
+            _maximumDepth = maximumDepth;
+            _wordCount = wordCount;
+            _xRows = xRows;
+            _zRows = zRows;
+            _yRows = yRows;
+        }
+
+        public DirectionalFaceVoxelData At(int x, int y, int z)
+        {
+            if ((uint)x >= Chunk.Size ||
+                (uint)y >= Chunk.Size ||
+                (uint)z >= Chunk.Size)
+                throw new ArgumentOutOfRangeException(nameof(x));
+            if (_maximumDepth == 0)
+                return default;
+
+            var ySourceIndex = _maximumDepth + y;
+            var yRowOffset = (z * Chunk.Size + x) * _wordCount;
+            if (!IsSolid(_yRows, yRowOffset, ySourceIndex))
+                return default;
+
+            var xRowOffset = (y * Chunk.Size + z) * _wordCount;
+            var zRowOffset = (y * Chunk.Size + x) * _wordCount;
+            var xSourceIndex = _maximumDepth + x;
+            var zSourceIndex = _maximumDepth + z;
+
+            var up = EmptyOffsets(
+                _yRows, yRowOffset, _wordCount,
+                ySourceIndex, positive: true, _maximumDepth);
+            var negativeX = EmptyOffsets(
+                _xRows, xRowOffset, _wordCount,
+                xSourceIndex, positive: false, _maximumDepth);
+            var positiveX = EmptyOffsets(
+                _xRows, xRowOffset, _wordCount,
+                xSourceIndex, positive: true, _maximumDepth);
+            var negativeZ = EmptyOffsets(
+                _zRows, zRowOffset, _wordCount,
+                zSourceIndex, positive: false, _maximumDepth);
+            var positiveZ = EmptyOffsets(
+                _zRows, zRowOffset, _wordCount,
+                zSourceIndex, positive: true, _maximumDepth);
+            var down = EmptyOffsets(
+                _yRows, yRowOffset, _wordCount,
+                ySourceIndex, positive: false, _maximumDepth);
+            if ((up | negativeX | positiveX | negativeZ | positiveZ | down) == 0)
+                return default;
+
+            return new DirectionalFaceVoxelData(
+                true, up, negativeX, positiveX, negativeZ, positiveZ, down,
+                BlockRuntimeId.Air);
+        }
+
+        private static bool IsSolid(ulong[] rows, int rowOffset, int bitIndex) =>
+            (rows[rowOffset + (bitIndex >> 6)] &
+             (1UL << (bitIndex & 63))) != 0;
+
+        private static ulong ReverseBits(ulong bits)
+        {
+            bits = ((bits & 0x5555555555555555UL) << 1) |
+                ((bits >> 1) & 0x5555555555555555UL);
+            bits = ((bits & 0x3333333333333333UL) << 2) |
+                ((bits >> 2) & 0x3333333333333333UL);
+            bits = ((bits & 0x0F0F0F0F0F0F0F0FUL) << 4) |
+                ((bits >> 4) & 0x0F0F0F0F0F0F0F0FUL);
+            bits = ((bits & 0x00FF00FF00FF00FFUL) << 8) |
+                ((bits >> 8) & 0x00FF00FF00FF00FFUL);
+            bits = ((bits & 0x0000FFFF0000FFFFUL) << 16) |
+                ((bits >> 16) & 0x0000FFFF0000FFFFUL);
+            return (bits << 32) | (bits >> 32);
+        }
+
+        private static ulong ReadBits(
+            ulong[] rows, int rowOffset, int wordCount, int start, int length)
+        {
+            var word = start >> 6;
+            var shift = start & 63;
+            var bits = rows[rowOffset + word] >> shift;
+            if (shift != 0 && word + 1 < wordCount)
+                bits |= rows[rowOffset + word + 1] << (64 - shift);
+            return bits;
+        }
+
+        private static ulong EmptyOffsets(
+            ulong[] rows,
+            int rowOffset,
+            int wordCount,
+            int sourceIndex,
+            bool positive,
+            int depth)
+        {
+            var mask = depth == 64 ? ulong.MaxValue : (1UL << depth) - 1UL;
+            if (positive)
+                return ~ReadBits(
+                    rows, rowOffset, wordCount, sourceIndex + 1, depth) & mask;
+
+            var ascending = ReadBits(
+                rows, rowOffset, wordCount, sourceIndex - depth, depth);
+            var reversedSolids = ReverseBits(ascending) >> (64 - depth);
+            return ~reversedSolids & mask;
+        }
+    }
+
     private readonly record struct PendingGeneratedObject(
         int X, int Y, int Z, string Id, BlockFace Face,
         bool Submerged = false, FluidRuntimeId SupportFluid = default)
@@ -165,6 +282,7 @@ public sealed class SurfaceChunkMaterializer
                 if (_voidSpawnPlatform is not null)
                 {
                     _voidSpawnPlatform.Apply(job.Chunk, job.Coord);
+                    job.Chunk.MarkDirectionalFaceDataInitialized(updateRevision: false);
                     job.Result = job.Chunk;
                     job.Stage = ChunkMaterializationStage.Complete;
                     break;
@@ -330,6 +448,11 @@ public sealed class SurfaceChunkMaterializer
     {
         job.InitialBlocks?.Complete();
         job.InitialBlocks = null;
+        if (job.DirectionalFaceOccupancyMasks is not null)
+        {
+            job.Chunk.MarkDirectionalFaceDataInitialized(updateRevision: false);
+            job.DirectionalFaceOccupancyMasks = null;
+        }
     }
 
     private void PrepareTerrain(MaterializationJob job)
@@ -354,7 +477,7 @@ public sealed class SurfaceChunkMaterializer
 #endif
         if (_materials.HasDirectionalFacePalettes && !job.SupportFaceFastPath)
         {
-            job.DirectionalFaceVoxelData = BuildDirectionalFaceVoxelData(
+            job.DirectionalFaceOccupancyMasks = BuildDirectionalFaceOccupancyMasks(
                 densityVolume, column, originX, originY, originZ,
                 out var densityProbes, out var boundaryDensityProbes);
             job.DirectionalFacePaletteDensityProbes = densityProbes;
@@ -606,8 +729,19 @@ public sealed class SurfaceChunkMaterializer
                         }
                     }
 
-                    initialBlocks.SetBlockAtLinearIndex(
-                        columnIndex + Chunk.Area * localY, block);
+                    var voxelIndex = columnIndex + Chunk.Area * localY;
+                    if (initialBlocks.SetBlockAtLinearIndex(voxelIndex, block) &&
+                        !block.IsAir &&
+                        job.DirectionalFaceOccupancyMasks is { } directionalMasks)
+                    {
+                        var faceData = directionalMasks.At(
+                            localX, localY, localZ);
+                        if (faceData.HasCandidates)
+                        {
+                            job.Chunk.SetDirectionalFaceDataAtLinearIndex(
+                                voxelIndex, faceData, updateRevision: false);
+                        }
+                    }
                 }
             }
         
@@ -1286,7 +1420,7 @@ public sealed class SurfaceChunkMaterializer
 
         public int NextTerrainLocalY { get; set; }
 
-        public DirectionalFaceVoxelData[]? DirectionalFaceVoxelData { get; set; }
+        public DirectionalFaceOccupancyMasks? DirectionalFaceOccupancyMasks { get; set; }
 
         public double DirectionalFacePalettePreparationMilliseconds { get; set; }
 
@@ -1324,8 +1458,8 @@ public sealed class SurfaceChunkMaterializer
             SupportChunkTopOccupancy = null;
             InitialBlocks?.Dispose();
             InitialBlocks = null;
-            DirectionalFaceVoxelData = null;
-            DirectionalFaceVoxelData = null;
+            DirectionalFaceOccupancyMasks = null;
+            DirectionalFaceOccupancyMasks = null;
             _geologyNoiseCache?.Dispose();
             _geologyNoiseCache = null;
         }
@@ -1774,7 +1908,7 @@ public sealed class SurfaceChunkMaterializer
         y << 8 |
         z << 16;
 
-    private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(
+    private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         TerrainDensityVolume densityVolume,
         SurfaceTerrainColumn column,
         int originX,
@@ -1782,9 +1916,8 @@ public sealed class SurfaceChunkMaterializer
         int originZ,
         out int densityProbes,
         out int boundaryDensityProbes) =>
-        BuildDirectionalFaceVoxelData(
+        BuildDirectionalFaceOccupancyMasks(
             densityVolume.IsSolidAtUnchecked,
-            isTerrainSource: null,
             column,
             originX,
             originY,
@@ -1792,19 +1925,14 @@ public sealed class SurfaceChunkMaterializer
             out densityProbes,
             out boundaryDensityProbes);
 
-    private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(
+    private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         Chunk chunk,
         ChunkCoord coord)
     {
         var origin = VoxelCoordinates.ChunkOrigin(coord);
         var column = _columns.Get(coord.X, coord.Z);
-        return BuildDirectionalFaceVoxelData(
+        return BuildDirectionalFaceOccupancyMasks(
             (x, y, z) => !chunk.GetCell(x, y, z).IsEmpty,
-            (x, y, z) =>
-            {
-                var cell = chunk.GetCell(x, y, z);
-                return !cell.IsEmpty && !cell.IsPlayerPlaced;
-            },
             column,
             origin.X,
             origin.Y,
@@ -1813,9 +1941,8 @@ public sealed class SurfaceChunkMaterializer
             out _);
     }
 
-    private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(
+    private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         Func<int, int, int, bool> isSolid,
-        Func<int, int, int, bool>? isTerrainSource,
         SurfaceTerrainColumn column,
         int originX,
         int originY,
@@ -1835,9 +1962,6 @@ public sealed class SurfaceChunkMaterializer
         boundaryDensityProbes = 0;
         var densityProbeCount = 0;
         var boundaryDensityProbeCount = 0;
-        var result = new DirectionalFaceVoxelData[Chunk.Volume];
-        if (maximumDepth == 0)
-            return result;
 
         var regionSize = checked(size + maximumDepth * 2);
         var wordCount = (regionSize + 63) >> 6;
@@ -1849,9 +1973,9 @@ public sealed class SurfaceChunkMaterializer
             rows[rowOffset + (bitIndex >> 6)] |= 1UL << (bitIndex & 63);
 
         static bool IsSolid(ulong[] rows, int rowOffset, int bitIndex) =>
-            (rows[rowOffset + (bitIndex >> 6)] & (1UL << (bitIndex & 63))) != 0;
+            (rows[rowOffset + (bitIndex >> 6)] &
+             (1UL << (bitIndex & 63))) != 0;
 
-        // Horizontal halo masks are shared by every voxel at the same X/Z column.
         var xBoundaryMasks = new ushort[regionSize * size];
         var xBoundaryMasksReady = new bool[regionSize * size];
         ushort XBoundaryMask(int localX, int z)
@@ -1898,8 +2022,6 @@ public sealed class SurfaceChunkMaterializer
             return zBoundaryMasks[index];
         }
 
-        // Y rows include the vertical halo. Below world Y=0 is treated as solid,
-        // matching the original face resolver's non-paintable world boundary.
         for (var z = 0; z < size; z++)
         for (var x = 0; x < size; x++)
         {
@@ -1933,14 +2055,11 @@ public sealed class SurfaceChunkMaterializer
                         boundaryDensityProbeCount++;
                     }
                 }
-
                 if (solid)
                     MarkSolid(yRows, rowOffset, regionY);
             }
         }
 
-        // X rows reuse the per-column vertical masks, including the two
-        // external strips. No density probe is repeated per voxel.
         for (var y = 0; y < size; y++)
         for (var z = 0; z < size; z++)
         {
@@ -1963,7 +2082,6 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        // Z rows use the same cached vertical-column contract for their halo.
         for (var y = 0; y < size; y++)
         for (var x = 0; x < size; x++)
         {
@@ -1986,91 +2104,10 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        static ulong ReverseBits(ulong bits)
-        {
-            bits = ((bits & 0x5555555555555555UL) << 1) |
-                ((bits >> 1) & 0x5555555555555555UL);
-            bits = ((bits & 0x3333333333333333UL) << 2) |
-                ((bits >> 2) & 0x3333333333333333UL);
-            bits = ((bits & 0x0F0F0F0F0F0F0F0FUL) << 4) |
-                ((bits >> 4) & 0x0F0F0F0F0F0F0F0FUL);
-            bits = ((bits & 0x00FF00FF00FF00FFUL) << 8) |
-                ((bits >> 8) & 0x00FF00FF00FF00FFUL);
-            bits = ((bits & 0x0000FFFF0000FFFFUL) << 16) |
-                ((bits >> 16) & 0x0000FFFF0000FFFFUL);
-            return (bits << 32) | (bits >> 32);
-        }
-
-        static ulong ReadBits(
-            ulong[] rows, int rowOffset, int wordCount, int start, int length)
-        {
-            var word = start >> 6;
-            var shift = start & 63;
-            var bits = rows[rowOffset + word] >> shift;
-            if (shift != 0 && word + 1 < wordCount)
-                bits |= rows[rowOffset + word + 1] << (64 - shift);
-            return bits;
-        }
-
-        static ulong EmptyOffsets(
-            ulong[] rows,
-            int rowOffset,
-            int wordCount,
-            int sourceIndex,
-            bool positive,
-            int depth)
-        {
-            var mask = depth == 64 ? ulong.MaxValue : (1UL << depth) - 1UL;
-            if (positive)
-                return ~ReadBits(
-                    rows, rowOffset, wordCount, sourceIndex + 1, depth) & mask;
-
-            var ascending = ReadBits(
-                rows, rowOffset, wordCount, sourceIndex - depth, depth);
-            var reversedSolids = ReverseBits(ascending) >> (64 - depth);
-            return ~reversedSolids & mask;
-        }
-
-        for (var y = 0; y < size; y++)
-        for (var z = 0; z < size; z++)
-        for (var x = 0; x < size; x++)
-        {
-            var xRowOffset = (y * size + z) * wordCount;
-            var zRowOffset = (y * size + x) * wordCount;
-            var yRowOffset = (z * size + x) * wordCount;
-            var ySourceIndex = maximumDepth + y;
-            if (!IsSolid(yRows, yRowOffset, ySourceIndex))
-                continue;
-
-            if (isTerrainSource is not null && !isTerrainSource(x, y, z))
-                continue;
-
-            var sourceX = maximumDepth + x;
-            var sourceZ = maximumDepth + z;
-            var up = EmptyOffsets(
-                yRows, yRowOffset, wordCount, ySourceIndex, true, maximumDepth);
-            var negativeX = EmptyOffsets(
-                xRows, xRowOffset, wordCount, sourceX, false, maximumDepth);
-            var positiveX = EmptyOffsets(
-                xRows, xRowOffset, wordCount, sourceX, true, maximumDepth);
-            var negativeZ = EmptyOffsets(
-                zRows, zRowOffset, wordCount, sourceZ, false, maximumDepth);
-            var positiveZ = EmptyOffsets(
-                zRows, zRowOffset, wordCount, sourceZ, true, maximumDepth);
-            var down = EmptyOffsets(
-                yRows, yRowOffset, wordCount, ySourceIndex, false, maximumDepth);
-            if ((up | negativeX | positiveX | negativeZ | positiveZ | down) == 0)
-                continue;
-
-            var index = x + size * (z + size * y);
-            result[index] = new DirectionalFaceVoxelData(
-                true, up, negativeX, positiveX, negativeZ, positiveZ, down,
-                BlockRuntimeId.Air);
-        }
-
         densityProbes = densityProbeCount;
         boundaryDensityProbes = boundaryDensityProbeCount;
-        return result;
+        return new DirectionalFaceOccupancyMasks(
+            maximumDepth, wordCount, xRows, zRows, yRows);
     }
 
     private DirectionalPaletteColumnData SampleDirectionalPaletteColumnData(int worldX, int worldZ)
@@ -2190,20 +2227,13 @@ public sealed class SurfaceChunkMaterializer
         var applyStarted = Stopwatch.GetTimestamp();
 #endif
         var chunk = job.Chunk;
-        var buffer = job.DirectionalFaceVoxelData ??
-            throw new InvalidOperationException("Directional face candidate buffer is missing.");
         var candidateIndices = new List<int>();
-        for (var index = 0; index < Chunk.Volume; index++)
+        chunk.VisitDirectionalFaceVoxels((index, data) =>
         {
-            var data = buffer[index];
-            if (!data.HasCandidates ||
-                chunk.GetCellAtLinearIndexUnchecked(index).IsEmpty)
-                continue;
-            chunk.SetDirectionalFaceDataAtLinearIndex(index, data, updateRevision: false);
-            candidateIndices.Add(index);
-        }
-        job.DirectionalFaceVoxelData = null;
-        chunk.MarkDirectionalFaceDataInitialized();
+            if (data.HasCandidates &&
+                !chunk.GetCellAtLinearIndexUnchecked(index).IsEmpty)
+                candidateIndices.Add(index);
+        });
 
         var origin = VoxelCoordinates.ChunkOrigin(job.Coord);
         var column = RequiredColumn(job);
@@ -2401,13 +2431,21 @@ public sealed class SurfaceChunkMaterializer
             chunk.DirectionalFaceDataInitialized)
             return;
 
-        var data = BuildDirectionalFaceVoxelData(chunk, coord);
+        var masks = BuildDirectionalFaceOccupancyMasks(chunk, coord);
         for (var index = 0; index < Chunk.Volume; index++)
         {
-            if (!data[index].HasCandidates)
+            var cell = chunk.GetCellAtLinearIndexUnchecked(index);
+            if (cell.IsEmpty || cell.IsPlayerPlaced)
+                continue;
+            var y = index / Chunk.Area;
+            var layerIndex = index % Chunk.Area;
+            var z = layerIndex / Chunk.Size;
+            var x = layerIndex % Chunk.Size;
+            var data = masks.At(x, y, z);
+            if (!data.HasCandidates)
                 continue;
             chunk.SetDirectionalFaceDataAtLinearIndex(
-                index, data[index], updateRevision: false);
+                index, data, updateRevision: false);
             changedSources.Add((coord, index));
         }
         chunk.MarkDirectionalFaceDataInitialized(updateRevision: false);
