@@ -51,6 +51,7 @@ public enum ChunkMaterializationStage : byte
     TerrainSetup,
     TerrainLayer,
     SurfaceDecorations,
+    DirectionalFaceExposure,
     DirectionalFacePalettes,
     VolumeStructures,
     GeneratedFluids,

@@ -1,5 +1,20 @@
 namespace Asteria.Core.World;
 
+internal enum DirectionalFaceDirection : byte
+{
+    Up,
+    NegativeX,
+    PositiveX,
+    NegativeZ,
+    PositiveZ,
+    Down,
+}
+
+internal readonly record struct DirectionalFaceExposureMetadata(
+    DirectionalFaceDirection Direction,
+    uint Depth,
+    BiomeRegionOwner Owner);
+
 public sealed class Chunk
 {
     public const int Size = 16;
@@ -11,7 +26,12 @@ public sealed class Chunk
     private readonly MicroblockMaskPalette _microblockMasks;
     private Dictionary<int, BlockSurfaceState>? _surfaceStates;
     private Dictionary<int, List<ObjectCell>>? _objects;
+    private List<DirectionalFaceExposureEntry>? _directionalFaceExposures;
     private readonly VoxelLight[] _light;
+
+    private readonly record struct DirectionalFaceExposureEntry(
+        int VoxelIndex,
+        DirectionalFaceExposureMetadata Metadata);
 
     /// <summary>
     /// Efficiently fills a fresh chunk's block storage before normal worldgen
@@ -127,6 +147,7 @@ public sealed class Chunk
         MicroblockMaskPalette microblockMasks,
         Dictionary<int, BlockSurfaceState>? surfaceStates,
         Dictionary<int, List<ObjectCell>>? objects,
+        List<DirectionalFaceExposureEntry>? directionalFaceExposures,
         VoxelLight[] light,
         ulong revision,
         ulong objectRevision)
@@ -136,6 +157,7 @@ public sealed class Chunk
         _microblockMasks = microblockMasks;
         _surfaceStates = surfaceStates;
         _objects = objects;
+        _directionalFaceExposures = directionalFaceExposures;
         _light = light;
         Revision = revision;
         ObjectRevision = objectRevision;
@@ -281,6 +303,46 @@ public sealed class Chunk
             throw new ArgumentOutOfRangeException(nameof(voxelIndex));
 
         return SetCellAtIndex(voxelIndex, new VoxelCell(block));
+    }
+
+    /// <summary>
+    /// Records generation-only directional exposure for one voxel. The
+    /// metadata is consumed before the chunk is published or persisted.
+    /// </summary>
+    internal void RecordDirectionalFaceExposure(
+        int x,
+        int y,
+        int z,
+        DirectionalFaceExposureMetadata metadata)
+    {
+        ValidateCoordinates(x, y, z);
+        _directionalFaceExposures ??= [];
+        _directionalFaceExposures.Add(
+            new DirectionalFaceExposureEntry(
+                ToIndex(x, y, z),
+                metadata));
+    }
+
+    /// <summary>
+    /// Visits and clears the temporary exposure sidecar. The materializer
+    /// owns palette resolution and the resulting block writes.
+    /// </summary>
+    internal int ConsumeDirectionalFaceExposures(
+        Action<int, int, int, DirectionalFaceExposureMetadata> consume)
+    {
+        ArgumentNullException.ThrowIfNull(consume);
+        var exposures = _directionalFaceExposures;
+        _directionalFaceExposures = null;
+        if (exposures is not { Count: > 0 })
+            return 0;
+
+        foreach (var exposure in exposures)
+        {
+            var (x, y, z) = FromIndex(exposure.VoxelIndex);
+            consume(x, y, z, exposure.Metadata);
+        }
+
+        return exposures.Count;
     }
 
     internal InitialBlockWriter BeginInitialBlockWrites()
@@ -604,6 +666,9 @@ public sealed class Chunk
                 ? objectIndex.ToDictionary(entry => entry.Key,
                     entry => new List<ObjectCell>(entry.Value))
                 : null,
+            _directionalFaceExposures is { Count: > 0 } exposures
+                ? new List<DirectionalFaceExposureEntry>(exposures)
+                : null,
             (VoxelLight[])_light.Clone(),
             Revision,
             ObjectRevision)
@@ -624,6 +689,7 @@ public sealed class Chunk
                 ? objectIndex.ToDictionary(entry => entry.Key,
                     entry => new List<ObjectCell>(entry.Value))
                 : null,
+            null,
             (VoxelLight[])_light.Clone(),
             Revision,
             ObjectRevision)

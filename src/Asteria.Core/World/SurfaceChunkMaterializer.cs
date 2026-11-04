@@ -208,14 +208,21 @@ public sealed class SurfaceChunkMaterializer
                 job.Stage = job.SupportOnly &&
                     _materials.FacePalettesPreserveOccupancy
                         ? ChunkMaterializationStage.VolumeStructures
-                        : ChunkMaterializationStage.DirectionalFacePalettes;
+                        : _materials.HasDirectionalFacePalettes
+                            ? ChunkMaterializationStage.DirectionalFaceExposure
+                            : ChunkMaterializationStage.VolumeStructures;
+                break;
+
+            case ChunkMaterializationStage.DirectionalFaceExposure:
+                job.DirectionalFacePaletteMetrics =
+                    BuildDirectionalFaceExposureMetadata(
+                        job.Chunk, RequiredColumn(job), RequiredDensity(job),
+                        job.OriginX, job.OriginY, job.OriginZ);
+                job.Stage = ChunkMaterializationStage.DirectionalFacePalettes;
                 break;
 
             case ChunkMaterializationStage.DirectionalFacePalettes:
-                job.DirectionalFacePaletteMetrics =
-                    MaterializeDirectionalFacePalettes(
-                        job.Chunk, RequiredColumn(job), RequiredDensity(job),
-                        job.OriginX, job.OriginY, job.OriginZ);
+                MaterializeDirectionalFacePalettes(job);
                 job.Stage = ChunkMaterializationStage.VolumeStructures;
                 break;
 
@@ -1750,13 +1757,55 @@ public sealed class SurfaceChunkMaterializer
         y << 8 |
         z << 16;
 
+    private void MaterializeDirectionalFacePalettes(
+        MaterializationJob job)
+    {
+#if DEBUG
+        var started = Stopwatch.GetTimestamp();
+#endif
+        job.Chunk.ConsumeDirectionalFaceExposures((x, y, z, exposure) =>
+        {
+            var face = exposure.Direction switch
+            {
+                DirectionalFaceDirection.Up => BiomePaletteFace.Floor,
+                DirectionalFaceDirection.NegativeX or
+                    DirectionalFaceDirection.PositiveX or
+                    DirectionalFaceDirection.NegativeZ or
+                    DirectionalFaceDirection.PositiveZ => BiomePaletteFace.Walls,
+                DirectionalFaceDirection.Down => BiomePaletteFace.Ceiling,
+                _ => throw new ArgumentOutOfRangeException(nameof(exposure.Direction)),
+            };
+            var replacement = _materials.VolumeBlockAt(
+                exposure.Owner.Biome,
+                checked(job.OriginX + x),
+                checked(job.OriginY + y),
+                checked(job.OriginZ + z),
+                face,
+                exposure.Depth);
+            job.Chunk.SetBlock(x, y, z, replacement);
+        });
+#if DEBUG
+        var applyMilliseconds =
+            Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        if (job.DirectionalFacePaletteMetrics is { } metrics)
+        {
+            job.DirectionalFacePaletteMetrics = metrics with
+            {
+                TotalMilliseconds =
+                    metrics.TotalMilliseconds + applyMilliseconds,
+                PaletteWriteEstimatedMilliseconds =
+                    metrics.PaletteWriteEstimatedMilliseconds + applyMilliseconds,
+            };
+        }
+#endif
+    }
+
     /// <summary>
-    /// Applies directional face palettes from a compact exposure-influence mask.
-    /// Occupancy rows propagate nearby empty bits toward solid candidates in
-    /// word operations; the six-ray owner/priority resolution runs only for
-    /// voxels that can actually be reached by a directional palette.
+    /// Builds per-voxel directional exposure metadata from the chunk's
+    /// authoritative terrain occupancy. The next generation stage consumes
+    /// these records to apply the resolved palette material.
     /// </summary>
-    private DirectionalFacePaletteMetrics? MaterializeDirectionalFacePalettes(
+    private DirectionalFacePaletteMetrics? BuildDirectionalFaceExposureMetadata(
         Chunk chunk,
         SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
@@ -1790,6 +1839,55 @@ public sealed class SurfaceChunkMaterializer
         long emptyOwnerTicks = 0;
         long paletteWriteTicks = 0;
 #endif
+
+        DirectionalFacePaletteMetrics CreateEmptyMetrics()
+        {
+#if DEBUG
+            var elapsed = Stopwatch.GetElapsedTime(totalStarted).TotalMilliseconds;
+#else
+            const double elapsed = 0d;
+#endif
+            return new DirectionalFacePaletteMetrics(
+#if DEBUG
+                HasTimingBreakdown: true,
+#else
+                HasTimingBreakdown: false,
+#endif
+                TimingSampleInterval: timingSampleInterval,
+                SurfaceColumns: 0,
+                SolidVoxels: 0,
+                FaceProbes: 0,
+                NeighborColumnLookups: 0,
+                SolidPaletteLookups: 0,
+                EmptyRegionPaletteLookups: 0,
+                DensityProbes: 0,
+                BoundaryDensityProbes: 0,
+                EmptyRegionOwnerResolutions: 0,
+                MaskRejectedProbes: 0,
+                EmptyRegionEligibilityRejectedProbes: 0,
+                PaletteRejectedProbes: 0,
+                DepthRejectedProbes: 0,
+                PaletteWrites: 0,
+                TotalMilliseconds: elapsed,
+                SurfaceColumnPreparationEstimatedMilliseconds: 0d,
+                SolidOwnerResolutionEstimatedMilliseconds: 0d,
+                NeighborOwnerLookupEstimatedMilliseconds: 0d,
+                DensityProbeEstimatedMilliseconds: 0d,
+                EmptyRegionOwnerResolutionEstimatedMilliseconds: 0d,
+                PaletteWriteEstimatedMilliseconds: 0d,
+                OtherEstimatedMilliseconds: elapsed);
+        }
+
+        if (chunk.NonEmptyVoxelCount == 0)
+            return CreateEmptyMetrics();
+
+        chunk.VisitBlockCells((x, y, z, cell) =>
+        {
+            if (!cell.IsEmpty && densityVolume.IsSolidAtUnchecked(x, y, z))
+                solidVoxels++;
+        });
+        if (solidVoxels == 0)
+            return CreateEmptyMetrics();
 
         var maximumPaintDepth =
             checked((int)_materials.MaximumDirectionalPaintDepth);
@@ -2181,7 +2279,7 @@ public sealed class SurfaceChunkMaterializer
             };
         }
 
-        bool TryApplyFacePalette(
+        bool TryRecordFacePaletteExposure(
             int direction,
             int distance,
             int x,
@@ -2331,11 +2429,22 @@ public sealed class SurfaceChunkMaterializer
                 ? Stopwatch.GetTimestamp()
                 : 0L;
 #endif
-            var replacement = _materials.VolumeBlockAt(
-                owner.Biome,
-                worldX, worldY, worldZ,
-                face, depth);
-            chunk.SetBlock(x, y, z, replacement);
+            var exposureDirection = direction switch
+            {
+                0 => DirectionalFaceDirection.Up,
+                1 => DirectionalFaceDirection.NegativeX,
+                2 => DirectionalFaceDirection.PositiveX,
+                3 => DirectionalFaceDirection.NegativeZ,
+                4 => DirectionalFaceDirection.PositiveZ,
+                5 => DirectionalFaceDirection.Down,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+            };
+            chunk.RecordDirectionalFaceExposure(
+                x, y, z,
+                new DirectionalFaceExposureMetadata(
+                    exposureDirection,
+                    depth,
+                    owner));
 #if DEBUG
             if (measurePaletteWrite)
                 paletteWriteTicks +=
@@ -2345,13 +2454,6 @@ public sealed class SurfaceChunkMaterializer
         }
 
         var nextCandidateDistances = new int[6];
-        solidVoxels = 0;
-        chunk.VisitBlockCells((x, y, z, cell) =>
-        {
-            if (!cell.IsEmpty && densityVolume.IsSolidAtUnchecked(x, y, z))
-                solidVoxels++;
-        });
-
         var solidOwnerProbes = 0;
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
@@ -2462,7 +2564,7 @@ public sealed class SurfaceChunkMaterializer
                     if (selectedDirection < 0)
                         break;
 
-                    if (TryApplyFacePalette(
+                    if (TryRecordFacePaletteExposure(
                             selectedDirection,
                             selectedDistance,
                             x, y, z,
