@@ -753,6 +753,164 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     };
 }
 
+object CaptureTerrainLayerGeologyModeDiagnostics()
+{
+    const int repetitions = 3;
+    var center = new ChunkCoord(
+        initialAreaDiagnostics.CenterChunkX,
+        initialAreaDiagnostics.CenterChunkY,
+        initialAreaDiagnostics.CenterChunkZ);
+    var desired = ChunkStreamingSelection
+        .DesiredSurfaceChunks(center, horizontalRadius: 2, NewGenerator())
+        .OrderBy(coord => coord.Z)
+        .ThenBy(coord => coord.X)
+        .ThenBy(coord => coord.Y)
+        .ToArray();
+    var perVoxelRuns = new List<(
+        double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)>();
+    var regionalRuns = new List<(
+        double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)>();
+
+    for (var repetition = 0; repetition < repetitions; repetition++)
+    {
+        var modes = (repetition & 1) == 0
+            ? new[] { BiomeGeologySamplingMode.PerVoxel, BiomeGeologySamplingMode.Regional }
+            : new[] { BiomeGeologySamplingMode.Regional, BiomeGeologySamplingMode.PerVoxel };
+
+        foreach (var mode in modes)
+        {
+            var registry = new BiomeRegistry(sourceBiomeDefinitions.Select(definition =>
+                definition.Geology is null
+                    ? definition
+                    : WithGeologySamplingMode(definition, mode)));
+            var generator = NewGenerator(biomeRegistry: registry);
+
+            // A separate complete pass warms this generator's bounded query
+            // caches. Only the second pass contributes to the measurements.
+            _ = CapturePass(generator, desired, capture: false);
+            var measured = CapturePass(generator, desired, capture: true);
+            if (mode == BiomeGeologySamplingMode.PerVoxel)
+                perVoxelRuns.Add(measured);
+            else
+                regionalRuns.Add(measured);
+        }
+    }
+
+    var perVoxel = Summarize(perVoxelRuns);
+    var regional = Summarize(regionalRuns);
+    return new
+    {
+        ChunkCount = desired.Length,
+        Repetitions = repetitions,
+        WarmupPassesPerRepetition = 1,
+        PerVoxel = perVoxel,
+        Regional = regional,
+        TerrainLayerTimeReductionPercent = perVoxel.MedianElapsedMs <= 0d
+            ? 0d
+            : (perVoxel.MedianElapsedMs - regional.MedianElapsedMs) *
+              100d / perVoxel.MedianElapsedMs,
+        Note = "This changes only authored geology sampling mode. Terrain occupancy, chunk coordinates and all other generation settings are held constant; output digests are checked for repeatability within each mode, not equality between modes.",
+    };
+
+    static (
+        double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)
+        CapturePass(
+            BiomeWorldGenerator generator,
+            ChunkCoord[] desired,
+            bool capture)
+    {
+        var terrainLayerMilliseconds = 0d;
+        var terrainLayerAllocatedBytes = 0L;
+        var digest = 14695981039346656037UL;
+        var solidVoxels = 0L;
+
+        foreach (var coord in desired)
+        {
+            using var job = generator.BeginMaterialization(coord);
+            while (!job.IsComplete)
+            {
+                var stage = job.ActiveWorkStage;
+                if (capture && stage == ChunkMaterializationStage.TerrainLayer)
+                {
+                    var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
+                    var startedAt = Stopwatch.GetTimestamp();
+                    job.Advance();
+                    terrainLayerMilliseconds +=
+                        Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
+                    terrainLayerAllocatedBytes +=
+                        GC.GetAllocatedBytesForCurrentThread() - beforeBytes;
+                }
+                else
+                {
+                    job.Advance();
+                }
+            }
+
+            if (!capture)
+                continue;
+
+            var chunk = job.Result ??
+                throw new InvalidOperationException(
+                    $"Chunk {coord} completed without a materialized result.");
+            digest = HashNumber(digest, unchecked((ulong)coord.X));
+            digest = HashNumber(digest, unchecked((ulong)coord.Y));
+            digest = HashNumber(digest, unchecked((ulong)coord.Z));
+            chunk.VisitBlockCells((localX, localY, localZ, cell) =>
+            {
+                digest = HashNumber(digest, (ulong)localX);
+                digest = HashNumber(digest, (ulong)localY);
+                digest = HashNumber(digest, (ulong)localZ);
+                digest = HashNumber(digest, cell.Block.Value);
+            });
+            solidVoxels += chunk.NonEmptyVoxelCount;
+        }
+
+        return (
+            terrainLayerMilliseconds,
+            terrainLayerAllocatedBytes,
+            digest,
+            solidVoxels);
+    }
+
+    static object Summarize(
+        List<(double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)> runs)
+    {
+        var elapsed = runs.Select(run => run.ElapsedMs).Order().ToArray();
+        var allocated = runs.Select(run => run.AllocatedBytes).Order().ToArray();
+        var digests = runs.Select(run => run.Digest).Distinct().ToArray();
+        var solidVoxels = runs.Select(run => run.SolidVoxels).Distinct().ToArray();
+        return new
+        {
+            MedianElapsedMs = Median(elapsed),
+            MedianAllocatedBytes = Median(allocated),
+            MinimumElapsedMs = elapsed[0],
+            MaximumElapsedMs = elapsed[^1],
+            Digests = digests,
+            DeterministicAcrossRepetitions = digests.Length == 1,
+            SolidVoxelsPerRun = solidVoxels,
+        };
+    }
+
+    static double Median(double[] sorted)
+    {
+        var middle = sorted.Length / 2;
+        return (sorted.Length & 1) == 0
+            ? (sorted[middle - 1] + sorted[middle]) / 2d
+            : sorted[middle];
+    }
+
+    static long Median(long[] sorted)
+    {
+        var middle = sorted.Length / 2;
+        return (sorted.Length & 1) == 0
+            ? (sorted[middle - 1] + sorted[middle]) / 2
+            : sorted[middle];
+    }
+}
+
+var terrainLayerGeologyModeDiagnostics =
+    CaptureTerrainLayerGeologyModeDiagnostics();
+
 var stageTimingGenerator = NewGenerator();
 var coldStageTimingDiagnostics =
     CaptureMaterializationStageTimings(stageTimingGenerator);
@@ -794,6 +952,7 @@ var result = new
         Cold = coldStageTimingDiagnostics,
         Warm = warmStageTimingDiagnostics,
     },
+    TerrainLayerGeologyModeDiagnostics = terrainLayerGeologyModeDiagnostics,
     GeologySamplingDiagnostics = geologySamplingDiagnostics,
     Notes = new[]
     {
