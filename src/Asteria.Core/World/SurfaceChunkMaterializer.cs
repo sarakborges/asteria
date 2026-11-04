@@ -738,7 +738,7 @@ public sealed class SurfaceChunkMaterializer
                             localX, localY, localZ);
                         if (faceData.HasCandidates)
                         {
-                            job.Chunk.SetDirectionalFaceDataAtLinearIndex(
+                            job.Chunk.SetInitialDirectionalFaceDataAtLinearIndex(
                                 voxelIndex, faceData, updateRevision: false);
                         }
                     }

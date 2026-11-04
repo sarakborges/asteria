@@ -81,6 +81,35 @@ public sealed class ChunkSaveCodecTests
     }
 
     [Fact]
+    public void InitialDirectionalFaceMetadataUsesFreshPaletteSlots()
+    {
+        var chunk = new Chunk();
+        const int x = 5;
+        const int y = 7;
+        const int z = 9;
+        var index = x + Chunk.Size * (z + Chunk.Size * y);
+        var baseBlock = new BlockRuntimeId(17);
+        var metadata = new DirectionalFaceVoxelData(
+            IsTerrainVoxel: true,
+            Up: 0b101,
+            NegativeX: 0b10,
+            PositiveX: 0b1000,
+            NegativeZ: 0b1,
+            PositiveZ: 0,
+            Down: 0b11,
+            BaseBlock: baseBlock);
+
+        using (var blocks = chunk.BeginInitialBlockWrites())
+            Assert.True(blocks.SetBlockAtLinearIndex(index, baseBlock));
+
+        Assert.True(chunk.SetInitialDirectionalFaceDataAtLinearIndex(
+            index, metadata, updateRevision: false));
+        Assert.False(chunk.SetInitialDirectionalFaceDataAtLinearIndex(
+            index, metadata, updateRevision: false));
+        Assert.Equal(metadata, chunk.DirectionalFaceDataAtLinearIndex(index));
+    }
+
+    [Fact]
     public void EmptyChunksRoundTripDeterministically()
     {
         var content = Content();
