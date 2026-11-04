@@ -92,7 +92,7 @@ jobs:
             --samples 2 --area-size 4 --chunks 1 \
             --output worldgen-directional-face-palette-profile.json
 
-      - name: Profile per-voxel and regional geology selection
+      - name: Profile per-voxel, regional and regional-hybrid geology selection
         run: |
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
             --seed 181960897289965 --dimension asteria:overworld \
@@ -182,6 +182,18 @@ jobs:
             --material-map-biome asteria:overworld/swamp \
             --material-map-sampling-mode regional \
             --material-map-output biome-map-geology-swamp-regional.svg
+
+      - name: Render regional-hybrid geology across representative biomes
+        run: |
+          for biome in plains swamp ocean mountains; do
+            dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+              --seed 7808508665006554090 --dimension asteria:overworld \
+              --center-x 0 --center-z 0 --samples 1 --area-size 1 \
+              --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+              --material-map-biome "asteria:overworld/${biome}" \
+              --material-map-sampling-mode regional-hybrid \
+              --material-map-output "biome-map-geology-${biome}-regional-hybrid.svg"
+          done
 
       - name: Upload worldgen query baseline
         if: always()
