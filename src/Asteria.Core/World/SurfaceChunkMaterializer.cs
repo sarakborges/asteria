@@ -486,6 +486,37 @@ public sealed class SurfaceChunkMaterializer
                 originX,
                 originY,
                 originZ);
+
+        if (!job.SupportFaceFastPath)
+        {
+            // Transpose the compact X/Z column masks into ordered candidate
+            // columns per Y. TerrainLayer can then visit only solid cells,
+            // while retaining the exact original Y/Z/X write order.
+            var candidates =
+                ArrayPool<ushort>.Shared.Rent(Chunk.Area * Chunk.Size);
+            var counts =
+                ArrayPool<ushort>.Shared.Rent(Chunk.Size);
+            Array.Clear(counts, 0, Chunk.Size);
+            for (var localZ = 0; localZ < Chunk.Size; localZ++)
+            for (var localX = 0; localX < Chunk.Size; localX++)
+            {
+                var columnIndex = localX + Chunk.Size * localZ;
+                var solidMask =
+                    densityVolume.SolidColumnMaskAtUnchecked(localX, localZ);
+                while (solidMask != 0)
+                {
+                    var localY = System.Numerics.BitOperations.TrailingZeroCount(
+                        (uint)solidMask);
+                    var rowOffset = localY * Chunk.Area;
+                    candidates[rowOffset + counts[localY]++] =
+                        checked((ushort)columnIndex);
+                    solidMask = (ushort)(solidMask & (solidMask - 1));
+                }
+            }
+
+            job.TerrainLayerCandidatesByY = candidates;
+            job.TerrainLayerCandidateCountsByY = counts;
+        }
 #if DEBUG
         var directionalPreparationStarted = Stopwatch.GetTimestamp();
 #endif
@@ -581,18 +612,27 @@ public sealed class SurfaceChunkMaterializer
             throw new InvalidOperationException("Terrain writes are already complete.");
         var directionalMasks = job.DirectionalFaceOccupancyMasks;
         var directionalCandidateColumns = directionalMasks?.CandidateColumns;
+        var terrainCandidates = job.TerrainLayerCandidatesByY;
+        var terrainCandidateCounts = job.TerrainLayerCandidateCountsByY;
+        var usesSolidCandidates =
+            terrainCandidates is not null && terrainCandidateCounts is not null;
         var localY = job.NextTerrainLocalY;
 
-            var worldY = checked(originY + localY);
-            for (var localZ = 0; localZ < Chunk.Size; localZ++)
-            {
-                for (var localX = 0; localX < Chunk.Size; localX++)
-                {
-                    var columnIndex = localX + Chunk.Size * localZ;
-                    if (job.SupportFaceFastPath &&
-                        !(job.SupportFaceColumns ?? throw new InvalidOperationException(
-                            "Support-face query has no requested-column mask."))[columnIndex])
-                        continue;
+        var worldY = checked(originY + localY);
+        var columnCount = usesSolidCandidates
+            ? terrainCandidateCounts![localY]
+            : Chunk.Area;
+        for (var ordinal = 0; ordinal < columnCount; ordinal++)
+        {
+            var columnIndex = usesSolidCandidates
+                ? terrainCandidates![localY * Chunk.Area + ordinal]
+                : ordinal;
+            var localZ = columnIndex / Chunk.Size;
+            var localX = columnIndex - localZ * Chunk.Size;
+            if (job.SupportFaceFastPath &&
+                !(job.SupportFaceColumns ?? throw new InvalidOperationException(
+                    "Support-face query has no requested-column mask."))[columnIndex])
+                continue;
 
                     ref var state = ref columnMaterializationCaches[columnIndex];
                     var sample = state.Sample ??
@@ -613,8 +653,9 @@ public sealed class SurfaceChunkMaterializer
                     if (worldY < (_floorY ?? 0) ||
                         worldY > surfaceY ||
                         worldY > (_roofY ?? int.MaxValue) ||
-                        !densityVolume.IsSolidAtUnchecked(
-                            localX, localY, localZ))
+                        (!usesSolidCandidates &&
+                         !densityVolume.IsSolidAtUnchecked(
+                             localX, localY, localZ)))
                     {
                         continue;
                     }
@@ -765,9 +806,8 @@ public sealed class SurfaceChunkMaterializer
                                 voxelIndex, faceData, updateRevision: false);
                         }
                     }
-                }
-            }
-        
+        }
+
         job.NextTerrainLocalY++;
     }
 
@@ -1458,6 +1498,10 @@ public sealed class SurfaceChunkMaterializer
 
         public ColumnMaterializationCache[]? ColumnMaterializationCaches { get; set; }
 
+        public ushort[]? TerrainLayerCandidatesByY { get; set; }
+
+        public ushort[]? TerrainLayerCandidateCountsByY { get; set; }
+
         public List<PendingGeneratedObject>? PendingObjects { get; set; }
 
         public Chunk.InitialBlockWriter? InitialBlocks { get; set; }
@@ -1494,6 +1538,19 @@ public sealed class SurfaceChunkMaterializer
                 Array.Clear(columnCaches, 0, Chunk.Area);
                 ArrayPool<ColumnMaterializationCache>.Shared.Return(
                     columnCaches, clearArray: false);
+            }
+            var terrainCandidates = TerrainLayerCandidatesByY;
+            TerrainLayerCandidatesByY = null;
+            if (terrainCandidates is not null)
+                ArrayPool<ushort>.Shared.Return(
+                    terrainCandidates, clearArray: false);
+            var terrainCandidateCounts = TerrainLayerCandidateCountsByY;
+            TerrainLayerCandidateCountsByY = null;
+            if (terrainCandidateCounts is not null)
+            {
+                Array.Clear(terrainCandidateCounts, 0, Chunk.Size);
+                ArrayPool<ushort>.Shared.Return(
+                    terrainCandidateCounts, clearArray: false);
             }
             _geologyNoiseCache?.Dispose();
             _geologyNoiseCache = null;
