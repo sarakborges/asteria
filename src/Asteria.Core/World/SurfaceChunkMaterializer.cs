@@ -1823,20 +1823,15 @@ public sealed class SurfaceChunkMaterializer
             return (ushort)bits;
         }
 
-        static ulong EmptyPrefix(ushort row, int sourceIndex, bool positive, int maxDepth)
+        static ulong EmptyOffsets(ushort row, int sourceIndex, bool positive, int maxDepth)
         {
             var solidsAhead = positive
                 ? (ulong)(row >> (sourceIndex + 1))
                 : (ulong)(Reverse16(row) >> (Chunk.Size - sourceIndex));
-            var firstSolidDistance =
-                System.Numerics.BitOperations.TrailingZeroCount(solidsAhead);
-            var length = Math.Min(maxDepth, firstSolidDistance);
-            return length switch
-            {
-                <= 0 => 0UL,
-                >= 64 => ulong.MaxValue,
-                _ => (1UL << length) - 1UL,
-            };
+            var depthMask = maxDepth == 64
+                ? ulong.MaxValue
+                : (1UL << maxDepth) - 1UL;
+            return ~solidsAhead & depthMask;
         }
 
         var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
@@ -1857,12 +1852,12 @@ public sealed class SurfaceChunkMaterializer
 
             var xRow = xRows[y * size + z];
             var zRow = zRows[y * size + x];
-            var up = EmptyPrefix(yRow, y, true, maximumDepth);
-            var negativeX = EmptyPrefix(xRow, x, false, maximumDepth);
-            var positiveX = EmptyPrefix(xRow, x, true, maximumDepth);
-            var negativeZ = EmptyPrefix(zRow, z, false, maximumDepth);
-            var positiveZ = EmptyPrefix(zRow, z, true, maximumDepth);
-            var down = EmptyPrefix(yRow, y, false, maximumDepth);
+            var up = EmptyOffsets(yRow, y, true, maximumDepth);
+            var negativeX = EmptyOffsets(xRow, x, false, maximumDepth);
+            var positiveX = EmptyOffsets(xRow, x, true, maximumDepth);
+            var negativeZ = EmptyOffsets(zRow, z, false, maximumDepth);
+            var positiveZ = EmptyOffsets(zRow, z, true, maximumDepth);
+            var down = EmptyOffsets(yRow, y, false, maximumDepth);
             if ((up | negativeX | positiveX | negativeZ | positiveZ | down) == 0)
                 continue;
 
@@ -2034,6 +2029,18 @@ public sealed class SurfaceChunkMaterializer
                 : SampleDirectionalPaletteColumnData(x, z);
         }
 
+        var faceProbes = 0;
+        foreach (var index in candidateIndices)
+        {
+            var data = chunk.DirectionalFaceDataAtLinearIndex(index);
+            faceProbes += System.Numerics.BitOperations.PopCount(data.Up);
+            faceProbes += System.Numerics.BitOperations.PopCount(data.NegativeX);
+            faceProbes += System.Numerics.BitOperations.PopCount(data.PositiveX);
+            faceProbes += System.Numerics.BitOperations.PopCount(data.NegativeZ);
+            faceProbes += System.Numerics.BitOperations.PopCount(data.PositiveZ);
+            faceProbes += System.Numerics.BitOperations.PopCount(data.Down);
+        }
+
         var writes = 0;
         foreach (var index in candidateIndices)
         {
@@ -2063,7 +2070,7 @@ public sealed class SurfaceChunkMaterializer
             TimingSampleInterval: 1,
             SurfaceColumns: Chunk.Area,
             SolidVoxels: candidateIndices.Count,
-            FaceProbes: 0,
+            FaceProbes: faceProbes,
             NeighborColumnLookups: 0,
             SolidPaletteLookups: 0,
             EmptyRegionPaletteLookups: 0,
@@ -2135,32 +2142,27 @@ public sealed class SurfaceChunkMaterializer
                     checked(edit.Position.Y - dy * distance),
                     checked(edit.Position.Z - dz * distance));
                 if (sourcePosition.Y < 0)
-                    break;
-                var address = VoxelCoordinates.FromWorld(
-                    sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
-                if (!world.TryGetSavedCell(sourcePosition, out var sourceCell))
-                    break;
-                if (sourceCell.IsEmpty)
+                    continue;
+                if (!world.TryGetSavedCell(sourcePosition, out var sourceCell) ||
+                    sourceCell.IsEmpty || sourceCell.IsPlayerPlaced)
                     continue;
 
-                // The first solid between this source and the edited cell
-                // occludes every deeper source on this axis-aligned ray.
-                if (!sourceCell.IsPlayerPlaced &&
-                    world.TryGetSavedChunk(address.Chunk, out var sourceChunk))
+                var address = VoxelCoordinates.FromWorld(
+                    sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
+                if (!world.TryGetSavedChunk(address.Chunk, out var sourceChunk))
+                    continue;
+                EnsureDirectionalFaceData(
+                    address.Chunk, world, changedSources, dirtyChunks, ensured);
+
+                var index = address.Local.X +
+                    Chunk.Size * (address.Local.Z + Chunk.Size * address.Local.Y);
+                if (sourceChunk.UpdateDirectionalFaceCandidateAtLinearIndex(
+                        index, direction, distance,
+                        edit.Current.IsEmpty, updateRevision: false))
                 {
-                    EnsureDirectionalFaceData(
-                        address.Chunk, world, changedSources, dirtyChunks, ensured);
-                    var index = address.Local.X +
-                        Chunk.Size * (address.Local.Z + Chunk.Size * address.Local.Y);
-                    if (sourceChunk.UpdateDirectionalFaceCandidateAtLinearIndex(
-                            index, direction, distance,
-                            edit.Current.IsEmpty, updateRevision: false))
-                    {
-                        changedSources.Add((address.Chunk, index));
-                        dirtyChunks.Add(address.Chunk);
-                    }
+                    changedSources.Add((address.Chunk, index));
+                    dirtyChunks.Add(address.Chunk);
                 }
-                break;
             }
         }
         return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks);
@@ -2187,19 +2189,13 @@ public sealed class SurfaceChunkMaterializer
 
         for (var tangentA = 0; tangentA < Chunk.Size; tangentA++)
         for (var tangentB = 0; tangentB < Chunk.Size; tangentB++)
+        for (var sourceDepth = 0; sourceDepth < Chunk.Size; sourceDepth++)
         {
-            var sourceDepth = 0;
-            var sourceLocal = default(LocalVoxelCoord);
-            VoxelCell sourceCell = VoxelCell.Empty;
-            for (; sourceDepth < Chunk.Size; sourceDepth++)
-            {
-                sourceLocal = BoundaryLocal(axis, sign, sourceDepth, tangentA, tangentB);
-                sourceCell = sourceChunk.GetCell(
-                    sourceLocal.X, sourceLocal.Y, sourceLocal.Z);
-                if (!sourceCell.IsEmpty)
-                    break;
-            }
-            if (sourceDepth >= Chunk.Size || sourceCell.IsPlayerPlaced)
+            var sourceLocal = BoundaryLocal(
+                axis, sign, sourceDepth, tangentA, tangentB);
+            var sourceCell = sourceChunk.GetCell(
+                sourceLocal.X, sourceLocal.Y, sourceLocal.Z);
+            if (sourceCell.IsEmpty || sourceCell.IsPlayerPlaced)
                 continue;
 
             var sourcePosition = new WorldVoxelCoord(
@@ -2208,24 +2204,21 @@ public sealed class SurfaceChunkMaterializer
                 origin.Z + sourceLocal.Z);
             var sourceIndex = sourceLocal.X +
                 Chunk.Size * (sourceLocal.Z + Chunk.Size * sourceLocal.Y);
-            var occluded = false;
 
+            // Reconcile all offsets independently. The original directional
+            // scan skipped solid offsets and continued to later empty cells.
             for (var distance = sourceDepth + 1; distance <= maximumDepth; distance++)
             {
                 var targetPosition = new WorldVoxelCoord(
                     checked(sourcePosition.X + dx * distance),
                     checked(sourcePosition.Y + dy * distance),
                     checked(sourcePosition.Z + dz * distance));
-                var exposed = false;
-                if (!occluded)
-                {
-                    if (!world.TryGetSavedCell(targetPosition, out var targetCell))
-                        break;
-                    exposed = targetCell.IsEmpty;
-                    occluded = !exposed;
-                }
+                if (!world.TryGetSavedCell(targetPosition, out var targetCell))
+                    continue;
+
                 if (sourceChunk.UpdateDirectionalFaceCandidateAtLinearIndex(
-                        sourceIndex, direction, distance, exposed, updateRevision: false))
+                        sourceIndex, direction, distance,
+                        targetCell.IsEmpty, updateRevision: false))
                 {
                     changedSources.Add((sourceCoord, sourceIndex));
                     dirtyChunks.Add(sourceCoord);

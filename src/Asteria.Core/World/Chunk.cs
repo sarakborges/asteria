@@ -422,6 +422,9 @@ public sealed class Chunk
             Revision++;
     }
 
+    internal void SetDirectionalFaceDataInitialized(bool initialized) =>
+        _directionalFaceDataInitialized = initialized;
+
     internal void MarkDirectionalFaceDataChanged()
     {
         _directionalFaceDataInitialized = true;

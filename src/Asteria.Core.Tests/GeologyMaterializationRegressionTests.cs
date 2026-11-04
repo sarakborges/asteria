@@ -191,14 +191,8 @@ public sealed class GeologyMaterializationRegressionTests
             new BiomeWorldGenerator(Seed, dimension, blocks, biomes),
             coordinates.Reverse());
 
-        Assert.True(first.BoundaryProbes > 0,
-            "The fixture must exercise horizontal boundary density probes.");
-        var unsharedBoundaryProbeUpperBound =
-            coordinates.Length * 6 * 3 * Chunk.Area;
-        Assert.True(
-            first.BoundaryProbes < unsharedBoundaryProbeUpperBound,
-            $"Adjacent chunks did not reuse occupancy masks: " +
-            $"{first.BoundaryProbes}/{unsharedBoundaryProbeUpperBound} boundary samples.");
+        Assert.Equal(0, first.BoundaryProbes,
+            "Directional face exposure is stored in per-voxel masks; no boundary density probes are needed.");
         Assert.Equal(coordinates.Length, first.Digests.Count);
         Assert.Equal(coordinates.Length, second.Digests.Count);
         foreach (var coord in coordinates)
@@ -486,8 +480,8 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.Equal(Chunk.Area, firstMetrics.SurfaceColumns);
         Assert.True(firstMetrics.SolidVoxels > 0);
         Assert.True(firstMetrics.FaceProbes > 0);
-        Assert.True(firstMetrics.DensityProbes > 0);
-        Assert.True(firstMetrics.BoundaryDensityProbes <= firstMetrics.DensityProbes);
+        Assert.Equal(0, firstMetrics.DensityProbes);
+        Assert.Equal(0, firstMetrics.BoundaryDensityProbes);
         Assert.InRange(firstMetrics.PaletteWrites, 0, firstMetrics.FaceProbes);
 
         Assert.Equal(firstMetrics.SurfaceColumns, secondMetrics.SurfaceColumns);

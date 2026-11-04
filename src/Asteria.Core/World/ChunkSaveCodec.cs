@@ -356,7 +356,7 @@ public static class ChunkSaveCodec
                 if (version == 5)
                     chunk.MarkDirectionalFaceDataInitialized(updateRevision: false);
                 else if (version >= 6)
-                    chunk.MarkDirectionalFaceDataInitialized(reader.ReadBoolean());
+                    chunk.SetDirectionalFaceDataInitialized(reader.ReadBoolean());
             }
 
             if (stream.Position != stream.Length)
