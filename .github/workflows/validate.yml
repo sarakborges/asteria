@@ -226,7 +226,9 @@ jobs:
             src/Asteria.Core/World/SurfaceTerrainField.cs \
             src/Asteria.Core/World/BiomeSurfaceMaterialField.cs \
             src/Asteria.Core/World/BiomeField.cs \
-            src/Asteria.Core/World/BiomeWorldGenerator.cs)"
+            src/Asteria.Core/World/BiomeWorldGenerator.cs \
+            src/Asteria.Core/World/VolumeStructureField.cs \
+            src/Asteria.Core/World/VolumeBiomeField.cs)"
           if [ -z "$terrain_commit" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
             echo "No terrain materialization changes found in the pull-request history."
