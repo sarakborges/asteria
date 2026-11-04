@@ -394,7 +394,26 @@ public sealed class CaveSpikeField
             return true;
 
         var index = SpacingCacheIndex(x, z, radius);
-        lock (_spacingPriorityLocks[index & (SpacingCacheLockCount - 1)])
+        var gate = _spacingPriorityLocks[
+            index & (SpacingCacheLockCount - 1)];
+
+        lock (gate)
+        {
+            ref var entry = ref _spacingPriorities[index];
+            if (entry.IsValid &&
+                entry.X == x &&
+                entry.Z == z &&
+                entry.Radius == radius)
+            {
+                return entry.Value;
+            }
+        }
+
+        // Do not serialize independent cache misses behind a stripe lock.
+        // Competing misses may repeat the same deterministic calculation;
+        // publishing either answer is equivalent and only affects eviction.
+        var value = HasSpacingPriorityUncached(x, z, radius);
+        lock (gate)
         {
             ref var entry = ref _spacingPriorities[index];
             if (entry.IsValid &&
@@ -405,10 +424,10 @@ public sealed class CaveSpikeField
                 return entry.Value;
             }
 
-            var value = HasSpacingPriorityUncached(x, z, radius);
             entry = new SpacingPriorityEntry(x, z, radius, value);
-            return value;
         }
+
+        return value;
     }
 
     private static object[] CreateSpacingPriorityLocks()
