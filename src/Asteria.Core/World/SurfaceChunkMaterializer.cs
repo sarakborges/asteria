@@ -65,7 +65,9 @@ public sealed class SurfaceChunkMaterializer
             _candidateColumns = candidateColumns;
         }
 
-        public DirectionalFaceVoxelData At(int x, int y, int z)
+        public ushort[] CandidateColumns => _candidateColumns;
+
+        public DirectionalFaceVoxelData AtCandidate(int x, int y, int z)
         {
             if ((uint)x >= Chunk.Size ||
                 (uint)y >= Chunk.Size ||
@@ -74,9 +76,6 @@ public sealed class SurfaceChunkMaterializer
             if (_maximumDepth == 0)
                 return default;
             var columnIndex = z * Chunk.Size + x;
-            if ((_candidateColumns[columnIndex] & (1u << y)) == 0)
-                return default;
-
             var ySourceIndex = _maximumDepth + y;
             var yRowOffset = columnIndex * _wordCount;
 
@@ -560,6 +559,8 @@ public sealed class SurfaceChunkMaterializer
             throw new InvalidOperationException("Materialization column cache is missing.");
         var initialBlocks = job.InitialBlocks ??
             throw new InvalidOperationException("Terrain writes are already complete.");
+        var directionalMasks = job.DirectionalFaceOccupancyMasks;
+        var directionalCandidateColumns = directionalMasks?.CandidateColumns;
         var localY = job.NextTerrainLocalY;
 
             var worldY = checked(originY + localY);
@@ -732,9 +733,11 @@ public sealed class SurfaceChunkMaterializer
                     var voxelIndex = columnIndex + Chunk.Area * localY;
                     if (initialBlocks.SetBlockAtLinearIndex(voxelIndex, block) &&
                         !block.IsAir &&
-                        job.DirectionalFaceOccupancyMasks is { } directionalMasks)
+                        directionalMasks is not null &&
+                        directionalCandidateColumns is { } candidateColumns &&
+                        (candidateColumns[columnIndex] & (1u << localY)) != 0)
                     {
-                        var faceData = directionalMasks.At(
+                        var faceData = directionalMasks.AtCandidate(
                             localX, localY, localZ);
                         if (faceData.HasCandidates)
                         {
@@ -1968,7 +1971,7 @@ public sealed class SurfaceChunkMaterializer
                 Array.Empty<ulong>(),
                 Array.Empty<ulong>(),
                 Array.Empty<ulong>(),
-                Array.Empty<ushort>());
+                new ushort[Chunk.Area]);
         }
 
         var regionSize = checked(size + maximumDepth * 2);
