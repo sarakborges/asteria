@@ -260,7 +260,6 @@ internal static class WorldGenerationEntropy
         private readonly int _latticeDepth;
         private readonly double[] _xInterpolatedColumn;
         private int _cachedLocalX = -1;
-        private int _cachedLocalZ = -1;
 
         public ValueNoise3DGridSampler(
             ulong seed,
@@ -325,8 +324,8 @@ internal static class WorldGenerationEntropy
                 throw new ArgumentOutOfRangeException(nameof(localX));
             }
 
-            if (_cachedLocalX != localX || _cachedLocalZ != localZ)
-                PrepareXInterpolatedColumn(localX, localZ);
+            if (_cachedLocalX != localX)
+                PrepareXInterpolatedColumn(localX);
 
             var y = _y[localY];
             var z = _z[localZ];
@@ -346,8 +345,11 @@ internal static class WorldGenerationEntropy
             return Lerp(firstZ, secondZ, z.Blend);
         }
 
-        private void PrepareXInterpolatedColumn(int localX, int localZ)
+        private void PrepareXInterpolatedColumn(int localX)
         {
+            // X interpolation is independent of the requested local Z. Keep
+            // it across every Z column in this batch, especially for the
+            // one-column-wide horizontal boundary reads.
             var x = _x[localX];
             var x0 = x.Lower;
             var x1 = x0 + 1;
@@ -367,7 +369,6 @@ internal static class WorldGenerationEntropy
             }
 
             _cachedLocalX = localX;
-            _cachedLocalZ = localZ;
         }
 
         private double Lattice(int x, int y, int z) =>
