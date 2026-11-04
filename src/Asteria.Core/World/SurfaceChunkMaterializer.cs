@@ -1833,6 +1833,8 @@ public sealed class SurfaceChunkMaterializer
 
         densityProbes = 0;
         boundaryDensityProbes = 0;
+        var densityProbeCount = 0;
+        var boundaryDensityProbeCount = 0;
         var result = new DirectionalFaceVoxelData[Chunk.Volume];
         if (maximumDepth == 0)
             return result;
@@ -1864,8 +1866,8 @@ public sealed class SurfaceChunkMaterializer
                     worldX, originY, worldZ, out var cacheHit);
                 if (!cacheHit)
                 {
-                    densityProbes += size;
-                    boundaryDensityProbes += size;
+                    densityProbeCount += size;
+                    boundaryDensityProbeCount += size;
                 }
                 xBoundaryMasks[index] = mask;
                 xBoundaryMasksReady[index] = true;
@@ -1887,8 +1889,8 @@ public sealed class SurfaceChunkMaterializer
                     worldX, originY, worldZ, out var cacheHit);
                 if (!cacheHit)
                 {
-                    densityProbes += size;
-                    boundaryDensityProbes += size;
+                    densityProbeCount += size;
+                    boundaryDensityProbeCount += size;
                 }
                 zBoundaryMasks[index] = mask;
                 zBoundaryMasksReady[index] = true;
@@ -1927,8 +1929,8 @@ public sealed class SurfaceChunkMaterializer
                     {
                         solid = _terrain.DensityAt(
                             biome, baseY, worldX, worldY, worldZ, volumeBiome) >= 0d;
-                        densityProbes++;
-                        boundaryDensityProbes++;
+                        densityProbeCount++;
+                        boundaryDensityProbeCount++;
                     }
                 }
 
@@ -2065,6 +2067,8 @@ public sealed class SurfaceChunkMaterializer
                 BlockRuntimeId.Air);
         }
 
+        densityProbes = densityProbeCount;
+        boundaryDensityProbes = boundaryDensityProbeCount;
         return result;
     }
 
