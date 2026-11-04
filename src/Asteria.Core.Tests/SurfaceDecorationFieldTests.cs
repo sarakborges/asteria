@@ -5,6 +5,41 @@ namespace Asteria.Core.Tests;
 public sealed class SurfaceDecorationFieldTests
 {
     [Fact]
+    public void SurfacePlacementCandidateIndexFiltersUnsupportedSurfaceBlocks()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:block_grass"),
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:pebble"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plains",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(0, 0, 64, 0, 32),
+            [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
+            decorations:
+            [
+                new BiomeDecorationDefinition(
+                    "asteria:pebble", 1f, ["asteria:block_grass"]),
+            ]);
+        var field = new SurfaceDecorationField(71, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var grass = blocks.GetId("asteria:block_grass");
+        var stone = blocks.GetId("asteria:stone");
+
+        Assert.True(field.HasSurfacePlacementCandidates(
+            sample, grass, requireObject: false, onFluidSurface: false));
+        Assert.False(field.HasSurfacePlacementCandidates(
+            sample, stone, requireObject: false, onFluidSurface: false));
+        Assert.False(field.HasSurfacePlacementCandidates(
+            sample, grass, requireObject: true, onFluidSurface: false));
+        Assert.False(field.HasSurfacePlacementCandidates(
+            sample, grass, requireObject: false, onFluidSurface: true));
+    }
+
+    [Fact]
     public void ClusteredDecorationsAreDeterministicAndStayOnAllowedSurfaces()
     {
         var blocks = new BlockRegistry(
