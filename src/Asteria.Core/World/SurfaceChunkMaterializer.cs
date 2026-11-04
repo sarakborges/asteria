@@ -2162,68 +2162,159 @@ public sealed class SurfaceChunkMaterializer
         var solidPalette = _materials.DirectionalPaletteFor(solidOwner);
 
         var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
-        for (var distance = 1; distance <= maximumDepth; distance++)
-        {
-            var bit = 1UL << (distance - 1);
-            for (var direction = 0; direction < 6; direction++)
-            {
-                if ((data.Candidates((DirectionalFaceDirection)direction) & bit) == 0)
-                    continue;
-                var dx = direction switch { 1 => -(int)distance, 2 => (int)distance, _ => 0 };
-                var dy = direction switch { 0 => (int)distance, 5 => -(int)distance, _ => 0 };
-                var dz = direction switch { 3 => -(int)distance, 4 => (int)distance, _ => 0 };
-                var neighborY = worldY + dy;
-                if (neighborY < 0)
-                    continue;
-                var face = direction switch
-                {
-                    0 => BiomePaletteFace.Floor,
-                    1 or 2 or 3 or 4 => BiomePaletteFace.Walls,
-                    5 => BiomePaletteFace.Ceiling,
-                    _ => throw new ArgumentOutOfRangeException(nameof(direction)),
-                };
-                var targetColumn = columnAt(worldX + dx, worldZ + dz);
-                var emptyPalette = targetColumn.EmptyRegionPalette;
-                var shellBoundary = false;
-                var emptyCanOwn =
-                    emptyPalette.Has(face) &&
-                    targetColumn.EmptyRegionBiome is not null &&
-                    neighborY > 0 &&
-                    (long)neighborY <= (long)targetColumn.BaseY - targetColumn.SurfaceFluidCutDepth;
-                if (emptyCanOwn)
-                {
-                    shellBoundary = IsSphereShellBoundaryOrLining(neighborY);
-                    emptyCanOwn = !shellBoundary;
-                }
-                if (!solidPalette.Has(face) && !emptyCanOwn)
-                    continue;
+        if (maximumDepth == 0)
+            return false;
 
-                var owner = solidOwner;
-                var palette = solidPalette;
-                if (emptyCanOwn)
-                {
-                    var resolved = SurfaceTerrainField.ResolveRegionOwner(
-                        targetColumn.SurfaceBiome,
-                        additiveVolumeBiome: null,
-                        emptyRegionVolumeBiome: targetColumn.EmptyRegionBiome,
-                        baseY: targetColumn.BaseY,
-                        surfaceFluidCutDepth: targetColumn.SurfaceFluidCutDepth,
-                        worldY: neighborY,
-                        isEmpty: true,
-                        isSphereShellBoundaryOrLining: shellBoundary);
-                    if (resolved.Kind == BiomeRegionOwnerKind.Volume)
-                    {
-                        owner = resolved;
-                        palette = emptyPalette;
-                    }
-                }
-                var depth = checked((uint)distance - 1u);
-                if (!palette.Has(face) || depth >= palette.MaxDepth)
-                    continue;
-                var replacement = _materials.VolumeBlockAt(
-                    owner.Biome, worldX, worldY, worldZ, face, depth);
-                return chunk.SetDirectionalFacePaletteBlockAtLinearIndex(index, replacement);
+        var up = data.Up;
+        var negativeX = data.NegativeX;
+        var positiveX = data.PositiveX;
+        var negativeZ = data.NegativeZ;
+        var positiveZ = data.PositiveZ;
+        var down = data.Down;
+        var depthMask = maximumDepth == 64
+            ? ulong.MaxValue
+            : (1UL << maximumDepth) - 1UL;
+
+        static int FirstCandidateDistance(ulong candidates, ulong validDepthMask)
+        {
+            candidates &= validDepthMask;
+            return candidates == 0
+                ? int.MaxValue
+                : System.Numerics.BitOperations.TrailingZeroCount(candidates) + 1;
+        }
+
+        while (true)
+        {
+            var nearestDistance = int.MaxValue;
+            var direction = -1;
+
+            // Strict comparison intentionally preserves the legacy tie order:
+            // Up, -X, +X, -Z, +Z, Down.
+            var candidateDistance = FirstCandidateDistance(up, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 0;
             }
+            candidateDistance = FirstCandidateDistance(negativeX, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 1;
+            }
+            candidateDistance = FirstCandidateDistance(positiveX, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 2;
+            }
+            candidateDistance = FirstCandidateDistance(negativeZ, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 3;
+            }
+            candidateDistance = FirstCandidateDistance(positiveZ, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 4;
+            }
+            candidateDistance = FirstCandidateDistance(down, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 5;
+            }
+
+            if (direction < 0)
+                return false;
+
+            var distance = nearestDistance;
+            var candidateBit = 1UL << (distance - 1);
+            switch (direction)
+            {
+                case 0: up &= ~candidateBit; break;
+                case 1: negativeX &= ~candidateBit; break;
+                case 2: positiveX &= ~candidateBit; break;
+                case 3: negativeZ &= ~candidateBit; break;
+                case 4: positiveZ &= ~candidateBit; break;
+                case 5: down &= ~candidateBit; break;
+                default: throw new ArgumentOutOfRangeException(nameof(direction));
+            }
+
+            var dx = direction switch
+            {
+                1 => -distance,
+                2 => distance,
+                _ => 0,
+            };
+            var dy = direction switch
+            {
+                0 => distance,
+                5 => -distance,
+                _ => 0,
+            };
+            var dz = direction switch
+            {
+                3 => -distance,
+                4 => distance,
+                _ => 0,
+            };
+            var neighborY = worldY + dy;
+            if (neighborY < 0)
+                continue;
+
+            var face = direction switch
+            {
+                0 => BiomePaletteFace.Floor,
+                1 or 2 or 3 or 4 => BiomePaletteFace.Walls,
+                5 => BiomePaletteFace.Ceiling,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+            };
+            var targetColumn = columnAt(worldX + dx, worldZ + dz);
+            var emptyPalette = targetColumn.EmptyRegionPalette;
+            var shellBoundary = false;
+            var emptyCanOwn =
+                emptyPalette.Has(face) &&
+                targetColumn.EmptyRegionBiome is not null &&
+                neighborY > 0 &&
+                (long)neighborY <= (long)targetColumn.BaseY - targetColumn.SurfaceFluidCutDepth;
+            if (emptyCanOwn)
+            {
+                shellBoundary = IsSphereShellBoundaryOrLining(neighborY);
+                emptyCanOwn = !shellBoundary;
+            }
+            if (!solidPalette.Has(face) && !emptyCanOwn)
+                continue;
+
+            var owner = solidOwner;
+            var palette = solidPalette;
+            if (emptyCanOwn)
+            {
+                var resolved = SurfaceTerrainField.ResolveRegionOwner(
+                    targetColumn.SurfaceBiome,
+                    additiveVolumeBiome: null,
+                    emptyRegionVolumeBiome: targetColumn.EmptyRegionBiome,
+                    baseY: targetColumn.BaseY,
+                    surfaceFluidCutDepth: targetColumn.SurfaceFluidCutDepth,
+                    worldY: neighborY,
+                    isEmpty: true,
+                    isSphereShellBoundaryOrLining: shellBoundary);
+                if (resolved.Kind == BiomeRegionOwnerKind.Volume)
+                {
+                    owner = resolved;
+                    palette = emptyPalette;
+                }
+            }
+
+            var depth = checked((uint)distance - 1u);
+            if (!palette.Has(face) || depth >= palette.MaxDepth)
+                continue;
+
+            var replacement = _materials.VolumeBlockAt(
+                owner.Biome, worldX, worldY, worldZ, face, depth);
+            return chunk.SetDirectionalFacePaletteBlockAtLinearIndex(index, replacement);
         }
         return false;
     }
