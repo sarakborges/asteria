@@ -12,6 +12,7 @@ public sealed class SurfaceDecorationFieldTests
             new BlockDefinition("asteria:block_grass"),
             new BlockDefinition("asteria:stone"),
             new BlockDefinition("asteria:pebble"),
+            new BlockDefinition("asteria:stick"),
         ]);
         var biome = new BiomeDefinition(
             "asteria:test/plains",
@@ -22,6 +23,9 @@ public sealed class SurfaceDecorationFieldTests
             [
                 new BiomeDecorationDefinition(
                     "asteria:pebble", 1f, ["asteria:block_grass"]),
+                new BiomeDecorationDefinition(
+                    "asteria:stick", 1f, ["asteria:block_grass"],
+                    isObject: true),
             ]);
         var field = new SurfaceDecorationField(71, [biome], blocks);
         var sample = new BiomeSample(
