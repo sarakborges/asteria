@@ -3560,24 +3560,26 @@ public sealed class SurfaceChunkMaterializer
             if (biome is null || !spikes.HasRulesFor(biome.Primary))
                 continue;
 
-            // A generated spike must occupy empty density inside this
-            // chunk. A fully solid column has no contributing formation
-            // even if an anchor in a neighboring vertical chunk qualifies.
-            var containsVoid = false;
-            for (var localY = 0; localY < Chunk.Size; localY++)
-            {
-                // Sky above the surface and gaps in additive masses are
-                // not cave space. Only a carved void below the base surface
-                // could contain a generated cave spike.
-                if (originY + localY < baseY &&
-                    !densityVolume.IsSolidAtUnchecked(x, localY, z))
-                {
-                    containsVoid = true;
-                    break;
-                }
-            }
-            if (!containsVoid)
+            // The density snapshot stores the complete vertical occupancy
+            // of this column as one bit mask. Bits below the base surface
+            // identify whether this column contains any cave void; adjacent
+            // solid bits identify the only interior Y values that can anchor
+            // a spike. Chunk-edge anchors remain eligible because their
+            // supporting voxel may live in the neighboring chunk.
+            var solidColumnMask =
+                densityVolume.SolidColumnMaskAtUnchecked(x, z);
+            var belowSurfaceHeight = (int)Math.Clamp(
+                (long)baseY - originY, 0L, Chunk.Size);
+            var belowSurfaceMask = (1u << belowSurfaceHeight) - 1u;
+            if ((~(uint)solidColumnMask & belowSurfaceMask) == 0u)
                 continue;
+
+            var supportedInteriorMask =
+                ((uint)solidColumnMask << 1) |
+                ((uint)solidColumnMask >> 1);
+            var candidateAnchorMask = (ushort)(
+                ~(uint)solidColumnMask &
+                (supportedInteriorMask | 0x8001u));
 
             var worldX = originX + x;
             var worldZ = originZ + z;
@@ -3585,13 +3587,13 @@ public sealed class SurfaceChunkMaterializer
             var volumeBiome = densityVolume.VolumePlacementAt(x, z);
             for (var anchorY = first; anchorY <= last; anchorY++)
             {
-                // TrySample rejects a non-void anchor before producing any
-                // placement: IsVoid(anchorY) is its first density check.
-                // When the anchor is inside this chunk, reuse the already
-                // sampled density and skip both direction probes immediately.
+                // An interior cave spike must touch a solid voxel directly
+                // above or below. Reject unsupported void anchors before
+                // hashing placement chance, spacing or cluster noise.
+                // Keep both chunk-edge planes for cross-chunk support checks.
                 var localAnchorY = anchorY - originY;
                 if ((uint)localAnchorY < Chunk.Size &&
-                    densityVolume.IsSolidAtUnchecked(x, localAnchorY, z))
+                    (candidateAnchorMask & (1u << localAnchorY)) == 0)
                     continue;
 
                 for (var direction = 0; direction < 2; direction++)
