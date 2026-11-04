@@ -120,6 +120,36 @@ public sealed class ChunkSaveCodecTests
     }
 
     [Fact]
+    public void DirectionalFaceVoxelMetadataRoundTripsWithOriginalPaletteBlock()
+    {
+        var content = Content();
+        var chunk = new Chunk();
+        var index = 4 + Chunk.Size * (6 + Chunk.Size * 8);
+        var original = content.Blocks.GetId("asteria:stone");
+        var palette = content.Blocks.GetId("asteria:basalt");
+        Assert.True(chunk.SetBlock(4, 8, 6, palette));
+
+        var metadata = new DirectionalFaceVoxelData(
+            IsTerrainVoxel: true,
+            Up: 0b101,
+            NegativeX: 0b10,
+            PositiveX: 0b1000,
+            NegativeZ: 0b1,
+            PositiveZ: 0,
+            Down: 0b11,
+            BaseBlock: original);
+        chunk.SetDirectionalFaceDataAtLinearIndex(index, metadata);
+        chunk.MarkDirectionalFaceDataInitialized();
+
+        var encoded = Encode(chunk, content);
+        var restored = Decode(encoded, content);
+
+        Assert.Equal(metadata, restored.DirectionalFaceDataAtLinearIndex(index));
+        Assert.True(restored.DirectionalFaceDataInitialized);
+        Assert.Equal(encoded, Encode(restored, content));
+    }
+
+    [Fact]
     public void RejectsTruncationCorruptionAndMissingContent()
     {
         var source = Content();

@@ -345,18 +345,18 @@ public static class ChunkSaveCodec
                     if (hasBaseBlock &&
                         !blocks.TryGetId(reader.ReadString(), out baseBlock))
                         throw new InvalidDataException("Unknown base block in directional metadata.");
-                    var data = new DirectionalFaceVoxelData(
+                    var faceData = new DirectionalFaceVoxelData(
                         true, up, negativeX, positiveX, negativeZ, positiveZ, down, baseBlock);
                     var (x, y, z) = Position(index);
                     if (chunk.GetCell(x, y, z).IsEmpty)
                         throw new InvalidDataException("Directional metadata references an empty voxel.");
-                    chunk.SetDirectionalFaceDataAtLinearIndex(index, data, updateRevision: false);
+                    chunk.SetDirectionalFaceDataAtLinearIndex(index, faceData, updateRevision: false);
                 }
 
                 if (version == 5)
                     chunk.MarkDirectionalFaceDataInitialized(updateRevision: false);
                 else if (version >= 6)
-                    chunk.MarkDirectionalFaceDataInitialized(reader.ReadBoolean());
+                    chunk.SetDirectionalFaceDataInitialized(reader.ReadBoolean());
             }
 
             if (stream.Position != stream.Length)

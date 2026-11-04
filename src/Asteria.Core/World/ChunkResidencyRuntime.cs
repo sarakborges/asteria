@@ -143,6 +143,8 @@ public sealed class ChunkResidencyRuntime
     private readonly FluidRegistry _fluids;
     private readonly PackContentRegistry<ObjectDefinition>? _objects;
     private readonly IChunkProvider _chunkProvider;
+    private readonly IChunkDirectionalFacePaletteUpdater? _directionalFacePaletteUpdater;
+    private bool _directionalFacePaletteEventsAttached;
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates;
@@ -224,6 +226,14 @@ public sealed class ChunkResidencyRuntime
             settings ??
             throw new ArgumentNullException(nameof(settings));
         _objects = objects;
+        _directionalFacePaletteUpdater =
+            chunkProvider as IChunkDirectionalFacePaletteUpdater;
+        if (_directionalFacePaletteUpdater is not null)
+        {
+            _world.ChunkBecameResident += HandleDirectionalFaceChunkArrival;
+            _world.BlockCellChanged += HandleDirectionalFaceBlockEdit;
+            _directionalFacePaletteEventsAttached = true;
+        }
     }
 
     public ChunkCoord Center => _center;
@@ -259,8 +269,42 @@ public sealed class ChunkResidencyRuntime
     /// Stops admitting new chunks. Bounded in-flight materializations are
     /// drained by the owning session and their private results are discarded.
     /// </summary>
-    public void BeginRetirement() =>
+    public void BeginRetirement()
+    {
         _acceptingMaterializationWork = false;
+        if (!_directionalFacePaletteEventsAttached)
+            return;
+        _world.ChunkBecameResident -= HandleDirectionalFaceChunkArrival;
+        _world.BlockCellChanged -= HandleDirectionalFaceBlockEdit;
+        _directionalFacePaletteEventsAttached = false;
+    }
+
+    private void HandleDirectionalFaceChunkArrival(ChunkCoord coord)
+    {
+        if (_directionalFacePaletteUpdater is null)
+            return;
+        EnqueueDirectionalFaceVisualChanges(
+            _directionalFacePaletteUpdater.ReconcileChunkArrival(_world, coord));
+    }
+
+    private void HandleDirectionalFaceBlockEdit(VoxelWorldEdit edit)
+    {
+        if (_directionalFacePaletteUpdater is null ||
+            edit.Previous.IsEmpty == edit.Current.IsEmpty)
+            return;
+        EnqueueDirectionalFaceVisualChanges(
+            _directionalFacePaletteUpdater.ReconcileBlockCellChange(_world, edit));
+    }
+
+    private void EnqueueDirectionalFaceVisualChanges(
+        IReadOnlyList<WorldVoxelCoord> positions)
+    {
+        foreach (var position in positions)
+        {
+            _terrainContentRevisions.BumpVoxelEdit(_world, position);
+            _worldUpdates.EnqueueSurfaceEdit(_world, position);
+        }
+    }
 
     public int PresentationPendingCount =>
         _streaming.PresentationPendingCount;

@@ -192,7 +192,7 @@ public sealed class GeologyMaterializationRegressionTests
             coordinates.Reverse());
 
         Assert.True(first.BoundaryProbes > 0,
-            "The fixture must exercise horizontal boundary density probes.");
+            "The fixture must exercise horizontal boundary occupancy masks.");
         var unsharedBoundaryProbeUpperBound =
             coordinates.Length * 6 * 3 * Chunk.Area;
         Assert.True(
@@ -487,6 +487,7 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.True(firstMetrics.SolidVoxels > 0);
         Assert.True(firstMetrics.FaceProbes > 0);
         Assert.True(firstMetrics.DensityProbes > 0);
+        Assert.True(firstMetrics.BoundaryDensityProbes > 0);
         Assert.True(firstMetrics.BoundaryDensityProbes <= firstMetrics.DensityProbes);
         Assert.InRange(firstMetrics.PaletteWrites, 0, firstMetrics.FaceProbes);
 
