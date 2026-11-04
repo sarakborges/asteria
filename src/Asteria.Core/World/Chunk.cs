@@ -47,6 +47,7 @@ public sealed class Chunk
     private Dictionary<int, BlockSurfaceState>? _surfaceStates;
     private Dictionary<int, List<ObjectCell>>? _objects;
     private PaletteStorage<DirectionalFaceVoxelData>? _directionalFaceData;
+    private bool _directionalFaceDataInitialized;
     private readonly VoxelLight[] _light;
 
     /// <summary>
@@ -164,6 +165,7 @@ public sealed class Chunk
         Dictionary<int, BlockSurfaceState>? surfaceStates,
         Dictionary<int, List<ObjectCell>>? objects,
         PaletteStorage<DirectionalFaceVoxelData>? directionalFaceData,
+        bool directionalFaceDataInitialized,
         VoxelLight[] light,
         ulong revision,
         ulong objectRevision)
@@ -174,6 +176,7 @@ public sealed class Chunk
         _surfaceStates = surfaceStates;
         _objects = objects;
         _directionalFaceData = directionalFaceData;
+        _directionalFaceDataInitialized = directionalFaceDataInitialized;
         _light = light;
         Revision = revision;
         ObjectRevision = objectRevision;
@@ -339,16 +342,31 @@ public sealed class Chunk
     }
 
     internal bool UpdateDirectionalFaceCandidateAtLinearIndex(
-        int index, DirectionalFaceDirection direction, int distance, bool exposed)
+        int index,
+        DirectionalFaceDirection direction,
+        int distance,
+        bool exposed,
+        bool updateRevision = true)
     {
-        if (distance is < 1 or > 64) throw new ArgumentOutOfRangeException(nameof(distance));
+        if (distance is < 1 or > 64)
+            throw new ArgumentOutOfRangeException(nameof(distance));
         var data = DirectionalFaceDataAtLinearIndex(index);
-        if (!data.IsTerrainVoxel) return false;
+        if (!data.IsTerrainVoxel)
+        {
+            var source = _cells.Get(index);
+            if (source.IsEmpty || source.IsPlayerPlaced)
+                return false;
+            data = new DirectionalFaceVoxelData(
+                true, 0, 0, 0, 0, 0, 0, BlockRuntimeId.Air);
+        }
         var bit = 1UL << (distance - 1);
         var oldMask = data.Candidates(direction);
         var nextMask = exposed ? oldMask | bit : oldMask & ~bit;
-        if (oldMask == nextMask) return false;
-        SetDirectionalFaceDataAtLinearIndex(index, data.WithCandidates(direction, nextMask));
+        if (oldMask == nextMask && data.IsTerrainVoxel &&
+            DirectionalFaceDataAtLinearIndex(index).IsTerrainVoxel)
+            return false;
+        SetDirectionalFaceDataAtLinearIndex(
+            index, data.WithCandidates(direction, nextMask), updateRevision);
         return true;
     }
 
@@ -389,7 +407,26 @@ public sealed class Chunk
         _directionalFaceData?.VisitOccupied((index, data) => visit(index, data));
     }
 
-    internal void MarkDirectionalFaceDataChanged() => Revision++;
+    internal bool HasDirectionalFaceData =>
+        _directionalFaceData is { OccupiedCount: > 0 };
+
+    internal bool DirectionalFaceDataInitialized =>
+        _directionalFaceDataInitialized;
+
+    internal void MarkDirectionalFaceDataInitialized(bool updateRevision = true)
+    {
+        if (_directionalFaceDataInitialized)
+            return;
+        _directionalFaceDataInitialized = true;
+        if (updateRevision)
+            Revision++;
+    }
+
+    internal void MarkDirectionalFaceDataChanged()
+    {
+        _directionalFaceDataInitialized = true;
+        Revision++;
+    }
 
     internal InitialBlockWriter BeginInitialBlockWrites()
     {
@@ -429,7 +466,9 @@ public sealed class Chunk
     {
         if (!_cells.Set(index, cell, out var previous))
             return false;
-        if (!preserveDirectionalFaceData && previous.Block != cell.Block &&
+        if (!preserveDirectionalFaceData &&
+            (previous.Block != cell.Block ||
+             previous.IsPlayerPlaced != cell.IsPlayerPlaced) &&
             _directionalFaceData is { } directionalData)
         {
             directionalData.Set(index, default);
@@ -721,6 +760,7 @@ public sealed class Chunk
                     entry => new List<ObjectCell>(entry.Value))
                 : null,
             _directionalFaceData?.Clone(),
+            _directionalFaceDataInitialized,
             (VoxelLight[])_light.Clone(),
             Revision,
             ObjectRevision)
@@ -742,6 +782,7 @@ public sealed class Chunk
                     entry => new List<ObjectCell>(entry.Value))
                 : null,
             null,
+            false,
             (VoxelLight[])_light.Clone(),
             Revision,
             ObjectRevision)

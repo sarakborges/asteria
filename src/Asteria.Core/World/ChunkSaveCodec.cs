@@ -12,7 +12,7 @@ namespace Asteria.Core.World;
 public static class ChunkSaveCodec
 {
     private const uint Magic = 0x48435341; // "ASCH" (little-endian)
-    private const ushort FormatVersion = 5;
+    private const ushort FormatVersion = 6;
     private const int MaximumBytes = 8 * 1024 * 1024;
     private const int DigestBytes = 32;
 
@@ -165,6 +165,7 @@ public static class ChunkSaveCodec
                 if (!data.BaseBlock.IsAir)
                     writer.Write(blocks.GetDefinition(data.BaseBlock).Id);
             }
+            writer.Write(chunk.DirectionalFaceDataInitialized);
         }
 
         if (stream.Length + DigestBytes > MaximumBytes)
@@ -201,7 +202,7 @@ public static class ChunkSaveCodec
             if (reader.ReadUInt32() != Magic)
                 throw new InvalidDataException("Unknown chunk snapshot magic.");
             var version = reader.ReadUInt16();
-            if (version is not (1 or 2 or 3 or 4 or FormatVersion))
+            if (version is not (1 or 2 or 3 or 4 or 5 or FormatVersion))
                 throw new InvalidDataException("Unknown chunk snapshot format.");
 
             var chunk = new Chunk();
@@ -351,6 +352,11 @@ public static class ChunkSaveCodec
                         throw new InvalidDataException("Directional metadata references an empty voxel.");
                     chunk.SetDirectionalFaceDataAtLinearIndex(index, data, updateRevision: false);
                 }
+
+                if (version == 5)
+                    chunk.MarkDirectionalFaceDataInitialized(updateRevision: false);
+                else if (version >= 6)
+                    chunk.MarkDirectionalFaceDataInitialized(reader.ReadBoolean());
             }
 
             if (stream.Position != stream.Length)
