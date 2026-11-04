@@ -872,15 +872,8 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
             solidVoxels);
     }
 
-    static (
-        double MedianElapsedMs,
-        long MedianAllocatedBytes,
-        double MinimumElapsedMs,
-        double MaximumElapsedMs,
-        ulong[] Digests,
-        bool DeterministicAcrossRepetitions,
-        long[] SolidVoxelsPerRun) Summarize(
-            List<(double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)> runs)
+    static TerrainLayerGeologyModeSummary Summarize(
+        List<(double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)> runs)
     {
         var elapsed = runs.Select(run => run.ElapsedMs).Order().ToArray();
         var allocated = runs.Select(run => run.AllocatedBytes).Order().ToArray();
@@ -1707,6 +1700,15 @@ internal sealed record GeologySamplingRun(
     long AllocatedBytes,
     ulong Digest,
     int VoxelCount);
+
+internal sealed record TerrainLayerGeologyModeSummary(
+    double MedianElapsedMs,
+    long MedianAllocatedBytes,
+    double MinimumElapsedMs,
+    double MaximumElapsedMs,
+    ulong[] Digests,
+    bool DeterministicAcrossRepetitions,
+    long[] SolidVoxelsPerRun);
 
 internal sealed record BenchmarkBudget(
     string Metric,
