@@ -3590,9 +3590,12 @@ public sealed class SurfaceChunkMaterializer
                 // An interior cave spike must touch a solid voxel directly
                 // above or below. Reject unsupported void anchors before
                 // hashing placement chance, spacing or cluster noise.
-                // Keep both chunk-edge planes for cross-chunk support checks.
+                // Keep chunk-edge planes for cross-chunk checks, and keep
+                // anchors adjacent to the world-height bounds because IsVoid
+                // treats those out-of-range probes as non-void support.
                 var localAnchorY = anchorY - originY;
                 if ((uint)localAnchorY < Chunk.Size &&
+                    anchorY > 1 && anchorY < baseY - 1 &&
                     (candidateAnchorMask & (1u << localAnchorY)) == 0)
                     continue;
 
