@@ -14,10 +14,15 @@ public sealed class CaveSpikeField
 
     // Cave-spike spacing is purely horizontal: the same (X,Z,radius) is
     // reconsidered for each anchor Y, both directions, and adjacent vertical
-    // chunks. Cache that decision across those repeated probes.
-    private readonly BoundedMemoCache<
-        (int X, int Z, int Radius),
-        bool> _spacingPriorities = new(32768);
+    // chunks. A bounded direct-mapped table avoids allocating an LRU node,
+    // Lazy<T> and capturing factory for every newly encountered column.
+    // Collisions only evict a cached answer and therefore cause recomputation.
+    private const int SpacingCacheCapacity = 32768;
+    private const int SpacingCacheMask = SpacingCacheCapacity - 1;
+    private const int SpacingCacheLockCount = 256;
+    private readonly SpacingPriorityEntry[] _spacingPriorities =
+        new SpacingPriorityEntry[SpacingCacheCapacity];
+    private readonly object[] _spacingPriorityLocks = CreateSpacingPriorityLocks();
 
     private static readonly GenerationDomain SpacingDomain =
         GenerationDomain.Named("worldgen/cave-spike/horizontal-spacing/v1");
@@ -388,13 +393,59 @@ public sealed class CaveSpikeField
         if (radius == 0)
             return true;
 
-        var key = (X: x, Z: z, Radius: radius);
-        if (_spacingPriorities.TryGet(key, out var cached))
-            return cached;
+        var index = SpacingCacheIndex(x, z, radius);
+        lock (_spacingPriorityLocks[index & (SpacingCacheLockCount - 1)])
+        {
+            ref var entry = ref _spacingPriorities[index];
+            if (entry.IsValid &&
+                entry.X == x &&
+                entry.Z == z &&
+                entry.Radius == radius)
+            {
+                return entry.Value;
+            }
 
-        return _spacingPriorities.GetOrAdd(
-            key,
-            () => HasSpacingPriorityUncached(x, z, radius));
+            var value = HasSpacingPriorityUncached(x, z, radius);
+            entry = new SpacingPriorityEntry(x, z, radius, value);
+            return value;
+        }
+    }
+
+    private static object[] CreateSpacingPriorityLocks()
+    {
+        var locks = new object[SpacingCacheLockCount];
+        for (var index = 0; index < locks.Length; index++)
+            locks[index] = new object();
+        return locks;
+    }
+
+    private static int SpacingCacheIndex(int x, int z, int radius)
+    {
+        unchecked
+        {
+            var hash = (uint)x * 0x9E3779B9u;
+            hash ^= (uint)z * 0x85EBCA6Bu;
+            hash ^= (uint)radius * 0xC2B2AE35u;
+            hash ^= hash >> 16;
+            hash *= 0x7FEB352Du;
+            hash ^= hash >> 15;
+            hash *= 0x846CA68Bu;
+            hash ^= hash >> 16;
+            return (int)(hash & SpacingCacheMask);
+        }
+    }
+
+    private struct SpacingPriorityEntry(
+        int x,
+        int z,
+        int radius,
+        bool value)
+    {
+        public int X = x;
+        public int Z = z;
+        public int Radius = radius;
+        public bool Value = value;
+        public bool IsValid = true;
     }
 
     private bool HasSpacingPriorityUncached(int x, int z, int radius)
