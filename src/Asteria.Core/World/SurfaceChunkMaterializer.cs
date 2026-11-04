@@ -353,7 +353,13 @@ public sealed class SurfaceChunkMaterializer
         var directionalPreparationStarted = Stopwatch.GetTimestamp();
 #endif
         if (_materials.HasDirectionalFacePalettes && !job.SupportFaceFastPath)
-            job.DirectionalFaceVoxelData = BuildDirectionalFaceVoxelData(densityVolume);
+        {
+            job.DirectionalFaceVoxelData = BuildDirectionalFaceVoxelData(
+                densityVolume, column, originX, originY, originZ,
+                out var densityProbes, out var boundaryDensityProbes);
+            job.DirectionalFacePaletteDensityProbes = densityProbes;
+            job.DirectionalFacePaletteBoundaryDensityProbes = boundaryDensityProbes;
+        }
 #if DEBUG
         job.DirectionalFacePalettePreparationMilliseconds =
             Stopwatch.GetElapsedTime(directionalPreparationStarted).TotalMilliseconds;
@@ -1284,6 +1290,10 @@ public sealed class SurfaceChunkMaterializer
 
         public double DirectionalFacePalettePreparationMilliseconds { get; set; }
 
+        public int DirectionalFacePaletteDensityProbes { get; set; }
+
+        public int DirectionalFacePaletteBoundaryDensityProbes { get; set; }
+
         public ColumnMaterializationCache[]? ColumnMaterializationCaches { get; set; }
 
         public List<PendingGeneratedObject>? PendingObjects { get; set; }
@@ -1765,99 +1775,287 @@ public sealed class SurfaceChunkMaterializer
         z << 16;
 
     private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(
-        TerrainDensityVolume densityVolume) =>
+        TerrainDensityVolume densityVolume,
+        SurfaceTerrainColumn column,
+        int originX,
+        int originY,
+        int originZ,
+        out int densityProbes,
+        out int boundaryDensityProbes) =>
         BuildDirectionalFaceVoxelData(
-            (x, y, z) => densityVolume.IsSolidAtUnchecked(x, y, z));
-
-    private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(Chunk chunk) =>
-        BuildDirectionalFaceVoxelData((x, y, z) =>
-        {
-            var cell = chunk.GetCell(x, y, z);
-            return !cell.IsEmpty && !cell.IsPlayerPlaced;
-        });
+            densityVolume.IsSolidAtUnchecked,
+            isTerrainSource: null,
+            column,
+            originX,
+            originY,
+            originZ,
+            out densityProbes,
+            out boundaryDensityProbes);
 
     private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(
-        Func<int, int, int, bool> isTerrainSolid)
+        Chunk chunk,
+        ChunkCoord coord)
     {
-        ArgumentNullException.ThrowIfNull(isTerrainSolid);
+        var origin = VoxelCoordinates.ChunkOrigin(coord);
+        var column = _columns.Get(coord.X, coord.Z);
+        return BuildDirectionalFaceVoxelData(
+            (x, y, z) => !chunk.GetCell(x, y, z).IsEmpty,
+            (x, y, z) =>
+            {
+                var cell = chunk.GetCell(x, y, z);
+                return !cell.IsEmpty && !cell.IsPlayerPlaced;
+            },
+            column,
+            origin.X,
+            origin.Y,
+            origin.Z,
+            out _,
+            out _);
+    }
+
+    private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(
+        Func<int, int, int, bool> isSolid,
+        Func<int, int, int, bool>? isTerrainSource,
+        SurfaceTerrainColumn column,
+        int originX,
+        int originY,
+        int originZ,
+        out int densityProbes,
+        out int boundaryDensityProbes)
+    {
+        ArgumentNullException.ThrowIfNull(isSolid);
+        ArgumentNullException.ThrowIfNull(column);
         const int size = Chunk.Size;
-        var xRows = new ushort[Chunk.Size * Chunk.Size];
-        var zRows = new ushort[Chunk.Size * Chunk.Size];
-        var yRows = new ushort[Chunk.Area];
-
-        for (var z = 0; z < size; z++)
-        for (var x = 0; x < size; x++)
-        {
-            ushort row = 0;
-            for (var y = 0; y < size; y++)
-                if (isTerrainSolid(x, y, z))
-                    row |= (ushort)(1u << y);
-            yRows[z * size + x] = row;
-        }
-        for (var y = 0; y < size; y++)
-        for (var z = 0; z < size; z++)
-        {
-            ushort row = 0;
-            for (var x = 0; x < size; x++)
-                if ((yRows[z * size + x] & (1u << y)) != 0)
-                    row |= (ushort)(1u << x);
-            xRows[y * size + z] = row;
-        }
-        for (var y = 0; y < size; y++)
-        for (var x = 0; x < size; x++)
-        {
-            ushort row = 0;
-            for (var z = 0; z < size; z++)
-                if ((yRows[z * size + x] & (1u << y)) != 0)
-                    row |= (ushort)(1u << z);
-            zRows[y * size + x] = row;
-        }
-
-        static ushort Reverse16(ushort value)
-        {
-            uint bits = value;
-            bits = ((bits & 0x5555u) << 1) | ((bits >> 1) & 0x5555u);
-            bits = ((bits & 0x3333u) << 2) | ((bits >> 2) & 0x3333u);
-            bits = ((bits & 0x0F0Fu) << 4) | ((bits >> 4) & 0x0F0Fu);
-            bits = ((bits & 0x00FFu) << 8) | ((bits >> 8) & 0x00FFu);
-            return (ushort)bits;
-        }
-
-        static ulong EmptyOffsets(ushort row, int sourceIndex, bool positive, int maxDepth)
-        {
-            var solidsAhead = positive
-                ? (ulong)(row >> (sourceIndex + 1))
-                : (ulong)(Reverse16(row) >> (Chunk.Size - sourceIndex));
-            var depthMask = maxDepth == 64
-                ? ulong.MaxValue
-                : (1UL << maxDepth) - 1UL;
-            return ~solidsAhead & depthMask;
-        }
-
         var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
-        if (maximumDepth > 64)
+        if (maximumDepth is < 0 or > 64)
             throw new InvalidOperationException(
-                "Directional face palette depth cannot exceed 64 voxels.");
+                "Directional face palette depth must be between 0 and 64 voxels.");
+
+        densityProbes = 0;
+        boundaryDensityProbes = 0;
         var result = new DirectionalFaceVoxelData[Chunk.Volume];
         if (maximumDepth == 0)
             return result;
 
+        var regionSize = checked(size + maximumDepth * 2);
+        var wordCount = (regionSize + 63) >> 6;
+        var xRows = new ulong[Chunk.Area * wordCount];
+        var zRows = new ulong[Chunk.Area * wordCount];
+        var yRows = new ulong[Chunk.Area * wordCount];
+
+        static void MarkSolid(ulong[] rows, int rowOffset, int bitIndex) =>
+            rows[rowOffset + (bitIndex >> 6)] |= 1UL << (bitIndex & 63);
+
+        static bool IsSolid(ulong[] rows, int rowOffset, int bitIndex) =>
+            (rows[rowOffset + (bitIndex >> 6)] & (1UL << (bitIndex & 63))) != 0;
+
+        // Horizontal halo masks are shared by every voxel at the same X/Z column.
+        var xBoundaryMasks = new ushort[regionSize * size];
+        var xBoundaryMasksReady = new bool[regionSize * size];
+        ushort XBoundaryMask(int localX, int z)
+        {
+            var regionX = localX + maximumDepth;
+            var index = regionX * size + z;
+            if (!xBoundaryMasksReady[index])
+            {
+                var worldX = checked(originX + localX);
+                var worldZ = checked(originZ + z);
+                var mask = _columns.GetDensityColumnMask(
+                    worldX, originY, worldZ, out var cacheHit);
+                if (!cacheHit)
+                {
+                    densityProbes += size;
+                    boundaryDensityProbes += size;
+                }
+                xBoundaryMasks[index] = mask;
+                xBoundaryMasksReady[index] = true;
+            }
+            return xBoundaryMasks[index];
+        }
+
+        var zBoundaryMasks = new ushort[size * regionSize];
+        var zBoundaryMasksReady = new bool[size * regionSize];
+        ushort ZBoundaryMask(int x, int localZ)
+        {
+            var regionZ = localZ + maximumDepth;
+            var index = x * regionSize + regionZ;
+            if (!zBoundaryMasksReady[index])
+            {
+                var worldX = checked(originX + x);
+                var worldZ = checked(originZ + localZ);
+                var mask = _columns.GetDensityColumnMask(
+                    worldX, originY, worldZ, out var cacheHit);
+                if (!cacheHit)
+                {
+                    densityProbes += size;
+                    boundaryDensityProbes += size;
+                }
+                zBoundaryMasks[index] = mask;
+                zBoundaryMasksReady[index] = true;
+            }
+            return zBoundaryMasks[index];
+        }
+
+        // Y rows include the vertical halo. Below world Y=0 is treated as solid,
+        // matching the original face resolver's non-paintable world boundary.
+        for (var z = 0; z < size; z++)
+        for (var x = 0; x < size; x++)
+        {
+            var rowOffset = (z * size + x) * wordCount;
+            var biome = column.BiomeAt(x, z);
+            var baseY = column.BaseHeightAt(x, z);
+            var volumeBiome = column.VolumeBiomes[x, z];
+            var worldX = checked(originX + x);
+            var worldZ = checked(originZ + z);
+
+            for (var regionY = 0; regionY < regionSize; regionY++)
+            {
+                var localY = regionY - maximumDepth;
+                bool solid;
+                if ((uint)localY < size)
+                {
+                    solid = isSolid(x, localY, z);
+                }
+                else
+                {
+                    var worldY = checked(originY + localY);
+                    if (worldY < 0)
+                    {
+                        solid = true;
+                    }
+                    else
+                    {
+                        solid = _terrain.DensityAt(
+                            biome, baseY, worldX, worldY, worldZ, volumeBiome) >= 0d;
+                        densityProbes++;
+                        boundaryDensityProbes++;
+                    }
+                }
+
+                if (solid)
+                    MarkSolid(yRows, rowOffset, regionY);
+            }
+        }
+
+        // X rows reuse the per-column vertical masks, including the two
+        // external strips. No density probe is repeated per voxel.
+        for (var y = 0; y < size; y++)
+        for (var z = 0; z < size; z++)
+        {
+            var rowOffset = (y * size + z) * wordCount;
+            for (var regionX = 0; regionX < regionSize; regionX++)
+            {
+                var localX = regionX - maximumDepth;
+                bool solid;
+                if ((uint)localX < size)
+                {
+                    var yRowOffset = (z * size + localX) * wordCount;
+                    solid = IsSolid(yRows, yRowOffset, maximumDepth + y);
+                }
+                else
+                {
+                    solid = (XBoundaryMask(localX, z) & (1u << y)) != 0;
+                }
+                if (solid)
+                    MarkSolid(xRows, rowOffset, regionX);
+            }
+        }
+
+        // Z rows use the same cached vertical-column contract for their halo.
+        for (var y = 0; y < size; y++)
+        for (var x = 0; x < size; x++)
+        {
+            var rowOffset = (y * size + x) * wordCount;
+            for (var regionZ = 0; regionZ < regionSize; regionZ++)
+            {
+                var localZ = regionZ - maximumDepth;
+                bool solid;
+                if ((uint)localZ < size)
+                {
+                    var yRowOffset = (localZ * size + x) * wordCount;
+                    solid = IsSolid(yRows, yRowOffset, maximumDepth + y);
+                }
+                else
+                {
+                    solid = (ZBoundaryMask(x, localZ) & (1u << y)) != 0;
+                }
+                if (solid)
+                    MarkSolid(zRows, rowOffset, regionZ);
+            }
+        }
+
+        static ulong ReverseBits(ulong bits)
+        {
+            bits = ((bits & 0x5555555555555555UL) << 1) |
+                ((bits >> 1) & 0x5555555555555555UL);
+            bits = ((bits & 0x3333333333333333UL) << 2) |
+                ((bits >> 2) & 0x3333333333333333UL);
+            bits = ((bits & 0x0F0F0F0F0F0F0F0FUL) << 4) |
+                ((bits >> 4) & 0x0F0F0F0F0F0F0F0FUL);
+            bits = ((bits & 0x00FF00FF00FF00FFUL) << 8) |
+                ((bits >> 8) & 0x00FF00FF00FF00FFUL);
+            bits = ((bits & 0x0000FFFF0000FFFFUL) << 16) |
+                ((bits >> 16) & 0x0000FFFF0000FFFFUL);
+            return (bits << 32) | (bits >> 32);
+        }
+
+        static ulong ReadBits(
+            ulong[] rows, int rowOffset, int wordCount, int start, int length)
+        {
+            var word = start >> 6;
+            var shift = start & 63;
+            var bits = rows[rowOffset + word] >> shift;
+            if (shift != 0 && word + 1 < wordCount)
+                bits |= rows[rowOffset + word + 1] << (64 - shift);
+            return bits;
+        }
+
+        static ulong EmptyOffsets(
+            ulong[] rows,
+            int rowOffset,
+            int wordCount,
+            int sourceIndex,
+            bool positive,
+            int depth)
+        {
+            var mask = depth == 64 ? ulong.MaxValue : (1UL << depth) - 1UL;
+            if (positive)
+                return ~ReadBits(
+                    rows, rowOffset, wordCount, sourceIndex + 1, depth) & mask;
+
+            var ascending = ReadBits(
+                rows, rowOffset, wordCount, sourceIndex - depth, depth);
+            return (ReverseBits(ascending) >> (64 - depth)) & mask;
+        }
+
         for (var y = 0; y < size; y++)
         for (var z = 0; z < size; z++)
         for (var x = 0; x < size; x++)
         {
-            var yRow = yRows[z * size + x];
-            if ((yRow & (1u << y)) == 0)
+            var xRowOffset = (y * size + z) * wordCount;
+            var zRowOffset = (y * size + x) * wordCount;
+            var yRowOffset = (z * size + x) * wordCount;
+            var ySourceIndex = maximumDepth + y;
+            if (!IsSolid(yRows, yRowOffset, ySourceIndex))
                 continue;
 
-            var xRow = xRows[y * size + z];
-            var zRow = zRows[y * size + x];
-            var up = EmptyOffsets(yRow, y, true, maximumDepth);
-            var negativeX = EmptyOffsets(xRow, x, false, maximumDepth);
-            var positiveX = EmptyOffsets(xRow, x, true, maximumDepth);
-            var negativeZ = EmptyOffsets(zRow, z, false, maximumDepth);
-            var positiveZ = EmptyOffsets(zRow, z, true, maximumDepth);
-            var down = EmptyOffsets(yRow, y, false, maximumDepth);
+            if (isTerrainSource is not null && !isTerrainSource(x, y, z))
+                continue;
+
+            var sourceX = maximumDepth + x;
+            var sourceZ = maximumDepth + z;
+            var up = EmptyOffsets(
+                yRows, yRowOffset, wordCount, ySourceIndex, true, maximumDepth);
+            var negativeX = EmptyOffsets(
+                xRows, xRowOffset, wordCount, sourceX, false, maximumDepth);
+            var positiveX = EmptyOffsets(
+                xRows, xRowOffset, wordCount, sourceX, true, maximumDepth);
+            var negativeZ = EmptyOffsets(
+                zRows, zRowOffset, wordCount, sourceZ, false, maximumDepth);
+            var positiveZ = EmptyOffsets(
+                zRows, zRowOffset, wordCount, sourceZ, true, maximumDepth);
+            var down = EmptyOffsets(
+                yRows, yRowOffset, wordCount, ySourceIndex, false, maximumDepth);
             if ((up | negativeX | positiveX | negativeZ | positiveZ | down) == 0)
                 continue;
 
@@ -1866,6 +2064,7 @@ public sealed class SurfaceChunkMaterializer
                 true, up, negativeX, positiveX, negativeZ, positiveZ, down,
                 BlockRuntimeId.Air);
         }
+
         return result;
     }
 
@@ -2074,8 +2273,8 @@ public sealed class SurfaceChunkMaterializer
             NeighborColumnLookups: 0,
             SolidPaletteLookups: 0,
             EmptyRegionPaletteLookups: 0,
-            DensityProbes: 0,
-            BoundaryDensityProbes: 0,
+            DensityProbes: job.DirectionalFacePaletteDensityProbes,
+            BoundaryDensityProbes: job.DirectionalFacePaletteBoundaryDensityProbes,
             EmptyRegionOwnerResolutions: 0,
             MaskRejectedProbes: 0,
             EmptyRegionEligibilityRejectedProbes: 0,
@@ -2239,7 +2438,7 @@ public sealed class SurfaceChunkMaterializer
             chunk.DirectionalFaceDataInitialized)
             return;
 
-        var data = BuildDirectionalFaceVoxelData(chunk);
+        var data = BuildDirectionalFaceVoxelData(chunk, coord);
         for (var index = 0; index < Chunk.Volume; index++)
         {
             if (!data[index].HasCandidates)
