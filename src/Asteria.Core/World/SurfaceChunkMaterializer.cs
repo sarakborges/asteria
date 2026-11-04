@@ -769,14 +769,6 @@ public sealed class SurfaceChunkMaterializer
 
     private void MaterializeSurfaceDecorations(MaterializationJob job)
     {
-        // Slope conditions inspect the current and four adjacent columns.
-        // Keep the memoizing biome samplers alive for this chunk instead of
-        // allocating a new pair for every decorated X/Z column.
-        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext =
-            _decorations.HasSlopeConditions
-                ? _terrain.CreateTerrainSampleContext(
-                    biomeSampleCacheCapacity: SlopeProbeSampleCacheCapacity)
-                : null;
         var chunk = job.Chunk;
         var originX = job.OriginX;
         var originY = job.OriginY;
@@ -785,6 +777,16 @@ public sealed class SurfaceChunkMaterializer
             throw new InvalidOperationException("Materialization column is missing.");
         var densityVolume = job.DensityVolume ??
             throw new InvalidOperationException("Terrain density snapshot is missing.");
+        // Slope conditions inspect the current and four adjacent columns.
+        // Seed the query-local samplers with the immutable biome samples that
+        // TerrainSetup already resolved for this chunk; only the outer halo
+        // needs additional sampling.
+        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext =
+            _decorations.HasSlopeConditions
+                ? _terrain.CreateTerrainSampleContext(
+                    column, originX, originZ,
+                    SlopeProbeSampleCacheCapacity)
+                : null;
         var topExclusive = job.TopExclusive;
         var pendingObjects = job.PendingObjects;
         var columnMaterializationCaches = job.ColumnMaterializationCaches ??
