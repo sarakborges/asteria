@@ -700,6 +700,10 @@ var coldStageTimingDiagnostics =
     CaptureMaterializationStageTimings(stageTimingGenerator);
 var warmStageTimingDiagnostics =
     CaptureMaterializationStageTimings(stageTimingGenerator);
+var geologySamplingDiagnostics = options.ProfileGeologySampling
+    ? CaptureRegionalGeologySamplingDiagnostics(
+        biomes, blocks, dimensionSeed)
+    : null;
 
 if (options.EnforceCiBudgets)
 {
@@ -732,6 +736,7 @@ var result = new
         Cold = coldStageTimingDiagnostics,
         Warm = warmStageTimingDiagnostics,
     },
+    GeologySamplingDiagnostics = geologySamplingDiagnostics,
     Notes = new[]
     {
         "Cold and warm passes use identical coordinates and independent generator instances per metric.",
@@ -739,6 +744,9 @@ var result = new
         "Allocation counters use the current benchmark thread and are comparative diagnostics, not retained-memory truth.",
         "Initial-area stage timings isolate chunk materialization work and are diagnostic only; they are not regression thresholds.",
         "Directional face-palette profiles use operation counters and sampled Debug timings; cold and warm passes use the same fixed-seed chunk selection.",
+        options.ProfileGeologySampling
+            ? "Continuous and regional geology profiles compare the same fixed world-space voxel sample with chunk-local noise-cache lifetimes."
+            : "Pass --profile-geology-sampling true to compare continuous and regional geology selection on representative surface biomes.",
         "Every metric records its generated-result digest so determinism can be compared across runs.",
         "Search/destination metrics include near and far world coordinates without chunk materialization.",
         options.EnforceCiBudgets
@@ -828,6 +836,230 @@ Measurement Measure(
         coldAllocated,
         warmAllocated,
         coldDigest);
+}
+
+static object CaptureRegionalGeologySamplingDiagnostics(
+    BiomeRegistry biomes,
+    BlockRegistry blocks,
+    ulong seed)
+{
+    var representativeBiomes = new[]
+    {
+        "asteria:overworld/plains",
+        "asteria:overworld/swamp",
+        "asteria:overworld/ocean",
+        "asteria:overworld/mountains",
+    };
+    var profiles = new List<object>();
+
+    foreach (var biomeId in representativeBiomes)
+    {
+        if (!biomes.Contains(biomeId))
+            continue;
+
+        var continuousDefinition = biomes.Get(biomeId);
+        if (continuousDefinition.Geology is null)
+            continue;
+
+        var regionalDefinition = WithGeologySamplingMode(
+            continuousDefinition,
+            BiomeGeologySamplingMode.Regional);
+        var sample = new BiomeSample(
+            biomeId,
+            [new BiomeInfluence(biomeId, 1f)]);
+        var continuousMaterials = new BiomeSurfaceMaterialField(
+            seed, [continuousDefinition], blocks);
+        var regionalMaterials = new BiomeSurfaceMaterialField(
+            seed, [regionalDefinition], blocks);
+        var continuousRuns = new List<GeologySamplingRun>(4);
+        var regionalRuns = new List<GeologySamplingRun>(4);
+
+        for (var repetition = 0; repetition < 4; repetition++)
+        {
+            if ((repetition & 1) == 0)
+            {
+                continuousRuns.Add(MeasureGeologySelection(
+                    continuousMaterials, sample));
+                regionalRuns.Add(MeasureGeologySelection(
+                    regionalMaterials, sample));
+            }
+            else
+            {
+                regionalRuns.Add(MeasureGeologySelection(
+                    regionalMaterials, sample));
+                continuousRuns.Add(MeasureGeologySelection(
+                    continuousMaterials, sample));
+            }
+        }
+
+        profiles.Add(new
+        {
+            Biome = biomeId,
+            RegionScale = regionalDefinition.Geology!.RegionScale,
+            RegionVerticalScale = regionalDefinition.Geology.RegionVerticalScale,
+            RegionWarpStrength = regionalDefinition.Geology.RegionWarpStrength,
+            VoxelsPerRun = continuousRuns[0].VoxelCount,
+            Repetitions = continuousRuns.Count,
+            Continuous = Summarize(continuousRuns),
+            Regional = Summarize(regionalRuns),
+        });
+    }
+
+    return new
+    {
+        Seed = seed,
+        ChunkCount = 8,
+        ChunkLocalNoiseCache = true,
+        Profiles = profiles,
+    };
+
+    static BiomeDefinition WithGeologySamplingMode(
+        BiomeDefinition source,
+        BiomeGeologySamplingMode samplingMode)
+    {
+        var original = source.Geology ??
+            throw new InvalidOperationException(
+                $"Biome {source.Id} has no authored geology.");
+        var weights = original.Blocks
+            .Select((block, index) => new
+            {
+                Block = block,
+                Weight = original.BlockWeights[index],
+            })
+            .ToDictionary(
+                item => item.Block,
+                item => item.Weight,
+                StringComparer.Ordinal);
+        var geology = new BiomeGeologyDefinition(
+            original.BaseBlock,
+            original.Blocks,
+            original.Scale,
+            original.VerticalScale,
+            original.DetailScale,
+            original.SelectionScale,
+            original.Coverage,
+            original.Roughness,
+            weights,
+            original.SurfaceCoverDepth,
+            original.SurfaceCoverage,
+            original.SurfaceSubmergedOnly,
+            original.GrainScale,
+            original.GrainVerticalScale,
+            original.GrainInfluence,
+            original.ClusterScale,
+            original.ClusterVerticalScale,
+            original.ClusterInfluence,
+            original.BoundaryGrainInfluence,
+            samplingMode,
+            original.RegionScale,
+            original.RegionVerticalScale,
+            original.RegionWarpStrength);
+
+        return new BiomeDefinition(
+            source.Id,
+            source.SurfaceLayout,
+            source.SurfaceTerrain,
+            decorations: source.Decorations,
+            tints: source.Tints,
+            terrain3d: source.Terrain3d,
+            volumeLayout: source.VolumeLayout,
+            surfaceHabitats: source.SurfaceHabitats,
+            caveSpikes: source.CaveSpikes,
+            palette: source.Palette,
+            volumeStructures: source.VolumeStructures,
+            geology: geology);
+    }
+
+    static GeologySamplingRun MeasureGeologySelection(
+        BiomeSurfaceMaterialField materials,
+        BiomeSample sample)
+    {
+        const int chunksPerAxis = 2;
+        const int minimumChunkX = -1;
+        const int minimumChunkY = 1;
+        const int minimumChunkZ = -1;
+        var digest = 14695981039346656037UL;
+        var voxelCount = 0;
+        var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
+        var timer = Stopwatch.StartNew();
+
+        for (var chunkY = minimumChunkY;
+             chunkY < minimumChunkY + chunksPerAxis;
+             chunkY++)
+        for (var chunkZ = minimumChunkZ;
+             chunkZ < minimumChunkZ + chunksPerAxis;
+             chunkZ++)
+        for (var chunkX = minimumChunkX;
+             chunkX < minimumChunkX + chunksPerAxis;
+             chunkX++)
+        {
+            var originX = checked(chunkX * Chunk.Size);
+            var originY = checked(chunkY * Chunk.Size);
+            var originZ = checked(chunkZ * Chunk.Size);
+            using var latticeCache =
+                new WorldGenerationEntropy.ValueNoise3DLatticeCache();
+
+            for (var localY = 0; localY < Chunk.Size; localY++)
+            for (var localZ = 0; localZ < Chunk.Size; localZ++)
+            for (var localX = 0; localX < Chunk.Size; localX++)
+            {
+                var worldX = checked(originX + localX);
+                var worldY = checked(originY + localY);
+                var worldZ = checked(originZ + localZ);
+                if (!materials.TryGeologyBlockAtCached(
+                        sample,
+                        worldX,
+                        worldY,
+                        worldZ,
+                        latticeCache,
+                        out var block))
+                {
+                    throw new InvalidOperationException(
+                        $"Biome {sample.Primary} lost its geology rule during profiling.");
+                }
+
+                digest = HashNumber(digest, block.Value);
+                voxelCount++;
+            }
+        }
+
+        timer.Stop();
+        return new GeologySamplingRun(
+            timer.Elapsed.TotalMilliseconds,
+            GC.GetAllocatedBytesForCurrentThread() - beforeBytes,
+            digest,
+            voxelCount);
+    }
+
+    static object Summarize(IReadOnlyList<GeologySamplingRun> runs)
+    {
+        var orderedTimes = runs
+            .Select(run => run.ElapsedMilliseconds)
+            .Order()
+            .ToArray();
+        var orderedAllocations = runs
+            .Select(run => (double)run.AllocatedBytes)
+            .Order()
+            .ToArray();
+        var deterministic = runs.All(run =>
+            run.Digest == runs[0].Digest &&
+            run.VoxelCount == runs[0].VoxelCount);
+        return new
+        {
+            MedianMilliseconds = Median(orderedTimes),
+            MedianAllocatedBytes = Median(orderedAllocations),
+            Digest = runs[0].Digest,
+            Deterministic = deterministic,
+        };
+    }
+
+    static double Median(double[] ordered)
+    {
+        var middle = ordered.Length / 2;
+        return (ordered.Length & 1) == 0
+            ? (ordered[middle - 1] + ordered[middle]) * 0.5d
+            : ordered[middle];
+    }
 }
 
 static void RenderGeologyMaterialMap(
@@ -1241,6 +1473,12 @@ internal sealed record Measurement(
     long WarmAllocatedBytes,
     ulong Digest);
 
+internal sealed record GeologySamplingRun(
+    double ElapsedMilliseconds,
+    long AllocatedBytes,
+    ulong Digest,
+    int VoxelCount);
+
 internal sealed record BenchmarkBudget(
     string Metric,
     double MaximumColdMs,
@@ -1262,6 +1500,7 @@ internal sealed record Arguments(
     int Chunks,
     int SearchRadius,
     bool EnforceCiBudgets,
+    bool ProfileGeologySampling,
     string? Output,
     string? MaterialMapOutput,
     string? MaterialMapBiome)
@@ -1281,6 +1520,7 @@ internal sealed record Arguments(
         var chunks = 2;
         var searchRadius = 1024;
         var enforceCiBudgets = false;
+        var profileGeologySampling = false;
         string? output = null;
         string? materialMapOutput = null;
         string? materialMapBiome = null;
@@ -1341,6 +1581,9 @@ internal sealed record Arguments(
                         bool.Parse(
                             value);
                     break;
+                case "--profile-geology-sampling":
+                    profileGeologySampling = bool.Parse(value);
+                    break;
                 case "--output":
                     output = value;
                     break;
@@ -1381,6 +1624,7 @@ internal sealed record Arguments(
             chunks,
             searchRadius,
             enforceCiBudgets,
+            profileGeologySampling,
             output,
             materialMapOutput,
             materialMapBiome);

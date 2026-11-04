@@ -6,11 +6,14 @@ public sealed class GeologyMaterializationRegressionTests
 {
     private const ulong Seed = 0xA57E_3D10_2026UL;
 
-    [Fact]
-    public void MaterializedChunksMatchWorldSpaceGeologyAcrossChunkSeamsAndGenerationOrder()
+    [Theory]
+    [InlineData(BiomeGeologySamplingMode.Continuous)]
+    [InlineData(BiomeGeologySamplingMode.Regional)]
+    public void MaterializedChunksMatchWorldSpaceGeologyAcrossChunkSeamsAndGenerationOrder(
+        BiomeGeologySamplingMode samplingMode)
     {
         var blocks = CreateBlocks();
-        var biome = CreateBiome();
+        var biome = CreateBiome(samplingMode: samplingMode);
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
         var firstGenerator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
@@ -679,11 +682,14 @@ public sealed class GeologyMaterializationRegressionTests
                 actual.GetCell(x, y, z));
     }
 
-    [Fact]
-    public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns()
+    [Theory]
+    [InlineData(BiomeGeologySamplingMode.Continuous)]
+    [InlineData(BiomeGeologySamplingMode.Regional)]
+    public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns(
+        BiomeGeologySamplingMode samplingMode)
     {
         var blocks = CreateBlocks();
-        var biome = CreateBiome();
+        var biome = CreateBiome(samplingMode: samplingMode);
         var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
@@ -764,11 +770,16 @@ public sealed class GeologyMaterializationRegressionTests
             $"Material boundaries are still too continuous on the wall: {horizontalTransitions} transitions.");
     }
 
-    [Fact]
-    public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation()
+    [Theory]
+    [InlineData(BiomeGeologySamplingMode.Continuous)]
+    [InlineData(BiomeGeologySamplingMode.Regional)]
+    public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation(
+        BiomeGeologySamplingMode samplingMode)
     {
         var blocks = CreateBlocks();
-        var biome = CreateBiome(surfaceCoverage: 0.4f);
+        var biome = CreateBiome(
+            surfaceCoverage: 0.4f,
+            samplingMode: samplingMode);
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
         var generator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
@@ -803,6 +814,48 @@ public sealed class GeologyMaterializationRegressionTests
             "A flat surface should retain its grass cover while exposing varied geological materials.");
     }
 
+    [Fact]
+    public void RegionalGeologySettingsCanBeAuthoredInBiomeJson()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/regional_geology_json",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 128,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }]
+              },
+              "geology": {
+                "baseBlock": "asteria:stone",
+                "blocks": ["asteria:dirt", "asteria:gravel"],
+                "scale": 48,
+                "verticalScale": 28,
+                "detailScale": 12,
+                "selectionScale": 32,
+                "coverage": 0.65,
+                "samplingMode": "regional",
+                "regionScale": 24,
+                "regionVerticalScale": 16,
+                "regionWarpStrength": 0.3
+              }
+            }
+            """);
+
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Equal(BiomeGeologySamplingMode.Regional, geology.SamplingMode);
+        Assert.Equal(24u, geology.RegionScale);
+        Assert.Equal(16u, geology.RegionVerticalScale);
+        Assert.Equal(0.3f, geology.RegionWarpStrength);
+    }
     private static BlockRegistry CreateBlocks(bool gravityBlocks = false) => new(
     [
         new BlockDefinition("asteria:grass"),
@@ -815,7 +868,9 @@ public sealed class GeologyMaterializationRegressionTests
         new BlockDefinition("asteria:clay"),
     ]);
 
-    private static BiomeDefinition CreateBiome(float surfaceCoverage = 0f) => new(
+    private static BiomeDefinition CreateBiome(
+        float surfaceCoverage = 0f,
+        BiomeGeologySamplingMode samplingMode = BiomeGeologySamplingMode.Continuous) => new(
         "asteria:test/geology",
         new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
         new BiomeTerrainDefinition(
@@ -839,7 +894,8 @@ public sealed class GeologyMaterializationRegressionTests
             coverage: 0.78f,
             roughness: 0.32f,
             surfaceCoverDepth: 3,
-            surfaceCoverage: surfaceCoverage));
+            surfaceCoverage: surfaceCoverage,
+            samplingMode: samplingMode));
 
     private static DimensionDefinition CreateDimension(
         string biomeId,
