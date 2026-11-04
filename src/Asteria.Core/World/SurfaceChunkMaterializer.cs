@@ -3597,6 +3597,9 @@ public sealed class SurfaceChunkMaterializer
                     anchorY > 1 && anchorY < baseY - 1 &&
                     (candidateAnchorMask & (1u << localAnchorY)) == 0)
                     continue;
+                var anchorKnownVoid =
+                    (uint)localAnchorY < densityVolume.Height &&
+                    (solidColumnMask & (1u << localAnchorY)) == 0;
 
                 for (var direction = 0; direction < 2; direction++)
                 {
@@ -3605,6 +3608,7 @@ public sealed class SurfaceChunkMaterializer
                             biome.Primary, surfaceBiome, volumeBiome, baseY,
                             worldX, anchorY, worldZ, down,
                             densityVolume, originY, x, z,
+                            solidColumnMask, anchorKnownVoid,
                             out var placement))
                         continue;
 
