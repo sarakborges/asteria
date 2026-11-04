@@ -1910,7 +1910,7 @@ public sealed class SurfaceChunkMaterializer
         y << 8 |
         z << 16;
 
-    private (int OriginY, TerrainDensityVolume Volume)[] SampleVerticalDensitySlabs(
+    private (int OriginY, DensityOccupancySlab Volume)[] SampleVerticalDensitySlabs(
         SurfaceTerrainColumn column,
         int originX,
         int originZ,
@@ -1920,9 +1920,9 @@ public sealed class SurfaceChunkMaterializer
     {
         densityProbes = 0;
         if (startY >= endExclusive)
-            return Array.Empty<(int OriginY, TerrainDensityVolume Volume)>();
+            return Array.Empty<(int OriginY, DensityOccupancySlab Volume)>();
 
-        var slabs = new List<(int OriginY, TerrainDensityVolume Volume)>();
+        var slabs = new List<(int OriginY, DensityOccupancySlab Volume)>();
         var nextY = startY;
         while (nextY < endExclusive)
         {
