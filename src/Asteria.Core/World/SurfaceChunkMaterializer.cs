@@ -1910,6 +1910,8 @@ public sealed class SurfaceChunkMaterializer
         y << 8 |
         z << 16;
 
+    // Keep each slab inside one vertical chunk band so occupancy validity bits
+    // can be published and reused by the adjacent chunk as one compact snapshot.
     private (int OriginY, DensityOccupancySlab Volume)[] SampleVerticalDensitySlabs(
         SurfaceTerrainColumn column,
         int originX,
