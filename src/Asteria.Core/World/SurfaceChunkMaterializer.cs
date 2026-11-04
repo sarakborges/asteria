@@ -1284,10 +1284,6 @@ public sealed class SurfaceChunkMaterializer
 
         public double DirectionalFacePalettePreparationMilliseconds { get; set; }
 
-        public DirectionalFaceVoxelData[]? DirectionalFaceVoxelData { get; set; }
-
-        public double DirectionalFacePalettePreparationMilliseconds { get; set; }
-
         public ColumnMaterializationCache[]? ColumnMaterializationCaches { get; set; }
 
         public List<PendingGeneratedObject>? PendingObjects { get; set; }
