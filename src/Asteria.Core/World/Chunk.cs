@@ -354,7 +354,7 @@ public sealed class Chunk
         if (!data.IsTerrainVoxel)
         {
             var source = _cells.Get(index);
-            if (source.IsEmpty || source.IsPlayerPlaced)
+            if (source.IsEmpty || source.IsPlayerPlaced || !exposed)
                 return false;
             data = new DirectionalFaceVoxelData(
                 true, 0, 0, 0, 0, 0, 0, BlockRuntimeId.Air);
