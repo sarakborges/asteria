@@ -730,36 +730,33 @@ public sealed class SurfaceTerrainField
         int originX,
         int originY,
         int originZ,
+        int height,
         ushort[]? cachedColumnMasks = null,
-        bool[]? cachedColumnMaskAvailability = null)
+        ushort[]? cachedColumnMaskAvailability = null)
     {
-        ArgumentNullException.ThrowIfNull(
-            column);
-
-        if ((cachedColumnMasks is null) !=
-                (cachedColumnMaskAvailability is null) ||
+        ArgumentNullException.ThrowIfNull(column);
+        if (height is < 1 or > Chunk.Size)
+            throw new ArgumentOutOfRangeException(nameof(height));
+        if ((cachedColumnMasks is null) != (cachedColumnMaskAvailability is null) ||
             (cachedColumnMasks is not null &&
              (cachedColumnMasks.Length != Chunk.Area ||
               cachedColumnMaskAvailability!.Length != Chunk.Area)))
         {
             throw new ArgumentException(
-                "Cached density masks must contain one availability flag per X/Z column.",
+                "Cached density masks and sampled-bit masks must contain one entry per X/Z column.",
                 nameof(cachedColumnMasks));
         }
-
         if (originY < 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(originY));
-        }
+            throw new ArgumentOutOfRangeException(nameof(originY));
 
-        // The horizontal placement is immutable and was already sampled
-        // with the surface column. Reuse it across vertical chunk layers.
+        _ = checked(originX + Chunk.Size - 1);
+        _ = checked(originY + height - 1);
+        _ = checked(originZ + Chunk.Size - 1);
+
         var volumeBiomes = column.VolumeBiomes;
-        // A vertical column is only 16 voxels high, so one ushort stores
-        // every solid/empty decision for that X/Z without per-voxel indexing.
-        var solidMask = new ushort[Chunk.Size * Chunk.Size];
-        var maximumY = checked(originY + Chunk.Size - 1);
+        var solidMask = new ushort[Chunk.Area];
+        var requestedBits = (ushort)((1u << height) - 1u);
+        var maximumY = checked(originY + height - 1);
         var minimumBaseY = int.MaxValue;
         var maximumBaseY = int.MinValue;
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
@@ -772,66 +769,42 @@ public sealed class SurfaceTerrainField
 
         var caveSamplerAttempted = false;
         CaveNoiseVolumeSampler? caveSampler = null;
-
-        for (var localZ = 0;
-             localZ < Chunk.Size;
-             localZ++)
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
         {
-            var worldZ =
-                checked(
-                    originZ +
-                    localZ);
-
-            for (var localX = 0;
-                 localX < Chunk.Size;
-                 localX++)
+            var worldZ = checked(originZ + localZ);
+            for (var localX = 0; localX < Chunk.Size; localX++)
             {
-                var solidColumnIndex = localZ * Chunk.Size + localX;
-                if (cachedColumnMaskAvailability is not null &&
-                    cachedColumnMaskAvailability[solidColumnIndex])
-                {
-                    solidMask[solidColumnIndex] =
-                        cachedColumnMasks![solidColumnIndex];
+                var index = localZ * Chunk.Size + localX;
+                var cachedBits = cachedColumnMaskAvailability is null
+                    ? (ushort)0
+                    : (ushort)(cachedColumnMaskAvailability[index] & requestedBits);
+                var cachedMask = cachedColumnMasks is null
+                    ? (ushort)0
+                    : (ushort)(cachedColumnMasks[index] & cachedBits);
+                solidMask[index] = cachedMask;
+                if (cachedBits == requestedBits)
                     continue;
-                }
 
-                var worldX =
-                    checked(originX + localX);
-                var baseY =
-                    column.BaseHeightAt(localX, localZ);
-                var biome =
-                    column.BiomeAt(localX, localZ);
-                var volumeBiome =
-                    volumeBiomes[localX, localZ];
-
-                // Most vertical chunk bands cannot contain caves or
-                // additive formations. Their signed density is exactly
-                // the base-surface distance; no 3D noise is needed.
+                var worldX = checked(originX + localX);
+                var baseY = column.BaseHeightAt(localX, localZ);
+                var biome = column.BiomeAt(localX, localZ);
+                var volumeBiome = volumeBiomes[localX, localZ];
                 var mayContainCaves =
                     _caves is not null &&
                     (long)originY <= (long)baseY - _caves.MinimumDepth &&
                     (long)maximumY >= (long)baseY - _caves.MaximumDepth;
                 if (mayContainCaves && !caveSamplerAttempted)
                 {
-                    caveSampler =
-                        _caves!.CreateSampler(
-                            _seed,
-                            originX,
-                            originY,
-                            originZ,
-                            Chunk.Size,
-                            Chunk.Size,
-                            Chunk.Size,
-                            minimumBaseY,
-                            maximumBaseY);
+                    caveSampler = _caves!.CreateSampler(
+                        _seed, originX, originY, originZ,
+                        Chunk.Size, height, Chunk.Size,
+                        minimumBaseY, maximumBaseY);
                     caveSamplerAttempted = true;
                 }
 
                 var additiveRule =
                     volumeBiome is not null &&
-                    _additiveRules.TryGetValue(
-                        volumeBiome.Primary,
-                        out var resolvedAdditive)
+                    _additiveRules.TryGetValue(volumeBiome.Primary, out var resolvedAdditive)
                         ? resolvedAdditive
                         : null;
                 var mayContainAdditive =
@@ -839,46 +812,38 @@ public sealed class SurfaceTerrainField
                     originY <= additiveRule.MaximumY &&
                     maximumY >= additiveRule.MinimumY;
 
-                // With no caves or additive formations intersecting this
-                // vertical band, solidity is a prefix of the Y bits at baseY.
-                // Build it directly rather than evaluating 16 simple densities.
                 if (!mayContainCaves && !mayContainAdditive)
                 {
                     var solidDepth = (long)baseY - originY + 1L;
-                    var solidCount = (int)Math.Clamp(
-                        solidDepth, 0L, Chunk.Size);
+                    var solidCount = (int)Math.Clamp(solidDepth, 0L, height);
                     var baselineMask = solidCount switch
                     {
                         0 => (ushort)0,
-                        Chunk.Size => ushort.MaxValue,
+                        _ when solidCount == height => requestedBits,
                         _ => (ushort)((1u << solidCount) - 1u),
                     };
-
-                    // Shell lining is defined as solid even above the terrain
-                    // surface, so restore those single bits explicitly.
                     if (_floorY is { } floorY)
                     {
                         var liningY = (long)floorY + 1L - originY;
-                        if (liningY >= 0L && liningY < Chunk.Size)
+                        if (liningY >= 0L && liningY < height)
                             baselineMask |= (ushort)(1u << (int)liningY);
                     }
-
                     if (_roofY is { } roofY)
                     {
                         var liningY = (long)roofY - 1L - originY;
-                        if (liningY >= 0L && liningY < Chunk.Size)
+                        if (liningY >= 0L && liningY < height)
                             baselineMask |= (ushort)(1u << (int)liningY);
                     }
-
-                    solidMask[solidColumnIndex] = baselineMask;
+                    solidMask[index] |= (ushort)(baselineMask & (ushort)~cachedBits);
                     continue;
                 }
 
-                for (var localY = 0;
-                     localY < Chunk.Size;
-                     localY++)
+                for (var localY = 0; localY < height; localY++)
                 {
-                    var worldY = originY + localY;
+                    var bit = (ushort)(1u << localY);
+                    if ((cachedBits & bit) != 0)
+                        continue;
+                    var worldY = checked(originY + localY);
                     var caveDepth = (long)baseY - worldY;
                     var caveDensityApplies =
                         mayContainCaves &&
@@ -890,35 +855,18 @@ public sealed class SurfaceTerrainField
                         worldY >= activeAdditive.MinimumY &&
                         worldY <= activeAdditive.MaximumY;
                     var density =
-                        caveDensityApplies ||
-                        additiveDensityApplies ||
-                        IsShellLining(worldY)
+                        caveDensityApplies || additiveDensityApplies || IsShellLining(worldY)
                             ? DensityAt(
-                                biome,
-                                baseY,
-                                worldX,
-                                worldY,
-                                worldZ,
-                                volumeBiome,
-                                caveSampler,
-                                localX,
-                                localY,
-                                localZ)
+                                biome, baseY, worldX, worldY, worldZ, volumeBiome,
+                                caveSampler, localX, localY, localZ)
                             : baseY - (double)worldY;
                     if (density >= 0d)
-                    {
-                        solidMask[solidColumnIndex] =
-                            (ushort)(solidMask[solidColumnIndex] |
-                                     (1u << localY));
-                    }
+                        solidMask[index] |= bit;
                 }
             }
         }
 
-        double DensityAtLocal(
-            int localX,
-            int localY,
-            int localZ)
+        double DensityAtLocal(int localX, int localY, int localZ)
         {
             var worldX = checked(originX + localX);
             var worldY = checked(originY + localY);
@@ -926,25 +874,19 @@ public sealed class SurfaceTerrainField
             return DensityAt(
                 column.BiomeAt(localX, localZ),
                 column.BaseHeightAt(localX, localZ),
-                worldX,
-                worldY,
-                worldZ,
+                worldX, worldY, worldZ,
                 volumeBiomes[localX, localZ]);
         }
 
         return new TerrainDensityVolume(
-            Chunk.Size,
-            Chunk.Size,
-            Chunk.Size,
-            solidMask,
-            DensityAtLocal,
-            volumeBiomes,
-            _volumeBiomes);
+            Chunk.Size, height, Chunk.Size,
+            solidMask, DensityAtLocal,
+            volumeBiomes, _volumeBiomes);
     }
 
     /// <summary>
-    /// Samples one vertical occupancy column using the same scalar density
-    /// contract as directional-face boundary queries.
+    /// Completes only the unsampled cells in one cached vertical occupancy
+    /// column. Validity bits distinguish known-empty cells from unknown cells.
     /// </summary>
     internal ushort SampleDensityColumnMask(
         SurfaceTerrainColumn column,
@@ -952,36 +894,33 @@ public sealed class SurfaceTerrainField
         int originY,
         int localZ,
         int worldX,
-        int worldZ)
+        int worldZ,
+        ushort cachedSolidMask,
+        ushort sampledMask,
+        out int densityProbes)
     {
         ArgumentNullException.ThrowIfNull(column);
         if ((uint)localX >= Chunk.Size ||
             (uint)localZ >= Chunk.Size ||
             originY < 0 ||
             originY % Chunk.Size != 0)
-        {
             throw new ArgumentOutOfRangeException(nameof(originY));
-        }
 
         var biome = column.BiomeAt(localX, localZ);
         var baseY = column.BaseHeightAt(localX, localZ);
         var volumeBiome = column.VolumeBiomes[localX, localZ];
-        ushort solidMask = 0;
+        var solidMask = (ushort)(cachedSolidMask & sampledMask);
+        densityProbes = 0;
         for (var localY = 0; localY < Chunk.Size; localY++)
         {
+            var bit = (ushort)(1u << localY);
+            if ((sampledMask & bit) != 0)
+                continue;
             var worldY = checked(originY + localY);
-            if (DensityAt(
-                    biome,
-                    baseY,
-                    worldX,
-                    worldY,
-                    worldZ,
-                    volumeBiome) >= 0d)
-            {
-                solidMask |= (ushort)(1u << localY);
-            }
+            densityProbes++;
+            if (DensityAt(biome, baseY, worldX, worldY, worldZ, volumeBiome) >= 0d)
+                solidMask |= bit;
         }
-
         return solidMask;
     }
 
