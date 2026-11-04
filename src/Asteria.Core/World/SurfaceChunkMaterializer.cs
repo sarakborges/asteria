@@ -851,9 +851,16 @@ public sealed class SurfaceChunkMaterializer
                         sample, worldX, worldZ);
                 var topBlock = topMaterials.BlockAt(0);
 
-                var considerObjects = objectSupportInChunk &&
-                    _decorations.HasObjectDecorations(topSample);
-                if (normalInChunk || considerObjects)
+                var considerGroundBlock = normalInChunk &&
+                    _decorations.HasSurfacePlacementCandidates(
+                        topSample, topBlock,
+                        requireObject: false, onFluidSurface: false);
+                var considerObjects = !job.SupportOnly &&
+                    objectSupportInChunk &&
+                    _decorations.HasSurfacePlacementCandidates(
+                        topSample, topBlock,
+                        requireObject: true, onFluidSurface: false);
+                if (considerGroundBlock || considerObjects)
                 {
                     // Generated-fluid occupancy, not only the column range,
                     // decides whether this is a submerged decorator cell.
@@ -874,7 +881,7 @@ public sealed class SurfaceChunkMaterializer
                             worldX, (int)decorationY, worldZ,
                             decorationTerrainSolid).IsEmpty;
 
-                    if (normalInChunk)
+                    if (considerGroundBlock)
                     {
                         var decoration = _decorations.BlockAtWithTerrainSampleContext(
                             topSample, topBlock, worldX, worldZ,
@@ -891,7 +898,7 @@ public sealed class SurfaceChunkMaterializer
                             chunk.SetBlock(localX, (int)decorationY - originY,
                                 localZ, decoration);
                     }
-                    if (!job.SupportOnly && considerObjects)
+                    if (considerObjects)
                     {
                         var objectId = _decorations.ObjectAtWithTerrainSampleContext(
                             topSample, topBlock, worldX, worldZ,
@@ -916,8 +923,16 @@ public sealed class SurfaceChunkMaterializer
 
                 // Water-top decorations occupy the *air above* a source,
                 // not its water voxel. This also spans vertical chunk edges.
-                if ((fluidTopInChunk || fluidObjectSupportInChunk) &&
-                    _decorations.HasFluidSurfaceDecorations(topSample))
+                var considerFluidBlock = fluidTopInChunk &&
+                    _decorations.HasSurfacePlacementCandidates(
+                        topSample, topBlock,
+                        requireObject: false, onFluidSurface: true);
+                var considerFluidObject = !job.SupportOnly &&
+                    fluidObjectSupportInChunk &&
+                    _decorations.HasSurfacePlacementCandidates(
+                        topSample, topBlock,
+                        requireObject: true, onFluidSurface: true);
+                if (considerFluidBlock || considerFluidObject)
                 {
                     var supportFluid = _generatedFluids.FluidAtEmptyVoxel(
                         sample, baseY, surfaceFluidCutDepth,
@@ -927,24 +942,25 @@ public sealed class SurfaceChunkMaterializer
                         worldX, (int)decorationY + 1, worldZ);
                     if (!supportFluid.IsEmpty && aboveFluid.IsEmpty)
                     {
-                        var decoration = _decorations.BlockAtWithTerrainSampleContext(
-                            topSample, topBlock, worldX, worldZ,
-                            suppliedPlacement: null,
-                            verticalY: null,
-                            submerged: false,
-                            supportY: (int)decorationY,
-                            onFluidSurface: true,
-                            fluidBelow: supportFluid.Fluid,
-                            nearbyFluid: _nearbyFluidQuery,
-                            supportSurface: DecorationSupportSurface.Floor,
-                            terrainSampleContext: terrainSampleContext);
-                        if (fluidTopInChunk && !decoration.IsAir)
-                            chunk.SetBlock(
-                                localX, (int)decorationY + 1 - originY,
-                                localZ, decoration);
-                        if (!job.SupportOnly &&
-                            fluidObjectSupportInChunk &&
-                            _decorations.HasObjectDecorations(topSample))
+                        if (considerFluidBlock)
+                        {
+                            var decoration = _decorations.BlockAtWithTerrainSampleContext(
+                                topSample, topBlock, worldX, worldZ,
+                                suppliedPlacement: null,
+                                verticalY: null,
+                                submerged: false,
+                                supportY: (int)decorationY,
+                                onFluidSurface: true,
+                                fluidBelow: supportFluid.Fluid,
+                                nearbyFluid: _nearbyFluidQuery,
+                                supportSurface: DecorationSupportSurface.Floor,
+                                terrainSampleContext: terrainSampleContext);
+                            if (!decoration.IsAir)
+                                chunk.SetBlock(
+                                    localX, (int)decorationY + 1 - originY,
+                                    localZ, decoration);
+                        }
+                        if (considerFluidObject)
                         {
                             var objectId = _decorations.ObjectAtWithTerrainSampleContext(
                                 topSample, topBlock, worldX, worldZ,
