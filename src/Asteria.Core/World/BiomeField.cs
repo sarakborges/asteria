@@ -408,10 +408,27 @@ public sealed class BiomeField
                 return cached;
 
             var sample = _field.SampleCached(x, z, _assignments);
+            Prime(x, z, sample);
+            return sample;
+        }
+
+        /// <summary>
+        /// Seeds a query-local sample cache with immutable samples that were
+        /// already resolved by the owning terrain-column snapshot.
+        /// </summary>
+        internal void Prime(int x, int z, BiomeSample sample)
+        {
+            ArgumentNullException.ThrowIfNull(sample);
+            if (_samples is not { } samples)
+                return;
+
+            var coordinate = (X: x, Z: z);
+            if (samples.ContainsKey(coordinate))
+                return;
+
             var sampleOrder = _sampleOrder ??
                 throw new InvalidOperationException(
                     "Biome sample cache has no eviction order.");
-
             if (samples.Count == sampleOrder.Length)
                 samples.Remove(sampleOrder[_nextSampleOrderIndex]);
 
@@ -419,7 +436,6 @@ public sealed class BiomeField
             sampleOrder[_nextSampleOrderIndex] = coordinate;
             _nextSampleOrderIndex =
                 (_nextSampleOrderIndex + 1) % sampleOrder.Length;
-            return sample;
         }
     }
 
