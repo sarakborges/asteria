@@ -1,5 +1,40 @@
 namespace Asteria.Core.World;
 
+internal enum DirectionalFaceDirection : byte
+{
+    Up, NegativeX, PositiveX, NegativeZ, PositiveZ, Down,
+}
+
+internal readonly record struct DirectionalFaceVoxelData(
+    bool IsTerrainVoxel, ulong Up, ulong NegativeX, ulong PositiveX,
+    ulong NegativeZ, ulong PositiveZ, ulong Down, BlockRuntimeId BaseBlock)
+{
+    public ulong Candidates(DirectionalFaceDirection direction) => direction switch
+    {
+        DirectionalFaceDirection.Up => Up,
+        DirectionalFaceDirection.NegativeX => NegativeX,
+        DirectionalFaceDirection.PositiveX => PositiveX,
+        DirectionalFaceDirection.NegativeZ => NegativeZ,
+        DirectionalFaceDirection.PositiveZ => PositiveZ,
+        DirectionalFaceDirection.Down => Down,
+        _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+    };
+
+    public DirectionalFaceVoxelData WithCandidates(
+        DirectionalFaceDirection direction, ulong candidates) => direction switch
+    {
+        DirectionalFaceDirection.Up => this with { Up = candidates },
+        DirectionalFaceDirection.NegativeX => this with { NegativeX = candidates },
+        DirectionalFaceDirection.PositiveX => this with { PositiveX = candidates },
+        DirectionalFaceDirection.NegativeZ => this with { NegativeZ = candidates },
+        DirectionalFaceDirection.PositiveZ => this with { PositiveZ = candidates },
+        DirectionalFaceDirection.Down => this with { Down = candidates },
+        _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+    };
+
+    public bool HasCandidates => (Up | NegativeX | PositiveX | NegativeZ | PositiveZ | Down) != 0;
+}
+
 public sealed class Chunk
 {
     public const int Size = 16;
@@ -11,6 +46,8 @@ public sealed class Chunk
     private readonly MicroblockMaskPalette _microblockMasks;
     private Dictionary<int, BlockSurfaceState>? _surfaceStates;
     private Dictionary<int, List<ObjectCell>>? _objects;
+    private PaletteStorage<DirectionalFaceVoxelData>? _directionalFaceData;
+    private bool _directionalFaceDataInitialized;
     private readonly VoxelLight[] _light;
 
     /// <summary>
@@ -127,6 +164,8 @@ public sealed class Chunk
         MicroblockMaskPalette microblockMasks,
         Dictionary<int, BlockSurfaceState>? surfaceStates,
         Dictionary<int, List<ObjectCell>>? objects,
+        PaletteStorage<DirectionalFaceVoxelData>? directionalFaceData,
+        bool directionalFaceDataInitialized,
         VoxelLight[] light,
         ulong revision,
         ulong objectRevision)
@@ -136,6 +175,8 @@ public sealed class Chunk
         _microblockMasks = microblockMasks;
         _surfaceStates = surfaceStates;
         _objects = objects;
+        _directionalFaceData = directionalFaceData;
+        _directionalFaceDataInitialized = directionalFaceDataInitialized;
         _light = light;
         Revision = revision;
         ObjectRevision = objectRevision;
@@ -283,6 +324,110 @@ public sealed class Chunk
         return SetCellAtIndex(voxelIndex, new VoxelCell(block));
     }
 
+    internal DirectionalFaceVoxelData DirectionalFaceDataAtLinearIndex(int index)
+    {
+        if ((uint)index >= Volume) throw new ArgumentOutOfRangeException(nameof(index));
+        return _directionalFaceData?.Get(index) ?? default;
+    }
+
+    internal void SetDirectionalFaceDataAtLinearIndex(
+        int index, DirectionalFaceVoxelData data, bool updateRevision = true)
+    {
+        if ((uint)index >= Volume) throw new ArgumentOutOfRangeException(nameof(index));
+        if (data == default && _directionalFaceData is null) return;
+        _directionalFaceData ??= new PaletteStorage<DirectionalFaceVoxelData>();
+        if (!_directionalFaceData.Set(index, data)) return;
+        if (_directionalFaceData.OccupiedCount == 0) _directionalFaceData = null;
+        if (updateRevision) Revision++;
+    }
+
+    internal bool UpdateDirectionalFaceCandidateAtLinearIndex(
+        int index,
+        DirectionalFaceDirection direction,
+        int distance,
+        bool exposed,
+        bool updateRevision = true)
+    {
+        if (distance is < 1 or > 64)
+            throw new ArgumentOutOfRangeException(nameof(distance));
+        var data = DirectionalFaceDataAtLinearIndex(index);
+        if (!data.IsTerrainVoxel)
+        {
+            var source = _cells.Get(index);
+            if (source.IsEmpty || source.IsPlayerPlaced)
+                return false;
+            data = new DirectionalFaceVoxelData(
+                true, 0, 0, 0, 0, 0, 0, BlockRuntimeId.Air);
+        }
+        var bit = 1UL << (distance - 1);
+        var oldMask = data.Candidates(direction);
+        var nextMask = exposed ? oldMask | bit : oldMask & ~bit;
+        if (oldMask == nextMask && data.IsTerrainVoxel &&
+            DirectionalFaceDataAtLinearIndex(index).IsTerrainVoxel)
+            return false;
+        SetDirectionalFaceDataAtLinearIndex(
+            index, data.WithCandidates(direction, nextMask), updateRevision);
+        return true;
+    }
+
+    internal bool RestoreDirectionalFaceBaseBlockAtLinearIndex(int index)
+    {
+        var data = DirectionalFaceDataAtLinearIndex(index);
+        if (data.BaseBlock.IsAir) return false;
+        SetDirectionalFaceDataAtLinearIndex(
+            index, data with { BaseBlock = BlockRuntimeId.Air }, updateRevision: false);
+        SetCellAtIndex(index, new VoxelCell(data.BaseBlock), preserveDirectionalFaceData: true);
+        return true;
+    }
+
+    internal bool SetDirectionalFacePaletteBlockAtLinearIndex(
+        int index, BlockRuntimeId replacement)
+    {
+        if ((uint)index >= Volume) throw new ArgumentOutOfRangeException(nameof(index));
+        var data = DirectionalFaceDataAtLinearIndex(index);
+        if (!data.IsTerrainVoxel) return false;
+        var current = _cells.Get(index);
+        if (current.IsEmpty) return false;
+        var changedMetadata = false;
+        if (data.BaseBlock.IsAir)
+        {
+            data = data with { BaseBlock = current.Block };
+            SetDirectionalFaceDataAtLinearIndex(index, data, updateRevision: false);
+            changedMetadata = true;
+        }
+        var changedBlock = SetCellAtIndex(
+            index, new VoxelCell(replacement), preserveDirectionalFaceData: true);
+        if (changedMetadata && !changedBlock) Revision++;
+        return changedBlock || changedMetadata;
+    }
+
+    internal void VisitDirectionalFaceVoxels(Action<int, DirectionalFaceVoxelData> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+        _directionalFaceData?.VisitOccupied((index, data) => visit(index, data));
+    }
+
+    internal bool HasDirectionalFaceData =>
+        _directionalFaceData is { OccupiedCount: > 0 };
+
+    internal bool DirectionalFaceDataInitialized =>
+        _directionalFaceDataInitialized;
+
+    internal void MarkDirectionalFaceDataInitialized(bool updateRevision = true)
+    {
+        if (_directionalFaceDataInitialized)
+            return;
+        _directionalFaceDataInitialized = true;
+        if (updateRevision)
+            Revision++;
+    }
+
+    internal void MarkDirectionalFaceDataChanged()
+    {
+        _directionalFaceDataInitialized = true;
+        Revision++;
+    }
+
     internal InitialBlockWriter BeginInitialBlockWrites()
     {
         if (Revision != 0 ||
@@ -316,10 +461,20 @@ public sealed class Chunk
         return new InitialFluidWriter(this);
     }
 
-    private bool SetCellAtIndex(int index, VoxelCell cell)
+    private bool SetCellAtIndex(
+        int index, VoxelCell cell, bool preserveDirectionalFaceData = false)
     {
         if (!_cells.Set(index, cell, out var previous))
             return false;
+        if (!preserveDirectionalFaceData &&
+            (previous.Block != cell.Block ||
+             previous.IsPlayerPlaced != cell.IsPlayerPlaced) &&
+            _directionalFaceData is { } directionalData)
+        {
+            directionalData.Set(index, default);
+            if (directionalData.OccupiedCount == 0)
+                _directionalFaceData = null;
+        }
 
         if (cell.IsEmpty || previous.Block != cell.Block)
         {
@@ -604,6 +759,8 @@ public sealed class Chunk
                 ? objectIndex.ToDictionary(entry => entry.Key,
                     entry => new List<ObjectCell>(entry.Value))
                 : null,
+            _directionalFaceData?.Clone(),
+            _directionalFaceDataInitialized,
             (VoxelLight[])_light.Clone(),
             Revision,
             ObjectRevision)
@@ -624,6 +781,8 @@ public sealed class Chunk
                 ? objectIndex.ToDictionary(entry => entry.Key,
                     entry => new List<ObjectCell>(entry.Value))
                 : null,
+            null,
+            false,
             (VoxelLight[])_light.Clone(),
             Revision,
             ObjectRevision)

@@ -92,6 +92,9 @@ public sealed class VoxelWorld
     /// <summary>Invalidates only Object presentation for a resident chunk.</summary>
     public event Action<ChunkCoord>? ObjectChunkChanged;
 
+    /// <summary>Raised after a successful resident block-cell edit.</summary>
+    public event Action<VoxelWorldEdit>? BlockCellChanged;
+
     // Both resident and archived chunks are authoritative. A newly created
     // world is populated from saved chunks before any worker/session sees it.
     internal IEnumerable<(ChunkCoord Coord, Chunk Chunk, bool Resident, bool Dirty)>
@@ -305,6 +308,22 @@ public sealed class VoxelWorld
     /// Reads an already materialized voxel for restore validation without
     /// moving archived chunks into live residency or generating new terrain.
     /// </summary>
+    internal bool TryGetSavedChunk(ChunkCoord coord, out Chunk chunk)
+    {
+        if (_chunks.TryGetValue(coord, out chunk!))
+            return true;
+        return _archive.TryPeek(coord, out chunk!);
+    }
+
+    internal void MarkDerivedChunkMutation(ChunkCoord coord)
+    {
+        if (!TryGetSavedChunk(coord, out var chunk))
+            return;
+        chunk.MarkDirectionalFaceDataChanged();
+        _archive.MarkDirty(coord);
+        Revision++;
+    }
+
     internal bool TryGetSavedCell(WorldVoxelCoord position, out VoxelCell cell)
     {
         if (position.Y < 0)
@@ -801,6 +820,7 @@ public sealed class VoxelWorld
             previous,
             cell,
             Revision);
+        BlockCellChanged?.Invoke(edit);
         return true;
     }
 
@@ -909,6 +929,7 @@ public sealed class VoxelWorld
             previous,
             current,
             Revision);
+        BlockCellChanged?.Invoke(edit);
         return true;
     }
 
