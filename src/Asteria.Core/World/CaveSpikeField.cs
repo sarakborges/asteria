@@ -127,6 +127,20 @@ public sealed class CaveSpikeField
             y <= 0 || y >= baseY)
             return false;
 
+        // Occupancy is independent of the authored spike rule. Resolve it
+        // once, before candidate hashing, spacing and cluster-noise work.
+        // The materializer supplies the current chunk's compact column mask,
+        // so in-chunk support checks need only one bit test.
+        var supportY = y + (down ? 1 : -1);
+        if ((!anchorKnownVoid && !IsVoidAt(
+                densityVolume, densityOriginY, localX, localZ,
+                surfaceBiome, volumeBiome, baseY, x, z, y)) ||
+            !IsSolidSupportAt(
+                densityVolume, densityOriginY, localX, localZ,
+                solidColumnMask, surfaceBiome, volumeBiome,
+                baseY, x, z, supportY))
+            return false;
+
         // A specific surface material takes precedence over the generic
         // stone fallback. One column cannot spawn competing materials.
         SpikeRule? primaryRule = null;
@@ -163,15 +177,6 @@ public sealed class CaveSpikeField
             // the same horizontal priority at every Y keeps the spacing
             // invariant independent of cave shelves and chunk order.
             if (!HasSpacingPriority(x, z, definition.MinSpacing))
-                continue;
-
-            var supportY = y + (down ? 1 : -1);
-            if ((!anchorKnownVoid && !IsVoidAt(
-                    densityVolume, densityOriginY, localX, localZ,
-                    surfaceBiome, volumeBiome, baseY, x, z, y)) ||
-                IsVoidAt(
-                    densityVolume, densityOriginY, localX, localZ,
-                    surfaceBiome, volumeBiome, baseY, x, z, supportY))
                 continue;
 
             if (definition.Cluster is { } cluster)
@@ -244,6 +249,38 @@ public sealed class CaveSpikeField
         var fromAnchor = (validMask >> localY) & ((1u << available) - 1u);
         return BitOperations.TrailingZeroCount(
             fromAnchor | (1u << available));
+    }
+
+    private bool IsSolidSupportAt(
+        TerrainDensityVolume? densityVolume,
+        int densityOriginY,
+        int localX,
+        int localZ,
+        ushort solidColumnMask,
+        BiomeSample surfaceBiome,
+        BiomeSample? volumeBiome,
+        int baseY,
+        int x,
+        int z,
+        int supportY)
+    {
+        // The world floor and biome surface are authored solid boundaries,
+        // matching IsVoidAt even when the stored mask ends before them.
+        if (supportY <= 0 || supportY >= baseY)
+            return true;
+
+        var localSupportY = supportY - densityOriginY;
+        if (densityVolume is not null &&
+            (uint)localSupportY < densityVolume.Height)
+        {
+            return (solidColumnMask & (1u << localSupportY)) != 0;
+        }
+
+        // Chunk-edge support belongs to the neighboring vertical chunk and
+        // must keep the world-space density fallback.
+        return !IsVoidAt(
+            densityVolume, densityOriginY, localX, localZ,
+            surfaceBiome, volumeBiome, baseY, x, z, supportY);
     }
 
     private int CountClearance(
