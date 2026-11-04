@@ -620,11 +620,12 @@ public sealed class BiomeSurfacePatchDefinition
     public SurfacePlacementConditions? Conditions { get; }
 }
 
-/// <summary>Chooses per-voxel noise sampling or deterministic deformed 3D material regions.</summary>
+/// <summary>Chooses per-voxel sampling, coarse regions, or coarse regions with locally roughened boundaries.</summary>
 public enum BiomeGeologySamplingMode : byte
 {
     PerVoxel,
     Regional,
+    RegionalHybrid,
 }
 
 /// <summary>
