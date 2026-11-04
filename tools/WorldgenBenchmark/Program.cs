@@ -41,7 +41,17 @@ static IEnumerable<string> OptionalDocuments(
 
 var blocks = BlockRegistry.FromJson(Documents(root, "blocks"));
 var fluids = FluidRegistry.FromJson(Documents(root, "fluids"));
-var biomes = BiomeRegistry.FromJson(Documents(root, "biomes"));
+var sourceBiomeDefinitions = Documents(root, "biomes")
+    .Select(BiomeDefinitionJson.Parse)
+    .ToArray();
+var biomes = new BiomeRegistry(
+    options.MaterialMapSamplingMode == BiomeGeologySamplingMode.Regional
+        ? sourceBiomeDefinitions.Select(definition =>
+            definition.Geology is null
+                ? definition
+                : WithGeologySamplingMode(
+                    definition, BiomeGeologySamplingMode.Regional))
+        : sourceBiomeDefinitions);
 var structures = StructureRegistry.FromJson(OptionalDocuments(root, "structures"));
 var structureSets =
     StructureSetRegistry.FromJson(
@@ -838,6 +848,63 @@ Measurement Measure(
         coldDigest);
 }
 
+static BiomeDefinition WithGeologySamplingMode(
+    BiomeDefinition source,
+    BiomeGeologySamplingMode samplingMode)
+{
+    var original = source.Geology ??
+        throw new InvalidOperationException(
+            $"Biome {source.Id} has no authored geology.");
+    var weights = original.Blocks
+        .Select((block, index) => new
+        {
+            Block = block,
+            Weight = original.BlockWeights[index],
+        })
+        .ToDictionary(
+            item => item.Block,
+            item => item.Weight,
+            StringComparer.Ordinal);
+    var geology = new BiomeGeologyDefinition(
+        original.BaseBlock,
+        original.Blocks,
+        original.Scale,
+        original.VerticalScale,
+        original.DetailScale,
+        original.SelectionScale,
+        original.Coverage,
+        original.Roughness,
+        weights,
+        original.SurfaceCoverDepth,
+        original.SurfaceCoverage,
+        original.SurfaceSubmergedOnly,
+        original.GrainScale,
+        original.GrainVerticalScale,
+        original.GrainInfluence,
+        original.ClusterScale,
+        original.ClusterVerticalScale,
+        original.ClusterInfluence,
+        original.BoundaryGrainInfluence,
+        samplingMode,
+        original.RegionScale,
+        original.RegionVerticalScale,
+        original.RegionWarpStrength);
+
+    return new BiomeDefinition(
+        source.Id,
+        source.SurfaceLayout,
+        source.SurfaceTerrain,
+        decorations: source.Decorations,
+        tints: source.Tints,
+        terrain3d: source.Terrain3d,
+        volumeLayout: source.VolumeLayout,
+        surfaceHabitats: source.SurfaceHabitats,
+        caveSpikes: source.CaveSpikes,
+        palette: source.Palette,
+        volumeStructures: source.VolumeStructures,
+        geology: geology);
+}
+
 static object CaptureRegionalGeologySamplingDiagnostics(
     BiomeRegistry biomes,
     BlockRegistry blocks,
@@ -912,63 +979,6 @@ static object CaptureRegionalGeologySamplingDiagnostics(
         ChunkLocalNoiseCache = true,
         Profiles = profiles,
     };
-
-    static BiomeDefinition WithGeologySamplingMode(
-        BiomeDefinition source,
-        BiomeGeologySamplingMode samplingMode)
-    {
-        var original = source.Geology ??
-            throw new InvalidOperationException(
-                $"Biome {source.Id} has no authored geology.");
-        var weights = original.Blocks
-            .Select((block, index) => new
-            {
-                Block = block,
-                Weight = original.BlockWeights[index],
-            })
-            .ToDictionary(
-                item => item.Block,
-                item => item.Weight,
-                StringComparer.Ordinal);
-        var geology = new BiomeGeologyDefinition(
-            original.BaseBlock,
-            original.Blocks,
-            original.Scale,
-            original.VerticalScale,
-            original.DetailScale,
-            original.SelectionScale,
-            original.Coverage,
-            original.Roughness,
-            weights,
-            original.SurfaceCoverDepth,
-            original.SurfaceCoverage,
-            original.SurfaceSubmergedOnly,
-            original.GrainScale,
-            original.GrainVerticalScale,
-            original.GrainInfluence,
-            original.ClusterScale,
-            original.ClusterVerticalScale,
-            original.ClusterInfluence,
-            original.BoundaryGrainInfluence,
-            samplingMode,
-            original.RegionScale,
-            original.RegionVerticalScale,
-            original.RegionWarpStrength);
-
-        return new BiomeDefinition(
-            source.Id,
-            source.SurfaceLayout,
-            source.SurfaceTerrain,
-            decorations: source.Decorations,
-            tints: source.Tints,
-            terrain3d: source.Terrain3d,
-            volumeLayout: source.VolumeLayout,
-            surfaceHabitats: source.SurfaceHabitats,
-            caveSpikes: source.CaveSpikes,
-            palette: source.Palette,
-            volumeStructures: source.VolumeStructures,
-            geology: geology);
-    }
 
     static GeologySamplingRun MeasureGeologySelection(
         BiomeSurfaceMaterialField materials,
@@ -1501,6 +1511,7 @@ internal sealed record Arguments(
     int SearchRadius,
     bool EnforceCiBudgets,
     bool ProfileGeologySampling,
+    BiomeGeologySamplingMode MaterialMapSamplingMode,
     string? Output,
     string? MaterialMapOutput,
     string? MaterialMapBiome)
@@ -1521,6 +1532,7 @@ internal sealed record Arguments(
         var searchRadius = 1024;
         var enforceCiBudgets = false;
         var profileGeologySampling = false;
+        var materialMapSamplingMode = BiomeGeologySamplingMode.Continuous;
         string? output = null;
         string? materialMapOutput = null;
         string? materialMapBiome = null;
@@ -1584,6 +1596,15 @@ internal sealed record Arguments(
                 case "--profile-geology-sampling":
                     profileGeologySampling = bool.Parse(value);
                     break;
+                case "--material-map-sampling-mode":
+                    materialMapSamplingMode = value switch
+                    {
+                        "continuous" => BiomeGeologySamplingMode.Continuous,
+                        "regional" => BiomeGeologySamplingMode.Regional,
+                        var mode => throw new ArgumentException(
+                            $"Unknown material-map-sampling-mode: {mode}."),
+                    };
+                    break;
                 case "--output":
                     output = value;
                     break;
@@ -1625,6 +1646,7 @@ internal sealed record Arguments(
             searchRadius,
             enforceCiBudgets,
             profileGeologySampling,
+            materialMapSamplingMode,
             output,
             materialMapOutput,
             materialMapBiome);
