@@ -88,6 +88,14 @@ jobs:
             --samples 2 --area-size 4 --chunks 1 \
             --output worldgen-directional-face-palette-profile.json
 
+      - name: Profile continuous and regional geology selection
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 181960897289965 --dimension asteria:overworld \
+            --samples 1 --area-size 1 --chunks 1 \
+            --profile-geology-sampling true \
+            --output worldgen-geology-sampling.json
+
       - name: Render fixed-seed biome map fixtures
         run: |
           dotnet run --project tools/BiomeMap --configuration Release -- \
@@ -107,6 +115,15 @@ jobs:
             --map-size 96 --map-step 4 --chunks 1 --search-radius 64 \
             --material-map-output biome-map-geology-ocean.svg
 
+      - name: Render regional geology in ocean terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 64 \
+            --material-map-sampling-mode regional \
+            --material-map-output biome-map-geology-ocean-regional.svg
+
       - name: Render materialized 3D geology on elevated mountain terrain
         run: |
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
@@ -116,6 +133,16 @@ jobs:
             --material-map-biome asteria:overworld/mountains \
             --material-map-output biome-map-geology-mountains.svg
 
+      - name: Render regional geology on elevated mountain terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/mountains \
+            --material-map-sampling-mode regional \
+            --material-map-output biome-map-geology-mountains-regional.svg
+
       - name: Upload worldgen query baseline
         if: always()
         uses: actions/upload-artifact@v4
@@ -124,6 +151,7 @@ jobs:
           path: |
             worldgen-benchmark.json
             worldgen-directional-face-palette-profile.json
+            worldgen-geology-sampling.json
           if-no-files-found: ignore
 
       - name: Upload biome map fixture

@@ -518,6 +518,15 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain[] _surfaceGrainDomains;
         private readonly double[] _volumeBiases;
         private readonly double[] _surfaceBiases;
+        private readonly double[] _volumeRegionThresholds;
+        private readonly double[] _surfaceRegionThresholds;
+        private readonly GenerationDomain[] _regionWarpDomains;
+        private readonly GenerationDomain _volumeRegionMaterialDomain;
+        private readonly GenerationDomain _surfaceRegionMaterialDomain;
+        private readonly BiomeGeologySamplingMode _samplingMode;
+        private readonly uint _regionScale;
+        private readonly uint _regionVerticalScale;
+        private readonly double _regionWarpStrength;
         private readonly uint _surfaceExposureScale;
         private readonly uint _warpHorizontalScale;
         private readonly uint _warpVerticalScale;
@@ -576,6 +585,10 @@ public sealed class BiomeSurfaceMaterialField
             _clusterInfluence = definition.ClusterInfluence;
             _remainingInfluence = 1d - _grainInfluence - _clusterInfluence;
             _boundaryInfluence = definition.BoundaryGrainInfluence;
+            _samplingMode = definition.SamplingMode;
+            _regionScale = definition.RegionScale;
+            _regionVerticalScale = definition.RegionVerticalScale;
+            _regionWarpStrength = definition.RegionWarpStrength;
             _baseBlock = baseBlock;
             _blocks = blocks;
             _volumeBlocks = [baseBlock, .. blocks];
@@ -589,6 +602,14 @@ public sealed class BiomeSurfaceMaterialField
                 .Select(axis => GenerationDomain.Named(
                     $"material/geology/domain-warp-detail/v1/{biomeId}/{axis}"))
                 .ToArray();
+            _regionWarpDomains = new[] { "x", "y", "z" }
+                .Select(axis => GenerationDomain.Named(
+                    $"material/geology/regional-warp/v1/{biomeId}/{axis}"))
+                .ToArray();
+            _volumeRegionMaterialDomain = GenerationDomain.Named(
+                $"material/geology/regional-volume-material/v1/{biomeId}");
+            _surfaceRegionMaterialDomain = GenerationDomain.Named(
+                $"material/geology/regional-surface-material/v1/{biomeId}");
 
             var volumeNames = new[] { definition.BaseBlock }
                 .Concat(definition.Blocks).ToArray();
@@ -655,6 +676,22 @@ public sealed class BiomeSurfaceMaterialField
             _surfaceBiases = definition.BlockWeights
                 .Select(weight => biasStrength * Math.Log(weight / alternativeWeightTotal))
                 .ToArray();
+
+            var volumeProbabilities = new double[_volumeBlocks.Length];
+            volumeProbabilities[0] = baseProbability;
+            for (var index = 0; index < definition.BlockWeights.Count; index++)
+            {
+                volumeProbabilities[index + 1] =
+                    definition.Coverage *
+                    definition.BlockWeights[index] /
+                    alternativeWeightTotal;
+            }
+
+            _volumeRegionThresholds = CumulativeThresholds(volumeProbabilities);
+            _surfaceRegionThresholds = CumulativeThresholds(
+                definition.BlockWeights
+                    .Select(weight => weight / alternativeWeightTotal)
+                    .ToArray());
         }
 
         public uint SurfaceCoverDepth => _definition.SurfaceCoverDepth;
@@ -665,6 +702,14 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed, int x, int y, int z,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
         {
+            if (_samplingMode == BiomeGeologySamplingMode.Regional)
+            {
+                return SelectRegionalMaterial(
+                    seed, x, y, z,
+                    _volumeBlocks, _volumeRegionThresholds,
+                    _volumeRegionMaterialDomain, latticeCache);
+            }
+
             // Base material and deposits now compete in one spatial selector.
             // The previous separate formation mask created a second set of
             // broad, continuous boundaries that looked like columns/sheets.
@@ -695,6 +740,15 @@ public sealed class BiomeSurfaceMaterialField
             {
                 block = BlockRuntimeId.Air;
                 return false;
+            }
+
+            if (_samplingMode == BiomeGeologySamplingMode.Regional)
+            {
+                block = SelectRegionalMaterial(
+                    seed, x, y, z,
+                    _blocks, _surfaceRegionThresholds,
+                    _surfaceRegionMaterialDomain, latticeCache);
+                return true;
             }
 
             var position = WarpCoordinates(seed, x, y, z, latticeCache);
@@ -839,6 +893,95 @@ public sealed class BiomeSurfaceMaterialField
                 rotated.X + warpX * _warpHorizontalStrength + detailWarpX * _detailWarpStrength,
                 rotated.Y + warpY * _warpVerticalStrength + detailWarpY * _detailWarpVerticalStrength,
                 rotated.Z + warpZ * _warpHorizontalStrength + detailWarpZ * _detailWarpStrength);
+        }
+
+        private SpatialPosition WarpRegionalCoordinates(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
+        {
+            var rotated = RotateCoordinates(x, y, z);
+            if (_regionWarpStrength == 0d)
+                return rotated;
+
+            var coordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                rotated.X,
+                rotated.Y,
+                rotated.Z,
+                _detailScale,
+                _detailVerticalScale);
+            var warpX = SampleNoise(
+                coordinates, seed, _regionWarpDomains[0], latticeCache);
+            var warpY = SampleNoise(
+                coordinates, seed, _regionWarpDomains[1], latticeCache);
+            var warpZ = SampleNoise(
+                coordinates, seed, _regionWarpDomains[2], latticeCache);
+
+            // One smooth 3D vector field bends the material-cell grid. Cell
+            // identity and material choice remain anchored to world space, so
+            // neighboring chunks independently resolve identical regions.
+            return new SpatialPosition(
+                rotated.X + warpX * _regionScale * _regionWarpStrength,
+                rotated.Y + warpY * _regionVerticalScale * _regionWarpStrength,
+                rotated.Z + warpZ * _regionScale * _regionWarpStrength);
+        }
+
+        private BlockRuntimeId SelectRegionalMaterial(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            BlockRuntimeId[] candidateBlocks,
+            double[] cumulativeThresholds,
+            GenerationDomain materialDomain,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
+        {
+            var position = WarpRegionalCoordinates(
+                seed, x, y, z, latticeCache);
+            var cellX = FloorToInt(position.X / _regionScale);
+            var cellY = FloorToInt(position.Y / _regionVerticalScale);
+            var cellZ = FloorToInt(position.Z / _regionScale);
+            var selectionHash = WorldGenerationEntropy.Sample3D(
+                seed, materialDomain, cellX, cellY, cellZ);
+            var unit = (selectionHash >> 11) *
+                (1d / 9007199254740992d);
+
+            for (var index = 0; index < cumulativeThresholds.Length; index++)
+            {
+                if (unit < cumulativeThresholds[index])
+                    return candidateBlocks[index];
+            }
+
+            return candidateBlocks[^1];
+        }
+
+        private static double[] CumulativeThresholds(
+            IReadOnlyList<double> probabilities)
+        {
+            var thresholds = new double[probabilities.Count];
+            var cumulative = 0d;
+            for (var index = 0; index < probabilities.Count; index++)
+            {
+                cumulative += probabilities[index];
+                thresholds[index] = cumulative;
+            }
+
+            // Authored weights are normalized; pin the last threshold to one
+            // to absorb floating-point summation error.
+            thresholds[^1] = 1d;
+            return thresholds;
+        }
+
+        private static int FloorToInt(double value)
+        {
+            var floor = Math.Floor(value);
+            if (floor <= int.MinValue)
+                return int.MinValue;
+            if (floor >= int.MaxValue)
+                return int.MaxValue;
+            return (int)floor;
         }
 
         private BlockRuntimeId SelectMaterial(
