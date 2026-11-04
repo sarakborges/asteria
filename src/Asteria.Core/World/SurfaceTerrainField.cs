@@ -867,14 +867,8 @@ public sealed class SurfaceTerrainField
                     additiveRule is not null &&
                     originY <= additiveRule.MaximumY &&
                     maximumY >= additiveRule.MinimumY;
+                var additiveSupportPrepared = false;
                 ReadOnlySpan<double> additiveHorizontalSupports = default;
-                if (mayContainAdditive)
-                {
-                    var count = additiveRule!.SampleHorizontalSupports(
-                        _seed, worldX, worldZ, additiveSupportScratch);
-                    additiveHorizontalSupports =
-                        additiveSupportScratch.AsSpan(0, count);
-                }
 
                 if (!mayContainCaves && !mayContainAdditive)
                 {
@@ -918,6 +912,15 @@ public sealed class SurfaceTerrainField
                         additiveRule is { } activeAdditive &&
                         worldY >= activeAdditive.MinimumY &&
                         worldY <= activeAdditive.MaximumY;
+                    if (additiveDensityApplies && !additiveSupportPrepared)
+                    {
+                        var count = additiveRule!.SampleHorizontalSupports(
+                            _seed, worldX, worldZ, additiveSupportScratch);
+                        additiveHorizontalSupports =
+                            additiveSupportScratch.AsSpan(0, count);
+                        additiveSupportPrepared = true;
+                    }
+
                     var density =
                         caveDensityApplies || additiveDensityApplies || IsShellLining(worldY)
                             ? DensityAt(
@@ -981,22 +984,13 @@ public sealed class SurfaceTerrainField
             _additiveRules.TryGetValue(volumeBiome.Primary, out var resolvedAdditive)
                 ? resolvedAdditive
                 : null;
-        var columnMaximumY = checked(originY + Chunk.Size - 1);
-        var mayContainAdditive =
-            additiveRule is not null &&
-            originY <= additiveRule.MaximumY &&
-            columnMaximumY >= additiveRule.MinimumY;
-        Span<double> additiveHorizontalSupports = additiveRule is null ||
-            !mayContainAdditive
+        Span<double> additiveHorizontalSupports =
+            additiveRule is null
                 ? Span<double>.Empty
                 : additiveRule.RuleCount <= 16
                     ? stackalloc double[additiveRule.RuleCount]
                     : new double[additiveRule.RuleCount];
-        if (mayContainAdditive)
-        {
-            additiveRule!.SampleHorizontalSupports(
-                _seed, worldX, worldZ, additiveHorizontalSupports);
-        }
+        var additiveSupportPrepared = false;
 
         densityProbes = 0;
         for (var localY = 0; localY < Chunk.Size; localY++)
@@ -1006,6 +1000,17 @@ public sealed class SurfaceTerrainField
                 continue;
             var worldY = checked(originY + localY);
             densityProbes++;
+            var additiveDensityApplies =
+                additiveRule is not null &&
+                worldY >= additiveRule.MinimumY &&
+                worldY <= additiveRule.MaximumY;
+            if (additiveDensityApplies && !additiveSupportPrepared)
+            {
+                additiveRule!.SampleHorizontalSupports(
+                    _seed, worldX, worldZ, additiveHorizontalSupports);
+                additiveSupportPrepared = true;
+            }
+
             if (DensityAt(
                     biome, baseY, worldX, worldY, worldZ, volumeBiome,
                     caveSampler: null, localX, localY, localZ,
