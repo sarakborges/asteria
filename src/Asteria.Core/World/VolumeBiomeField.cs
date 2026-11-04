@@ -108,9 +108,27 @@ public sealed class VolumeBiomeField
     /// </summary>
     public bool HasCarvedVoidBiomes => _cavePlacement is not null;
 
+    /// <summary>
+    /// Creates query-local cave placement state so nearby cave candidates
+    /// reuse the same seed assignments and bounded completed samples.
+    /// </summary>
+    internal BiomeField.Sampler? CreateCaveSampler(
+        int sampleCacheCapacity = 0) =>
+        _cavePlacement?.CreateSampler(sampleCacheCapacity);
+
     /// <summary>Volume identity at a carved cave surface. Density owns occupancy.</summary>
     public BiomeSample? SampleCave(int worldX, int worldZ) =>
-        _cavePlacement?.Sample(worldX, worldZ);
+        SampleCave(sampler: null, worldX, worldZ);
+
+    internal BiomeSample? SampleCave(
+        BiomeField.Sampler? sampler,
+        int worldX,
+        int worldZ) =>
+        _cavePlacement is null
+            ? null
+            : sampler is null
+                ? _cavePlacement.Sample(worldX, worldZ)
+                : sampler.Sample(worldX, worldZ);
 
     /// <summary>
     /// Samples cave ownership once per horizontal column, allowing vertical
