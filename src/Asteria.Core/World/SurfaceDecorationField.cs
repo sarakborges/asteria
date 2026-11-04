@@ -19,6 +19,9 @@ public sealed class SurfaceDecorationField
     private readonly HashSet<string> _wallLayerBiomes;
     private readonly HashSet<string> _wallBlockBiomes;
     private readonly HashSet<string> _wallObjectBiomes;
+    private readonly HashSet<string> _surfaceDecorationBiomes;
+    private readonly HashSet<string> _fluidSurfaceDecorationBiomes;
+    private readonly bool _hasSlopeConditions;
 
     public SurfaceDecorationField(
         ulong seed,
@@ -119,6 +122,20 @@ public sealed class SurfaceDecorationField
                             decoration.SupportSurface))
                     .ToArray(),
                 StringComparer.Ordinal);
+        _surfaceDecorationBiomes = _rules
+            .Where(pair => pair.Value.Any(rule =>
+                rule.SupportSurface != DecorationSupportSurface.Wall))
+            .Select(pair => pair.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        _fluidSurfaceDecorationBiomes = _rules
+            .Where(pair => pair.Value.Any(rule =>
+                !rule.RequiredFluid.IsNone &&
+                rule.FluidRelation == DecorationFluidRelation.Below))
+            .Select(pair => pair.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        _hasSlopeConditions = _rules.Values.Any(rules =>
+            rules.Any(rule => rule.Conditions?.RequiresSlope == true));
+
         foreach (var biome in definitions)
             foreach (var decoration in biome.Decorations)
                 _habitats.Validate(biome.Id, decoration.HabitatWeights);
@@ -134,9 +151,7 @@ public sealed class SurfaceDecorationField
     public bool HasWallObjects => _wallObjectBiomes.Count > 0;
     public bool HasWallObjectsFor(string biomeId) =>
         _wallObjectBiomes.Contains(biomeId);
-    internal bool HasSlopeConditions =>
-        _rules.Values.Any(rules =>
-            rules.Any(rule => rule.Conditions?.RequiresSlope == true));
+    internal bool HasSlopeConditions => _hasSlopeConditions;
     public bool HasWallBlocksFor(string biomeId) =>
         _wallBlockBiomes.Contains(biomeId);
     public bool HasWallLayersFor(string biomeId) =>
@@ -152,8 +167,7 @@ public sealed class SurfaceDecorationField
     {
         foreach (var influence in sample.Influences)
         {
-            if (_rules[influence.BiomeId].Any(rule =>
-                    rule.SupportSurface != DecorationSupportSurface.Wall))
+            if (_surfaceDecorationBiomes.Contains(influence.BiomeId))
                 return true;
         }
 
@@ -163,9 +177,7 @@ public sealed class SurfaceDecorationField
     public bool HasFluidSurfaceDecorations(BiomeSample sample)
     {
         foreach (var influence in sample.Influences)
-            if (_rules[influence.BiomeId].Any(rule =>
-                !rule.RequiredFluid.IsNone &&
-                rule.FluidRelation == DecorationFluidRelation.Below))
+            if (_fluidSurfaceDecorationBiomes.Contains(influence.BiomeId))
                 return true;
         return false;
     }
