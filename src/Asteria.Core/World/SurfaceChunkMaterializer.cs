@@ -47,19 +47,22 @@ public sealed class SurfaceChunkMaterializer
         private readonly ulong[] _xRows;
         private readonly ulong[] _zRows;
         private readonly ulong[] _yRows;
+        private readonly ushort[] _candidateColumns;
 
         public DirectionalFaceOccupancyMasks(
             int maximumDepth,
             int wordCount,
             ulong[] xRows,
             ulong[] zRows,
-            ulong[] yRows)
+            ulong[] yRows,
+            ushort[] candidateColumns)
         {
             _maximumDepth = maximumDepth;
             _wordCount = wordCount;
             _xRows = xRows;
             _zRows = zRows;
             _yRows = yRows;
+            _candidateColumns = candidateColumns;
         }
 
         public DirectionalFaceVoxelData At(int x, int y, int z)
@@ -70,11 +73,12 @@ public sealed class SurfaceChunkMaterializer
                 throw new ArgumentOutOfRangeException(nameof(x));
             if (_maximumDepth == 0)
                 return default;
+            var columnIndex = z * Chunk.Size + x;
+            if ((_candidateColumns[columnIndex] & (1u << y)) == 0)
+                return default;
 
             var ySourceIndex = _maximumDepth + y;
-            var yRowOffset = (z * Chunk.Size + x) * _wordCount;
-            if (!IsSolid(_yRows, yRowOffset, ySourceIndex))
-                return default;
+            var yRowOffset = columnIndex * _wordCount;
 
             var xRowOffset = (y * Chunk.Size + z) * _wordCount;
             var zRowOffset = (y * Chunk.Size + x) * _wordCount;
@@ -106,10 +110,6 @@ public sealed class SurfaceChunkMaterializer
                 true, up, negativeX, positiveX, negativeZ, positiveZ, down,
                 BlockRuntimeId.Air);
         }
-
-        private static bool IsSolid(ulong[] rows, int rowOffset, int bitIndex) =>
-            (rows[rowOffset + (bitIndex >> 6)] &
-             (1UL << (bitIndex & 63))) != 0;
 
         private static ulong ReverseBits(ulong bits)
         {
@@ -1967,7 +1967,8 @@ public sealed class SurfaceChunkMaterializer
                 0, 1,
                 Array.Empty<ulong>(),
                 Array.Empty<ulong>(),
-                Array.Empty<ulong>());
+                Array.Empty<ulong>(),
+                Array.Empty<ushort>());
         }
 
         var regionSize = checked(size + maximumDepth * 2);
@@ -2111,10 +2112,14 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
+        var candidateColumns = DirectionalFaceCandidateMask.Build(
+            regionSize, wordCount, maximumDepth,
+            xRows, zRows, yRows);
         densityProbes = densityProbeCount;
         boundaryDensityProbes = boundaryDensityProbeCount;
         return new DirectionalFaceOccupancyMasks(
-            maximumDepth, wordCount, xRows, zRows, yRows);
+            maximumDepth, wordCount, xRows, zRows, yRows,
+            candidateColumns);
     }
 
     private DirectionalPaletteColumnData SampleDirectionalPaletteColumnData(int worldX, int worldZ)
