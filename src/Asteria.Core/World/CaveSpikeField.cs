@@ -76,7 +76,7 @@ public sealed class CaveSpikeField
         TrySampleCore(
             undergroundBiome, surfaceBiome, volumeBiome, baseY,
             x, y, z, down, densityVolume: null, densityOriginY: 0,
-            localX: 0, localZ: 0, out placement);
+            localX: 0, localZ: 0, anchorKnownVoid: false, out placement);
 
     internal bool TrySample(
         string undergroundBiome,
@@ -91,13 +91,14 @@ public sealed class CaveSpikeField
         int densityOriginY,
         int localX,
         int localZ,
-        out CaveSpikePlacement placement)
+        out CaveSpikePlacement placement,
+        bool anchorKnownVoid = false)
     {
         ArgumentNullException.ThrowIfNull(densityVolume);
         return TrySampleCore(
             undergroundBiome, surfaceBiome, volumeBiome, baseY,
             x, y, z, down, densityVolume, densityOriginY,
-            localX, localZ, out placement);
+            localX, localZ, anchorKnownVoid, out placement);
     }
 
     private bool TrySampleCore(
@@ -113,6 +114,7 @@ public sealed class CaveSpikeField
         int densityOriginY,
         int localX,
         int localZ,
+        bool anchorKnownVoid,
         out CaveSpikePlacement placement)
     {
         placement = default;
@@ -145,19 +147,6 @@ public sealed class CaveSpikeField
             if (!definition.Directions.Contains(direction))
                 continue;
 
-            var domain = down ? rule.DownDomain : rule.UpDomain;
-            var roll = WorldGenerationEntropy.Unit(
-                WorldGenerationEntropy.Sample3D(_seed, domain, x, y, z));
-            if (roll >= definition.Chance)
-                continue;
-
-            // Stable 2D priorities prevent near-identical neighboring
-            // columns from becoming a uniform carpet of spikes. Sampling
-            // the same horizontal priority at every Y keeps the spacing
-            // invariant independent of cave shelves and chunk order.
-            if (!HasSpacingPriority(x, z, definition.MinSpacing))
-                continue;
-
             bool IsVoid(int probeY)
             {
                 if (probeY <= 0 || probeY >= baseY)
@@ -166,14 +155,35 @@ public sealed class CaveSpikeField
                 var localProbeY = probeY - densityOriginY;
                 if (densityVolume is not null &&
                     (uint)localProbeY < densityVolume.Height)
-                    return !densityVolume.IsSolidAt(
+                {
+                    return !densityVolume.IsSolidAtUnchecked(
                         localX, localProbeY, localZ);
+                }
 
                 return _terrain.DensityAt(
                     surfaceBiome, baseY, x, probeY, z, volumeBiome) < 0d;
             }
+
+            // The materializer already rejected solid anchors inside its
+            // immutable density snapshot. Reuse that proof instead of reading
+            // the same occupancy bit again for each direction.
+            if (!anchorKnownVoid && !IsVoid(y))
+                continue;
+
             var supportY = y + (down ? 1 : -1);
-            if (!IsVoid(y) || IsVoid(supportY))
+            if (!IsVoid(supportY))
+                continue;
+
+            var domain = down ? rule.DownDomain : rule.UpDomain;
+            var roll = WorldGenerationEntropy.Unit(
+                WorldGenerationEntropy.Sample3D(_seed, domain, x, y, z));
+            if (roll >= definition.Chance)
+                continue;
+
+            // Spacing is horizontal and shared by both directions and every
+            // anchor height. Resolve it only after density rejects impossible
+            // floor/ceiling candidates.
+            if (!HasSpacingPriority(x, z, definition.MinSpacing))
                 continue;
 
             if (definition.Cluster is { } cluster)
@@ -193,10 +203,12 @@ public sealed class CaveSpikeField
             // Probe far enough to know whether opposite-facing spikes
             // could meet in a narrow gallery. Larger chambers still
             // permit the authored maximum height.
-            var clear = 0;
+            // The anchor was proven void above. Start at the next voxel so
+            // the clearance scan does not test that same bit a second time.
+            var clear = 1;
             var probeLength = Math.Max(
                 definition.MinClearance, definition.MaxHeight * 2 + 1);
-            for (var i = 0; i < probeLength; i++)
+            for (var i = 1; i < probeLength; i++)
             {
                 if (!IsVoid(y + (down ? -i : i)))
                     break;
