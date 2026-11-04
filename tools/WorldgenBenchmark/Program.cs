@@ -908,8 +908,9 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
     }
 }
 
-var terrainLayerGeologyModeDiagnostics =
-    CaptureTerrainLayerGeologyModeDiagnostics();
+var terrainLayerGeologyModeDiagnostics = options.ProfileGeologySampling
+    ? CaptureTerrainLayerGeologyModeDiagnostics()
+    : null;
 
 var stageTimingGenerator = NewGenerator();
 var coldStageTimingDiagnostics =
