@@ -3557,19 +3557,23 @@ public sealed class SurfaceChunkMaterializer
             if (biome is null || !spikes.HasRulesFor(biome.Primary))
                 continue;
 
-            // Cave spikes may only occupy carved voids below the base
-            // surface; sky and additive gaps are not eligible. Test the
-            // relevant vertical band with one mask operation instead of
-            // walking up to sixteen occupancy cells per column.
-            var solidMask = densityVolume.SolidColumnMaskAtUnchecked(x, z);
-            var caveBandHeight = (int)Math.Clamp(
-                (long)baseY - originY, 0L, Chunk.Size);
-            var caveBandMask = caveBandHeight == Chunk.Size
-                ? ushort.MaxValue
-                : caveBandHeight == 0
-                    ? (ushort)0
-                    : (ushort)((1u << caveBandHeight) - 1u);
-            if ((((ushort)~solidMask) & caveBandMask) == 0)
+            // A generated spike must occupy empty density inside this
+            // chunk. A fully solid column has no contributing formation
+            // even if an anchor in a neighboring vertical chunk qualifies.
+            var containsVoid = false;
+            for (var localY = 0; localY < Chunk.Size; localY++)
+            {
+                // Sky above the surface and gaps in additive masses are
+                // not cave space. Only a carved void below the base surface
+                // could contain a generated cave spike.
+                if (originY + localY < baseY &&
+                    !densityVolume.IsSolidAtUnchecked(x, localY, z))
+                {
+                    containsVoid = true;
+                    break;
+                }
+            }
+            if (!containsVoid)
                 continue;
 
             var worldX = originX + x;
@@ -3594,8 +3598,7 @@ public sealed class SurfaceChunkMaterializer
                             biome.Primary, surfaceBiome, volumeBiome, baseY,
                             worldX, anchorY, worldZ, down,
                             densityVolume, originY, x, z,
-                            out var placement,
-                            anchorKnownVoid: (uint)localAnchorY < Chunk.Size))
+                            out var placement))
                         continue;
 
                     // A blocked root or intermediate tier invalidates
