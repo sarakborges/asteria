@@ -1,3 +1,5 @@
+using System.Buffers;
+
 #if DEBUG
 using System.Diagnostics;
 #endif
@@ -505,7 +507,9 @@ public sealed class SurfaceChunkMaterializer
         var topExclusive = job.TopExclusive = checked(originY + Chunk.Size);
         job.PendingObjects = null;
         var columnMaterializationCaches =
-            job.ColumnMaterializationCaches = new ColumnMaterializationCache[Chunk.Area];
+            job.ColumnMaterializationCaches =
+                ArrayPool<ColumnMaterializationCache>.Shared.Rent(Chunk.Area);
+        Array.Clear(columnMaterializationCaches, 0, Chunk.Area);
 
         // Resolve column-only metadata once. Terrain voxels are then visited
         // in the same Y/Z/X order as Chunk's linear storage.
@@ -1483,6 +1487,14 @@ public sealed class SurfaceChunkMaterializer
             InitialBlocks?.Dispose();
             InitialBlocks = null;
             DirectionalFaceOccupancyMasks = null;
+            var columnCaches = ColumnMaterializationCaches;
+            ColumnMaterializationCaches = null;
+            if (columnCaches is not null)
+            {
+                Array.Clear(columnCaches, 0, Chunk.Area);
+                ArrayPool<ColumnMaterializationCache>.Shared.Return(
+                    columnCaches, clearArray: false);
+            }
             _geologyNoiseCache?.Dispose();
             _geologyNoiseCache = null;
         }
