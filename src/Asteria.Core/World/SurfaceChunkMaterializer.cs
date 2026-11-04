@@ -2532,6 +2532,7 @@ public sealed class SurfaceChunkMaterializer
             return;
 
         var masks = BuildDirectionalFaceOccupancyMasks(chunk, coord);
+        var candidateColumns = masks.CandidateColumns;
         for (var index = 0; index < Chunk.Volume; index++)
         {
             var cell = chunk.GetCellAtLinearIndexUnchecked(index);
@@ -2541,7 +2542,10 @@ public sealed class SurfaceChunkMaterializer
             var layerIndex = index % Chunk.Area;
             var z = layerIndex / Chunk.Size;
             var x = layerIndex % Chunk.Size;
-            var data = masks.At(x, y, z);
+            var columnIndex = z * Chunk.Size + x;
+            if ((candidateColumns[columnIndex] & (1u << y)) == 0)
+                continue;
+            var data = masks.AtCandidate(x, y, z);
             if (!data.HasCandidates)
                 continue;
             chunk.SetDirectionalFaceDataAtLinearIndex(
