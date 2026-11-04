@@ -225,6 +225,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _directionalPaletteEmptyOwnerMs;
     private double _directionalPaletteWriteMs;
     private double _directionalPaletteOtherMs;
+    private double _directionalPaletteDensitySlabReadMs;
+    private double _directionalPaletteHorizontalBoundaryReadMs;
+    private double _directionalPaletteOccupancyRowAssemblyMs;
+    private double _directionalPaletteCandidateMaskBuildMs;
+    private long _directionalPaletteHorizontalBoundaryBatches;
+    private long _directionalPaletteHorizontalBoundaryColumns;
 
     private WorldDiagnosticsLog(DiagnosticSessionLog session)
     {
@@ -462,6 +468,18 @@ internal sealed class WorldDiagnosticsLog : IDisposable
                 palette.PaletteWriteEstimatedMilliseconds;
             _directionalPaletteOtherMs +=
                 palette.OtherEstimatedMilliseconds;
+            _directionalPaletteDensitySlabReadMs +=
+                palette.DensitySlabReadMilliseconds;
+            _directionalPaletteHorizontalBoundaryReadMs +=
+                palette.HorizontalBoundaryReadMilliseconds;
+            _directionalPaletteOccupancyRowAssemblyMs +=
+                palette.OccupancyRowAssemblyMilliseconds;
+            _directionalPaletteCandidateMaskBuildMs +=
+                palette.CandidateMaskBuildMilliseconds;
+            _directionalPaletteHorizontalBoundaryBatches +=
+                palette.HorizontalBoundaryBatchCount;
+            _directionalPaletteHorizontalBoundaryColumns +=
+                palette.HorizontalBoundaryColumnCount;
         }
 
         foreach (var activation in update.Activations)
@@ -860,6 +878,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"directional_palette_empty_owner_estimated_ms={Format1(_directionalPaletteEmptyOwnerMs)} " +
             $"directional_palette_write_estimated_ms={Format1(_directionalPaletteWriteMs)} " +
             $"directional_palette_other_estimated_ms={Format1(_directionalPaletteOtherMs)} " +
+            $"directional_palette_density_slab_read_ms={Format1(_directionalPaletteDensitySlabReadMs)} " +
+            $"directional_palette_horizontal_boundary_read_ms={Format1(_directionalPaletteHorizontalBoundaryReadMs)} " +
+            $"directional_palette_occupancy_row_assembly_ms={Format1(_directionalPaletteOccupancyRowAssemblyMs)} " +
+            $"directional_palette_candidate_mask_build_ms={Format1(_directionalPaletteCandidateMaskBuildMs)} " +
+            $"directional_palette_horizontal_boundary_batches={_directionalPaletteHorizontalBoundaryBatches} " +
+            $"directional_palette_horizontal_boundary_columns={_directionalPaletteHorizontalBoundaryColumns} " +
             materializationStages + " " +
             stages);
 
@@ -893,6 +917,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _directionalPaletteEmptyOwnerMs = 0d;
         _directionalPaletteWriteMs = 0d;
         _directionalPaletteOtherMs = 0d;
+        _directionalPaletteDensitySlabReadMs = 0d;
+        _directionalPaletteHorizontalBoundaryReadMs = 0d;
+        _directionalPaletteOccupancyRowAssemblyMs = 0d;
+        _directionalPaletteCandidateMaskBuildMs = 0d;
+        _directionalPaletteHorizontalBoundaryBatches = 0;
+        _directionalPaletteHorizontalBoundaryColumns = 0;
         _creaturesPeak = _creaturesActive;
         _creatureParticlesPeak = _creatureParticlesActive;
         _ambientParticlesPeak = _ambientParticlesActive;

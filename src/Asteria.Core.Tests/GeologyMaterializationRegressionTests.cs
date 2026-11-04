@@ -150,12 +150,18 @@ public sealed class GeologyMaterializationRegressionTests
             from x in Enumerable.Range(-1, 3)
             select new ChunkCoord(x, 2, z)).ToArray();
 
-        static (Dictionary<ChunkCoord, ulong> Digests, int BoundaryProbes) Capture(
-            BiomeWorldGenerator generator,
-            IEnumerable<ChunkCoord> order)
+        static (
+            Dictionary<ChunkCoord, ulong> Digests,
+            int BoundaryProbes,
+            int BoundaryBatchCount,
+            int BoundaryColumnCount) Capture(
+                BiomeWorldGenerator generator,
+                IEnumerable<ChunkCoord> order)
         {
             var digests = new Dictionary<ChunkCoord, ulong>();
             var boundaryProbes = 0;
+            var boundaryBatchCount = 0;
+            var boundaryColumnCount = 0;
             foreach (var coord in order)
             {
                 using var job = generator.BeginMaterialization(coord);
@@ -163,7 +169,11 @@ public sealed class GeologyMaterializationRegressionTests
                     job.Advance();
 
                 if (job.DirectionalFacePaletteMetrics is { } metrics)
+                {
                     boundaryProbes += metrics.BoundaryDensityProbes;
+                    boundaryBatchCount += metrics.HorizontalBoundaryBatchCount;
+                    boundaryColumnCount += metrics.HorizontalBoundaryColumnCount;
+                }
 
                 var chunk = job.Result ??
                     throw new InvalidOperationException(
@@ -181,7 +191,11 @@ public sealed class GeologyMaterializationRegressionTests
                 digests.Add(coord, digest);
             }
 
-            return (digests, boundaryProbes);
+            return (
+                digests,
+                boundaryProbes,
+                boundaryBatchCount,
+                boundaryColumnCount);
         }
 
         var first = Capture(
@@ -199,6 +213,12 @@ public sealed class GeologyMaterializationRegressionTests
             first.BoundaryProbes < unsharedBoundaryProbeUpperBound,
             $"Adjacent chunks did not reuse occupancy masks: " +
             $"{first.BoundaryProbes}/{unsharedBoundaryProbeUpperBound} boundary samples.");
+        Assert.Equal(
+            coordinates.Length * 4 * 3 * Chunk.Size,
+            first.BoundaryColumnCount);
+        Assert.Equal(first.BoundaryColumnCount, first.BoundaryBatchCount);
+        Assert.Equal(first.BoundaryBatchCount, second.BoundaryBatchCount);
+        Assert.Equal(first.BoundaryColumnCount, second.BoundaryColumnCount);
         Assert.Equal(coordinates.Length, first.Digests.Count);
         Assert.Equal(coordinates.Length, second.Digests.Count);
         foreach (var coord in coordinates)

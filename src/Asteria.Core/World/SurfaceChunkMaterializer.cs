@@ -10,6 +10,14 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class SurfaceChunkMaterializer
 {
+    private readonly record struct DirectionalFaceOccupancyPreparationProfile(
+        double DensitySlabReadMilliseconds,
+        double HorizontalBoundaryReadMilliseconds,
+        double OccupancyRowAssemblyMilliseconds,
+        double CandidateMaskBuildMilliseconds,
+        int HorizontalBoundaryBatchCount,
+        int HorizontalBoundaryColumnCount);
+
     // A 16x16 chunk plus its one-column cardinal slope-probe halo is 18x18.
     private const int SlopeProbeSampleCacheCapacity =
         (Chunk.Size + 2) * (Chunk.Size + 2);
@@ -478,7 +486,10 @@ public sealed class SurfaceChunkMaterializer
         {
             job.DirectionalFaceOccupancyMasks = BuildDirectionalFaceOccupancyMasks(
                 densityVolume, column, originX, originY, originZ,
-                out var densityProbes, out var boundaryDensityProbes);
+                out var densityProbes,
+                out var boundaryDensityProbes,
+                out var preparationProfile);
+            job.DirectionalFacePalettePreparationProfile = preparationProfile;
             job.DirectionalFacePaletteDensityProbes = densityProbes;
             job.DirectionalFacePaletteBoundaryDensityProbes = boundaryDensityProbes;
         }
@@ -1427,6 +1438,9 @@ public sealed class SurfaceChunkMaterializer
 
         public double DirectionalFacePalettePreparationMilliseconds { get; set; }
 
+        public DirectionalFaceOccupancyPreparationProfile
+            DirectionalFacePalettePreparationProfile { get; set; }
+
         public int DirectionalFacePaletteDensityProbes { get; set; }
 
         public int DirectionalFacePaletteBoundaryDensityProbes { get; set; }
@@ -1946,7 +1960,8 @@ public sealed class SurfaceChunkMaterializer
         int originY,
         int originZ,
         out int densityProbes,
-        out int boundaryDensityProbes) =>
+        out int boundaryDensityProbes,
+        out DirectionalFaceOccupancyPreparationProfile preparationProfile) =>
         BuildDirectionalFaceOccupancyMasks(
             densityVolume.IsSolidAtUnchecked,
             column,
@@ -1954,7 +1969,8 @@ public sealed class SurfaceChunkMaterializer
             originY,
             originZ,
             out densityProbes,
-            out boundaryDensityProbes);
+            out boundaryDensityProbes,
+            out preparationProfile);
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         Chunk chunk,
@@ -1969,6 +1985,7 @@ public sealed class SurfaceChunkMaterializer
             origin.Y,
             origin.Z,
             out _,
+            out _,
             out _);
     }
 
@@ -1979,7 +1996,8 @@ public sealed class SurfaceChunkMaterializer
         int originY,
         int originZ,
         out int densityProbes,
-        out int boundaryDensityProbes)
+        out int boundaryDensityProbes,
+        out DirectionalFaceOccupancyPreparationProfile preparationProfile)
     {
         ArgumentNullException.ThrowIfNull(isSolid);
         ArgumentNullException.ThrowIfNull(column);
@@ -1991,6 +2009,7 @@ public sealed class SurfaceChunkMaterializer
 
         densityProbes = 0;
         boundaryDensityProbes = 0;
+        preparationProfile = default;
         var densityProbeCount = 0;
         var boundaryDensityProbeCount = 0;
         if (maximumDepth == 0)
@@ -2009,6 +2028,9 @@ public sealed class SurfaceChunkMaterializer
         var zRows = new ulong[Chunk.Area * wordCount];
         var yRows = new ulong[Chunk.Area * wordCount];
 
+#if DEBUG
+        var slabReadStarted = Stopwatch.GetTimestamp();
+#endif
         var bottomSlabs = SampleVerticalDensitySlabs(
             column, originX, originZ,
             Math.Max(0, originY - maximumDepth), originY,
@@ -2018,6 +2040,12 @@ public sealed class SurfaceChunkMaterializer
             column, originX, originZ,
             topStartY, checked(topStartY + maximumDepth),
             out var topDensityProbes);
+#if DEBUG
+        var densitySlabReadMilliseconds =
+            Stopwatch.GetElapsedTime(slabReadStarted).TotalMilliseconds;
+#else
+        const double densitySlabReadMilliseconds = 0d;
+#endif
         densityProbeCount = checked(bottomDensityProbes + topDensityProbes);
         boundaryDensityProbeCount = densityProbeCount;
 
@@ -2044,6 +2072,14 @@ public sealed class SurfaceChunkMaterializer
 
         var xBoundaryMasks = new ushort[regionSize * size];
         var xBoundaryMasksReady = new bool[regionSize * size];
+#if DEBUG
+        var horizontalBoundaryReadMilliseconds = 0d;
+        var occupancyRowAssemblyStarted = Stopwatch.GetTimestamp();
+#else
+        const double horizontalBoundaryReadMilliseconds = 0d;
+#endif
+        var horizontalBoundaryBatchCount = 0;
+        var horizontalBoundaryColumnCount = 0;
         ushort XBoundaryMask(int localX, int z)
         {
             var regionX = localX + maximumDepth;
@@ -2052,8 +2088,17 @@ public sealed class SurfaceChunkMaterializer
             {
                 var worldX = checked(originX + localX);
                 var worldZ = checked(originZ + z);
+#if DEBUG
+                var boundaryReadStarted = Stopwatch.GetTimestamp();
+#endif
                 var mask = _columns.GetDensityColumnMask(
                     worldX, originY, worldZ, out _, out var probes);
+#if DEBUG
+                horizontalBoundaryReadMilliseconds += Stopwatch.GetElapsedTime(
+                    boundaryReadStarted).TotalMilliseconds;
+#endif
+                horizontalBoundaryBatchCount++;
+                horizontalBoundaryColumnCount++;
                 densityProbeCount = checked(densityProbeCount + probes);
                 boundaryDensityProbeCount = checked(boundaryDensityProbeCount + probes);
                 xBoundaryMasks[index] = mask;
@@ -2072,8 +2117,17 @@ public sealed class SurfaceChunkMaterializer
             {
                 var worldX = checked(originX + x);
                 var worldZ = checked(originZ + localZ);
+#if DEBUG
+                var boundaryReadStarted = Stopwatch.GetTimestamp();
+#endif
                 var mask = _columns.GetDensityColumnMask(
                     worldX, originY, worldZ, out _, out var probes);
+#if DEBUG
+                horizontalBoundaryReadMilliseconds += Stopwatch.GetElapsedTime(
+                    boundaryReadStarted).TotalMilliseconds;
+                horizontalBoundaryBatchCount++;
+                horizontalBoundaryColumnCount++;
+#endif
                 densityProbeCount = checked(densityProbeCount + probes);
                 boundaryDensityProbeCount = checked(boundaryDensityProbeCount + probes);
                 zBoundaryMasks[index] = mask;
@@ -2146,11 +2200,31 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
+#if DEBUG
+        var occupancyRowAssemblyMilliseconds =
+            Stopwatch.GetElapsedTime(occupancyRowAssemblyStarted).TotalMilliseconds -
+            horizontalBoundaryReadMilliseconds;
+        var candidateMaskBuildStarted = Stopwatch.GetTimestamp();
+#else
+        const double occupancyRowAssemblyMilliseconds = 0d;
+        const double candidateMaskBuildMilliseconds = 0d;
+#endif
         var candidateColumns = DirectionalFaceCandidateMask.Build(
             regionSize, wordCount, maximumDepth,
             xRows, zRows, yRows);
+#if DEBUG
+        var candidateMaskBuildMilliseconds =
+            Stopwatch.GetElapsedTime(candidateMaskBuildStarted).TotalMilliseconds;
+#endif
         densityProbes = densityProbeCount;
         boundaryDensityProbes = boundaryDensityProbeCount;
+        preparationProfile = new DirectionalFaceOccupancyPreparationProfile(
+            densitySlabReadMilliseconds,
+            horizontalBoundaryReadMilliseconds,
+            occupancyRowAssemblyMilliseconds,
+            candidateMaskBuildMilliseconds,
+            horizontalBoundaryBatchCount,
+            horizontalBoundaryColumnCount);
         return new DirectionalFaceOccupancyMasks(
             maximumDepth, wordCount, xRows, zRows, yRows,
             candidateColumns);
@@ -2463,7 +2537,19 @@ public sealed class SurfaceChunkMaterializer
             DensityProbeEstimatedMilliseconds: 0,
             EmptyRegionOwnerResolutionEstimatedMilliseconds: 0,
             PaletteWriteEstimatedMilliseconds: applyMilliseconds,
-            OtherEstimatedMilliseconds: 0);
+            OtherEstimatedMilliseconds: 0,
+            DensitySlabReadMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.DensitySlabReadMilliseconds,
+            HorizontalBoundaryReadMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryReadMilliseconds,
+            OccupancyRowAssemblyMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.OccupancyRowAssemblyMilliseconds,
+            CandidateMaskBuildMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.CandidateMaskBuildMilliseconds,
+            HorizontalBoundaryBatchCount:
+                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryBatchCount,
+            HorizontalBoundaryColumnCount:
+                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryColumnCount);
     }
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
