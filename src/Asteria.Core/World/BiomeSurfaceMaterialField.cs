@@ -951,12 +951,6 @@ public sealed class BiomeSurfaceMaterialField
             const double edgeBand = 0.12d;
             const double maximumDisplacement = 0.10d;
 
-            static double FadeAtEdge(double distance)
-            {
-                var weight = Math.Clamp(1d - distance / edgeBand, 0d, 1d);
-                return weight * weight * (3d - 2d * weight);
-            }
-
             var scaledX = position.X / _regionScale;
             var scaledY = position.Y / _regionVerticalScale;
             var scaledZ = position.Z / _regionScale;
@@ -966,9 +960,12 @@ public sealed class BiomeSurfaceMaterialField
             var distanceX = Math.Min(fractionX, 1d - fractionX);
             var distanceY = Math.Min(fractionY, 1d - fractionY);
             var distanceZ = Math.Min(fractionZ, 1d - fractionZ);
-            var weightX = FadeAtEdge(distanceX);
-            var weightY = FadeAtEdge(distanceY);
-            var weightZ = FadeAtEdge(distanceZ);
+            var weightX = Math.Clamp(1d - distanceX / edgeBand, 0d, 1d);
+            var weightY = Math.Clamp(1d - distanceY / edgeBand, 0d, 1d);
+            var weightZ = Math.Clamp(1d - distanceZ / edgeBand, 0d, 1d);
+            weightX *= weightX * (3d - 2d * weightX);
+            weightY *= weightY * (3d - 2d * weightY);
+            weightZ *= weightZ * (3d - 2d * weightZ);
             var nearX = weightX > 0d;
             var nearY = weightY > 0d;
             var nearZ = weightZ > 0d;
