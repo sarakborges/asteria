@@ -12,7 +12,7 @@ namespace Asteria.Core.World;
 public static class ChunkSaveCodec
 {
     private const uint Magic = 0x48435341; // "ASCH" (little-endian)
-    private const ushort FormatVersion = 4;
+    private const ushort FormatVersion = 5;
     private const int MaximumBytes = 8 * 1024 * 1024;
     private const int DigestBytes = 32;
 
@@ -145,6 +145,26 @@ public static class ChunkSaveCodec
                     writer.Write(obj.Transform.ScaleZ);
                 }
             }
+
+            var directionalEntries = new List<(int Index, DirectionalFaceVoxelData Data)>();
+            chunk.VisitDirectionalFaceVoxels((index, data) => directionalEntries.Add((index, data)));
+            directionalEntries.Sort((left, right) => left.Index.CompareTo(right.Index));
+            writer.Write(directionalEntries.Count);
+            foreach (var (index, data) in directionalEntries)
+            {
+                if (!data.IsTerrainVoxel)
+                    throw new InvalidOperationException("Directional metadata must belong to generated terrain voxels.");
+                writer.Write((ushort)index);
+                writer.Write(data.Up);
+                writer.Write(data.NegativeX);
+                writer.Write(data.PositiveX);
+                writer.Write(data.NegativeZ);
+                writer.Write(data.PositiveZ);
+                writer.Write(data.Down);
+                writer.Write(!data.BaseBlock.IsAir);
+                if (!data.BaseBlock.IsAir)
+                    writer.Write(blocks.GetDefinition(data.BaseBlock).Id);
+            }
         }
 
         if (stream.Length + DigestBytes > MaximumBytes)
@@ -181,7 +201,7 @@ public static class ChunkSaveCodec
             if (reader.ReadUInt32() != Magic)
                 throw new InvalidDataException("Unknown chunk snapshot magic.");
             var version = reader.ReadUInt16();
-            if (version is not (1 or 2 or 3 or FormatVersion))
+            if (version is not (1 or 2 or 3 or 4 or FormatVersion))
                 throw new InvalidDataException("Unknown chunk snapshot format.");
 
             var chunk = new Chunk();
@@ -303,6 +323,33 @@ public static class ChunkSaveCodec
                             throw new InvalidDataException(
                                 "Saved object has missing support or duplicate identity.");
                     }
+                }
+            }
+
+            if (version >= 5)
+            {
+                count = ReadCount(reader);
+                previous = -1;
+                for (var i = 0; i < count; i++)
+                {
+                    var index = ReadIndex(reader, ref previous);
+                    var up = reader.ReadUInt64();
+                    var negativeX = reader.ReadUInt64();
+                    var positiveX = reader.ReadUInt64();
+                    var negativeZ = reader.ReadUInt64();
+                    var positiveZ = reader.ReadUInt64();
+                    var down = reader.ReadUInt64();
+                    var hasBaseBlock = reader.ReadBoolean();
+                    var baseBlock = BlockRuntimeId.Air;
+                    if (hasBaseBlock &&
+                        !blocks.TryGetId(reader.ReadString(), out baseBlock))
+                        throw new InvalidDataException("Unknown base block in directional metadata.");
+                    var data = new DirectionalFaceVoxelData(
+                        true, up, negativeX, positiveX, negativeZ, positiveZ, down, baseBlock);
+                    var (x, y, z) = Position(index);
+                    if (chunk.GetCell(x, y, z).IsEmpty)
+                        throw new InvalidDataException("Directional metadata references an empty voxel.");
+                    chunk.SetDirectionalFaceDataAtLinearIndex(index, data, updateRevision: false);
                 }
             }
 
