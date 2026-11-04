@@ -886,17 +886,15 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
         var allocated = runs.Select(run => run.AllocatedBytes).Order().ToArray();
         var digests = runs.Select(run => run.Digest).Distinct().ToArray();
         var solidVoxels = runs.Select(run => run.SolidVoxels).Distinct().ToArray();
-        return new
-        {
-            MedianElapsedMs = Median(elapsed),
-            MedianAllocatedBytes = (long)Median(
+        return (
+            MedianElapsedMs: Median(elapsed),
+            MedianAllocatedBytes: (long)Median(
                 allocated.Select(value => (double)value).ToArray()),
-            MinimumElapsedMs = elapsed[0],
-            MaximumElapsedMs = elapsed[^1],
-            Digests = digests,
-            DeterministicAcrossRepetitions = digests.Length == 1,
-            SolidVoxelsPerRun = solidVoxels,
-        };
+            MinimumElapsedMs: elapsed[0],
+            MaximumElapsedMs: elapsed[^1],
+            Digests: digests,
+            DeterministicAcrossRepetitions: digests.Length == 1,
+            SolidVoxelsPerRun: solidVoxels);
     }
 
 }
