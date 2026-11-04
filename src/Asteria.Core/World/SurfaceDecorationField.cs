@@ -21,6 +21,14 @@ public sealed class SurfaceDecorationField
     private readonly HashSet<string> _wallObjectBiomes;
     private readonly HashSet<string> _surfaceDecorationBiomes;
     private readonly HashSet<string> _fluidSurfaceDecorationBiomes;
+    private readonly IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        _groundBlockSupportIndex;
+    private readonly IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        _groundObjectSupportIndex;
+    private readonly IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        _fluidBlockSupportIndex;
+    private readonly IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        _fluidObjectSupportIndex;
     private readonly bool _hasSlopeConditions;
 
     public SurfaceDecorationField(
@@ -122,6 +130,14 @@ public sealed class SurfaceDecorationField
                             decoration.SupportSurface))
                     .ToArray(),
                 StringComparer.Ordinal);
+        _groundBlockSupportIndex = BuildSurfaceSupportIndex(
+            _rules, requireObject: false, onFluidSurface: false);
+        _groundObjectSupportIndex = BuildSurfaceSupportIndex(
+            _rules, requireObject: true, onFluidSurface: false);
+        _fluidBlockSupportIndex = BuildSurfaceSupportIndex(
+            _rules, requireObject: false, onFluidSurface: true);
+        _fluidObjectSupportIndex = BuildSurfaceSupportIndex(
+            _rules, requireObject: true, onFluidSurface: true);
         _surfaceDecorationBiomes = _rules
             .Where(pair => pair.Value.Any(rule =>
                 rule.SupportSurface != DecorationSupportSurface.Wall))
@@ -181,6 +197,53 @@ public sealed class SurfaceDecorationField
                 return true;
         return false;
     }
+
+    /// <summary>
+    /// Conservative filter for the floor-decoration materialization pass.
+    /// It only rejects queries when no authored rule can match this support
+    /// block and category. Chance, conditions, habitat and exact fluid identity
+    /// remain the responsibility of SelectRule.
+    /// </summary>
+    internal bool HasSurfacePlacementCandidates(
+        BiomeSample sample,
+        BlockRuntimeId supportBlock,
+        bool requireObject,
+        bool onFluidSurface)
+    {
+        var index = (requireObject, onFluidSurface) switch
+        {
+            (false, false) => _groundBlockSupportIndex,
+            (true, false) => _groundObjectSupportIndex,
+            (false, true) => _fluidBlockSupportIndex,
+            (true, true) => _fluidObjectSupportIndex,
+        };
+
+        foreach (var influence in sample.Influences)
+        {
+            if (index[influence.BiomeId].Contains(supportBlock))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        BuildSurfaceSupportIndex(
+            IReadOnlyDictionary<string, DecorationRule[]> rulesByBiome,
+            bool requireObject,
+            bool onFluidSurface) =>
+        rulesByBiome.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value
+                .Where(rule =>
+                    rule.SupportSurface == DecorationSupportSurface.Floor &&
+                    (rule.ObjectId is not null) == requireObject &&
+                    ((!rule.RequiredFluid.IsNone &&
+                      rule.FluidRelation == DecorationFluidRelation.Below) ==
+                     onFluidSurface))
+                .SelectMany(rule => rule.SurfaceBlocks)
+                .ToHashSet(),
+            StringComparer.Ordinal);
 
     public BlockRuntimeId BlockAt(
         BiomeSample sample,
