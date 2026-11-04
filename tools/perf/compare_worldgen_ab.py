@@ -176,7 +176,7 @@ def compare(
         ),
         (
             "SurfaceDecorations (warm)",
-            ("initialAreaStageTimingDiagnostics", "warm", "byStage", "SurfaceDecorations", "elapsedMs"),
+            lambda run: _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "SurfaceDecorations", "elapsedMs"),
         ),
         (
             "TerrainLayer (warm)",
