@@ -907,7 +907,7 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
             ? 0d
             : (perVoxel.MedianElapsedMs - regionalHybrid.MedianElapsedMs) *
               100d / perVoxel.MedianElapsedMs,
-        Note = "Single-biome swamp materialization. PerVoxel, Regional and RegionalHybrid change only swamp geology sampling mode; chunk coordinates, terrain settings and other biome definitions remain unchanged. Digests are checked for repeatability within each mode, not equality between different materials. RegionalHybrid applies high-frequency displacement only near regional cell boundaries.",
+        Note = "Single-biome swamp materialization. PerVoxel, Regional and RegionalHybrid change only swamp geology sampling mode; chunk coordinates, terrain settings and other biome definitions remain unchanged. Digests are checked for repeatability within each mode, not equality between different materials. RegionalHybrid combines organic regional-boundary displacement with sparse fine-scale mineral inclusions selected using authored material weights.",
     };
 
     static (
