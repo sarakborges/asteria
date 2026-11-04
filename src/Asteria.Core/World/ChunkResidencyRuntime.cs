@@ -144,7 +144,7 @@ public sealed class ChunkResidencyRuntime
     private readonly PackContentRegistry<ObjectDefinition>? _objects;
     private readonly IChunkProvider _chunkProvider;
     private readonly IChunkDirectionalFacePaletteUpdater? _directionalFacePaletteUpdater;
-    private bool _directionalFacePaletteEventsAttached;
+    private bool _directionalFaceChunkEventAttached;
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates;
@@ -231,8 +231,7 @@ public sealed class ChunkResidencyRuntime
         if (_directionalFacePaletteUpdater is not null)
         {
             _world.ChunkBecameResident += HandleDirectionalFaceChunkArrival;
-            _world.BlockCellChanged += HandleDirectionalFaceBlockEdit;
-            _directionalFacePaletteEventsAttached = true;
+            _directionalFaceChunkEventAttached = true;
         }
     }
 
@@ -272,11 +271,10 @@ public sealed class ChunkResidencyRuntime
     public void BeginRetirement()
     {
         _acceptingMaterializationWork = false;
-        if (!_directionalFacePaletteEventsAttached)
+        if (!_directionalFaceChunkEventAttached)
             return;
         _world.ChunkBecameResident -= HandleDirectionalFaceChunkArrival;
-        _world.BlockCellChanged -= HandleDirectionalFaceBlockEdit;
-        _directionalFacePaletteEventsAttached = false;
+        _directionalFaceChunkEventAttached = false;
     }
 
     private void HandleDirectionalFaceChunkArrival(ChunkCoord coord)
@@ -285,15 +283,6 @@ public sealed class ChunkResidencyRuntime
             return;
         EnqueueDirectionalFaceVisualChanges(
             _directionalFacePaletteUpdater.ReconcileChunkArrival(_world, coord));
-    }
-
-    private void HandleDirectionalFaceBlockEdit(VoxelWorldEdit edit)
-    {
-        if (_directionalFacePaletteUpdater is null ||
-            edit.Previous.IsEmpty == edit.Current.IsEmpty)
-            return;
-        EnqueueDirectionalFaceVisualChanges(
-            _directionalFacePaletteUpdater.ReconcileBlockCellChange(_world, edit));
     }
 
     private void EnqueueDirectionalFaceVisualChanges(

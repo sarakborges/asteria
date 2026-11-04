@@ -176,11 +176,16 @@ jobs:
       - name: Resolve the latest terrain-materialization change
         id: terrain_scope
         shell: bash
+        env:
+          # Pre-feature baseline: last correct version before per-voxel
+          # directional exposure metadata was introduced.
+          BASELINE_SHA: f6affd92ddb1dcd109238c25f8ea40d1172bd872
         run: |
           set -euo pipefail
           terrain_commit="$(git log --first-parent -1 --format=%H HEAD -- \
             src/Asteria.Core/World/CaveSpikeField.cs \
             src/Asteria.Core/World/SurfaceChunkMaterializer.cs \
+            src/Asteria.Core/World/Chunk.cs \
             src/Asteria.Core/World/WorldGenerationEntropy.cs \
             src/Asteria.Core/World/SurfaceTerrainField.cs \
             src/Asteria.Core/World/BiomeSurfaceMaterialField.cs \
@@ -192,7 +197,11 @@ jobs:
             exit 0
           fi
 
-          baseline_commit="$(git rev-parse "${terrain_commit}^")"
+          # Compare against the PR base, not the previous feature commit:
+          # intermediate optimization commits may intentionally fix a broken
+          # predecessor, so the parent is not always a valid output baseline.
+          baseline_commit="$BASELINE_SHA"
+          git cat-file -e "${baseline_commit}^{commit}"
           echo "terrain_commit=$terrain_commit" >> "$GITHUB_OUTPUT"
           echo "baseline_commit=$baseline_commit" >> "$GITHUB_OUTPUT"
           echo "run=true" >> "$GITHUB_OUTPUT"
@@ -220,24 +229,8 @@ jobs:
           baseline_sha="$BASELINE_SHA"
           git worktree add --detach "$baseline" "$baseline_sha"
           git worktree add --detach "$candidate" "$CANDIDATE_SHA"
-
-          # A short sequence of commits can leave an intermediate parent
-          # intentionally incomplete. Walk back until the baseline benchmark
-          # project builds, keeping the selected SHA for the comparison report.
-          attempt=0
-          while ! dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
-            --configuration Release --nologo; do
-            if [ "$attempt" -ge 4 ]; then
-              echo "Unable to find a buildable terrain A/B baseline."
-              exit 1
-            fi
-            git worktree remove --force "$baseline"
-            baseline_sha="$(git rev-parse "${baseline_sha}^")"
-            echo "Retrying terrain A/B baseline at $baseline_sha"
-            git worktree add --detach "$baseline" "$baseline_sha"
-            attempt=$((attempt + 1))
-          done
-
+          dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+            --configuration Release --nologo
           echo "TERRAIN_AB_BASELINE_SHA=$baseline_sha" >> "$GITHUB_ENV"
           echo "Selected terrain A/B baseline: $baseline_sha"
           dotnet build "$candidate/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \

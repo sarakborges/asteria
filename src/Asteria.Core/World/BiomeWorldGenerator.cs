@@ -438,10 +438,6 @@ public sealed class BiomeWorldGenerator :
         VoxelWorld world, ChunkCoord arriving) =>
         _materializer.ReconcileChunkArrival(world, arriving);
 
-    public IReadOnlyList<WorldVoxelCoord> ReconcileBlockCellChange(
-        VoxelWorld world, VoxelWorldEdit edit) =>
-        _materializer.ReconcileBlockCellChange(world, edit);
-
     public int SurfaceHeight(int worldX, int worldZ) =>
         _voidSpawnPlatform?.SurfaceHeight(worldX, worldZ) ??
         _terrain.SurfaceHeight(worldX, worldZ);
