@@ -95,6 +95,54 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Fact]
+    public void RegionalHybridGeologyRoughensOnlyRegionalBoundariesDeterministically()
+    {
+        var source = LoadBiome("swamp");
+        var regionalBiome = WithGeologySamplingMode(
+            source, BiomeGeologySamplingMode.Regional);
+        var hybridBiome = WithGeologySamplingMode(
+            source, BiomeGeologySamplingMode.RegionalHybrid);
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        const ulong seed = 7808508665006554090UL;
+        var regional = new BiomeSurfaceMaterialField(
+            seed, [regionalBiome], blocks);
+        var hybrid = new BiomeSurfaceMaterialField(
+            seed, [hybridBiome], blocks);
+        var hybridRepeat = new BiomeSurfaceMaterialField(
+            seed, [hybridBiome], blocks);
+        var sample = new BiomeSample(
+            source.Id, [new BiomeInfluence(source.Id, 1f)]);
+        var seen = new HashSet<BlockRuntimeId>();
+        var changedFromRegional = 0;
+        var unchangedFromRegional = 0;
+
+        for (var z = -128; z <= 128; z += 2)
+        for (var x = -128; x <= 128; x += 2)
+        {
+            Assert.True(regional.TryGeologyBlockAt(
+                sample, x, 72, z, out var regionalBlock));
+            Assert.True(hybrid.TryGeologyBlockAt(
+                sample, x, 72, z, out var hybridBlock));
+            Assert.True(hybridRepeat.TryGeologyBlockAt(
+                sample, x, 72, z, out var repeatedBlock));
+            Assert.Equal(hybridBlock, repeatedBlock);
+            seen.Add(hybridBlock);
+
+            if (hybridBlock == regionalBlock)
+                unchangedFromRegional++;
+            else
+                changedFromRegional++;
+        }
+
+        Assert.True(seen.Count >= 2,
+            "The hybrid field should retain multiple authored geological materials.");
+        Assert.True(changedFromRegional > 0,
+            "Fine boundary displacement should alter at least some regional cell edges.");
+        Assert.True(unchangedFromRegional > 0,
+            "Voxels away from regional boundaries should retain their macro-region material.");
+    }
+
+    [Fact]
     public void OceanKeepsThinSandCoverAndUsesThreeDimensionalGeologyBelowIt()
     {
         var biome = LoadBiome("ocean");
@@ -472,6 +520,63 @@ public sealed class SparseOverworldBiomeContentTests
         Assert.All(stones, rule =>
             Assert.True(rule.HabitatWeights!.For("rocky_scrub") >
                         rule.HabitatWeights.For("deadwood_pockets")));
+    }
+
+    private static BiomeDefinition WithGeologySamplingMode(
+        BiomeDefinition source,
+        BiomeGeologySamplingMode samplingMode)
+    {
+        var original = source.Geology ??
+            throw new InvalidOperationException(
+                $"Biome {source.Id} has no authored geology.");
+        var weights = original.Blocks
+            .Select((block, index) => new
+            {
+                Block = block,
+                Weight = original.BlockWeights[index],
+            })
+            .ToDictionary(
+                item => item.Block,
+                item => item.Weight,
+                StringComparer.Ordinal);
+        var geology = new BiomeGeologyDefinition(
+            original.BaseBlock,
+            original.Blocks,
+            original.Scale,
+            original.VerticalScale,
+            original.DetailScale,
+            original.SelectionScale,
+            original.Coverage,
+            original.Roughness,
+            weights,
+            original.SurfaceCoverDepth,
+            original.SurfaceCoverage,
+            original.SurfaceSubmergedOnly,
+            original.GrainScale,
+            original.GrainVerticalScale,
+            original.GrainInfluence,
+            original.ClusterScale,
+            original.ClusterVerticalScale,
+            original.ClusterInfluence,
+            original.BoundaryGrainInfluence,
+            samplingMode,
+            original.RegionScale,
+            original.RegionVerticalScale,
+            original.RegionWarpStrength);
+
+        return new BiomeDefinition(
+            source.Id,
+            source.SurfaceLayout,
+            source.SurfaceTerrain,
+            decorations: source.Decorations,
+            tints: source.Tints,
+            terrain3d: source.Terrain3d,
+            volumeLayout: source.VolumeLayout,
+            surfaceHabitats: source.SurfaceHabitats,
+            caveSpikes: source.CaveSpikes,
+            palette: source.Palette,
+            volumeStructures: source.VolumeStructures,
+            geology: geology);
     }
 
     private static readonly string PackData =
