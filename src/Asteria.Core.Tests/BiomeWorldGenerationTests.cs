@@ -2682,6 +2682,79 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void DirectionalPaletteVerticalHaloReuseIsIndependentOfChunkGenerationOrder()
+    {
+        const ulong seed = 0xA57E_2026UL;
+
+        static BiomeWorldGenerator CreateGenerator(ulong seed)
+        {
+            var blocks = LoadDefaultBlocks();
+            var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+            var biomes = BiomeRegistry.FromJson(
+                Directory.EnumerateFiles(
+                    Path.Combine(
+                        AppContext.BaseDirectory,
+                        "packs",
+                        "default",
+                        "data",
+                        "biomes"),
+                    "*.json").OrderBy(path => path, StringComparer.Ordinal)
+                    .Select(path =>
+                    {
+                        var content = File.ReadAllText(path);
+                        if (!path.EndsWith("caverns.json", StringComparison.Ordinal))
+                            return content;
+
+                        var root = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                        root["palette"] = System.Text.Json.Nodes.JsonNode.Parse(
+                            """
+                            {
+                              "default":[{"block":"asteria:stone"}],
+                              "walls":[
+                                {"block":"asteria:basalt","depth":6},
+                                {"block":"asteria:stone"}
+                              ]
+                            }
+                            """);
+                        return root.ToJsonString();
+                    }));
+
+            return new BiomeWorldGenerator(
+                DimensionSeed.Derive(seed, dimension.Id),
+                dimension,
+                blocks,
+                LoadDefaultFluids(),
+                biomes,
+                LoadDefaultStructures(),
+                LoadDefaultStructureSets());
+        }
+
+        var probeGenerator = CreateGenerator(seed);
+        var cave = FindCaveVoid(probeGenerator);
+        var caveChunk = VoxelCoordinates.FromWorld(cave.X, cave.Y, cave.Z).Chunk;
+        var lowerCoord = new ChunkCoord(
+            caveChunk.X, Math.Max(0, caveChunk.Y - 1), caveChunk.Z);
+        var upperCoord = new ChunkCoord(
+            caveChunk.X, lowerCoord.Y + 1, caveChunk.Z);
+
+        var upperFirstGenerator = CreateGenerator(seed);
+        var upperFirst = upperFirstGenerator.Materialize(upperCoord);
+        var lowerAfterUpper = upperFirstGenerator.Materialize(lowerCoord);
+
+        var lowerFirstGenerator = CreateGenerator(seed);
+        var lowerFirst = lowerFirstGenerator.Materialize(lowerCoord);
+        var upperAfterLower = lowerFirstGenerator.Materialize(upperCoord);
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            Assert.Equal(lowerFirst.GetCell(x, y, z), lowerAfterUpper.GetCell(x, y, z));
+            Assert.Equal(upperFirst.GetCell(x, y, z), upperAfterLower.GetCell(x, y, z));
+        }
+    }
+
+    [Fact]
     public void UndergroundDecoratorsOnlyMaterializeOnActuallyCarvedCaveFloors()
     {
         var blocks = LoadDefaultBlocks();

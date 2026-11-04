@@ -1910,6 +1910,35 @@ public sealed class SurfaceChunkMaterializer
         y << 8 |
         z << 16;
 
+    // Keep each slab inside one vertical chunk band so occupancy validity bits
+    // can be published and reused by the adjacent chunk as one compact snapshot.
+    private (int OriginY, DensityOccupancySlab Volume)[] SampleVerticalDensitySlabs(
+        SurfaceTerrainColumn column,
+        int originX,
+        int originZ,
+        int startY,
+        int endExclusive,
+        out int densityProbes)
+    {
+        densityProbes = 0;
+        if (startY >= endExclusive)
+            return Array.Empty<(int OriginY, DensityOccupancySlab Volume)>();
+
+        var slabs = new List<(int OriginY, DensityOccupancySlab Volume)>();
+        var nextY = startY;
+        while (nextY < endExclusive)
+        {
+            var bandOffset = nextY % Chunk.Size;
+            var height = Math.Min(Chunk.Size - bandOffset, endExclusive - nextY);
+            var volume = _columns.SampleDensitySlab(
+                column, originX, nextY, originZ, height, out var probes);
+            densityProbes = checked(densityProbes + probes);
+            slabs.Add((nextY, volume));
+            nextY = checked(nextY + height);
+        }
+        return slabs.ToArray();
+    }
+
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         TerrainDensityVolume densityVolume,
         SurfaceTerrainColumn column,
@@ -1980,6 +2009,32 @@ public sealed class SurfaceChunkMaterializer
         var zRows = new ulong[Chunk.Area * wordCount];
         var yRows = new ulong[Chunk.Area * wordCount];
 
+        var bottomSlabs = SampleVerticalDensitySlabs(
+            column, originX, originZ,
+            Math.Max(0, originY - maximumDepth), originY,
+            out var bottomDensityProbes);
+        var topStartY = checked(originY + size);
+        var topSlabs = SampleVerticalDensitySlabs(
+            column, originX, originZ,
+            topStartY, checked(topStartY + maximumDepth),
+            out var topDensityProbes);
+        densityProbeCount = checked(bottomDensityProbes + topDensityProbes);
+        boundaryDensityProbeCount = densityProbeCount;
+
+        bool VerticalHaloIsSolid(int localX, int localY, int localZ)
+        {
+            var worldY = checked(originY + localY);
+            var slabs = localY < 0 ? bottomSlabs : topSlabs;
+            foreach (var slab in slabs)
+            {
+                var slabLocalY = worldY - slab.OriginY;
+                if ((uint)slabLocalY < (uint)slab.Volume.Height)
+                    return slab.Volume.IsSolidAtUnchecked(localX, slabLocalY, localZ);
+            }
+            throw new InvalidOperationException(
+                $"No sampled vertical halo slab covers world Y={worldY}.");
+        }
+
         static void MarkSolid(ulong[] rows, int rowOffset, int bitIndex) =>
             rows[rowOffset + (bitIndex >> 6)] |= 1UL << (bitIndex & 63);
 
@@ -1998,12 +2053,9 @@ public sealed class SurfaceChunkMaterializer
                 var worldX = checked(originX + localX);
                 var worldZ = checked(originZ + z);
                 var mask = _columns.GetDensityColumnMask(
-                    worldX, originY, worldZ, out var cacheHit);
-                if (!cacheHit)
-                {
-                    densityProbeCount += size;
-                    boundaryDensityProbeCount += size;
-                }
+                    worldX, originY, worldZ, out _, out var probes);
+                densityProbeCount = checked(densityProbeCount + probes);
+                boundaryDensityProbeCount = checked(boundaryDensityProbeCount + probes);
                 xBoundaryMasks[index] = mask;
                 xBoundaryMasksReady[index] = true;
             }
@@ -2021,12 +2073,9 @@ public sealed class SurfaceChunkMaterializer
                 var worldX = checked(originX + x);
                 var worldZ = checked(originZ + localZ);
                 var mask = _columns.GetDensityColumnMask(
-                    worldX, originY, worldZ, out var cacheHit);
-                if (!cacheHit)
-                {
-                    densityProbeCount += size;
-                    boundaryDensityProbeCount += size;
-                }
+                    worldX, originY, worldZ, out _, out var probes);
+                densityProbeCount = checked(densityProbeCount + probes);
+                boundaryDensityProbeCount = checked(boundaryDensityProbeCount + probes);
                 zBoundaryMasks[index] = mask;
                 zBoundaryMasksReady[index] = true;
             }
@@ -2037,34 +2086,16 @@ public sealed class SurfaceChunkMaterializer
         for (var x = 0; x < size; x++)
         {
             var rowOffset = (z * size + x) * wordCount;
-            var biome = column.BiomeAt(x, z);
-            var baseY = column.BaseHeightAt(x, z);
-            var volumeBiome = column.VolumeBiomes[x, z];
-            var worldX = checked(originX + x);
-            var worldZ = checked(originZ + z);
-
             for (var regionY = 0; regionY < regionSize; regionY++)
             {
                 var localY = regionY - maximumDepth;
                 bool solid;
                 if ((uint)localY < size)
-                {
                     solid = isSolid(x, localY, z);
-                }
                 else
                 {
                     var worldY = checked(originY + localY);
-                    if (worldY < 0)
-                    {
-                        solid = true;
-                    }
-                    else
-                    {
-                        solid = _terrain.DensityAt(
-                            biome, baseY, worldX, worldY, worldZ, volumeBiome) >= 0d;
-                        densityProbeCount++;
-                        boundaryDensityProbeCount++;
-                    }
+                    solid = worldY < 0 || VerticalHaloIsSolid(x, localY, z);
                 }
                 if (solid)
                     MarkSolid(yRows, rowOffset, regionY);
