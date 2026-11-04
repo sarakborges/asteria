@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -76,7 +78,8 @@ public sealed class CaveSpikeField
         TrySampleCore(
             undergroundBiome, surfaceBiome, volumeBiome, baseY,
             x, y, z, down, densityVolume: null, densityOriginY: 0,
-            localX: 0, localZ: 0, out placement);
+            localX: 0, localZ: 0, solidColumnMask: 0,
+            anchorKnownVoid: false, out placement);
 
     internal bool TrySample(
         string undergroundBiome,
@@ -91,13 +94,15 @@ public sealed class CaveSpikeField
         int densityOriginY,
         int localX,
         int localZ,
+        ushort solidColumnMask,
+        bool anchorKnownVoid,
         out CaveSpikePlacement placement)
     {
         ArgumentNullException.ThrowIfNull(densityVolume);
         return TrySampleCore(
             undergroundBiome, surfaceBiome, volumeBiome, baseY,
             x, y, z, down, densityVolume, densityOriginY,
-            localX, localZ, out placement);
+            localX, localZ, solidColumnMask, anchorKnownVoid, out placement);
     }
 
     private bool TrySampleCore(
@@ -113,6 +118,8 @@ public sealed class CaveSpikeField
         int densityOriginY,
         int localX,
         int localZ,
+        ushort solidColumnMask,
+        bool anchorKnownVoid,
         out CaveSpikePlacement placement)
     {
         placement = default;
@@ -159,9 +166,9 @@ public sealed class CaveSpikeField
                 continue;
 
             var supportY = y + (down ? 1 : -1);
-            if (!IsVoidAt(
+            if ((!anchorKnownVoid && !IsVoidAt(
                     densityVolume, densityOriginY, localX, localZ,
-                    surfaceBiome, volumeBiome, baseY, x, z, y) ||
+                    surfaceBiome, volumeBiome, baseY, x, z, y)) ||
                 IsVoidAt(
                     densityVolume, densityOriginY, localX, localZ,
                     surfaceBiome, volumeBiome, baseY, x, z, supportY))
@@ -184,18 +191,12 @@ public sealed class CaveSpikeField
             // Probe far enough to know whether opposite-facing spikes
             // could meet in a narrow gallery. Larger chambers still
             // permit the authored maximum height.
-            var clear = 0;
             var probeLength = Math.Max(
                 definition.MinClearance, definition.MaxHeight * 2 + 1);
-            for (var i = 0; i < probeLength; i++)
-            {
-                if (!IsVoidAt(
-                        densityVolume, densityOriginY, localX, localZ,
-                        surfaceBiome, volumeBiome, baseY, x, z,
-                        y + (down ? -i : i)))
-                    break;
-                clear++;
-            }
+            var clear = CountClearance(
+                densityVolume, densityOriginY, localX, localZ,
+                solidColumnMask, surfaceBiome, volumeBiome, baseY,
+                x, y, z, down, probeLength);
 
             if (clear < definition.MinClearance)
                 continue;
@@ -217,6 +218,76 @@ public sealed class CaveSpikeField
         }
 
         return false;
+    }
+
+    private int CountClearance(
+        TerrainDensityVolume? densityVolume,
+        int densityOriginY,
+        int localX,
+        int localZ,
+        ushort solidColumnMask,
+        BiomeSample surfaceBiome,
+        BiomeSample? volumeBiome,
+        int baseY,
+        int x,
+        int y,
+        int z,
+        bool down,
+        int probeLength)
+    {
+        var localY = y - densityOriginY;
+        if (densityVolume is not null &&
+            (uint)localY < densityVolume.Height)
+        {
+            // The density volume already stores a 16-bit occupancy column.
+            // Count the contiguous empty run with bit operations, then query
+            // world density only if the run reaches this chunk's vertical edge.
+            var availableInside = down
+                ? localY + 1
+                : densityVolume.Height - localY;
+            int clearInside;
+            if (down)
+            {
+                var throughAnchor = (uint)solidColumnMask &
+                    ((1u << (localY + 1)) - 1u);
+                clearInside = throughAnchor == 0u
+                    ? localY + 1
+                    : localY - BitOperations.Log2(throughAnchor);
+            }
+            else
+            {
+                var fromAnchor = (uint)solidColumnMask >> localY;
+                fromAnchor |= 1u << (densityVolume.Height - localY);
+                clearInside = BitOperations.TrailingZeroCount(fromAnchor);
+            }
+
+            var clear = Math.Min(probeLength, clearInside);
+            if (clear < probeLength && clear == availableInside)
+            {
+                for (; clear < probeLength; clear++)
+                {
+                    var probeY = y + (down ? -clear : clear);
+                    if (!IsVoidAt(
+                            densityVolume, densityOriginY, localX, localZ,
+                            surfaceBiome, volumeBiome, baseY, x, z, probeY))
+                        break;
+                }
+            }
+
+            return clear;
+        }
+
+        var fallbackClear = 0;
+        for (; fallbackClear < probeLength; fallbackClear++)
+        {
+            var probeY = y + (down ? -fallbackClear : fallbackClear);
+            if (!IsVoidAt(
+                    densityVolume, densityOriginY, localX, localZ,
+                    surfaceBiome, volumeBiome, baseY, x, z, probeY))
+                break;
+        }
+
+        return fallbackClear;
     }
 
     private bool IsVoidAt(
