@@ -767,7 +767,8 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
     }
 
     var authoredSwamp = biomes.Get(swampBiomeId);
-    if (authoredSwamp.Geology is null)
+    var swampGeology = authoredSwamp.Geology;
+    if (swampGeology is null)
     {
         return new
         {
@@ -792,13 +793,17 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
                     definition, BiomeGeologySamplingMode.Regional)
                 : definition));
 
-    var center = new ChunkCoord(
-        initialAreaDiagnostics.CenterChunkX,
-        initialAreaDiagnostics.CenterChunkY,
-        initialAreaDiagnostics.CenterChunkZ);
     var selectionGenerator = NewGenerator(
         generation: swampGeneration,
         biomeRegistry: swampPerVoxelRegistry);
+    var centerX = initialAreaDiagnostics.CenterChunkX;
+    var centerZ = initialAreaDiagnostics.CenterChunkZ;
+    var swampSurface = selectionGenerator.GetSurfaceRange(centerX, centerZ);
+    var center = new ChunkCoord(
+        centerX,
+        Math.Max(0, (int)Math.Floor(
+            swampSurface.MaximumWorldY / (double)Chunk.Size)),
+        centerZ);
     var desired = ChunkStreamingSelection
         .DesiredSurfaceChunks(center, horizontalRadius: 2, selectionGenerator)
         .OrderBy(coord => coord.Z)
@@ -844,7 +849,7 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
     return new
     {
         Biome = swampBiomeId,
-        AuthoredSamplingMode = authoredSwamp.Geology.SamplingMode.ToString(),
+        AuthoredSamplingMode = swampGeology.SamplingMode.ToString(),
         ComparisonSamplingMode = BiomeGeologySamplingMode.Regional.ToString(),
         ChunkCount = desired.Length,
         Repetitions = repetitions,
