@@ -18,6 +18,11 @@ public sealed class SurfaceChunkMaterializer
         int HorizontalBoundaryBatchCount,
         int HorizontalBoundaryColumnCount);
 
+    private readonly record struct BoundaryMaskReadMetrics(
+        int DensityProbes,
+        int BatchCount,
+        int ColumnCount);
+
     // A 16x16 chunk plus its one-column cardinal slope-probe halo is 18x18.
     private const int SlopeProbeSampleCacheCapacity =
         (Chunk.Size + 2) * (Chunk.Size + 2);
@@ -1989,6 +1994,149 @@ public sealed class SurfaceChunkMaterializer
             out _);
     }
 
+    private BoundaryMaskReadMetrics ReadDirectionalFaceXBoundaryMasks(
+        int startLocalX,
+        int endLocalX,
+        int maximumDepth,
+        int originX,
+        int originY,
+        int originZ,
+        ushort[] boundaryMasks,
+        Span<int> columnIndices,
+        Span<ushort> solidMasks)
+    {
+        var cursor = startLocalX;
+        var densityProbes = 0;
+        var batchCount = 0;
+        var columnCount = 0;
+
+        while (cursor < endLocalX)
+        {
+            var firstWorldX = checked(originX + cursor);
+            var first = VoxelCoordinates.FromWorld(
+                firstWorldX, originY, originZ);
+            var sliceEnd = cursor + 1;
+            while (sliceEnd < endLocalX &&
+                   VoxelCoordinates.FromWorld(
+                       checked(originX + sliceEnd), originY, originZ)
+                       .Chunk.X == first.Chunk.X)
+            {
+                sliceEnd++;
+            }
+
+            var count = checked((sliceEnd - cursor) * Chunk.Size);
+            if (count > columnIndices.Length || count > solidMasks.Length)
+                throw new InvalidOperationException(
+                    "A horizontal X boundary batch exceeded one chunk's column capacity.");
+
+            var writeIndex = 0;
+            for (var localX = cursor; localX < sliceEnd; localX++)
+            {
+                var local = VoxelCoordinates.FromWorld(
+                    checked(originX + localX), originY, originZ).Local;
+                for (var z = 0; z < Chunk.Size; z++)
+                    columnIndices[writeIndex++] = z * Chunk.Size + local.X;
+            }
+
+            _columns.ReadDensityColumnMasks(
+                first.Chunk.X,
+                originY,
+                first.Chunk.Z,
+                columnIndices[..count],
+                solidMasks[..count],
+                out var probes);
+            densityProbes = checked(densityProbes + probes);
+
+            writeIndex = 0;
+            for (var localX = cursor; localX < sliceEnd; localX++)
+            for (var z = 0; z < Chunk.Size; z++)
+            {
+                var destinationIndex =
+                    (localX + maximumDepth) * Chunk.Size + z;
+                boundaryMasks[destinationIndex] = solidMasks[writeIndex++];
+            }
+
+            batchCount++;
+            columnCount = checked(columnCount + count);
+            cursor = sliceEnd;
+        }
+
+        return new BoundaryMaskReadMetrics(
+            densityProbes, batchCount, columnCount);
+    }
+
+    private BoundaryMaskReadMetrics ReadDirectionalFaceZBoundaryMasks(
+        int startLocalZ,
+        int endLocalZ,
+        int maximumDepth,
+        int originX,
+        int originY,
+        int originZ,
+        int regionSize,
+        ushort[] boundaryMasks,
+        Span<int> columnIndices,
+        Span<ushort> solidMasks)
+    {
+        var cursor = startLocalZ;
+        var densityProbes = 0;
+        var batchCount = 0;
+        var columnCount = 0;
+
+        while (cursor < endLocalZ)
+        {
+            var firstWorldZ = checked(originZ + cursor);
+            var first = VoxelCoordinates.FromWorld(
+                originX, originY, firstWorldZ);
+            var sliceEnd = cursor + 1;
+            while (sliceEnd < endLocalZ &&
+                   VoxelCoordinates.FromWorld(
+                       originX, originY, checked(originZ + sliceEnd))
+                       .Chunk.Z == first.Chunk.Z)
+            {
+                sliceEnd++;
+            }
+
+            var count = checked((sliceEnd - cursor) * Chunk.Size);
+            if (count > columnIndices.Length || count > solidMasks.Length)
+                throw new InvalidOperationException(
+                    "A horizontal Z boundary batch exceeded one chunk's column capacity.");
+
+            var writeIndex = 0;
+            for (var localZ = cursor; localZ < sliceEnd; localZ++)
+            {
+                var local = VoxelCoordinates.FromWorld(
+                    originX, originY, checked(originZ + localZ)).Local;
+                for (var x = 0; x < Chunk.Size; x++)
+                    columnIndices[writeIndex++] = local.Z * Chunk.Size + x;
+            }
+
+            _columns.ReadDensityColumnMasks(
+                first.Chunk.X,
+                originY,
+                first.Chunk.Z,
+                columnIndices[..count],
+                solidMasks[..count],
+                out var probes);
+            densityProbes = checked(densityProbes + probes);
+
+            writeIndex = 0;
+            for (var localZ = cursor; localZ < sliceEnd; localZ++)
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                var destinationIndex =
+                    x * regionSize + localZ + maximumDepth;
+                boundaryMasks[destinationIndex] = solidMasks[writeIndex++];
+            }
+
+            batchCount++;
+            columnCount = checked(columnCount + count);
+            cursor = sliceEnd;
+        }
+
+        return new BoundaryMaskReadMetrics(
+            densityProbes, batchCount, columnCount);
+    }
+
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         Func<int, int, int, bool> isSolid,
         SurfaceTerrainColumn column,
@@ -2071,71 +2219,58 @@ public sealed class SurfaceChunkMaterializer
              (1UL << (bitIndex & 63))) != 0;
 
         var xBoundaryMasks = new ushort[regionSize * size];
-        var xBoundaryMasksReady = new bool[regionSize * size];
+        var zBoundaryMasks = new ushort[size * regionSize];
+        Span<int> boundaryColumnIndices = stackalloc int[Chunk.Area];
+        Span<ushort> boundarySolidMasks = stackalloc ushort[Chunk.Area];
+
 #if DEBUG
-        var horizontalBoundaryReadMilliseconds = 0d;
-        var occupancyRowAssemblyStarted = Stopwatch.GetTimestamp();
+        var horizontalBoundaryReadStarted = Stopwatch.GetTimestamp();
+#endif
+        var leftXBoundary = ReadDirectionalFaceXBoundaryMasks(
+            -maximumDepth, 0, maximumDepth,
+            originX, originY, originZ,
+            xBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+        var rightXBoundary = ReadDirectionalFaceXBoundaryMasks(
+            size, size + maximumDepth, maximumDepth,
+            originX, originY, originZ,
+            xBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+        var negativeZBoundary = ReadDirectionalFaceZBoundaryMasks(
+            -maximumDepth, 0, maximumDepth,
+            originX, originY, originZ, regionSize,
+            zBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+        var positiveZBoundary = ReadDirectionalFaceZBoundaryMasks(
+            size, size + maximumDepth, maximumDepth,
+            originX, originY, originZ, regionSize,
+            zBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+#if DEBUG
+        var horizontalBoundaryReadMilliseconds =
+            Stopwatch.GetElapsedTime(horizontalBoundaryReadStarted).TotalMilliseconds;
 #else
         const double horizontalBoundaryReadMilliseconds = 0d;
 #endif
-        var horizontalBoundaryBatchCount = 0;
-        var horizontalBoundaryColumnCount = 0;
-        ushort XBoundaryMask(int localX, int z)
-        {
-            var regionX = localX + maximumDepth;
-            var index = regionX * size + z;
-            if (!xBoundaryMasksReady[index])
-            {
-                var worldX = checked(originX + localX);
-                var worldZ = checked(originZ + z);
-#if DEBUG
-                var boundaryReadStarted = Stopwatch.GetTimestamp();
-#endif
-                var mask = _columns.GetDensityColumnMask(
-                    worldX, originY, worldZ, out _, out var probes);
-#if DEBUG
-                horizontalBoundaryReadMilliseconds += Stopwatch.GetElapsedTime(
-                    boundaryReadStarted).TotalMilliseconds;
-#endif
-                horizontalBoundaryBatchCount++;
-                horizontalBoundaryColumnCount++;
-                densityProbeCount = checked(densityProbeCount + probes);
-                boundaryDensityProbeCount = checked(boundaryDensityProbeCount + probes);
-                xBoundaryMasks[index] = mask;
-                xBoundaryMasksReady[index] = true;
-            }
-            return xBoundaryMasks[index];
-        }
+        var horizontalBoundaryDensityProbes = checked(
+            leftXBoundary.DensityProbes +
+            rightXBoundary.DensityProbes +
+            negativeZBoundary.DensityProbes +
+            positiveZBoundary.DensityProbes);
+        var horizontalBoundaryBatchCount = checked(
+            leftXBoundary.BatchCount +
+            rightXBoundary.BatchCount +
+            negativeZBoundary.BatchCount +
+            positiveZBoundary.BatchCount);
+        var horizontalBoundaryColumnCount = checked(
+            leftXBoundary.ColumnCount +
+            rightXBoundary.ColumnCount +
+            negativeZBoundary.ColumnCount +
+            positiveZBoundary.ColumnCount);
+        densityProbeCount = checked(
+            densityProbeCount + horizontalBoundaryDensityProbes);
+        boundaryDensityProbeCount = checked(
+            boundaryDensityProbeCount + horizontalBoundaryDensityProbes);
 
-        var zBoundaryMasks = new ushort[size * regionSize];
-        var zBoundaryMasksReady = new bool[size * regionSize];
-        ushort ZBoundaryMask(int x, int localZ)
-        {
-            var regionZ = localZ + maximumDepth;
-            var index = x * regionSize + regionZ;
-            if (!zBoundaryMasksReady[index])
-            {
-                var worldX = checked(originX + x);
-                var worldZ = checked(originZ + localZ);
 #if DEBUG
-                var boundaryReadStarted = Stopwatch.GetTimestamp();
+        var occupancyRowAssemblyStarted = Stopwatch.GetTimestamp();
 #endif
-                var mask = _columns.GetDensityColumnMask(
-                    worldX, originY, worldZ, out _, out var probes);
-#if DEBUG
-                horizontalBoundaryReadMilliseconds += Stopwatch.GetElapsedTime(
-                    boundaryReadStarted).TotalMilliseconds;
-#endif
-                horizontalBoundaryBatchCount++;
-                horizontalBoundaryColumnCount++;
-                densityProbeCount = checked(densityProbeCount + probes);
-                boundaryDensityProbeCount = checked(boundaryDensityProbeCount + probes);
-                zBoundaryMasks[index] = mask;
-                zBoundaryMasksReady[index] = true;
-            }
-            return zBoundaryMasks[index];
-        }
-
         for (var z = 0; z < size; z++)
         for (var x = 0; x < size; x++)
         {
@@ -2171,7 +2306,9 @@ public sealed class SurfaceChunkMaterializer
                 }
                 else
                 {
-                    solid = (XBoundaryMask(localX, z) & (1u << y)) != 0;
+                    var boundaryIndex =
+                        (localX + maximumDepth) * size + z;
+                    solid = (xBoundaryMasks[boundaryIndex] & (1u << y)) != 0;
                 }
                 if (solid)
                     MarkSolid(xRows, rowOffset, regionX);
@@ -2193,21 +2330,23 @@ public sealed class SurfaceChunkMaterializer
                 }
                 else
                 {
-                    solid = (ZBoundaryMask(x, localZ) & (1u << y)) != 0;
+                    var boundaryIndex =
+                        x * regionSize + localZ + maximumDepth;
+                    solid = (zBoundaryMasks[boundaryIndex] & (1u << y)) != 0;
                 }
                 if (solid)
                     MarkSolid(zRows, rowOffset, regionZ);
             }
         }
-
 #if DEBUG
         var occupancyRowAssemblyMilliseconds =
-            Stopwatch.GetElapsedTime(occupancyRowAssemblyStarted).TotalMilliseconds -
-            horizontalBoundaryReadMilliseconds;
-        var candidateMaskBuildStarted = Stopwatch.GetTimestamp();
+            Stopwatch.GetElapsedTime(occupancyRowAssemblyStarted).TotalMilliseconds;
 #else
         const double occupancyRowAssemblyMilliseconds = 0d;
-        const double candidateMaskBuildMilliseconds = 0d;
+#endif
+
+#if DEBUG
+        var candidateMaskBuildStarted = Stopwatch.GetTimestamp();
 #endif
         var candidateColumns = DirectionalFaceCandidateMask.Build(
             regionSize, wordCount, maximumDepth,
@@ -2215,6 +2354,8 @@ public sealed class SurfaceChunkMaterializer
 #if DEBUG
         var candidateMaskBuildMilliseconds =
             Stopwatch.GetElapsedTime(candidateMaskBuildStarted).TotalMilliseconds;
+#else
+        const double candidateMaskBuildMilliseconds = 0d;
 #endif
         densityProbes = densityProbeCount;
         boundaryDensityProbes = boundaryDensityProbeCount;

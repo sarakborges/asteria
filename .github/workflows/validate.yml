@@ -177,9 +177,9 @@ jobs:
         id: terrain_scope
         shell: bash
         env:
-          # Pre-feature baseline: last correct version before per-voxel
-          # directional exposure metadata was introduced.
-          BASELINE_SHA: f6affd92ddb1dcd109238c25f8ea40d1172bd872
+          # Direct parent of the batched horizontal-boundary reads.
+          # Both versions include the same directional occupancy instrumentation.
+          BASELINE_SHA: 25e3bcf7d88f4ddafeaeca399b8c3c9b1d570b54
         run: |
           set -euo pipefail
           terrain_commit="$(git log --first-parent -1 --format=%H HEAD -- \
@@ -323,12 +323,12 @@ jobs:
           
           baseline, candidate = map(read, sys.argv[1:])
           fields = (
-              "DensitySlabReadMilliseconds",
-              "HorizontalBoundaryReadMilliseconds",
-              "OccupancyRowAssemblyMilliseconds",
-              "CandidateMaskBuildMilliseconds",
-              "HorizontalBoundaryBatchCount",
-              "HorizontalBoundaryColumnCount",
+              "densitySlabReadMilliseconds",
+              "horizontalBoundaryReadMilliseconds",
+              "occupancyRowAssemblyMilliseconds",
+              "candidateMaskBuildMilliseconds",
+              "horizontalBoundaryBatchCount",
+              "horizontalBoundaryColumnCount",
           )
           print("\n### Directional-face preparation profile (Debug)\n")
           print("| Metric | Baseline | Candidate |")

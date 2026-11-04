@@ -112,11 +112,15 @@ public sealed class GeologyMaterializationRegressionTests
         }
     }
 
-    [Fact]
-    public void DirectionalFaceBoundaryMasksPreserveGenerationAcrossHorizontalChunkOrder()
+    [Theory]
+    [InlineData(3, 4)]
+    [InlineData(19, 8)]
+    public void DirectionalFaceBoundaryMasksPreserveGenerationAcrossHorizontalChunkOrder(
+        int wallDepth,
+        int expectedBoundaryBatchesPerChunk)
     {
         var biome = BiomeDefinitionJson.Parse(
-            """
+            $$"""
             {
               "id": "asteria:test/directional_palette_seam",
               "surfaceLayout": {
@@ -132,7 +136,7 @@ public sealed class GeologyMaterializationRegressionTests
               "palette": {
                 "default": [{ "block": "asteria:stone" }],
                 "walls": [
-                  { "block": "asteria:clay", "depth": 3 },
+                  { "block": "asteria:clay", "depth": {{wallDepth}} },
                   { "block": "asteria:stone" }
                 ]
               }
@@ -208,15 +212,17 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.True(first.BoundaryProbes > 0,
             "The fixture must exercise horizontal boundary occupancy masks.");
         var unsharedBoundaryProbeUpperBound =
-            coordinates.Length * 6 * 3 * Chunk.Area;
+            coordinates.Length * 6 * wallDepth * Chunk.Area;
         Assert.True(
             first.BoundaryProbes < unsharedBoundaryProbeUpperBound,
             $"Adjacent chunks did not reuse occupancy masks: " +
             $"{first.BoundaryProbes}/{unsharedBoundaryProbeUpperBound} boundary samples.");
         Assert.Equal(
-            coordinates.Length * 4 * 3 * Chunk.Size,
+            coordinates.Length * expectedBoundaryBatchesPerChunk,
+            first.BoundaryBatchCount);
+        Assert.Equal(
+            coordinates.Length * 4 * wallDepth * Chunk.Size,
             first.BoundaryColumnCount);
-        Assert.Equal(first.BoundaryColumnCount, first.BoundaryBatchCount);
         Assert.Equal(first.BoundaryBatchCount, second.BoundaryBatchCount);
         Assert.Equal(first.BoundaryColumnCount, second.BoundaryColumnCount);
         Assert.Equal(coordinates.Length, first.Digests.Count);
