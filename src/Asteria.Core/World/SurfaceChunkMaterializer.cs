@@ -2388,7 +2388,12 @@ public sealed class SurfaceChunkMaterializer
     }
 
     private bool ReapplyDirectionalFacePaletteAt(
-        Chunk chunk, int index, int worldX, int worldY, int worldZ,
+        Chunk chunk,
+        TerrainDensityVolume densityVolume,
+        int index,
+        int worldX,
+        int worldY,
+        int worldZ,
         Func<int, int, DirectionalPaletteColumnData> columnAt)
     {
         chunk.RestoreDirectionalFaceBaseBlockAtLinearIndex(index);
@@ -2407,8 +2412,12 @@ public sealed class SurfaceChunkMaterializer
         var sourceColumn = columnAt(worldX, worldZ);
         var (sourceCoord, sourceLocal) = VoxelCoordinates.FromWorld(worldX, worldY, worldZ);
         var surfaceOwner = new BiomeRegionOwner(sourceColumn.SurfaceBiome, BiomeRegionOwnerKind.Surface);
+        // The chunk snapshot already owns the immutable volume-placement
+        // grid and its normalized per-column owners. Reuse it instead of
+        // resampling the global placement field for every solid candidate.
         var volumeBiome = worldY > sourceColumn.BaseY
-            ? _terrain.VolumeBiomeAt(worldX, worldY, worldZ)
+            ? densityVolume.VolumeBiomeAt(
+                sourceLocal.X, worldY, sourceLocal.Z)
             : null;
         var solidOwner = volumeBiome is null
             ? surfaceOwner
@@ -2581,6 +2590,7 @@ public sealed class SurfaceChunkMaterializer
         var chunk = job.Chunk;
         var origin = VoxelCoordinates.ChunkOrigin(job.Coord);
         var column = RequiredColumn(job);
+        var densityVolume = RequiredDensity(job);
         var columns = new DirectionalPaletteColumnData[Chunk.Area];
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
@@ -2638,7 +2648,8 @@ public sealed class SurfaceChunkMaterializer
             var z = withinLayer / Chunk.Size;
             var x = withinLayer % Chunk.Size;
             if (ReapplyDirectionalFacePaletteAt(
-                    chunk, index, origin.X + x, origin.Y + y, origin.Z + z, ColumnAt))
+                    chunk, densityVolume, index,
+                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt))
                 writes++;
         });
 #if DEBUG
@@ -2826,6 +2837,8 @@ public sealed class SurfaceChunkMaterializer
                 continue;
             var origin = VoxelCoordinates.ChunkOrigin(group.Key);
             var column = _columns.Get(group.Key.X, group.Key.Z);
+            var densityVolume = _columns.SampleDensityVolume(
+                column, origin.X, origin.Y, origin.Z);
             var columns = new DirectionalPaletteColumnData[Chunk.Area];
             for (var z = 0; z < Chunk.Size; z++)
             for (var x = 0; x < Chunk.Size; x++)
@@ -2866,7 +2879,8 @@ public sealed class SurfaceChunkMaterializer
                 var x = layer % Chunk.Size;
                 var before = chunk.GetCellAtLinearIndexUnchecked(index);
                 ReapplyDirectionalFacePaletteAt(
-                    chunk, index, origin.X + x, origin.Y + y, origin.Z + z, ColumnAt);
+                    chunk, densityVolume, index,
+                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt);
                 var after = chunk.GetCellAtLinearIndexUnchecked(index);
                 if (before.Block != after.Block)
                 {
