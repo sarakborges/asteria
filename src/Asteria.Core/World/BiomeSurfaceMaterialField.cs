@@ -951,15 +951,27 @@ public sealed class BiomeSurfaceMaterialField
             const double edgeBand = 0.12d;
             const double maximumDisplacement = 0.10d;
 
+            static double FadeAtEdge(double distance)
+            {
+                var weight = Math.Clamp(1d - distance / edgeBand, 0d, 1d);
+                return weight * weight * (3d - 2d * weight);
+            }
+
             var scaledX = position.X / _regionScale;
             var scaledY = position.Y / _regionVerticalScale;
             var scaledZ = position.Z / _regionScale;
             var fractionX = scaledX - Math.Floor(scaledX);
             var fractionY = scaledY - Math.Floor(scaledY);
             var fractionZ = scaledZ - Math.Floor(scaledZ);
-            var nearX = Math.Min(fractionX, 1d - fractionX) <= edgeBand;
-            var nearY = Math.Min(fractionY, 1d - fractionY) <= edgeBand;
-            var nearZ = Math.Min(fractionZ, 1d - fractionZ) <= edgeBand;
+            var distanceX = Math.Min(fractionX, 1d - fractionX);
+            var distanceY = Math.Min(fractionY, 1d - fractionY);
+            var distanceZ = Math.Min(fractionZ, 1d - fractionZ);
+            var weightX = FadeAtEdge(distanceX);
+            var weightY = FadeAtEdge(distanceY);
+            var weightZ = FadeAtEdge(distanceZ);
+            var nearX = weightX > 0d;
+            var nearY = weightY > 0d;
+            var nearZ = weightZ > 0d;
 
             if (!nearX && !nearY && !nearZ)
                 return position;
@@ -977,19 +989,19 @@ public sealed class BiomeSurfaceMaterialField
             {
                 x += SampleNoise(
                     coordinates, seed, _regionalEdgeDomains[0], latticeCache) *
-                    (_regionScale * maximumDisplacement);
+                    (_regionScale * maximumDisplacement * weightX);
             }
             if (nearY)
             {
                 y += SampleNoise(
                     coordinates, seed, _regionalEdgeDomains[1], latticeCache) *
-                    (_regionVerticalScale * maximumDisplacement);
+                    (_regionVerticalScale * maximumDisplacement * weightY);
             }
             if (nearZ)
             {
                 z += SampleNoise(
                     coordinates, seed, _regionalEdgeDomains[2], latticeCache) *
-                    (_regionScale * maximumDisplacement);
+                    (_regionScale * maximumDisplacement * weightZ);
             }
 
             return new SpatialPosition(x, y, z);
