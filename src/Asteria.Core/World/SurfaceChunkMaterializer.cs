@@ -2027,7 +2027,8 @@ public sealed class SurfaceChunkMaterializer
 
             var ascending = ReadBits(
                 rows, rowOffset, wordCount, sourceIndex - depth, depth);
-            return (ReverseBits(ascending) >> (64 - depth)) & mask;
+            var reversedSolids = ReverseBits(ascending) >> (64 - depth);
+            return ~reversedSolids & mask;
         }
 
         for (var y = 0; y < size; y++)
