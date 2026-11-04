@@ -168,7 +168,7 @@ internal static class WorldGenerationEntropy
     /// </summary>
     internal sealed class ValueNoise3DLatticeCache : IDisposable
     {
-        private const int DefaultCapacity = 32768;
+        private const int DefaultCapacity = 16384;
 
         private readonly int _mask;
         private readonly ulong[] _keys;
