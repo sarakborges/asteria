@@ -220,6 +220,32 @@ public sealed class CaveSpikeField
         return false;
     }
 
+    internal static int CountContiguousVoidDepthInMask(
+        ushort solidColumnMask,
+        int height,
+        int localY,
+        bool down)
+    {
+        if (height is < 1 or > 16)
+            throw new ArgumentOutOfRangeException(nameof(height));
+        if ((uint)localY >= height)
+            throw new ArgumentOutOfRangeException(nameof(localY));
+
+        var validMask = (uint)solidColumnMask & ((1u << height) - 1u);
+        if (down)
+        {
+            var throughAnchor = validMask & ((1u << (localY + 1)) - 1u);
+            return throughAnchor == 0u
+                ? localY + 1
+                : localY - BitOperations.Log2(throughAnchor);
+        }
+
+        var available = height - localY;
+        var fromAnchor = (validMask >> localY) & ((1u << available) - 1u);
+        return BitOperations.TrailingZeroCount(
+            fromAnchor | (1u << available));
+    }
+
     private int CountClearance(
         TerrainDensityVolume? densityVolume,
         int densityOriginY,
@@ -235,6 +261,9 @@ public sealed class CaveSpikeField
         bool down,
         int probeLength)
     {
+        // IsVoidAt treats the world floor and the biome surface as support,
+        // even if the stored density mask contains empty bits beyond them.
+        probeLength = Math.Min(probeLength, down ? y : baseY - y);
         var localY = y - densityOriginY;
         if (densityVolume is not null &&
             (uint)localY < densityVolume.Height)
@@ -245,22 +274,8 @@ public sealed class CaveSpikeField
             var availableInside = down
                 ? localY + 1
                 : densityVolume.Height - localY;
-            int clearInside;
-            if (down)
-            {
-                var throughAnchor = (uint)solidColumnMask &
-                    ((1u << (localY + 1)) - 1u);
-                clearInside = throughAnchor == 0u
-                    ? localY + 1
-                    : localY - BitOperations.Log2(throughAnchor);
-            }
-            else
-            {
-                var fromAnchor = (uint)solidColumnMask >> localY;
-                fromAnchor |= 1u << (densityVolume.Height - localY);
-                clearInside = BitOperations.TrailingZeroCount(fromAnchor);
-            }
-
+            var clearInside = CountContiguousVoidDepthInMask(
+                solidColumnMask, densityVolume.Height, localY, down);
             var clear = Math.Min(probeLength, clearInside);
             if (clear < probeLength && clear == availableInside)
             {
