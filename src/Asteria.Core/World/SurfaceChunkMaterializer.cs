@@ -2983,7 +2983,18 @@ public sealed class SurfaceChunkMaterializer
             var surfaceBiome = column.BiomeAt(localX, localZ);
             var worldX = originX + localX;
             var worldZ = originZ + localZ;
-            BiomeSample? underground = null;
+            var underground = column.CaveBiomeAt(localX, localZ);
+            var volumePlacement = densityVolume.VolumePlacementAt(localX, localZ);
+            var hasCaveDecorations = underground is not null &&
+                _decorations.HasVerticalDecorationsFor(underground.Primary);
+            var hasVolumeDecorations = volumePlacement is not null &&
+                _decorations.HasVerticalDecorationsFor(volumePlacement.Primary);
+            // A column with neither a decorated cave owner nor a decorated
+            // additive owner cannot receive vertical decorations at any Y.
+            // Skip its density and support scans before entering the Y loop.
+            if (!hasCaveDecorations && !hasVolumeDecorations)
+                continue;
+
             BiomeSurfaceMaterialColumn? volumeMaterials = null;
 
             // Include adjacent vertical seam targets: an Object is stored on
@@ -2996,8 +3007,6 @@ public sealed class SurfaceChunkMaterializer
                     (_roofY is { } roofY && worldY >= roofY))
                     continue;
 
-                var volumePlacement = densityVolume.VolumePlacementAt(
-                    localX, localZ);
                 var targetInChunk = (uint)localY < Chunk.Size;
                 var targetSolid = targetInChunk
                     ? densityVolume.IsSolidAtUnchecked(localX, localY, localZ)
@@ -3068,7 +3077,6 @@ public sealed class SurfaceChunkMaterializer
                         !_terrain.IsCaveVoidAt(
                             baseY, new WorldVoxelCoord(worldX, worldY, worldZ)))
                         continue;
-                    underground ??= column.CaveBiomeAt(localX, localZ);
                     decoratorBiome = underground;
                 }
 
