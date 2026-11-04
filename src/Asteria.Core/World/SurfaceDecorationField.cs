@@ -220,6 +220,10 @@ public sealed class SurfaceDecorationField
 
         foreach (var influence in sample.Influences)
         {
+            // Object rules remain inert without an object catalog. Preserve
+            // the same gate previously applied by HasObjectDecorations.
+            if (requireObject && !_objectBiomes.Contains(influence.BiomeId))
+                continue;
             if (index[influence.BiomeId].Contains(supportBlock))
                 return true;
         }
