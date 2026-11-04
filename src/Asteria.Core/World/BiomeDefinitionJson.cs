@@ -73,6 +73,7 @@ public static class BiomeDefinitionJson
             OptionalString(value, "samplingMode") switch
             {
                 null or "regional" => BiomeGeologySamplingMode.Regional,
+                "regional-hybrid" => BiomeGeologySamplingMode.RegionalHybrid,
                 "per-voxel" => BiomeGeologySamplingMode.PerVoxel,
                 var mode => throw new FormatException(
                     $"Unknown geology.samplingMode: {mode}."),
