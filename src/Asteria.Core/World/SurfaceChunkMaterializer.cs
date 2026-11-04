@@ -2234,14 +2234,6 @@ public sealed class SurfaceChunkMaterializer
         var applyStarted = Stopwatch.GetTimestamp();
 #endif
         var chunk = job.Chunk;
-        var candidateIndices = new List<int>();
-        chunk.VisitDirectionalFaceVoxels((index, data) =>
-        {
-            if (data.HasCandidates &&
-                !chunk.GetCellAtLinearIndexUnchecked(index).IsEmpty)
-                candidateIndices.Add(index);
-        });
-
         var origin = VoxelCoordinates.ChunkOrigin(job.Coord);
         var column = RequiredColumn(job);
         var columns = new DirectionalPaletteColumnData[Chunk.Area];
@@ -2280,20 +2272,22 @@ public sealed class SurfaceChunkMaterializer
         }
 
         var faceProbes = 0;
-        foreach (var index in candidateIndices)
+        var solidVoxels = 0;
+        var writes = 0;
+        chunk.VisitDirectionalFaceVoxels((index, data) =>
         {
-            var data = chunk.DirectionalFaceDataAtLinearIndex(index);
+            if (!data.HasCandidates ||
+                chunk.GetCellAtLinearIndexUnchecked(index).IsEmpty)
+                return;
+
+            solidVoxels++;
             faceProbes += System.Numerics.BitOperations.PopCount(data.Up);
             faceProbes += System.Numerics.BitOperations.PopCount(data.NegativeX);
             faceProbes += System.Numerics.BitOperations.PopCount(data.PositiveX);
             faceProbes += System.Numerics.BitOperations.PopCount(data.NegativeZ);
             faceProbes += System.Numerics.BitOperations.PopCount(data.PositiveZ);
             faceProbes += System.Numerics.BitOperations.PopCount(data.Down);
-        }
 
-        var writes = 0;
-        foreach (var index in candidateIndices)
-        {
             var y = index / Chunk.Area;
             var withinLayer = index % Chunk.Area;
             var z = withinLayer / Chunk.Size;
@@ -2301,7 +2295,7 @@ public sealed class SurfaceChunkMaterializer
             if (ReapplyDirectionalFacePaletteAt(
                     chunk, index, origin.X + x, origin.Y + y, origin.Z + z, ColumnAt))
                 writes++;
-        }
+        });
 #if DEBUG
         var applyMilliseconds = Stopwatch.GetElapsedTime(applyStarted).TotalMilliseconds;
         var preparationMilliseconds = job.DirectionalFacePalettePreparationMilliseconds;
@@ -2319,7 +2313,7 @@ public sealed class SurfaceChunkMaterializer
 #endif
             TimingSampleInterval: 1,
             SurfaceColumns: Chunk.Area,
-            SolidVoxels: candidateIndices.Count,
+            SolidVoxels: solidVoxels,
             FaceProbes: faceProbes,
             NeighborColumnLookups: neighborColumnLookups,
             SolidPaletteLookups: 0,
