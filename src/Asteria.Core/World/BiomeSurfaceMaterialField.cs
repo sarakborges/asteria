@@ -713,7 +713,7 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed, int x, int y, int z,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
         {
-            if (_samplingMode == BiomeGeologySamplingMode.Regional)
+            if (_samplingMode != BiomeGeologySamplingMode.PerVoxel)
             {
                 return SelectRegionalMaterial(
                     seed, x, y, z,
@@ -753,7 +753,7 @@ public sealed class BiomeSurfaceMaterialField
                 return false;
             }
 
-            if (_samplingMode == BiomeGeologySamplingMode.Regional)
+            if (_samplingMode != BiomeGeologySamplingMode.PerVoxel)
             {
                 block = SelectRegionalMaterial(
                     seed, x, y, z,
