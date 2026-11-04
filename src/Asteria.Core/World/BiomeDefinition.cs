@@ -620,16 +620,17 @@ public sealed class BiomeSurfacePatchDefinition
     public SurfacePlacementConditions? Conditions { get; }
 }
 
-/// <summary>
-/// Authored volumetric geology. The base material fills the host rock; coherent
-/// three-dimensional formations replace it with weighted materials.
-/// </summary>
+/// <summary>Chooses continuous noise fields or deterministic deformed 3D material regions.</summary>
 public enum BiomeGeologySamplingMode : byte
 {
     Continuous,
     Regional,
 }
 
+/// <summary>
+/// Authored volumetric geology. The base material fills the host rock; coherent
+/// three-dimensional formations replace it with weighted materials.
+/// </summary>
 public sealed class BiomeGeologyDefinition
 {
     public BiomeGeologyDefinition(

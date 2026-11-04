@@ -856,6 +856,7 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.Equal(16u, geology.RegionVerticalScale);
         Assert.Equal(0.3f, geology.RegionWarpStrength);
     }
+
     private static BlockRegistry CreateBlocks(bool gravityBlocks = false) => new(
     [
         new BlockDefinition("asteria:grass"),
