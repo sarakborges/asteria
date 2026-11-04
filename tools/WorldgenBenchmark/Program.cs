@@ -872,8 +872,15 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
             solidVoxels);
     }
 
-    static object Summarize(
-        List<(double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)> runs)
+    static (
+        double MedianElapsedMs,
+        long MedianAllocatedBytes,
+        double MinimumElapsedMs,
+        double MaximumElapsedMs,
+        ulong[] Digests,
+        bool DeterministicAcrossRepetitions,
+        long[] SolidVoxelsPerRun) Summarize(
+            List<(double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)> runs)
     {
         var elapsed = runs.Select(run => run.ElapsedMs).Order().ToArray();
         var allocated = runs.Select(run => run.AllocatedBytes).Order().ToArray();
@@ -882,7 +889,8 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
         return new
         {
             MedianElapsedMs = Median(elapsed),
-            MedianAllocatedBytes = Median(allocated),
+            MedianAllocatedBytes = (long)Median(
+                allocated.Select(value => (double)value).ToArray()),
             MinimumElapsedMs = elapsed[0],
             MaximumElapsedMs = elapsed[^1],
             Digests = digests,
@@ -891,21 +899,6 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
         };
     }
 
-    static double Median(double[] sorted)
-    {
-        var middle = sorted.Length / 2;
-        return (sorted.Length & 1) == 0
-            ? (sorted[middle - 1] + sorted[middle]) / 2d
-            : sorted[middle];
-    }
-
-    static long Median(long[] sorted)
-    {
-        var middle = sorted.Length / 2;
-        return (sorted.Length & 1) == 0
-            ? (sorted[middle - 1] + sorted[middle]) / 2
-            : sorted[middle];
-    }
 }
 
 var terrainLayerGeologyModeDiagnostics = options.ProfileGeologySampling
