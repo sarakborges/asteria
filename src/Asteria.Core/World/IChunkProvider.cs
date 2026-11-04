@@ -51,7 +51,6 @@ public enum ChunkMaterializationStage : byte
     TerrainSetup,
     TerrainLayer,
     SurfaceDecorations,
-    DirectionalFaceExposure,
     DirectionalFacePalettes,
     VolumeStructures,
     GeneratedFluids,
@@ -66,6 +65,8 @@ public enum ChunkMaterializationStage : byte
     StructureObjects,
     PendingObjects,
     Complete,
+    // Appended to preserve the numeric identities of existing stages.
+    DirectionalFaceExposure,
 }
 
 /// <summary>
