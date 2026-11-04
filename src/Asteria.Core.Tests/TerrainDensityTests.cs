@@ -133,9 +133,11 @@ public sealed class TerrainDensityTests
         var materialized = new Dictionary<ChunkCoord, Chunk>();
         var spike = Block("asteria:spike_stone");
 
-        foreach (var x in new[] { 15, 16 })
-        foreach (var z in new[] { 15, 16 })
-        foreach (var y in new[] { 32, 48, 64, 80 })
+        // Cover the complete six-voxel halo on both sides of the X/Z
+        // seams, including their overlap at the four-chunk corner.
+        for (var x = 10; x <= 21; x++)
+        for (var z = 10; z <= 21; z++)
+        for (var y = 32; y < 96; y++)
         {
             var (coord, local) = VoxelCoordinates.FromWorld(x, y, z);
             if (!materialized.TryGetValue(coord, out var chunk))

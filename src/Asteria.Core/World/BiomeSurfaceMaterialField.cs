@@ -521,11 +521,14 @@ public sealed class BiomeSurfaceMaterialField
         private readonly double[] _volumeRegionThresholds;
         private readonly double[] _surfaceRegionThresholds;
         private readonly GenerationDomain[] _regionWarpDomains;
+        private readonly GenerationDomain[] _regionalEdgeDomains;
         private readonly GenerationDomain _volumeRegionMaterialDomain;
         private readonly GenerationDomain _surfaceRegionMaterialDomain;
         private readonly BiomeGeologySamplingMode _samplingMode;
         private readonly uint _regionScale;
         private readonly uint _regionVerticalScale;
+        private readonly uint _regionalEdgeScale;
+        private readonly uint _regionalEdgeVerticalScale;
         private readonly double _regionWarpStrength;
         private readonly uint _surfaceExposureScale;
         private readonly uint _warpHorizontalScale;
@@ -588,6 +591,10 @@ public sealed class BiomeSurfaceMaterialField
             _samplingMode = definition.SamplingMode;
             _regionScale = definition.RegionScale;
             _regionVerticalScale = definition.RegionVerticalScale;
+            _regionalEdgeScale = Math.Max(3u, Math.Min(
+                _clusterScale, _regionScale / 6u));
+            _regionalEdgeVerticalScale = Math.Max(3u, Math.Min(
+                _clusterVerticalScale, _regionVerticalScale / 6u));
             _regionWarpStrength = definition.RegionWarpStrength;
             _baseBlock = baseBlock;
             _blocks = blocks;
@@ -605,6 +612,10 @@ public sealed class BiomeSurfaceMaterialField
             _regionWarpDomains = new[] { "x", "y", "z" }
                 .Select(axis => GenerationDomain.Named(
                     $"material/geology/regional-warp/v1/{biomeId}/{axis}"))
+                .ToArray();
+            _regionalEdgeDomains = new[] { "x", "y", "z" }
+                .Select(axis => GenerationDomain.Named(
+                    $"material/geology/regional-edge/v1/{biomeId}/{axis}"))
                 .ToArray();
             _volumeRegionMaterialDomain = GenerationDomain.Named(
                 $"material/geology/regional-volume-material/v1/{biomeId}");
@@ -702,7 +713,7 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed, int x, int y, int z,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
         {
-            if (_samplingMode == BiomeGeologySamplingMode.Regional)
+            if (_samplingMode != BiomeGeologySamplingMode.PerVoxel)
             {
                 return SelectRegionalMaterial(
                     seed, x, y, z,
@@ -742,7 +753,7 @@ public sealed class BiomeSurfaceMaterialField
                 return false;
             }
 
-            if (_samplingMode == BiomeGeologySamplingMode.Regional)
+            if (_samplingMode != BiomeGeologySamplingMode.PerVoxel)
             {
                 block = SelectRegionalMaterial(
                     seed, x, y, z,
@@ -928,6 +939,62 @@ public sealed class BiomeSurfaceMaterialField
                 rotated.Z + warpZ * _regionScale * _regionWarpStrength);
         }
 
+        private SpatialPosition WarpRegionalEdges(
+            ulong seed,
+            SpatialPosition position,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
+        {
+            // The macro region remains the material owner. Only voxels close
+            // to a cell face evaluate this smaller-scale vector field, so the
+            // expensive detail work is concentrated on boundaries rather than
+            // repeated throughout every solid voxel.
+            const double edgeBand = 0.12d;
+            const double maximumDisplacement = 0.10d;
+
+            var scaledX = position.X / _regionScale;
+            var scaledY = position.Y / _regionVerticalScale;
+            var scaledZ = position.Z / _regionScale;
+            var fractionX = scaledX - Math.Floor(scaledX);
+            var fractionY = scaledY - Math.Floor(scaledY);
+            var fractionZ = scaledZ - Math.Floor(scaledZ);
+            var nearX = Math.Min(fractionX, 1d - fractionX) <= edgeBand;
+            var nearY = Math.Min(fractionY, 1d - fractionY) <= edgeBand;
+            var nearZ = Math.Min(fractionZ, 1d - fractionZ) <= edgeBand;
+
+            if (!nearX && !nearY && !nearZ)
+                return position;
+
+            var coordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                position.X,
+                position.Y,
+                position.Z,
+                _regionalEdgeScale,
+                _regionalEdgeVerticalScale);
+            var x = position.X;
+            var y = position.Y;
+            var z = position.Z;
+            if (nearX)
+            {
+                x += SampleNoise(
+                    coordinates, seed, _regionalEdgeDomains[0], latticeCache) *
+                    (_regionScale * maximumDisplacement);
+            }
+            if (nearY)
+            {
+                y += SampleNoise(
+                    coordinates, seed, _regionalEdgeDomains[1], latticeCache) *
+                    (_regionVerticalScale * maximumDisplacement);
+            }
+            if (nearZ)
+            {
+                z += SampleNoise(
+                    coordinates, seed, _regionalEdgeDomains[2], latticeCache) *
+                    (_regionScale * maximumDisplacement);
+            }
+
+            return new SpatialPosition(x, y, z);
+        }
+
         private BlockRuntimeId SelectRegionalMaterial(
             ulong seed,
             int x,
@@ -940,6 +1007,11 @@ public sealed class BiomeSurfaceMaterialField
         {
             var position = WarpRegionalCoordinates(
                 seed, x, y, z, latticeCache);
+            if (_samplingMode == BiomeGeologySamplingMode.RegionalHybrid)
+            {
+                position = WarpRegionalEdges(seed, position, latticeCache);
+            }
+
             var cellX = FloorToInt(position.X / _regionScale);
             var cellY = FloorToInt(position.Y / _regionVerticalScale);
             var cellZ = FloorToInt(position.Z / _regionScale);

@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -88,7 +92,7 @@ jobs:
             --samples 2 --area-size 4 --chunks 1 \
             --output worldgen-directional-face-palette-profile.json
 
-      - name: Profile per-voxel and regional geology selection
+      - name: Profile per-voxel, regional and regional-hybrid geology selection
         run: |
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
             --seed 181960897289965 --dimension asteria:overworld \
@@ -179,6 +183,18 @@ jobs:
             --material-map-sampling-mode regional \
             --material-map-output biome-map-geology-swamp-regional.svg
 
+      - name: Render regional-hybrid geology across representative biomes
+        run: |
+          for biome in plains swamp ocean mountains; do
+            dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+              --seed 7808508665006554090 --dimension asteria:overworld \
+              --center-x 0 --center-z 0 --samples 1 --area-size 1 \
+              --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+              --material-map-biome "asteria:overworld/${biome}" \
+              --material-map-sampling-mode regional-hybrid \
+              --material-map-output "biome-map-geology-${biome}-regional-hybrid.svg"
+          done
+
       - name: Upload worldgen query baseline
         if: always()
         uses: actions/upload-artifact@v4
@@ -222,11 +238,14 @@ jobs:
             src/Asteria.Core/World/CaveSpikeField.cs \
             src/Asteria.Core/World/SurfaceChunkMaterializer.cs \
             src/Asteria.Core/World/Chunk.cs \
+            tools/WorldgenBenchmark/Program.cs \
             src/Asteria.Core/World/WorldGenerationEntropy.cs \
             src/Asteria.Core/World/SurfaceTerrainField.cs \
             src/Asteria.Core/World/BiomeSurfaceMaterialField.cs \
             src/Asteria.Core/World/BiomeField.cs \
-            src/Asteria.Core/World/BiomeWorldGenerator.cs)"
+            src/Asteria.Core/World/BiomeWorldGenerator.cs \
+            src/Asteria.Core/World/VolumeStructureField.cs \
+            src/Asteria.Core/World/VolumeBiomeField.cs)"
           if [ -z "$terrain_commit" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
             echo "No terrain materialization changes found in the pull-request history."

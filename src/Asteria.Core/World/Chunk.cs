@@ -599,6 +599,12 @@ public sealed class Chunk
     internal bool HasDirectionalFaceData =>
         _directionalFaceData is { OccupiedCount: > 0 };
 
+    internal int DirectionalFaceDataVoxelCount =>
+        _directionalFaceData?.OccupiedCount ?? 0;
+
+    internal int DirectionalFaceDataPaletteEntryCount =>
+        _directionalFaceData?.ActivePaletteEntryCount ?? 0;
+
     internal bool DirectionalFaceDataInitialized =>
         _directionalFaceDataInitialized;
 
