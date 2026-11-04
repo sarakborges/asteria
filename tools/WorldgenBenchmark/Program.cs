@@ -44,14 +44,7 @@ var fluids = FluidRegistry.FromJson(Documents(root, "fluids"));
 var sourceBiomeDefinitions = Documents(root, "biomes")
     .Select(BiomeDefinitionJson.Parse)
     .ToArray();
-var biomes = new BiomeRegistry(
-    options.MaterialMapSamplingMode == BiomeGeologySamplingMode.Regional
-        ? sourceBiomeDefinitions.Select(definition =>
-            definition.Geology is null
-                ? definition
-                : WithGeologySamplingMode(
-                    definition, BiomeGeologySamplingMode.Regional))
-        : sourceBiomeDefinitions);
+var biomes = new BiomeRegistry(sourceBiomeDefinitions);
 var structures = StructureRegistry.FromJson(OptionalDocuments(root, "structures"));
 var structureSets =
     StructureSetRegistry.FromJson(
@@ -74,12 +67,13 @@ structures.ValidateFluids(fluids);
 var dimension = dimensions.Get(new DimensionId(options.Dimension));
 var dimensionSeed = DimensionSeed.Derive(options.Seed, dimension.Id);
 BiomeWorldGenerator NewGenerator(
-    WorldGenerationOptions? generation = null) => new(
+    WorldGenerationOptions? generation = null,
+    BiomeRegistry? biomeRegistry = null) => new(
     dimensionSeed,
     dimension,
     blocks,
     fluids,
-    biomes,
+    biomeRegistry ?? biomes,
     structures,
     structureSets,
     generation);
@@ -711,7 +705,7 @@ var coldStageTimingDiagnostics =
 var warmStageTimingDiagnostics =
     CaptureMaterializationStageTimings(stageTimingGenerator);
 var geologySamplingDiagnostics = options.ProfileGeologySampling
-    ? CaptureRegionalGeologySamplingDiagnostics(
+    ? CaptureGeologySamplingDiagnostics(
         biomes, blocks, dimensionSeed)
     : null;
 
@@ -755,8 +749,8 @@ var result = new
         "Initial-area stage timings isolate chunk materialization work and are diagnostic only; they are not regression thresholds.",
         "Directional face-palette profiles use operation counters and sampled Debug timings; cold and warm passes use the same fixed-seed chunk selection.",
         options.ProfileGeologySampling
-            ? "Continuous and regional geology profiles compare the same fixed world-space voxel sample with chunk-local noise-cache lifetimes."
-            : "Pass --profile-geology-sampling true to compare continuous and regional geology selection on representative surface biomes.",
+            ? "Per-voxel and regional geology profiles compare the same fixed world-space voxel sample with chunk-local noise-cache lifetimes."
+            : "Pass --profile-geology-sampling true to compare per-voxel and regional geology selection on representative surface biomes.",
         "Every metric records its generated-result digest so determinism can be compared across runs.",
         "Search/destination metrics include near and far world coordinates without chunk materialization.",
         options.EnforceCiBudgets
@@ -780,10 +774,18 @@ if (options.Output is { } output)
 
 if (options.MaterialMapOutput is { } materialMapOutput)
 {
+    var materialMapBiomes = options.MaterialMapSamplingMode is { } samplingMode
+        ? new BiomeRegistry(sourceBiomeDefinitions.Select(definition =>
+            definition.Geology is null
+                ? definition
+                : WithGeologySamplingMode(definition, samplingMode)))
+        : biomes;
     RenderGeologyMaterialMap(
-        NewGenerator(new WorldGenerationOptions(
-            spawnStructures: false,
-            spawnCaves: false)),
+        NewGenerator(
+            new WorldGenerationOptions(
+                spawnStructures: false,
+                spawnCaves: false),
+            materialMapBiomes),
         blocks,
         options,
         materialMapOutput);
@@ -905,7 +907,7 @@ static BiomeDefinition WithGeologySamplingMode(
         geology: geology);
 }
 
-static object CaptureRegionalGeologySamplingDiagnostics(
+static object CaptureGeologySamplingDiagnostics(
     BiomeRegistry biomes,
     BlockRegistry blocks,
     ulong seed)
@@ -924,29 +926,32 @@ static object CaptureRegionalGeologySamplingDiagnostics(
         if (!biomes.Contains(biomeId))
             continue;
 
-        var continuousDefinition = biomes.Get(biomeId);
-        if (continuousDefinition.Geology is null)
+        var authoredDefinition = biomes.Get(biomeId);
+        if (authoredDefinition.Geology is null)
             continue;
 
+        var perVoxelDefinition = WithGeologySamplingMode(
+            authoredDefinition,
+            BiomeGeologySamplingMode.PerVoxel);
         var regionalDefinition = WithGeologySamplingMode(
-            continuousDefinition,
+            authoredDefinition,
             BiomeGeologySamplingMode.Regional);
         var sample = new BiomeSample(
             biomeId,
             [new BiomeInfluence(biomeId, 1f)]);
-        var continuousMaterials = new BiomeSurfaceMaterialField(
-            seed, [continuousDefinition], blocks);
+        var perVoxelMaterials = new BiomeSurfaceMaterialField(
+            seed, [perVoxelDefinition], blocks);
         var regionalMaterials = new BiomeSurfaceMaterialField(
             seed, [regionalDefinition], blocks);
-        var continuousRuns = new List<GeologySamplingRun>(4);
+        var perVoxelRuns = new List<GeologySamplingRun>(4);
         var regionalRuns = new List<GeologySamplingRun>(4);
 
         for (var repetition = 0; repetition < 4; repetition++)
         {
             if ((repetition & 1) == 0)
             {
-                continuousRuns.Add(MeasureGeologySelection(
-                    continuousMaterials, sample));
+                perVoxelRuns.Add(MeasureGeologySelection(
+                    perVoxelMaterials, sample));
                 regionalRuns.Add(MeasureGeologySelection(
                     regionalMaterials, sample));
             }
@@ -954,8 +959,8 @@ static object CaptureRegionalGeologySamplingDiagnostics(
             {
                 regionalRuns.Add(MeasureGeologySelection(
                     regionalMaterials, sample));
-                continuousRuns.Add(MeasureGeologySelection(
-                    continuousMaterials, sample));
+                perVoxelRuns.Add(MeasureGeologySelection(
+                    perVoxelMaterials, sample));
             }
         }
 
@@ -965,9 +970,9 @@ static object CaptureRegionalGeologySamplingDiagnostics(
             RegionScale = regionalDefinition.Geology!.RegionScale,
             RegionVerticalScale = regionalDefinition.Geology.RegionVerticalScale,
             RegionWarpStrength = regionalDefinition.Geology.RegionWarpStrength,
-            VoxelsPerRun = continuousRuns[0].VoxelCount,
-            Repetitions = continuousRuns.Count,
-            Continuous = Summarize(continuousRuns),
+            VoxelsPerRun = perVoxelRuns[0].VoxelCount,
+            Repetitions = perVoxelRuns.Count,
+            PerVoxel = Summarize(perVoxelRuns),
             Regional = Summarize(regionalRuns),
         });
     }
@@ -1511,7 +1516,7 @@ internal sealed record Arguments(
     int SearchRadius,
     bool EnforceCiBudgets,
     bool ProfileGeologySampling,
-    BiomeGeologySamplingMode MaterialMapSamplingMode,
+    BiomeGeologySamplingMode? MaterialMapSamplingMode,
     string? Output,
     string? MaterialMapOutput,
     string? MaterialMapBiome)
@@ -1532,7 +1537,7 @@ internal sealed record Arguments(
         var searchRadius = 1024;
         var enforceCiBudgets = false;
         var profileGeologySampling = false;
-        var materialMapSamplingMode = BiomeGeologySamplingMode.Continuous;
+        BiomeGeologySamplingMode? materialMapSamplingMode = null;
         string? output = null;
         string? materialMapOutput = null;
         string? materialMapBiome = null;
@@ -1599,7 +1604,7 @@ internal sealed record Arguments(
                 case "--material-map-sampling-mode":
                     materialMapSamplingMode = value switch
                     {
-                        "continuous" => BiomeGeologySamplingMode.Continuous,
+                        "per-voxel" => BiomeGeologySamplingMode.PerVoxel,
                         "regional" => BiomeGeologySamplingMode.Regional,
                         var mode => throw new ArgumentException(
                             $"Unknown material-map-sampling-mode: {mode}."),
