@@ -2125,9 +2125,9 @@ public sealed class SurfaceChunkMaterializer
 #if DEBUG
                 horizontalBoundaryReadMilliseconds += Stopwatch.GetElapsedTime(
                     boundaryReadStarted).TotalMilliseconds;
+#endif
                 horizontalBoundaryBatchCount++;
                 horizontalBoundaryColumnCount++;
-#endif
                 densityProbeCount = checked(densityProbeCount + probes);
                 boundaryDensityProbeCount = checked(boundaryDensityProbeCount + probes);
                 zBoundaryMasks[index] = mask;
