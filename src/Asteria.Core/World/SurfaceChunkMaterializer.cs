@@ -2109,10 +2109,8 @@ public sealed class SurfaceChunkMaterializer
         var sourceColumn = columnAt(worldX, worldZ);
         var (sourceCoord, sourceLocal) = VoxelCoordinates.FromWorld(worldX, worldY, worldZ);
         var surfaceOwner = new BiomeRegionOwner(sourceColumn.SurfaceBiome, BiomeRegionOwnerKind.Surface);
-        var sourceTerrainColumn = _columns.Get(sourceCoord.X, sourceCoord.Z);
         var volumeBiome = worldY > sourceColumn.BaseY
-            ? _volumeBiomes?.SampleAtY(
-                sourceTerrainColumn.VolumeBiomes, sourceLocal.X, worldY, sourceLocal.Z)
+            ? _terrain.VolumeBiomeAt(worldX, worldY, worldZ)
             : null;
         var solidOwner = volumeBiome is null
             ? surfaceOwner
@@ -2317,57 +2315,6 @@ public sealed class SurfaceChunkMaterializer
             ReconcileChunkOutward(
                 world, sourceCoord, axis, sign, maximumDepth,
                 changedSources, dirtyChunks, ensured);
-        }
-        return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks);
-    }
-
-    internal IReadOnlyList<WorldVoxelCoord> ReconcileBlockCellChange(
-        VoxelWorld world, VoxelWorldEdit edit)
-    {
-        ArgumentNullException.ThrowIfNull(world);
-        if (edit.Previous.IsEmpty == edit.Current.IsEmpty)
-            return Array.Empty<WorldVoxelCoord>();
-        var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
-        if (maximumDepth <= 0)
-            return Array.Empty<WorldVoxelCoord>();
-
-        var changedSources = new HashSet<(ChunkCoord Coord, int Index)>();
-        var dirtyChunks = new HashSet<ChunkCoord>();
-        var ensured = new HashSet<ChunkCoord>();
-
-        for (var directionIndex = 0; directionIndex < 6; directionIndex++)
-        {
-            var direction = (DirectionalFaceDirection)directionIndex;
-            var (dx, dy, dz) = DirectionOffset(direction);
-            for (var distance = 1; distance <= maximumDepth; distance++)
-            {
-                var sourcePosition = new WorldVoxelCoord(
-                    checked(edit.Position.X - dx * distance),
-                    checked(edit.Position.Y - dy * distance),
-                    checked(edit.Position.Z - dz * distance));
-                if (sourcePosition.Y < 0)
-                    continue;
-                if (!world.TryGetSavedCell(sourcePosition, out var sourceCell) ||
-                    sourceCell.IsEmpty || sourceCell.IsPlayerPlaced)
-                    continue;
-
-                var address = VoxelCoordinates.FromWorld(
-                    sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
-                if (!world.TryGetSavedChunk(address.Chunk, out var sourceChunk))
-                    continue;
-                EnsureDirectionalFaceData(
-                    address.Chunk, world, changedSources, dirtyChunks, ensured);
-
-                var index = address.Local.X +
-                    Chunk.Size * (address.Local.Z + Chunk.Size * address.Local.Y);
-                if (sourceChunk.UpdateDirectionalFaceCandidateAtLinearIndex(
-                        index, direction, distance,
-                        edit.Current.IsEmpty, updateRevision: false))
-                {
-                    changedSources.Add((address.Chunk, index));
-                    dirtyChunks.Add(address.Chunk);
-                }
-            }
         }
         return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks);
     }

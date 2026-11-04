@@ -116,6 +116,4 @@ public interface IChunkDirectionalFacePaletteUpdater
     IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
         VoxelWorld world, ChunkCoord arriving);
 
-    IReadOnlyList<WorldVoxelCoord> ReconcileBlockCellChange(
-        VoxelWorld world, VoxelWorldEdit edit);
 }
