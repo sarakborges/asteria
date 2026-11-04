@@ -222,7 +222,7 @@ jobs:
             src/Asteria.Core/World/CaveSpikeField.cs \
             src/Asteria.Core/World/SurfaceChunkMaterializer.cs \
             src/Asteria.Core/World/Chunk.cs \
-            src/Asteria.Core/World/WorldGenerationEntropy.cs \
+            tools/WorldgenBenchmark/Program.cs)            src/Asteria.Core/World/WorldGenerationEntropy.cs \
             src/Asteria.Core/World/SurfaceTerrainField.cs \
             src/Asteria.Core/World/BiomeSurfaceMaterialField.cs \
             src/Asteria.Core/World/BiomeField.cs \
