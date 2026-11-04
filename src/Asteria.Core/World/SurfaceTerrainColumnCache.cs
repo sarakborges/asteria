@@ -90,6 +90,30 @@ public sealed class SurfaceTerrainColumnCache
             }
         }
 
+        public void ReadColumns(
+            ReadOnlySpan<int> columnIndices,
+            Span<ushort> solidMasks,
+            Span<ushort> sampledMasks)
+        {
+            if (solidMasks.Length != columnIndices.Length ||
+                sampledMasks.Length != columnIndices.Length)
+                throw new ArgumentException(
+                    "Density column read buffers must have matching lengths.");
+
+            lock (_gate)
+            {
+                for (var index = 0; index < columnIndices.Length; index++)
+                {
+                    var columnIndex = columnIndices[index];
+                    if ((uint)columnIndex >= Chunk.Area)
+                        throw new ArgumentOutOfRangeException(nameof(columnIndices));
+
+                    solidMasks[index] = _solidMasks[columnIndex];
+                    sampledMasks[index] = _sampledMasks[columnIndex];
+                }
+            }
+        }
+
         public void ReadSlab(
             int verticalOffset,
             int height,
@@ -177,6 +201,40 @@ public sealed class SurfaceTerrainColumnCache
                     (_solidMasks[index] & (ushort)~sampledMask) |
                     (solidMask & sampledMask));
                 _sampledMasks[index] |= sampledMask;
+            }
+        }
+
+        public void MergeColumns(
+            ReadOnlySpan<int> columnIndices,
+            ReadOnlySpan<ushort> solidMasks,
+            ReadOnlySpan<ushort> sampledMasks)
+        {
+            if (solidMasks.Length != columnIndices.Length ||
+                sampledMasks.Length != columnIndices.Length)
+                throw new ArgumentException(
+                    "Density column merge buffers must have matching lengths.");
+
+            lock (_gate)
+            {
+                for (var index = 0; index < columnIndices.Length; index++)
+                {
+                    var columnIndex = columnIndices[index];
+                    if ((uint)columnIndex >= Chunk.Area)
+                        throw new ArgumentOutOfRangeException(nameof(columnIndices));
+
+                    var incomingSampled = sampledMasks[index];
+                    var overlap = (ushort)(
+                        _sampledMasks[columnIndex] & incomingSampled);
+                    var disagreement = (ushort)(
+                        (_solidMasks[columnIndex] ^ solidMasks[index]) & overlap);
+                    if (disagreement != 0)
+                        ThrowOccupancyMismatch();
+
+                    _solidMasks[columnIndex] = (ushort)(
+                        (_solidMasks[columnIndex] & (ushort)~incomingSampled) |
+                        (solidMasks[index] & incomingSampled));
+                    _sampledMasks[columnIndex] |= incomingSampled;
+                }
             }
         }
 
@@ -295,6 +353,71 @@ public sealed class SurfaceTerrainColumnCache
         }
 
         return new DensityOccupancySlab(height, solidMasks);
+    }
+
+    /// <summary>
+    /// Reads a set of columns from one vertical chunk band under a single
+    /// occupancy lock. Missing Y bits are completed before the batch is
+    /// returned, then published under one merge lock.
+    /// </summary>
+    internal void ReadDensityColumnMasks(
+        int chunkX,
+        int originY,
+        int chunkZ,
+        ReadOnlySpan<int> columnIndices,
+        Span<ushort> solidMasks,
+        out int densityProbes)
+    {
+        if (originY < 0 || originY % Chunk.Size != 0)
+            throw new ArgumentOutOfRangeException(nameof(originY));
+        if (columnIndices.Length != solidMasks.Length ||
+            columnIndices.Length > Chunk.Area)
+            throw new ArgumentException(
+                "Density column batch must contain matching buffers of at most 256 columns.");
+
+        densityProbes = 0;
+        if (columnIndices.IsEmpty)
+            return;
+
+        var occupancy = GetDensityChunk(chunkX, originY, chunkZ);
+        Span<ushort> sampledMasks = stackalloc ushort[columnIndices.Length];
+        occupancy.ReadColumns(columnIndices, solidMasks, sampledMasks);
+
+        SurfaceTerrainColumn? column = null;
+        var hasMissingSamples = false;
+        var chunkOriginX = checked(chunkX * Chunk.Size);
+        var chunkOriginZ = checked(chunkZ * Chunk.Size);
+        for (var index = 0; index < columnIndices.Length; index++)
+        {
+            if (sampledMasks[index] == ushort.MaxValue)
+                continue;
+
+            column ??= Get(chunkX, chunkZ);
+            var columnIndex = columnIndices[index];
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            solidMasks[index] = _terrain.SampleDensityColumnMask(
+                column,
+                localX,
+                originY,
+                localZ,
+                checked(chunkOriginX + localX),
+                checked(chunkOriginZ + localZ),
+                solidMasks[index],
+                sampledMasks[index],
+                out var probes);
+            densityProbes = checked(densityProbes + probes);
+            sampledMasks[index] = ushort.MaxValue;
+            hasMissingSamples = true;
+        }
+
+        if (hasMissingSamples)
+        {
+            occupancy.MergeColumns(
+                columnIndices,
+                solidMasks,
+                sampledMasks);
+        }
     }
 
     /// <summary>

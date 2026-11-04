@@ -112,11 +112,15 @@ public sealed class GeologyMaterializationRegressionTests
         }
     }
 
-    [Fact]
-    public void DirectionalFaceBoundaryMasksPreserveGenerationAcrossHorizontalChunkOrder()
+    [Theory]
+    [InlineData(3, 4)]
+    [InlineData(19, 8)]
+    public void DirectionalFaceBoundaryMasksPreserveGenerationAcrossHorizontalChunkOrder(
+        int wallDepth,
+        int expectedBoundaryBatchesPerChunk)
     {
         var biome = BiomeDefinitionJson.Parse(
-            """
+            $$"""
             {
               "id": "asteria:test/directional_palette_seam",
               "surfaceLayout": {
@@ -132,7 +136,7 @@ public sealed class GeologyMaterializationRegressionTests
               "palette": {
                 "default": [{ "block": "asteria:stone" }],
                 "walls": [
-                  { "block": "asteria:clay", "depth": 3 },
+                  { "block": "asteria:clay", "depth": {{wallDepth}} },
                   { "block": "asteria:stone" }
                 ]
               }
@@ -150,12 +154,18 @@ public sealed class GeologyMaterializationRegressionTests
             from x in Enumerable.Range(-1, 3)
             select new ChunkCoord(x, 2, z)).ToArray();
 
-        static (Dictionary<ChunkCoord, ulong> Digests, int BoundaryProbes) Capture(
-            BiomeWorldGenerator generator,
-            IEnumerable<ChunkCoord> order)
+        static (
+            Dictionary<ChunkCoord, ulong> Digests,
+            int BoundaryProbes,
+            int BoundaryBatchCount,
+            int BoundaryColumnCount) Capture(
+                BiomeWorldGenerator generator,
+                IEnumerable<ChunkCoord> order)
         {
             var digests = new Dictionary<ChunkCoord, ulong>();
             var boundaryProbes = 0;
+            var boundaryBatchCount = 0;
+            var boundaryColumnCount = 0;
             foreach (var coord in order)
             {
                 using var job = generator.BeginMaterialization(coord);
@@ -163,7 +173,11 @@ public sealed class GeologyMaterializationRegressionTests
                     job.Advance();
 
                 if (job.DirectionalFacePaletteMetrics is { } metrics)
+                {
                     boundaryProbes += metrics.BoundaryDensityProbes;
+                    boundaryBatchCount += metrics.HorizontalBoundaryBatchCount;
+                    boundaryColumnCount += metrics.HorizontalBoundaryColumnCount;
+                }
 
                 var chunk = job.Result ??
                     throw new InvalidOperationException(
@@ -181,7 +195,11 @@ public sealed class GeologyMaterializationRegressionTests
                 digests.Add(coord, digest);
             }
 
-            return (digests, boundaryProbes);
+            return (
+                digests,
+                boundaryProbes,
+                boundaryBatchCount,
+                boundaryColumnCount);
         }
 
         var first = Capture(
@@ -194,11 +212,19 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.True(first.BoundaryProbes > 0,
             "The fixture must exercise horizontal boundary occupancy masks.");
         var unsharedBoundaryProbeUpperBound =
-            coordinates.Length * 6 * 3 * Chunk.Area;
+            coordinates.Length * 6 * wallDepth * Chunk.Area;
         Assert.True(
             first.BoundaryProbes < unsharedBoundaryProbeUpperBound,
             $"Adjacent chunks did not reuse occupancy masks: " +
             $"{first.BoundaryProbes}/{unsharedBoundaryProbeUpperBound} boundary samples.");
+        Assert.Equal(
+            coordinates.Length * expectedBoundaryBatchesPerChunk,
+            first.BoundaryBatchCount);
+        Assert.Equal(
+            coordinates.Length * 4 * wallDepth * Chunk.Size,
+            first.BoundaryColumnCount);
+        Assert.Equal(first.BoundaryBatchCount, second.BoundaryBatchCount);
+        Assert.Equal(first.BoundaryColumnCount, second.BoundaryColumnCount);
         Assert.Equal(coordinates.Length, first.Digests.Count);
         Assert.Equal(coordinates.Length, second.Digests.Count);
         foreach (var coord in coordinates)

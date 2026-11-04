@@ -1,3 +1,5 @@
+using System.Buffers;
+
 #if DEBUG
 using System.Diagnostics;
 #endif
@@ -10,6 +12,19 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class SurfaceChunkMaterializer
 {
+    private readonly record struct DirectionalFaceOccupancyPreparationProfile(
+        double DensitySlabReadMilliseconds,
+        double HorizontalBoundaryReadMilliseconds,
+        double OccupancyRowAssemblyMilliseconds,
+        double CandidateMaskBuildMilliseconds,
+        int HorizontalBoundaryBatchCount,
+        int HorizontalBoundaryColumnCount);
+
+    private readonly record struct BoundaryMaskReadMetrics(
+        int DensityProbes,
+        int BatchCount,
+        int ColumnCount);
+
     // A 16x16 chunk plus its one-column cardinal slope-probe halo is 18x18.
     private const int SlopeProbeSampleCacheCapacity =
         (Chunk.Size + 2) * (Chunk.Size + 2);
@@ -478,7 +493,10 @@ public sealed class SurfaceChunkMaterializer
         {
             job.DirectionalFaceOccupancyMasks = BuildDirectionalFaceOccupancyMasks(
                 densityVolume, column, originX, originY, originZ,
-                out var densityProbes, out var boundaryDensityProbes);
+                out var densityProbes,
+                out var boundaryDensityProbes,
+                out var preparationProfile);
+            job.DirectionalFacePalettePreparationProfile = preparationProfile;
             job.DirectionalFacePaletteDensityProbes = densityProbes;
             job.DirectionalFacePaletteBoundaryDensityProbes = boundaryDensityProbes;
         }
@@ -489,7 +507,9 @@ public sealed class SurfaceChunkMaterializer
         var topExclusive = job.TopExclusive = checked(originY + Chunk.Size);
         job.PendingObjects = null;
         var columnMaterializationCaches =
-            job.ColumnMaterializationCaches = new ColumnMaterializationCache[Chunk.Area];
+            job.ColumnMaterializationCaches =
+                ArrayPool<ColumnMaterializationCache>.Shared.Rent(Chunk.Area);
+        Array.Clear(columnMaterializationCaches, 0, Chunk.Area);
 
         // Resolve column-only metadata once. Terrain voxels are then visited
         // in the same Y/Z/X order as Chunk's linear storage.
@@ -753,14 +773,6 @@ public sealed class SurfaceChunkMaterializer
 
     private void MaterializeSurfaceDecorations(MaterializationJob job)
     {
-        // Slope conditions inspect the current and four adjacent columns.
-        // Keep the memoizing biome samplers alive for this chunk instead of
-        // allocating a new pair for every decorated X/Z column.
-        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext =
-            _decorations.HasSlopeConditions
-                ? _terrain.CreateTerrainSampleContext(
-                    biomeSampleCacheCapacity: SlopeProbeSampleCacheCapacity)
-                : null;
         var chunk = job.Chunk;
         var originX = job.OriginX;
         var originY = job.OriginY;
@@ -769,6 +781,16 @@ public sealed class SurfaceChunkMaterializer
             throw new InvalidOperationException("Materialization column is missing.");
         var densityVolume = job.DensityVolume ??
             throw new InvalidOperationException("Terrain density snapshot is missing.");
+        // Slope conditions inspect the current and four adjacent columns.
+        // Seed the query-local samplers with the immutable biome samples that
+        // TerrainSetup already resolved for this chunk; only the outer halo
+        // needs additional sampling.
+        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext =
+            _decorations.HasSlopeConditions
+                ? _terrain.CreateTerrainSampleContext(
+                    column, originX, originZ,
+                    SlopeProbeSampleCacheCapacity)
+                : null;
         var topExclusive = job.TopExclusive;
         var pendingObjects = job.PendingObjects;
         var columnMaterializationCaches = job.ColumnMaterializationCaches ??
@@ -1408,7 +1430,10 @@ public sealed class SurfaceChunkMaterializer
             (OriginX, OriginY, OriginZ) = VoxelCoordinates.ChunkOrigin(Coord);
             // Allocation and palette setup occur on the materialization worker.
             if (_owner._voidSpawnPlatform is null)
-                InitialBlocks = _chunk.BeginInitialBlockWrites();
+            {
+                InitialBlocks = _chunk.BeginInitialBlockWrites(
+                    checked(_owner._blocks.AuthoredCount + 1));
+            }
         }
 
         public SurfaceTerrainColumn? Column { get; set; }
@@ -1426,6 +1451,9 @@ public sealed class SurfaceChunkMaterializer
         public DirectionalFaceOccupancyMasks? DirectionalFaceOccupancyMasks { get; set; }
 
         public double DirectionalFacePalettePreparationMilliseconds { get; set; }
+
+        public DirectionalFaceOccupancyPreparationProfile
+            DirectionalFacePalettePreparationProfile { get; set; }
 
         public int DirectionalFacePaletteDensityProbes { get; set; }
 
@@ -1462,6 +1490,14 @@ public sealed class SurfaceChunkMaterializer
             InitialBlocks?.Dispose();
             InitialBlocks = null;
             DirectionalFaceOccupancyMasks = null;
+            var columnCaches = ColumnMaterializationCaches;
+            ColumnMaterializationCaches = null;
+            if (columnCaches is not null)
+            {
+                Array.Clear(columnCaches, 0, Chunk.Area);
+                ArrayPool<ColumnMaterializationCache>.Shared.Return(
+                    columnCaches, clearArray: false);
+            }
             _geologyNoiseCache?.Dispose();
             _geologyNoiseCache = null;
         }
@@ -1946,7 +1982,8 @@ public sealed class SurfaceChunkMaterializer
         int originY,
         int originZ,
         out int densityProbes,
-        out int boundaryDensityProbes) =>
+        out int boundaryDensityProbes,
+        out DirectionalFaceOccupancyPreparationProfile preparationProfile) =>
         BuildDirectionalFaceOccupancyMasks(
             densityVolume.IsSolidAtUnchecked,
             column,
@@ -1954,7 +1991,8 @@ public sealed class SurfaceChunkMaterializer
             originY,
             originZ,
             out densityProbes,
-            out boundaryDensityProbes);
+            out boundaryDensityProbes,
+            out preparationProfile);
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         Chunk chunk,
@@ -1969,7 +2007,151 @@ public sealed class SurfaceChunkMaterializer
             origin.Y,
             origin.Z,
             out _,
+            out _,
             out _);
+    }
+
+    private BoundaryMaskReadMetrics ReadDirectionalFaceXBoundaryMasks(
+        int startLocalX,
+        int endLocalX,
+        int maximumDepth,
+        int originX,
+        int originY,
+        int originZ,
+        ushort[] boundaryMasks,
+        Span<int> columnIndices,
+        Span<ushort> solidMasks)
+    {
+        var cursor = startLocalX;
+        var densityProbes = 0;
+        var batchCount = 0;
+        var columnCount = 0;
+
+        while (cursor < endLocalX)
+        {
+            var firstWorldX = checked(originX + cursor);
+            var first = VoxelCoordinates.FromWorld(
+                firstWorldX, originY, originZ);
+            var sliceEnd = cursor + 1;
+            while (sliceEnd < endLocalX &&
+                   VoxelCoordinates.FromWorld(
+                       checked(originX + sliceEnd), originY, originZ)
+                       .Chunk.X == first.Chunk.X)
+            {
+                sliceEnd++;
+            }
+
+            var count = checked((sliceEnd - cursor) * Chunk.Size);
+            if (count > columnIndices.Length || count > solidMasks.Length)
+                throw new InvalidOperationException(
+                    "A horizontal X boundary batch exceeded one chunk's column capacity.");
+
+            var writeIndex = 0;
+            for (var localX = cursor; localX < sliceEnd; localX++)
+            {
+                var local = VoxelCoordinates.FromWorld(
+                    checked(originX + localX), originY, originZ).Local;
+                for (var z = 0; z < Chunk.Size; z++)
+                    columnIndices[writeIndex++] = z * Chunk.Size + local.X;
+            }
+
+            _columns.ReadDensityColumnMasks(
+                first.Chunk.X,
+                originY,
+                first.Chunk.Z,
+                columnIndices[..count],
+                solidMasks[..count],
+                out var probes);
+            densityProbes = checked(densityProbes + probes);
+
+            writeIndex = 0;
+            for (var localX = cursor; localX < sliceEnd; localX++)
+            for (var z = 0; z < Chunk.Size; z++)
+            {
+                var destinationIndex =
+                    (localX + maximumDepth) * Chunk.Size + z;
+                boundaryMasks[destinationIndex] = solidMasks[writeIndex++];
+            }
+
+            batchCount++;
+            columnCount = checked(columnCount + count);
+            cursor = sliceEnd;
+        }
+
+        return new BoundaryMaskReadMetrics(
+            densityProbes, batchCount, columnCount);
+    }
+
+    private BoundaryMaskReadMetrics ReadDirectionalFaceZBoundaryMasks(
+        int startLocalZ,
+        int endLocalZ,
+        int maximumDepth,
+        int originX,
+        int originY,
+        int originZ,
+        int regionSize,
+        ushort[] boundaryMasks,
+        Span<int> columnIndices,
+        Span<ushort> solidMasks)
+    {
+        var cursor = startLocalZ;
+        var densityProbes = 0;
+        var batchCount = 0;
+        var columnCount = 0;
+
+        while (cursor < endLocalZ)
+        {
+            var firstWorldZ = checked(originZ + cursor);
+            var first = VoxelCoordinates.FromWorld(
+                originX, originY, firstWorldZ);
+            var sliceEnd = cursor + 1;
+            while (sliceEnd < endLocalZ &&
+                   VoxelCoordinates.FromWorld(
+                       originX, originY, checked(originZ + sliceEnd))
+                       .Chunk.Z == first.Chunk.Z)
+            {
+                sliceEnd++;
+            }
+
+            var count = checked((sliceEnd - cursor) * Chunk.Size);
+            if (count > columnIndices.Length || count > solidMasks.Length)
+                throw new InvalidOperationException(
+                    "A horizontal Z boundary batch exceeded one chunk's column capacity.");
+
+            var writeIndex = 0;
+            for (var localZ = cursor; localZ < sliceEnd; localZ++)
+            {
+                var local = VoxelCoordinates.FromWorld(
+                    originX, originY, checked(originZ + localZ)).Local;
+                for (var x = 0; x < Chunk.Size; x++)
+                    columnIndices[writeIndex++] = local.Z * Chunk.Size + x;
+            }
+
+            _columns.ReadDensityColumnMasks(
+                first.Chunk.X,
+                originY,
+                first.Chunk.Z,
+                columnIndices[..count],
+                solidMasks[..count],
+                out var probes);
+            densityProbes = checked(densityProbes + probes);
+
+            writeIndex = 0;
+            for (var localZ = cursor; localZ < sliceEnd; localZ++)
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                var destinationIndex =
+                    x * regionSize + localZ + maximumDepth;
+                boundaryMasks[destinationIndex] = solidMasks[writeIndex++];
+            }
+
+            batchCount++;
+            columnCount = checked(columnCount + count);
+            cursor = sliceEnd;
+        }
+
+        return new BoundaryMaskReadMetrics(
+            densityProbes, batchCount, columnCount);
     }
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
@@ -1979,7 +2161,8 @@ public sealed class SurfaceChunkMaterializer
         int originY,
         int originZ,
         out int densityProbes,
-        out int boundaryDensityProbes)
+        out int boundaryDensityProbes,
+        out DirectionalFaceOccupancyPreparationProfile preparationProfile)
     {
         ArgumentNullException.ThrowIfNull(isSolid);
         ArgumentNullException.ThrowIfNull(column);
@@ -1991,6 +2174,7 @@ public sealed class SurfaceChunkMaterializer
 
         densityProbes = 0;
         boundaryDensityProbes = 0;
+        preparationProfile = default;
         var densityProbeCount = 0;
         var boundaryDensityProbeCount = 0;
         if (maximumDepth == 0)
@@ -2009,6 +2193,9 @@ public sealed class SurfaceChunkMaterializer
         var zRows = new ulong[Chunk.Area * wordCount];
         var yRows = new ulong[Chunk.Area * wordCount];
 
+#if DEBUG
+        var slabReadStarted = Stopwatch.GetTimestamp();
+#endif
         var bottomSlabs = SampleVerticalDensitySlabs(
             column, originX, originZ,
             Math.Max(0, originY - maximumDepth), originY,
@@ -2018,6 +2205,12 @@ public sealed class SurfaceChunkMaterializer
             column, originX, originZ,
             topStartY, checked(topStartY + maximumDepth),
             out var topDensityProbes);
+#if DEBUG
+        var densitySlabReadMilliseconds =
+            Stopwatch.GetElapsedTime(slabReadStarted).TotalMilliseconds;
+#else
+        const double densitySlabReadMilliseconds = 0d;
+#endif
         densityProbeCount = checked(bottomDensityProbes + topDensityProbes);
         boundaryDensityProbeCount = densityProbeCount;
 
@@ -2043,45 +2236,58 @@ public sealed class SurfaceChunkMaterializer
              (1UL << (bitIndex & 63))) != 0;
 
         var xBoundaryMasks = new ushort[regionSize * size];
-        var xBoundaryMasksReady = new bool[regionSize * size];
-        ushort XBoundaryMask(int localX, int z)
-        {
-            var regionX = localX + maximumDepth;
-            var index = regionX * size + z;
-            if (!xBoundaryMasksReady[index])
-            {
-                var worldX = checked(originX + localX);
-                var worldZ = checked(originZ + z);
-                var mask = _columns.GetDensityColumnMask(
-                    worldX, originY, worldZ, out _, out var probes);
-                densityProbeCount = checked(densityProbeCount + probes);
-                boundaryDensityProbeCount = checked(boundaryDensityProbeCount + probes);
-                xBoundaryMasks[index] = mask;
-                xBoundaryMasksReady[index] = true;
-            }
-            return xBoundaryMasks[index];
-        }
-
         var zBoundaryMasks = new ushort[size * regionSize];
-        var zBoundaryMasksReady = new bool[size * regionSize];
-        ushort ZBoundaryMask(int x, int localZ)
-        {
-            var regionZ = localZ + maximumDepth;
-            var index = x * regionSize + regionZ;
-            if (!zBoundaryMasksReady[index])
-            {
-                var worldX = checked(originX + x);
-                var worldZ = checked(originZ + localZ);
-                var mask = _columns.GetDensityColumnMask(
-                    worldX, originY, worldZ, out _, out var probes);
-                densityProbeCount = checked(densityProbeCount + probes);
-                boundaryDensityProbeCount = checked(boundaryDensityProbeCount + probes);
-                zBoundaryMasks[index] = mask;
-                zBoundaryMasksReady[index] = true;
-            }
-            return zBoundaryMasks[index];
-        }
+        Span<int> boundaryColumnIndices = stackalloc int[Chunk.Area];
+        Span<ushort> boundarySolidMasks = stackalloc ushort[Chunk.Area];
 
+#if DEBUG
+        var horizontalBoundaryReadStarted = Stopwatch.GetTimestamp();
+#endif
+        var leftXBoundary = ReadDirectionalFaceXBoundaryMasks(
+            -maximumDepth, 0, maximumDepth,
+            originX, originY, originZ,
+            xBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+        var rightXBoundary = ReadDirectionalFaceXBoundaryMasks(
+            size, size + maximumDepth, maximumDepth,
+            originX, originY, originZ,
+            xBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+        var negativeZBoundary = ReadDirectionalFaceZBoundaryMasks(
+            -maximumDepth, 0, maximumDepth,
+            originX, originY, originZ, regionSize,
+            zBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+        var positiveZBoundary = ReadDirectionalFaceZBoundaryMasks(
+            size, size + maximumDepth, maximumDepth,
+            originX, originY, originZ, regionSize,
+            zBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+#if DEBUG
+        var horizontalBoundaryReadMilliseconds =
+            Stopwatch.GetElapsedTime(horizontalBoundaryReadStarted).TotalMilliseconds;
+#else
+        const double horizontalBoundaryReadMilliseconds = 0d;
+#endif
+        var horizontalBoundaryDensityProbes = checked(
+            leftXBoundary.DensityProbes +
+            rightXBoundary.DensityProbes +
+            negativeZBoundary.DensityProbes +
+            positiveZBoundary.DensityProbes);
+        var horizontalBoundaryBatchCount = checked(
+            leftXBoundary.BatchCount +
+            rightXBoundary.BatchCount +
+            negativeZBoundary.BatchCount +
+            positiveZBoundary.BatchCount);
+        var horizontalBoundaryColumnCount = checked(
+            leftXBoundary.ColumnCount +
+            rightXBoundary.ColumnCount +
+            negativeZBoundary.ColumnCount +
+            positiveZBoundary.ColumnCount);
+        densityProbeCount = checked(
+            densityProbeCount + horizontalBoundaryDensityProbes);
+        boundaryDensityProbeCount = checked(
+            boundaryDensityProbeCount + horizontalBoundaryDensityProbes);
+
+#if DEBUG
+        var occupancyRowAssemblyStarted = Stopwatch.GetTimestamp();
+#endif
         for (var z = 0; z < size; z++)
         for (var x = 0; x < size; x++)
         {
@@ -2117,7 +2323,9 @@ public sealed class SurfaceChunkMaterializer
                 }
                 else
                 {
-                    solid = (XBoundaryMask(localX, z) & (1u << y)) != 0;
+                    var boundaryIndex =
+                        (localX + maximumDepth) * size + z;
+                    solid = (xBoundaryMasks[boundaryIndex] & (1u << y)) != 0;
                 }
                 if (solid)
                     MarkSolid(xRows, rowOffset, regionX);
@@ -2139,18 +2347,42 @@ public sealed class SurfaceChunkMaterializer
                 }
                 else
                 {
-                    solid = (ZBoundaryMask(x, localZ) & (1u << y)) != 0;
+                    var boundaryIndex =
+                        x * regionSize + localZ + maximumDepth;
+                    solid = (zBoundaryMasks[boundaryIndex] & (1u << y)) != 0;
                 }
                 if (solid)
                     MarkSolid(zRows, rowOffset, regionZ);
             }
         }
+#if DEBUG
+        var occupancyRowAssemblyMilliseconds =
+            Stopwatch.GetElapsedTime(occupancyRowAssemblyStarted).TotalMilliseconds;
+#else
+        const double occupancyRowAssemblyMilliseconds = 0d;
+#endif
 
+#if DEBUG
+        var candidateMaskBuildStarted = Stopwatch.GetTimestamp();
+#endif
         var candidateColumns = DirectionalFaceCandidateMask.Build(
             regionSize, wordCount, maximumDepth,
             xRows, zRows, yRows);
+#if DEBUG
+        var candidateMaskBuildMilliseconds =
+            Stopwatch.GetElapsedTime(candidateMaskBuildStarted).TotalMilliseconds;
+#else
+        const double candidateMaskBuildMilliseconds = 0d;
+#endif
         densityProbes = densityProbeCount;
         boundaryDensityProbes = boundaryDensityProbeCount;
+        preparationProfile = new DirectionalFaceOccupancyPreparationProfile(
+            densitySlabReadMilliseconds,
+            horizontalBoundaryReadMilliseconds,
+            occupancyRowAssemblyMilliseconds,
+            candidateMaskBuildMilliseconds,
+            horizontalBoundaryBatchCount,
+            horizontalBoundaryColumnCount);
         return new DirectionalFaceOccupancyMasks(
             maximumDepth, wordCount, xRows, zRows, yRows,
             candidateColumns);
@@ -2173,7 +2405,12 @@ public sealed class SurfaceChunkMaterializer
     }
 
     private bool ReapplyDirectionalFacePaletteAt(
-        Chunk chunk, int index, int worldX, int worldY, int worldZ,
+        Chunk chunk,
+        TerrainDensityVolume densityVolume,
+        int index,
+        int worldX,
+        int worldY,
+        int worldZ,
         Func<int, int, DirectionalPaletteColumnData> columnAt)
     {
         chunk.RestoreDirectionalFaceBaseBlockAtLinearIndex(index);
@@ -2192,8 +2429,12 @@ public sealed class SurfaceChunkMaterializer
         var sourceColumn = columnAt(worldX, worldZ);
         var (sourceCoord, sourceLocal) = VoxelCoordinates.FromWorld(worldX, worldY, worldZ);
         var surfaceOwner = new BiomeRegionOwner(sourceColumn.SurfaceBiome, BiomeRegionOwnerKind.Surface);
+        // The chunk snapshot already owns the immutable volume-placement
+        // grid and its normalized per-column owners. Reuse it instead of
+        // resampling the global placement field for every solid candidate.
         var volumeBiome = worldY > sourceColumn.BaseY
-            ? _terrain.VolumeBiomeAt(worldX, worldY, worldZ)
+            ? densityVolume.VolumeBiomeAt(
+                sourceLocal.X, worldY, sourceLocal.Z)
             : null;
         var solidOwner = volumeBiome is null
             ? surfaceOwner
@@ -2366,6 +2607,7 @@ public sealed class SurfaceChunkMaterializer
         var chunk = job.Chunk;
         var origin = VoxelCoordinates.ChunkOrigin(job.Coord);
         var column = RequiredColumn(job);
+        var densityVolume = RequiredDensity(job);
         var columns = new DirectionalPaletteColumnData[Chunk.Area];
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
@@ -2423,7 +2665,8 @@ public sealed class SurfaceChunkMaterializer
             var z = withinLayer / Chunk.Size;
             var x = withinLayer % Chunk.Size;
             if (ReapplyDirectionalFacePaletteAt(
-                    chunk, index, origin.X + x, origin.Y + y, origin.Z + z, ColumnAt))
+                    chunk, densityVolume, index,
+                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt))
                 writes++;
         });
 #if DEBUG
@@ -2463,7 +2706,19 @@ public sealed class SurfaceChunkMaterializer
             DensityProbeEstimatedMilliseconds: 0,
             EmptyRegionOwnerResolutionEstimatedMilliseconds: 0,
             PaletteWriteEstimatedMilliseconds: applyMilliseconds,
-            OtherEstimatedMilliseconds: 0);
+            OtherEstimatedMilliseconds: 0,
+            DensitySlabReadMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.DensitySlabReadMilliseconds,
+            HorizontalBoundaryReadMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryReadMilliseconds,
+            OccupancyRowAssemblyMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.OccupancyRowAssemblyMilliseconds,
+            CandidateMaskBuildMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.CandidateMaskBuildMilliseconds,
+            HorizontalBoundaryBatchCount:
+                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryBatchCount,
+            HorizontalBoundaryColumnCount:
+                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryColumnCount);
     }
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
@@ -2599,6 +2854,8 @@ public sealed class SurfaceChunkMaterializer
                 continue;
             var origin = VoxelCoordinates.ChunkOrigin(group.Key);
             var column = _columns.Get(group.Key.X, group.Key.Z);
+            var densityVolume = _columns.SampleDensityVolume(
+                column, origin.X, origin.Y, origin.Z);
             var columns = new DirectionalPaletteColumnData[Chunk.Area];
             for (var z = 0; z < Chunk.Size; z++)
             for (var x = 0; x < Chunk.Size; x++)
@@ -2639,7 +2896,8 @@ public sealed class SurfaceChunkMaterializer
                 var x = layer % Chunk.Size;
                 var before = chunk.GetCellAtLinearIndexUnchecked(index);
                 ReapplyDirectionalFacePaletteAt(
-                    chunk, index, origin.X + x, origin.Y + y, origin.Z + z, ColumnAt);
+                    chunk, densityVolume, index,
+                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt);
                 var after = chunk.GetCellAtLinearIndexUnchecked(index);
                 if (before.Block != after.Block)
                 {
@@ -2742,7 +3000,18 @@ public sealed class SurfaceChunkMaterializer
             var surfaceBiome = column.BiomeAt(localX, localZ);
             var worldX = originX + localX;
             var worldZ = originZ + localZ;
-            BiomeSample? underground = null;
+            var underground = column.CaveBiomeAt(localX, localZ);
+            var volumePlacement = densityVolume.VolumePlacementAt(localX, localZ);
+            var hasCaveDecorations = underground is not null &&
+                _decorations.HasVerticalDecorationsFor(underground.Primary);
+            var hasVolumeDecorations = volumePlacement is not null &&
+                _decorations.HasVerticalDecorationsFor(volumePlacement.Primary);
+            // A column with neither a decorated cave owner nor a decorated
+            // additive owner cannot receive vertical decorations at any Y.
+            // Skip its density and support scans before entering the Y loop.
+            if (!hasCaveDecorations && !hasVolumeDecorations)
+                continue;
+
             BiomeSurfaceMaterialColumn? volumeMaterials = null;
 
             // Include adjacent vertical seam targets: an Object is stored on
@@ -2755,8 +3024,6 @@ public sealed class SurfaceChunkMaterializer
                     (_roofY is { } roofY && worldY >= roofY))
                     continue;
 
-                var volumePlacement = densityVolume.VolumePlacementAt(
-                    localX, localZ);
                 var targetInChunk = (uint)localY < Chunk.Size;
                 var targetSolid = targetInChunk
                     ? densityVolume.IsSolidAtUnchecked(localX, localY, localZ)
@@ -2827,7 +3094,6 @@ public sealed class SurfaceChunkMaterializer
                         !_terrain.IsCaveVoidAt(
                             baseY, new WorldVoxelCoord(worldX, worldY, worldZ)))
                         continue;
-                    underground ??= column.CaveBiomeAt(localX, localZ);
                     decoratorBiome = underground;
                 }
 
@@ -3287,6 +3553,13 @@ public sealed class SurfaceChunkMaterializer
             if (last < first)
                 continue;
 
+            // Cave-spike rules are owned by the carved-void biome. Columns
+            // without an eligible owner cannot produce spikes, so reject
+            // them before scanning the chunk's vertical occupancy mask.
+            var biome = column.CaveBiomeAt(x, z);
+            if (biome is null || !spikes.HasRulesFor(biome.Primary))
+                continue;
+
             // A generated spike must occupy empty density inside this
             // chunk. A fully solid column has no contributing formation
             // even if an anchor in a neighboring vertical chunk qualifies.
@@ -3308,10 +3581,6 @@ public sealed class SurfaceChunkMaterializer
 
             var worldX = originX + x;
             var worldZ = originZ + z;
-            var biome = column.CaveBiomeAt(x, z);
-            if (biome is null || !spikes.HasRulesFor(biome.Primary))
-                continue;
-
             var surfaceBiome = column.BiomeAt(x, z);
             var volumeBiome = densityVolume.VolumePlacementAt(x, z);
             for (var anchorY = first; anchorY <= last; anchorY++)

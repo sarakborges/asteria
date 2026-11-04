@@ -124,6 +124,16 @@ jobs:
             --material-map-sampling-mode regional \
             --material-map-output biome-map-geology-ocean-regional.svg
 
+      - name: Render per-voxel geology in ocean terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/ocean \
+            --material-map-sampling-mode per-voxel \
+            --material-map-output biome-map-geology-ocean-per-voxel.svg
+
       - name: Render materialized 3D geology on elevated mountain terrain
         run: |
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
@@ -142,6 +152,32 @@ jobs:
             --material-map-biome asteria:overworld/mountains \
             --material-map-sampling-mode regional \
             --material-map-output biome-map-geology-mountains-regional.svg
+
+      - name: Render per-voxel geology on elevated mountain terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/mountains \
+            --material-map-sampling-mode per-voxel \
+            --material-map-output biome-map-geology-mountains-per-voxel.svg
+
+      - name: Render authored and regional geology in swamp terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 0 --center-z 0 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/swamp \
+            --material-map-output biome-map-geology-swamp-authored.svg
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 0 --center-z 0 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/swamp \
+            --material-map-sampling-mode regional \
+            --material-map-output biome-map-geology-swamp-regional.svg
 
       - name: Upload worldgen query baseline
         if: always()
@@ -231,10 +267,14 @@ jobs:
           git worktree add --detach "$candidate" "$CANDIDATE_SHA"
           dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
             --configuration Release --nologo
+          dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+            --configuration Debug --nologo
           echo "TERRAIN_AB_BASELINE_SHA=$baseline_sha" >> "$GITHUB_ENV"
           echo "Selected terrain A/B baseline: $baseline_sha"
           dotnet build "$candidate/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
             --configuration Release --nologo
+          dotnet build "$candidate/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+            --configuration Debug --nologo
 
       - name: Run alternating fixed-seed terrain A/B benchmarks
         if: steps.terrain_scope.outputs.run == 'true'
@@ -285,6 +325,57 @@ jobs:
             --candidate-sha "$CANDIDATE_SHA" \
             --json-output "$root/results/summary.json" \
             --report-output "$root/results/report.md"
+          
+          mkdir -p "$root/results/profiles"
+          run_debug_profile() {
+            local version="$1"
+            local project_root="$2"
+            local output="$root/results/profiles/$version.json"
+            local log="$root/results/profiles/$version.log"
+            if ! dotnet run \
+              --project "$project_root/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+              --configuration Debug --no-build -- \
+              --project-root "$project_root" \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --samples 2 --area-size 4 --chunks 1 \
+              --output "$output" > "$log" 2>&1; then
+              cat "$log"
+              return 1
+            fi
+          }
+          run_debug_profile baseline "$baseline"
+          run_debug_profile candidate "$candidate"
+          
+          python3 - "$root/results/profiles/baseline.json" "$root/results/profiles/candidate.json" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import sys
+          
+          def read(path):
+              with open(path, encoding="utf-8") as stream:
+                  document = json.load(stream)
+              return document["initialAreaStageTimingDiagnostics"]["warm"][
+                  "directionalFacePaletteProfile"
+              ]
+          
+          baseline, candidate = map(read, sys.argv[1:])
+          fields = (
+              "densitySlabReadMilliseconds",
+              "horizontalBoundaryReadMilliseconds",
+              "occupancyRowAssemblyMilliseconds",
+              "candidateMaskBuildMilliseconds",
+              "horizontalBoundaryBatchCount",
+              "horizontalBoundaryColumnCount",
+          )
+          print("\n### Directional-face preparation profile (Debug)\n")
+          print("| Metric | Baseline | Candidate |")
+          print("|---|---:|---:|")
+          for field in fields:
+              baseline_value = baseline.get(field, "not instrumented")
+              candidate_value = candidate.get(field, "not instrumented")
+              print(f"| {field} | {baseline_value} | {candidate_value} |")
+          print()
+          PY
+          
           cat "$root/results/report.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload terrain A/B evidence

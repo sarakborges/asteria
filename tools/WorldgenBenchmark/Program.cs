@@ -684,6 +684,18 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             profile => profile.PaletteWriteEstimatedMilliseconds),
         EstimatedOtherMilliseconds = paletteProfiles.Sum(
             profile => profile.OtherEstimatedMilliseconds),
+        DensitySlabReadMilliseconds = paletteProfiles.Sum(
+            profile => profile.DensitySlabReadMilliseconds),
+        HorizontalBoundaryReadMilliseconds = paletteProfiles.Sum(
+            profile => profile.HorizontalBoundaryReadMilliseconds),
+        OccupancyRowAssemblyMilliseconds = paletteProfiles.Sum(
+            profile => profile.OccupancyRowAssemblyMilliseconds),
+        CandidateMaskBuildMilliseconds = paletteProfiles.Sum(
+            profile => profile.CandidateMaskBuildMilliseconds),
+        HorizontalBoundaryBatchCount = paletteProfiles.Sum(
+            profile => (long)profile.HorizontalBoundaryBatchCount),
+        HorizontalBoundaryColumnCount = paletteProfiles.Sum(
+            profile => (long)profile.HorizontalBoundaryColumnCount),
         AverageMillisecondsPerChunk = paletteProfiles.Count == 0
             ? 0d
             : paletteProfiles.Average(profile => profile.TotalMilliseconds),

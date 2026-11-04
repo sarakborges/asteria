@@ -5,34 +5,191 @@ internal enum DirectionalFaceDirection : byte
     Up, NegativeX, PositiveX, NegativeZ, PositiveZ, Down,
 }
 
-internal readonly record struct DirectionalFaceVoxelData(
-    bool IsTerrainVoxel, ulong Up, ulong NegativeX, ulong PositiveX,
-    ulong NegativeZ, ulong PositiveZ, ulong Down, BlockRuntimeId BaseBlock)
+internal readonly record struct DirectionalFaceVoxelData
 {
-    public ulong Candidates(DirectionalFaceDirection direction) => direction switch
+    // The built-in biome profiles need at most six distance bits. Keep seven
+    // bits per direction so a future profile can grow to depth seven without
+    // changing the common representation. Larger authored depths use the
+    // immutable overflow payload below and retain the full 64-bit masks.
+    private const int CandidateBits = 7;
+    private const ulong CandidateMask = (1UL << CandidateBits) - 1UL;
+    private const int BaseBlockShift = CandidateBits * 6;
+    private const int IsTerrainShift = BaseBlockShift + 16;
+    private const ulong CandidateFieldsMask = (1UL << BaseBlockShift) - 1UL;
+    private const ulong BaseBlockMask = (ulong)ushort.MaxValue << BaseBlockShift;
+    private const ulong IsTerrainMask = 1UL << IsTerrainShift;
+
+    private readonly ulong _packed;
+    private readonly DirectionalFaceVoxelOverflow? _overflow;
+
+    public DirectionalFaceVoxelData(
+        bool IsTerrainVoxel,
+        ulong Up,
+        ulong NegativeX,
+        ulong PositiveX,
+        ulong NegativeZ,
+        ulong PositiveZ,
+        ulong Down,
+        BlockRuntimeId BaseBlock)
     {
-        DirectionalFaceDirection.Up => Up,
-        DirectionalFaceDirection.NegativeX => NegativeX,
-        DirectionalFaceDirection.PositiveX => PositiveX,
-        DirectionalFaceDirection.NegativeZ => NegativeZ,
-        DirectionalFaceDirection.PositiveZ => PositiveZ,
-        DirectionalFaceDirection.Down => Down,
-        _ => throw new ArgumentOutOfRangeException(nameof(direction)),
-    };
+        _packed =
+            ((ulong)BaseBlock.Value << BaseBlockShift) |
+            (IsTerrainVoxel ? IsTerrainMask : 0UL);
+
+        if ((Up | NegativeX | PositiveX | NegativeZ | PositiveZ | Down) <=
+            CandidateMask)
+        {
+            _packed |=
+                Up |
+                (NegativeX << CandidateBits) |
+                (PositiveX << (CandidateBits * 2)) |
+                (NegativeZ << (CandidateBits * 3)) |
+                (PositiveZ << (CandidateBits * 4)) |
+                (Down << (CandidateBits * 5));
+            _overflow = null;
+        }
+        else
+        {
+            _overflow = new DirectionalFaceVoxelOverflow(
+                Up, NegativeX, PositiveX, NegativeZ, PositiveZ, Down);
+        }
+    }
+
+    private DirectionalFaceVoxelData(
+        ulong packed,
+        DirectionalFaceVoxelOverflow? overflow)
+    {
+        _packed = packed;
+        _overflow = overflow;
+    }
+
+    public bool IsTerrainVoxel => (_packed & IsTerrainMask) != 0;
+
+    public BlockRuntimeId BaseBlock =>
+        new((ushort)((_packed & BaseBlockMask) >> BaseBlockShift));
+
+    public ulong Up => Candidates(DirectionalFaceDirection.Up);
+
+    public ulong NegativeX => Candidates(DirectionalFaceDirection.NegativeX);
+
+    public ulong PositiveX => Candidates(DirectionalFaceDirection.PositiveX);
+
+    public ulong NegativeZ => Candidates(DirectionalFaceDirection.NegativeZ);
+
+    public ulong PositiveZ => Candidates(DirectionalFaceDirection.PositiveZ);
+
+    public ulong Down => Candidates(DirectionalFaceDirection.Down);
+
+    public ulong Candidates(DirectionalFaceDirection direction)
+    {
+        if (_overflow is { } overflow)
+        {
+            return direction switch
+            {
+                DirectionalFaceDirection.Up => overflow.Up,
+                DirectionalFaceDirection.NegativeX => overflow.NegativeX,
+                DirectionalFaceDirection.PositiveX => overflow.PositiveX,
+                DirectionalFaceDirection.NegativeZ => overflow.NegativeZ,
+                DirectionalFaceDirection.PositiveZ => overflow.PositiveZ,
+                DirectionalFaceDirection.Down => overflow.Down,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+            };
+        }
+
+        return (_packed >> CandidateShift(direction)) & CandidateMask;
+    }
 
     public DirectionalFaceVoxelData WithCandidates(
-        DirectionalFaceDirection direction, ulong candidates) => direction switch
+        DirectionalFaceDirection direction,
+        ulong candidates)
     {
-        DirectionalFaceDirection.Up => this with { Up = candidates },
-        DirectionalFaceDirection.NegativeX => this with { NegativeX = candidates },
-        DirectionalFaceDirection.PositiveX => this with { PositiveX = candidates },
-        DirectionalFaceDirection.NegativeZ => this with { NegativeZ = candidates },
-        DirectionalFaceDirection.PositiveZ => this with { PositiveZ = candidates },
-        DirectionalFaceDirection.Down => this with { Down = candidates },
-        _ => throw new ArgumentOutOfRangeException(nameof(direction)),
-    };
+        var previous = Candidates(direction);
+        if (previous == candidates)
+            return this;
 
-    public bool HasCandidates => (Up | NegativeX | PositiveX | NegativeZ | PositiveZ | Down) != 0;
+        if (_overflow is null && candidates <= CandidateMask)
+        {
+            var shift = CandidateShift(direction);
+            var fieldMask = CandidateMask << shift;
+            var packed = (_packed & ~fieldMask) | (candidates << shift);
+            return new DirectionalFaceVoxelData(packed, overflow: null);
+        }
+
+        var up = Up;
+        var negativeX = NegativeX;
+        var positiveX = PositiveX;
+        var negativeZ = NegativeZ;
+        var positiveZ = PositiveZ;
+        var down = Down;
+
+        switch (direction)
+        {
+            case DirectionalFaceDirection.Up:
+                up = candidates;
+                break;
+            case DirectionalFaceDirection.NegativeX:
+                negativeX = candidates;
+                break;
+            case DirectionalFaceDirection.PositiveX:
+                positiveX = candidates;
+                break;
+            case DirectionalFaceDirection.NegativeZ:
+                negativeZ = candidates;
+                break;
+            case DirectionalFaceDirection.PositiveZ:
+                positiveZ = candidates;
+                break;
+            case DirectionalFaceDirection.Down:
+                down = candidates;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(direction));
+        }
+
+        return new DirectionalFaceVoxelData(
+            IsTerrainVoxel,
+            up,
+            negativeX,
+            positiveX,
+            negativeZ,
+            positiveZ,
+            down,
+            BaseBlock);
+    }
+
+    public DirectionalFaceVoxelData WithBaseBlock(BlockRuntimeId baseBlock)
+    {
+        var packed =
+            (_packed & ~BaseBlockMask) |
+            ((ulong)baseBlock.Value << BaseBlockShift);
+        return new DirectionalFaceVoxelData(packed, _overflow);
+    }
+
+    public bool HasCandidates =>
+        _overflow is { } overflow
+            ? (overflow.Up | overflow.NegativeX | overflow.PositiveX |
+               overflow.NegativeZ | overflow.PositiveZ | overflow.Down) != 0
+            : (_packed & CandidateFieldsMask) != 0;
+
+    private static int CandidateShift(DirectionalFaceDirection direction) =>
+        direction switch
+        {
+            DirectionalFaceDirection.Up => 0,
+            DirectionalFaceDirection.NegativeX => CandidateBits,
+            DirectionalFaceDirection.PositiveX => CandidateBits * 2,
+            DirectionalFaceDirection.NegativeZ => CandidateBits * 3,
+            DirectionalFaceDirection.PositiveZ => CandidateBits * 4,
+            DirectionalFaceDirection.Down => CandidateBits * 5,
+            _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+        };
+
+    private sealed record DirectionalFaceVoxelOverflow(
+        ulong Up,
+        ulong NegativeX,
+        ulong PositiveX,
+        ulong NegativeZ,
+        ulong PositiveZ,
+        ulong Down);
 }
 
 public sealed class Chunk
@@ -58,11 +215,18 @@ public sealed class Chunk
     internal sealed class InitialBlockWriter : IDisposable
     {
         private Chunk? _chunk;
+        private readonly ushort[] _paletteIndicesByBlock;
         private bool _changed;
 
-        internal InitialBlockWriter(Chunk chunk)
+        internal InitialBlockWriter(
+            Chunk chunk,
+            int blockRuntimeIdCount)
         {
+            if (blockRuntimeIdCount is < 1 or > ushort.MaxValue + 1)
+                throw new ArgumentOutOfRangeException(nameof(blockRuntimeIdCount));
+
             _chunk = chunk;
+            _paletteIndicesByBlock = new ushort[blockRuntimeIdCount];
         }
 
         public bool SetBlockAtLinearIndex(
@@ -74,9 +238,23 @@ public sealed class Chunk
             if ((uint)voxelIndex >= Volume)
                 throw new ArgumentOutOfRangeException(nameof(voxelIndex));
 
-            var changed = chunk._cells.SetInitial(
+            var value = new VoxelCell(block);
+            var cachedPaletteIndex =
+                block.Value < _paletteIndicesByBlock.Length
+                    ? _paletteIndicesByBlock[block.Value]
+                    : (ushort)0;
+            var changed = chunk._cells.SetInitialWithPaletteIndex(
                 voxelIndex,
-                new VoxelCell(block));
+                value,
+                cachedPaletteIndex,
+                out var resolvedPaletteIndex);
+            if (cachedPaletteIndex == 0 &&
+                block.Value < _paletteIndicesByBlock.Length &&
+                resolvedPaletteIndex != 0)
+            {
+                _paletteIndicesByBlock[block.Value] = resolvedPaletteIndex;
+            }
+
             _changed |= changed;
             return changed;
         }
@@ -386,7 +564,7 @@ public sealed class Chunk
         var data = DirectionalFaceDataAtLinearIndex(index);
         if (data.BaseBlock.IsAir) return false;
         SetDirectionalFaceDataAtLinearIndex(
-            index, data with { BaseBlock = BlockRuntimeId.Air }, updateRevision: false);
+            index, data.WithBaseBlock(BlockRuntimeId.Air), updateRevision: false);
         SetCellAtIndex(index, new VoxelCell(data.BaseBlock), preserveDirectionalFaceData: true);
         return true;
     }
@@ -402,7 +580,7 @@ public sealed class Chunk
         var changedMetadata = false;
         if (data.BaseBlock.IsAir)
         {
-            data = data with { BaseBlock = current.Block };
+            data = data.WithBaseBlock(current.Block);
             SetDirectionalFaceDataAtLinearIndex(index, data, updateRevision: false);
             changedMetadata = true;
         }
@@ -442,7 +620,8 @@ public sealed class Chunk
         Revision++;
     }
 
-    internal InitialBlockWriter BeginInitialBlockWrites()
+    internal InitialBlockWriter BeginInitialBlockWrites(
+        int blockRuntimeIdCount)
     {
         if (Revision != 0 ||
             ObjectRevision != 0 ||
@@ -457,7 +636,7 @@ public sealed class Chunk
                 "Initial block writes require a fresh, empty chunk.");
         }
 
-        return new InitialBlockWriter(this);
+        return new InitialBlockWriter(this, blockRuntimeIdCount);
     }
 
     /// <summary>

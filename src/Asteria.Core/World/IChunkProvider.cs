@@ -29,7 +29,13 @@ public readonly record struct DirectionalFacePaletteMetrics(
     double DensityProbeEstimatedMilliseconds,
     double EmptyRegionOwnerResolutionEstimatedMilliseconds,
     double PaletteWriteEstimatedMilliseconds,
-    double OtherEstimatedMilliseconds);
+    double OtherEstimatedMilliseconds,
+    double DensitySlabReadMilliseconds = 0d,
+    double HorizontalBoundaryReadMilliseconds = 0d,
+    double OccupancyRowAssemblyMilliseconds = 0d,
+    double CandidateMaskBuildMilliseconds = 0d,
+    int HorizontalBoundaryBatchCount = 0,
+    int HorizontalBoundaryColumnCount = 0);
 
 /// <summary>
 /// Pure chunk materialization boundary consumed by residency workers.
