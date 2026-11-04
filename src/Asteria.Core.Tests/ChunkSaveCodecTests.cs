@@ -73,7 +73,7 @@ public sealed class ChunkSaveCodecTests
         chunk.SetDirectionalFaceDataAtLinearIndex(
             index, metadata, updateRevision: false);
 
-        using (var writer = chunk.BeginInitialBlockWrites())
+        using (var writer = chunk.BeginInitialBlockWrites(18))
             Assert.True(writer.SetBlockAtLinearIndex(index, new BlockRuntimeId(17)));
 
         Assert.Equal(metadata, chunk.DirectionalFaceDataAtLinearIndex(index));
@@ -99,7 +99,7 @@ public sealed class ChunkSaveCodecTests
             Down: 0b11,
             BaseBlock: baseBlock);
 
-        using (var blocks = chunk.BeginInitialBlockWrites())
+        using (var blocks = chunk.BeginInitialBlockWrites(baseBlock.Value + 1))
             Assert.True(blocks.SetBlockAtLinearIndex(index, baseBlock));
 
         Assert.True(chunk.SetInitialDirectionalFaceDataAtLinearIndex(
