@@ -12,6 +12,109 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void DirectionalFaceMetadataPacksCommonDepthAndPreservesExtendedMasks()
+    {
+        var compact = new DirectionalFaceVoxelData(
+            true,
+            1UL,
+            2UL,
+            4UL,
+            8UL,
+            16UL,
+            64UL,
+            new BlockRuntimeId(12));
+
+        Assert.True(compact.IsTerrainVoxel);
+        Assert.Equal(new BlockRuntimeId(12), compact.BaseBlock);
+        Assert.Equal(1UL, compact.Up);
+        Assert.Equal(2UL, compact.NegativeX);
+        Assert.Equal(4UL, compact.PositiveX);
+        Assert.Equal(8UL, compact.NegativeZ);
+        Assert.Equal(16UL, compact.PositiveZ);
+        Assert.Equal(64UL, compact.Down);
+
+        // Distance 64 exercises the full-width fallback. Replacing the mask
+        // with depth seven must return to the compact representation.
+        const ulong extendedMask = (1UL << 63) | (1UL << 6) | 1UL;
+        var extended = compact.WithCandidates(
+            DirectionalFaceDirection.PositiveZ,
+            extendedMask);
+        Assert.Equal(extendedMask, extended.PositiveZ);
+        Assert.Equal(compact.Up, extended.Up);
+        Assert.Equal(compact.Down, extended.Down);
+
+        var withBaseBlock = extended.WithBaseBlock(new BlockRuntimeId(21));
+        Assert.Equal(new BlockRuntimeId(21), withBaseBlock.BaseBlock);
+        Assert.Equal(extendedMask, withBaseBlock.PositiveZ);
+
+        var compactAgain = withBaseBlock.WithCandidates(
+            DirectionalFaceDirection.PositiveZ,
+            1UL << 6);
+        Assert.Equal(1UL << 6, compactAgain.PositiveZ);
+        Assert.Equal(new BlockRuntimeId(21), compactAgain.BaseBlock);
+    }
+
+    [Fact]
+    public void DirectionalFacePaletteDeduplicatesEquivalentOverflowValues()
+    {
+        const ulong extendedMask = (1UL << 63) | 0x35UL;
+        var first = new DirectionalFaceVoxelData(
+            true, 0, extendedMask, 0, 0, 0, 0, BlockRuntimeId.Air);
+        var second = new DirectionalFaceVoxelData(
+            true, 0, extendedMask, 0, 0, 0, 0, BlockRuntimeId.Air);
+
+        Assert.Equal(first, second);
+        Assert.Equal(first.GetHashCode(), second.GetHashCode());
+
+        var palette = new PaletteStorage<DirectionalFaceVoxelData>();
+        Assert.True(palette.SetInitial(0, first));
+        Assert.True(palette.SetInitial(1, second));
+        Assert.Equal(1, palette.ActivePaletteEntryCount);
+    }
+
+    [Fact]
+    public void DirectionalFaceMetadataCloneAndBaseBlockRestorePreserveOverflowMasks()
+    {
+        const int index = 2 + Chunk.Size * (4 + Chunk.Size * 3);
+        const ulong extendedMask = (1UL << 63) | (1UL << 6) | 5UL;
+        var baseBlock = new BlockRuntimeId(5);
+        var replacementBlock = new BlockRuntimeId(6);
+        var metadata = new DirectionalFaceVoxelData(
+            true,
+            0,
+            0,
+            extendedMask,
+            0,
+            0,
+            0,
+            BlockRuntimeId.Air);
+
+        var chunk = new Chunk();
+        Assert.True(chunk.SetBlockAtLinearIndex(index, baseBlock));
+        chunk.SetDirectionalFaceDataAtLinearIndex(index, metadata);
+
+        var clone = chunk.CloneForWorker();
+        Assert.Equal(metadata, clone.DirectionalFaceDataAtLinearIndex(index));
+
+        Assert.True(clone.SetDirectionalFacePaletteBlockAtLinearIndex(
+            index,
+            replacementBlock));
+        Assert.Equal(replacementBlock, clone.GetBlock(2, 3, 4));
+        Assert.Equal(baseBlock, chunk.GetBlock(2, 3, 4));
+        Assert.Equal(baseBlock, clone.DirectionalFaceDataAtLinearIndex(index).BaseBlock);
+        Assert.Equal(
+            extendedMask,
+            clone.DirectionalFaceDataAtLinearIndex(index).PositiveX);
+
+        Assert.True(clone.RestoreDirectionalFaceBaseBlockAtLinearIndex(index));
+        Assert.Equal(baseBlock, clone.GetBlock(2, 3, 4));
+        Assert.Equal(
+            extendedMask,
+            clone.DirectionalFaceDataAtLinearIndex(index).PositiveX);
+        Assert.Equal(metadata, chunk.DirectionalFaceDataAtLinearIndex(index));
+    }
+
+    [Fact]
     public void PaletteDeduplicatesCellsAndTracksOccupancy()
     {
         var registry = new BlockRegistry(
