@@ -70,7 +70,8 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
         # result JSON for cross-build parity checks.
         _at(run, "metrics", "initialAreaSynthesis", "warmMs")
         _at(run, "initialAreaMaterializationDiagnostics", "warm", "totalMaterializeMs")
-        _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "DirectionalFacePalettes", "elapsedMs")
+        _stage_elapsed(run, "DirectionalFacePalettes")
+        _stage_elapsed(run, "DirectionalFaceExposure")
         _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "SurfaceDecorations", "elapsedMs")
         _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "SurfaceDecorations", "allocatedBytes")
         _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "TerrainLayer", "elapsedMs")
@@ -83,6 +84,26 @@ def median_metric(runs: list[dict[str, Any]], *keys: str) -> float:
     if any(value < 0 for value in values):
         raise ValueError(f"Benchmark metric {'.'.join(keys)} cannot be negative.")
     return statistics.median(values)
+
+
+def _stage_elapsed(run: dict[str, Any], stage_name: str) -> float:
+    stages = _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage")
+    stage = stages.get(stage_name, {})
+    if not isinstance(stage, dict):
+        raise ValueError(f"Benchmark stage {stage_name} must contain an object.")
+    value = float(stage.get("elapsedMs", 0.0))
+    if value < 0:
+        raise ValueError(f"Benchmark stage {stage_name} cannot be negative.")
+    return value
+
+
+def _directional_face_palette_elapsed(run: dict[str, Any]) -> float:
+    # Exposure selection is now a distinct generation stage. Include both it
+    # and the subsequent palette application when comparing the full operation.
+    return (
+        _stage_elapsed(run, "DirectionalFaceExposure")
+        + _stage_elapsed(run, "DirectionalFacePalettes")
+    )
 
 
 def compare(
@@ -151,7 +172,7 @@ def compare(
     definitions = [
         (
             "DirectionalFacePalettes (warm)",
-            ("initialAreaStageTimingDiagnostics", "warm", "byStage", "DirectionalFacePalettes", "elapsedMs"),
+            _directional_face_palette_elapsed,
         ),
         (
             "SurfaceDecorations (warm)",
@@ -159,21 +180,25 @@ def compare(
         ),
         (
             "TerrainLayer (warm)",
-            ("initialAreaStageTimingDiagnostics", "warm", "byStage", "TerrainLayer", "elapsedMs"),
+            lambda run: _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "TerrainLayer", "elapsedMs"),
         ),
         (
             "Materialização da região (warm)",
-            ("initialAreaMaterializationDiagnostics", "warm", "totalMaterializeMs"),
+            lambda run: _at(run, "initialAreaMaterializationDiagnostics", "warm", "totalMaterializeMs"),
         ),
         (
             "Síntese da área inicial (warm)",
-            ("metrics", "initialAreaSynthesis", "warmMs"),
+            lambda run: _at(run, "metrics", "initialAreaSynthesis", "warmMs"),
         ),
     ]
     metric_results = []
-    for label, path in definitions:
-        before = median_metric(baseline, *path)
-        after = median_metric(candidate, *path)
+    for label, read_value in definitions:
+        before_values = [float(read_value(run)) for run in baseline]
+        after_values = [float(read_value(run)) for run in candidate]
+        if any(value < 0 for value in before_values + after_values):
+            raise ValueError(f"Benchmark metric {label} cannot be negative.")
+        before = statistics.median(before_values)
+        after = statistics.median(after_values)
         reduction = 0.0 if before == 0 else (before - after) / before * 100.0
         metric_results.append({
             "metric": label,
@@ -218,6 +243,7 @@ def compare(
         "notes": [
             "Baseline is the direct parent of the latest terrain-materialization commit; candidate is that terrain-materialization commit.",
             "Each value is the median across separate benchmark processes; each process also reports the benchmark's internal warm median where available.",
+            "DirectionalFacePalettes timing includes both exposure derivation and palette application stages.",
             "Wall-clock deltas are informational and do not fail CI; seed, region, chunk count and generated-result digest mismatches do fail CI.",
         ],
     }

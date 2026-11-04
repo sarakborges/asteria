@@ -8,7 +8,7 @@ from pathlib import Path
 from compare_worldgen_ab import compare, load_repetitions, render_report
 
 
-def sample_run(*, palette_ms: float = 50.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67) -> dict:
+def sample_run(*, palette_ms: float = 50.0, exposure_ms: float = 0.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67) -> dict:
     return {
         "seed": 181960897289965,
         "dimension": "asteria:overworld",
@@ -32,6 +32,7 @@ def sample_run(*, palette_ms: float = 50.0, surface_decoration_ms: float = 100.0
         },
         "initialAreaStageTimingDiagnostics": {
             "warm": {"byStage": {
+                "DirectionalFaceExposure": {"elapsedMs": exposure_ms},
                 "DirectionalFacePalettes": {"elapsedMs": palette_ms},
                 "SurfaceDecorations": {
                     "elapsedMs": surface_decoration_ms,
@@ -46,11 +47,11 @@ def sample_run(*, palette_ms: float = 50.0, surface_decoration_ms: float = 100.0
 class CompareWorldgenAbTests(unittest.TestCase):
     def test_reports_directional_palette_and_materialization_medians(self) -> None:
         baseline = [
-            sample_run(palette_ms=value, stage_ms=stage)
+            sample_run(palette_ms=value, exposure_ms=5.0, stage_ms=stage)
             for value, stage in zip((60.0, 80.0, 70.0), (100.0, 120.0, 110.0))
         ]
         candidate = [
-            sample_run(palette_ms=value, stage_ms=stage)
+            sample_run(palette_ms=value, exposure_ms=10.0, stage_ms=stage)
             for value, stage in zip((40.0, 50.0, 60.0), (80.0, 90.0, 100.0))
         ]
 
@@ -58,9 +59,9 @@ class CompareWorldgenAbTests(unittest.TestCase):
 
         palette = result["metrics"][0]
         self.assertEqual("DirectionalFacePalettes (warm)", palette["metric"])
-        self.assertEqual(70.0, palette["baselineMedianMs"])
-        self.assertEqual(50.0, palette["candidateMedianMs"])
-        self.assertAlmostEqual(28.5714, palette["reductionPercent"], places=3)
+        self.assertEqual(75.0, palette["baselineMedianMs"])
+        self.assertEqual(60.0, palette["candidateMedianMs"])
+        self.assertAlmostEqual(20.0, palette["reductionPercent"], places=3)
 
         terrain = next(
             metric for metric in result["metrics"]
