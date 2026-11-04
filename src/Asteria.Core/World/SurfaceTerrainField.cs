@@ -984,6 +984,10 @@ public sealed class SurfaceTerrainField
         var maximumY = checked(originY + Chunk.Size - 1);
         var minimumBaseY = int.MaxValue;
         var maximumBaseY = int.MinValue;
+        var minimumLocalX = Chunk.Size;
+        var maximumLocalX = -1;
+        var minimumLocalZ = Chunk.Size;
+        var maximumLocalZ = -1;
         var hasMissingSamples = false;
         var mayContainCaves = false;
 
@@ -998,6 +1002,10 @@ public sealed class SurfaceTerrainField
             hasMissingSamples = true;
             var localX = columnIndex % Chunk.Size;
             var localZ = columnIndex / Chunk.Size;
+            minimumLocalX = Math.Min(minimumLocalX, localX);
+            maximumLocalX = Math.Max(maximumLocalX, localX);
+            minimumLocalZ = Math.Min(minimumLocalZ, localZ);
+            maximumLocalZ = Math.Max(maximumLocalZ, localZ);
             var baseY = column.BaseHeightAt(localX, localZ);
             minimumBaseY = Math.Min(minimumBaseY, baseY);
             maximumBaseY = Math.Max(maximumBaseY, baseY);
@@ -1014,14 +1022,17 @@ public sealed class SurfaceTerrainField
         CaveNoiseVolumeSampler? caveSampler = null;
         if (mayContainCaves)
         {
+            // Directional-face batches usually describe one narrow X or Z
+            // strip. Build noise lattices only for the requested rectangle,
+            // not for the entire 16x16 chunk footprint.
             caveSampler = _caves!.CreateSampler(
                 _seed,
-                originX,
+                checked(originX + minimumLocalX),
                 originY,
-                originZ,
+                checked(originZ + minimumLocalZ),
+                maximumLocalX - minimumLocalX + 1,
                 Chunk.Size,
-                Chunk.Size,
-                Chunk.Size,
+                maximumLocalZ - minimumLocalZ + 1,
                 minimumBaseY,
                 maximumBaseY);
         }
@@ -1044,6 +1055,8 @@ public sealed class SurfaceTerrainField
                 solidMasks[index],
                 sampledMasks[index],
                 caveSampler,
+                minimumLocalX,
+                minimumLocalZ,
                 out var probes);
             sampledMasks[index] = ushort.MaxValue;
             densityProbes = checked(densityProbes + probes);
@@ -1074,6 +1087,8 @@ public sealed class SurfaceTerrainField
             cachedSolidMask,
             sampledMask,
             caveSampler: null,
+            caveSamplerOriginLocalX: 0,
+            caveSamplerOriginLocalZ: 0,
             out densityProbes);
 
     private ushort SampleDensityColumnMask(
@@ -1086,6 +1101,8 @@ public sealed class SurfaceTerrainField
         ushort cachedSolidMask,
         ushort sampledMask,
         CaveNoiseVolumeSampler? caveSampler,
+        int caveSamplerOriginLocalX,
+        int caveSamplerOriginLocalZ,
         out int densityProbes)
     {
         ArgumentNullException.ThrowIfNull(column);
@@ -1104,6 +1121,50 @@ public sealed class SurfaceTerrainField
             _additiveRules.TryGetValue(volumeBiome.Primary, out var resolvedAdditive)
                 ? resolvedAdditive
                 : null;
+        var maximumY = checked(originY + Chunk.Size - 1);
+        var mayContainCaves =
+            _caves is not null &&
+            (long)originY <= (long)baseY - _caves.MinimumDepth &&
+            (long)maximumY >= (long)baseY - _caves.MaximumDepth;
+        var mayContainAdditive =
+            additiveRule is not null &&
+            originY <= additiveRule.MaximumY &&
+            maximumY >= additiveRule.MinimumY;
+
+        // Most columns do not intersect any carved or additive density range.
+        // Their occupancy is the analytic surface half-space plus optional
+        // shell lining; avoid 16 per-voxel DensityAt calls for that case.
+        if (!mayContainCaves && !mayContainAdditive)
+        {
+            var solidDepth = (long)baseY - originY + 1L;
+            var solidCount = (int)Math.Clamp(
+                solidDepth, 0L, Chunk.Size);
+            var baselineMask = solidCount switch
+            {
+                0 => (ushort)0,
+                _ when solidCount == Chunk.Size => ushort.MaxValue,
+                _ => (ushort)((1u << solidCount) - 1u),
+            };
+            if (_floorY is { } floorY)
+            {
+                var liningY = (long)floorY + 1L - originY;
+                if (liningY >= 0L && liningY < Chunk.Size)
+                    baselineMask |= (ushort)(1u << (int)liningY);
+            }
+            if (_roofY is { } roofY)
+            {
+                var liningY = (long)roofY - 1L - originY;
+                if (liningY >= 0L && liningY < Chunk.Size)
+                    baselineMask |= (ushort)(1u << (int)liningY);
+            }
+
+            densityProbes = System.Numerics.BitOperations.PopCount(
+                (uint)(ushort)~sampledMask);
+            return (ushort)(
+                solidMask |
+                (baselineMask & (ushort)~sampledMask));
+        }
+
         Span<double> additiveHorizontalSupports =
             additiveRule is null
                 ? Span<double>.Empty
@@ -1120,10 +1181,16 @@ public sealed class SurfaceTerrainField
                 continue;
             var worldY = checked(originY + localY);
             densityProbes++;
+            var caveDepth = (long)baseY - worldY;
+            var caveDensityApplies =
+                mayContainCaves &&
+                caveDepth >= _caves!.MinimumDepth &&
+                caveDepth <= _caves.MaximumDepth;
             var additiveDensityApplies =
-                additiveRule is not null &&
-                worldY >= additiveRule.MinimumY &&
-                worldY <= additiveRule.MaximumY;
+                mayContainAdditive &&
+                additiveRule is { } activeAdditive &&
+                worldY >= activeAdditive.MinimumY &&
+                worldY <= activeAdditive.MaximumY;
             if (additiveDensityApplies && !additiveSupportPrepared)
             {
                 additiveRule!.SampleHorizontalSupports(
@@ -1131,11 +1198,24 @@ public sealed class SurfaceTerrainField
                 additiveSupportPrepared = true;
             }
 
-            if (DensityAt(
-                    biome, baseY, worldX, worldY, worldZ, volumeBiome,
-                    caveSampler, localX, localY, localZ,
-                    additiveRule, additiveHorizontalSupports,
-                    additiveRuleResolved: true) >= 0d)
+            var density =
+                caveDensityApplies ||
+                additiveDensityApplies ||
+                IsShellLining(worldY)
+                    ? DensityAt(
+                        biome, baseY, worldX, worldY, worldZ, volumeBiome,
+                        caveSampler,
+                        caveSampler is null
+                            ? localX
+                            : localX - caveSamplerOriginLocalX,
+                        localY,
+                        caveSampler is null
+                            ? localZ
+                            : localZ - caveSamplerOriginLocalZ,
+                        additiveRule, additiveHorizontalSupports,
+                        additiveRuleResolved: true)
+                    : baseY - (double)worldY;
+            if (density >= 0d)
                 solidMask |= bit;
         }
         return solidMask;
