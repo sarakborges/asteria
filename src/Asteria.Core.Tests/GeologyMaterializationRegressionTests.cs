@@ -191,7 +191,8 @@ public sealed class GeologyMaterializationRegressionTests
             new BiomeWorldGenerator(Seed, dimension, blocks, biomes),
             coordinates.Reverse());
 
-        Assert.Equal(0, first.BoundaryProbes,
+        Assert.True(
+            first.BoundaryProbes == 0,
             "Directional face exposure is stored in per-voxel masks; no boundary density probes are needed.");
         Assert.Equal(coordinates.Length, first.Digests.Count);
         Assert.Equal(coordinates.Length, second.Digests.Count);
