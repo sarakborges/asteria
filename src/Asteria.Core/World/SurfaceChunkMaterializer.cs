@@ -3528,6 +3528,13 @@ public sealed class SurfaceChunkMaterializer
             if (last < first)
                 continue;
 
+            // Cave-spike rules are owned by the carved-void biome. Columns
+            // without an eligible owner cannot produce spikes, so reject
+            // them before scanning the chunk's vertical occupancy mask.
+            var biome = column.CaveBiomeAt(x, z);
+            if (biome is null || !spikes.HasRulesFor(biome.Primary))
+                continue;
+
             // A generated spike must occupy empty density inside this
             // chunk. A fully solid column has no contributing formation
             // even if an anchor in a neighboring vertical chunk qualifies.
@@ -3549,10 +3556,6 @@ public sealed class SurfaceChunkMaterializer
 
             var worldX = originX + x;
             var worldZ = originZ + z;
-            var biome = column.CaveBiomeAt(x, z);
-            if (biome is null || !spikes.HasRulesFor(biome.Primary))
-                continue;
-
             var surfaceBiome = column.BiomeAt(x, z);
             var volumeBiome = densityVolume.VolumePlacementAt(x, z);
             for (var anchorY = first; anchorY <= last; anchorY++)
