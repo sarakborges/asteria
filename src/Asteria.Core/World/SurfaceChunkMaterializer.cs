@@ -3604,6 +3604,13 @@ public sealed class SurfaceChunkMaterializer
                 for (var direction = 0; direction < 2; direction++)
                 {
                     var down = direction == 1;
+                    var supportY = anchorY + (down ? 1 : -1);
+                    var localSupportY = supportY - originY;
+                    if (supportY > 0 && supportY < baseY &&
+                        (uint)localSupportY < densityVolume.Height &&
+                        (solidColumnMask & (1u << localSupportY)) == 0)
+                        continue;
+
                     if (!spikes.TrySample(
                             biome.Primary, surfaceBiome, volumeBiome, baseY,
                             worldX, anchorY, worldZ, down,
