@@ -257,6 +257,10 @@ internal static class WorldGenerationEntropy
         private readonly int _minimumZ;
         private readonly int _latticeWidth;
         private readonly int _latticeHeight;
+        private readonly int _latticeDepth;
+        private readonly double[] _xInterpolatedColumn;
+        private int _cachedLocalX = -1;
+        private int _cachedLocalZ = -1;
 
         public ValueNoise3DGridSampler(
             ulong seed,
@@ -293,9 +297,14 @@ internal static class WorldGenerationEntropy
 
             _latticeWidth = checked(maximumX - _minimumX + 1);
             _latticeHeight = checked(maximumY - _minimumY + 1);
-            var latticeDepth = checked(maximumZ - _minimumZ + 1);
+            _latticeDepth = checked(maximumZ - _minimumZ + 1);
             _lattice = new double[
-                checked(checked(_latticeWidth * _latticeHeight) * latticeDepth)];
+                checked(checked(_latticeWidth * _latticeHeight) * _latticeDepth)];
+            // A materialization samples every X/Z column at several Y values.
+            // Cache the X-interpolated lattice planes for that active column;
+            // the remaining Y/Z interpolation keeps the exact scalar order.
+            _xInterpolatedColumn = new double[
+                checked(_latticeHeight * _latticeDepth)];
 
             for (var z = _minimumZ; z <= maximumZ; z++)
             for (var y = _minimumY; y <= maximumY; y++)
@@ -316,25 +325,49 @@ internal static class WorldGenerationEntropy
                 throw new ArgumentOutOfRangeException(nameof(localX));
             }
 
-            var x = _x[localX];
+            if (_cachedLocalX != localX || _cachedLocalZ != localZ)
+                PrepareXInterpolatedColumn(localX, localZ);
+
             var y = _y[localY];
             var z = _z[localZ];
-            var x0 = x.Lower;
-            var x1 = x0 + 1;
-            var y0 = y.Lower;
-            var y1 = y0 + 1;
-            var z0 = z.Lower;
-            var z1 = z0 + 1;
+            var yOffset = y.Lower - _minimumY;
+            var zOffset = z.Lower - _minimumZ;
+            var lowerZ = zOffset * _latticeHeight;
+            var upperZ = (zOffset + 1) * _latticeHeight;
 
             var firstZ = Lerp(
-                Lerp(Lattice(x0, y0, z0), Lattice(x1, y0, z0), x.Blend),
-                Lerp(Lattice(x0, y1, z0), Lattice(x1, y1, z0), x.Blend),
+                _xInterpolatedColumn[lowerZ + yOffset],
+                _xInterpolatedColumn[lowerZ + yOffset + 1],
                 y.Blend);
             var secondZ = Lerp(
-                Lerp(Lattice(x0, y0, z1), Lattice(x1, y0, z1), x.Blend),
-                Lerp(Lattice(x0, y1, z1), Lattice(x1, y1, z1), x.Blend),
+                _xInterpolatedColumn[upperZ + yOffset],
+                _xInterpolatedColumn[upperZ + yOffset + 1],
                 y.Blend);
             return Lerp(firstZ, secondZ, z.Blend);
+        }
+
+        private void PrepareXInterpolatedColumn(int localX, int localZ)
+        {
+            var x = _x[localX];
+            var x0 = x.Lower;
+            var x1 = x0 + 1;
+
+            for (var zOffset = 0; zOffset < _latticeDepth; zOffset++)
+            {
+                var latticeZ = _minimumZ + zOffset;
+                var rowOffset = zOffset * _latticeHeight;
+                for (var yOffset = 0; yOffset < _latticeHeight; yOffset++)
+                {
+                    var latticeY = _minimumY + yOffset;
+                    _xInterpolatedColumn[rowOffset + yOffset] = Lerp(
+                        Lattice(x0, latticeY, latticeZ),
+                        Lattice(x1, latticeY, latticeZ),
+                        x.Blend);
+                }
+            }
+
+            _cachedLocalX = localX;
+            _cachedLocalZ = localZ;
         }
 
         private double Lattice(int x, int y, int z) =>
