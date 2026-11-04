@@ -8,7 +8,8 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class BiomeWorldGenerator :
     IIncrementalChunkProvider,
-    IChunkSurfaceRangeProvider
+    IChunkSurfaceRangeProvider,
+    IChunkDirectionalFacePaletteUpdater
 {
     private static readonly FluidRegistry EmptyFluids =
         new(Array.Empty<FluidDefinition>());
@@ -432,6 +433,14 @@ public sealed class BiomeWorldGenerator :
 
     public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
         _materializer.BeginMaterialization(coord);
+
+    public IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
+        VoxelWorld world, ChunkCoord arriving) =>
+        _materializer.ReconcileChunkArrival(world, arriving);
+
+    public IReadOnlyList<WorldVoxelCoord> ReconcileBlockCellChange(
+        VoxelWorld world, VoxelWorldEdit edit) =>
+        _materializer.ReconcileBlockCellChange(world, edit);
 
     public int SurfaceHeight(int worldX, int worldZ) =>
         _voidSpawnPlatform?.SurfaceHeight(worldX, worldZ) ??

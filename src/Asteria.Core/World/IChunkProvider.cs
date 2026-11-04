@@ -106,3 +106,16 @@ public interface IIncrementalChunkProvider : IChunkProvider
 {
     IChunkMaterializationJob BeginMaterialization(ChunkCoord coord);
 }
+
+/// <summary>
+/// Maintains per-voxel directional exposure when chunks arrive or block
+/// occupancy changes. Implementations consume materialized occupancy only.
+/// </summary>
+public interface IChunkDirectionalFacePaletteUpdater
+{
+    IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
+        VoxelWorld world, ChunkCoord arriving);
+
+    IReadOnlyList<WorldVoxelCoord> ReconcileBlockCellChange(
+        VoxelWorld world, VoxelWorldEdit edit);
+}
