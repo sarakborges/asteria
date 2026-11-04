@@ -172,6 +172,22 @@ public sealed class SurfaceTerrainField
             _surfaceBiomes.CreateSampler(biomeSampleCacheCapacity),
             _volumeBiomes.CreatePlacementSampler(biomeSampleCacheCapacity));
 
+    internal TerrainSampleContext CreateTerrainSampleContext(
+        SurfaceTerrainColumn column,
+        int originX,
+        int originZ,
+        int biomeSampleCacheCapacity)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        var context = CreateTerrainSampleContext(biomeSampleCacheCapacity);
+        column.PrimeBiomeSamplers(
+            context.SurfaceBiomes,
+            context.VolumePlacement,
+            originX,
+            originZ);
+        return context;
+    }
+
     internal (BiomeSample Biome, int BaseY) SampleBaseSurface(
         TerrainSampleContext context,
         int worldX,
@@ -1821,6 +1837,27 @@ public sealed class SurfaceTerrainColumn
     public ChunkSurfaceRange Range { get; }
 
     internal VolumeBiomePlacementGrid VolumeBiomes => _volumeBiomes;
+
+    internal void PrimeBiomeSamplers(
+        BiomeField.Sampler surfaceSampler,
+        BiomeField.Sampler? volumeSampler,
+        int originX,
+        int originZ)
+    {
+        ArgumentNullException.ThrowIfNull(surfaceSampler);
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var worldX = checked(originX + x);
+            var worldZ = checked(originZ + z);
+            surfaceSampler.Prime(worldX, worldZ, _biomes[x, z]);
+            if (volumeSampler is not null &&
+                _volumeBiomes[x, z] is { } volumeBiome)
+            {
+                volumeSampler.Prime(worldX, worldZ, volumeBiome);
+            }
+        }
+    }
 
     internal BiomeSample? CaveBiomeAt(int localX, int localZ) =>
         _caveBiomes?[localX, localZ];
