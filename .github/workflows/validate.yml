@@ -88,7 +88,7 @@ jobs:
             --samples 2 --area-size 4 --chunks 1 \
             --output worldgen-directional-face-palette-profile.json
 
-      - name: Profile continuous and regional geology selection
+      - name: Profile per-voxel and regional geology selection
         run: |
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
             --seed 181960897289965 --dimension asteria:overworld \
