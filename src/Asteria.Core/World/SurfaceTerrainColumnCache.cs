@@ -20,7 +20,7 @@ internal readonly record struct DensityOccupancySlab(
 /// </summary>
 public sealed class SurfaceTerrainColumnCache
 {
-    private const int DefaultDensityColumnCapacity = Chunk.Area * 128;
+    private const int DefaultDensityColumnCapacity = Chunk.Area * 512;
 
     private readonly SurfaceTerrainField _terrain;
     private readonly BoundedMemoCache<
