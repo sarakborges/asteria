@@ -756,12 +756,51 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
 object CaptureTerrainLayerGeologyModeDiagnostics()
 {
     const int repetitions = 3;
+    const string swampBiomeId = "asteria:overworld/swamp";
+    if (!dimension.SurfaceBiomes.Contains(swampBiomeId, StringComparer.Ordinal))
+    {
+        return new
+        {
+            Skipped = true,
+            Reason = $"Dimension {dimension.Id} does not include {swampBiomeId}.",
+        };
+    }
+
+    var authoredSwamp = biomes.Get(swampBiomeId);
+    if (authoredSwamp.Geology is null)
+    {
+        return new
+        {
+            Skipped = true,
+            Reason = $"Biome {swampBiomeId} has no authored geology.",
+        };
+    }
+
+    var swampGeneration = new WorldGenerationOptions(
+        spawnBiome: swampBiomeId,
+        singleBiome: true);
+    var swampPerVoxelRegistry = new BiomeRegistry(
+        sourceBiomeDefinitions.Select(definition =>
+            string.Equals(definition.Id, swampBiomeId, StringComparison.Ordinal)
+                ? WithGeologySamplingMode(
+                    definition, BiomeGeologySamplingMode.PerVoxel)
+                : definition));
+    var swampRegionalRegistry = new BiomeRegistry(
+        sourceBiomeDefinitions.Select(definition =>
+            string.Equals(definition.Id, swampBiomeId, StringComparison.Ordinal)
+                ? WithGeologySamplingMode(
+                    definition, BiomeGeologySamplingMode.Regional)
+                : definition));
+
     var center = new ChunkCoord(
         initialAreaDiagnostics.CenterChunkX,
         initialAreaDiagnostics.CenterChunkY,
         initialAreaDiagnostics.CenterChunkZ);
+    var selectionGenerator = NewGenerator(
+        generation: swampGeneration,
+        biomeRegistry: swampPerVoxelRegistry);
     var desired = ChunkStreamingSelection
-        .DesiredSurfaceChunks(center, horizontalRadius: 2, NewGenerator())
+        .DesiredSurfaceChunks(center, horizontalRadius: 2, selectionGenerator)
         .OrderBy(coord => coord.Z)
         .ThenBy(coord => coord.X)
         .ThenBy(coord => coord.Y)
@@ -779,14 +818,14 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
 
         foreach (var mode in modes)
         {
-            var registry = new BiomeRegistry(sourceBiomeDefinitions.Select(definition =>
-                definition.Geology is null
-                    ? definition
-                    : WithGeologySamplingMode(definition, mode)));
-            var generator = NewGenerator(biomeRegistry: registry);
+            var registry = mode == BiomeGeologySamplingMode.PerVoxel
+                ? swampPerVoxelRegistry
+                : swampRegionalRegistry;
+            var generator = NewGenerator(
+                generation: swampGeneration,
+                biomeRegistry: registry);
 
-            // A separate complete pass warms this generator's bounded query
-            // caches. Only the second pass contributes to the measurements.
+            // Warm the same generator before timing each independent repetition.
             _ = CapturePass(generator, desired, capture: false);
             var measured = CapturePass(generator, desired, capture: true);
             if (mode == BiomeGeologySamplingMode.PerVoxel)
@@ -798,18 +837,26 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
 
     var perVoxel = Summarize(perVoxelRuns);
     var regional = Summarize(regionalRuns);
+    var solidVoxelCountsMatch =
+        perVoxel.SolidVoxelsPerRun.Length == 1 &&
+        regional.SolidVoxelsPerRun.Length == 1 &&
+        perVoxel.SolidVoxelsPerRun[0] == regional.SolidVoxelsPerRun[0];
     return new
     {
+        Biome = swampBiomeId,
+        AuthoredSamplingMode = authoredSwamp.Geology.SamplingMode.ToString(),
+        ComparisonSamplingMode = BiomeGeologySamplingMode.Regional.ToString(),
         ChunkCount = desired.Length,
         Repetitions = repetitions,
         WarmupPassesPerRepetition = 1,
         PerVoxel = perVoxel,
         Regional = regional,
+        SolidVoxelCountsMatch = solidVoxelCountsMatch,
         TerrainLayerTimeReductionPercent = perVoxel.MedianElapsedMs <= 0d
             ? 0d
             : (perVoxel.MedianElapsedMs - regional.MedianElapsedMs) *
               100d / perVoxel.MedianElapsedMs,
-        Note = "This changes only authored geology sampling mode. Terrain occupancy, chunk coordinates and all other generation settings are held constant; output digests are checked for repeatability within each mode, not equality between modes.",
+        Note = "Single-biome swamp materialization. The authored PerVoxel mode is compared with a registry that changes only swamp geology to Regional; all chunk coordinates, terrain settings and other biome definitions remain unchanged. Digests are checked for repeatability within each mode, not equality between different materials.",
     };
 
     static (
@@ -898,7 +945,6 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
             DeterministicAcrossRepetitions: digests.Length == 1,
             SolidVoxelsPerRun: solidVoxels);
     }
-
 }
 
 var terrainLayerGeologyModeDiagnostics = options.ProfileGeologySampling
