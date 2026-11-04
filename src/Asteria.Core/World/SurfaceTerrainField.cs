@@ -954,6 +954,103 @@ public sealed class SurfaceTerrainField
     }
 
     /// <summary>
+    /// Completes missing occupancy columns from one vertical chunk band.
+    /// The cave-noise lattice is prepared once for the batch and shared by
+    /// every requested column, matching the chunk-volume sampling path.
+    /// </summary>
+    internal void SampleDensityColumnMasks(
+        SurfaceTerrainColumn column,
+        int originX,
+        int originY,
+        int originZ,
+        ReadOnlySpan<int> columnIndices,
+        Span<ushort> solidMasks,
+        Span<ushort> sampledMasks,
+        out int densityProbes)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        if (originY < 0 || originY % Chunk.Size != 0)
+            throw new ArgumentOutOfRangeException(nameof(originY));
+        if (columnIndices.Length != solidMasks.Length ||
+            columnIndices.Length != sampledMasks.Length ||
+            columnIndices.Length > Chunk.Area)
+            throw new ArgumentException(
+                "Density column batch must contain matching buffers of at most 256 columns.");
+
+        densityProbes = 0;
+        if (columnIndices.IsEmpty)
+            return;
+
+        var maximumY = checked(originY + Chunk.Size - 1);
+        var minimumBaseY = int.MaxValue;
+        var maximumBaseY = int.MinValue;
+        var hasMissingSamples = false;
+        var mayContainCaves = false;
+
+        for (var index = 0; index < columnIndices.Length; index++)
+        {
+            var columnIndex = columnIndices[index];
+            if ((uint)columnIndex >= Chunk.Area)
+                throw new ArgumentOutOfRangeException(nameof(columnIndices));
+            if (sampledMasks[index] == ushort.MaxValue)
+                continue;
+
+            hasMissingSamples = true;
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            var baseY = column.BaseHeightAt(localX, localZ);
+            minimumBaseY = Math.Min(minimumBaseY, baseY);
+            maximumBaseY = Math.Max(maximumBaseY, baseY);
+
+            mayContainCaves |=
+                _caves is not null &&
+                (long)originY <= (long)baseY - _caves.MinimumDepth &&
+                (long)maximumY >= (long)baseY - _caves.MaximumDepth;
+        }
+
+        if (!hasMissingSamples)
+            return;
+
+        CaveNoiseVolumeSampler? caveSampler = null;
+        if (mayContainCaves)
+        {
+            caveSampler = _caves!.CreateSampler(
+                _seed,
+                originX,
+                originY,
+                originZ,
+                Chunk.Size,
+                Chunk.Size,
+                Chunk.Size,
+                minimumBaseY,
+                maximumBaseY);
+        }
+
+        for (var index = 0; index < columnIndices.Length; index++)
+        {
+            if (sampledMasks[index] == ushort.MaxValue)
+                continue;
+
+            var columnIndex = columnIndices[index];
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            solidMasks[index] = SampleDensityColumnMask(
+                column,
+                localX,
+                originY,
+                localZ,
+                checked(originX + localX),
+                checked(originZ + localZ),
+                solidMasks[index],
+                sampledMasks[index],
+                caveSampler,
+                out var probes);
+            sampledMasks[index] = ushort.MaxValue;
+            densityProbes = checked(densityProbes + probes);
+        }
+    }
+
+    /// <summary>
     /// Completes only the unsampled cells in one cached vertical occupancy
     /// column. Validity bits distinguish known-empty cells from unknown cells.
     /// </summary>
@@ -966,6 +1063,29 @@ public sealed class SurfaceTerrainField
         int worldZ,
         ushort cachedSolidMask,
         ushort sampledMask,
+        out int densityProbes) =>
+        SampleDensityColumnMask(
+            column,
+            localX,
+            originY,
+            localZ,
+            worldX,
+            worldZ,
+            cachedSolidMask,
+            sampledMask,
+            caveSampler: null,
+            out densityProbes);
+
+    private ushort SampleDensityColumnMask(
+        SurfaceTerrainColumn column,
+        int localX,
+        int originY,
+        int localZ,
+        int worldX,
+        int worldZ,
+        ushort cachedSolidMask,
+        ushort sampledMask,
+        CaveNoiseVolumeSampler? caveSampler,
         out int densityProbes)
     {
         ArgumentNullException.ThrowIfNull(column);
@@ -1013,7 +1133,7 @@ public sealed class SurfaceTerrainField
 
             if (DensityAt(
                     biome, baseY, worldX, worldY, worldZ, volumeBiome,
-                    caveSampler: null, localX, localY, localZ,
+                    caveSampler, localX, localY, localZ,
                     additiveRule, additiveHorizontalSupports,
                     additiveRuleResolved: true) >= 0d)
                 solidMask |= bit;

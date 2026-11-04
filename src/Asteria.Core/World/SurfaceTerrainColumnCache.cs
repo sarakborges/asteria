@@ -383,36 +383,24 @@ public sealed class SurfaceTerrainColumnCache
         Span<ushort> sampledMasks = stackalloc ushort[columnIndices.Length];
         occupancy.ReadColumns(columnIndices, solidMasks, sampledMasks);
 
-        SurfaceTerrainColumn? column = null;
         var hasMissingSamples = false;
-        var chunkOriginX = checked(chunkX * Chunk.Size);
-        var chunkOriginZ = checked(chunkZ * Chunk.Size);
         for (var index = 0; index < columnIndices.Length; index++)
-        {
-            if (sampledMasks[index] == ushort.MaxValue)
-                continue;
-
-            column ??= Get(chunkX, chunkZ);
-            var columnIndex = columnIndices[index];
-            var localX = columnIndex % Chunk.Size;
-            var localZ = columnIndex / Chunk.Size;
-            solidMasks[index] = _terrain.SampleDensityColumnMask(
-                column,
-                localX,
-                originY,
-                localZ,
-                checked(chunkOriginX + localX),
-                checked(chunkOriginZ + localZ),
-                solidMasks[index],
-                sampledMasks[index],
-                out var probes);
-            densityProbes = checked(densityProbes + probes);
-            sampledMasks[index] = ushort.MaxValue;
-            hasMissingSamples = true;
-        }
+            hasMissingSamples |= sampledMasks[index] != ushort.MaxValue;
 
         if (hasMissingSamples)
         {
+            var column = Get(chunkX, chunkZ);
+            var chunkOriginX = checked(chunkX * Chunk.Size);
+            var chunkOriginZ = checked(chunkZ * Chunk.Size);
+            _terrain.SampleDensityColumnMasks(
+                column,
+                chunkOriginX,
+                originY,
+                chunkOriginZ,
+                columnIndices,
+                solidMasks,
+                sampledMasks,
+                out densityProbes);
             occupancy.MergeColumns(
                 columnIndices,
                 solidMasks,
