@@ -499,7 +499,28 @@ public sealed class SurfaceTerrainField
         CaveNoiseVolumeSampler? caveSampler,
         int localX,
         int localY,
-        int localZ)
+        int localZ) =>
+        DensityAt(
+            biome, baseY, worldX, worldY, worldZ, volumeBiome,
+            caveSampler, localX, localY, localZ,
+            preResolvedAdditiveRule: null,
+            additiveHorizontalSupports: default,
+            additiveRuleResolved: false);
+
+    private double DensityAt(
+        BiomeSample biome,
+        int baseY,
+        int worldX,
+        int worldY,
+        int worldZ,
+        BiomeSample? volumeBiome,
+        CaveNoiseVolumeSampler? caveSampler,
+        int localX,
+        int localY,
+        int localZ,
+        AdditiveRuleSet? preResolvedAdditiveRule,
+        ReadOnlySpan<double> additiveHorizontalSupports,
+        bool additiveRuleResolved)
     {
         if (worldY < 0)
         {
@@ -517,22 +538,30 @@ public sealed class SurfaceTerrainField
             baseY -
             (double)worldY;
 
-        if (volumeBiome is not null &&
+        AdditiveRuleSet? floating = preResolvedAdditiveRule;
+        if (!additiveRuleResolved &&
+            volumeBiome is not null &&
             _additiveRules.TryGetValue(
                 volumeBiome.Primary,
-                out var floating) &&
+                out var resolvedFloating))
+        {
+            floating = resolvedFloating;
+        }
+
+        if (floating is not null &&
+            volumeBiome is not null &&
             worldY >= floating.MinimumY &&
             worldY <= floating.MaximumY)
         {
-            density =
-                Math.Max(
-                    density,
-                    floating.DensityAt(
-                        _seed,
-                        worldX,
-                        worldY,
-                        worldZ,
-                        volumeBiome.PrimaryWeight));
+            var additiveDensity = additiveHorizontalSupports.IsEmpty
+                ? floating.DensityAt(
+                    _seed, worldX, worldY, worldZ,
+                    volumeBiome.PrimaryWeight)
+                : floating.DensityAt(
+                    _seed, worldX, worldY, worldZ,
+                    volumeBiome.PrimaryWeight,
+                    additiveHorizontalSupports);
+            density = Math.Max(density, additiveDensity);
         }
 
         if (density >= 0d &&
@@ -785,6 +814,17 @@ public sealed class SurfaceTerrainField
 
         var caveSamplerAttempted = false;
         CaveNoiseVolumeSampler? caveSampler = null;
+        var maximumAdditiveRuleCount = 0;
+        foreach (var ruleSet in _additiveRules.Values)
+            maximumAdditiveRuleCount = Math.Max(
+                maximumAdditiveRuleCount, ruleSet.RuleCount);
+        // One scratch buffer is reused for every X/Z column in this snapshot.
+        // Horizontal support is independent of Y, so evaluate it once and
+        // share it across all vertical density probes for the column.
+        var additiveSupportScratch =
+            maximumAdditiveRuleCount == 0
+                ? Array.Empty<double>()
+                : new double[maximumAdditiveRuleCount];
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         {
             var worldZ = checked(originZ + localZ);
@@ -827,6 +867,14 @@ public sealed class SurfaceTerrainField
                     additiveRule is not null &&
                     originY <= additiveRule.MaximumY &&
                     maximumY >= additiveRule.MinimumY;
+                ReadOnlySpan<double> additiveHorizontalSupports = default;
+                if (mayContainAdditive)
+                {
+                    var count = additiveRule!.SampleHorizontalSupports(
+                        _seed, worldX, worldZ, additiveSupportScratch);
+                    additiveHorizontalSupports =
+                        additiveSupportScratch.AsSpan(0, count);
+                }
 
                 if (!mayContainCaves && !mayContainAdditive)
                 {
@@ -874,7 +922,9 @@ public sealed class SurfaceTerrainField
                         caveDensityApplies || additiveDensityApplies || IsShellLining(worldY)
                             ? DensityAt(
                                 biome, baseY, worldX, worldY, worldZ, volumeBiome,
-                                caveSampler, localX, localY, localZ)
+                                caveSampler, localX, localY, localZ,
+                                additiveRule, additiveHorizontalSupports,
+                                additiveRuleResolved: true)
                             : baseY - (double)worldY;
                     if (density >= 0d)
                         solidMask[index] |= bit;
@@ -926,6 +976,28 @@ public sealed class SurfaceTerrainField
         var baseY = column.BaseHeightAt(localX, localZ);
         var volumeBiome = column.VolumeBiomes[localX, localZ];
         var solidMask = (ushort)(cachedSolidMask & sampledMask);
+        var additiveRule =
+            volumeBiome is not null &&
+            _additiveRules.TryGetValue(volumeBiome.Primary, out var resolvedAdditive)
+                ? resolvedAdditive
+                : null;
+        var columnMaximumY = checked(originY + Chunk.Size - 1);
+        var mayContainAdditive =
+            additiveRule is not null &&
+            originY <= additiveRule.MaximumY &&
+            columnMaximumY >= additiveRule.MinimumY;
+        Span<double> additiveHorizontalSupports = additiveRule is null ||
+            !mayContainAdditive
+                ? Span<double>.Empty
+                : additiveRule.RuleCount <= 16
+                    ? stackalloc double[additiveRule.RuleCount]
+                    : new double[additiveRule.RuleCount];
+        if (mayContainAdditive)
+        {
+            additiveRule!.SampleHorizontalSupports(
+                _seed, worldX, worldZ, additiveHorizontalSupports);
+        }
+
         densityProbes = 0;
         for (var localY = 0; localY < Chunk.Size; localY++)
         {
@@ -934,7 +1006,11 @@ public sealed class SurfaceTerrainField
                 continue;
             var worldY = checked(originY + localY);
             densityProbes++;
-            if (DensityAt(biome, baseY, worldX, worldY, worldZ, volumeBiome) >= 0d)
+            if (DensityAt(
+                    biome, baseY, worldX, worldY, worldZ, volumeBiome,
+                    caveSampler: null, localX, localY, localZ,
+                    additiveRule, additiveHorizontalSupports,
+                    additiveRuleResolved: true) >= 0d)
                 solidMask |= bit;
         }
         return solidMask;
@@ -1228,12 +1304,20 @@ public sealed class SurfaceTerrainField
             !_additiveRules.TryGetValue(
                 volumeBiome.Primary,
                 out var rule) ||
-            rule.MaximumY <= baseY ||
-            !rule.MayExistAt(
-                _seed,
-                worldX,
-                worldZ,
-                volumeBiome.PrimaryWeight))
+            rule.MaximumY <= baseY)
+        {
+            return baseY;
+        }
+
+        const int StackSupportCapacity = 16;
+        Span<double> additiveHorizontalSupports =
+            rule.RuleCount <= StackSupportCapacity
+                ? stackalloc double[rule.RuleCount]
+                : new double[rule.RuleCount];
+        rule.SampleHorizontalSupports(
+            _seed, worldX, worldZ, additiveHorizontalSupports);
+        if (!rule.MayExistAt(
+                volumeBiome.PrimaryWeight, additiveHorizontalSupports))
         {
             return baseY;
         }
@@ -1259,12 +1343,10 @@ public sealed class SurfaceTerrainField
              y--)
         {
             if (DensityAt(
-                    surfaceBiome,
-                    baseY,
-                    worldX,
-                    y,
-                    worldZ,
-                    volumeBiome) >= 0d)
+                    surfaceBiome, baseY, worldX, y, worldZ, volumeBiome,
+                    caveSampler: null, localX: 0, localY: 0, localZ: 0,
+                    rule, additiveHorizontalSupports,
+                    additiveRuleResolved: true) >= 0d)
             {
                 return y;
             }
@@ -1391,6 +1473,23 @@ public sealed class SurfaceTerrainField
 
         public int MinimumY { get; }
         public int MaximumY { get; }
+        public int RuleCount => _rules.Length;
+
+        public int SampleHorizontalSupports(
+            ulong seed,
+            int x,
+            int z,
+            Span<double> destination)
+        {
+            if (destination.Length < _rules.Length)
+                throw new ArgumentException(
+                    "Additive support buffer is shorter than the authored rule set.",
+                    nameof(destination));
+            for (var index = 0; index < _rules.Length; index++)
+                destination[index] = _rules[index].HorizontalSupportAt(
+                    seed, x, z);
+            return _rules.Length;
+        }
 
         public bool MayExistAt(
             ulong seed,
@@ -1399,13 +1498,23 @@ public sealed class SurfaceTerrainField
             float influenceWeight)
         {
             foreach (var rule in _rules)
-            {
                 if (rule.MayExistAt(seed, x, z, influenceWeight))
-                {
                     return true;
-                }
-            }
+            return false;
+        }
 
+        public bool MayExistAt(
+            float influenceWeight,
+            ReadOnlySpan<double> horizontalSupports)
+        {
+            if (horizontalSupports.Length != _rules.Length)
+                throw new ArgumentException(
+                    "Additive support samples do not match the authored rule set.",
+                    nameof(horizontalSupports));
+            for (var index = 0; index < _rules.Length; index++)
+                if (_rules[index].MayExistAt(
+                        influenceWeight, horizontalSupports[index]))
+                    return true;
             return false;
         }
 
@@ -1418,15 +1527,36 @@ public sealed class SurfaceTerrainField
         {
             var density = double.NegativeInfinity;
             foreach (var rule in _rules)
-            {
                 if (y >= rule.MinimumY && y <= rule.MaximumY)
-                {
                     density = Math.Max(
                         density,
                         rule.DensityAt(seed, x, y, z, influenceWeight));
-                }
-            }
+            return density;
+        }
 
+        public double DensityAt(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            float influenceWeight,
+            ReadOnlySpan<double> horizontalSupports)
+        {
+            if (horizontalSupports.Length != _rules.Length)
+                throw new ArgumentException(
+                    "Additive support samples do not match the authored rule set.",
+                    nameof(horizontalSupports));
+            var density = double.NegativeInfinity;
+            for (var index = 0; index < _rules.Length; index++)
+            {
+                var rule = _rules[index];
+                if (y >= rule.MinimumY && y <= rule.MaximumY)
+                    density = Math.Max(
+                        density,
+                        rule.DensityAt(
+                            seed, x, y, z, influenceWeight,
+                            horizontalSupports[index]));
+            }
             return density;
         }
     }
@@ -1457,9 +1587,12 @@ public sealed class SurfaceTerrainField
             int x,
             int z,
             float influenceWeight) =>
-            Math.Pow(
-                HorizontalSupport(seed, x, z),
-                _authored.HorizontalFalloff) +
+            MayExistAt(influenceWeight, HorizontalSupport(seed, x, z));
+
+        public bool MayExistAt(
+            float influenceWeight,
+            double horizontalSupport) =>
+            Math.Pow(horizontalSupport, _authored.HorizontalFalloff) +
             _authored.Roughness -
             _authored.DensityBias >
             1d - influenceWeight;
@@ -1469,13 +1602,24 @@ public sealed class SurfaceTerrainField
             int x,
             int y,
             int z,
-            float influenceWeight)
+            float influenceWeight) =>
+            DensityAt(
+                seed, x, y, z, influenceWeight,
+                HorizontalSupport(seed, x, z));
+
+        public double DensityAt(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            float influenceWeight,
+            double horizontalSupport)
         {
             var center = (_authored.MinY + (double)_authored.MaxY) * 0.5d;
             var halfSpan = (_authored.MaxY - (double)_authored.MinY) * 0.5d;
             var verticalDistance = Math.Abs((y - center) / halfSpan);
             var shape = Math.Pow(
-                HorizontalSupport(seed, x, z),
+                horizontalSupport,
                 _authored.HorizontalFalloff) -
                 Math.Pow(verticalDistance, _authored.VerticalFalloff);
             var detail = WorldGenerationEntropy.ValueNoise3D(
@@ -1492,6 +1636,12 @@ public sealed class SurfaceTerrainField
                     _authored.DensityBias) *
                    _authored.DensityScale;
         }
+
+        public double HorizontalSupportAt(
+            ulong seed,
+            int x,
+            int z) =>
+            HorizontalSupport(seed, x, z);
 
         private double HorizontalSupport(
             ulong seed,
