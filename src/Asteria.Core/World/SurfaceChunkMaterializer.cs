@@ -345,7 +345,7 @@ public sealed class SurfaceChunkMaterializer
         var column = job.Column = _columns.Get(coord.X, coord.Z);
         var densityVolume = job.DensityVolume = job.SupportFaceFastPath
             ? _terrain.CreateLazyDensityVolume(column, originX, originY, originZ)
-            : _terrain.SampleDensityVolume(
+            : _columns.SampleDensityVolume(
                 column,
                 originX,
                 originY,
@@ -1751,9 +1751,10 @@ public sealed class SurfaceChunkMaterializer
         z << 16;
 
     /// <summary>
-    /// Applies directional face palettes after building compact occupancy rows.
-    /// Empty candidates are enumerated with bit scans, so material ownership is
-    /// resolved only for actual solid-to-empty transitions.
+    /// Applies directional face palettes from a compact exposure-influence mask.
+    /// Occupancy rows propagate nearby empty bits toward solid candidates in
+    /// word operations; the six-ray owner/priority resolution runs only for
+    /// voxels that can actually be reached by a directional palette.
     /// </summary>
     private DirectionalFacePaletteMetrics? MaterializeDirectionalFacePalettes(
         Chunk chunk,
@@ -1785,6 +1786,7 @@ public sealed class SurfaceChunkMaterializer
         long solidOwnerTicks = 0;
         long neighborOwnerTicks = 0;
         long densityProbeTicks = 0;
+        long boundaryDensityTicks = 0;
         long emptyOwnerTicks = 0;
         long paletteWriteTicks = 0;
 #endif
@@ -1920,36 +1922,21 @@ public sealed class SurfaceChunkMaterializer
             var index = regionX * Chunk.Size + localZ;
             if (!xBoundarySolidMasksReady[index])
             {
-                var neighborData = xDirectionalPaletteColumns[regionX, localZ];
+#if DEBUG
+                var densityStarted = Stopwatch.GetTimestamp();
+#endif
                 var worldX = originX + localX;
                 var worldZ = originZ + localZ;
-                ushort mask = 0;
-                for (var y = 0; y < Chunk.Size; y++)
+                var mask = _columns.GetDensityColumnMask(
+                    worldX, originY, worldZ, out var cacheHit);
+                if (!cacheHit)
                 {
-                    var worldY = originY + y;
+                    densityProbes += Chunk.Size;
+                    boundaryDensityProbes += Chunk.Size;
 #if DEBUG
-                    var measureDensity =
-                        (densityProbes + 1) % timingSampleInterval == 0;
-                    var densityStarted = measureDensity
-                        ? Stopwatch.GetTimestamp()
-                        : 0L;
+                    boundaryDensityTicks +=
+                        Stopwatch.GetTimestamp() - densityStarted;
 #endif
-                    var isSolid = _terrain.DensityAt(
-                        neighborData.SurfaceBiome,
-                        neighborData.BaseY,
-                        worldX,
-                        worldY,
-                        worldZ,
-                        neighborData.VolumeBiome) >= 0d;
-                    densityProbes++;
-                    boundaryDensityProbes++;
-#if DEBUG
-                    if (measureDensity)
-                        densityProbeTicks +=
-                            Stopwatch.GetTimestamp() - densityStarted;
-#endif
-                    if (isSolid)
-                        mask |= (ushort)(1u << y);
                 }
 
                 xBoundarySolidMasks[index] = mask;
@@ -1967,36 +1954,21 @@ public sealed class SurfaceChunkMaterializer
             var index = boundaryZ * Chunk.Size + localX;
             if (!zBoundarySolidMasksReady[index])
             {
-                var neighborData = zBoundaryPaletteColumns[index];
+#if DEBUG
+                var densityStarted = Stopwatch.GetTimestamp();
+#endif
                 var worldX = originX + localX;
                 var worldZ = originZ + localZ;
-                ushort mask = 0;
-                for (var y = 0; y < Chunk.Size; y++)
+                var mask = _columns.GetDensityColumnMask(
+                    worldX, originY, worldZ, out var cacheHit);
+                if (!cacheHit)
                 {
-                    var worldY = originY + y;
+                    densityProbes += Chunk.Size;
+                    boundaryDensityProbes += Chunk.Size;
 #if DEBUG
-                    var measureDensity =
-                        (densityProbes + 1) % timingSampleInterval == 0;
-                    var densityStarted = measureDensity
-                        ? Stopwatch.GetTimestamp()
-                        : 0L;
+                    boundaryDensityTicks +=
+                        Stopwatch.GetTimestamp() - densityStarted;
 #endif
-                    var isSolid = _terrain.DensityAt(
-                        neighborData.SurfaceBiome,
-                        neighborData.BaseY,
-                        worldX,
-                        worldY,
-                        worldZ,
-                        neighborData.VolumeBiome) >= 0d;
-                    densityProbes++;
-                    boundaryDensityProbes++;
-#if DEBUG
-                    if (measureDensity)
-                        densityProbeTicks +=
-                            Stopwatch.GetTimestamp() - densityStarted;
-#endif
-                    if (isSolid)
-                        mask |= (ushort)(1u << y);
                 }
 
                 zBoundarySolidMasks[index] = mask;
@@ -2111,6 +2083,15 @@ public sealed class SurfaceChunkMaterializer
                     MarkSolid(ySolidRows, rowOffset, regionY);
             }
         }
+
+        var directionalCandidateColumns =
+            DirectionalFaceCandidateMask.Build(
+                regionSize,
+                regionWordCount,
+                maximumPaintDepth,
+                xSolidRows,
+                zSolidRows,
+                ySolidRows);
 
         static ulong LowBits(int inclusiveIndex) =>
             inclusiveIndex == 63
@@ -2364,10 +2345,20 @@ public sealed class SurfaceChunkMaterializer
         }
 
         var nextCandidateDistances = new int[6];
+        solidVoxels = 0;
+        chunk.VisitBlockCells((x, y, z, cell) =>
+        {
+            if (!cell.IsEmpty && densityVolume.IsSolidAtUnchecked(x, y, z))
+                solidVoxels++;
+        });
+
+        var solidOwnerProbes = 0;
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
             surfaceColumns++;
+            var candidateYMask =
+                directionalCandidateColumns[z * Chunk.Size + x];
 #if DEBUG
             var measureSurfaceColumn =
                 surfaceColumns % timingSampleInterval == 0;
@@ -2375,6 +2366,16 @@ public sealed class SurfaceChunkMaterializer
                 ? Stopwatch.GetTimestamp()
                 : 0L;
 #endif
+            if (candidateYMask == 0)
+            {
+#if DEBUG
+                if (measureSurfaceColumn)
+                    surfaceColumnTicks +=
+                        Stopwatch.GetTimestamp() - surfaceColumnStarted;
+#endif
+                continue;
+            }
+
             var currentColumn =
                 xDirectionalPaletteColumns[x + maximumPaintDepth, z];
             var baseY = currentColumn.BaseY;
@@ -2392,6 +2393,9 @@ public sealed class SurfaceChunkMaterializer
 
             for (var y = 0; y < Chunk.Size; y++)
             {
+                if ((candidateYMask & (1u << y)) == 0)
+                    continue;
+
                 var worldY = originY + y;
                 if (worldY <= 0 ||
                     (_floorY is { } floorY && worldY <= floorY) ||
@@ -2403,10 +2407,10 @@ public sealed class SurfaceChunkMaterializer
                 if (currentBlock.IsAir)
                     continue;
 
-                solidVoxels++;
+                solidOwnerProbes++;
 #if DEBUG
                 var measureSolidOwner =
-                    solidVoxels % timingSampleInterval == 0;
+                    solidOwnerProbes % timingSampleInterval == 0;
                 var solidOwnerStarted = measureSolidOwner
                     ? Stopwatch.GetTimestamp()
                     : 0L;
@@ -2491,7 +2495,8 @@ public sealed class SurfaceChunkMaterializer
         var neighborOwnerMilliseconds =
             ToEstimatedMilliseconds(neighborOwnerTicks, timingSampleInterval);
         var densityProbeMilliseconds =
-            ToEstimatedMilliseconds(densityProbeTicks, timingSampleInterval);
+            ToEstimatedMilliseconds(densityProbeTicks, timingSampleInterval) +
+            boundaryDensityTicks * 1000d / Stopwatch.Frequency;
         var emptyOwnerMilliseconds =
             ToEstimatedMilliseconds(emptyOwnerTicks, timingSampleInterval);
         var paletteWriteMilliseconds =

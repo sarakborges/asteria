@@ -193,6 +193,12 @@ public sealed class GeologyMaterializationRegressionTests
 
         Assert.True(first.BoundaryProbes > 0,
             "The fixture must exercise horizontal boundary density probes.");
+        var unsharedBoundaryProbeUpperBound =
+            coordinates.Length * 6 * 3 * Chunk.Area;
+        Assert.True(
+            first.BoundaryProbes < unsharedBoundaryProbeUpperBound,
+            $"Adjacent chunks did not reuse occupancy masks: " +
+            $"{first.BoundaryProbes}/{unsharedBoundaryProbeUpperBound} boundary samples.");
         Assert.Equal(coordinates.Length, first.Digests.Count);
         Assert.Equal(coordinates.Length, second.Digests.Count);
         foreach (var coord in coordinates)

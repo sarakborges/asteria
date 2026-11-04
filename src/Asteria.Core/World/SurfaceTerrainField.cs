@@ -729,10 +729,23 @@ public sealed class SurfaceTerrainField
         SurfaceTerrainColumn column,
         int originX,
         int originY,
-        int originZ)
+        int originZ,
+        ushort[]? cachedColumnMasks = null,
+        bool[]? cachedColumnMaskAvailability = null)
     {
         ArgumentNullException.ThrowIfNull(
             column);
+
+        if ((cachedColumnMasks is null) !=
+                (cachedColumnMaskAvailability is null) ||
+            (cachedColumnMasks is not null &&
+             (cachedColumnMasks.Length != Chunk.Area ||
+              cachedColumnMaskAvailability!.Length != Chunk.Area)))
+        {
+            throw new ArgumentException(
+                "Cached density masks must contain one availability flag per X/Z column.",
+                nameof(cachedColumnMasks));
+        }
 
         if (originY < 0)
         {
@@ -774,6 +787,14 @@ public sealed class SurfaceTerrainField
                  localX++)
             {
                 var solidColumnIndex = localZ * Chunk.Size + localX;
+                if (cachedColumnMaskAvailability is not null &&
+                    cachedColumnMaskAvailability[solidColumnIndex])
+                {
+                    solidMask[solidColumnIndex] =
+                        cachedColumnMasks![solidColumnIndex];
+                    continue;
+                }
+
                 var worldX =
                     checked(originX + localX);
                 var baseY =
@@ -919,6 +940,49 @@ public sealed class SurfaceTerrainField
             DensityAtLocal,
             volumeBiomes,
             _volumeBiomes);
+    }
+
+    /// <summary>
+    /// Samples one vertical occupancy column using the same scalar density
+    /// contract as directional-face boundary queries.
+    /// </summary>
+    internal ushort SampleDensityColumnMask(
+        SurfaceTerrainColumn column,
+        int localX,
+        int originY,
+        int localZ,
+        int worldX,
+        int worldZ)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        if ((uint)localX >= Chunk.Size ||
+            (uint)localZ >= Chunk.Size ||
+            originY < 0 ||
+            originY % Chunk.Size != 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(originY));
+        }
+
+        var biome = column.BiomeAt(localX, localZ);
+        var baseY = column.BaseHeightAt(localX, localZ);
+        var volumeBiome = column.VolumeBiomes[localX, localZ];
+        ushort solidMask = 0;
+        for (var localY = 0; localY < Chunk.Size; localY++)
+        {
+            var worldY = checked(originY + localY);
+            if (DensityAt(
+                    biome,
+                    baseY,
+                    worldX,
+                    worldY,
+                    worldZ,
+                    volumeBiome) >= 0d)
+            {
+                solidMask |= (ushort)(1u << localY);
+            }
+        }
+
+        return solidMask;
     }
 
     /// <summary>
@@ -2095,6 +2159,23 @@ public sealed class TerrainDensityVolume
         return densities is not null
             ? densities[index] >= 0d
             : _densityProvider!(localX, localY, localZ) >= 0d;
+    }
+
+    internal ushort SolidColumnMaskAtUnchecked(
+        int localX,
+        int localZ)
+    {
+        if (_columnSolidMask is { } columnMasks)
+            return columnMasks[(localZ * Width) + localX];
+
+        ushort mask = 0;
+        for (var y = 0; y < Height; y++)
+        {
+            if (IsSolidAtUnchecked(localX, y, localZ))
+                mask |= (ushort)(1u << y);
+        }
+
+        return mask;
     }
 
     internal BiomeSample? VolumePlacementAt(
