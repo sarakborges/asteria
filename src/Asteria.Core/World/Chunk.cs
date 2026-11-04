@@ -330,14 +330,15 @@ public sealed class Chunk
         return _directionalFaceData?.Get(index) ?? default;
     }
 
-    internal void SetInitialDirectionalFaceDataAtLinearIndex(
+    internal bool SetInitialDirectionalFaceDataAtLinearIndex(
         int index, DirectionalFaceVoxelData data, bool updateRevision = true)
     {
         if ((uint)index >= Volume) throw new ArgumentOutOfRangeException(nameof(index));
-        if (data == default) return;
+        if (data == default) return false;
         _directionalFaceData ??= new PaletteStorage<DirectionalFaceVoxelData>();
-        if (!_directionalFaceData.SetInitial(index, data)) return;
+        if (!_directionalFaceData.SetInitial(index, data)) return false;
         if (updateRevision) Revision++;
+        return true;
     }
 
     internal void SetDirectionalFaceDataAtLinearIndex(
