@@ -215,11 +215,18 @@ public sealed class Chunk
     internal sealed class InitialBlockWriter : IDisposable
     {
         private Chunk? _chunk;
+        private readonly ushort[] _paletteIndicesByBlock;
         private bool _changed;
 
-        internal InitialBlockWriter(Chunk chunk)
+        internal InitialBlockWriter(
+            Chunk chunk,
+            int blockRuntimeIdCount)
         {
+            if (blockRuntimeIdCount is < 1 or > ushort.MaxValue + 1)
+                throw new ArgumentOutOfRangeException(nameof(blockRuntimeIdCount));
+
             _chunk = chunk;
+            _paletteIndicesByBlock = new ushort[blockRuntimeIdCount];
         }
 
         public bool SetBlockAtLinearIndex(
@@ -231,9 +238,23 @@ public sealed class Chunk
             if ((uint)voxelIndex >= Volume)
                 throw new ArgumentOutOfRangeException(nameof(voxelIndex));
 
-            var changed = chunk._cells.SetInitial(
+            var value = new VoxelCell(block);
+            var cachedPaletteIndex =
+                block.Value < _paletteIndicesByBlock.Length
+                    ? _paletteIndicesByBlock[block.Value]
+                    : (ushort)0;
+            var changed = chunk._cells.SetInitialWithPaletteIndex(
                 voxelIndex,
-                new VoxelCell(block));
+                value,
+                cachedPaletteIndex,
+                out var resolvedPaletteIndex);
+            if (cachedPaletteIndex == 0 &&
+                block.Value < _paletteIndicesByBlock.Length &&
+                resolvedPaletteIndex != 0)
+            {
+                _paletteIndicesByBlock[block.Value] = resolvedPaletteIndex;
+            }
+
             _changed |= changed;
             return changed;
         }
@@ -599,7 +620,8 @@ public sealed class Chunk
         Revision++;
     }
 
-    internal InitialBlockWriter BeginInitialBlockWrites()
+    internal InitialBlockWriter BeginInitialBlockWrites(
+        int blockRuntimeIdCount)
     {
         if (Revision != 0 ||
             ObjectRevision != 0 ||
@@ -614,7 +636,7 @@ public sealed class Chunk
                 "Initial block writes require a fresh, empty chunk.");
         }
 
-        return new InitialBlockWriter(this);
+        return new InitialBlockWriter(this, blockRuntimeIdCount);
     }
 
     /// <summary>

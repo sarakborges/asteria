@@ -124,6 +124,75 @@ internal sealed class PaletteStorage<T>
     /// </summary>
     public bool SetInitial(int voxelIndex, T value) =>
         SetInitialCore(voxelIndex, value, skipOccupied: false);
+    
+    /// <summary>
+    /// Writes an initial palette value using a slot cached by the batch writer.
+    /// On a cache miss, the value is interned once and the resolved slot is
+    /// returned for subsequent writes of the same runtime block id.
+    /// </summary>
+    internal bool SetInitialWithPaletteIndex(
+        int voxelIndex,
+        T value,
+        ushort cachedPaletteIndex,
+        out ushort resolvedPaletteIndex)
+    {
+        var state = _state;
+        if (state.IsShared)
+            throw new InvalidOperationException(
+                "Initial palette writes require private chunk storage.");
+        if ((uint)voxelIndex >= Chunk.Volume)
+            throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+        var previousIndex = state.Indices[voxelIndex];
+        if (previousIndex != 0)
+        {
+            if (ValueAt(state, previousIndex).Equals(value))
+            {
+                resolvedPaletteIndex =
+                    cachedPaletteIndex != 0 ? cachedPaletteIndex : previousIndex;
+                return false;
+            }
+
+            throw new InvalidOperationException(
+                "An initial palette write cannot replace an occupied voxel.");
+        }
+
+        if (value.Equals(default))
+        {
+            resolvedPaletteIndex = 0;
+            return false;
+        }
+
+        var nextIndex = cachedPaletteIndex;
+        if (nextIndex == 0)
+        {
+            if (!state.Lookup.TryGetValue(value, out nextIndex))
+            {
+                if (state.Palette.Count >= ushort.MaxValue)
+                    throw new InvalidOperationException(
+                        "Chunk palette capacity was exhausted.");
+
+                state.Palette.Add(value);
+                state.Usage.Add(0);
+                nextIndex = checked((ushort)state.Palette.Count);
+                state.Lookup.Add(value, nextIndex);
+            }
+        }
+        else if (nextIndex > state.Palette.Count)
+        {
+            throw new InvalidOperationException(
+                "Cached initial palette index is outside the active palette.");
+        }
+
+        Retain(nextIndex);
+        state.Indices[voxelIndex] = nextIndex;
+        UpdateOccupancy(
+            voxelIndex,
+            wasOccupied: false,
+            isOccupied: true);
+        resolvedPaletteIndex = nextIndex;
+        return true;
+    }
 
     /// <summary>
     /// Adds an initial value only when the slot is empty. Used by generation

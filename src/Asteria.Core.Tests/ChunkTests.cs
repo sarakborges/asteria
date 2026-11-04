@@ -157,7 +157,8 @@ public sealed class ChunkTests
         var stoneIndex = 1 + Chunk.Size * 3 + Chunk.Area * 2;
         var dirtIndex = 2 + Chunk.Size * 3 + Chunk.Area * 2;
 
-        using (var initial = chunk.BeginInitialBlockWrites())
+        using (var initial = chunk.BeginInitialBlockWrites(
+            registry.AuthoredCount + 1))
         {
             Assert.True(initial.SetBlockAtLinearIndex(stoneIndex, stone));
             Assert.True(initial.SetBlockAtLinearIndex(dirtIndex, stone));

@@ -1430,7 +1430,10 @@ public sealed class SurfaceChunkMaterializer
             (OriginX, OriginY, OriginZ) = VoxelCoordinates.ChunkOrigin(Coord);
             // Allocation and palette setup occur on the materialization worker.
             if (_owner._voidSpawnPlatform is null)
-                InitialBlocks = _chunk.BeginInitialBlockWrites();
+            {
+                InitialBlocks = _chunk.BeginInitialBlockWrites(
+                    checked(_owner._blocks.AuthoredCount + 1));
+            }
         }
 
         public SurfaceTerrainColumn? Column { get; set; }
