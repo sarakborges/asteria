@@ -889,7 +889,7 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
                 ((double)allocated[allocatedMiddle - 1] + allocated[allocatedMiddle]) / 2d,
                 MidpointRounding.AwayFromZero)
             : allocated[allocatedMiddle];
-        return (
+        return new TerrainLayerGeologyModeSummary(
             MedianElapsedMs: medianElapsed,
             MedianAllocatedBytes: medianAllocated,
             MinimumElapsedMs: elapsed[0],
