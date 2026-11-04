@@ -177,9 +177,9 @@ jobs:
         id: terrain_scope
         shell: bash
         env:
-          # Isolated comparison baseline: direct parent of the compact
-          # DirectionalFaceVoxelData representation.
-          BASELINE_SHA: bab781f94a478eb0db958afa1d9ce39357c89931
+          # Pre-feature baseline: last correct version before per-voxel
+          # directional exposure metadata was introduced.
+          BASELINE_SHA: f6affd92ddb1dcd109238c25f8ea40d1172bd872
         run: |
           set -euo pipefail
           terrain_commit="$(git log --first-parent -1 --format=%H HEAD -- \
