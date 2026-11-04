@@ -755,7 +755,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
 
 object CaptureTerrainLayerGeologyModeDiagnostics()
 {
-    const int repetitions = 3;
+    const int repetitions = 6;
     const string swampBiomeId = "asteria:overworld/swamp";
     if (!dimension.SurfaceBiomes.Contains(swampBiomeId, StringComparer.Ordinal))
     {
@@ -792,6 +792,12 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
                 ? WithGeologySamplingMode(
                     definition, BiomeGeologySamplingMode.Regional)
                 : definition));
+    var swampHybridRegistry = new BiomeRegistry(
+        sourceBiomeDefinitions.Select(definition =>
+            string.Equals(definition.Id, swampBiomeId, StringComparison.Ordinal)
+                ? WithGeologySamplingMode(
+                    definition, BiomeGeologySamplingMode.RegionalHybrid)
+                : definition));
 
     var selectionGenerator = NewGenerator(
         generation: swampGeneration,
@@ -814,18 +820,42 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
         double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)>();
     var regionalRuns = new List<(
         double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)>();
+    var hybridRuns = new List<(
+        double ElapsedMs, long AllocatedBytes, ulong Digest, long SolidVoxels)>();
 
     for (var repetition = 0; repetition < repetitions; repetition++)
     {
-        var modes = (repetition & 1) == 0
-            ? new[] { BiomeGeologySamplingMode.PerVoxel, BiomeGeologySamplingMode.Regional }
-            : new[] { BiomeGeologySamplingMode.Regional, BiomeGeologySamplingMode.PerVoxel };
+        var modes = (repetition % 3) switch
+        {
+            0 => new[]
+            {
+                BiomeGeologySamplingMode.PerVoxel,
+                BiomeGeologySamplingMode.Regional,
+                BiomeGeologySamplingMode.RegionalHybrid,
+            },
+            1 => new[]
+            {
+                BiomeGeologySamplingMode.Regional,
+                BiomeGeologySamplingMode.RegionalHybrid,
+                BiomeGeologySamplingMode.PerVoxel,
+            },
+            _ => new[]
+            {
+                BiomeGeologySamplingMode.RegionalHybrid,
+                BiomeGeologySamplingMode.PerVoxel,
+                BiomeGeologySamplingMode.Regional,
+            },
+        };
 
         foreach (var mode in modes)
         {
-            var registry = mode == BiomeGeologySamplingMode.PerVoxel
-                ? swampPerVoxelRegistry
-                : swampRegionalRegistry;
+            var registry = mode switch
+            {
+                BiomeGeologySamplingMode.PerVoxel => swampPerVoxelRegistry,
+                BiomeGeologySamplingMode.Regional => swampRegionalRegistry,
+                BiomeGeologySamplingMode.RegionalHybrid => swampHybridRegistry,
+                _ => throw new ArgumentOutOfRangeException(nameof(mode)),
+            };
             var generator = NewGenerator(
                 generation: swampGeneration,
                 biomeRegistry: registry);
@@ -833,35 +863,51 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
             // Warm the same generator before timing each independent repetition.
             _ = CapturePass(generator, desired, capture: false);
             var measured = CapturePass(generator, desired, capture: true);
-            if (mode == BiomeGeologySamplingMode.PerVoxel)
-                perVoxelRuns.Add(measured);
-            else
-                regionalRuns.Add(measured);
+            switch (mode)
+            {
+                case BiomeGeologySamplingMode.PerVoxel:
+                    perVoxelRuns.Add(measured);
+                    break;
+                case BiomeGeologySamplingMode.Regional:
+                    regionalRuns.Add(measured);
+                    break;
+                case BiomeGeologySamplingMode.RegionalHybrid:
+                    hybridRuns.Add(measured);
+                    break;
+            }
         }
     }
 
     var perVoxel = Summarize(perVoxelRuns);
     var regional = Summarize(regionalRuns);
+    var regionalHybrid = Summarize(hybridRuns);
     var solidVoxelCountsMatch =
         perVoxel.SolidVoxelsPerRun.Length == 1 &&
         regional.SolidVoxelsPerRun.Length == 1 &&
-        perVoxel.SolidVoxelsPerRun[0] == regional.SolidVoxelsPerRun[0];
+        regionalHybrid.SolidVoxelsPerRun.Length == 1 &&
+        perVoxel.SolidVoxelsPerRun[0] == regional.SolidVoxelsPerRun[0] &&
+        perVoxel.SolidVoxelsPerRun[0] == regionalHybrid.SolidVoxelsPerRun[0];
     return new
     {
         Biome = swampBiomeId,
         AuthoredSamplingMode = swampGeology.SamplingMode.ToString(),
-        ComparisonSamplingMode = BiomeGeologySamplingMode.Regional.ToString(),
+        ComparisonSamplingMode = "Regional and RegionalHybrid",
         ChunkCount = desired.Length,
         Repetitions = repetitions,
         WarmupPassesPerRepetition = 1,
         PerVoxel = perVoxel,
         Regional = regional,
+        RegionalHybrid = regionalHybrid,
         SolidVoxelCountsMatch = solidVoxelCountsMatch,
-        TerrainLayerTimeReductionPercent = perVoxel.MedianElapsedMs <= 0d
+        RegionalTimeReductionPercent = perVoxel.MedianElapsedMs <= 0d
             ? 0d
             : (perVoxel.MedianElapsedMs - regional.MedianElapsedMs) *
               100d / perVoxel.MedianElapsedMs,
-        Note = "Single-biome swamp materialization. The authored PerVoxel mode is compared with a registry that changes only swamp geology to Regional; all chunk coordinates, terrain settings and other biome definitions remain unchanged. Digests are checked for repeatability within each mode, not equality between different materials.",
+        HybridTimeReductionPercent = perVoxel.MedianElapsedMs <= 0d
+            ? 0d
+            : (perVoxel.MedianElapsedMs - regionalHybrid.MedianElapsedMs) *
+              100d / perVoxel.MedianElapsedMs,
+        Note = "Single-biome swamp materialization. PerVoxel, Regional and RegionalHybrid change only swamp geology sampling mode; chunk coordinates, terrain settings and other biome definitions remain unchanged. Digests are checked for repeatability within each mode, not equality between different materials. RegionalHybrid applies high-frequency displacement only near regional cell boundaries.",
     };
 
     static (
@@ -1194,6 +1240,9 @@ static object CaptureGeologySamplingDiagnostics(
         var regionalDefinition = WithGeologySamplingMode(
             authoredDefinition,
             BiomeGeologySamplingMode.Regional);
+        var hybridDefinition = WithGeologySamplingMode(
+            authoredDefinition,
+            BiomeGeologySamplingMode.RegionalHybrid);
         var sample = new BiomeSample(
             biomeId,
             [new BiomeInfluence(biomeId, 1f)]);
@@ -1201,24 +1250,59 @@ static object CaptureGeologySamplingDiagnostics(
             seed, [perVoxelDefinition], blocks);
         var regionalMaterials = new BiomeSurfaceMaterialField(
             seed, [regionalDefinition], blocks);
-        var perVoxelRuns = new List<GeologySamplingRun>(4);
-        var regionalRuns = new List<GeologySamplingRun>(4);
+        var hybridMaterials = new BiomeSurfaceMaterialField(
+            seed, [hybridDefinition], blocks);
+        var perVoxelRuns = new List<GeologySamplingRun>(6);
+        var regionalRuns = new List<GeologySamplingRun>(6);
+        var hybridRuns = new List<GeologySamplingRun>(6);
 
-        for (var repetition = 0; repetition < 4; repetition++)
+        for (var repetition = 0; repetition < 6; repetition++)
         {
-            if ((repetition & 1) == 0)
+            var modes = (repetition % 3) switch
             {
-                perVoxelRuns.Add(MeasureGeologySelection(
-                    perVoxelMaterials, sample));
-                regionalRuns.Add(MeasureGeologySelection(
-                    regionalMaterials, sample));
-            }
-            else
+                0 => new[]
+                {
+                    BiomeGeologySamplingMode.PerVoxel,
+                    BiomeGeologySamplingMode.Regional,
+                    BiomeGeologySamplingMode.RegionalHybrid,
+                },
+                1 => new[]
+                {
+                    BiomeGeologySamplingMode.Regional,
+                    BiomeGeologySamplingMode.RegionalHybrid,
+                    BiomeGeologySamplingMode.PerVoxel,
+                },
+                _ => new[]
+                {
+                    BiomeGeologySamplingMode.RegionalHybrid,
+                    BiomeGeologySamplingMode.PerVoxel,
+                    BiomeGeologySamplingMode.Regional,
+                },
+            };
+            foreach (var mode in modes)
             {
-                regionalRuns.Add(MeasureGeologySelection(
-                    regionalMaterials, sample));
-                perVoxelRuns.Add(MeasureGeologySelection(
-                    perVoxelMaterials, sample));
+                var measured = mode switch
+                {
+                    BiomeGeologySamplingMode.PerVoxel =>
+                        MeasureGeologySelection(perVoxelMaterials, sample),
+                    BiomeGeologySamplingMode.Regional =>
+                        MeasureGeologySelection(regionalMaterials, sample),
+                    BiomeGeologySamplingMode.RegionalHybrid =>
+                        MeasureGeologySelection(hybridMaterials, sample),
+                    _ => throw new ArgumentOutOfRangeException(nameof(mode)),
+                };
+                switch (mode)
+                {
+                    case BiomeGeologySamplingMode.PerVoxel:
+                        perVoxelRuns.Add(measured);
+                        break;
+                    case BiomeGeologySamplingMode.Regional:
+                        regionalRuns.Add(measured);
+                        break;
+                    case BiomeGeologySamplingMode.RegionalHybrid:
+                        hybridRuns.Add(measured);
+                        break;
+                }
             }
         }
 
@@ -1232,6 +1316,7 @@ static object CaptureGeologySamplingDiagnostics(
             Repetitions = perVoxelRuns.Count,
             PerVoxel = Summarize(perVoxelRuns),
             Regional = Summarize(regionalRuns),
+            RegionalHybrid = Summarize(hybridRuns),
         });
     }
 
@@ -1873,6 +1958,7 @@ internal sealed record Arguments(
                     {
                         "per-voxel" => BiomeGeologySamplingMode.PerVoxel,
                         "regional" => BiomeGeologySamplingMode.Regional,
+                        "regional-hybrid" => BiomeGeologySamplingMode.RegionalHybrid,
                         var mode => throw new ArgumentException(
                             $"Unknown material-map-sampling-mode: {mode}."),
                     };
