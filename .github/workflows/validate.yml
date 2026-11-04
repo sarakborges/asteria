@@ -124,6 +124,16 @@ jobs:
             --material-map-sampling-mode regional \
             --material-map-output biome-map-geology-ocean-regional.svg
 
+      - name: Render per-voxel geology in ocean terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 64 \
+            --material-map-biome asteria:overworld/ocean \
+            --material-map-sampling-mode per-voxel \
+            --material-map-output biome-map-geology-ocean-per-voxel.svg
+
       - name: Render materialized 3D geology on elevated mountain terrain
         run: |
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
@@ -142,6 +152,32 @@ jobs:
             --material-map-biome asteria:overworld/mountains \
             --material-map-sampling-mode regional \
             --material-map-output biome-map-geology-mountains-regional.svg
+
+      - name: Render per-voxel geology on elevated mountain terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/mountains \
+            --material-map-sampling-mode per-voxel \
+            --material-map-output biome-map-geology-mountains-per-voxel.svg
+
+      - name: Render authored and regional geology in swamp terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 0 --center-z 0 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/swamp \
+            --material-map-output biome-map-geology-swamp-authored.svg
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 0 --center-z 0 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/swamp \
+            --material-map-sampling-mode regional \
+            --material-map-output biome-map-geology-swamp-regional.svg
 
       - name: Upload worldgen query baseline
         if: always()
