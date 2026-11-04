@@ -1785,7 +1785,6 @@ public sealed class SurfaceChunkMaterializer
         var zRows = new ushort[Chunk.Size * Chunk.Size];
         var yRows = new ushort[Chunk.Area];
 
-        // Sample occupancy once and derive the three axis projections from it.
         for (var z = 0; z < size; z++)
         for (var x = 0; x < size; x++)
         {
@@ -1795,7 +1794,6 @@ public sealed class SurfaceChunkMaterializer
                     row |= (ushort)(1u << y);
             yRows[z * size + x] = row;
         }
-
         for (var y = 0; y < size; y++)
         for (var z = 0; z < size; z++)
         {
@@ -1805,7 +1803,6 @@ public sealed class SurfaceChunkMaterializer
                     row |= (ushort)(1u << x);
             xRows[y * size + z] = row;
         }
-
         for (var y = 0; y < size; y++)
         for (var x = 0; x < size; x++)
         {
@@ -1899,7 +1896,10 @@ public sealed class SurfaceChunkMaterializer
     {
         chunk.RestoreDirectionalFaceBaseBlockAtLinearIndex(index);
         var data = chunk.DirectionalFaceDataAtLinearIndex(index);
-        if (!data.IsTerrainVoxel)
+        if (!data.IsTerrainVoxel ||
+            worldY <= 0 ||
+            (_floorY is { } floorY && worldY <= floorY) ||
+            (_roofY is { } roofY && worldY >= roofY))
             return false;
         if (!data.HasCandidates)
         {
@@ -2084,6 +2084,284 @@ public sealed class SurfaceChunkMaterializer
             PaletteWriteEstimatedMilliseconds: applyMilliseconds,
             OtherEstimatedMilliseconds: 0);
     }
+
+    internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
+        VoxelWorld world, ChunkCoord arriving)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
+        if (maximumDepth <= 0)
+            return Array.Empty<WorldVoxelCoord>();
+
+        var changedSources = new HashSet<(ChunkCoord Coord, int Index)>();
+        var dirtyChunks = new HashSet<ChunkCoord>();
+        var ensured = new HashSet<ChunkCoord>();
+        var maxChunkOffset = (maximumDepth + Chunk.Size - 1) / Chunk.Size;
+
+        for (var axis = 0; axis < 3; axis++)
+        for (var sign = -1; sign <= 1; sign += 2)
+        for (var offset = 0; offset <= maxChunkOffset; offset++)
+        {
+            var sourceCoord = OffsetChunk(arriving, axis, -sign * offset);
+            ReconcileChunkOutward(
+                world, sourceCoord, axis, sign, maximumDepth,
+                changedSources, dirtyChunks, ensured);
+        }
+        return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks);
+    }
+
+    internal IReadOnlyList<WorldVoxelCoord> ReconcileBlockCellChange(
+        VoxelWorld world, VoxelWorldEdit edit)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        if (edit.Previous.IsEmpty == edit.Current.IsEmpty)
+            return Array.Empty<WorldVoxelCoord>();
+        var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
+        if (maximumDepth <= 0)
+            return Array.Empty<WorldVoxelCoord>();
+
+        var changedSources = new HashSet<(ChunkCoord Coord, int Index)>();
+        var dirtyChunks = new HashSet<ChunkCoord>();
+        var ensured = new HashSet<ChunkCoord>();
+
+        for (var directionIndex = 0; directionIndex < 6; directionIndex++)
+        {
+            var direction = (DirectionalFaceDirection)directionIndex;
+            var (dx, dy, dz) = DirectionOffset(direction);
+            for (var distance = 1; distance <= maximumDepth; distance++)
+            {
+                var sourcePosition = new WorldVoxelCoord(
+                    checked(edit.Position.X - dx * distance),
+                    checked(edit.Position.Y - dy * distance),
+                    checked(edit.Position.Z - dz * distance));
+                if (sourcePosition.Y < 0)
+                    break;
+                var address = VoxelCoordinates.FromWorld(
+                    sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
+                if (!world.TryGetSavedCell(sourcePosition, out var sourceCell))
+                    break;
+                if (sourceCell.IsEmpty)
+                    continue;
+
+                // The first solid between this source and the edited cell
+                // occludes every deeper source on this axis-aligned ray.
+                if (!sourceCell.IsPlayerPlaced &&
+                    world.TryGetSavedChunk(address.Chunk, out var sourceChunk))
+                {
+                    EnsureDirectionalFaceData(
+                        address.Chunk, world, changedSources, dirtyChunks, ensured);
+                    var index = address.Local.X +
+                        Chunk.Size * (address.Local.Z + Chunk.Size * address.Local.Y);
+                    if (sourceChunk.UpdateDirectionalFaceCandidateAtLinearIndex(
+                            index, direction, distance,
+                            edit.Current.IsEmpty, updateRevision: false))
+                    {
+                        changedSources.Add((address.Chunk, index));
+                        dirtyChunks.Add(address.Chunk);
+                    }
+                }
+                break;
+            }
+        }
+        return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks);
+    }
+
+    private void ReconcileChunkOutward(
+        VoxelWorld world,
+        ChunkCoord sourceCoord,
+        int axis,
+        int sign,
+        int maximumDepth,
+        HashSet<(ChunkCoord Coord, int Index)> changedSources,
+        HashSet<ChunkCoord> dirtyChunks,
+        HashSet<ChunkCoord> ensured)
+    {
+        if (!world.TryGetSavedChunk(sourceCoord, out var sourceChunk))
+            return;
+        EnsureDirectionalFaceData(
+            sourceCoord, world, changedSources, dirtyChunks, ensured);
+
+        var origin = VoxelCoordinates.ChunkOrigin(sourceCoord);
+        var direction = DirectionForAxis(axis, sign);
+        var (dx, dy, dz) = DirectionOffset(direction);
+
+        for (var tangentA = 0; tangentA < Chunk.Size; tangentA++)
+        for (var tangentB = 0; tangentB < Chunk.Size; tangentB++)
+        {
+            var sourceDepth = 0;
+            var sourceLocal = default(LocalVoxelCoord);
+            VoxelCell sourceCell = VoxelCell.Empty;
+            for (; sourceDepth < Chunk.Size; sourceDepth++)
+            {
+                sourceLocal = BoundaryLocal(axis, sign, sourceDepth, tangentA, tangentB);
+                sourceCell = sourceChunk.GetCell(
+                    sourceLocal.X, sourceLocal.Y, sourceLocal.Z);
+                if (!sourceCell.IsEmpty)
+                    break;
+            }
+            if (sourceDepth >= Chunk.Size || sourceCell.IsPlayerPlaced)
+                continue;
+
+            var sourcePosition = new WorldVoxelCoord(
+                origin.X + sourceLocal.X,
+                origin.Y + sourceLocal.Y,
+                origin.Z + sourceLocal.Z);
+            var sourceIndex = sourceLocal.X +
+                Chunk.Size * (sourceLocal.Z + Chunk.Size * sourceLocal.Y);
+            var occluded = false;
+
+            for (var distance = sourceDepth + 1; distance <= maximumDepth; distance++)
+            {
+                var targetPosition = new WorldVoxelCoord(
+                    checked(sourcePosition.X + dx * distance),
+                    checked(sourcePosition.Y + dy * distance),
+                    checked(sourcePosition.Z + dz * distance));
+                var exposed = false;
+                if (!occluded)
+                {
+                    if (!world.TryGetSavedCell(targetPosition, out var targetCell))
+                        break;
+                    exposed = targetCell.IsEmpty;
+                    occluded = !exposed;
+                }
+                if (sourceChunk.UpdateDirectionalFaceCandidateAtLinearIndex(
+                        sourceIndex, direction, distance, exposed, updateRevision: false))
+                {
+                    changedSources.Add((sourceCoord, sourceIndex));
+                    dirtyChunks.Add(sourceCoord);
+                }
+            }
+        }
+    }
+
+    private void EnsureDirectionalFaceData(
+        ChunkCoord coord,
+        VoxelWorld world,
+        HashSet<(ChunkCoord Coord, int Index)> changedSources,
+        HashSet<ChunkCoord> dirtyChunks,
+        HashSet<ChunkCoord> ensured)
+    {
+        if (!ensured.Add(coord) ||
+            !world.TryGetSavedChunk(coord, out var chunk) ||
+            chunk.DirectionalFaceDataInitialized)
+            return;
+
+        var data = BuildDirectionalFaceVoxelData(chunk);
+        for (var index = 0; index < Chunk.Volume; index++)
+        {
+            if (!data[index].HasCandidates)
+                continue;
+            chunk.SetDirectionalFaceDataAtLinearIndex(
+                index, data[index], updateRevision: false);
+            changedSources.Add((coord, index));
+        }
+        chunk.MarkDirectionalFaceDataInitialized(updateRevision: false);
+        dirtyChunks.Add(coord);
+    }
+
+    private IReadOnlyList<WorldVoxelCoord> ApplyDirectionalFaceChanges(
+        VoxelWorld world,
+        HashSet<(ChunkCoord Coord, int Index)> changedSources,
+        HashSet<ChunkCoord> dirtyChunks)
+    {
+        var visualChanges = new HashSet<WorldVoxelCoord>();
+        foreach (var group in changedSources.GroupBy(entry => entry.Coord))
+        {
+            if (!world.TryGetSavedChunk(group.Key, out var chunk))
+                continue;
+            var origin = VoxelCoordinates.ChunkOrigin(group.Key);
+            var column = _columns.Get(group.Key.X, group.Key.Z);
+            var columns = new DirectionalPaletteColumnData[Chunk.Area];
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                var surface = column.BiomeAt(x, z);
+                var empty = column.CaveBiomeAt(x, z);
+                var emptyPalette = empty is null
+                    ? default
+                    : _materials.DirectionalPaletteFor(
+                        new BiomeRegionOwner(empty, BiomeRegionOwnerKind.Volume));
+                columns[z * Chunk.Size + x] = new DirectionalPaletteColumnData(
+                    surface, empty, column.VolumeBiomes[x, z],
+                    column.BaseHeightAt(x, z), column.SurfaceFluidCutDepthAt(x, z),
+                    emptyPalette);
+            }
+            DirectionalPaletteColumnData ColumnAt(int x, int z)
+            {
+                var localX = x - origin.X;
+                var localZ = z - origin.Z;
+                return (uint)localX < Chunk.Size && (uint)localZ < Chunk.Size
+                    ? columns[localZ * Chunk.Size + localX]
+                    : SampleDirectionalPaletteColumnData(x, z);
+            }
+            foreach (var (_, index) in group)
+            {
+                var y = index / Chunk.Area;
+                var layer = index % Chunk.Area;
+                var z = layer / Chunk.Size;
+                var x = layer % Chunk.Size;
+                var before = chunk.GetCellAtLinearIndexUnchecked(index);
+                ReapplyDirectionalFacePaletteAt(
+                    chunk, index, origin.X + x, origin.Y + y, origin.Z + z, ColumnAt);
+                var after = chunk.GetCellAtLinearIndexUnchecked(index);
+                if (before.Block != after.Block)
+                {
+                    visualChanges.Add(new WorldVoxelCoord(
+                        origin.X + x, origin.Y + y, origin.Z + z));
+                    dirtyChunks.Add(group.Key);
+                }
+            }
+        }
+        foreach (var coord in dirtyChunks)
+            world.MarkDerivedChunkMutation(coord);
+        return visualChanges
+            .OrderBy(position => position.Y)
+            .ThenBy(position => position.Z)
+            .ThenBy(position => position.X)
+            .ToArray();
+    }
+
+    private static ChunkCoord OffsetChunk(ChunkCoord coord, int axis, int delta) => axis switch
+    {
+        0 => coord with { X = checked(coord.X + delta) },
+        1 => coord with { Y = checked(coord.Y + delta) },
+        2 => coord with { Z = checked(coord.Z + delta) },
+        _ => throw new ArgumentOutOfRangeException(nameof(axis)),
+    };
+
+    private static DirectionalFaceDirection DirectionForAxis(int axis, int sign) =>
+        (axis, sign) switch
+        {
+            (0, > 0) => DirectionalFaceDirection.PositiveX,
+            (0, < 0) => DirectionalFaceDirection.NegativeX,
+            (1, > 0) => DirectionalFaceDirection.Up,
+            (1, < 0) => DirectionalFaceDirection.Down,
+            (2, > 0) => DirectionalFaceDirection.PositiveZ,
+            (2, < 0) => DirectionalFaceDirection.NegativeZ,
+            _ => throw new ArgumentOutOfRangeException(nameof(axis)),
+        };
+
+    private static (int X, int Y, int Z) DirectionOffset(
+        DirectionalFaceDirection direction) => direction switch
+    {
+        DirectionalFaceDirection.Up => (0, 1, 0),
+        DirectionalFaceDirection.NegativeX => (-1, 0, 0),
+        DirectionalFaceDirection.PositiveX => (1, 0, 0),
+        DirectionalFaceDirection.NegativeZ => (0, 0, -1),
+        DirectionalFaceDirection.PositiveZ => (0, 0, 1),
+        DirectionalFaceDirection.Down => (0, -1, 0),
+        _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+    };
+
+    private static LocalVoxelCoord BoundaryLocal(
+        int axis, int sign, int depth, int tangentA, int tangentB) =>
+        axis switch
+        {
+            0 => new LocalVoxelCoord(sign > 0 ? Chunk.Size - 1 - depth : depth, tangentA, tangentB),
+            1 => new LocalVoxelCoord(tangentA, sign > 0 ? Chunk.Size - 1 - depth : depth, tangentB),
+            2 => new LocalVoxelCoord(tangentA, tangentB, sign > 0 ? Chunk.Size - 1 - depth : depth),
+            _ => throw new ArgumentOutOfRangeException(nameof(axis)),
+        };
 
     private void MaterializeVolumeStructures(Chunk chunk, ChunkCoord coord)
     {
