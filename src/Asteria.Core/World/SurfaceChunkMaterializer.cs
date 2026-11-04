@@ -1765,36 +1765,56 @@ public sealed class SurfaceChunkMaterializer
         z << 16;
 
     private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(
-        TerrainDensityVolume densityVolume)
-    {
-        const int size = Chunk.Size;
-        if (_materials.MaximumDirectionalPaintDepth > 64)
-            throw new InvalidOperationException("Directional face palette depth cannot exceed 64 voxels.");
+        TerrainDensityVolume densityVolume) =>
+        BuildDirectionalFaceVoxelData(
+            (x, y, z) => densityVolume.IsSolidAtUnchecked(x, y, z));
 
+    private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(Chunk chunk) =>
+        BuildDirectionalFaceVoxelData((x, y, z) =>
+        {
+            var cell = chunk.GetCell(x, y, z);
+            return !cell.IsEmpty && !cell.IsPlayerPlaced;
+        });
+
+    private DirectionalFaceVoxelData[] BuildDirectionalFaceVoxelData(
+        Func<int, int, int, bool> isTerrainSolid)
+    {
+        ArgumentNullException.ThrowIfNull(isTerrainSolid);
+        const int size = Chunk.Size;
         var xRows = new ushort[Chunk.Size * Chunk.Size];
         var zRows = new ushort[Chunk.Size * Chunk.Size];
         var yRows = new ushort[Chunk.Area];
+
+        // Sample occupancy once and derive the three axis projections from it.
+        for (var z = 0; z < size; z++)
+        for (var x = 0; x < size; x++)
+        {
+            ushort row = 0;
+            for (var y = 0; y < size; y++)
+                if (isTerrainSolid(x, y, z))
+                    row |= (ushort)(1u << y);
+            yRows[z * size + x] = row;
+        }
+
         for (var y = 0; y < size; y++)
         for (var z = 0; z < size; z++)
         {
             ushort row = 0;
             for (var x = 0; x < size; x++)
-                if (densityVolume.IsSolidAtUnchecked(x, y, z))
+                if ((yRows[z * size + x] & (1u << y)) != 0)
                     row |= (ushort)(1u << x);
             xRows[y * size + z] = row;
         }
+
         for (var y = 0; y < size; y++)
         for (var x = 0; x < size; x++)
         {
             ushort row = 0;
             for (var z = 0; z < size; z++)
-                if (densityVolume.IsSolidAtUnchecked(x, y, z))
+                if ((yRows[z * size + x] & (1u << y)) != 0)
                     row |= (ushort)(1u << z);
             zRows[y * size + x] = row;
         }
-        for (var z = 0; z < size; z++)
-        for (var x = 0; x < size; x++)
-            yRows[z * size + x] = densityVolume.SolidColumnMaskAtUnchecked(x, z);
 
         static ushort Reverse16(ushort value)
         {
@@ -1805,11 +1825,31 @@ public sealed class SurfaceChunkMaterializer
             bits = ((bits & 0x00FFu) << 8) | ((bits >> 8) & 0x00FFu);
             return (ushort)bits;
         }
-        static ulong Positive(ushort row, int index) => (ushort)~row >> (index + 1);
-        static ulong Negative(ushort row, int index) =>
-            Reverse16((ushort)~row) >> (Chunk.Size - index);
 
+        static ulong EmptyPrefix(ushort row, int sourceIndex, bool positive, int maxDepth)
+        {
+            var solidsAhead = positive
+                ? (ulong)(row >> (sourceIndex + 1))
+                : (ulong)(Reverse16(row) >> (Chunk.Size - sourceIndex));
+            var firstSolidDistance =
+                System.Numerics.BitOperations.TrailingZeroCount(solidsAhead);
+            var length = Math.Min(maxDepth, firstSolidDistance);
+            return length switch
+            {
+                <= 0 => 0UL,
+                >= 64 => ulong.MaxValue,
+                _ => (1UL << length) - 1UL,
+            };
+        }
+
+        var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
+        if (maximumDepth > 64)
+            throw new InvalidOperationException(
+                "Directional face palette depth cannot exceed 64 voxels.");
         var result = new DirectionalFaceVoxelData[Chunk.Volume];
+        if (maximumDepth == 0)
+            return result;
+
         for (var y = 0; y < size; y++)
         for (var z = 0; z < size; z++)
         for (var x = 0; x < size; x++)
@@ -1817,14 +1857,22 @@ public sealed class SurfaceChunkMaterializer
             var yRow = yRows[z * size + x];
             if ((yRow & (1u << y)) == 0)
                 continue;
-            var index = x + size * (z + size * y);
+
             var xRow = xRows[y * size + z];
             var zRow = zRows[y * size + x];
+            var up = EmptyPrefix(yRow, y, true, maximumDepth);
+            var negativeX = EmptyPrefix(xRow, x, false, maximumDepth);
+            var positiveX = EmptyPrefix(xRow, x, true, maximumDepth);
+            var negativeZ = EmptyPrefix(zRow, z, false, maximumDepth);
+            var positiveZ = EmptyPrefix(zRow, z, true, maximumDepth);
+            var down = EmptyPrefix(yRow, y, false, maximumDepth);
+            if ((up | negativeX | positiveX | negativeZ | positiveZ | down) == 0)
+                continue;
+
+            var index = x + size * (z + size * y);
             result[index] = new DirectionalFaceVoxelData(
-                true, Positive(yRow, y),
-                Negative(xRow, x), Positive(xRow, x),
-                Negative(zRow, z), Positive(zRow, z),
-                Negative(yRow, y), BlockRuntimeId.Air);
+                true, up, negativeX, positiveX, negativeZ, positiveZ, down,
+                BlockRuntimeId.Air);
         }
         return result;
     }
@@ -1872,9 +1920,10 @@ public sealed class SurfaceChunkMaterializer
             : new BiomeRegionOwner(volumeBiome, BiomeRegionOwnerKind.Volume);
         var solidPalette = _materials.DirectionalPaletteFor(solidOwner);
 
-        for (var distance = 1; distance <= _materials.MaximumDirectionalPaintDepth; distance++)
+        var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
+        for (var distance = 1; distance <= maximumDepth; distance++)
         {
-            var bit = 1UL << checked((int)distance - 1);
+            var bit = 1UL << (distance - 1);
             for (var direction = 0; direction < 6; direction++)
             {
                 if ((data.Candidates((DirectionalFaceDirection)direction) & bit) == 0)
@@ -1947,20 +1996,17 @@ public sealed class SurfaceChunkMaterializer
         var buffer = job.DirectionalFaceVoxelData ??
             throw new InvalidOperationException("Directional face candidate buffer is missing.");
         var candidateIndices = new List<int>();
-        var hasData = false;
         for (var index = 0; index < Chunk.Volume; index++)
         {
             var data = buffer[index];
-            if (!data.IsTerrainVoxel || chunk.GetCellAtLinearIndexUnchecked(index).IsEmpty)
+            if (!data.HasCandidates ||
+                chunk.GetCellAtLinearIndexUnchecked(index).IsEmpty)
                 continue;
             chunk.SetDirectionalFaceDataAtLinearIndex(index, data, updateRevision: false);
-            hasData = true;
-            if (data.HasCandidates)
-                candidateIndices.Add(index);
+            candidateIndices.Add(index);
         }
         job.DirectionalFaceVoxelData = null;
-        if (hasData)
-            chunk.MarkDirectionalFaceDataChanged();
+        chunk.MarkDirectionalFaceDataInitialized();
 
         var origin = VoxelCoordinates.ChunkOrigin(job.Coord);
         var column = RequiredColumn(job);
