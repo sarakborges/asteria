@@ -72,8 +72,8 @@ public static class BiomeDefinitionJson
             OptionalSingle(value, "boundaryGrainInfluence") ?? 0f,
             OptionalString(value, "samplingMode") switch
             {
-                null or "continuous" => BiomeGeologySamplingMode.Continuous,
-                "regional" => BiomeGeologySamplingMode.Regional,
+                null or "regional" => BiomeGeologySamplingMode.Regional,
+                "per-voxel" => BiomeGeologySamplingMode.PerVoxel,
                 var mode => throw new FormatException(
                     $"Unknown geology.samplingMode: {mode}."),
             },

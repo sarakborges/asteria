@@ -4,6 +4,26 @@ namespace Asteria.Core.Tests;
 
 public sealed class SparseOverworldBiomeContentTests
 {
+    [Fact]
+    public void DefaultPackUsesRegionalGeologyEverywhereExceptSwamp()
+    {
+        var geologyBiomes = ReadJsonDirectory("biomes")
+            .Select(BiomeDefinitionJson.Parse)
+            .Where(biome => biome.Geology is not null)
+            .ToArray();
+
+        Assert.NotEmpty(geologyBiomes);
+        foreach (var biome in geologyBiomes)
+        {
+            var expected = biome.Id == "asteria:overworld/swamp"
+                ? BiomeGeologySamplingMode.PerVoxel
+                : BiomeGeologySamplingMode.Regional;
+            Assert.Equal(
+                expected,
+                Assert.IsType<BiomeGeologyDefinition>(biome.Geology).SamplingMode);
+        }
+    }
+
     [Theory]
     [InlineData("arctic", "frozen_plain", "ice_fields", "rocky_ridges", 6)]
     [InlineData("desert", "open_dunes", "sand_flats", "sandstone_outcrops", 4)]

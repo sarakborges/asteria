@@ -620,10 +620,10 @@ public sealed class BiomeSurfacePatchDefinition
     public SurfacePlacementConditions? Conditions { get; }
 }
 
-/// <summary>Chooses continuous noise fields or deterministic deformed 3D material regions.</summary>
+/// <summary>Chooses per-voxel noise sampling or deterministic deformed 3D material regions.</summary>
 public enum BiomeGeologySamplingMode : byte
 {
-    Continuous,
+    PerVoxel,
     Regional,
 }
 
@@ -653,7 +653,7 @@ public sealed class BiomeGeologyDefinition
         uint? clusterVerticalScale = null,
         float clusterInfluence = 0f,
         float boundaryGrainInfluence = 0f,
-        BiomeGeologySamplingMode samplingMode = BiomeGeologySamplingMode.Continuous,
+        BiomeGeologySamplingMode samplingMode = BiomeGeologySamplingMode.Regional,
         uint? regionScale = null,
         uint? regionVerticalScale = null,
         float regionWarpStrength = 0.22f)

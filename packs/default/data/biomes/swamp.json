@@ -308,7 +308,7 @@
   },
   "geology": {
     "baseBlock": "asteria:stone",
-    "samplingMode": "regional",
+    "samplingMode": "per-voxel",
     "blocks": [
       "asteria:mud",
       "asteria:clay",
