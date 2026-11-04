@@ -2596,7 +2596,6 @@ public sealed class SurfaceChunkMaterializer
                 owner.Biome, worldX, worldY, worldZ, face, depth);
             return chunk.SetDirectionalFacePaletteBlockAtLinearIndex(index, replacement);
         }
-        return false;
     }
 
     private void MaterializeDirectionalFacePalettes(MaterializationJob job)
