@@ -1096,14 +1096,55 @@ public sealed class BiomeSurfaceMaterialField
                 detailCellX, detailCellY, detailCellZ);
             var detailUnit = (detailHash >> 11) *
                 (1d / 9007199254740992d);
-            var alternateCount = candidateBlocks.Length - 1;
-            var alternateIndex = Math.Min(
-                alternateCount - 1,
-                (int)(detailUnit * alternateCount));
-            if (alternateIndex >= selectedIndex)
-                alternateIndex++;
+            return SelectRegionalDetailMaterial(
+                detailUnit, candidateBlocks, cumulativeThresholds,
+                selectedIndex);
+        }
 
-            return candidateBlocks[alternateIndex];
+        private static BlockRuntimeId SelectRegionalDetailMaterial(
+            double sample,
+            BlockRuntimeId[] candidateBlocks,
+            double[] cumulativeThresholds,
+            int excludedIndex)
+        {
+            // Preserve authored mineral weights when selecting an inclusion.
+            // Re-normalize only the alternatives, excluding the macro cell's
+            // selected material so the finer layer always adds contrast.
+            var previousThreshold = 0d;
+            var excludedProbability = 0d;
+            for (var index = 0; index < cumulativeThresholds.Length; index++)
+            {
+                var threshold = cumulativeThresholds[index];
+                if (index == excludedIndex)
+                    excludedProbability = threshold - previousThreshold;
+                previousThreshold = threshold;
+            }
+
+            var remainingProbability = Math.Max(0d, 1d - excludedProbability);
+            if (remainingProbability <= 1e-12d)
+                return candidateBlocks[excludedIndex];
+
+            var target = sample * remainingProbability;
+            var cumulative = 0d;
+            previousThreshold = 0d;
+            var fallbackIndex = -1;
+            for (var index = 0; index < cumulativeThresholds.Length; index++)
+            {
+                var threshold = cumulativeThresholds[index];
+                var probability = threshold - previousThreshold;
+                previousThreshold = threshold;
+                if (index == excludedIndex)
+                    continue;
+
+                fallbackIndex = index;
+                cumulative += probability;
+                if (target < cumulative)
+                    return candidateBlocks[index];
+            }
+
+            return candidateBlocks[fallbackIndex >= 0
+                ? fallbackIndex
+                : excludedIndex];
         }
 
         private static double[] CumulativeThresholds(
