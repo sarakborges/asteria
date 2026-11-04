@@ -590,6 +590,11 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     var allocatedBytesByStage = new long[stages.Length];
     var advanceCountByStage = new int[stages.Length];
     var paletteProfiles = new List<DirectionalFacePaletteMetrics>();
+    var directionalMetadataChunkCount = 0;
+    var directionalMetadataVoxelCount = 0L;
+    var directionalMetadataPaletteEntryCount = 0L;
+    var maximumDirectionalMetadataVoxelsPerChunk = 0;
+    var totalNonEmptyVoxels = 0L;
     var totalTimer = Stopwatch.StartNew();
 
     foreach (var coord in desired)
@@ -614,6 +619,21 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                 paletteProfiles.Add(profile);
             }
         }
+
+        var materializedChunk = job.Result ??
+            throw new InvalidOperationException(
+                $"Chunk {coord} completed without a materialized result.");
+        var metadataVoxels = materializedChunk.DirectionalFaceDataVoxelCount;
+        if (metadataVoxels > 0)
+        {
+            directionalMetadataChunkCount++;
+            directionalMetadataVoxelCount += metadataVoxels;
+            directionalMetadataPaletteEntryCount +=
+                materializedChunk.DirectionalFaceDataPaletteEntryCount;
+            maximumDirectionalMetadataVoxelsPerChunk = Math.Max(
+                maximumDirectionalMetadataVoxelsPerChunk, metadataVoxels);
+        }
+        totalNonEmptyVoxels += materializedChunk.NonEmptyVoxelCount;
     }
 
     totalTimer.Stop();
@@ -708,6 +728,28 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         TotalAdvanceMs = totalAdvanceMs,
         ByStage = byStage,
         DirectionalFacePaletteProfile = paletteProfile,
+        DirectionalMetadataStorage = new
+        {
+            ChunksWithMetadata = directionalMetadataChunkCount,
+            TotalChunks = desired.Length,
+            TotalMetadataVoxels = directionalMetadataVoxelCount,
+            TotalNonEmptyVoxels = totalNonEmptyVoxels,
+            MetadataVoxelPercentOfNonEmpty = totalNonEmptyVoxels == 0
+                ? 0d
+                : directionalMetadataVoxelCount * 100d / totalNonEmptyVoxels,
+            TotalPaletteEntries = directionalMetadataPaletteEntryCount,
+            AverageMetadataVoxelsPerBearingChunk =
+                directionalMetadataChunkCount == 0
+                    ? 0d
+                    : directionalMetadataVoxelCount / (double)directionalMetadataChunkCount,
+            MaximumMetadataVoxelsPerChunk =
+                maximumDirectionalMetadataVoxelsPerChunk,
+            DenseIndexBytes =
+                (long)directionalMetadataChunkCount * Chunk.Volume * sizeof(ushort),
+            OccupancyBitsetBytes =
+                (long)directionalMetadataChunkCount *
+                ((Chunk.Volume + 63) / 64) * sizeof(ulong),
+        },
     };
 }
 
