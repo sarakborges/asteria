@@ -215,7 +215,7 @@ jobs:
         env:
           # Pre-feature baseline: last correct version before per-voxel
           # directional exposure metadata was introduced.
-          BASELINE_SHA: f6affd92ddb1dcd109238c25f8ea40d1172bd872
+          BASELINE_SHA: a3dcf68050051e88a337f154945bf321c45edbf7
         run: |
           set -euo pipefail
           terrain_commit="$(git log --first-parent -1 --format=%H HEAD -- \
