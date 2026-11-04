@@ -7,7 +7,7 @@ public sealed class GeologyMaterializationRegressionTests
     private const ulong Seed = 0xA57E_3D10_2026UL;
 
     [Theory]
-    [InlineData(BiomeGeologySamplingMode.Continuous)]
+    [InlineData(BiomeGeologySamplingMode.PerVoxel)]
     [InlineData(BiomeGeologySamplingMode.Regional)]
     public void MaterializedChunksMatchWorldSpaceGeologyAcrossChunkSeamsAndGenerationOrder(
         BiomeGeologySamplingMode samplingMode)
@@ -683,7 +683,7 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Theory]
-    [InlineData(BiomeGeologySamplingMode.Continuous)]
+    [InlineData(BiomeGeologySamplingMode.PerVoxel)]
     [InlineData(BiomeGeologySamplingMode.Regional)]
     public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns(
         BiomeGeologySamplingMode samplingMode)
@@ -771,7 +771,7 @@ public sealed class GeologyMaterializationRegressionTests
     }
 
     [Theory]
-    [InlineData(BiomeGeologySamplingMode.Continuous)]
+    [InlineData(BiomeGeologySamplingMode.PerVoxel)]
     [InlineData(BiomeGeologySamplingMode.Regional)]
     public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation(
         BiomeGeologySamplingMode samplingMode)
@@ -812,6 +812,79 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.Contains(blocks.GetId("asteria:gravel"), surfaceMaterials);
         Assert.True(surfaceMaterials.Count >= 4,
             "A flat surface should retain its grass cover while exposing varied geological materials.");
+    }
+
+    [Fact]
+    public void GeologySamplingDefaultsToRegionalWhenOmittedFromBiomeJson()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/default_regional_geology_json",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 128,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }]
+              },
+              "geology": {
+                "baseBlock": "asteria:stone",
+                "blocks": ["asteria:dirt", "asteria:gravel"],
+                "scale": 48,
+                "verticalScale": 28,
+                "detailScale": 12,
+                "selectionScale": 32,
+                "coverage": 0.65
+              }
+            }
+            """);
+
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Equal(BiomeGeologySamplingMode.Regional, geology.SamplingMode);
+    }
+
+    [Fact]
+    public void PerVoxelGeologyModeCanBeAuthoredInBiomeJson()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/per_voxel_geology_json",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 128,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }]
+              },
+              "geology": {
+                "baseBlock": "asteria:stone",
+                "blocks": ["asteria:dirt", "asteria:gravel"],
+                "scale": 48,
+                "verticalScale": 28,
+                "detailScale": 12,
+                "selectionScale": 32,
+                "coverage": 0.65,
+                "samplingMode": "per-voxel"
+              }
+            }
+            """);
+
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Equal(BiomeGeologySamplingMode.PerVoxel, geology.SamplingMode);
     }
 
     [Fact]
@@ -871,7 +944,7 @@ public sealed class GeologyMaterializationRegressionTests
 
     private static BiomeDefinition CreateBiome(
         float surfaceCoverage = 0f,
-        BiomeGeologySamplingMode samplingMode = BiomeGeologySamplingMode.Continuous) => new(
+        BiomeGeologySamplingMode samplingMode = BiomeGeologySamplingMode.Regional) => new(
         "asteria:test/geology",
         new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
         new BiomeTerrainDefinition(
