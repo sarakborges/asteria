@@ -71,6 +71,31 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CaveSpikeClearanceBitCountsMatchScalarColumnScan()
+    {
+        const int height = 16;
+        for (var mask = 0; mask <= ushort.MaxValue; mask += 257)
+        for (var localY = 0; localY < height; localY++)
+        foreach (var down in new[] { false, true })
+        {
+            var expected = 0;
+            for (var offset = 0; offset < height; offset++)
+            {
+                var y = localY + (down ? -offset : offset);
+                if ((uint)y >= height ||
+                    (mask & (1 << y)) != 0)
+                    break;
+                expected++;
+            }
+
+            Assert.Equal(
+                expected,
+                CaveSpikeField.CountContiguousVoidDepthInMask(
+                    (ushort)mask, height, localY, down));
+        }
+    }
+
+    [Fact]
     public void CaveDensityIsSubtractiveAndCannotPierceTheSurface()
     {
         var generator = Generator(
