@@ -2222,13 +2222,24 @@ public sealed class SurfaceChunkMaterializer
                 column.BaseHeightAt(x, z), column.SurfaceFluidCutDepthAt(x, z),
                 emptyPalette);
         }
+        var externalColumns =
+            new Dictionary<(int X, int Z), DirectionalPaletteColumnData>();
+        var neighborColumnLookups = 0;
         DirectionalPaletteColumnData ColumnAt(int x, int z)
         {
             var localX = x - origin.X;
             var localZ = z - origin.Z;
-            return (uint)localX < Chunk.Size && (uint)localZ < Chunk.Size
-                ? columns[localZ * Chunk.Size + localX]
-                : SampleDirectionalPaletteColumnData(x, z);
+            if ((uint)localX < Chunk.Size && (uint)localZ < Chunk.Size)
+                return columns[localZ * Chunk.Size + localX];
+
+            var key = (x, z);
+            if (!externalColumns.TryGetValue(key, out var data))
+            {
+                data = SampleDirectionalPaletteColumnData(x, z);
+                externalColumns.Add(key, data);
+                neighborColumnLookups++;
+            }
+            return data;
         }
 
         var faceProbes = 0;
@@ -2273,7 +2284,7 @@ public sealed class SurfaceChunkMaterializer
             SurfaceColumns: Chunk.Area,
             SolidVoxels: candidateIndices.Count,
             FaceProbes: faceProbes,
-            NeighborColumnLookups: 0,
+            NeighborColumnLookups: neighborColumnLookups,
             SolidPaletteLookups: 0,
             EmptyRegionPaletteLookups: 0,
             DensityProbes: job.DirectionalFacePaletteDensityProbes,
@@ -2430,13 +2441,22 @@ public sealed class SurfaceChunkMaterializer
                     column.BaseHeightAt(x, z), column.SurfaceFluidCutDepthAt(x, z),
                     emptyPalette);
             }
+            var externalColumns =
+                new Dictionary<(int X, int Z), DirectionalPaletteColumnData>();
             DirectionalPaletteColumnData ColumnAt(int x, int z)
             {
                 var localX = x - origin.X;
                 var localZ = z - origin.Z;
-                return (uint)localX < Chunk.Size && (uint)localZ < Chunk.Size
-                    ? columns[localZ * Chunk.Size + localX]
-                    : SampleDirectionalPaletteColumnData(x, z);
+                if ((uint)localX < Chunk.Size && (uint)localZ < Chunk.Size)
+                    return columns[localZ * Chunk.Size + localX];
+
+                var key = (x, z);
+                if (!externalColumns.TryGetValue(key, out var data))
+                {
+                    data = SampleDirectionalPaletteColumnData(x, z);
+                    externalColumns.Add(key, data);
+                }
+                return data;
             }
             foreach (var (_, index) in group)
             {
