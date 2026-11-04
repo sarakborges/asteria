@@ -127,19 +127,9 @@ public sealed class CaveSpikeField
             y <= 0 || y >= baseY)
             return false;
 
-        // Occupancy is independent of the authored spike rule. Resolve it
-        // once, before candidate hashing, spacing and cluster-noise work.
-        // The materializer supplies the current chunk's compact column mask,
-        // so in-chunk support checks need only one bit test.
         var supportY = y + (down ? 1 : -1);
-        if ((!anchorKnownVoid && !IsVoidAt(
-                densityVolume, densityOriginY, localX, localZ,
-                surfaceBiome, volumeBiome, baseY, x, z, y)) ||
-            !IsSolidSupportAt(
-                densityVolume, densityOriginY, localX, localZ,
-                solidColumnMask, surfaceBiome, volumeBiome,
-                baseY, x, z, supportY))
-            return false;
+        var anchorValidated = anchorKnownVoid;
+        var supportValidated = false;
 
         // A specific surface material takes precedence over the generic
         // stone fallback. One column cannot spawn competing materials.
@@ -165,6 +155,27 @@ public sealed class CaveSpikeField
             var direction = down ? CaveSpikeDirection.Down : CaveSpikeDirection.Up;
             if (!definition.Directions.Contains(direction))
                 continue;
+
+            // Resolve occupancy only after confirming this rule supports the
+            // requested direction, but before any expensive stochastic work.
+            // Several matching rules share the same anchor and support.
+            if (!anchorValidated)
+            {
+                if (!IsVoidAt(
+                        densityVolume, densityOriginY, localX, localZ,
+                        surfaceBiome, volumeBiome, baseY, x, z, y))
+                    return false;
+                anchorValidated = true;
+            }
+            if (!supportValidated)
+            {
+                if (!IsSolidSupportAt(
+                        densityVolume, densityOriginY, localX, localZ,
+                        solidColumnMask, surfaceBiome, volumeBiome,
+                        baseY, x, z, supportY))
+                    return false;
+                supportValidated = true;
+            }
 
             var domain = down ? rule.DownDomain : rule.UpDomain;
             var roll = WorldGenerationEntropy.Unit(
