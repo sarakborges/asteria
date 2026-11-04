@@ -1459,7 +1459,6 @@ public sealed class SurfaceChunkMaterializer
             InitialBlocks?.Dispose();
             InitialBlocks = null;
             DirectionalFaceOccupancyMasks = null;
-            DirectionalFaceOccupancyMasks = null;
             _geologyNoiseCache?.Dispose();
             _geologyNoiseCache = null;
         }
@@ -1962,6 +1961,14 @@ public sealed class SurfaceChunkMaterializer
         boundaryDensityProbes = 0;
         var densityProbeCount = 0;
         var boundaryDensityProbeCount = 0;
+        if (maximumDepth == 0)
+        {
+            return new DirectionalFaceOccupancyMasks(
+                0, 1,
+                Array.Empty<ulong>(),
+                Array.Empty<ulong>(),
+                Array.Empty<ulong>());
+        }
 
         var regionSize = checked(size + maximumDepth * 2);
         var wordCount = (regionSize + 63) >> 6;
