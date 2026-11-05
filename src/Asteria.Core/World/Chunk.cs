@@ -233,19 +233,29 @@ public sealed class Chunk
             int voxelIndex,
             BlockRuntimeId block)
         {
-            var chunk = _chunk ??
-                throw new ObjectDisposedException(nameof(InitialBlockWriter));
             if ((uint)voxelIndex >= Volume)
                 throw new ArgumentOutOfRangeException(nameof(voxelIndex));
 
-            var value = new VoxelCell(block);
+            return SetBlockAtLinearIndexUnchecked(voxelIndex, block);
+        }
+
+        /// <summary>
+        /// Initial terrain write for loops that have already bounded X/Y/Z
+        /// to the chunk. Keeps the public writer's range validation available.
+        /// </summary>
+        internal bool SetBlockAtLinearIndexUnchecked(
+            int voxelIndex,
+            BlockRuntimeId block)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialBlockWriter));
             var cachedPaletteIndex =
                 block.Value < _paletteIndicesByBlock.Length
                     ? _paletteIndicesByBlock[block.Value]
                     : (ushort)0;
-            var changed = chunk._cells.SetInitialWithPaletteIndex(
+            var changed = chunk._cells.SetInitialWithPaletteIndexUnchecked(
                 voxelIndex,
-                value,
+                new VoxelCell(block),
                 cachedPaletteIndex,
                 out var resolvedPaletteIndex);
             if (cachedPaletteIndex == 0 &&
