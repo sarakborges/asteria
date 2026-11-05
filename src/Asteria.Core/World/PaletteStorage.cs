@@ -1,5 +1,19 @@
 namespace Asteria.Core.World;
 
+internal readonly record struct PaletteStorageCapacityMetrics(
+    int OccupiedVoxelCount,
+    int PaletteEntryCount,
+    int PaletteCapacity,
+    int UsageEntryCount,
+    int UsageCapacity,
+    int LookupEntryCount,
+    int LookupCapacity,
+    int FreeSlotCount,
+    int FreeSlotCapacity,
+    int IndexCount,
+    int OccupancyWordCount,
+    int MeshletOccupancyCount);
+
 internal sealed class PaletteStorage<T>
     where T : struct, IEquatable<T>
 {
@@ -63,6 +77,27 @@ internal sealed class PaletteStorage<T>
     public int OccupiedCount => _state.OccupiedCount;
 
     public int ActivePaletteEntryCount => _state.Lookup.Count;
+
+    internal PaletteStorageCapacityMetrics CapacityMetrics
+    {
+        get
+        {
+            var state = _state;
+            return new PaletteStorageCapacityMetrics(
+                state.OccupiedCount,
+                state.Palette.Count,
+                state.Palette.Capacity,
+                state.Usage.Count,
+                state.Usage.Capacity,
+                state.Lookup.Count,
+                state.Lookup.EnsureCapacity(0),
+                state.FreeSlots.Count,
+                state.FreeSlots.Capacity,
+                state.Indices.Length,
+                state.Occupied.Length,
+                state.MeshletOccupiedCounts.Length);
+        }
+    }
 
     public int OccupiedCountInMeshlet(int meshletIndex)
     {

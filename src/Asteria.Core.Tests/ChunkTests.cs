@@ -73,6 +73,42 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void PaletteStorageCapacityDiagnosticsReportCollectionCapacitiesAndFixedBuffers()
+    {
+        var palette = new PaletteStorage<DirectionalFaceVoxelData>();
+        var empty = palette.CapacityMetrics;
+
+        Assert.Equal(0, empty.OccupiedVoxelCount);
+        Assert.Equal(0, empty.PaletteEntryCount);
+        Assert.Equal(0, empty.PaletteCapacity);
+        Assert.Equal(0, empty.UsageEntryCount);
+        Assert.Equal(0, empty.LookupEntryCount);
+        Assert.Equal(0, empty.LookupCapacity);
+        Assert.Equal(0, empty.FreeSlotCount);
+        Assert.Equal(0, empty.FreeSlotCapacity);
+        Assert.Equal(Chunk.Volume, empty.IndexCount);
+        Assert.Equal((Chunk.Volume + 63) / 64, empty.OccupancyWordCount);
+        Assert.Equal(ChunkMeshletMask.Count, empty.MeshletOccupancyCount);
+
+        var first = new DirectionalFaceVoxelData(
+            true, 1UL, 0, 0, 0, 0, 0, BlockRuntimeId.Air);
+        var second = first.WithBaseBlock(new BlockRuntimeId(12));
+        Assert.True(palette.SetInitial(0, first));
+        Assert.True(palette.SetInitial(1, first));
+        Assert.True(palette.SetInitial(2, second));
+
+        var populated = palette.CapacityMetrics;
+        Assert.Equal(3, populated.OccupiedVoxelCount);
+        Assert.Equal(2, populated.PaletteEntryCount);
+        Assert.Equal(populated.PaletteEntryCount, populated.UsageEntryCount);
+        Assert.Equal(populated.PaletteEntryCount, populated.LookupEntryCount);
+        Assert.True(populated.PaletteCapacity >= populated.PaletteEntryCount);
+        Assert.True(populated.UsageCapacity >= populated.UsageEntryCount);
+        Assert.True(populated.LookupCapacity >= populated.LookupEntryCount);
+        Assert.Equal(0, populated.FreeSlotCount);
+    }
+
+    [Fact]
     public void DirectionalFaceMetadataCloneAndBaseBlockRestorePreserveOverflowMasks()
     {
         const int index = 2 + Chunk.Size * (4 + Chunk.Size * 3);

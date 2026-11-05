@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using Asteria.Core.Content;
 using Asteria.Core.Diagnostics;
 using Asteria.Core.World;
@@ -596,6 +597,10 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     var directionalMetadataChunkCount = 0;
     var directionalMetadataVoxelCount = 0L;
     var directionalMetadataPaletteEntryCount = 0L;
+    var directionalMetadataStorageProfiles = new List<(
+        ChunkCoord Coord,
+        int MetadataVoxelCount,
+        PaletteStorageCapacityMetrics Storage)>();
     var maximumDirectionalMetadataVoxelsPerChunk = 0;
     var totalNonEmptyVoxels = 0L;
     var totalTimer = Stopwatch.StartNew();
@@ -641,6 +646,12 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                 materializedChunk.DirectionalFaceDataPaletteEntryCount;
             maximumDirectionalMetadataVoxelsPerChunk = Math.Max(
                 maximumDirectionalMetadataVoxelsPerChunk, metadataVoxels);
+            directionalMetadataStorageProfiles.Add((
+                coord,
+                metadataVoxels,
+                materializedChunk.DirectionalFaceStorageCapacityMetrics ??
+                    throw new InvalidOperationException(
+                        $"Chunk {coord} has directional metadata without palette storage diagnostics.")));
         }
         totalNonEmptyVoxels += materializedChunk.NonEmptyVoxelCount;
     }
@@ -737,6 +748,65 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             : paletteProfiles.Average(profile => profile.TotalMilliseconds),
     };
 
+    var storageProfiles = directionalMetadataStorageProfiles;
+    var paletteElementSizeBytes = Unsafe.SizeOf<DirectionalFaceVoxelData>();
+    var lookupEntrySizeBytes = Unsafe.SizeOf<DirectionalFacePaletteLookupEntryLayout>();
+    var paletteListCapacity = storageProfiles.Sum(
+        profile => (long)profile.Storage.PaletteCapacity);
+    var paletteListEntries = storageProfiles.Sum(
+        profile => (long)profile.Storage.PaletteEntryCount);
+    var usageListCapacity = storageProfiles.Sum(
+        profile => (long)profile.Storage.UsageCapacity);
+    var usageListEntries = storageProfiles.Sum(
+        profile => (long)profile.Storage.UsageEntryCount);
+    var lookupCapacity = storageProfiles.Sum(
+        profile => (long)profile.Storage.LookupCapacity);
+    var lookupEntries = storageProfiles.Sum(
+        profile => (long)profile.Storage.LookupEntryCount);
+    var freeSlotCapacity = storageProfiles.Sum(
+        profile => (long)profile.Storage.FreeSlotCapacity);
+    var freeSlotCount = storageProfiles.Sum(
+        profile => (long)profile.Storage.FreeSlotCount);
+    var indexCount = storageProfiles.Sum(
+        profile => (long)profile.Storage.IndexCount);
+    var occupancyWordCount = storageProfiles.Sum(
+        profile => (long)profile.Storage.OccupancyWordCount);
+    var meshletOccupancyCount = storageProfiles.Sum(
+        profile => (long)profile.Storage.MeshletOccupancyCount);
+    var paletteListBytes = paletteListCapacity * paletteElementSizeBytes;
+    var usageListBytes = usageListCapacity * sizeof(ushort);
+    var lookupBucketBytes = lookupCapacity * sizeof(int);
+    var lookupEntryBytesEstimate = lookupCapacity * lookupEntrySizeBytes;
+    var freeSlotStackBytes = freeSlotCapacity * sizeof(ushort);
+    var denseIndexBytes = indexCount * sizeof(ushort);
+    var occupancyBitsetBytes = occupancyWordCount * sizeof(ulong);
+    var meshletOccupancyBytes = meshletOccupancyCount * sizeof(int);
+    var fixedBufferBytes =
+        denseIndexBytes + occupancyBitsetBytes + meshletOccupancyBytes;
+    var estimatedBackingArrayPayloadBytes =
+        paletteListBytes + usageListBytes +
+        lookupBucketBytes + lookupEntryBytesEstimate +
+        freeSlotStackBytes + fixedBufferBytes;
+    var directionalStorageByChunk = storageProfiles.Select(profile => new
+    {
+        X = profile.Coord.X,
+        Y = profile.Coord.Y,
+        Z = profile.Coord.Z,
+        MetadataVoxels = profile.MetadataVoxelCount,
+        OccupiedVoxels = profile.Storage.OccupiedVoxelCount,
+        PaletteEntries = profile.Storage.PaletteEntryCount,
+        PaletteCapacity = profile.Storage.PaletteCapacity,
+        UsageEntries = profile.Storage.UsageEntryCount,
+        UsageCapacity = profile.Storage.UsageCapacity,
+        LookupEntries = profile.Storage.LookupEntryCount,
+        LookupCapacity = profile.Storage.LookupCapacity,
+        FreeSlotCount = profile.Storage.FreeSlotCount,
+        FreeSlotCapacity = profile.Storage.FreeSlotCapacity,
+        IndexCount = profile.Storage.IndexCount,
+        OccupancyWordCount = profile.Storage.OccupancyWordCount,
+        MeshletOccupancyCount = profile.Storage.MeshletOccupancyCount,
+    }).ToArray();
+
     return new
     {
         ChunkCount = desired.Length,
@@ -760,11 +830,49 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                     : directionalMetadataVoxelCount / (double)directionalMetadataChunkCount,
             MaximumMetadataVoxelsPerChunk =
                 maximumDirectionalMetadataVoxelsPerChunk,
-            DenseIndexBytes =
-                (long)directionalMetadataChunkCount * Chunk.Volume * sizeof(ushort),
-            OccupancyBitsetBytes =
-                (long)directionalMetadataChunkCount *
-                ((Chunk.Volume + 63) / 64) * sizeof(ulong),
+            DenseIndexBytes = denseIndexBytes,
+            OccupancyBitsetBytes = occupancyBitsetBytes,
+            PaletteList = new
+            {
+                Entries = paletteListEntries,
+                Capacity = paletteListCapacity,
+                UnusedSlots = paletteListCapacity - paletteListEntries,
+                ElementSizeBytes = paletteElementSizeBytes,
+                BackingArrayPayloadBytes = paletteListBytes,
+            },
+            UsageList = new
+            {
+                Entries = usageListEntries,
+                Capacity = usageListCapacity,
+                UnusedSlots = usageListCapacity - usageListEntries,
+                ElementSizeBytes = sizeof(ushort),
+                BackingArrayPayloadBytes = usageListBytes,
+            },
+            LookupDictionary = new
+            {
+                Entries = lookupEntries,
+                Capacity = lookupCapacity,
+                UnusedSlots = lookupCapacity - lookupEntries,
+                BucketArrayPayloadBytes = lookupBucketBytes,
+                EntrySizeBytesEstimate = lookupEntrySizeBytes,
+                EntryArrayPayloadBytesEstimate = lookupEntryBytesEstimate,
+            },
+            FreeSlotStack = new
+            {
+                Entries = freeSlotCount,
+                Capacity = freeSlotCapacity,
+                UnusedSlots = freeSlotCapacity - freeSlotCount,
+                BackingArrayPayloadBytes = freeSlotStackBytes,
+            },
+            FixedBuffers = new
+            {
+                DenseIndexBytes = denseIndexBytes,
+                OccupancyBitsetBytes = occupancyBitsetBytes,
+                MeshletOccupancyBytes = meshletOccupancyBytes,
+                TotalBytes = fixedBufferBytes,
+            },
+            EstimatedBackingArrayPayloadBytes = estimatedBackingArrayPayloadBytes,
+            StorageCapacityByChunk = directionalStorageByChunk,
         },
     };
 }
@@ -2025,4 +2133,13 @@ internal sealed record Arguments(
             materialMapOutput,
             materialMapBiome);
     }
+}
+
+
+internal struct DirectionalFacePaletteLookupEntryLayout
+{
+    public int HashCode;
+    public int Next;
+    public DirectionalFaceVoxelData Key;
+    public ushort Value;
 }

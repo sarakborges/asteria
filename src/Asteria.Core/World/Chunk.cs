@@ -640,6 +640,11 @@ public sealed class Chunk
     internal int DirectionalFaceDataPaletteEntryCount =>
         _directionalFaceData?.ActivePaletteEntryCount ?? 0;
 
+    internal PaletteStorageCapacityMetrics? DirectionalFaceStorageCapacityMetrics =>
+        _directionalFaceData is { } storage
+            ? storage.CapacityMetrics
+            : null;
+
     internal bool DirectionalFaceDataInitialized =>
         _directionalFaceDataInitialized;
 
