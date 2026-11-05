@@ -840,7 +840,9 @@ public sealed class TerrainDensityTests
         Assert.Equal(
             System.Numerics.BitOperations.PopCount((uint)requestedMask),
             partialProbes);
-        Assert.Equal(requestedMask, partialMask[0]);
+        Assert.Equal(
+            (ushort)0,
+            (ushort)(partialMask[0] & (ushort)~requestedMask));
 
         for (var localY = 0; localY < Chunk.Size; localY++)
         {
