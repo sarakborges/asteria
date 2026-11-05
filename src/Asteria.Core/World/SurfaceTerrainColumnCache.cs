@@ -475,9 +475,9 @@ public sealed class SurfaceTerrainColumnCache
     }
 
     /// <summary>
-    /// Reads a set of columns from one vertical chunk band under a single
-    /// occupancy lock. Missing Y bits are completed before the batch is
-    /// returned, then published under one merge lock.
+    /// Reads selected Y bits from a set of columns in one vertical chunk band.
+    /// Missing requested bits are completed before the batch is returned, then
+    /// published under one merge lock.
     /// </summary>
     internal void ReadDensityColumnMasks(
         int chunkX,
@@ -510,12 +510,27 @@ public sealed class SurfaceTerrainColumnCache
         if (columnIndices.IsEmpty)
             return;
 
+        var hasRequestedBits = false;
+        for (var index = 0; index < requestedMasks.Length; index++)
+        {
+            hasRequestedBits |= requestedMasks[index] != 0;
+            if (requestedMasks[index] == 0)
+                solidMasks[index] = 0;
+        }
+        if (!hasRequestedBits)
+            return;
+
         var occupancy = GetDensityChunk(chunkX, originY, chunkZ);
         Span<ushort> sampledMasks = stackalloc ushort[columnIndices.Length];
 #if DEBUG
         var occupancyReadStarted = Stopwatch.GetTimestamp();
 #endif
         occupancy.ReadColumns(columnIndices, solidMasks, sampledMasks);
+        for (var index = 0; index < columnIndices.Length; index++)
+        {
+            solidMasks[index] &= requestedMasks[index];
+            sampledMasks[index] &= requestedMasks[index];
+        }
 #if DEBUG
         occupancyCacheAccessMilliseconds +=
             Stopwatch.GetElapsedTime(occupancyReadStarted).TotalMilliseconds;
