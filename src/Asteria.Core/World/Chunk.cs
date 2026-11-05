@@ -233,6 +233,8 @@ public sealed class Chunk
             int voxelIndex,
             BlockRuntimeId block)
         {
+            _ = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialBlockWriter));
             if ((uint)voxelIndex >= Volume)
                 throw new ArgumentOutOfRangeException(nameof(voxelIndex));
 
