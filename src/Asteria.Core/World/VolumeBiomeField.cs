@@ -170,9 +170,7 @@ public sealed class VolumeBiomeField
             !_formations.TryGetValue(
                 sample.Primary,
                 out var formation) ||
-            !formation.Any(rule =>
-                worldY >= rule.MinY &&
-                worldY <= rule.MaxY))
+            !FormationContainsY(formation, worldY))
         {
             return null;
         }
@@ -194,22 +192,32 @@ public sealed class VolumeBiomeField
         }
 
         var sample = grid[localX, localZ];
+        var formation = grid.FormationAt(localX, localZ);
         if (sample is null ||
-            !_formations.TryGetValue(
-                sample.Primary,
-                out var formation) ||
-            !formation.Any(rule =>
-                worldY >= rule.MinY &&
-                worldY <= rule.MaxY))
+            formation is null ||
+            !FormationContainsY(formation, worldY))
         {
             return null;
         }
 
-        // Horizontal placement and its normalized ownership mixture are
-        // immutable across vertical chunks. Reuse the precomputed owner
-        // instead of allocating a new BiomeSample and influence arrays for
-        // every solid voxel within the same additive formation.
+        // Horizontal placement, normalized owner and authored vertical ranges
+        // are immutable across vertical chunks. Keep all three in the grid so
+        // the per-voxel query does not repeat a biome-key dictionary lookup.
         return grid.OwnerAt(localX, localZ);
+    }
+
+    private static bool FormationContainsY(
+        IReadOnlyList<BiomeAdditiveDensityDefinition> formation,
+        int worldY)
+    {
+        for (var index = 0; index < formation.Count; index++)
+        {
+            var rule = formation[index];
+            if (worldY >= rule.MinY && worldY <= rule.MaxY)
+                return true;
+        }
+
+        return false;
     }
 
     private BiomeSample NormalizePlacementOwner(
@@ -264,6 +272,8 @@ public sealed class VolumeBiomeField
                 checked(width * depth)];
         var owners =
             new BiomeSample?[placements.Length];
+        var formations =
+            new IReadOnlyList<BiomeAdditiveDensityDefinition>?[placements.Length];
 
         if (_placement is null)
         {
@@ -271,7 +281,8 @@ public sealed class VolumeBiomeField
                 width,
                 depth,
                 placements,
-                owners);
+                owners,
+                formations);
         }
 
         var samples =
@@ -287,12 +298,14 @@ public sealed class VolumeBiomeField
             {
                 var sample =
                     samples[x, z];
-                if (_formations.ContainsKey(
-                        sample.Primary))
+                if (_formations.TryGetValue(
+                        sample.Primary,
+                        out var formation))
                 {
                     var index = z * width + x;
                     placements[index] = sample;
                     owners[index] = NormalizePlacementOwner(sample);
+                    formations[index] = formation;
                 }
             }
         }
@@ -301,7 +314,8 @@ public sealed class VolumeBiomeField
             width,
             depth,
             placements,
-            owners);
+            owners,
+            formations);
     }
 
     internal BiomeField.Sampler? CreatePlacementSampler(
@@ -340,22 +354,38 @@ internal sealed class VolumeBiomePlacementGrid
 {
     private readonly BiomeSample?[] _placements;
     private readonly BiomeSample?[] _owners;
+    private readonly IReadOnlyList<BiomeAdditiveDensityDefinition>?[] _formations;
 
     internal VolumeBiomePlacementGrid(
         int width,
         int depth,
         BiomeSample?[] placements,
-        BiomeSample?[] owners)
+        BiomeSample?[] owners,
+        IReadOnlyList<BiomeAdditiveDensityDefinition>?[] formations)
     {
         Width = width;
         Depth = depth;
         _placements = placements;
         _owners = owners;
+        _formations = formations;
     }
 
     public int Width { get; }
 
     public int Depth { get; }
+
+    internal IReadOnlyList<BiomeAdditiveDensityDefinition>? FormationAt(
+        int x,
+        int z)
+    {
+        if ((uint)x >= Width ||
+            (uint)z >= Depth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(x));
+        }
+
+        return _formations[z * Width + x];
+    }
 
     internal BiomeSample? OwnerAt(int x, int z)
     {
