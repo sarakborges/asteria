@@ -1545,26 +1545,28 @@ public sealed class BiomeSurfaceMaterialField
             SurfacePlacementContext? placement,
             BlockRuntimeId surfaceOverride)
         {
-            var depths = new uint[Layers.Length];
-            var blocks = new BlockRuntimeId[Layers.Length];
+            var resolvedLayers =
+                new BiomeSurfaceMaterialColumn.Layer[Layers.Length];
 
             var previousEndDepth = 0u;
             for (var index = 0; index < Layers.Length; index++)
             {
                 var layer = Layers[index];
-                depths[index] = layer.EndDepthExclusive is { } nominalEndDepth
+                var endDepth = layer.EndDepthExclusive is { } nominalEndDepth
                     ? AdjustedEndDepth(
                         seed, worldX, worldZ, index,
                         nominalEndDepth, previousEndDepth)
                     : uint.MaxValue;
-                if (depths[index] != uint.MaxValue)
-                    previousEndDepth = depths[index];
-                blocks[index] = layer.Resolve(
-                    seed, worldX, worldZ, placement);
+                if (endDepth != uint.MaxValue)
+                    previousEndDepth = endDepth;
+                resolvedLayers[index] =
+                    new BiomeSurfaceMaterialColumn.Layer(
+                        endDepth,
+                        layer.Resolve(seed, worldX, worldZ, placement));
             }
 
             return new BiomeSurfaceMaterialColumn(
-                depths, blocks, surfaceOverride);
+                resolvedLayers, surfaceOverride);
         }
 
         private uint AdjustedEndDepth(
@@ -1885,36 +1887,41 @@ public sealed class BiomeSurfaceMaterialField
 /// </summary>
 public sealed class BiomeSurfaceMaterialColumn
 {
-    private readonly uint[] _endDepths;
-    private readonly BlockRuntimeId[] _blocks;
+    internal readonly record struct Layer(
+        uint EndDepthExclusive,
+        BlockRuntimeId Block);
+
+    private readonly Layer[] _layers;
+    private readonly uint _finiteDepth;
     private readonly BlockRuntimeId _surfaceOverride;
 
     internal BiomeSurfaceMaterialColumn(
-        uint[] endDepths,
-        BlockRuntimeId[] blocks,
+        Layer[] layers,
         BlockRuntimeId surfaceOverride = default)
     {
-        _endDepths = endDepths;
-        _blocks = blocks;
+        _layers = layers;
+        _finiteDepth = layers.Length > 1
+            ? layers[^2].EndDepthExclusive
+            : 0u;
         _surfaceOverride = surfaceOverride;
     }
 
-    public uint FiniteDepth =>
-        _endDepths.Length > 1
-            ? _endDepths[^2]
-            : 0u;
+    public uint FiniteDepth => _finiteDepth;
 
     public BlockRuntimeId BlockAt(uint depth)
     {
         if (depth == 0 && !_surfaceOverride.IsAir)
             return _surfaceOverride;
 
-        for (var i = 0; i < _endDepths.Length; i++)
+        // Most terrain voxels are below the finite authored cover. Resolve
+        // those directly to the core layer instead of scanning every layer.
+        if (depth >= _finiteDepth)
+            return _layers[^1].Block;
+
+        for (var i = 0; i < _layers.Length - 1; i++)
         {
-            if (depth < _endDepths[i])
-            {
-                return _blocks[i];
-            }
+            if (depth < _layers[i].EndDepthExclusive)
+                return _layers[i].Block;
         }
 
         throw new InvalidOperationException(
