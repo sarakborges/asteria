@@ -992,6 +992,56 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void VolumePlacementGridOwnersMatchScalarAcrossIndependentFormationBounds()
+    {
+        var generator = Generator(
+            additive:
+            [
+                new BiomeAdditiveDensityDefinition(
+                    80, 104, 64, 24, 1f, 0f, 30f,
+                    verticalFalloff: 2f),
+                new BiomeAdditiveDensityDefinition(
+                    120, 144, 64, 24, 1f, 0f, 30f,
+                    horizontalFalloff: 2f),
+            ]);
+        var point = FindVolumeSolid(generator, y: 92);
+        var coord = VoxelCoordinates.FromWorld(
+            point.X, 0, point.Z).Chunk;
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(coord);
+        var grid = generator.VolumeBiomes.SamplePlacementGrid(
+            originX, originZ, Chunk.Size, Chunk.Size);
+        var heights = new[]
+        {
+            0, 79, 80, 92, 104, 105, 112,
+            119, 120, 132, 144, 145, 160,
+        };
+
+        for (var localZ = 0; localZ < Chunk.Size; localZ += 5)
+        for (var localX = 0; localX < Chunk.Size; localX += 5)
+        foreach (var worldY in heights)
+        {
+            var worldX = originX + localX;
+            var worldZ = originZ + localZ;
+            var expected = generator.VolumeBiomes.Sample(
+                worldX, worldY, worldZ);
+            var actual = generator.VolumeBiomes.SampleAtY(
+                grid, localX, worldY, localZ);
+
+            Assert.Equal(expected?.Primary, actual?.Primary);
+            Assert.Equal(expected?.Influences.Count ?? 0,
+                actual?.Influences.Count ?? 0);
+            if (expected is null || actual is null)
+                continue;
+
+            for (var index = 0; index < expected.Influences.Count; index++)
+                Assert.Equal(
+                    expected.Influences[index],
+                    actual.Influences[index]);
+        }
+    }
+
+    [Fact]
     public void IndependentCaveLayersLeaveUncoveredDepthsSolid()
     {
         var generator = Generator(
