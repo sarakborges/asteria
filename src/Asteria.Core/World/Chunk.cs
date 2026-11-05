@@ -271,6 +271,29 @@ public sealed class Chunk
             return changed;
         }
 
+        /// <summary>
+        /// Fast path for TerrainLayer: the chunk starts empty, shell positions
+        /// are excluded, and each in-chunk terrain coordinate is visited once.
+        /// </summary>
+        internal bool SetBlockAtLinearIndexFreshUnchecked(
+            int voxelIndex,
+            BlockRuntimeId block)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialBlockWriter));
+            var cachedPaletteIndex = _paletteIndicesByBlock[block.Value];
+            var changed = chunk._cells.SetInitialFreshSlotWithPaletteIndexUnchecked(
+                voxelIndex,
+                new VoxelCell(block),
+                cachedPaletteIndex,
+                out var resolvedPaletteIndex);
+            if (cachedPaletteIndex == 0 && resolvedPaletteIndex != 0)
+                _paletteIndicesByBlock[block.Value] = resolvedPaletteIndex;
+
+            _changed |= changed;
+            return changed;
+        }
+
         public void Complete()
         {
             var chunk = _chunk;
