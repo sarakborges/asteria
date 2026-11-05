@@ -982,6 +982,7 @@ public sealed class SurfaceTerrainField
         int originY,
         int originZ,
         ReadOnlySpan<int> columnIndices,
+        ReadOnlySpan<ushort> requestedMasks,
         Span<ushort> solidMasks,
         Span<ushort> sampledMasks,
         out int densityProbes,
@@ -991,7 +992,8 @@ public sealed class SurfaceTerrainField
     {
         if (originY < 0 || originY % Chunk.Size != 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
-        if (columnIndices.Length != solidMasks.Length ||
+        if (columnIndices.Length != requestedMasks.Length ||
+            columnIndices.Length != solidMasks.Length ||
             columnIndices.Length != sampledMasks.Length ||
             columnIndices.Length > Chunk.Area)
             throw new ArgumentException(
@@ -1013,6 +1015,23 @@ public sealed class SurfaceTerrainField
         var maximumCaveLocalZ = -1;
         var hasMissingSamples = false;
         var mayContainCaves = false;
+
+        static ushort VerticalRangeMask(
+            int worldOriginY,
+            long minimumWorldY,
+            long maximumWorldY)
+        {
+            var firstLocalY = Math.Max(0L, minimumWorldY - worldOriginY);
+            var lastLocalY = Math.Min(
+                (long)Chunk.Size - 1L,
+                maximumWorldY - worldOriginY);
+            if (firstLocalY > lastLocalY)
+                return 0;
+
+            var count = checked((int)(lastLocalY - firstLocalY + 1L));
+            return (ushort)(((1u << count) - 1u) << (int)firstLocalY);
+        }
+
 #if DEBUG
         var columnBoundsStarted = Stopwatch.GetTimestamp();
 #endif
@@ -1022,7 +1041,9 @@ public sealed class SurfaceTerrainField
             var columnIndex = columnIndices[index];
             if ((uint)columnIndex >= Chunk.Area)
                 throw new ArgumentOutOfRangeException(nameof(columnIndices));
-            if (sampledMasks[index] == ushort.MaxValue)
+            var missingMask = (ushort)(
+                requestedMasks[index] & (ushort)~sampledMasks[index]);
+            if (missingMask == 0)
                 continue;
 
             hasMissingSamples = true;
@@ -1030,8 +1051,10 @@ public sealed class SurfaceTerrainField
             var localZ = columnIndex / Chunk.Size;
             var baseY = column.BaseHeightAt(localX, localZ);
             if (_caves is { } caves &&
-                (long)originY <= (long)baseY - caves.MinimumDepth &&
-                (long)maximumY >= (long)baseY - caves.MaximumDepth)
+                (missingMask & VerticalRangeMask(
+                    originY,
+                    (long)baseY - caves.MaximumDepth,
+                    (long)baseY - caves.MinimumDepth)) != 0)
             {
                 // Only cave-eligible columns contribute to the sampler bounds.
                 // Including unrelated high/low columns can unnecessarily
@@ -1081,7 +1104,9 @@ public sealed class SurfaceTerrainField
 
         for (var index = 0; index < columnIndices.Length; index++)
         {
-            if (sampledMasks[index] == ushort.MaxValue)
+            var missingMask = (ushort)(
+                requestedMasks[index] & (ushort)~sampledMasks[index]);
+            if (missingMask == 0)
                 continue;
 
             var columnIndex = columnIndices[index];
@@ -1096,11 +1121,12 @@ public sealed class SurfaceTerrainField
                 checked(originZ + localZ),
                 solidMasks[index],
                 sampledMasks[index],
+                requestedMasks[index],
                 caveSampler,
                 minimumCaveLocalX,
                 minimumCaveLocalZ,
                 out var probes);
-            sampledMasks[index] = ushort.MaxValue;
+            sampledMasks[index] |= requestedMasks[index];
             densityProbes = checked(densityProbes + probes);
         }
 #if DEBUG
@@ -1132,6 +1158,7 @@ public sealed class SurfaceTerrainField
             worldZ,
             cachedSolidMask,
             sampledMask,
+            requestedMask: ushort.MaxValue,
             caveSampler: null,
             caveSamplerOriginLocalX: 0,
             caveSamplerOriginLocalZ: 0,
@@ -1146,6 +1173,7 @@ public sealed class SurfaceTerrainField
         int worldZ,
         ushort cachedSolidMask,
         ushort sampledMask,
+        ushort requestedMask,
         CaveNoiseVolumeSampler? caveSampler,
         int caveSamplerOriginLocalX,
         int caveSamplerOriginLocalZ,
@@ -1161,6 +1189,13 @@ public sealed class SurfaceTerrainField
         var baseY = column.BaseHeightAt(localX, localZ);
         var volumeBiome = column.VolumeBiomeAt(localX, localZ);
         var solidMask = (ushort)(cachedSolidMask & sampledMask);
+        var unknownMask = (ushort)(requestedMask & (ushort)~sampledMask);
+        if (unknownMask == 0)
+        {
+            densityProbes = 0;
+            return solidMask;
+        }
+
         var additiveRule =
             volumeBiome is not null &&
             _additiveRules.TryGetValue(volumeBiome.Primary, out var resolvedAdditive)
@@ -1204,10 +1239,10 @@ public sealed class SurfaceTerrainField
             }
 
             densityProbes = System.Numerics.BitOperations.PopCount(
-                (uint)(ushort)~sampledMask);
+                (uint)unknownMask);
             return (ushort)(
                 solidMask |
-                (baselineMask & (ushort)~sampledMask));
+                (baselineMask & unknownMask));
         }
 
         static ushort VerticalRangeMask(
@@ -1234,7 +1269,6 @@ public sealed class SurfaceTerrainField
                 : (ushort)0;
         }
 
-        var unknownMask = (ushort)~sampledMask;
         densityProbes = System.Numerics.BitOperations.PopCount(
             (uint)unknownMask);
 
