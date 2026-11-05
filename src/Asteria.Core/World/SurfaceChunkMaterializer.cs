@@ -2546,10 +2546,12 @@ public sealed class SurfaceChunkMaterializer
 #if DEBUG
         var occupancyRowAssemblyStarted = Stopwatch.GetTimestamp();
 #endif
-        if (densityVolume is not null &&
+        var hasDensityColumnMasks =
+            densityVolume is not null &&
             densityVolume.Width == size &&
             densityVolume.Height == size &&
-            densityVolume.Depth == size)
+            densityVolume.Depth == size;
+        if (hasDensityColumnMasks)
         {
             // The main terrain volume already stores one 16-bit occupancy mask
             // per X/Z column. Copy those masks directly instead of probing
@@ -2568,11 +2570,32 @@ public sealed class SurfaceChunkMaterializer
             {
                 var rowOffset = (z * size + x) * wordCount;
                 yRows[rowOffset] |= belowWorldMinimumMask;
+                var solidMask =
+                    densityVolume!.SolidColumnMaskAtUnchecked(x, z);
                 MarkMask(
                     yRows,
                     rowOffset,
                     maximumDepth,
-                    densityVolume.SolidColumnMaskAtUnchecked(x, z));
+                    solidMask);
+
+                // The same source mask can populate the interior X/Z rows
+                // without reading the just-written Y row again. Iterate only
+                // set bits so sparse columns do not scan all 16 vertical cells.
+                var remainingSolidMask = (uint)solidMask;
+                while (remainingSolidMask != 0)
+                {
+                    var localY = System.Numerics.BitOperations
+                        .TrailingZeroCount(remainingSolidMask);
+                    MarkSolid(
+                        xRows,
+                        (localY * size + z) * wordCount,
+                        maximumDepth + x);
+                    MarkSolid(
+                        zRows,
+                        (localY * size + x) * wordCount,
+                        maximumDepth + z);
+                    remainingSolidMask &= remainingSolidMask - 1;
+                }
             }
 
             foreach (var slab in bottomSlabs)
@@ -2630,21 +2653,24 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        // Transpose the interior occupancy rows once and populate both
-        // horizontal axes in the same pass over X/Z columns.
-        for (var y = 0; y < size; y++)
-        for (var z = 0; z < size; z++)
-        for (var x = 0; x < size; x++)
+        if (!hasDensityColumnMasks)
         {
-            var yRowOffset = (z * size + x) * wordCount;
-            if (!IsSolid(yRows, yRowOffset, maximumDepth + y))
-                continue;
+            // Fallback providers expose occupancy only through an indexer, so
+            // derive the horizontal rows from the completed Y rows.
+            for (var y = 0; y < size; y++)
+            for (var z = 0; z < size; z++)
+            for (var x = 0; x < size; x++)
+            {
+                var yRowOffset = (z * size + x) * wordCount;
+                if (!IsSolid(yRows, yRowOffset, maximumDepth + y))
+                    continue;
 
-            var xRowOffset = (y * size + z) * wordCount;
-            MarkSolid(xRows, xRowOffset, maximumDepth + x);
+                var xRowOffset = (y * size + z) * wordCount;
+                MarkSolid(xRows, xRowOffset, maximumDepth + x);
 
-            var zRowOffset = (y * size + x) * wordCount;
-            MarkSolid(zRows, zRowOffset, maximumDepth + z);
+                var zRowOffset = (y * size + x) * wordCount;
+                MarkSolid(zRows, zRowOffset, maximumDepth + z);
+            }
         }
 
         var yBitMask = 0u;
