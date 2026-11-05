@@ -27,6 +27,9 @@ public sealed class SurfaceTerrainColumnCache
         (int X, int Z),
         SurfaceTerrainColumn> _columns;
     private readonly BoundedMemoCache<
+        (int X, int Z),
+        SurfaceTerrainDensityColumn> _densityTerrainColumns;
+    private readonly BoundedMemoCache<
         (int X, int Y, int Z),
         DensityChunkOccupancy> _densityChunks;
 
@@ -43,6 +46,9 @@ public sealed class SurfaceTerrainColumnCache
         _columns = new BoundedMemoCache<
             (int X, int Z),
             SurfaceTerrainColumn>(capacity);
+        _densityTerrainColumns = new BoundedMemoCache<
+            (int X, int Z),
+            SurfaceTerrainDensityColumn>(capacity);
         _densityChunks = new BoundedMemoCache<
             (int X, int Y, int Z),
             DensityChunkOccupancy>(
@@ -267,6 +273,19 @@ public sealed class SurfaceTerrainColumnCache
             () => _terrain.SampleColumn(chunkX, chunkZ));
     }
 
+    private SurfaceTerrainDensityColumn GetDensityTerrainColumn(
+        int chunkX,
+        int chunkZ)
+    {
+        var key = (X: chunkX, Z: chunkZ);
+        if (_columns.TryGet(key, out var fullColumn))
+            return new SurfaceTerrainDensityColumn(fullColumn);
+
+        return _densityTerrainColumns.GetOrAdd(
+            key,
+            () => _terrain.SampleDensityColumn(chunkX, chunkZ));
+    }
+
     /// <summary>
     /// Materializes a full chunk while reusing previously sampled occupancy
     /// bits from its top and bottom neighbors.
@@ -395,7 +414,7 @@ public sealed class SurfaceTerrainColumnCache
 
         if (hasMissingSamples)
         {
-            var column = Get(chunkX, chunkZ);
+            var column = GetDensityTerrainColumn(chunkX, chunkZ);
             var chunkOriginX = checked(chunkX * Chunk.Size);
             var chunkOriginZ = checked(chunkZ * Chunk.Size);
             _terrain.SampleDensityColumnMasks(
@@ -444,7 +463,7 @@ public sealed class SurfaceTerrainColumnCache
         }
 
         cacheHit = false;
-        var column = Get(coord.X, coord.Z);
+        var column = GetDensityTerrainColumn(coord.X, coord.Z);
         var mask = _terrain.SampleDensityColumnMask(
             column,
             local.X,
