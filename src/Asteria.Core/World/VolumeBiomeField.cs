@@ -190,6 +190,11 @@ public sealed class VolumeBiomeField
             throw new ArgumentOutOfRangeException(
                 nameof(worldY));
         }
+        if ((uint)localX >= (uint)grid.Width ||
+            (uint)localZ >= (uint)grid.Depth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(localX));
+        }
 
         grid.GetColumnUnchecked(
             localX, localZ,
