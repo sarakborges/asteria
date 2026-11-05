@@ -48,15 +48,12 @@ public sealed class SurfaceChunkMaterializer
         public int WorldZ;
         public BiomeSample? Sample;
         public (BlockRuntimeId Block, uint StartDepth) SurfaceCore;
-        public uint? SurfaceCoverDepth;
         public BiomeSurfaceMaterialField.GeologySampler SurfaceGeology;
-        public bool SurfaceGeologyRequiresSubmerged;
         public bool HasSurfaceMaterialMetadata;
         public BiomeSurfaceMaterialColumn? SurfaceMaterials;
         public BiomeSample? VolumeSample;
         public BiomeSurfaceMaterialField.GeologySampler VolumeGeology;
         public BiomeSurfaceMaterialColumn? VolumeMaterials;
-        public uint? VolumeCoverDepth;
         public GeneratedFluidColumnPlan GeneratedFluidPlan;
     }
 
@@ -640,9 +637,6 @@ public sealed class SurfaceChunkMaterializer
                     {
                         state.SurfaceCore = _materials.CoreLayer(sample);
                         state.SurfaceGeology = _materials.ResolveGeology(sample);
-                        state.SurfaceCoverDepth = state.SurfaceGeology.SurfaceCoverDepth;
-                        state.SurfaceGeologyRequiresSubmerged =
-                            state.SurfaceGeology.RequiresSubmergedSurface;
                         state.HasSurfaceMaterialMetadata = true;
                     }
 
@@ -679,16 +673,16 @@ public sealed class SurfaceChunkMaterializer
                         BiomeSample surfaceOwner;
                         if (worldY > baseY)
                         {
-                            surfaceOwner = densityVolume.VolumeBiomeAt(
-                                localX, worldY, localZ) ??
+                            surfaceOwner = state.VolumeSample ??
+                                densityVolume.VolumeBiomeAt(
+                                    localX, worldY, localZ) ??
                                 throw new InvalidOperationException(
                                     "Additive surface has no volume biome owner.");
                             if (state.VolumeSample is null)
                             {
                                 state.VolumeSample = surfaceOwner;
-                                state.VolumeGeology = _materials.ResolveGeology(surfaceOwner);
-                                state.VolumeCoverDepth =
-                                    state.VolumeGeology.SurfaceCoverDepth;
+                                state.VolumeGeology =
+                                    _materials.ResolveGeology(surfaceOwner);
                             }
                             exposedGeology = state.VolumeGeology;
                         }
@@ -721,14 +715,14 @@ public sealed class SurfaceChunkMaterializer
                         var surfaceMaterials = state.SurfaceMaterials ??=
                             _materials.SampleColumn(sample, worldX, worldZ);
                         var useSurfaceCover =
-                            state.SurfaceCoverDepth is { } authoredCoverDepth
+                            state.SurfaceGeology.SurfaceCoverDepth is { } authoredCoverDepth
                                 ? depth < authoredCoverDepth
                                 : depth == 0 || depth < surfaceMaterials.FiniteDepth;
                         if (useSurfaceCover)
                         {
                             block = surfaceMaterials.BlockAt(depth);
                         }
-                        else if (state.SurfaceCoverDepth is not null &&
+                        else if (state.SurfaceGeology.SurfaceCoverDepth is not null &&
                                  state.SurfaceGeology.TryBlockAtCached(
                                      worldX, worldY, worldZ,
                                      job.GetGeologyNoiseCache(),
@@ -755,9 +749,8 @@ public sealed class SurfaceChunkMaterializer
                                 throw new InvalidOperationException(
                                     "Additive solid voxel has no volume biome owner.");
                             state.VolumeSample = volumeSample;
-                            state.VolumeGeology = _materials.ResolveGeology(volumeSample);
-                            state.VolumeCoverDepth =
-                                state.VolumeGeology.SurfaceCoverDepth;
+                            state.VolumeGeology =
+                                _materials.ResolveGeology(volumeSample);
                         }
 
                         var volumeMaterials = state.VolumeMaterials ??=
@@ -766,14 +759,14 @@ public sealed class SurfaceChunkMaterializer
                             densityVolume, sample, baseY, localX, localY, localZ,
                             worldX, worldY, worldZ, volumeMaterials.FiniteDepth);
                         var useSurfaceCover =
-                            state.VolumeCoverDepth is { } authoredCoverDepth
+                            state.VolumeGeology.SurfaceCoverDepth is { } authoredCoverDepth
                                 ? depth < authoredCoverDepth
                                 : depth == 0 || depth < volumeMaterials.FiniteDepth;
                         if (useSurfaceCover)
                         {
                             block = volumeMaterials.BlockAt(depth);
                         }
-                        else if (state.VolumeCoverDepth is not null &&
+                        else if (state.VolumeGeology.SurfaceCoverDepth is not null &&
                                  state.VolumeGeology.TryBlockAtCached(
                                      worldX, worldY, worldZ,
                                      job.GetGeologyNoiseCache(),
