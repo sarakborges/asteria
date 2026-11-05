@@ -380,6 +380,7 @@ public sealed class BiomeField
     {
         private readonly BiomeField _field;
         private readonly Dictionary<SeedBucket, SeedAssignment> _assignments = [];
+        private readonly Dictionary<SeedBucket, (double X, double Z)> _seedCenters = [];
         private readonly Dictionary<(int X, int Z), BiomeSample>? _samples;
         private readonly (int X, int Z)[]? _sampleOrder;
         private int _nextSampleOrderIndex;
@@ -401,13 +402,13 @@ public sealed class BiomeField
         public BiomeSample Sample(int x, int z)
         {
             if (_samples is not { } samples)
-                return _field.SampleCached(x, z, _assignments);
+                return _field.SampleCached(x, z, _assignments, _seedCenters);
 
             var coordinate = (X: x, Z: z);
             if (samples.TryGetValue(coordinate, out var cached))
                 return cached;
 
-            var sample = _field.SampleCached(x, z, _assignments);
+            var sample = _field.SampleCached(x, z, _assignments, _seedCenters);
             Prime(x, z, sample);
             return sample;
         }
@@ -714,7 +715,8 @@ public sealed class BiomeField
         int z,
         Dictionary<
             SeedBucket,
-            SeedAssignment> assignments)
+            SeedAssignment> assignments,
+        Dictionary<SeedBucket, (double X, double Z)>? seedCenters = null)
     {
         var (warpedX, warpedZ) =
             WarpedPosition(
@@ -766,7 +768,8 @@ public sealed class BiomeField
                 var seed =
                     FormationSeedFor(
                         bucket,
-                        assignments);
+                        assignments,
+                        seedCenters);
                 var score =
                     SeedScore(
                         seed,
@@ -865,7 +868,8 @@ public sealed class BiomeField
                 FormationStrength(
                     bestSeeds[rule].Assignment,
                     warpedX,
-                    warpedZ));
+                    warpedZ,
+                    seedCenters));
             total += weight;
         }
 
@@ -1064,7 +1068,8 @@ public sealed class BiomeField
         SeedBucket bucket,
         Dictionary<
             SeedBucket,
-            SeedAssignment> cache)
+            SeedAssignment> cache,
+        Dictionary<SeedBucket, (double X, double Z)>? seedCenters = null)
     {
         var assignment =
             SeedAssignmentFor(
@@ -1072,7 +1077,8 @@ public sealed class BiomeField
                 cache);
         var (centerX, centerZ) =
             SeedCenter(
-                bucket);
+                bucket,
+                seedCenters);
 
         return new FormationSeed(
             bucket,
@@ -1508,8 +1514,15 @@ public sealed class BiomeField
 
     private (double X, double Z)
         SeedCenter(
-            SeedBucket bucket)
+            SeedBucket bucket,
+            Dictionary<SeedBucket, (double X, double Z)>? cache = null)
     {
+        if (cache is not null &&
+            cache.TryGetValue(bucket, out var cached))
+        {
+            return cached;
+        }
+
         var spacing =
             (double)_seedSpacing;
         var baseX =
@@ -1541,19 +1554,23 @@ public sealed class BiomeField
             spacing *
             _blending.JitterFraction;
 
-        return (
+        var center = (
             baseX + jitterX,
             baseZ + jitterZ);
+        cache?.Add(bucket, center);
+        return center;
     }
 
     private double FormationStrength(
         SeedAssignment assignment,
         double x,
-        double z)
+        double z,
+        Dictionary<SeedBucket, (double X, double Z)>? seedCenters = null)
     {
         var (centerX, centerZ) =
             SeedCenter(
-                assignment.Root);
+                assignment.Root,
+                seedCenters);
         var dx =
             x -
             centerX;
