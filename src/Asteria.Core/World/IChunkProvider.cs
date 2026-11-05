@@ -39,6 +39,7 @@ public readonly record struct DirectionalFacePaletteMetrics(
     double DensityTerrainColumnMilliseconds = 0d,
     double OccupancyCacheAccessMilliseconds = 0d,
     double SurfaceBiomeSamplingMilliseconds = 0d,
+    double BaseHeightSamplingMilliseconds = 0d,
     double VolumeBiomeSamplingMilliseconds = 0d);
 
 /// <summary>
