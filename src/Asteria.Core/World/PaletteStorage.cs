@@ -136,6 +136,9 @@ internal sealed class PaletteStorage<T>
         ushort cachedPaletteIndex,
         out ushort resolvedPaletteIndex)
     {
+        if (_state.IsShared)
+            throw new InvalidOperationException(
+                "Initial palette writes require private chunk storage.");
         if ((uint)voxelIndex >= Chunk.Volume)
             throw new ArgumentOutOfRangeException(nameof(voxelIndex));
 
