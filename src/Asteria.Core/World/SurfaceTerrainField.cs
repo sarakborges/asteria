@@ -1176,6 +1176,12 @@ public sealed class SurfaceTerrainField
                     ? stackalloc double[additiveRule.RuleCount]
                     : new double[additiveRule.RuleCount];
         var additiveSupportPrepared = false;
+        var caveLocalX = caveSampler is null
+            ? localX
+            : localX - caveSamplerOriginLocalX;
+        var caveLocalZ = caveSampler is null
+            ? localZ
+            : localZ - caveSamplerOriginLocalZ;
 
         densityProbes = 0;
         for (var localY = 0; localY < Chunk.Size; localY++)
@@ -1195,30 +1201,51 @@ public sealed class SurfaceTerrainField
                 additiveRule is { } activeAdditive &&
                 worldY >= activeAdditive.MinimumY &&
                 worldY <= activeAdditive.MaximumY;
-            if (additiveDensityApplies && !additiveSupportPrepared)
+
+            // The column and rule ranges are already resolved above. Avoid
+            // sending boundary voxels through the generic DensityAt path,
+            // which repeats the same cave/shell and additive-rule guards.
+            double density;
+            if (IsShellLining(worldY))
             {
-                additiveRule!.SampleHorizontalSupports(
-                    _seed, worldX, worldZ, additiveHorizontalSupports);
-                additiveSupportPrepared = true;
+                density = Math.Max(0d, baseY - (double)worldY);
+            }
+            else
+            {
+                density = baseY - (double)worldY;
+                if (additiveDensityApplies)
+                {
+                    if (!additiveSupportPrepared)
+                    {
+                        additiveRule!.SampleHorizontalSupports(
+                            _seed, worldX, worldZ, additiveHorizontalSupports);
+                        additiveSupportPrepared = true;
+                    }
+
+                    var additiveDensity = additiveHorizontalSupports.IsEmpty
+                        ? additiveRule!.DensityAt(
+                            _seed, worldX, worldY, worldZ,
+                            volumeBiome!.PrimaryWeight)
+                        : additiveRule!.DensityAt(
+                            _seed, worldX, worldY, worldZ,
+                            volumeBiome!.PrimaryWeight,
+                            additiveHorizontalSupports);
+                    density = Math.Max(density, additiveDensity);
+                }
+
+                if (caveDensityApplies &&
+                    worldY <= baseY &&
+                    worldY != _floorY &&
+                    worldY != _roofY)
+                {
+                    var voidDensity = _caves!.VoidDensityAt(
+                        _seed, worldX, worldY, worldZ, caveDepth,
+                        caveSampler, caveLocalX, localY, caveLocalZ);
+                    if (voidDensity > 0d)
+                        density = Math.Min(density, -voidDensity);
+                }
             }
 
-            var density =
-                caveDensityApplies ||
-                additiveDensityApplies ||
-                IsShellLining(worldY)
-                    ? DensityAt(
-                        biome, baseY, worldX, worldY, worldZ, volumeBiome,
-                        caveSampler,
-                        caveSampler is null
-                            ? localX
-                            : localX - caveSamplerOriginLocalX,
-                        localY,
-                        caveSampler is null
-                            ? localZ
-                            : localZ - caveSamplerOriginLocalZ,
-                        additiveRule, additiveHorizontalSupports,
-                        additiveRuleResolved: true)
-                    : baseY - (double)worldY;
             if (density >= 0d)
                 solidMask |= bit;
         }
