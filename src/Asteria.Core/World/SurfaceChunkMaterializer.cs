@@ -619,15 +619,7 @@ public sealed class SurfaceChunkMaterializer
                         continue;
 
                     ref var state = ref columnMaterializationCaches[columnIndex];
-                    var sample = state.Sample ??
-                        throw new InvalidOperationException(
-                            "Materialization column has no biome sample.");
                     var surfaceY = state.SurfaceY;
-                    var baseY = state.BaseY;
-                    var surfaceFluidCutDepth = state.SurfaceFluidCutDepth;
-                    var worldX = state.WorldX;
-                    var worldZ = state.WorldZ;
-
                     if (worldY > surfaceY ||
                         (columnSolidMasks is null
                             ? !densityVolume.IsSolidAtUnchecked(
@@ -636,6 +628,16 @@ public sealed class SurfaceChunkMaterializer
                     {
                         continue;
                     }
+
+                    // Only solid cells below their column surface need the
+                    // heavier biome/material metadata from the column cache.
+                    var sample = state.Sample ??
+                        throw new InvalidOperationException(
+                            "Materialization column has no biome sample.");
+                    var baseY = state.BaseY;
+                    var surfaceFluidCutDepth = state.SurfaceFluidCutDepth;
+                    var worldX = state.WorldX;
+                    var worldZ = state.WorldZ;
 
                     if (!state.HasSurfaceMaterialMetadata)
                     {
