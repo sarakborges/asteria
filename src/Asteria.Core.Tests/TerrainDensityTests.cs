@@ -804,6 +804,94 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void PartialDensityBoundaryReadsMergeWithLaterFullColumnReads()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var point = FindVolumeSolid(generator, y: 96);
+        var position = VoxelCoordinates.FromWorld(point.X, 96, point.Z);
+        var columnIndex =
+            position.Local.Z * Chunk.Size + position.Local.X;
+        var columnIndices = new[] { columnIndex };
+        var requestedMask = (ushort)(
+            (1u << 0) | (1u << 6) | (1u << 13));
+        var requestedMasks = new[] { requestedMask };
+        var cache = new SurfaceTerrainColumnCache(generator.Terrain);
+        var partialMask = new ushort[1];
+
+        cache.ReadDensityColumnMasks(
+            position.Chunk.X,
+            96,
+            position.Chunk.Z,
+            columnIndices,
+            requestedMasks,
+            partialMask,
+            out var partialProbes,
+            out _, out _, out _, out _, out _);
+
+        Assert.Equal(
+            System.Numerics.BitOperations.PopCount((uint)requestedMask),
+            partialProbes);
+        Assert.Equal(requestedMask, partialMask[0]);
+
+        for (var localY = 0; localY < Chunk.Size; localY++)
+        {
+            if ((requestedMask & (1u << localY)) == 0)
+                continue;
+
+            var expected =
+                generator.DensityAt(point.X, 96 + localY, point.Z) >= 0d;
+            var actual = (partialMask[0] & (1u << localY)) != 0;
+            Assert.Equal(expected, actual);
+        }
+
+        var fullMask = new ushort[1];
+        cache.ReadDensityColumnMasks(
+            position.Chunk.X,
+            96,
+            position.Chunk.Z,
+            columnIndices,
+            [ushort.MaxValue],
+            fullMask,
+            out var remainingProbes,
+            out _, out _, out _, out _, out _);
+
+        Assert.Equal(
+            Chunk.Size -
+            System.Numerics.BitOperations.PopCount((uint)requestedMask),
+            remainingProbes);
+        for (var localY = 0; localY < Chunk.Size; localY++)
+        {
+            var expected =
+                generator.DensityAt(point.X, 96 + localY, point.Z) >= 0d;
+            var actual = (fullMask[0] & (1u << localY)) != 0;
+            Assert.Equal(expected, actual);
+        }
+
+        var cachedPartialMask = new ushort[1];
+        cache.ReadDensityColumnMasks(
+            position.Chunk.X,
+            96,
+            position.Chunk.Z,
+            columnIndices,
+            requestedMasks,
+            cachedPartialMask,
+            out var cachedProbes,
+            out _, out _, out _, out _, out _);
+
+        Assert.Equal(0, cachedProbes);
+        Assert.Equal(requestedMask, cachedPartialMask[0]);
+    }
+
+    [Fact]
     public void VolumeAndMaterializationStayAlignedAcrossVerticalChunkBoundary()
     {
         var generator = Generator(
