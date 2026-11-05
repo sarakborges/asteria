@@ -717,7 +717,8 @@ public sealed class SurfaceTerrainColumnCache
             coord.X,
             coord.Z,
             requestedColumn,
-            _terrain.RequiresVolumeBiomeForDensityBand(originY));
+            _terrain.RequiresVolumeBiomeForDensityBand(originY),
+            out _);
         var mask = _terrain.SampleDensityColumnMask(
             column,
             local.X,
