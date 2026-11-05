@@ -628,10 +628,10 @@ public sealed class SurfaceChunkMaterializer
                     if (worldY < (_floorY ?? 0) ||
                         worldY > surfaceY ||
                         worldY > (_roofY ?? int.MaxValue) ||
-                        (columnSolidMasks is { } masks
-                            ? (masks[columnIndex] & solidBit) == 0
-                            : !densityVolume.IsSolidAtUnchecked(
-                                localX, localY, localZ)))
+                        (columnSolidMasks is null
+                            ? !densityVolume.IsSolidAtUnchecked(
+                                localX, localY, localZ)
+                            : (columnSolidMasks[columnIndex] & solidBit) == 0))
                     {
                         continue;
                     }
@@ -659,10 +659,11 @@ public sealed class SurfaceChunkMaterializer
                             var aboveLocalY = aboveY - originY;
                             if (aboveLocalY < 0 ||
                                 aboveLocalY >= Chunk.Size ||
-                                (columnSolidMasks is { } masks
-                                    ? (masks[columnIndex] & (1u << aboveLocalY)) != 0
-                                    : densityVolume.IsSolidAtUnchecked(
-                                        localX, aboveLocalY, localZ)))
+                                (columnSolidMasks is null
+                                    ? densityVolume.IsSolidAtUnchecked(
+                                        localX, aboveLocalY, localZ)
+                                    : (columnSolidMasks[columnIndex] &
+                                       (1u << aboveLocalY)) != 0))
                             {
                                 isExposedTerrainTop = false;
                                 break;
