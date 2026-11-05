@@ -2765,6 +2765,11 @@ public sealed class TerrainDensityVolume
         return mask;
     }
 
+    // Materialization traverses one Y layer at a time. Expose the compact
+    // per-column masks so the hot loop can hoist the array lookup and bit
+    // selection outside TerrainDensityVolume's general-purpose accessor.
+    internal ushort[]? ColumnSolidMasks => _columnSolidMask;
+
     internal BiomeSample? VolumePlacementAt(
         int localX,
         int localZ)
