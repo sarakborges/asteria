@@ -645,6 +645,9 @@ public sealed class Chunk
             ? storage.CapacityMetrics
             : null;
 
+    internal PaletteStorageCapacityMetrics CellStorageCapacityMetrics =>
+        _cells.CapacityMetrics;
+
     internal bool DirectionalFaceDataInitialized =>
         _directionalFaceDataInitialized;
 
