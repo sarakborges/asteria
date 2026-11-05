@@ -207,9 +207,9 @@ public sealed class ChunkTests
         }
 
         Assert.Equal((ulong)1, chunk.Revision);
-        Assert.Equal(stone, chunk.GetBlockAtLinearIndex(17));
-        Assert.Equal(stone, chunk.GetBlockAtLinearIndex(18));
-        Assert.Equal(dirt, chunk.GetBlockAtLinearIndex(Chunk.Area + 17));
+        Assert.Equal(stone, chunk.GetCellAtLinearIndexUnchecked(17).Block);
+        Assert.Equal(stone, chunk.GetCellAtLinearIndexUnchecked(18).Block);
+        Assert.Equal(dirt, chunk.GetCellAtLinearIndexUnchecked(Chunk.Area + 17).Block);
     }
 
     [Fact]
