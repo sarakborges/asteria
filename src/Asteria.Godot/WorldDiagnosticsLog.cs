@@ -229,6 +229,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _directionalPaletteHorizontalBoundaryReadMs;
     private double _directionalPaletteOccupancyRowAssemblyMs;
     private double _directionalPaletteCandidateMaskBuildMs;
+    private double _directionalPaletteBoundaryColumnBoundsMs;
+    private double _directionalPaletteCaveSamplerBuildMs;
+    private double _directionalPaletteBoundaryColumnEvaluationMs;
     private long _directionalPaletteHorizontalBoundaryBatches;
     private long _directionalPaletteHorizontalBoundaryColumns;
 
@@ -476,6 +479,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
                 palette.OccupancyRowAssemblyMilliseconds;
             _directionalPaletteCandidateMaskBuildMs +=
                 palette.CandidateMaskBuildMilliseconds;
+            _directionalPaletteBoundaryColumnBoundsMs +=
+                sample.BoundaryColumnBoundsMilliseconds;
+            _directionalPaletteCaveSamplerBuildMs +=
+                sample.CaveSamplerBuildMilliseconds;
+            _directionalPaletteBoundaryColumnEvaluationMs +=
+                sample.BoundaryColumnEvaluationMilliseconds;
             _directionalPaletteHorizontalBoundaryBatches +=
                 palette.HorizontalBoundaryBatchCount;
             _directionalPaletteHorizontalBoundaryColumns +=
@@ -882,6 +891,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"directional_palette_horizontal_boundary_read_ms={Format1(_directionalPaletteHorizontalBoundaryReadMs)} " +
             $"directional_palette_occupancy_row_assembly_ms={Format1(_directionalPaletteOccupancyRowAssemblyMs)} " +
             $"directional_palette_candidate_mask_build_ms={Format1(_directionalPaletteCandidateMaskBuildMs)} " +
+            $"directional_palette_boundary_column_bounds_ms={Format1(_directionalPaletteBoundaryColumnBoundsMs)} " +
+            $"directional_palette_cave_sampler_build_ms={Format1(_directionalPaletteCaveSamplerBuildMs)} " +
+            $"directional_palette_boundary_column_evaluation_ms={Format1(_directionalPaletteBoundaryColumnEvaluationMs)} " +
             $"directional_palette_horizontal_boundary_batches={_directionalPaletteHorizontalBoundaryBatches} " +
             $"directional_palette_horizontal_boundary_columns={_directionalPaletteHorizontalBoundaryColumns} " +
             materializationStages + " " +
@@ -921,6 +933,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _directionalPaletteHorizontalBoundaryReadMs = 0d;
         _directionalPaletteOccupancyRowAssemblyMs = 0d;
         _directionalPaletteCandidateMaskBuildMs = 0d;
+        _directionalPaletteBoundaryColumnBoundsMs = 0d;
+        _directionalPaletteCaveSamplerBuildMs = 0d;
+        _directionalPaletteBoundaryColumnEvaluationMs = 0d;
         _directionalPaletteHorizontalBoundaryBatches = 0;
         _directionalPaletteHorizontalBoundaryColumns = 0;
         _creaturesPeak = _creaturesActive;
