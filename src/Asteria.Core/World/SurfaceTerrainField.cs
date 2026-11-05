@@ -982,12 +982,12 @@ public sealed class SurfaceTerrainField
             return;
 
         var maximumY = checked(originY + Chunk.Size - 1);
-        var minimumBaseY = int.MaxValue;
-        var maximumBaseY = int.MinValue;
-        var minimumLocalX = Chunk.Size;
-        var maximumLocalX = -1;
-        var minimumLocalZ = Chunk.Size;
-        var maximumLocalZ = -1;
+        var minimumCaveBaseY = int.MaxValue;
+        var maximumCaveBaseY = int.MinValue;
+        var minimumCaveLocalX = Chunk.Size;
+        var maximumCaveLocalX = -1;
+        var minimumCaveLocalZ = Chunk.Size;
+        var maximumCaveLocalZ = -1;
         var hasMissingSamples = false;
         var mayContainCaves = false;
 
@@ -1002,18 +1002,22 @@ public sealed class SurfaceTerrainField
             hasMissingSamples = true;
             var localX = columnIndex % Chunk.Size;
             var localZ = columnIndex / Chunk.Size;
-            minimumLocalX = Math.Min(minimumLocalX, localX);
-            maximumLocalX = Math.Max(maximumLocalX, localX);
-            minimumLocalZ = Math.Min(minimumLocalZ, localZ);
-            maximumLocalZ = Math.Max(maximumLocalZ, localZ);
             var baseY = column.BaseHeightAt(localX, localZ);
-            minimumBaseY = Math.Min(minimumBaseY, baseY);
-            maximumBaseY = Math.Max(maximumBaseY, baseY);
-
-            mayContainCaves |=
-                _caves is not null &&
-                (long)originY <= (long)baseY - _caves.MinimumDepth &&
-                (long)maximumY >= (long)baseY - _caves.MaximumDepth;
+            if (_caves is { } caves &&
+                (long)originY <= (long)baseY - caves.MinimumDepth &&
+                (long)maximumY >= (long)baseY - caves.MaximumDepth)
+            {
+                // Only cave-eligible columns contribute to the sampler bounds.
+                // Including unrelated high/low columns can unnecessarily
+                // expand its X/Z rectangle and vertical noise lattice.
+                mayContainCaves = true;
+                minimumCaveLocalX = Math.Min(minimumCaveLocalX, localX);
+                maximumCaveLocalX = Math.Max(maximumCaveLocalX, localX);
+                minimumCaveLocalZ = Math.Min(minimumCaveLocalZ, localZ);
+                maximumCaveLocalZ = Math.Max(maximumCaveLocalZ, localZ);
+                minimumCaveBaseY = Math.Min(minimumCaveBaseY, baseY);
+                maximumCaveBaseY = Math.Max(maximumCaveBaseY, baseY);
+            }
         }
 
         if (!hasMissingSamples)
@@ -1027,14 +1031,14 @@ public sealed class SurfaceTerrainField
             // not for the entire 16x16 chunk footprint.
             caveSampler = _caves!.CreateSampler(
                 _seed,
-                checked(originX + minimumLocalX),
+                checked(originX + minimumCaveLocalX),
                 originY,
-                checked(originZ + minimumLocalZ),
-                maximumLocalX - minimumLocalX + 1,
+                checked(originZ + minimumCaveLocalZ),
+                maximumCaveLocalX - minimumCaveLocalX + 1,
                 Chunk.Size,
-                maximumLocalZ - minimumLocalZ + 1,
-                minimumBaseY,
-                maximumBaseY);
+                maximumCaveLocalZ - minimumCaveLocalZ + 1,
+                minimumCaveBaseY,
+                maximumCaveBaseY);
         }
 
         for (var index = 0; index < columnIndices.Length; index++)
@@ -1055,8 +1059,8 @@ public sealed class SurfaceTerrainField
                 solidMasks[index],
                 sampledMasks[index],
                 caveSampler,
-                minimumLocalX,
-                minimumLocalZ,
+                minimumCaveLocalX,
+                minimumCaveLocalZ,
                 out var probes);
             sampledMasks[index] = ushort.MaxValue;
             densityProbes = checked(densityProbes + probes);
