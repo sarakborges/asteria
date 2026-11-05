@@ -2008,7 +2008,8 @@ public sealed class SurfaceChunkMaterializer
             originZ,
             out densityProbes,
             out boundaryDensityProbes,
-            out preparationProfile);
+            out preparationProfile,
+            densityVolume);
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         Chunk chunk,
@@ -2048,14 +2049,10 @@ public sealed class SurfaceChunkMaterializer
             var firstWorldX = checked(originX + cursor);
             var first = VoxelCoordinates.FromWorld(
                 firstWorldX, originY, originZ);
-            var sliceEnd = cursor + 1;
-            while (sliceEnd < endLocalX &&
-                   VoxelCoordinates.FromWorld(
-                       checked(originX + sliceEnd), originY, originZ)
-                       .Chunk.X == first.Chunk.X)
-            {
-                sliceEnd++;
-            }
+            var firstLocalX = first.Local.X;
+            var sliceEnd = Math.Min(
+                endLocalX,
+                checked(cursor + Chunk.Size - firstLocalX));
 
             var count = checked((sliceEnd - cursor) * Chunk.Size);
             if (count > columnIndices.Length || count > solidMasks.Length)
@@ -2065,10 +2062,10 @@ public sealed class SurfaceChunkMaterializer
             var writeIndex = 0;
             for (var localX = cursor; localX < sliceEnd; localX++)
             {
-                var local = VoxelCoordinates.FromWorld(
-                    checked(originX + localX), originY, originZ).Local;
+                var neighborLocalX = firstLocalX + localX - cursor;
                 for (var z = 0; z < Chunk.Size; z++)
-                    columnIndices[writeIndex++] = z * Chunk.Size + local.X;
+                    columnIndices[writeIndex++] =
+                        z * Chunk.Size + neighborLocalX;
             }
 
             _columns.ReadDensityColumnMasks(
@@ -2120,14 +2117,10 @@ public sealed class SurfaceChunkMaterializer
             var firstWorldZ = checked(originZ + cursor);
             var first = VoxelCoordinates.FromWorld(
                 originX, originY, firstWorldZ);
-            var sliceEnd = cursor + 1;
-            while (sliceEnd < endLocalZ &&
-                   VoxelCoordinates.FromWorld(
-                       originX, originY, checked(originZ + sliceEnd))
-                       .Chunk.Z == first.Chunk.Z)
-            {
-                sliceEnd++;
-            }
+            var firstLocalZ = first.Local.Z;
+            var sliceEnd = Math.Min(
+                endLocalZ,
+                checked(cursor + Chunk.Size - firstLocalZ));
 
             var count = checked((sliceEnd - cursor) * Chunk.Size);
             if (count > columnIndices.Length || count > solidMasks.Length)
@@ -2183,7 +2176,8 @@ public sealed class SurfaceChunkMaterializer
         int originZ,
         out int densityProbes,
         out int boundaryDensityProbes,
-        out DirectionalFaceOccupancyPreparationProfile preparationProfile)
+        out DirectionalFaceOccupancyPreparationProfile preparationProfile,
+        TerrainDensityVolume? densityVolume = null)
     {
         ArgumentNullException.ThrowIfNull(isSolid);
         ArgumentNullException.ThrowIfNull(column);
@@ -2252,6 +2246,23 @@ public sealed class SurfaceChunkMaterializer
         static void MarkSolid(ulong[] rows, int rowOffset, int bitIndex) =>
             rows[rowOffset + (bitIndex >> 6)] |= 1UL << (bitIndex & 63);
 
+        static void MarkMask(
+            ulong[] rows, int rowOffset, int bitIndex, ushort mask)
+        {
+            if (mask == 0)
+                return;
+
+            var wordOffset = bitIndex >> 6;
+            var bitOffset = bitIndex & 63;
+            rows[rowOffset + wordOffset] |= (ulong)mask << bitOffset;
+            if (bitOffset == 0)
+                return;
+
+            var overflow = (ulong)mask >> (64 - bitOffset);
+            if (overflow != 0)
+                rows[rowOffset + wordOffset + 1] |= overflow;
+        }
+
         static bool IsSolid(ulong[] rows, int rowOffset, int bitIndex) =>
             (rows[rowOffset + (bitIndex >> 6)] &
              (1UL << (bitIndex & 63))) != 0;
@@ -2309,71 +2320,143 @@ public sealed class SurfaceChunkMaterializer
 #if DEBUG
         var occupancyRowAssemblyStarted = Stopwatch.GetTimestamp();
 #endif
-        for (var z = 0; z < size; z++)
-        for (var x = 0; x < size; x++)
+        if (densityVolume is not null &&
+            densityVolume.Width == size &&
+            densityVolume.Height == size &&
+            densityVolume.Depth == size)
         {
-            var rowOffset = (z * size + x) * wordCount;
-            for (var regionY = 0; regionY < regionSize; regionY++)
+            // The main terrain volume already stores one 16-bit occupancy mask
+            // per X/Z column. Copy those masks directly instead of probing
+            // every interior voxel through a delegate.
+            var belowWorldMinimumCount = Math.Clamp(
+                maximumDepth - originY, 0, maximumDepth);
+            var belowWorldMinimumMask = belowWorldMinimumCount switch
             {
-                var localY = regionY - maximumDepth;
-                bool solid;
-                if ((uint)localY < size)
-                    solid = isSolid(x, localY, z);
-                else
+                0 => 0UL,
+                64 => ulong.MaxValue,
+                _ => (1UL << belowWorldMinimumCount) - 1UL,
+            };
+
+            for (var z = 0; z < size; z++)
+            for (var x = 0; x < size; x++)
+            {
+                var rowOffset = (z * size + x) * wordCount;
+                yRows[rowOffset] |= belowWorldMinimumMask;
+                MarkMask(
+                    yRows,
+                    rowOffset,
+                    maximumDepth,
+                    densityVolume.SolidColumnMaskAtUnchecked(x, z));
+            }
+
+            foreach (var slab in bottomSlabs)
+            {
+                var bitStart = checked(maximumDepth + slab.OriginY - originY);
+                var masks = slab.Volume.ColumnSolidMasks;
+                for (var z = 0; z < size; z++)
+                for (var x = 0; x < size; x++)
                 {
-                    var worldY = checked(originY + localY);
-                    solid = worldY < 0 || VerticalHaloIsSolid(x, localY, z);
+                    var rowOffset = (z * size + x) * wordCount;
+                    MarkMask(
+                        yRows,
+                        rowOffset,
+                        bitStart,
+                        masks[z * size + x]);
                 }
-                if (solid)
-                    MarkSolid(yRows, rowOffset, regionY);
+            }
+
+            foreach (var slab in topSlabs)
+            {
+                var bitStart = checked(maximumDepth + slab.OriginY - originY);
+                var masks = slab.Volume.ColumnSolidMasks;
+                for (var z = 0; z < size; z++)
+                for (var x = 0; x < size; x++)
+                {
+                    var rowOffset = (z * size + x) * wordCount;
+                    MarkMask(
+                        yRows,
+                        rowOffset,
+                        bitStart,
+                        masks[z * size + x]);
+                }
+            }
+        }
+        else
+        {
+            for (var z = 0; z < size; z++)
+            for (var x = 0; x < size; x++)
+            {
+                var rowOffset = (z * size + x) * wordCount;
+                for (var regionY = 0; regionY < regionSize; regionY++)
+                {
+                    var localY = regionY - maximumDepth;
+                    bool solid;
+                    if ((uint)localY < size)
+                        solid = isSolid(x, localY, z);
+                    else
+                    {
+                        var worldY = checked(originY + localY);
+                        solid = worldY < 0 || VerticalHaloIsSolid(x, localY, z);
+                    }
+                    if (solid)
+                        MarkSolid(yRows, rowOffset, regionY);
+                }
             }
         }
 
+        // Transpose the interior occupancy rows once and populate both
+        // horizontal axes in the same pass over X/Z columns.
         for (var y = 0; y < size; y++)
         for (var z = 0; z < size; z++)
-        {
-            var rowOffset = (y * size + z) * wordCount;
-            for (var regionX = 0; regionX < regionSize; regionX++)
-            {
-                var localX = regionX - maximumDepth;
-                bool solid;
-                if ((uint)localX < size)
-                {
-                    var yRowOffset = (z * size + localX) * wordCount;
-                    solid = IsSolid(yRows, yRowOffset, maximumDepth + y);
-                }
-                else
-                {
-                    var boundaryIndex =
-                        (localX + maximumDepth) * size + z;
-                    solid = (xBoundaryMasks[boundaryIndex] & (1u << y)) != 0;
-                }
-                if (solid)
-                    MarkSolid(xRows, rowOffset, regionX);
-            }
-        }
-
-        for (var y = 0; y < size; y++)
         for (var x = 0; x < size; x++)
         {
-            var rowOffset = (y * size + x) * wordCount;
-            for (var regionZ = 0; regionZ < regionSize; regionZ++)
+            var yRowOffset = (z * size + x) * wordCount;
+            if (!IsSolid(yRows, yRowOffset, maximumDepth + y))
+                continue;
+
+            var xRowOffset = (y * size + z) * wordCount;
+            MarkSolid(xRows, xRowOffset, maximumDepth + x);
+
+            var zRowOffset = (y * size + x) * wordCount;
+            MarkSolid(zRows, zRowOffset, maximumDepth + z);
+        }
+
+        var yBitMask = 0u;
+        for (var y = 0; y < size; y++)
+        {
+            yBitMask = 1u << y;
+            for (var z = 0; z < size; z++)
             {
-                var localZ = regionZ - maximumDepth;
-                bool solid;
-                if ((uint)localZ < size)
+                var rowOffset = (y * size + z) * wordCount;
+                for (var regionX = 0; regionX < maximumDepth; regionX++)
                 {
-                    var yRowOffset = (localZ * size + x) * wordCount;
-                    solid = IsSolid(yRows, yRowOffset, maximumDepth + y);
+                    if ((xBoundaryMasks[regionX * size + z] & yBitMask) != 0)
+                        MarkSolid(xRows, rowOffset, regionX);
                 }
-                else
+                for (var regionX = maximumDepth + size;
+                     regionX < regionSize;
+                     regionX++)
                 {
-                    var boundaryIndex =
-                        x * regionSize + localZ + maximumDepth;
-                    solid = (zBoundaryMasks[boundaryIndex] & (1u << y)) != 0;
+                    if ((xBoundaryMasks[regionX * size + z] & yBitMask) != 0)
+                        MarkSolid(xRows, rowOffset, regionX);
                 }
-                if (solid)
-                    MarkSolid(zRows, rowOffset, regionZ);
+            }
+
+            for (var x = 0; x < size; x++)
+            {
+                var rowOffset = (y * size + x) * wordCount;
+                for (var regionZ = 0; regionZ < maximumDepth; regionZ++)
+                {
+                    if ((zBoundaryMasks[x * regionSize + regionZ] & yBitMask) != 0)
+                        MarkSolid(zRows, rowOffset, regionZ);
+                }
+                for (var regionZ = maximumDepth + size;
+                     regionZ < regionSize;
+                     regionZ++)
+                {
+                    if ((zBoundaryMasks[x * regionSize + regionZ] & yBitMask) != 0)
+                        MarkSolid(zRows, rowOffset, regionZ);
+                }
             }
         }
 #if DEBUG
