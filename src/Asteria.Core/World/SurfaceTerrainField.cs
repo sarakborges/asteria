@@ -2796,12 +2796,6 @@ public sealed class TerrainDensityVolume
             throw new InvalidOperationException(
                 "Density volume does not carry volume-biome placement metadata.");
         }
-        if ((uint)localX >= (uint)Width ||
-            (uint)localZ >= (uint)Depth)
-        {
-            throw new ArgumentOutOfRangeException(nameof(localX));
-        }
-
         return _volumeBiomeField.SampleAtY(
             _volumeBiomes,
             localX,
