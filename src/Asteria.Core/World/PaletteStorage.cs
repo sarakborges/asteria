@@ -92,7 +92,7 @@ internal sealed class PaletteStorage<T>
                 state.Lookup.Count,
                 state.Lookup.EnsureCapacity(0),
                 state.FreeSlots.Count,
-                state.FreeSlots.Capacity,
+                state.FreeSlots.EnsureCapacity(0),
                 state.Indices.Length,
                 state.Occupied.Length,
                 state.MeshletOccupiedCounts.Length);
