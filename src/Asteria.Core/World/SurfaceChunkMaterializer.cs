@@ -2135,12 +2135,15 @@ public sealed class SurfaceChunkMaterializer
                     "A horizontal Z boundary batch exceeded one chunk's column capacity.");
 
             var writeIndex = 0;
+            // Keep local X fixed while traversing the Z strip. The cave-noise
+            // grid sampler caches its X-interpolated lattice planes, so this
+            // column-major order reuses them across every requested Z column.
+            for (var x = 0; x < Chunk.Size; x++)
             for (var localZ = cursor; localZ < sliceEnd; localZ++)
             {
                 var local = VoxelCoordinates.FromWorld(
                     originX, originY, checked(originZ + localZ)).Local;
-                for (var x = 0; x < Chunk.Size; x++)
-                    columnIndices[writeIndex++] = local.Z * Chunk.Size + x;
+                columnIndices[writeIndex++] = local.Z * Chunk.Size + x;
             }
 
             _columns.ReadDensityColumnMasks(
@@ -2153,8 +2156,8 @@ public sealed class SurfaceChunkMaterializer
             densityProbes = checked(densityProbes + probes);
 
             writeIndex = 0;
-            for (var localZ = cursor; localZ < sliceEnd; localZ++)
             for (var x = 0; x < Chunk.Size; x++)
+            for (var localZ = cursor; localZ < sliceEnd; localZ++)
             {
                 var destinationIndex =
                     x * regionSize + localZ + maximumDepth;
