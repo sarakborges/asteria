@@ -1144,7 +1144,7 @@ public sealed class SurfaceTerrainField
 
         var biome = column.BiomeAt(localX, localZ);
         var baseY = column.BaseHeightAt(localX, localZ);
-        var volumeBiome = column.VolumeBiomes[localX, localZ];
+        var volumeBiome = column.VolumeBiomeAt(localX, localZ);
         var solidMask = (ushort)(cachedSolidMask & sampledMask);
         var additiveRule =
             volumeBiome is not null &&
@@ -1387,34 +1387,53 @@ public sealed class SurfaceTerrainField
     /// Horizontal halo reads do not need cave-biome ownership, final surface
     /// heights or fluid-cut metadata, so avoid building those full-column grids.
     /// </summary>
-    internal SurfaceTerrainDensityColumn SampleDensityColumn(int chunkX, int chunkZ)
+    /// <summary>
+    /// Samples only the requested density columns. Horizontal boundary reads
+    /// normally need a narrow strip, not a complete 16x16 terrain footprint.
+    /// Samplers share deterministic seed assignments within each batch.
+    /// </summary>
+    internal void SampleDensityColumns(
+        int chunkX,
+        int chunkZ,
+        ReadOnlySpan<int> columnIndices,
+        BiomeSample?[] biomes,
+        BiomeSample?[] volumeBiomes,
+        int[] baseHeights)
     {
+        if (columnIndices.Length > Chunk.Area ||
+            biomes.Length != Chunk.Area ||
+            volumeBiomes.Length != Chunk.Area ||
+            baseHeights.Length != Chunk.Area)
+        {
+            throw new ArgumentException(
+                "Density terrain snapshots must use chunk-sized buffers.");
+        }
+
         var (originX, _, originZ) =
             VoxelCoordinates.ChunkOrigin(
                 new ChunkCoord(chunkX, 0, chunkZ));
-        var biomes = _surfaceBiomes.SampleGrid(
-            originX,
-            originZ,
-            Chunk.Size,
-            Chunk.Size);
-        var volumeBiomes = _volumeBiomes.SamplePlacementGrid(
-            originX,
-            originZ,
-            Chunk.Size,
-            Chunk.Size);
-        var baseHeights = new int[Chunk.Area];
+        var surfaceSampler = _surfaceBiomes.CreateSampler();
+        var volumeSampler = _volumeBiomes.CreatePlacementSampler();
 
-        for (var z = 0; z < Chunk.Size; z++)
-        for (var x = 0; x < Chunk.Size; x++)
+        for (var offset = 0; offset < columnIndices.Length; offset++)
         {
-            var worldX = checked(originX + x);
-            var worldZ = checked(originZ + z);
-            baseHeights[z * Chunk.Size + x] =
-                BaseHeightAt(biomes[x, z], worldX, worldZ);
-        }
+            var columnIndex = columnIndices[offset];
+            if ((uint)columnIndex >= Chunk.Area)
+                throw new ArgumentOutOfRangeException(nameof(columnIndices));
 
-        return new SurfaceTerrainDensityColumn(
-            biomes, volumeBiomes, baseHeights);
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            var worldX = checked(originX + localX);
+            var worldZ = checked(originZ + localZ);
+            var biome = surfaceSampler.Sample(worldX, worldZ);
+            var volumeBiome = _volumeBiomes.SamplePlacement(
+                volumeSampler, worldX, worldZ);
+
+            biomes[columnIndex] = biome;
+            volumeBiomes[columnIndex] = volumeBiome;
+            baseHeights[columnIndex] =
+                BaseHeightAt(biome, worldX, worldZ);
+        }
     }
 
     public SurfaceTerrainColumn SampleColumn(int chunkX, int chunkZ)
@@ -2408,8 +2427,8 @@ public sealed class SurfaceTerrainColumn
 internal readonly struct SurfaceTerrainDensityColumn
 {
     private readonly SurfaceTerrainColumn? _fullColumn;
-    private readonly BiomeSampleGrid? _biomes;
-    private readonly VolumeBiomePlacementGrid? _volumeBiomes;
+    private readonly BiomeSample?[]? _biomes;
+    private readonly BiomeSample?[]? _volumeBiomes;
     private readonly int[]? _baseHeights;
 
     internal SurfaceTerrainDensityColumn(SurfaceTerrainColumn fullColumn)
@@ -2422,21 +2441,19 @@ internal readonly struct SurfaceTerrainDensityColumn
     }
 
     internal SurfaceTerrainDensityColumn(
-        BiomeSampleGrid biomes,
-        VolumeBiomePlacementGrid volumeBiomes,
+        BiomeSample?[] biomes,
+        BiomeSample?[] volumeBiomes,
         int[] baseHeights)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(volumeBiomes);
         ArgumentNullException.ThrowIfNull(baseHeights);
-        if (biomes.Width != Chunk.Size ||
-            biomes.Depth != Chunk.Size ||
-            volumeBiomes.Width != Chunk.Size ||
-            volumeBiomes.Depth != Chunk.Size ||
+        if (biomes.Length != Chunk.Area ||
+            volumeBiomes.Length != Chunk.Area ||
             baseHeights.Length != Chunk.Area)
         {
             throw new ArgumentException(
-                "Density terrain columns must contain one complete chunk footprint.");
+                "Density terrain columns must use chunk-sized buffers.");
         }
 
         _fullColumn = null;
@@ -2445,22 +2462,37 @@ internal readonly struct SurfaceTerrainDensityColumn
         _baseHeights = baseHeights;
     }
 
-    internal BiomeSample BiomeAt(int localX, int localZ) =>
-        _fullColumn is { } fullColumn
-            ? fullColumn.BiomeAt(localX, localZ)
-            : _biomes![localX, localZ];
+    internal BiomeSample BiomeAt(int localX, int localZ)
+    {
+        if (_fullColumn is { } fullColumn)
+            return fullColumn.BiomeAt(localX, localZ);
+
+        var index = Index(localX, localZ);
+        return _biomes![index] ??
+            throw new InvalidOperationException(
+                $"Density terrain column {localX},{localZ} was not sampled.");
+    }
 
     internal int BaseHeightAt(int localX, int localZ)
     {
         if (_fullColumn is { } fullColumn)
             return fullColumn.BaseHeightAt(localX, localZ);
-        if ((uint)localX >= Chunk.Size || (uint)localZ >= Chunk.Size)
-            throw new ArgumentOutOfRangeException(nameof(localX));
-        return _baseHeights![localZ * Chunk.Size + localX];
+        return _baseHeights![Index(localX, localZ)];
     }
 
-    internal VolumeBiomePlacementGrid VolumeBiomes =>
-        _fullColumn?.VolumeBiomes ?? _volumeBiomes!;
+    internal BiomeSample? VolumeBiomeAt(int localX, int localZ)
+    {
+        if (_fullColumn is { } fullColumn)
+            return fullColumn.VolumeBiomes[localX, localZ];
+        return _volumeBiomes![Index(localX, localZ)];
+    }
+
+    private static int Index(int localX, int localZ)
+    {
+        if ((uint)localX >= Chunk.Size || (uint)localZ >= Chunk.Size)
+            throw new ArgumentOutOfRangeException(nameof(localX));
+        return localZ * Chunk.Size + localX;
+    }
 }
 
 /// <summary>
