@@ -992,6 +992,75 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void DensityBoundaryCacheDefersVolumeBiomeSamplingUntilAdditiveBands()
+    {
+        var generator = Generator(
+            additive:
+            [
+                new BiomeAdditiveDensityDefinition(
+                    80, 104, 64, 24, 1f, 0f, 30f,
+                    verticalFalloff: 2f),
+                new BiomeAdditiveDensityDefinition(
+                    120, 144, 64, 24, 1f, 0f, 30f,
+                    horizontalFalloff: 2f),
+            ]);
+        var terrain = generator.Terrain;
+
+        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(64));
+        Assert.True(terrain.RequiresVolumeBiomeForDensityBand(80));
+        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(104));
+        Assert.True(terrain.RequiresVolumeBiomeForDensityBand(112));
+        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(145));
+
+        var point = FindVolumeSolid(generator, y: 92);
+        var (coord, local) = VoxelCoordinates.FromWorld(
+            point.X, 64, point.Z);
+        var columnIndices = new[]
+        {
+            local.Z * Chunk.Size + local.X,
+        };
+        var cache = new SurfaceTerrainColumnCache(terrain);
+        var lowerMask = new ushort[1];
+
+        cache.ReadDensityColumnMasks(
+            coord.X,
+            64,
+            coord.Z,
+            columnIndices,
+            lowerMask,
+            out _, out _, out _, out _, out _, out _);
+
+        for (var offset = 0; offset < Chunk.Size; offset++)
+        {
+            var worldY = 64 + offset;
+            var expected = generator.DensityAt(
+                point.X, worldY, point.Z) >= 0d;
+            var actual = (lowerMask[0] & (1 << offset)) != 0;
+            Assert.Equal(expected, actual);
+        }
+
+        // The same cached X/Z column must acquire its volume owner later,
+        // when the requested vertical band intersects additive formations.
+        var upperMask = new ushort[1];
+        cache.ReadDensityColumnMasks(
+            coord.X,
+            80,
+            coord.Z,
+            columnIndices,
+            upperMask,
+            out _, out _, out _, out _, out _, out _);
+
+        for (var offset = 0; offset < Chunk.Size; offset++)
+        {
+            var worldY = 80 + offset;
+            var expected = generator.DensityAt(
+                point.X, worldY, point.Z) >= 0d;
+            var actual = (upperMask[0] & (1 << offset)) != 0;
+            Assert.Equal(expected, actual);
+        }
+    }
+
+    [Fact]
     public void VolumePlacementGridOwnersMatchScalarAcrossIndependentFormationBounds()
     {
         var generator = Generator(
