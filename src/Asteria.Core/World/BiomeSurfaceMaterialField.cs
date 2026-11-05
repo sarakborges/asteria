@@ -30,6 +30,66 @@ internal readonly record struct BiomeDirectionalPalette(
 /// </summary>
 public sealed class BiomeSurfaceMaterialField
 {
+    /// <summary>
+    /// Resolved per-biome geology rule for hot voxel loops. A chunk column
+    /// keeps this handle so each voxel does not repeat a string-keyed lookup.
+    /// </summary>
+    internal readonly struct GeologySampler
+    {
+        private readonly ulong _seed;
+        private readonly ResolvedGeology? _geology;
+
+        private GeologySampler(ulong seed, ResolvedGeology? geology)
+        {
+            _seed = seed;
+            _geology = geology;
+        }
+
+        internal uint? SurfaceCoverDepth =>
+            _geology?.SurfaceCoverDepth;
+
+        internal bool RequiresSubmergedSurface =>
+            _geology is { SurfaceCoverage: > 0f } &&
+            _geology.SurfaceSubmergedOnly;
+
+        internal bool TryBlockAtCached(
+            int worldX,
+            int worldY,
+            int worldZ,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+            out BlockRuntimeId block)
+        {
+            if (_geology is null)
+            {
+                block = BlockRuntimeId.Air;
+                return false;
+            }
+
+            block = _geology.BlockAt(
+                _seed, worldX, worldY, worldZ, latticeCache);
+            return true;
+        }
+
+        internal bool TrySurfaceBlockAtCached(
+            int worldX,
+            int worldY,
+            int worldZ,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+            out BlockRuntimeId block)
+        {
+            if (_geology is null ||
+                !_geology.TrySurfaceBlockAt(
+                    _seed, worldX, worldY, worldZ,
+                    out block, latticeCache))
+            {
+                block = BlockRuntimeId.Air;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
     private const int SampledColumnCacheCapacity = 8192;
 
     private readonly record struct MaterialColumnKey(
@@ -169,6 +229,17 @@ public sealed class BiomeSurfaceMaterialField
             worldZ,
             depth,
             PlacementFor(rule, worldX, worldZ, placement));
+    }
+
+    /// <summary>
+    /// Resolves the hot-loop handle for one biome's authored geology.
+    /// </summary>
+    internal GeologySampler ResolveGeology(BiomeSample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return _geologyRules.TryGetValue(sample.Primary, out var geology)
+            ? new GeologySampler(_seed, geology)
+            : default;
     }
 
     /// <summary>
