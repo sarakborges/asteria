@@ -1472,6 +1472,11 @@ public sealed class SurfaceTerrainField
             VoxelCoordinates.ChunkOrigin(
                 new ChunkCoord(chunkX, 0, chunkZ));
 
+#if DEBUG
+        // Measure whole passes rather than timing every column individually.
+        // Per-column Stopwatch calls materially inflate this hot path and make
+        // the breakdown less representative of the work being measured.
+        var biomeSamplingStarted = Stopwatch.GetTimestamp();
         for (var offset = 0; offset < columnIndices.Length; offset++)
         {
             var columnIndex = columnIndices[offset];
@@ -1482,25 +1487,44 @@ public sealed class SurfaceTerrainField
             var localZ = columnIndex / Chunk.Size;
             var worldX = checked(originX + localX);
             var worldZ = checked(originZ + localZ);
-#if DEBUG
-            var biomeSampleStarted = Stopwatch.GetTimestamp();
-#endif
-            var biome = surfaceSampler.Sample(worldX, worldZ);
-#if DEBUG
-            biomeAssignmentSamplingMilliseconds +=
-                Stopwatch.GetElapsedTime(biomeSampleStarted).TotalMilliseconds;
-#endif
-            biomes[columnIndex] = biome;
-#if DEBUG
-            var baseHeightStarted = Stopwatch.GetTimestamp();
-#endif
+            biomes[columnIndex] = surfaceSampler.Sample(worldX, worldZ);
+        }
+        biomeAssignmentSamplingMilliseconds =
+            Stopwatch.GetElapsedTime(biomeSamplingStarted).TotalMilliseconds;
+
+        var baseHeightSamplingStarted = Stopwatch.GetTimestamp();
+        for (var offset = 0; offset < columnIndices.Length; offset++)
+        {
+            var columnIndex = columnIndices[offset];
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            var worldX = checked(originX + localX);
+            var worldZ = checked(originZ + localZ);
+            var biome = biomes[columnIndex] ??
+                throw new InvalidOperationException(
+                    "Density surface sampling did not populate a requested biome column.");
             baseHeights[columnIndex] =
                 BaseHeightAt(biome, worldX, worldZ);
-#if DEBUG
-            baseHeightSamplingMilliseconds +=
-                Stopwatch.GetElapsedTime(baseHeightStarted).TotalMilliseconds;
-#endif
         }
+        baseHeightSamplingMilliseconds =
+            Stopwatch.GetElapsedTime(baseHeightSamplingStarted).TotalMilliseconds;
+#else
+        for (var offset = 0; offset < columnIndices.Length; offset++)
+        {
+            var columnIndex = columnIndices[offset];
+            if ((uint)columnIndex >= Chunk.Area)
+                throw new ArgumentOutOfRangeException(nameof(columnIndices));
+
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            var worldX = checked(originX + localX);
+            var worldZ = checked(originZ + localZ);
+            var biome = surfaceSampler.Sample(worldX, worldZ);
+            biomes[columnIndex] = biome;
+            baseHeights[columnIndex] =
+                BaseHeightAt(biome, worldX, worldZ);
+        }
+#endif
     }
 
     internal void SampleDensityVolumeColumns(
