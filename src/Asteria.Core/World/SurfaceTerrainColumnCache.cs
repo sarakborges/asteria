@@ -484,6 +484,7 @@ public sealed class SurfaceTerrainColumnCache
         int originY,
         int chunkZ,
         ReadOnlySpan<int> columnIndices,
+        ReadOnlySpan<ushort> requestedMasks,
         Span<ushort> solidMasks,
         out int densityProbes,
         out double columnBoundsMilliseconds,
@@ -494,7 +495,8 @@ public sealed class SurfaceTerrainColumnCache
     {
         if (originY < 0 || originY % Chunk.Size != 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
-        if (columnIndices.Length != solidMasks.Length ||
+        if (columnIndices.Length != requestedMasks.Length ||
+            columnIndices.Length != solidMasks.Length ||
             columnIndices.Length > Chunk.Area)
             throw new ArgumentException(
                 "Density column batch must contain matching buffers of at most 256 columns.");
@@ -519,19 +521,40 @@ public sealed class SurfaceTerrainColumnCache
             Stopwatch.GetElapsedTime(occupancyReadStarted).TotalMilliseconds;
 #endif
 
-        var hasMissingSamples = false;
+        Span<int> missingColumnIndices = stackalloc int[columnIndices.Length];
+        Span<int> missingInputIndices = stackalloc int[columnIndices.Length];
+        Span<ushort> missingRequestedMasks = stackalloc ushort[columnIndices.Length];
+        Span<ushort> missingSolidMasks = stackalloc ushort[columnIndices.Length];
+        Span<ushort> missingSampledMasks = stackalloc ushort[columnIndices.Length];
+        var missingCount = 0;
         for (var index = 0; index < columnIndices.Length; index++)
-            hasMissingSamples |= sampledMasks[index] != ushort.MaxValue;
-
-        if (hasMissingSamples)
         {
+            var missingMask = (ushort)(
+                requestedMasks[index] & (ushort)~sampledMasks[index]);
+            if (missingMask == 0)
+                continue;
+
+            missingColumnIndices[missingCount] = columnIndices[index];
+            missingInputIndices[missingCount] = index;
+            missingRequestedMasks[missingCount] = requestedMasks[index];
+            missingSolidMasks[missingCount] = solidMasks[index];
+            missingSampledMasks[missingCount] = sampledMasks[index];
+            missingCount++;
+        }
+
+        if (missingCount > 0)
+        {
+            var requestedColumns = missingColumnIndices[..missingCount];
+            var requestedMasksForColumns = missingRequestedMasks[..missingCount];
+            var solidMasksForColumns = missingSolidMasks[..missingCount];
+            var sampledMasksForColumns = missingSampledMasks[..missingCount];
 #if DEBUG
             var densityColumnStarted = Stopwatch.GetTimestamp();
 #endif
             var includeVolumeBiomes =
                 _terrain.RequiresVolumeBiomeForDensityBand(originY);
             var column = GetDensityTerrainColumn(
-                chunkX, chunkZ, columnIndices, includeVolumeBiomes);
+                chunkX, chunkZ, requestedColumns, includeVolumeBiomes);
 #if DEBUG
             densityTerrainColumnMilliseconds =
                 Stopwatch.GetElapsedTime(densityColumnStarted).TotalMilliseconds;
@@ -543,9 +566,10 @@ public sealed class SurfaceTerrainColumnCache
                 chunkOriginX,
                 originY,
                 chunkOriginZ,
-                columnIndices,
-                solidMasks,
-                sampledMasks,
+                requestedColumns,
+                requestedMasksForColumns,
+                solidMasksForColumns,
+                sampledMasksForColumns,
                 out densityProbes,
                 out columnBoundsMilliseconds,
                 out caveSamplerBuildMilliseconds,
@@ -554,13 +578,15 @@ public sealed class SurfaceTerrainColumnCache
             var occupancyMergeStarted = Stopwatch.GetTimestamp();
 #endif
             occupancy.MergeColumns(
-                columnIndices,
-                solidMasks,
-                sampledMasks);
+                requestedColumns,
+                solidMasksForColumns,
+                sampledMasksForColumns);
 #if DEBUG
             occupancyCacheAccessMilliseconds +=
                 Stopwatch.GetElapsedTime(occupancyMergeStarted).TotalMilliseconds;
 #endif
+            for (var index = 0; index < missingCount; index++)
+                solidMasks[missingInputIndices[index]] = missingSolidMasks[index];
         }
     }
 
