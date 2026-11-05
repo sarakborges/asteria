@@ -1,3 +1,6 @@
+#if DEBUG
+using System.Diagnostics;
+#endif
 using System.Threading;
 
 namespace Asteria.Core.World;
@@ -966,7 +969,10 @@ public sealed class SurfaceTerrainField
         ReadOnlySpan<int> columnIndices,
         Span<ushort> solidMasks,
         Span<ushort> sampledMasks,
-        out int densityProbes)
+        out int densityProbes,
+        out double columnBoundsMilliseconds,
+        out double caveSamplerBuildMilliseconds,
+        out double columnEvaluationMilliseconds)
     {
         ArgumentNullException.ThrowIfNull(column);
         if (originY < 0 || originY % Chunk.Size != 0)
@@ -978,6 +984,9 @@ public sealed class SurfaceTerrainField
                 "Density column batch must contain matching buffers of at most 256 columns.");
 
         densityProbes = 0;
+        columnBoundsMilliseconds = 0d;
+        caveSamplerBuildMilliseconds = 0d;
+        columnEvaluationMilliseconds = 0d;
         if (columnIndices.IsEmpty)
             return;
 
@@ -990,6 +999,9 @@ public sealed class SurfaceTerrainField
         var maximumCaveLocalZ = -1;
         var hasMissingSamples = false;
         var mayContainCaves = false;
+#if DEBUG
+        var columnBoundsStarted = Stopwatch.GetTimestamp();
+#endif
 
         for (var index = 0; index < columnIndices.Length; index++)
         {
@@ -1019,11 +1031,18 @@ public sealed class SurfaceTerrainField
                 maximumCaveBaseY = Math.Max(maximumCaveBaseY, baseY);
             }
         }
+#if DEBUG
+        columnBoundsMilliseconds =
+            Stopwatch.GetElapsedTime(columnBoundsStarted).TotalMilliseconds;
+#endif
 
         if (!hasMissingSamples)
             return;
 
         CaveNoiseVolumeSampler? caveSampler = null;
+#if DEBUG
+        var caveSamplerBuildStarted = Stopwatch.GetTimestamp();
+#endif
         if (mayContainCaves)
         {
             // Directional-face batches usually describe one narrow X or Z
@@ -1040,6 +1059,11 @@ public sealed class SurfaceTerrainField
                 minimumCaveBaseY,
                 maximumCaveBaseY);
         }
+#if DEBUG
+        caveSamplerBuildMilliseconds =
+            Stopwatch.GetElapsedTime(caveSamplerBuildStarted).TotalMilliseconds;
+        var columnEvaluationStarted = Stopwatch.GetTimestamp();
+#endif
 
         for (var index = 0; index < columnIndices.Length; index++)
         {
@@ -1065,6 +1089,10 @@ public sealed class SurfaceTerrainField
             sampledMasks[index] = ushort.MaxValue;
             densityProbes = checked(densityProbes + probes);
         }
+#if DEBUG
+        columnEvaluationMilliseconds =
+            Stopwatch.GetElapsedTime(columnEvaluationStarted).TotalMilliseconds;
+#endif
     }
 
     /// <summary>
