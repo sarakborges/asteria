@@ -17,13 +17,19 @@ public sealed class SurfaceChunkMaterializer
         double HorizontalBoundaryReadMilliseconds,
         double OccupancyRowAssemblyMilliseconds,
         double CandidateMaskBuildMilliseconds,
+        double BoundaryColumnBoundsMilliseconds,
+        double CaveSamplerBuildMilliseconds,
+        double BoundaryColumnEvaluationMilliseconds,
         int HorizontalBoundaryBatchCount,
         int HorizontalBoundaryColumnCount);
 
     private readonly record struct BoundaryMaskReadMetrics(
         int DensityProbes,
         int BatchCount,
-        int ColumnCount);
+        int ColumnCount,
+        double ColumnBoundsMilliseconds,
+        double CaveSamplerBuildMilliseconds,
+        double ColumnEvaluationMilliseconds);
 
     // A 16x16 chunk plus its one-column cardinal slope-probe halo is 18x18.
     private const int SlopeProbeSampleCacheCapacity =
@@ -1471,6 +1477,15 @@ public sealed class SurfaceChunkMaterializer
         public DirectionalFaceOccupancyPreparationProfile
             DirectionalFacePalettePreparationProfile { get; set; }
 
+        public double DirectionalFaceBoundaryColumnBoundsMilliseconds =>
+            DirectionalFacePalettePreparationProfile.BoundaryColumnBoundsMilliseconds;
+
+        public double DirectionalFaceCaveSamplerBuildMilliseconds =>
+            DirectionalFacePalettePreparationProfile.CaveSamplerBuildMilliseconds;
+
+        public double DirectionalFaceBoundaryColumnEvaluationMilliseconds =>
+            DirectionalFacePalettePreparationProfile.BoundaryColumnEvaluationMilliseconds;
+
         public int DirectionalFacePaletteDensityProbes { get; set; }
 
         public int DirectionalFacePaletteBoundaryDensityProbes { get; set; }
@@ -2043,6 +2058,9 @@ public sealed class SurfaceChunkMaterializer
         var densityProbes = 0;
         var batchCount = 0;
         var columnCount = 0;
+        var columnBoundsMilliseconds = 0d;
+        var caveSamplerBuildMilliseconds = 0d;
+        var columnEvaluationMilliseconds = 0d;
 
         while (cursor < endLocalX)
         {
@@ -2074,8 +2092,14 @@ public sealed class SurfaceChunkMaterializer
                 first.Chunk.Z,
                 columnIndices[..count],
                 solidMasks[..count],
-                out var probes);
+                out var probes,
+                out var boundsMilliseconds,
+                out var samplerBuildMilliseconds,
+                out var evaluationMilliseconds);
             densityProbes = checked(densityProbes + probes);
+            columnBoundsMilliseconds += boundsMilliseconds;
+            caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
+            columnEvaluationMilliseconds += evaluationMilliseconds;
 
             writeIndex = 0;
             for (var localX = cursor; localX < sliceEnd; localX++)
@@ -2092,7 +2116,10 @@ public sealed class SurfaceChunkMaterializer
         }
 
         return new BoundaryMaskReadMetrics(
-            densityProbes, batchCount, columnCount);
+            densityProbes, batchCount, columnCount,
+            columnBoundsMilliseconds,
+            caveSamplerBuildMilliseconds,
+            columnEvaluationMilliseconds);
     }
 
     private BoundaryMaskReadMetrics ReadDirectionalFaceZBoundaryMasks(
@@ -2111,6 +2138,9 @@ public sealed class SurfaceChunkMaterializer
         var densityProbes = 0;
         var batchCount = 0;
         var columnCount = 0;
+        var columnBoundsMilliseconds = 0d;
+        var caveSamplerBuildMilliseconds = 0d;
+        var columnEvaluationMilliseconds = 0d;
 
         while (cursor < endLocalZ)
         {
@@ -2146,8 +2176,14 @@ public sealed class SurfaceChunkMaterializer
                 first.Chunk.Z,
                 columnIndices[..count],
                 solidMasks[..count],
-                out var probes);
+                out var probes,
+                out var boundsMilliseconds,
+                out var samplerBuildMilliseconds,
+                out var evaluationMilliseconds);
             densityProbes = checked(densityProbes + probes);
+            columnBoundsMilliseconds += boundsMilliseconds;
+            caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
+            columnEvaluationMilliseconds += evaluationMilliseconds;
 
             writeIndex = 0;
             for (var x = 0; x < Chunk.Size; x++)
@@ -2164,7 +2200,10 @@ public sealed class SurfaceChunkMaterializer
         }
 
         return new BoundaryMaskReadMetrics(
-            densityProbes, batchCount, columnCount);
+            densityProbes, batchCount, columnCount,
+            columnBoundsMilliseconds,
+            caveSamplerBuildMilliseconds,
+            columnEvaluationMilliseconds);
     }
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
@@ -2311,6 +2350,21 @@ public sealed class SurfaceChunkMaterializer
             rightXBoundary.ColumnCount +
             negativeZBoundary.ColumnCount +
             positiveZBoundary.ColumnCount);
+        var boundaryColumnBoundsMilliseconds =
+            leftXBoundary.ColumnBoundsMilliseconds +
+            rightXBoundary.ColumnBoundsMilliseconds +
+            negativeZBoundary.ColumnBoundsMilliseconds +
+            positiveZBoundary.ColumnBoundsMilliseconds;
+        var caveSamplerBuildMilliseconds =
+            leftXBoundary.CaveSamplerBuildMilliseconds +
+            rightXBoundary.CaveSamplerBuildMilliseconds +
+            negativeZBoundary.CaveSamplerBuildMilliseconds +
+            positiveZBoundary.CaveSamplerBuildMilliseconds;
+        var boundaryColumnEvaluationMilliseconds =
+            leftXBoundary.ColumnEvaluationMilliseconds +
+            rightXBoundary.ColumnEvaluationMilliseconds +
+            negativeZBoundary.ColumnEvaluationMilliseconds +
+            positiveZBoundary.ColumnEvaluationMilliseconds;
         densityProbeCount = checked(
             densityProbeCount + horizontalBoundaryDensityProbes);
         boundaryDensityProbeCount = checked(
@@ -2484,6 +2538,9 @@ public sealed class SurfaceChunkMaterializer
             horizontalBoundaryReadMilliseconds,
             occupancyRowAssemblyMilliseconds,
             candidateMaskBuildMilliseconds,
+            boundaryColumnBoundsMilliseconds,
+            caveSamplerBuildMilliseconds,
+            boundaryColumnEvaluationMilliseconds,
             horizontalBoundaryBatchCount,
             horizontalBoundaryColumnCount);
         return new DirectionalFaceOccupancyMasks(
