@@ -2909,7 +2909,11 @@ public sealed class SurfaceChunkMaterializer
             HorizontalBoundaryBatchCount:
                 job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryBatchCount,
             HorizontalBoundaryColumnCount:
-                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryColumnCount);
+                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryColumnCount,
+            DensityTerrainColumnMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.DensityTerrainColumnMilliseconds,
+            OccupancyCacheAccessMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.OccupancyCacheAccessMilliseconds);
     }
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
