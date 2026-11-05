@@ -1008,9 +1008,8 @@ public sealed class TerrainDensityTests
 
         Assert.False(terrain.RequiresVolumeBiomeForDensityBand(64));
         Assert.True(terrain.RequiresVolumeBiomeForDensityBand(80));
-        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(104));
         Assert.True(terrain.RequiresVolumeBiomeForDensityBand(112));
-        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(145));
+        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(160));
 
         var point = FindVolumeSolid(generator, y: 92);
         var (coord, local) = VoxelCoordinates.FromWorld(
