@@ -184,6 +184,35 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void FreshInitialBlockWritesPopulateUniqueSlotsAndDeduplicatePalette()
+    {
+        var registry = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:dirt"),
+        ]);
+        var stone = registry.GetId("asteria:stone");
+        var dirt = registry.GetId("asteria:dirt");
+        var chunk = new Chunk();
+
+        using (var initial = chunk.BeginInitialBlockWrites(
+            registry.AuthoredCount + 1))
+        {
+            Assert.True(initial.SetBlockAtLinearIndexFreshUnchecked(17, stone));
+            Assert.True(initial.SetBlockAtLinearIndexFreshUnchecked(18, stone));
+            Assert.True(initial.SetBlockAtLinearIndexFreshUnchecked(Chunk.Area + 17, dirt));
+            Assert.Equal(3, chunk.NonEmptyVoxelCount);
+            Assert.Equal(2, chunk.PaletteEntryCount);
+            Assert.Equal((ulong)0, chunk.Revision);
+        }
+
+        Assert.Equal((ulong)1, chunk.Revision);
+        Assert.Equal(stone, chunk.GetBlockAtLinearIndex(17));
+        Assert.Equal(stone, chunk.GetBlockAtLinearIndex(18));
+        Assert.Equal(dirt, chunk.GetBlockAtLinearIndex(Chunk.Area + 17));
+    }
+
+    [Fact]
     public void InitialFluidWritesPreserveOccupiedCellsAndCommitOneRevision()
     {
         var fluids = new FluidRegistry(
