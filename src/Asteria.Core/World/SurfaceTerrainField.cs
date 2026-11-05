@@ -1169,102 +1169,13 @@ public sealed class SurfaceTerrainField
                 (baselineMask & (ushort)~sampledMask));
         }
 
-        static ushort VerticalRangeMask(
-            int worldOriginY,
-            long minimumWorldY,
-            long maximumWorldY)
-        {
-            var firstLocalY = Math.Max(0L, minimumWorldY - worldOriginY);
-            var lastLocalY = Math.Min(
-                (long)Chunk.Size - 1L,
-                maximumWorldY - worldOriginY);
-            if (firstLocalY > lastLocalY)
-                return 0;
-
-            var count = checked((int)(lastLocalY - firstLocalY + 1L));
-            return (ushort)(((1u << count) - 1u) << (int)firstLocalY);
-        }
-
-        static ushort WorldYBit(int worldOriginY, long worldY)
-        {
-            var localY = worldY - worldOriginY;
-            return (ulong)localY < Chunk.Size
-                ? (ushort)(1u << (int)localY)
-                : (ushort)0;
-        }
-
-        var unknownMask = (ushort)~sampledMask;
-        densityProbes = System.Numerics.BitOperations.PopCount(
-            (uint)unknownMask);
-
-        // Begin with the analytic surface half-space. Only cave, additive and
-        // shell positions can differ from it, so the per-voxel path below
-        // iterates those bits instead of all 16 Y positions in the column.
-        var complexSolidDepth = (long)baseY - originY + 1L;
-        var complexSolidCount = (int)Math.Clamp(
-            complexSolidDepth, 0L, Chunk.Size);
-        var complexBaselineMask = complexSolidCount switch
-        {
-            0 => (ushort)0,
-            _ when complexSolidCount == Chunk.Size => ushort.MaxValue,
-            _ => (ushort)((1u << complexSolidCount) - 1u),
-        };
-
-        var floorLiningMask = _floorY is { } floorLiningY
-            ? WorldYBit(originY, (long)floorLiningY + 1L)
-            : (ushort)0;
-        var roofLiningMask = _roofY is { } roofLiningY
-            ? WorldYBit(originY, (long)roofLiningY - 1L)
-            : (ushort)0;
-        var shellLiningMask = (ushort)(floorLiningMask | roofLiningMask);
-        complexBaselineMask |= shellLiningMask;
-        solidMask |= (ushort)(complexBaselineMask & unknownMask);
-
-        var floorBoundaryMask = _floorY is { } floorBoundaryY
-            ? WorldYBit(originY, floorBoundaryY)
-            : (ushort)0;
-        var roofBoundaryMask = _roofY is { } roofBoundaryY
-            ? WorldYBit(originY, roofBoundaryY)
-            : (ushort)0;
-        var caveShellBoundaryMask = (ushort)(
-            shellLiningMask | floorBoundaryMask | roofBoundaryMask);
-
-        var caveRangeMask = mayContainCaves
-            ? VerticalRangeMask(
-                originY,
-                (long)baseY - _caves!.MaximumDepth,
-                (long)baseY - _caves.MinimumDepth)
-            : (ushort)0;
-        var additiveRangeMask = mayContainAdditive
-            ? VerticalRangeMask(
-                originY,
-                additiveRule!.MinimumY,
-                additiveRule.MaximumY)
-            : (ushort)0;
-
-        var caveEvaluationMask = (ushort)(
-            caveRangeMask & (ushort)~caveShellBoundaryMask);
-        var additiveEvaluationMask = (ushort)(
-            additiveRangeMask & (ushort)~shellLiningMask);
-        var complexMask = (ushort)(
-            unknownMask & (ushort)(caveEvaluationMask | additiveEvaluationMask));
-        if (complexMask == 0)
-            return solidMask;
-
-        var additiveNeededMask = (ushort)(
-            complexMask & additiveEvaluationMask);
         Span<double> additiveHorizontalSupports =
-            additiveRule is null || additiveNeededMask == 0
+            additiveRule is null
                 ? Span<double>.Empty
                 : additiveRule.RuleCount <= 16
                     ? stackalloc double[additiveRule.RuleCount]
                     : new double[additiveRule.RuleCount];
-        if (additiveNeededMask != 0)
-        {
-            additiveRule!.SampleHorizontalSupports(
-                _seed, worldX, worldZ, additiveHorizontalSupports);
-        }
-
+        var additiveSupportPrepared = false;
         var caveLocalX = caveSampler is null
             ? localX
             : localX - caveSamplerOriginLocalX;
@@ -1272,43 +1183,70 @@ public sealed class SurfaceTerrainField
             ? localZ
             : localZ - caveSamplerOriginLocalZ;
 
-        while (complexMask != 0)
+        densityProbes = 0;
+        for (var localY = 0; localY < Chunk.Size; localY++)
         {
-            var localY = System.Numerics.BitOperations.TrailingZeroCount(
-                (uint)complexMask);
             var bit = (ushort)(1u << localY);
-            complexMask = (ushort)(complexMask & (complexMask - 1));
+            if ((sampledMask & bit) != 0)
+                continue;
             var worldY = checked(originY + localY);
-            var density = baseY - (double)worldY;
+            densityProbes++;
+            var caveDepth = (long)baseY - worldY;
+            var caveDensityApplies =
+                mayContainCaves &&
+                caveDepth >= _caves!.MinimumDepth &&
+                caveDepth <= _caves.MaximumDepth;
+            var additiveDensityApplies =
+                mayContainAdditive &&
+                additiveRule is { } activeAdditive &&
+                worldY >= activeAdditive.MinimumY &&
+                worldY <= activeAdditive.MaximumY;
 
-            if ((additiveEvaluationMask & bit) != 0)
+            // The column and rule ranges are already resolved above. Avoid
+            // sending boundary voxels through the generic DensityAt path,
+            // which repeats the same cave/shell and additive-rule guards.
+            double density;
+            if (IsShellLining(worldY))
             {
-                var additiveDensity = additiveHorizontalSupports.IsEmpty
-                    ? additiveRule!.DensityAt(
-                        _seed, worldX, worldY, worldZ,
-                        volumeBiome!.PrimaryWeight)
-                    : additiveRule!.DensityAt(
-                        _seed, worldX, worldY, worldZ,
-                        volumeBiome!.PrimaryWeight,
-                        additiveHorizontalSupports);
-                density = Math.Max(density, additiveDensity);
+                density = Math.Max(0d, baseY - (double)worldY);
             }
-
-            if ((caveEvaluationMask & bit) != 0 &&
-                density >= 0d &&
-                worldY <= baseY)
-            {
-                var caveDepth = (long)baseY - worldY;
-                var voidDensity = _caves!.VoidDensityAt(
-                    _seed, worldX, worldY, worldZ, caveDepth,
-                    caveSampler, caveLocalX, localY, caveLocalZ);
-                if (voidDensity > 0d)
-                    density = Math.Min(density, -voidDensity);
-            }
-
-            if (density < 0d)
-                solidMask &= (ushort)~bit;
             else
+            {
+                density = baseY - (double)worldY;
+                if (additiveDensityApplies)
+                {
+                    if (!additiveSupportPrepared)
+                    {
+                        additiveRule!.SampleHorizontalSupports(
+                            _seed, worldX, worldZ, additiveHorizontalSupports);
+                        additiveSupportPrepared = true;
+                    }
+
+                    var additiveDensity = additiveHorizontalSupports.IsEmpty
+                        ? additiveRule!.DensityAt(
+                            _seed, worldX, worldY, worldZ,
+                            volumeBiome!.PrimaryWeight)
+                        : additiveRule!.DensityAt(
+                            _seed, worldX, worldY, worldZ,
+                            volumeBiome!.PrimaryWeight,
+                            additiveHorizontalSupports);
+                    density = Math.Max(density, additiveDensity);
+                }
+
+                if (caveDensityApplies &&
+                    worldY <= baseY &&
+                    worldY != _floorY &&
+                    worldY != _roofY)
+                {
+                    var voidDensity = _caves!.VoidDensityAt(
+                        _seed, worldX, worldY, worldZ, caveDepth,
+                        caveSampler, caveLocalX, localY, caveLocalZ);
+                    if (voidDensity > 0d)
+                        density = Math.Min(density, -voidDensity);
+                }
+            }
+
+            if (density >= 0d)
                 solidMask |= bit;
         }
         return solidMask;
