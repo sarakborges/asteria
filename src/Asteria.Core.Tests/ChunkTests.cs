@@ -109,6 +109,54 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void PaletteStorageCapacityDiagnosticsAccountForSupersededGrowthArrays()
+    {
+        var palette = new PaletteStorage<DirectionalFaceVoxelData>();
+
+        for (var index = 0; index < 12; index++)
+        {
+            var metadata = new DirectionalFaceVoxelData(
+                true,
+                1UL << index,
+                0, 0, 0, 0, 0,
+                new BlockRuntimeId((ushort)index));
+            Assert.True(palette.SetInitial(index, metadata));
+        }
+
+        var beforeRelease = palette.CapacityMetrics;
+        Assert.True(beforeRelease.PaletteCapacity >= beforeRelease.PaletteEntryCount);
+        Assert.True(beforeRelease.UsageCapacity >= beforeRelease.UsageEntryCount);
+        Assert.True(beforeRelease.LookupCapacity >= beforeRelease.LookupEntryCount);
+
+#if DEBUG
+        Assert.True(beforeRelease.GrowthDiagnosticsAvailable);
+        Assert.True(beforeRelease.PaletteGrowthEvents > 0);
+        Assert.True(beforeRelease.UsageGrowthEvents > 0);
+        Assert.True(beforeRelease.LookupGrowthEvents > 0);
+        Assert.True(
+            beforeRelease.PaletteGrowthArrayBytes >=
+            (long)beforeRelease.PaletteCapacity * 16);
+        Assert.True(
+            beforeRelease.UsageGrowthArrayBytes >=
+            (long)beforeRelease.UsageCapacity * sizeof(ushort));
+        Assert.True(beforeRelease.LookupBucketGrowthArrayBytes > 0);
+        Assert.True(beforeRelease.LookupEntryGrowthArrayBytes > 0);
+#endif
+
+        for (var index = 0; index < 12; index++)
+            Assert.True(palette.Set(index, default));
+
+        var afterRelease = palette.CapacityMetrics;
+#if DEBUG
+        Assert.True(afterRelease.FreeSlotGrowthEvents > 0);
+        Assert.True(
+            afterRelease.FreeSlotGrowthArrayBytes >=
+            (long)afterRelease.FreeSlotCapacity * sizeof(ushort));
+#endif
+        Assert.Equal(0, afterRelease.OccupiedVoxelCount);
+    }
+
+    [Fact]
     public void DirectionalFaceMetadataCloneAndBaseBlockRestorePreserveOverflowMasks()
     {
         const int index = 2 + Chunk.Size * (4 + Chunk.Size * 3);

@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Asteria.Core.World;
 
 internal readonly record struct PaletteStorageCapacityMetrics(
@@ -12,7 +14,17 @@ internal readonly record struct PaletteStorageCapacityMetrics(
     int FreeSlotCapacity,
     int IndexCount,
     int OccupancyWordCount,
-    int MeshletOccupancyCount);
+    int MeshletOccupancyCount,
+    bool GrowthDiagnosticsAvailable,
+    long PaletteGrowthArrayBytes,
+    int PaletteGrowthEvents,
+    long UsageGrowthArrayBytes,
+    int UsageGrowthEvents,
+    long LookupBucketGrowthArrayBytes,
+    long LookupEntryGrowthArrayBytes,
+    int LookupGrowthEvents,
+    long FreeSlotGrowthArrayBytes,
+    int FreeSlotGrowthEvents);
 
 internal sealed class PaletteStorage<T>
     where T : struct, IEquatable<T>
@@ -63,6 +75,21 @@ internal sealed class PaletteStorage<T>
 
         public int OccupiedCount { get; set; }
 
+#if DEBUG
+        // Cumulative payload bytes of arrays allocated when these collections
+        // increased capacity. Superseded arrays are included; object/array
+        // headers and unrelated allocations are intentionally excluded.
+        public long PaletteGrowthArrayBytes { get; set; }
+        public int PaletteGrowthEvents { get; set; }
+        public long UsageGrowthArrayBytes { get; set; }
+        public int UsageGrowthEvents { get; set; }
+        public long LookupBucketGrowthArrayBytes { get; set; }
+        public long LookupEntryGrowthArrayBytes { get; set; }
+        public int LookupGrowthEvents { get; set; }
+        public long FreeSlotGrowthArrayBytes { get; set; }
+        public int FreeSlotGrowthEvents { get; set; }
+#endif
+
         public bool IsShared { get; set; }
 
         public StorageState Copy() => new(this);
@@ -95,7 +122,22 @@ internal sealed class PaletteStorage<T>
                 state.FreeSlots.EnsureCapacity(0),
                 state.Indices.Length,
                 state.Occupied.Length,
-                state.MeshletOccupiedCounts.Length);
+                state.MeshletOccupiedCounts.Length,
+#if DEBUG
+                true,
+                state.PaletteGrowthArrayBytes,
+                state.PaletteGrowthEvents,
+                state.UsageGrowthArrayBytes,
+                state.UsageGrowthEvents,
+                state.LookupBucketGrowthArrayBytes,
+                state.LookupEntryGrowthArrayBytes,
+                state.LookupGrowthEvents,
+                state.FreeSlotGrowthArrayBytes,
+                state.FreeSlotGrowthEvents);
+#else
+                false,
+                0L, 0, 0L, 0, 0L, 0L, 0, 0L, 0);
+#endif
         }
     }
 
@@ -231,10 +273,10 @@ internal sealed class PaletteStorage<T>
                     throw new InvalidOperationException(
                         "Chunk palette capacity was exhausted.");
 
-                state.Palette.Add(value);
-                state.Usage.Add(0);
+                AddPaletteEntry(state, value);
+                AddUsageEntry(state);
                 nextIndex = checked((ushort)state.Palette.Count);
-                state.Lookup.Add(value, nextIndex);
+                AddLookupEntry(state, value, nextIndex);
             }
         }
         else if (nextIndex > state.Palette.Count)
@@ -279,10 +321,10 @@ internal sealed class PaletteStorage<T>
                 throw new InvalidOperationException(
                     "Chunk palette capacity was exhausted.");
 
-            state.Palette.Add(value);
-            state.Usage.Add(0);
+            AddPaletteEntry(state, value);
+            AddUsageEntry(state);
             nextIndex = checked((ushort)state.Palette.Count);
-            state.Lookup.Add(value, nextIndex);
+            AddLookupEntry(state, value, nextIndex);
         }
 
         Retain(nextIndex);
@@ -332,10 +374,10 @@ internal sealed class PaletteStorage<T>
                 throw new InvalidOperationException(
                     "Chunk palette capacity was exhausted.");
 
-            state.Palette.Add(value);
-            state.Usage.Add(0);
+            AddPaletteEntry(state, value);
+            AddUsageEntry(state);
             nextIndex = checked((ushort)state.Palette.Count);
-            state.Lookup.Add(value, nextIndex);
+            AddLookupEntry(state, value, nextIndex);
         }
 
         Retain(nextIndex);
@@ -565,13 +607,96 @@ internal sealed class PaletteStorage<T>
                 throw new InvalidOperationException(
                     "Chunk palette capacity was exhausted.");
 
-            state.Palette.Add(value);
-            state.Usage.Add(0);
+            AddPaletteEntry(state, value);
+            AddUsageEntry(state);
             index = checked((ushort)state.Palette.Count);
         }
 
-        state.Lookup.Add(value, index);
+        AddLookupEntry(state, value, index);
         return index;
+    }
+
+    private static void AddPaletteEntry(StorageState state, T value)
+    {
+#if DEBUG
+        var previousCapacity = state.Palette.Capacity;
+#endif
+        state.Palette.Add(value);
+#if DEBUG
+        if (state.Palette.Capacity != previousCapacity)
+        {
+            state.PaletteGrowthArrayBytes +=
+                (long)state.Palette.Capacity * Unsafe.SizeOf<T>();
+            state.PaletteGrowthEvents++;
+        }
+#endif
+    }
+
+    private static void AddUsageEntry(StorageState state)
+    {
+#if DEBUG
+        var previousCapacity = state.Usage.Capacity;
+#endif
+        state.Usage.Add(0);
+#if DEBUG
+        if (state.Usage.Capacity != previousCapacity)
+        {
+            state.UsageGrowthArrayBytes +=
+                (long)state.Usage.Capacity * sizeof(ushort);
+            state.UsageGrowthEvents++;
+        }
+#endif
+    }
+
+    private static void AddLookupEntry(
+        StorageState state,
+        T value,
+        ushort paletteIndex)
+    {
+#if DEBUG
+        var previousCapacity = state.Lookup.EnsureCapacity(0);
+#endif
+        state.Lookup.Add(value, paletteIndex);
+#if DEBUG
+        var nextCapacity = state.Lookup.EnsureCapacity(0);
+        if (nextCapacity != previousCapacity)
+        {
+            state.LookupBucketGrowthArrayBytes +=
+                (long)nextCapacity * sizeof(int);
+            state.LookupEntryGrowthArrayBytes +=
+                (long)nextCapacity * Unsafe.SizeOf<LookupEntryLayout>();
+            state.LookupGrowthEvents++;
+        }
+#endif
+    }
+
+    private static void PushFreeSlot(
+        StorageState state,
+        ushort paletteIndex)
+    {
+#if DEBUG
+        var previousCapacity = state.FreeSlots.EnsureCapacity(0);
+#endif
+        state.FreeSlots.Push(paletteIndex);
+#if DEBUG
+        var nextCapacity = state.FreeSlots.EnsureCapacity(0);
+        if (nextCapacity != previousCapacity)
+        {
+            state.FreeSlotGrowthArrayBytes +=
+                (long)nextCapacity * sizeof(ushort);
+            state.FreeSlotGrowthEvents++;
+        }
+#endif
+    }
+
+    // Mirrors the field order of Dictionary<TKey, TValue>.Entry on the
+    // supported .NET runtime so the benchmark can estimate entry-array payload.
+    private readonly struct LookupEntryLayout
+    {
+        public readonly int HashCode;
+        public readonly int Next;
+        public readonly T Key;
+        public readonly ushort Value;
     }
 
     private void Retain(ushort paletteIndex)
@@ -604,7 +729,7 @@ internal sealed class PaletteStorage<T>
 
         var value = state.Palette[index];
         state.Lookup.Remove(value);
-        state.FreeSlots.Push(paletteIndex);
+        PushFreeSlot(state, paletteIndex);
     }
 
     private void UpdateOccupancy(

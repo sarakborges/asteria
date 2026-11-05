@@ -871,6 +871,48 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                 MeshletOccupancyBytes = meshletOccupancyBytes,
                 TotalBytes = fixedBufferBytes,
             },
+            CapacityGrowth = new
+            {
+                DiagnosticsAvailable = storageProfiles.All(
+                    profile => profile.Storage.GrowthDiagnosticsAvailable),
+                PaletteList = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.PaletteGrowthArrayBytes),
+                    GrowthEvents = storageProfiles.Sum(
+                        profile => profile.Storage.PaletteGrowthEvents),
+                },
+                UsageList = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.UsageGrowthArrayBytes),
+                    GrowthEvents = storageProfiles.Sum(
+                        profile => profile.Storage.UsageGrowthEvents),
+                },
+                LookupDictionary = new
+                {
+                    BucketArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.LookupBucketGrowthArrayBytes),
+                    EntryArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.LookupEntryGrowthArrayBytes),
+                    GrowthEvents = storageProfiles.Sum(
+                        profile => profile.Storage.LookupGrowthEvents),
+                },
+                FreeSlotStack = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.FreeSlotGrowthArrayBytes),
+                    GrowthEvents = storageProfiles.Sum(
+                        profile => profile.Storage.FreeSlotGrowthEvents),
+                },
+                TotalArrayPayloadBytesAllocatedAcrossGrowth =
+                    storageProfiles.Sum(profile =>
+                        profile.Storage.PaletteGrowthArrayBytes +
+                        profile.Storage.UsageGrowthArrayBytes +
+                        profile.Storage.LookupBucketGrowthArrayBytes +
+                        profile.Storage.LookupEntryGrowthArrayBytes +
+                        profile.Storage.FreeSlotGrowthArrayBytes),
+            },
             EstimatedBackingArrayPayloadBytes = estimatedBackingArrayPayloadBytes,
             StorageCapacityByChunk = directionalStorageByChunk,
         },
