@@ -594,9 +594,11 @@ public sealed class SurfaceChunkMaterializer
             throw new InvalidOperationException("Terrain writes are already complete.");
         var directionalMasks = job.DirectionalFaceOccupancyMasks;
         var directionalCandidateColumns = directionalMasks?.CandidateColumns;
+        var columnSolidMasks = densityVolume.ColumnSolidMasks;
         var localY = job.NextTerrainLocalY;
+        var solidBit = (ushort)(1u << localY);
 
-            var worldY = checked(originY + localY);
+        var worldY = checked(originY + localY);
             for (var localZ = 0; localZ < Chunk.Size; localZ++)
             {
                 for (var localX = 0; localX < Chunk.Size; localX++)
@@ -626,8 +628,10 @@ public sealed class SurfaceChunkMaterializer
                     if (worldY < (_floorY ?? 0) ||
                         worldY > surfaceY ||
                         worldY > (_roofY ?? int.MaxValue) ||
-                        !densityVolume.IsSolidAtUnchecked(
-                            localX, localY, localZ))
+                        (columnSolidMasks is { } masks
+                            ? (masks[columnIndex] & solidBit) == 0
+                            : !densityVolume.IsSolidAtUnchecked(
+                                localX, localY, localZ)))
                     {
                         continue;
                     }
@@ -655,8 +659,10 @@ public sealed class SurfaceChunkMaterializer
                             var aboveLocalY = aboveY - originY;
                             if (aboveLocalY < 0 ||
                                 aboveLocalY >= Chunk.Size ||
-                                densityVolume.IsSolidAtUnchecked(
-                                    localX, aboveLocalY, localZ))
+                                (columnSolidMasks is { } masks
+                                    ? (masks[columnIndex] & (1u << aboveLocalY)) != 0
+                                    : densityVolume.IsSolidAtUnchecked(
+                                        localX, aboveLocalY, localZ)))
                             {
                                 isExposedTerrainTop = false;
                                 break;
