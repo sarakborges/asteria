@@ -972,7 +972,7 @@ public sealed class SurfaceTerrainField
     }
 
     /// <summary>
-    /// Completes missing occupancy columns from one vertical chunk band.
+    /// Completes only requested, unsampled Y bits from one vertical chunk band.
     /// The cave-noise lattice is prepared once for the batch and shared by
     /// every requested column, matching the chunk-volume sampling path.
     /// </summary>
