@@ -2204,31 +2204,42 @@ public sealed class SurfaceChunkMaterializer
         Span<ushort> solidMasks)
     {
         var cursor = startLocalX;
-        Span<ushort> requestedYMaskByLocalZ = stackalloc ushort[Chunk.Size];
         var hasSourceDensityMasks =
             sourceDensityVolume is not null &&
             sourceDensityVolume.Width == Chunk.Size &&
             sourceDensityVolume.Height == Chunk.Size &&
             sourceDensityVolume.Depth == Chunk.Size;
-        for (var z = 0; z < Chunk.Size; z++)
+        const int cumulativeMaskStride = Chunk.Size + 1;
+        Span<ushort> cumulativeYMasksByLocalZ =
+            stackalloc ushort[Chunk.Size * cumulativeMaskStride];
+        if (hasSourceDensityMasks)
         {
-            var requestedMask = hasSourceDensityMasks ? (ushort)0 : ushort.MaxValue;
-            if (hasSourceDensityMasks)
+            for (var z = 0; z < Chunk.Size; z++)
             {
-                var sourceStartX = startLocalX < 0
-                    ? 0
-                    : Math.Max(0, Chunk.Size - maximumDepth);
-                var sourceEndX = startLocalX < 0
-                    ? Math.Min(Chunk.Size, maximumDepth)
-                    : Chunk.Size;
-                for (var x = sourceStartX; x < sourceEndX; x++)
+                var offset = z * cumulativeMaskStride;
+                if (startLocalX < 0)
                 {
-                    requestedMask |=
-                        sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z);
+                    cumulativeYMasksByLocalZ[offset] = 0;
+                    for (var x = 0; x < Chunk.Size; x++)
+                    {
+                        cumulativeYMasksByLocalZ[offset + x + 1] =
+                            (ushort)(
+                                cumulativeYMasksByLocalZ[offset + x] |
+                                sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z));
+                    }
+                }
+                else
+                {
+                    cumulativeYMasksByLocalZ[offset + Chunk.Size] = 0;
+                    for (var x = Chunk.Size - 1; x >= 0; x--)
+                    {
+                        cumulativeYMasksByLocalZ[offset + x] =
+                            (ushort)(
+                                cumulativeYMasksByLocalZ[offset + x + 1] |
+                                sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z));
+                    }
                 }
             }
-
-            requestedYMaskByLocalZ[z] = requestedMask;
         }
         var densityProbes = 0;
         var batchCount = 0;
@@ -2260,11 +2271,17 @@ public sealed class SurfaceChunkMaterializer
             for (var localX = cursor; localX < sliceEnd; localX++)
             {
                 var neighborLocalX = firstLocalX + localX - cursor;
+                var sourceBoundaryIndex = startLocalX < 0
+                    ? Math.Clamp(maximumDepth + localX + 1, 0, Chunk.Size)
+                    : Math.Clamp(localX - maximumDepth, 0, Chunk.Size);
                 for (var z = 0; z < Chunk.Size; z++)
                 {
                     columnIndices[writeIndex] =
                         z * Chunk.Size + neighborLocalX;
-                    requestedYMasks[writeIndex] = requestedYMaskByLocalZ[z];
+                    requestedYMasks[writeIndex] = hasSourceDensityMasks
+                        ? cumulativeYMasksByLocalZ[
+                            z * cumulativeMaskStride + sourceBoundaryIndex]
+                        : ushort.MaxValue;
                     writeIndex++;
                 }
             }
@@ -2327,31 +2344,42 @@ public sealed class SurfaceChunkMaterializer
         Span<ushort> solidMasks)
     {
         var cursor = startLocalZ;
-        Span<ushort> requestedYMaskByLocalX = stackalloc ushort[Chunk.Size];
         var hasSourceDensityMasks =
             sourceDensityVolume is not null &&
             sourceDensityVolume.Width == Chunk.Size &&
             sourceDensityVolume.Height == Chunk.Size &&
             sourceDensityVolume.Depth == Chunk.Size;
-        for (var x = 0; x < Chunk.Size; x++)
+        const int cumulativeMaskStride = Chunk.Size + 1;
+        Span<ushort> cumulativeYMasksByLocalX =
+            stackalloc ushort[Chunk.Size * cumulativeMaskStride];
+        if (hasSourceDensityMasks)
         {
-            var requestedMask = hasSourceDensityMasks ? (ushort)0 : ushort.MaxValue;
-            if (hasSourceDensityMasks)
+            for (var x = 0; x < Chunk.Size; x++)
             {
-                var sourceStartZ = startLocalZ < 0
-                    ? 0
-                    : Math.Max(0, Chunk.Size - maximumDepth);
-                var sourceEndZ = startLocalZ < 0
-                    ? Math.Min(Chunk.Size, maximumDepth)
-                    : Chunk.Size;
-                for (var z = sourceStartZ; z < sourceEndZ; z++)
+                var offset = x * cumulativeMaskStride;
+                if (startLocalZ < 0)
                 {
-                    requestedMask |=
-                        sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z);
+                    cumulativeYMasksByLocalX[offset] = 0;
+                    for (var z = 0; z < Chunk.Size; z++)
+                    {
+                        cumulativeYMasksByLocalX[offset + z + 1] =
+                            (ushort)(
+                                cumulativeYMasksByLocalX[offset + z] |
+                                sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z));
+                    }
+                }
+                else
+                {
+                    cumulativeYMasksByLocalX[offset + Chunk.Size] = 0;
+                    for (var z = Chunk.Size - 1; z >= 0; z--)
+                    {
+                        cumulativeYMasksByLocalX[offset + z] =
+                            (ushort)(
+                                cumulativeYMasksByLocalX[offset + z + 1] |
+                                sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z));
+                    }
                 }
             }
-
-            requestedYMaskByLocalX[x] = requestedMask;
         }
         var densityProbes = 0;
         var batchCount = 0;
@@ -2389,9 +2417,15 @@ public sealed class SurfaceChunkMaterializer
             for (var localZ = cursor; localZ < sliceEnd; localZ++)
             {
                 var neighborLocalZ = firstLocalZ + localZ - cursor;
+                var sourceBoundaryIndex = startLocalZ < 0
+                    ? Math.Clamp(maximumDepth + localZ + 1, 0, Chunk.Size)
+                    : Math.Clamp(localZ - maximumDepth, 0, Chunk.Size);
                 columnIndices[writeIndex] =
                     neighborLocalZ * Chunk.Size + x;
-                requestedYMasks[writeIndex] = requestedYMaskByLocalX[x];
+                requestedYMasks[writeIndex] = hasSourceDensityMasks
+                    ? cumulativeYMasksByLocalX[
+                        x * cumulativeMaskStride + sourceBoundaryIndex]
+                    : ushort.MaxValue;
                 writeIndex++;
             }
 
