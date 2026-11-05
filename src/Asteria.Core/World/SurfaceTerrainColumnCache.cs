@@ -18,6 +18,7 @@ internal readonly record struct DensityOccupancySlab(
 
 internal readonly record struct DensityTerrainColumnSamplingMetrics(
     double SurfaceBiomeSamplingMilliseconds,
+    double BaseHeightSamplingMilliseconds,
     double VolumeBiomeSamplingMilliseconds);
 
 /// <summary>
@@ -286,6 +287,7 @@ public sealed class SurfaceTerrainColumnCache
             out DensityTerrainColumnSamplingMetrics samplingMetrics)
         {
             var surfaceBiomeSamplingMilliseconds = 0d;
+            var baseHeightSamplingMilliseconds = 0d;
             var volumeBiomeSamplingMilliseconds = 0d;
             lock (_gate)
             {
@@ -318,20 +320,17 @@ public sealed class SurfaceTerrainColumnCache
 
                 if (missingSurfaceCount > 0)
                 {
-#if DEBUG
-                    var surfaceSamplingStarted = Stopwatch.GetTimestamp();
-#endif
                     terrain.SampleDensitySurfaceColumns(
                         chunkX,
                         chunkZ,
                         missingSurface[..missingSurfaceCount],
                         _surfaceSampler,
                         _biomes,
-                        _baseHeights);
-#if DEBUG
-                    surfaceBiomeSamplingMilliseconds =
-                        Stopwatch.GetElapsedTime(surfaceSamplingStarted).TotalMilliseconds;
-#endif
+                        _baseHeights,
+                        out var biomeSamplingMilliseconds,
+                        out var baseHeightMilliseconds);
+                    surfaceBiomeSamplingMilliseconds += biomeSamplingMilliseconds;
+                    baseHeightSamplingMilliseconds += baseHeightMilliseconds;
                     for (var index = 0; index < missingSurfaceCount; index++)
                         _sampled[missingSurface[index]] = true;
                 }
@@ -362,6 +361,7 @@ public sealed class SurfaceTerrainColumnCache
 
                 samplingMetrics = new DensityTerrainColumnSamplingMetrics(
                     surfaceBiomeSamplingMilliseconds,
+                    baseHeightSamplingMilliseconds,
                     volumeBiomeSamplingMilliseconds);
                 return new SurfaceTerrainDensityColumn(
                     _biomes, _volumeBiomes, _baseHeights);
@@ -538,6 +538,8 @@ public sealed class SurfaceTerrainColumnCache
             out columnEvaluationMilliseconds,
             out densityTerrainColumnMilliseconds,
             out occupancyCacheAccessMilliseconds,
+            out _,
+            out _,
             out _);
 
     internal void ReadDensityColumnMasksWithSamplingMetrics(
@@ -554,6 +556,7 @@ public sealed class SurfaceTerrainColumnCache
         out double densityTerrainColumnMilliseconds,
         out double occupancyCacheAccessMilliseconds,
         out double surfaceBiomeSamplingMilliseconds,
+        out double baseHeightSamplingMilliseconds,
         out double volumeBiomeSamplingMilliseconds)
     {
         if (originY < 0 || originY % Chunk.Size != 0)
@@ -571,6 +574,7 @@ public sealed class SurfaceTerrainColumnCache
         densityTerrainColumnMilliseconds = 0d;
         occupancyCacheAccessMilliseconds = 0d;
         surfaceBiomeSamplingMilliseconds = 0d;
+        baseHeightSamplingMilliseconds = 0d;
         volumeBiomeSamplingMilliseconds = 0d;
         if (columnIndices.IsEmpty)
             return;
@@ -641,6 +645,8 @@ public sealed class SurfaceTerrainColumnCache
                 out var samplingMetrics);
             surfaceBiomeSamplingMilliseconds =
                 samplingMetrics.SurfaceBiomeSamplingMilliseconds;
+            baseHeightSamplingMilliseconds =
+                samplingMetrics.BaseHeightSamplingMilliseconds;
             volumeBiomeSamplingMilliseconds =
                 samplingMetrics.VolumeBiomeSamplingMilliseconds;
 #if DEBUG
