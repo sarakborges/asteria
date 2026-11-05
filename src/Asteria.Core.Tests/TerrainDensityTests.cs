@@ -667,6 +667,66 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void DensityOnlyBoundaryColumnCacheMatchesScalarDensityAcrossCavesAndFormations()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var cache = new SurfaceTerrainColumnCache(
+            generator.Terrain,
+            capacity: 8,
+            densityColumnCapacity: Chunk.Area * 8);
+        var volumePoint = FindVolumeSolid(generator, y: 96);
+        var samples = new[]
+        {
+            (X: volumePoint.X, Z: volumePoint.Z, OriginY: 16),
+            (X: volumePoint.X - 1, Z: volumePoint.Z, OriginY: 32),
+            (X: volumePoint.X, Z: volumePoint.Z + 1, OriginY: 80),
+            (X: volumePoint.X + Chunk.Size, Z: volumePoint.Z + Chunk.Size, OriginY: 96),
+        };
+
+        foreach (var sample in samples)
+        {
+            var mask = cache.GetDensityColumnMask(
+                sample.X,
+                sample.OriginY,
+                sample.Z,
+                out var cacheHit,
+                out var densityProbes);
+            Assert.False(cacheHit);
+            Assert.True(densityProbes > 0);
+
+            for (var localY = 0; localY < Chunk.Size; localY++)
+            {
+                var worldY = sample.OriginY + localY;
+                var expectedSolid =
+                    generator.DensityAt(sample.X, worldY, sample.Z) >= 0d;
+                var actualSolid = (mask & (1u << localY)) != 0;
+                Assert.True(
+                    expectedSolid == actualSolid,
+                    $"Density-only boundary cache diverged at {sample.X},{worldY},{sample.Z}: expected {expectedSolid}, actual {actualSolid}.");
+            }
+
+            var cachedMask = cache.GetDensityColumnMask(
+                sample.X,
+                sample.OriginY,
+                sample.Z,
+                out cacheHit,
+                out densityProbes);
+            Assert.True(cacheHit);
+            Assert.Equal(0, densityProbes);
+            Assert.Equal(mask, cachedMask);
+        }
+    }
+
+    [Fact]
     public void VolumeAndMaterializationStayAlignedAcrossVerticalChunkBoundary()
     {
         var generator = Generator(
