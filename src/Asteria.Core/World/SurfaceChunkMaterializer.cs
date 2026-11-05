@@ -2135,15 +2135,17 @@ public sealed class SurfaceChunkMaterializer
                     "A horizontal Z boundary batch exceeded one chunk's column capacity.");
 
             var writeIndex = 0;
+            var firstLocalZ = first.Local.Z;
             // Keep local X fixed while traversing the Z strip. The cave-noise
             // grid sampler caches its X-interpolated lattice planes, so this
             // column-major order reuses them across every requested Z column.
+            // The batch is already split at chunk boundaries, so neighbor Z is
+            // contiguous and can be derived without another world conversion.
             for (var x = 0; x < Chunk.Size; x++)
             for (var localZ = cursor; localZ < sliceEnd; localZ++)
             {
-                var local = VoxelCoordinates.FromWorld(
-                    originX, originY, checked(originZ + localZ)).Local;
-                columnIndices[writeIndex++] = local.Z * Chunk.Size + x;
+                var neighborLocalZ = firstLocalZ + localZ - cursor;
+                columnIndices[writeIndex++] = neighborLocalZ * Chunk.Size + x;
             }
 
             _columns.ReadDensityColumnMasks(
