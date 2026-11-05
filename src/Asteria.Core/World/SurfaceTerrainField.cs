@@ -1200,24 +1200,25 @@ public sealed class SurfaceTerrainField
         // Begin with the analytic surface half-space. Only cave, additive and
         // shell positions can differ from it, so the per-voxel path below
         // iterates those bits instead of all 16 Y positions in the column.
-        var solidDepth = (long)baseY - originY + 1L;
-        var solidCount = (int)Math.Clamp(solidDepth, 0L, Chunk.Size);
-        var baselineMask = solidCount switch
+        var complexSolidDepth = (long)baseY - originY + 1L;
+        var complexSolidCount = (int)Math.Clamp(
+            complexSolidDepth, 0L, Chunk.Size);
+        var complexBaselineMask = complexSolidCount switch
         {
             0 => (ushort)0,
-            _ when solidCount == Chunk.Size => ushort.MaxValue,
-            _ => (ushort)((1u << solidCount) - 1u),
+            _ when complexSolidCount == Chunk.Size => ushort.MaxValue,
+            _ => (ushort)((1u << complexSolidCount) - 1u),
         };
 
-        var floorLiningMask = _floorY is { } floorY
-            ? WorldYBit(originY, (long)floorY + 1L)
+        var floorLiningMask = _floorY is { } floorLiningY
+            ? WorldYBit(originY, (long)floorLiningY + 1L)
             : (ushort)0;
-        var roofLiningMask = _roofY is { } roofY
-            ? WorldYBit(originY, (long)roofY - 1L)
+        var roofLiningMask = _roofY is { } roofLiningY
+            ? WorldYBit(originY, (long)roofLiningY - 1L)
             : (ushort)0;
         var shellLiningMask = (ushort)(floorLiningMask | roofLiningMask);
-        baselineMask |= shellLiningMask;
-        solidMask |= (ushort)(baselineMask & unknownMask);
+        complexBaselineMask |= shellLiningMask;
+        solidMask |= (ushort)(complexBaselineMask & unknownMask);
 
         var floorBoundaryMask = _floorY is { } floorBoundaryY
             ? WorldYBit(originY, floorBoundaryY)
