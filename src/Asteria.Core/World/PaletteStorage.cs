@@ -130,6 +130,17 @@ internal sealed class PaletteStorage<T>
     /// On a cache miss, the value is interned once and the resolved slot is
     /// returned for subsequent writes of the same runtime block id.
     /// </summary>
+    /// <summary>
+    /// Verifies once that a batch writer may use the private-storage fast path.
+    /// The owning chunk must remain unpublished until that writer completes.
+    /// </summary>
+    internal void EnsurePrivateForInitialWrites()
+    {
+        if (_state.IsShared)
+            throw new InvalidOperationException(
+                "Initial palette writes require private chunk storage.");
+    }
+
     internal bool SetInitialWithPaletteIndex(
         int voxelIndex,
         T value,
@@ -156,10 +167,6 @@ internal sealed class PaletteStorage<T>
         out ushort resolvedPaletteIndex)
     {
         var state = _state;
-        if (state.IsShared)
-            throw new InvalidOperationException(
-                "Initial palette writes require private chunk storage.");
-
         var previousIndex = state.Indices[voxelIndex];
         if (previousIndex != 0)
         {
