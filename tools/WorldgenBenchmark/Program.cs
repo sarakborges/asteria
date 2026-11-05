@@ -776,6 +776,10 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             profile => profile.DensityTerrainColumnMilliseconds),
         OccupancyCacheAccessMilliseconds = paletteProfiles.Sum(
             profile => profile.OccupancyCacheAccessMilliseconds),
+        SurfaceBiomeSamplingMilliseconds = paletteProfiles.Sum(
+            profile => profile.SurfaceBiomeSamplingMilliseconds),
+        VolumeBiomeSamplingMilliseconds = paletteProfiles.Sum(
+            profile => profile.VolumeBiomeSamplingMilliseconds),
         HorizontalBoundaryBatchCount = paletteProfiles.Sum(
             profile => (long)profile.HorizontalBoundaryBatchCount),
         HorizontalBoundaryColumnCount = paletteProfiles.Sum(
