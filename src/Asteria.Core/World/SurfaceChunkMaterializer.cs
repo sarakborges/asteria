@@ -2215,11 +2215,13 @@ public sealed class SurfaceChunkMaterializer
             var requestedMask = hasSourceDensityMasks ? (ushort)0 : ushort.MaxValue;
             if (hasSourceDensityMasks)
             {
-                var sourceStartX =
-                    startLocalX < 0 ? 0 : Chunk.Size - maximumDepth;
-                for (var x = sourceStartX;
-                     x < sourceStartX + maximumDepth;
-                     x++)
+                var sourceStartX = startLocalX < 0
+                    ? 0
+                    : Math.Max(0, Chunk.Size - maximumDepth);
+                var sourceEndX = startLocalX < 0
+                    ? Math.Min(Chunk.Size, maximumDepth)
+                    : Chunk.Size;
+                for (var x = sourceStartX; x < sourceEndX; x++)
                 {
                     requestedMask |=
                         sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z);
@@ -2336,11 +2338,13 @@ public sealed class SurfaceChunkMaterializer
             var requestedMask = hasSourceDensityMasks ? (ushort)0 : ushort.MaxValue;
             if (hasSourceDensityMasks)
             {
-                var sourceStartZ =
-                    startLocalZ < 0 ? 0 : Chunk.Size - maximumDepth;
-                for (var z = sourceStartZ;
-                     z < sourceStartZ + maximumDepth;
-                     z++)
+                var sourceStartZ = startLocalZ < 0
+                    ? 0
+                    : Math.Max(0, Chunk.Size - maximumDepth);
+                var sourceEndZ = startLocalZ < 0
+                    ? Math.Min(Chunk.Size, maximumDepth)
+                    : Chunk.Size;
+                for (var z = sourceStartZ; z < sourceEndZ; z++)
                 {
                     requestedMask |=
                         sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z);
