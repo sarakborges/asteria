@@ -117,6 +117,8 @@ public sealed class WorldGenerationNoiseTests
     [InlineData(-31, 7, -19, 1, 16, 16, 8u, 6u)]
     [InlineData(13, 24, -42, 16, 16, 1, 16u, 12u)]
     [InlineData(-128, 3, 64, 1, 16, 1, 4u, 3u)]
+    [InlineData(-31, 7, -19, 6, 16, 16, 56u, 36u)]
+    [InlineData(13, 24, -42, 16, 16, 6, 56u, 36u)]
     public void ColumnMajorNoiseSamplerMatchesScalarNoiseExactly(
         int originX,
         int originY,
@@ -141,11 +143,11 @@ public sealed class WorldGenerationNoiseTests
             horizontalScale,
             verticalScale);
 
-        // This is the materializer's traversal: finish a whole vertical
-        // column before moving to the next X/Z location. It exercises reuse
-        // of cached horizontal interpolation across all Y samples.
-        for (var localZ = 0; localZ < depth; localZ++)
+        // Horizontal boundary batches keep X fixed while visiting the
+        // requested Z strip, then scan the complete vertical column.
+        // This exercises both cached X and X/Y interpolation across Z.
         for (var localX = 0; localX < width; localX++)
+        for (var localZ = 0; localZ < depth; localZ++)
         for (var localY = 0; localY < height; localY++)
         {
             var expected = WorldGenerationEntropy.ValueNoise3D(
