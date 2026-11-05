@@ -100,6 +100,14 @@ public interface IChunkMaterializationJob : IDisposable
 
     /// <summary>Optional profile for the completed directional-palette stage.</summary>
     DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics => null;
+    /// <summary>Debug timing for discovering missing horizontal boundary columns.</summary>
+    double DirectionalFaceBoundaryColumnBoundsMilliseconds => 0d;
+
+    /// <summary>Debug timing for constructing the cave-noise sampler for boundary columns.</summary>
+    double DirectionalFaceCaveSamplerBuildMilliseconds => 0d;
+
+    /// <summary>Debug timing for evaluating missing horizontal boundary occupancy.</summary>
+    double DirectionalFaceBoundaryColumnEvaluationMilliseconds => 0d;
 
     void Advance();
 }
