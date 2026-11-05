@@ -45,6 +45,13 @@ public sealed class BiomeSurfaceMaterialField
             _geology = geology;
         }
 
+        internal static GeologySampler Resolve(
+            BiomeSurfaceMaterialField field,
+            BiomeSample sample) =>
+            field._geologyRules.TryGetValue(sample.Primary, out var geology)
+                ? new GeologySampler(field._seed, geology)
+                : default;
+
         internal uint? SurfaceCoverDepth =>
             _geology?.SurfaceCoverDepth;
 
@@ -237,9 +244,7 @@ public sealed class BiomeSurfaceMaterialField
     internal GeologySampler ResolveGeology(BiomeSample sample)
     {
         ArgumentNullException.ThrowIfNull(sample);
-        return _geologyRules.TryGetValue(sample.Primary, out var geology)
-            ? new GeologySampler(_seed, geology)
-            : default;
+        return GeologySampler.Resolve(this, sample);
     }
 
     /// <summary>
