@@ -1392,14 +1392,23 @@ public sealed class SurfaceTerrainField
     /// normally need a narrow strip, not a complete 16x16 terrain footprint.
     /// Samplers share deterministic seed assignments within each batch.
     /// </summary>
+    internal BiomeField.Sampler CreateDensitySurfaceSampler() =>
+        _surfaceBiomes.CreateSampler();
+
+    internal BiomeField.Sampler? CreateDensityVolumeSampler() =>
+        _volumeBiomes.CreatePlacementSampler();
+
     internal void SampleDensityColumns(
         int chunkX,
         int chunkZ,
         ReadOnlySpan<int> columnIndices,
+        BiomeField.Sampler surfaceSampler,
+        BiomeField.Sampler? volumeSampler,
         BiomeSample?[] biomes,
         BiomeSample?[] volumeBiomes,
         int[] baseHeights)
     {
+        ArgumentNullException.ThrowIfNull(surfaceSampler);
         if (columnIndices.Length > Chunk.Area ||
             biomes.Length != Chunk.Area ||
             volumeBiomes.Length != Chunk.Area ||
@@ -1412,8 +1421,6 @@ public sealed class SurfaceTerrainField
         var (originX, _, originZ) =
             VoxelCoordinates.ChunkOrigin(
                 new ChunkCoord(chunkX, 0, chunkZ));
-        var surfaceSampler = _surfaceBiomes.CreateSampler();
-        var volumeSampler = _volumeBiomes.CreatePlacementSampler();
 
         for (var offset = 0; offset < columnIndices.Length; offset++)
         {
