@@ -727,6 +727,80 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void SparseDensityBoundaryBatchesMatchScalarDensityAcrossOverlappingReads()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var volumePoint = FindVolumeSolid(generator, y: 96);
+        var position = VoxelCoordinates.FromWorld(
+            volumePoint.X, 96, volumePoint.Z);
+        var cache = new SurfaceTerrainColumnCache(
+            generator.Terrain,
+            capacity: 8,
+            densityColumnCapacity: Chunk.Area * 8);
+        var chunkX = position.Chunk.X;
+        var chunkZ = position.Chunk.Z;
+        var targetIndex = position.Local.Z * Chunk.Size + position.Local.X;
+        var firstBatch = new[]
+        {
+            0, 1, 15, 16, 17, 31, 32, 127, 240, 255, targetIndex,
+        };
+        var secondBatch = new[]
+        {
+            1, 17, 31, 64, 128, 224, 240, 254, 255, targetIndex,
+        };
+
+        void AssertBatchMatchesScalar(int[] indices)
+        {
+            var masks = new ushort[indices.Length];
+            cache.ReadDensityColumnMasks(
+                chunkX,
+                originY: 96,
+                chunkZ,
+                indices,
+                masks,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _);
+
+            var originX = checked(chunkX * Chunk.Size);
+            var originZ = checked(chunkZ * Chunk.Size);
+            for (var index = 0; index < indices.Length; index++)
+            {
+                var localX = indices[index] % Chunk.Size;
+                var localZ = indices[index] / Chunk.Size;
+                var worldX = checked(originX + localX);
+                var worldZ = checked(originZ + localZ);
+                for (var localY = 0; localY < Chunk.Size; localY++)
+                {
+                    var worldY = 96 + localY;
+                    var expectedSolid =
+                        generator.DensityAt(worldX, worldY, worldZ) >= 0d;
+                    var actualSolid =
+                        (masks[index] & (1u << localY)) != 0;
+                    Assert.True(
+                        expectedSolid == actualSolid,
+                        $"Sparse boundary batch diverged at {worldX},{worldY},{worldZ}: expected {expectedSolid}, actual {actualSolid}.");
+                }
+            }
+        }
+
+        AssertBatchMatchesScalar(firstBatch);
+        AssertBatchMatchesScalar(secondBatch);
+    }
+
+    [Fact]
     public void VolumeAndMaterializationStayAlignedAcrossVerticalChunkBoundary()
     {
         var generator = Generator(
