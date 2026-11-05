@@ -1,3 +1,7 @@
+#if DEBUG
+using System.Diagnostics;
+#endif
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -388,7 +392,9 @@ public sealed class SurfaceTerrainColumnCache
         out int densityProbes,
         out double columnBoundsMilliseconds,
         out double caveSamplerBuildMilliseconds,
-        out double columnEvaluationMilliseconds)
+        out double columnEvaluationMilliseconds,
+        out double densityTerrainColumnMilliseconds,
+        out double occupancyCacheAccessMilliseconds)
     {
         if (originY < 0 || originY % Chunk.Size != 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
@@ -401,12 +407,21 @@ public sealed class SurfaceTerrainColumnCache
         columnBoundsMilliseconds = 0d;
         caveSamplerBuildMilliseconds = 0d;
         columnEvaluationMilliseconds = 0d;
+        densityTerrainColumnMilliseconds = 0d;
+        occupancyCacheAccessMilliseconds = 0d;
         if (columnIndices.IsEmpty)
             return;
 
         var occupancy = GetDensityChunk(chunkX, originY, chunkZ);
         Span<ushort> sampledMasks = stackalloc ushort[columnIndices.Length];
+#if DEBUG
+        var occupancyReadStarted = Stopwatch.GetTimestamp();
+#endif
         occupancy.ReadColumns(columnIndices, solidMasks, sampledMasks);
+#if DEBUG
+        occupancyCacheAccessMilliseconds +=
+            Stopwatch.GetElapsedTime(occupancyReadStarted).TotalMilliseconds;
+#endif
 
         var hasMissingSamples = false;
         for (var index = 0; index < columnIndices.Length; index++)
@@ -414,7 +429,14 @@ public sealed class SurfaceTerrainColumnCache
 
         if (hasMissingSamples)
         {
+#if DEBUG
+            var densityColumnStarted = Stopwatch.GetTimestamp();
+#endif
             var column = GetDensityTerrainColumn(chunkX, chunkZ);
+#if DEBUG
+            densityTerrainColumnMilliseconds =
+                Stopwatch.GetElapsedTime(densityColumnStarted).TotalMilliseconds;
+#endif
             var chunkOriginX = checked(chunkX * Chunk.Size);
             var chunkOriginZ = checked(chunkZ * Chunk.Size);
             _terrain.SampleDensityColumnMasks(
@@ -429,10 +451,17 @@ public sealed class SurfaceTerrainColumnCache
                 out columnBoundsMilliseconds,
                 out caveSamplerBuildMilliseconds,
                 out columnEvaluationMilliseconds);
+#if DEBUG
+            var occupancyMergeStarted = Stopwatch.GetTimestamp();
+#endif
             occupancy.MergeColumns(
                 columnIndices,
                 solidMasks,
                 sampledMasks);
+#if DEBUG
+            occupancyCacheAccessMilliseconds +=
+                Stopwatch.GetElapsedTime(occupancyMergeStarted).TotalMilliseconds;
+#endif
         }
     }
 
