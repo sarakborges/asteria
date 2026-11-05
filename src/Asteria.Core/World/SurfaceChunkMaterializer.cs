@@ -594,9 +594,21 @@ public sealed class SurfaceChunkMaterializer
         var columnSolidMasks = densityVolume.ColumnSolidMasks;
         var localY = job.NextTerrainLocalY;
         var solidBit = (ushort)(1u << localY);
-
         var worldY = checked(originY + localY);
-            for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        var minimumTerrainY = _floorY ?? 0;
+        var maximumTerrainY = _roofY ?? int.MaxValue;
+        if (worldY < minimumTerrainY ||
+            worldY > maximumTerrainY ||
+            (!_shellBlock.IsAir &&
+             (worldY == _floorY || worldY == _roofY)))
+        {
+            // Every column in this layer is outside the playable terrain
+            // range or belongs to an already-written shell plane.
+            job.NextTerrainLocalY++;
+            return;
+        }
+
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
             {
                 for (var localX = 0; localX < Chunk.Size; localX++)
                 {
@@ -616,15 +628,7 @@ public sealed class SurfaceChunkMaterializer
                     var worldX = state.WorldX;
                     var worldZ = state.WorldZ;
 
-                    // Shell planes were installed before terrain writes.
-                    // Skip their voxels so geology cannot overwrite them.
-                    if (!_shellBlock.IsAir &&
-                        (worldY == _floorY || worldY == _roofY))
-                        continue;
-
-                    if (worldY < (_floorY ?? 0) ||
-                        worldY > surfaceY ||
-                        worldY > (_roofY ?? int.MaxValue) ||
+                    if (worldY > surfaceY ||
                         (columnSolidMasks is null
                             ? !densityVolume.IsSolidAtUnchecked(
                                 localX, localY, localZ)
