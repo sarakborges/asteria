@@ -366,7 +366,10 @@ public sealed class SurfaceTerrainColumnCache
         int chunkZ,
         ReadOnlySpan<int> columnIndices,
         Span<ushort> solidMasks,
-        out int densityProbes)
+        out int densityProbes,
+        out double columnBoundsMilliseconds,
+        out double caveSamplerBuildMilliseconds,
+        out double columnEvaluationMilliseconds)
     {
         if (originY < 0 || originY % Chunk.Size != 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
@@ -376,6 +379,9 @@ public sealed class SurfaceTerrainColumnCache
                 "Density column batch must contain matching buffers of at most 256 columns.");
 
         densityProbes = 0;
+        columnBoundsMilliseconds = 0d;
+        caveSamplerBuildMilliseconds = 0d;
+        columnEvaluationMilliseconds = 0d;
         if (columnIndices.IsEmpty)
             return;
 
@@ -400,7 +406,10 @@ public sealed class SurfaceTerrainColumnCache
                 columnIndices,
                 solidMasks,
                 sampledMasks,
-                out densityProbes);
+                out densityProbes,
+                out columnBoundsMilliseconds,
+                out caveSamplerBuildMilliseconds,
+                out columnEvaluationMilliseconds);
             occupancy.MergeColumns(
                 columnIndices,
                 solidMasks,
