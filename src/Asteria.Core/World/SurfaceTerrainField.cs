@@ -1453,9 +1453,13 @@ public sealed class SurfaceTerrainField
         ReadOnlySpan<int> columnIndices,
         BiomeField.Sampler surfaceSampler,
         BiomeSample?[] biomes,
-        int[] baseHeights)
+        int[] baseHeights,
+        out double biomeAssignmentSamplingMilliseconds,
+        out double baseHeightSamplingMilliseconds)
     {
         ArgumentNullException.ThrowIfNull(surfaceSampler);
+        biomeAssignmentSamplingMilliseconds = 0d;
+        baseHeightSamplingMilliseconds = 0d;
         if (columnIndices.Length > Chunk.Area ||
             biomes.Length != Chunk.Area ||
             baseHeights.Length != Chunk.Area)
@@ -1478,11 +1482,24 @@ public sealed class SurfaceTerrainField
             var localZ = columnIndex / Chunk.Size;
             var worldX = checked(originX + localX);
             var worldZ = checked(originZ + localZ);
+#if DEBUG
+            var biomeSampleStarted = Stopwatch.GetTimestamp();
+#endif
             var biome = surfaceSampler.Sample(worldX, worldZ);
-
+#if DEBUG
+            biomeAssignmentSamplingMilliseconds +=
+                Stopwatch.GetElapsedTime(biomeSampleStarted).TotalMilliseconds;
+#endif
             biomes[columnIndex] = biome;
+#if DEBUG
+            var baseHeightStarted = Stopwatch.GetTimestamp();
+#endif
             baseHeights[columnIndex] =
                 BaseHeightAt(biome, worldX, worldZ);
+#if DEBUG
+            baseHeightSamplingMilliseconds +=
+                Stopwatch.GetElapsedTime(baseHeightStarted).TotalMilliseconds;
+#endif
         }
     }
 
