@@ -603,6 +603,16 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         PaletteStorageCapacityMetrics Storage)>();
     var maximumDirectionalMetadataVoxelsPerChunk = 0;
     var totalNonEmptyVoxels = 0L;
+    var storageDiagnosticsSeen = false;
+    var storageDiagnosticsAvailable = true;
+    long terrainLayerBlockPaletteGrowthBytes = 0;
+    var terrainLayerBlockPaletteGrowthEvents = 0;
+    long terrainLayerDirectionalPaletteGrowthBytes = 0;
+    var terrainLayerDirectionalPaletteGrowthEvents = 0;
+    long directionalFaceBlockPaletteGrowthBytes = 0;
+    var directionalFaceBlockPaletteGrowthEvents = 0;
+    long directionalFaceMetadataPaletteGrowthBytes = 0;
+    var directionalFaceMetadataPaletteGrowthEvents = 0;
     var totalTimer = Stopwatch.StartNew();
 
     foreach (var coord in desired)
@@ -632,6 +642,33 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                 boundaryColumnEvaluationMilliseconds +=
                     job.DirectionalFaceBoundaryColumnEvaluationMilliseconds;
             }
+        }
+
+        if (job is IChunkMaterializationStorageDiagnostics storageDiagnostic)
+        {
+            var diagnostics = storageDiagnostic.StorageDiagnostics;
+            storageDiagnosticsSeen = true;
+            storageDiagnosticsAvailable &= diagnostics.Available;
+            terrainLayerBlockPaletteGrowthBytes +=
+                diagnostics.TerrainLayerBlockPalette.ArrayPayloadBytes;
+            terrainLayerBlockPaletteGrowthEvents +=
+                diagnostics.TerrainLayerBlockPalette.GrowthEvents;
+            terrainLayerDirectionalPaletteGrowthBytes +=
+                diagnostics.TerrainLayerDirectionalFacePalette.ArrayPayloadBytes;
+            terrainLayerDirectionalPaletteGrowthEvents +=
+                diagnostics.TerrainLayerDirectionalFacePalette.GrowthEvents;
+            directionalFaceBlockPaletteGrowthBytes +=
+                diagnostics.DirectionalFaceBlockPalette.ArrayPayloadBytes;
+            directionalFaceBlockPaletteGrowthEvents +=
+                diagnostics.DirectionalFaceBlockPalette.GrowthEvents;
+            directionalFaceMetadataPaletteGrowthBytes +=
+                diagnostics.DirectionalFaceMetadataPalette.ArrayPayloadBytes;
+            directionalFaceMetadataPaletteGrowthEvents +=
+                diagnostics.DirectionalFaceMetadataPalette.GrowthEvents;
+        }
+        else
+        {
+            storageDiagnosticsAvailable = false;
         }
 
         var materializedChunk = job.Result ??
@@ -814,6 +851,41 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         TotalAdvanceMs = totalAdvanceMs,
         ByStage = byStage,
         DirectionalFacePaletteProfile = paletteProfile,
+        PaletteStorageGrowthByStage = new
+        {
+            DiagnosticsAvailable =
+                storageDiagnosticsSeen && storageDiagnosticsAvailable,
+            TerrainLayer = new
+            {
+                BlockPalette = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth =
+                        terrainLayerBlockPaletteGrowthBytes,
+                    GrowthEvents = terrainLayerBlockPaletteGrowthEvents,
+                },
+                DirectionalMetadataPalette = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth =
+                        terrainLayerDirectionalPaletteGrowthBytes,
+                    GrowthEvents = terrainLayerDirectionalPaletteGrowthEvents,
+                },
+            },
+            DirectionalFacePalettes = new
+            {
+                BlockPalette = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth =
+                        directionalFaceBlockPaletteGrowthBytes,
+                    GrowthEvents = directionalFaceBlockPaletteGrowthEvents,
+                },
+                DirectionalMetadataPalette = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth =
+                        directionalFaceMetadataPaletteGrowthBytes,
+                    GrowthEvents = directionalFaceMetadataPaletteGrowthEvents,
+                },
+            },
+        },
         DirectionalMetadataStorage = new
         {
             ChunksWithMetadata = directionalMetadataChunkCount,
