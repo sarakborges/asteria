@@ -2248,7 +2248,9 @@ public sealed class SurfaceChunkMaterializer
                 checked(cursor + Chunk.Size - firstLocalX));
 
             var count = checked((sliceEnd - cursor) * Chunk.Size);
-            if (count > columnIndices.Length || count > solidMasks.Length)
+            if (count > columnIndices.Length ||
+                count > requestedYMasks.Length ||
+                count > solidMasks.Length)
                 throw new InvalidOperationException(
                     "A horizontal X boundary batch exceeded one chunk's column capacity.");
 
@@ -2367,7 +2369,9 @@ public sealed class SurfaceChunkMaterializer
                 checked(cursor + Chunk.Size - firstLocalZ));
 
             var count = checked((sliceEnd - cursor) * Chunk.Size);
-            if (count > columnIndices.Length || count > solidMasks.Length)
+            if (count > columnIndices.Length ||
+                count > requestedYMasks.Length ||
+                count > solidMasks.Length)
                 throw new InvalidOperationException(
                     "A horizontal Z boundary batch exceeded one chunk's column capacity.");
 
