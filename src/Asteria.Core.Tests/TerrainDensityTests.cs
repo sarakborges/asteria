@@ -761,11 +761,14 @@ public sealed class TerrainDensityTests
         void AssertBatchMatchesScalar(int[] indices)
         {
             var masks = new ushort[indices.Length];
+            var requestedMasks =
+                Enumerable.Repeat(ushort.MaxValue, indices.Length).ToArray();
             cache.ReadDensityColumnMasks(
                 chunkX,
                 originY: 96,
                 chunkZ,
                 indices,
+                requestedMasks,
                 masks,
                 out _,
                 out _,
@@ -1026,6 +1029,7 @@ public sealed class TerrainDensityTests
             64,
             coord.Z,
             columnIndices,
+            [ushort.MaxValue],
             lowerMask,
             out _, out _, out _, out _, out _, out _);
 
@@ -1046,6 +1050,7 @@ public sealed class TerrainDensityTests
             80,
             coord.Z,
             columnIndices,
+            [ushort.MaxValue],
             upperMask,
             out _, out _, out _, out _, out _, out _);
 
