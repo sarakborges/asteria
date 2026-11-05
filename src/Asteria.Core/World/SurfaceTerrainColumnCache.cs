@@ -264,6 +264,14 @@ public sealed class SurfaceTerrainColumnCache
         private readonly BiomeSample?[] _volumeBiomes = new BiomeSample?[Chunk.Area];
         private readonly int[] _baseHeights = new int[Chunk.Area];
         private readonly bool[] _sampled = new bool[Chunk.Area];
+        private readonly BiomeField.Sampler _surfaceSampler;
+        private readonly BiomeField.Sampler? _volumeSampler;
+
+        public DensityTerrainColumnEntry(SurfaceTerrainField terrain)
+        {
+            _surfaceSampler = terrain.CreateDensitySurfaceSampler();
+            _volumeSampler = terrain.CreateDensityVolumeSampler();
+        }
 
         public SurfaceTerrainDensityColumn GetOrSample(
             SurfaceTerrainField terrain,
@@ -297,6 +305,8 @@ public sealed class SurfaceTerrainColumnCache
                         chunkX,
                         chunkZ,
                         missing[..missingCount],
+                        _surfaceSampler,
+                        _volumeSampler,
                         _biomes,
                         _volumeBiomes,
                         _baseHeights);
@@ -345,7 +355,7 @@ public sealed class SurfaceTerrainColumnCache
 
         var entry = _densityTerrainColumns.GetOrAdd(
             key,
-            static () => new DensityTerrainColumnEntry());
+            () => new DensityTerrainColumnEntry(_terrain));
         return entry.GetOrSample(
             _terrain, chunkX, chunkZ, columnIndices);
     }
