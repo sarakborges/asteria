@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -12,10 +14,15 @@ public sealed class CaveSpikeField
 
     // Cave-spike spacing is purely horizontal: the same (X,Z,radius) is
     // reconsidered for each anchor Y, both directions, and adjacent vertical
-    // chunks. Cache that decision across those repeated probes.
-    private readonly BoundedMemoCache<
-        (int X, int Z, int Radius),
-        bool> _spacingPriorities = new(32768);
+    // chunks. A bounded direct-mapped table avoids allocating an LRU node,
+    // Lazy<T> and capturing factory for every newly encountered column.
+    // Collisions only evict a cached answer and therefore cause recomputation.
+    private const int SpacingCacheCapacity = 32768;
+    private const int SpacingCacheMask = SpacingCacheCapacity - 1;
+    private const int SpacingCacheLockCount = 256;
+    private readonly SpacingPriorityEntry[] _spacingPriorities =
+        new SpacingPriorityEntry[SpacingCacheCapacity];
+    private readonly object[] _spacingPriorityLocks = CreateSpacingPriorityLocks();
 
     private static readonly GenerationDomain SpacingDomain =
         GenerationDomain.Named("worldgen/cave-spike/horizontal-spacing/v1");
@@ -76,7 +83,8 @@ public sealed class CaveSpikeField
         TrySampleCore(
             undergroundBiome, surfaceBiome, volumeBiome, baseY,
             x, y, z, down, densityVolume: null, densityOriginY: 0,
-            localX: 0, localZ: 0, out placement);
+            localX: 0, localZ: 0, solidColumnMask: 0,
+            anchorKnownVoid: false, out placement);
 
     internal bool TrySample(
         string undergroundBiome,
@@ -91,13 +99,15 @@ public sealed class CaveSpikeField
         int densityOriginY,
         int localX,
         int localZ,
+        ushort solidColumnMask,
+        bool anchorKnownVoid,
         out CaveSpikePlacement placement)
     {
         ArgumentNullException.ThrowIfNull(densityVolume);
         return TrySampleCore(
             undergroundBiome, surfaceBiome, volumeBiome, baseY,
             x, y, z, down, densityVolume, densityOriginY,
-            localX, localZ, out placement);
+            localX, localZ, solidColumnMask, anchorKnownVoid, out placement);
     }
 
     private bool TrySampleCore(
@@ -113,12 +123,18 @@ public sealed class CaveSpikeField
         int densityOriginY,
         int localX,
         int localZ,
+        ushort solidColumnMask,
+        bool anchorKnownVoid,
         out CaveSpikePlacement placement)
     {
         placement = default;
         if (!_rules.TryGetValue(undergroundBiome, out var rules) ||
             y <= 0 || y >= baseY)
             return false;
+
+        var supportY = y + (down ? 1 : -1);
+        var anchorValidated = anchorKnownVoid;
+        var supportValidated = false;
 
         // A specific surface material takes precedence over the generic
         // stone fallback. One column cannot spawn competing materials.
@@ -145,6 +161,27 @@ public sealed class CaveSpikeField
             if (!definition.Directions.Contains(direction))
                 continue;
 
+            // Resolve occupancy only after confirming this rule supports the
+            // requested direction, but before any expensive stochastic work.
+            // Several matching rules share the same anchor and support.
+            if (!anchorValidated)
+            {
+                if (!IsVoidAt(
+                        densityVolume, densityOriginY, localX, localZ,
+                        surfaceBiome, volumeBiome, baseY, x, z, y))
+                    return false;
+                anchorValidated = true;
+            }
+            if (!supportValidated)
+            {
+                if (!IsSolidSupportAt(
+                        densityVolume, densityOriginY, localX, localZ,
+                        solidColumnMask, surfaceBiome, volumeBiome,
+                        baseY, x, z, supportY))
+                    return false;
+                supportValidated = true;
+            }
+
             var domain = down ? rule.DownDomain : rule.UpDomain;
             var roll = WorldGenerationEntropy.Unit(
                 WorldGenerationEntropy.Sample3D(_seed, domain, x, y, z));
@@ -156,15 +193,6 @@ public sealed class CaveSpikeField
             // the same horizontal priority at every Y keeps the spacing
             // invariant independent of cave shelves and chunk order.
             if (!HasSpacingPriority(x, z, definition.MinSpacing))
-                continue;
-
-            var supportY = y + (down ? 1 : -1);
-            if (!IsVoidAt(
-                    densityVolume, densityOriginY, localX, localZ,
-                    surfaceBiome, volumeBiome, baseY, x, z, y) ||
-                IsVoidAt(
-                    densityVolume, densityOriginY, localX, localZ,
-                    surfaceBiome, volumeBiome, baseY, x, z, supportY))
                 continue;
 
             if (definition.Cluster is { } cluster)
@@ -184,18 +212,12 @@ public sealed class CaveSpikeField
             // Probe far enough to know whether opposite-facing spikes
             // could meet in a narrow gallery. Larger chambers still
             // permit the authored maximum height.
-            var clear = 0;
             var probeLength = Math.Max(
                 definition.MinClearance, definition.MaxHeight * 2 + 1);
-            for (var i = 0; i < probeLength; i++)
-            {
-                if (!IsVoidAt(
-                        densityVolume, densityOriginY, localX, localZ,
-                        surfaceBiome, volumeBiome, baseY, x, z,
-                        y + (down ? -i : i)))
-                    break;
-                clear++;
-            }
+            var clear = CountClearance(
+                densityVolume, densityOriginY, localX, localZ,
+                solidColumnMask, surfaceBiome, volumeBiome, baseY,
+                x, y, z, down, probeLength);
 
             if (clear < definition.MinClearance)
                 continue;
@@ -217,6 +239,123 @@ public sealed class CaveSpikeField
         }
 
         return false;
+    }
+
+    internal static int CountContiguousVoidDepthInMask(
+        ushort solidColumnMask,
+        int height,
+        int localY,
+        bool down)
+    {
+        if (height is < 1 or > 16)
+            throw new ArgumentOutOfRangeException(nameof(height));
+        if ((uint)localY >= height)
+            throw new ArgumentOutOfRangeException(nameof(localY));
+
+        var validMask = (uint)solidColumnMask & ((1u << height) - 1u);
+        if (down)
+        {
+            var throughAnchor = validMask & ((1u << (localY + 1)) - 1u);
+            return throughAnchor == 0u
+                ? localY + 1
+                : localY - BitOperations.Log2(throughAnchor);
+        }
+
+        var available = height - localY;
+        var fromAnchor = (validMask >> localY) & ((1u << available) - 1u);
+        return BitOperations.TrailingZeroCount(
+            fromAnchor | (1u << available));
+    }
+
+    private bool IsSolidSupportAt(
+        TerrainDensityVolume? densityVolume,
+        int densityOriginY,
+        int localX,
+        int localZ,
+        ushort solidColumnMask,
+        BiomeSample surfaceBiome,
+        BiomeSample? volumeBiome,
+        int baseY,
+        int x,
+        int z,
+        int supportY)
+    {
+        // The world floor and biome surface are authored solid boundaries,
+        // matching IsVoidAt even when the stored mask ends before them.
+        if (supportY <= 0 || supportY >= baseY)
+            return true;
+
+        var localSupportY = supportY - densityOriginY;
+        if (densityVolume is not null &&
+            (uint)localSupportY < densityVolume.Height)
+        {
+            return (solidColumnMask & (1u << localSupportY)) != 0;
+        }
+
+        // Chunk-edge support belongs to the neighboring vertical chunk and
+        // must keep the world-space density fallback.
+        return !IsVoidAt(
+            densityVolume, densityOriginY, localX, localZ,
+            surfaceBiome, volumeBiome, baseY, x, z, supportY);
+    }
+
+    private int CountClearance(
+        TerrainDensityVolume? densityVolume,
+        int densityOriginY,
+        int localX,
+        int localZ,
+        ushort solidColumnMask,
+        BiomeSample surfaceBiome,
+        BiomeSample? volumeBiome,
+        int baseY,
+        int x,
+        int y,
+        int z,
+        bool down,
+        int probeLength)
+    {
+        // IsVoidAt treats the world floor and the biome surface as support,
+        // even if the stored density mask contains empty bits beyond them.
+        probeLength = Math.Min(probeLength, down ? y : baseY - y);
+        var localY = y - densityOriginY;
+        if (densityVolume is not null &&
+            (uint)localY < densityVolume.Height)
+        {
+            // The density volume already stores a 16-bit occupancy column.
+            // Count the contiguous empty run with bit operations, then query
+            // world density only if the run reaches this chunk's vertical edge.
+            var availableInside = down
+                ? localY + 1
+                : densityVolume.Height - localY;
+            var clearInside = CountContiguousVoidDepthInMask(
+                solidColumnMask, densityVolume.Height, localY, down);
+            var clear = Math.Min(probeLength, clearInside);
+            if (clear < probeLength && clear == availableInside)
+            {
+                for (; clear < probeLength; clear++)
+                {
+                    var probeY = y + (down ? -clear : clear);
+                    if (!IsVoidAt(
+                            densityVolume, densityOriginY, localX, localZ,
+                            surfaceBiome, volumeBiome, baseY, x, z, probeY))
+                        break;
+                }
+            }
+
+            return clear;
+        }
+
+        var fallbackClear = 0;
+        for (; fallbackClear < probeLength; fallbackClear++)
+        {
+            var probeY = y + (down ? -fallbackClear : fallbackClear);
+            if (!IsVoidAt(
+                    densityVolume, densityOriginY, localX, localZ,
+                    surfaceBiome, volumeBiome, baseY, x, z, probeY))
+                break;
+        }
+
+        return fallbackClear;
     }
 
     private bool IsVoidAt(
@@ -254,13 +393,78 @@ public sealed class CaveSpikeField
         if (radius == 0)
             return true;
 
-        var key = (X: x, Z: z, Radius: radius);
-        if (_spacingPriorities.TryGet(key, out var cached))
-            return cached;
+        var index = SpacingCacheIndex(x, z, radius);
+        var gate = _spacingPriorityLocks[
+            index & (SpacingCacheLockCount - 1)];
 
-        return _spacingPriorities.GetOrAdd(
-            key,
-            () => HasSpacingPriorityUncached(x, z, radius));
+        lock (gate)
+        {
+            ref var entry = ref _spacingPriorities[index];
+            if (entry.IsValid &&
+                entry.X == x &&
+                entry.Z == z &&
+                entry.Radius == radius)
+            {
+                return entry.Value;
+            }
+        }
+
+        // Do not serialize independent cache misses behind a stripe lock.
+        // Competing misses may repeat the same deterministic calculation;
+        // publishing either answer is equivalent and only affects eviction.
+        var value = HasSpacingPriorityUncached(x, z, radius);
+        lock (gate)
+        {
+            ref var entry = ref _spacingPriorities[index];
+            if (entry.IsValid &&
+                entry.X == x &&
+                entry.Z == z &&
+                entry.Radius == radius)
+            {
+                return entry.Value;
+            }
+
+            entry = new SpacingPriorityEntry(x, z, radius, value);
+        }
+
+        return value;
+    }
+
+    private static object[] CreateSpacingPriorityLocks()
+    {
+        var locks = new object[SpacingCacheLockCount];
+        for (var index = 0; index < locks.Length; index++)
+            locks[index] = new object();
+        return locks;
+    }
+
+    private static int SpacingCacheIndex(int x, int z, int radius)
+    {
+        unchecked
+        {
+            var hash = (uint)x * 0x9E3779B9u;
+            hash ^= (uint)z * 0x85EBCA6Bu;
+            hash ^= (uint)radius * 0xC2B2AE35u;
+            hash ^= hash >> 16;
+            hash *= 0x7FEB352Du;
+            hash ^= hash >> 15;
+            hash *= 0x846CA68Bu;
+            hash ^= hash >> 16;
+            return (int)(hash & SpacingCacheMask);
+        }
+    }
+
+    private struct SpacingPriorityEntry(
+        int x,
+        int z,
+        int radius,
+        bool value)
+    {
+        public int X = x;
+        public int Z = z;
+        public int Radius = radius;
+        public bool Value = value;
+        public bool IsValid = true;
     }
 
     private bool HasSpacingPriorityUncached(int x, int z, int radius)

@@ -25,6 +25,9 @@ public sealed class BiomeWorldGenerator :
     private readonly SurfaceStructureField _surfaceStructures;
     private readonly VolumeBiomeField _volumeBiomes;
 
+    // Exposes the authoritative density field to engine-agnostic diagnostics.
+    internal SurfaceTerrainField Terrain => _terrain;
+
     public BiomeWorldGenerator(
         ulong seed,
         DimensionDefinition dimension,

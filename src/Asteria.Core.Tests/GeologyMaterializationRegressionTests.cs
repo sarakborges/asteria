@@ -9,6 +9,7 @@ public sealed class GeologyMaterializationRegressionTests
     [Theory]
     [InlineData(BiomeGeologySamplingMode.PerVoxel)]
     [InlineData(BiomeGeologySamplingMode.Regional)]
+    [InlineData(BiomeGeologySamplingMode.RegionalHybrid)]
     public void MaterializedChunksMatchWorldSpaceGeologyAcrossChunkSeamsAndGenerationOrder(
         BiomeGeologySamplingMode samplingMode)
     {
@@ -718,6 +719,7 @@ public sealed class GeologyMaterializationRegressionTests
     [Theory]
     [InlineData(BiomeGeologySamplingMode.PerVoxel)]
     [InlineData(BiomeGeologySamplingMode.Regional)]
+    [InlineData(BiomeGeologySamplingMode.RegionalHybrid)]
     public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns(
         BiomeGeologySamplingMode samplingMode)
     {
@@ -806,6 +808,7 @@ public sealed class GeologyMaterializationRegressionTests
     [Theory]
     [InlineData(BiomeGeologySamplingMode.PerVoxel)]
     [InlineData(BiomeGeologySamplingMode.Regional)]
+    [InlineData(BiomeGeologySamplingMode.RegionalHybrid)]
     public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation(
         BiomeGeologySamplingMode samplingMode)
     {

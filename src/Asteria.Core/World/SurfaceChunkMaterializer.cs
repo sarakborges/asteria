@@ -17,13 +17,23 @@ public sealed class SurfaceChunkMaterializer
         double HorizontalBoundaryReadMilliseconds,
         double OccupancyRowAssemblyMilliseconds,
         double CandidateMaskBuildMilliseconds,
+        double BoundaryColumnBoundsMilliseconds,
+        double CaveSamplerBuildMilliseconds,
+        double BoundaryColumnEvaluationMilliseconds,
+        double DensityTerrainColumnMilliseconds,
+        double OccupancyCacheAccessMilliseconds,
         int HorizontalBoundaryBatchCount,
         int HorizontalBoundaryColumnCount);
 
     private readonly record struct BoundaryMaskReadMetrics(
         int DensityProbes,
         int BatchCount,
-        int ColumnCount);
+        int ColumnCount,
+        double ColumnBoundsMilliseconds,
+        double CaveSamplerBuildMilliseconds,
+        double ColumnEvaluationMilliseconds,
+        double DensityTerrainColumnMilliseconds,
+        double OccupancyCacheAccessMilliseconds);
 
     // A 16x16 chunk plus its one-column cardinal slope-probe halo is 18x18.
     private const int SlopeProbeSampleCacheCapacity =
@@ -851,9 +861,16 @@ public sealed class SurfaceChunkMaterializer
                         sample, worldX, worldZ);
                 var topBlock = topMaterials.BlockAt(0);
 
-                var considerObjects = objectSupportInChunk &&
-                    _decorations.HasObjectDecorations(topSample);
-                if (normalInChunk || considerObjects)
+                var considerGroundBlock = normalInChunk &&
+                    _decorations.HasSurfacePlacementCandidates(
+                        topSample, topBlock,
+                        requireObject: false, onFluidSurface: false);
+                var considerObjects = !job.SupportOnly &&
+                    objectSupportInChunk &&
+                    _decorations.HasSurfacePlacementCandidates(
+                        topSample, topBlock,
+                        requireObject: true, onFluidSurface: false);
+                if (considerGroundBlock || considerObjects)
                 {
                     // Generated-fluid occupancy, not only the column range,
                     // decides whether this is a submerged decorator cell.
@@ -874,7 +891,7 @@ public sealed class SurfaceChunkMaterializer
                             worldX, (int)decorationY, worldZ,
                             decorationTerrainSolid).IsEmpty;
 
-                    if (normalInChunk)
+                    if (considerGroundBlock)
                     {
                         var decoration = _decorations.BlockAtWithTerrainSampleContext(
                             topSample, topBlock, worldX, worldZ,
@@ -891,7 +908,7 @@ public sealed class SurfaceChunkMaterializer
                             chunk.SetBlock(localX, (int)decorationY - originY,
                                 localZ, decoration);
                     }
-                    if (!job.SupportOnly && considerObjects)
+                    if (considerObjects)
                     {
                         var objectId = _decorations.ObjectAtWithTerrainSampleContext(
                             topSample, topBlock, worldX, worldZ,
@@ -916,8 +933,16 @@ public sealed class SurfaceChunkMaterializer
 
                 // Water-top decorations occupy the *air above* a source,
                 // not its water voxel. This also spans vertical chunk edges.
-                if ((fluidTopInChunk || fluidObjectSupportInChunk) &&
-                    _decorations.HasFluidSurfaceDecorations(topSample))
+                var considerFluidBlock = fluidTopInChunk &&
+                    _decorations.HasSurfacePlacementCandidates(
+                        topSample, topBlock,
+                        requireObject: false, onFluidSurface: true);
+                var considerFluidObject = !job.SupportOnly &&
+                    fluidObjectSupportInChunk &&
+                    _decorations.HasSurfacePlacementCandidates(
+                        topSample, topBlock,
+                        requireObject: true, onFluidSurface: true);
+                if (considerFluidBlock || considerFluidObject)
                 {
                     var supportFluid = _generatedFluids.FluidAtEmptyVoxel(
                         sample, baseY, surfaceFluidCutDepth,
@@ -927,24 +952,25 @@ public sealed class SurfaceChunkMaterializer
                         worldX, (int)decorationY + 1, worldZ);
                     if (!supportFluid.IsEmpty && aboveFluid.IsEmpty)
                     {
-                        var decoration = _decorations.BlockAtWithTerrainSampleContext(
-                            topSample, topBlock, worldX, worldZ,
-                            suppliedPlacement: null,
-                            verticalY: null,
-                            submerged: false,
-                            supportY: (int)decorationY,
-                            onFluidSurface: true,
-                            fluidBelow: supportFluid.Fluid,
-                            nearbyFluid: _nearbyFluidQuery,
-                            supportSurface: DecorationSupportSurface.Floor,
-                            terrainSampleContext: terrainSampleContext);
-                        if (fluidTopInChunk && !decoration.IsAir)
-                            chunk.SetBlock(
-                                localX, (int)decorationY + 1 - originY,
-                                localZ, decoration);
-                        if (!job.SupportOnly &&
-                            fluidObjectSupportInChunk &&
-                            _decorations.HasObjectDecorations(topSample))
+                        if (considerFluidBlock)
+                        {
+                            var decoration = _decorations.BlockAtWithTerrainSampleContext(
+                                topSample, topBlock, worldX, worldZ,
+                                suppliedPlacement: null,
+                                verticalY: null,
+                                submerged: false,
+                                supportY: (int)decorationY,
+                                onFluidSurface: true,
+                                fluidBelow: supportFluid.Fluid,
+                                nearbyFluid: _nearbyFluidQuery,
+                                supportSurface: DecorationSupportSurface.Floor,
+                                terrainSampleContext: terrainSampleContext);
+                            if (!decoration.IsAir)
+                                chunk.SetBlock(
+                                    localX, (int)decorationY + 1 - originY,
+                                    localZ, decoration);
+                        }
+                        if (considerFluidObject)
                         {
                             var objectId = _decorations.ObjectAtWithTerrainSampleContext(
                                 topSample, topBlock, worldX, worldZ,
@@ -1454,6 +1480,15 @@ public sealed class SurfaceChunkMaterializer
 
         public DirectionalFaceOccupancyPreparationProfile
             DirectionalFacePalettePreparationProfile { get; set; }
+
+        public double DirectionalFaceBoundaryColumnBoundsMilliseconds =>
+            DirectionalFacePalettePreparationProfile.BoundaryColumnBoundsMilliseconds;
+
+        public double DirectionalFaceCaveSamplerBuildMilliseconds =>
+            DirectionalFacePalettePreparationProfile.CaveSamplerBuildMilliseconds;
+
+        public double DirectionalFaceBoundaryColumnEvaluationMilliseconds =>
+            DirectionalFacePalettePreparationProfile.BoundaryColumnEvaluationMilliseconds;
 
         public int DirectionalFacePaletteDensityProbes { get; set; }
 
@@ -1992,7 +2027,8 @@ public sealed class SurfaceChunkMaterializer
             originZ,
             out densityProbes,
             out boundaryDensityProbes,
-            out preparationProfile);
+            out preparationProfile,
+            densityVolume);
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         Chunk chunk,
@@ -2026,20 +2062,21 @@ public sealed class SurfaceChunkMaterializer
         var densityProbes = 0;
         var batchCount = 0;
         var columnCount = 0;
+        var columnBoundsMilliseconds = 0d;
+        var caveSamplerBuildMilliseconds = 0d;
+        var columnEvaluationMilliseconds = 0d;
+        var densityTerrainColumnMilliseconds = 0d;
+        var occupancyCacheAccessMilliseconds = 0d;
 
         while (cursor < endLocalX)
         {
             var firstWorldX = checked(originX + cursor);
             var first = VoxelCoordinates.FromWorld(
                 firstWorldX, originY, originZ);
-            var sliceEnd = cursor + 1;
-            while (sliceEnd < endLocalX &&
-                   VoxelCoordinates.FromWorld(
-                       checked(originX + sliceEnd), originY, originZ)
-                       .Chunk.X == first.Chunk.X)
-            {
-                sliceEnd++;
-            }
+            var firstLocalX = first.Local.X;
+            var sliceEnd = Math.Min(
+                endLocalX,
+                checked(cursor + Chunk.Size - firstLocalX));
 
             var count = checked((sliceEnd - cursor) * Chunk.Size);
             if (count > columnIndices.Length || count > solidMasks.Length)
@@ -2049,10 +2086,10 @@ public sealed class SurfaceChunkMaterializer
             var writeIndex = 0;
             for (var localX = cursor; localX < sliceEnd; localX++)
             {
-                var local = VoxelCoordinates.FromWorld(
-                    checked(originX + localX), originY, originZ).Local;
+                var neighborLocalX = firstLocalX + localX - cursor;
                 for (var z = 0; z < Chunk.Size; z++)
-                    columnIndices[writeIndex++] = z * Chunk.Size + local.X;
+                    columnIndices[writeIndex++] =
+                        z * Chunk.Size + neighborLocalX;
             }
 
             _columns.ReadDensityColumnMasks(
@@ -2061,8 +2098,18 @@ public sealed class SurfaceChunkMaterializer
                 first.Chunk.Z,
                 columnIndices[..count],
                 solidMasks[..count],
-                out var probes);
+                out var probes,
+                out var boundsMilliseconds,
+                out var samplerBuildMilliseconds,
+                out var evaluationMilliseconds,
+                out var terrainColumnMilliseconds,
+                out var occupancyCacheMilliseconds);
             densityProbes = checked(densityProbes + probes);
+            columnBoundsMilliseconds += boundsMilliseconds;
+            caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
+            columnEvaluationMilliseconds += evaluationMilliseconds;
+            densityTerrainColumnMilliseconds += terrainColumnMilliseconds;
+            occupancyCacheAccessMilliseconds += occupancyCacheMilliseconds;
 
             writeIndex = 0;
             for (var localX = cursor; localX < sliceEnd; localX++)
@@ -2079,7 +2126,12 @@ public sealed class SurfaceChunkMaterializer
         }
 
         return new BoundaryMaskReadMetrics(
-            densityProbes, batchCount, columnCount);
+            densityProbes, batchCount, columnCount,
+            columnBoundsMilliseconds,
+            caveSamplerBuildMilliseconds,
+            columnEvaluationMilliseconds,
+            densityTerrainColumnMilliseconds,
+            occupancyCacheAccessMilliseconds);
     }
 
     private BoundaryMaskReadMetrics ReadDirectionalFaceZBoundaryMasks(
@@ -2098,20 +2150,21 @@ public sealed class SurfaceChunkMaterializer
         var densityProbes = 0;
         var batchCount = 0;
         var columnCount = 0;
+        var columnBoundsMilliseconds = 0d;
+        var caveSamplerBuildMilliseconds = 0d;
+        var columnEvaluationMilliseconds = 0d;
+        var densityTerrainColumnMilliseconds = 0d;
+        var occupancyCacheAccessMilliseconds = 0d;
 
         while (cursor < endLocalZ)
         {
             var firstWorldZ = checked(originZ + cursor);
             var first = VoxelCoordinates.FromWorld(
                 originX, originY, firstWorldZ);
-            var sliceEnd = cursor + 1;
-            while (sliceEnd < endLocalZ &&
-                   VoxelCoordinates.FromWorld(
-                       originX, originY, checked(originZ + sliceEnd))
-                       .Chunk.Z == first.Chunk.Z)
-            {
-                sliceEnd++;
-            }
+            var firstLocalZ = first.Local.Z;
+            var sliceEnd = Math.Min(
+                endLocalZ,
+                checked(cursor + Chunk.Size - firstLocalZ));
 
             var count = checked((sliceEnd - cursor) * Chunk.Size);
             if (count > columnIndices.Length || count > solidMasks.Length)
@@ -2119,12 +2172,16 @@ public sealed class SurfaceChunkMaterializer
                     "A horizontal Z boundary batch exceeded one chunk's column capacity.");
 
             var writeIndex = 0;
+            // Keep local X fixed while traversing the Z strip. The cave-noise
+            // grid sampler caches its X-interpolated lattice planes, so this
+            // column-major order reuses them across every requested Z column.
+            // The batch is already split at chunk boundaries, so neighbor Z is
+            // contiguous and can be derived without another world conversion.
+            for (var x = 0; x < Chunk.Size; x++)
             for (var localZ = cursor; localZ < sliceEnd; localZ++)
             {
-                var local = VoxelCoordinates.FromWorld(
-                    originX, originY, checked(originZ + localZ)).Local;
-                for (var x = 0; x < Chunk.Size; x++)
-                    columnIndices[writeIndex++] = local.Z * Chunk.Size + x;
+                var neighborLocalZ = firstLocalZ + localZ - cursor;
+                columnIndices[writeIndex++] = neighborLocalZ * Chunk.Size + x;
             }
 
             _columns.ReadDensityColumnMasks(
@@ -2133,12 +2190,22 @@ public sealed class SurfaceChunkMaterializer
                 first.Chunk.Z,
                 columnIndices[..count],
                 solidMasks[..count],
-                out var probes);
+                out var probes,
+                out var boundsMilliseconds,
+                out var samplerBuildMilliseconds,
+                out var evaluationMilliseconds,
+                out var terrainColumnMilliseconds,
+                out var occupancyCacheMilliseconds);
             densityProbes = checked(densityProbes + probes);
+            columnBoundsMilliseconds += boundsMilliseconds;
+            caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
+            columnEvaluationMilliseconds += evaluationMilliseconds;
+            densityTerrainColumnMilliseconds += terrainColumnMilliseconds;
+            occupancyCacheAccessMilliseconds += occupancyCacheMilliseconds;
 
             writeIndex = 0;
-            for (var localZ = cursor; localZ < sliceEnd; localZ++)
             for (var x = 0; x < Chunk.Size; x++)
+            for (var localZ = cursor; localZ < sliceEnd; localZ++)
             {
                 var destinationIndex =
                     x * regionSize + localZ + maximumDepth;
@@ -2151,7 +2218,12 @@ public sealed class SurfaceChunkMaterializer
         }
 
         return new BoundaryMaskReadMetrics(
-            densityProbes, batchCount, columnCount);
+            densityProbes, batchCount, columnCount,
+            columnBoundsMilliseconds,
+            caveSamplerBuildMilliseconds,
+            columnEvaluationMilliseconds,
+            densityTerrainColumnMilliseconds,
+            occupancyCacheAccessMilliseconds);
     }
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
@@ -2162,7 +2234,8 @@ public sealed class SurfaceChunkMaterializer
         int originZ,
         out int densityProbes,
         out int boundaryDensityProbes,
-        out DirectionalFaceOccupancyPreparationProfile preparationProfile)
+        out DirectionalFaceOccupancyPreparationProfile preparationProfile,
+        TerrainDensityVolume? densityVolume = null)
     {
         ArgumentNullException.ThrowIfNull(isSolid);
         ArgumentNullException.ThrowIfNull(column);
@@ -2231,6 +2304,23 @@ public sealed class SurfaceChunkMaterializer
         static void MarkSolid(ulong[] rows, int rowOffset, int bitIndex) =>
             rows[rowOffset + (bitIndex >> 6)] |= 1UL << (bitIndex & 63);
 
+        static void MarkMask(
+            ulong[] rows, int rowOffset, int bitIndex, ushort mask)
+        {
+            if (mask == 0)
+                return;
+
+            var wordOffset = bitIndex >> 6;
+            var bitOffset = bitIndex & 63;
+            rows[rowOffset + wordOffset] |= (ulong)mask << bitOffset;
+            if (bitOffset == 0)
+                return;
+
+            var overflow = (ulong)mask >> (64 - bitOffset);
+            if (overflow != 0)
+                rows[rowOffset + wordOffset + 1] |= overflow;
+        }
+
         static bool IsSolid(ulong[] rows, int rowOffset, int bitIndex) =>
             (rows[rowOffset + (bitIndex >> 6)] &
              (1UL << (bitIndex & 63))) != 0;
@@ -2280,6 +2370,31 @@ public sealed class SurfaceChunkMaterializer
             rightXBoundary.ColumnCount +
             negativeZBoundary.ColumnCount +
             positiveZBoundary.ColumnCount);
+        var boundaryColumnBoundsMilliseconds =
+            leftXBoundary.ColumnBoundsMilliseconds +
+            rightXBoundary.ColumnBoundsMilliseconds +
+            negativeZBoundary.ColumnBoundsMilliseconds +
+            positiveZBoundary.ColumnBoundsMilliseconds;
+        var caveSamplerBuildMilliseconds =
+            leftXBoundary.CaveSamplerBuildMilliseconds +
+            rightXBoundary.CaveSamplerBuildMilliseconds +
+            negativeZBoundary.CaveSamplerBuildMilliseconds +
+            positiveZBoundary.CaveSamplerBuildMilliseconds;
+        var boundaryColumnEvaluationMilliseconds =
+            leftXBoundary.ColumnEvaluationMilliseconds +
+            rightXBoundary.ColumnEvaluationMilliseconds +
+            negativeZBoundary.ColumnEvaluationMilliseconds +
+            positiveZBoundary.ColumnEvaluationMilliseconds;
+        var densityTerrainColumnMilliseconds =
+            leftXBoundary.DensityTerrainColumnMilliseconds +
+            rightXBoundary.DensityTerrainColumnMilliseconds +
+            negativeZBoundary.DensityTerrainColumnMilliseconds +
+            positiveZBoundary.DensityTerrainColumnMilliseconds;
+        var occupancyCacheAccessMilliseconds =
+            leftXBoundary.OccupancyCacheAccessMilliseconds +
+            rightXBoundary.OccupancyCacheAccessMilliseconds +
+            negativeZBoundary.OccupancyCacheAccessMilliseconds +
+            positiveZBoundary.OccupancyCacheAccessMilliseconds;
         densityProbeCount = checked(
             densityProbeCount + horizontalBoundaryDensityProbes);
         boundaryDensityProbeCount = checked(
@@ -2288,71 +2403,143 @@ public sealed class SurfaceChunkMaterializer
 #if DEBUG
         var occupancyRowAssemblyStarted = Stopwatch.GetTimestamp();
 #endif
-        for (var z = 0; z < size; z++)
-        for (var x = 0; x < size; x++)
+        if (densityVolume is not null &&
+            densityVolume.Width == size &&
+            densityVolume.Height == size &&
+            densityVolume.Depth == size)
         {
-            var rowOffset = (z * size + x) * wordCount;
-            for (var regionY = 0; regionY < regionSize; regionY++)
+            // The main terrain volume already stores one 16-bit occupancy mask
+            // per X/Z column. Copy those masks directly instead of probing
+            // every interior voxel through a delegate.
+            var belowWorldMinimumCount = Math.Clamp(
+                maximumDepth - originY, 0, maximumDepth);
+            var belowWorldMinimumMask = belowWorldMinimumCount switch
             {
-                var localY = regionY - maximumDepth;
-                bool solid;
-                if ((uint)localY < size)
-                    solid = isSolid(x, localY, z);
-                else
+                0 => 0UL,
+                64 => ulong.MaxValue,
+                _ => (1UL << belowWorldMinimumCount) - 1UL,
+            };
+
+            for (var z = 0; z < size; z++)
+            for (var x = 0; x < size; x++)
+            {
+                var rowOffset = (z * size + x) * wordCount;
+                yRows[rowOffset] |= belowWorldMinimumMask;
+                MarkMask(
+                    yRows,
+                    rowOffset,
+                    maximumDepth,
+                    densityVolume.SolidColumnMaskAtUnchecked(x, z));
+            }
+
+            foreach (var slab in bottomSlabs)
+            {
+                var bitStart = checked(maximumDepth + slab.OriginY - originY);
+                var masks = slab.Volume.ColumnSolidMasks;
+                for (var z = 0; z < size; z++)
+                for (var x = 0; x < size; x++)
                 {
-                    var worldY = checked(originY + localY);
-                    solid = worldY < 0 || VerticalHaloIsSolid(x, localY, z);
+                    var rowOffset = (z * size + x) * wordCount;
+                    MarkMask(
+                        yRows,
+                        rowOffset,
+                        bitStart,
+                        masks[z * size + x]);
                 }
-                if (solid)
-                    MarkSolid(yRows, rowOffset, regionY);
+            }
+
+            foreach (var slab in topSlabs)
+            {
+                var bitStart = checked(maximumDepth + slab.OriginY - originY);
+                var masks = slab.Volume.ColumnSolidMasks;
+                for (var z = 0; z < size; z++)
+                for (var x = 0; x < size; x++)
+                {
+                    var rowOffset = (z * size + x) * wordCount;
+                    MarkMask(
+                        yRows,
+                        rowOffset,
+                        bitStart,
+                        masks[z * size + x]);
+                }
+            }
+        }
+        else
+        {
+            for (var z = 0; z < size; z++)
+            for (var x = 0; x < size; x++)
+            {
+                var rowOffset = (z * size + x) * wordCount;
+                for (var regionY = 0; regionY < regionSize; regionY++)
+                {
+                    var localY = regionY - maximumDepth;
+                    bool solid;
+                    if ((uint)localY < size)
+                        solid = isSolid(x, localY, z);
+                    else
+                    {
+                        var worldY = checked(originY + localY);
+                        solid = worldY < 0 || VerticalHaloIsSolid(x, localY, z);
+                    }
+                    if (solid)
+                        MarkSolid(yRows, rowOffset, regionY);
+                }
             }
         }
 
+        // Transpose the interior occupancy rows once and populate both
+        // horizontal axes in the same pass over X/Z columns.
         for (var y = 0; y < size; y++)
         for (var z = 0; z < size; z++)
-        {
-            var rowOffset = (y * size + z) * wordCount;
-            for (var regionX = 0; regionX < regionSize; regionX++)
-            {
-                var localX = regionX - maximumDepth;
-                bool solid;
-                if ((uint)localX < size)
-                {
-                    var yRowOffset = (z * size + localX) * wordCount;
-                    solid = IsSolid(yRows, yRowOffset, maximumDepth + y);
-                }
-                else
-                {
-                    var boundaryIndex =
-                        (localX + maximumDepth) * size + z;
-                    solid = (xBoundaryMasks[boundaryIndex] & (1u << y)) != 0;
-                }
-                if (solid)
-                    MarkSolid(xRows, rowOffset, regionX);
-            }
-        }
-
-        for (var y = 0; y < size; y++)
         for (var x = 0; x < size; x++)
         {
-            var rowOffset = (y * size + x) * wordCount;
-            for (var regionZ = 0; regionZ < regionSize; regionZ++)
+            var yRowOffset = (z * size + x) * wordCount;
+            if (!IsSolid(yRows, yRowOffset, maximumDepth + y))
+                continue;
+
+            var xRowOffset = (y * size + z) * wordCount;
+            MarkSolid(xRows, xRowOffset, maximumDepth + x);
+
+            var zRowOffset = (y * size + x) * wordCount;
+            MarkSolid(zRows, zRowOffset, maximumDepth + z);
+        }
+
+        var yBitMask = 0u;
+        for (var y = 0; y < size; y++)
+        {
+            yBitMask = 1u << y;
+            for (var z = 0; z < size; z++)
             {
-                var localZ = regionZ - maximumDepth;
-                bool solid;
-                if ((uint)localZ < size)
+                var rowOffset = (y * size + z) * wordCount;
+                for (var regionX = 0; regionX < maximumDepth; regionX++)
                 {
-                    var yRowOffset = (localZ * size + x) * wordCount;
-                    solid = IsSolid(yRows, yRowOffset, maximumDepth + y);
+                    if ((xBoundaryMasks[regionX * size + z] & yBitMask) != 0)
+                        MarkSolid(xRows, rowOffset, regionX);
                 }
-                else
+                for (var regionX = maximumDepth + size;
+                     regionX < regionSize;
+                     regionX++)
                 {
-                    var boundaryIndex =
-                        x * regionSize + localZ + maximumDepth;
-                    solid = (zBoundaryMasks[boundaryIndex] & (1u << y)) != 0;
+                    if ((xBoundaryMasks[regionX * size + z] & yBitMask) != 0)
+                        MarkSolid(xRows, rowOffset, regionX);
                 }
-                if (solid)
-                    MarkSolid(zRows, rowOffset, regionZ);
+            }
+
+            for (var x = 0; x < size; x++)
+            {
+                var rowOffset = (y * size + x) * wordCount;
+                for (var regionZ = 0; regionZ < maximumDepth; regionZ++)
+                {
+                    if ((zBoundaryMasks[x * regionSize + regionZ] & yBitMask) != 0)
+                        MarkSolid(zRows, rowOffset, regionZ);
+                }
+                for (var regionZ = maximumDepth + size;
+                     regionZ < regionSize;
+                     regionZ++)
+                {
+                    if ((zBoundaryMasks[x * regionSize + regionZ] & yBitMask) != 0)
+                        MarkSolid(zRows, rowOffset, regionZ);
+                }
             }
         }
 #if DEBUG
@@ -2381,6 +2568,11 @@ public sealed class SurfaceChunkMaterializer
             horizontalBoundaryReadMilliseconds,
             occupancyRowAssemblyMilliseconds,
             candidateMaskBuildMilliseconds,
+            boundaryColumnBoundsMilliseconds,
+            caveSamplerBuildMilliseconds,
+            boundaryColumnEvaluationMilliseconds,
+            densityTerrainColumnMilliseconds,
+            occupancyCacheAccessMilliseconds,
             horizontalBoundaryBatchCount,
             horizontalBoundaryColumnCount);
         return new DirectionalFaceOccupancyMasks(
@@ -2717,7 +2909,11 @@ public sealed class SurfaceChunkMaterializer
             HorizontalBoundaryBatchCount:
                 job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryBatchCount,
             HorizontalBoundaryColumnCount:
-                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryColumnCount);
+                job.DirectionalFacePalettePreparationProfile.HorizontalBoundaryColumnCount,
+            DensityTerrainColumnMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.DensityTerrainColumnMilliseconds,
+            OccupancyCacheAccessMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.OccupancyCacheAccessMilliseconds);
     }
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
@@ -3597,14 +3793,25 @@ public sealed class SurfaceChunkMaterializer
                     anchorY > 1 && anchorY < baseY - 1 &&
                     (candidateAnchorMask & (1u << localAnchorY)) == 0)
                     continue;
+                var anchorKnownVoid =
+                    (uint)localAnchorY < densityVolume.Height &&
+                    (solidColumnMask & (1u << localAnchorY)) == 0;
 
                 for (var direction = 0; direction < 2; direction++)
                 {
                     var down = direction == 1;
+                    var supportY = anchorY + (down ? 1 : -1);
+                    var localSupportY = supportY - originY;
+                    if (supportY > 0 && supportY < baseY &&
+                        (uint)localSupportY < densityVolume.Height &&
+                        (solidColumnMask & (1u << localSupportY)) == 0)
+                        continue;
+
                     if (!spikes.TrySample(
                             biome.Primary, surfaceBiome, volumeBiome, baseY,
                             worldX, anchorY, worldZ, down,
                             densityVolume, originY, x, z,
+                            solidColumnMask, anchorKnownVoid,
                             out var placement))
                         continue;
 

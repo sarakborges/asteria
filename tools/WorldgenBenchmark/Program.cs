@@ -590,6 +590,9 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     var allocatedBytesByStage = new long[stages.Length];
     var advanceCountByStage = new int[stages.Length];
     var paletteProfiles = new List<DirectionalFacePaletteMetrics>();
+    var boundaryColumnBoundsMilliseconds = 0d;
+    var caveSamplerBuildMilliseconds = 0d;
+    var boundaryColumnEvaluationMilliseconds = 0d;
     var directionalMetadataChunkCount = 0;
     var directionalMetadataVoxelCount = 0L;
     var directionalMetadataPaletteEntryCount = 0L;
@@ -613,10 +616,16 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                 GC.GetAllocatedBytesForCurrentThread() - beforeBytes;
             advanceCountByStage[stageIndex]++;
 
-            if (stage == ChunkMaterializationStage.DirectionalFacePalettes &&
-                job.DirectionalFacePaletteMetrics is { } profile)
+            if (stage == ChunkMaterializationStage.DirectionalFacePalettes)
             {
-                paletteProfiles.Add(profile);
+                if (job.DirectionalFacePaletteMetrics is { } profile)
+                    paletteProfiles.Add(profile);
+                boundaryColumnBoundsMilliseconds +=
+                    job.DirectionalFaceBoundaryColumnBoundsMilliseconds;
+                caveSamplerBuildMilliseconds +=
+                    job.DirectionalFaceCaveSamplerBuildMilliseconds;
+                boundaryColumnEvaluationMilliseconds +=
+                    job.DirectionalFaceBoundaryColumnEvaluationMilliseconds;
             }
         }
 
@@ -712,6 +721,13 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             profile => profile.OccupancyRowAssemblyMilliseconds),
         CandidateMaskBuildMilliseconds = paletteProfiles.Sum(
             profile => profile.CandidateMaskBuildMilliseconds),
+        BoundaryColumnBoundsMilliseconds = boundaryColumnBoundsMilliseconds,
+        CaveSamplerBuildMilliseconds = caveSamplerBuildMilliseconds,
+        BoundaryColumnEvaluationMilliseconds = boundaryColumnEvaluationMilliseconds,
+        DensityTerrainColumnMilliseconds = paletteProfiles.Sum(
+            profile => profile.DensityTerrainColumnMilliseconds),
+        OccupancyCacheAccessMilliseconds = paletteProfiles.Sum(
+            profile => profile.OccupancyCacheAccessMilliseconds),
         HorizontalBoundaryBatchCount = paletteProfiles.Sum(
             profile => (long)profile.HorizontalBoundaryBatchCount),
         HorizontalBoundaryColumnCount = paletteProfiles.Sum(
@@ -907,7 +923,7 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
             ? 0d
             : (perVoxel.MedianElapsedMs - regionalHybrid.MedianElapsedMs) *
               100d / perVoxel.MedianElapsedMs,
-        Note = "Single-biome swamp materialization. PerVoxel, Regional and RegionalHybrid change only swamp geology sampling mode; chunk coordinates, terrain settings and other biome definitions remain unchanged. Digests are checked for repeatability within each mode, not equality between different materials. RegionalHybrid applies high-frequency displacement only near regional cell boundaries.",
+        Note = "Single-biome swamp materialization. PerVoxel, Regional and RegionalHybrid change only swamp geology sampling mode; chunk coordinates, terrain settings and other biome definitions remain unchanged. Digests are checked for repeatability within each mode, not equality between different materials. RegionalHybrid combines organic regional-boundary displacement with sparse fine-scale mineral inclusions selected using authored material weights.",
     };
 
     static (

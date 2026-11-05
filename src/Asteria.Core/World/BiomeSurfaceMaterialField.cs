@@ -524,9 +524,15 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain[] _regionalEdgeDomains;
         private readonly GenerationDomain _volumeRegionMaterialDomain;
         private readonly GenerationDomain _surfaceRegionMaterialDomain;
+        private readonly GenerationDomain _volumeRegionalDetailNoiseDomain;
+        private readonly GenerationDomain _surfaceRegionalDetailNoiseDomain;
+        private readonly GenerationDomain _volumeRegionalDetailMaterialDomain;
+        private readonly GenerationDomain _surfaceRegionalDetailMaterialDomain;
         private readonly BiomeGeologySamplingMode _samplingMode;
         private readonly uint _regionScale;
         private readonly uint _regionVerticalScale;
+        private readonly uint _regionalDetailScale;
+        private readonly uint _regionalDetailVerticalScale;
         private readonly uint _regionalEdgeScale;
         private readonly uint _regionalEdgeVerticalScale;
         private readonly double _regionWarpStrength;
@@ -591,6 +597,12 @@ public sealed class BiomeSurfaceMaterialField
             _samplingMode = definition.SamplingMode;
             _regionScale = definition.RegionScale;
             _regionVerticalScale = definition.RegionVerticalScale;
+            _regionalDetailScale = Math.Max(
+                4u, Math.Min(_detailScale, Math.Max(4u, _regionScale / 3u)));
+            _regionalDetailVerticalScale = Math.Max(
+                4u, Math.Min(
+                    _detailVerticalScale,
+                    Math.Max(4u, _regionVerticalScale / 3u)));
             _regionalEdgeScale = Math.Max(3u, Math.Min(
                 _clusterScale, _regionScale / 6u));
             _regionalEdgeVerticalScale = Math.Max(3u, Math.Min(
@@ -621,6 +633,14 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/geology/regional-volume-material/v1/{biomeId}");
             _surfaceRegionMaterialDomain = GenerationDomain.Named(
                 $"material/geology/regional-surface-material/v1/{biomeId}");
+            _volumeRegionalDetailNoiseDomain = GenerationDomain.Named(
+                $"material/geology/regional-volume-detail-noise/v1/{biomeId}");
+            _surfaceRegionalDetailNoiseDomain = GenerationDomain.Named(
+                $"material/geology/regional-surface-detail-noise/v1/{biomeId}");
+            _volumeRegionalDetailMaterialDomain = GenerationDomain.Named(
+                $"material/geology/regional-volume-detail-material/v1/{biomeId}");
+            _surfaceRegionalDetailMaterialDomain = GenerationDomain.Named(
+                $"material/geology/regional-surface-detail-material/v1/{biomeId}");
 
             var volumeNames = new[] { definition.BaseBlock }
                 .Concat(definition.Blocks).ToArray();
@@ -718,7 +738,10 @@ public sealed class BiomeSurfaceMaterialField
                 return SelectRegionalMaterial(
                     seed, x, y, z,
                     _volumeBlocks, _volumeRegionThresholds,
-                    _volumeRegionMaterialDomain, latticeCache);
+                    _volumeRegionMaterialDomain,
+                    _volumeRegionalDetailNoiseDomain,
+                    _volumeRegionalDetailMaterialDomain,
+                    latticeCache);
             }
 
             // Base material and deposits now compete in one spatial selector.
@@ -758,7 +781,10 @@ public sealed class BiomeSurfaceMaterialField
                 block = SelectRegionalMaterial(
                     seed, x, y, z,
                     _blocks, _surfaceRegionThresholds,
-                    _surfaceRegionMaterialDomain, latticeCache);
+                    _surfaceRegionMaterialDomain,
+                    _surfaceRegionalDetailNoiseDomain,
+                    _surfaceRegionalDetailMaterialDomain,
+                    latticeCache);
                 return true;
             }
 
@@ -957,9 +983,18 @@ public sealed class BiomeSurfaceMaterialField
             var fractionX = scaledX - Math.Floor(scaledX);
             var fractionY = scaledY - Math.Floor(scaledY);
             var fractionZ = scaledZ - Math.Floor(scaledZ);
-            var nearX = Math.Min(fractionX, 1d - fractionX) <= edgeBand;
-            var nearY = Math.Min(fractionY, 1d - fractionY) <= edgeBand;
-            var nearZ = Math.Min(fractionZ, 1d - fractionZ) <= edgeBand;
+            var distanceX = Math.Min(fractionX, 1d - fractionX);
+            var distanceY = Math.Min(fractionY, 1d - fractionY);
+            var distanceZ = Math.Min(fractionZ, 1d - fractionZ);
+            var weightX = Math.Clamp(1d - distanceX / edgeBand, 0d, 1d);
+            var weightY = Math.Clamp(1d - distanceY / edgeBand, 0d, 1d);
+            var weightZ = Math.Clamp(1d - distanceZ / edgeBand, 0d, 1d);
+            weightX *= weightX * (3d - 2d * weightX);
+            weightY *= weightY * (3d - 2d * weightY);
+            weightZ *= weightZ * (3d - 2d * weightZ);
+            var nearX = weightX > 0d;
+            var nearY = weightY > 0d;
+            var nearZ = weightZ > 0d;
 
             if (!nearX && !nearY && !nearZ)
                 return position;
@@ -977,19 +1012,19 @@ public sealed class BiomeSurfaceMaterialField
             {
                 x += SampleNoise(
                     coordinates, seed, _regionalEdgeDomains[0], latticeCache) *
-                    (_regionScale * maximumDisplacement);
+                    (_regionScale * maximumDisplacement * weightX);
             }
             if (nearY)
             {
                 y += SampleNoise(
                     coordinates, seed, _regionalEdgeDomains[1], latticeCache) *
-                    (_regionVerticalScale * maximumDisplacement);
+                    (_regionVerticalScale * maximumDisplacement * weightY);
             }
             if (nearZ)
             {
                 z += SampleNoise(
                     coordinates, seed, _regionalEdgeDomains[2], latticeCache) *
-                    (_regionScale * maximumDisplacement);
+                    (_regionScale * maximumDisplacement * weightZ);
             }
 
             return new SpatialPosition(x, y, z);
@@ -1003,6 +1038,8 @@ public sealed class BiomeSurfaceMaterialField
             BlockRuntimeId[] candidateBlocks,
             double[] cumulativeThresholds,
             GenerationDomain materialDomain,
+            GenerationDomain detailNoiseDomain,
+            GenerationDomain detailMaterialDomain,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
         {
             var position = WarpRegionalCoordinates(
@@ -1020,13 +1057,94 @@ public sealed class BiomeSurfaceMaterialField
             var unit = (selectionHash >> 11) *
                 (1d / 9007199254740992d);
 
+            var selectedIndex = cumulativeThresholds.Length - 1;
             for (var index = 0; index < cumulativeThresholds.Length; index++)
             {
                 if (unit < cumulativeThresholds[index])
+                {
+                    selectedIndex = index;
+                    break;
+                }
+            }
+
+            var selected = candidateBlocks[selectedIndex];
+            if (_samplingMode != BiomeGeologySamplingMode.RegionalHybrid ||
+                candidateBlocks.Length < 2)
+                return selected;
+
+            // The large regional choice owns most of the formation. A second,
+            // much smaller 3D field introduces sparse mineral inclusions
+            // inside it; the mask is continuous, while the inclusion's
+            // material is stable per detail cell and independent of chunk
+            // traversal order.
+            var detailCoordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                position.X, position.Y, position.Z,
+                _regionalDetailScale, _regionalDetailVerticalScale);
+            const double inclusionThreshold = 0.60d;
+            if (SampleNoise(
+                    detailCoordinates, seed, detailNoiseDomain, latticeCache) <=
+                inclusionThreshold)
+                return selected;
+
+            var detailCellScale = _regionalDetailScale * 2u;
+            var detailCellVerticalScale = _regionalDetailVerticalScale * 2u;
+            var detailCellX = FloorToInt(position.X / detailCellScale);
+            var detailCellY = FloorToInt(position.Y / detailCellVerticalScale);
+            var detailCellZ = FloorToInt(position.Z / detailCellScale);
+            var detailHash = WorldGenerationEntropy.Sample3D(
+                seed, detailMaterialDomain,
+                detailCellX, detailCellY, detailCellZ);
+            var detailUnit = (detailHash >> 11) *
+                (1d / 9007199254740992d);
+            return SelectRegionalDetailMaterial(
+                detailUnit, candidateBlocks, cumulativeThresholds,
+                selectedIndex);
+        }
+
+        private static BlockRuntimeId SelectRegionalDetailMaterial(
+            double sample,
+            BlockRuntimeId[] candidateBlocks,
+            double[] cumulativeThresholds,
+            int excludedIndex)
+        {
+            // Preserve authored mineral weights when selecting an inclusion.
+            // Re-normalize only the alternatives, excluding the macro cell's
+            // selected material so the finer layer always adds contrast.
+            var previousThreshold = 0d;
+            var excludedProbability = 0d;
+            for (var index = 0; index < cumulativeThresholds.Length; index++)
+            {
+                var threshold = cumulativeThresholds[index];
+                if (index == excludedIndex)
+                    excludedProbability = threshold - previousThreshold;
+                previousThreshold = threshold;
+            }
+
+            var remainingProbability = Math.Max(0d, 1d - excludedProbability);
+            if (remainingProbability <= 1e-12d)
+                return candidateBlocks[excludedIndex];
+
+            var target = sample * remainingProbability;
+            var cumulative = 0d;
+            previousThreshold = 0d;
+            var fallbackIndex = -1;
+            for (var index = 0; index < cumulativeThresholds.Length; index++)
+            {
+                var threshold = cumulativeThresholds[index];
+                var probability = threshold - previousThreshold;
+                previousThreshold = threshold;
+                if (index == excludedIndex)
+                    continue;
+
+                fallbackIndex = index;
+                cumulative += probability;
+                if (target < cumulative)
                     return candidateBlocks[index];
             }
 
-            return candidateBlocks[^1];
+            return candidateBlocks[fallbackIndex >= 0
+                ? fallbackIndex
+                : excludedIndex];
         }
 
         private static double[] CumulativeThresholds(

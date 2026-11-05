@@ -71,6 +71,31 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CaveSpikeClearanceBitCountsMatchScalarColumnScan()
+    {
+        const int height = 16;
+        for (var mask = 0; mask <= ushort.MaxValue; mask += 257)
+        for (var localY = 0; localY < height; localY++)
+        foreach (var down in new[] { false, true })
+        {
+            var expected = 0;
+            for (var offset = 0; offset < height; offset++)
+            {
+                var y = localY + (down ? -offset : offset);
+                if ((uint)y >= height ||
+                    (mask & (1 << y)) != 0)
+                    break;
+                expected++;
+            }
+
+            Assert.Equal(
+                expected,
+                CaveSpikeField.CountContiguousVoidDepthInMask(
+                    (ushort)mask, height, localY, down));
+        }
+    }
+
+    [Fact]
     public void CaveDensityIsSubtractiveAndCannotPierceTheSurface()
     {
         var generator = Generator(
@@ -639,6 +664,140 @@ public sealed class TerrainDensityTests
                 expectedSolid == actualSolid,
                 $"Density fast path diverged at {worldX},{worldY},{worldZ}: expected {expectedSolid}, actual {actualSolid}.");
         }
+    }
+
+    [Fact]
+    public void DensityOnlyBoundaryColumnCacheMatchesScalarDensityAcrossCavesAndFormations()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var cache = new SurfaceTerrainColumnCache(
+            generator.Terrain,
+            capacity: 8,
+            densityColumnCapacity: Chunk.Area * 8);
+        var volumePoint = FindVolumeSolid(generator, y: 96);
+        var samples = new[]
+        {
+            (X: volumePoint.X, Z: volumePoint.Z, OriginY: 16),
+            (X: volumePoint.X - 1, Z: volumePoint.Z, OriginY: 32),
+            (X: volumePoint.X, Z: volumePoint.Z + 1, OriginY: 80),
+            (X: volumePoint.X + Chunk.Size, Z: volumePoint.Z + Chunk.Size, OriginY: 96),
+        };
+
+        foreach (var sample in samples)
+        {
+            var mask = cache.GetDensityColumnMask(
+                sample.X,
+                sample.OriginY,
+                sample.Z,
+                out var cacheHit,
+                out var densityProbes);
+            Assert.False(cacheHit);
+            Assert.True(densityProbes > 0);
+
+            for (var localY = 0; localY < Chunk.Size; localY++)
+            {
+                var worldY = sample.OriginY + localY;
+                var expectedSolid =
+                    generator.DensityAt(sample.X, worldY, sample.Z) >= 0d;
+                var actualSolid = (mask & (1u << localY)) != 0;
+                Assert.True(
+                    expectedSolid == actualSolid,
+                    $"Density-only boundary cache diverged at {sample.X},{worldY},{sample.Z}: expected {expectedSolid}, actual {actualSolid}.");
+            }
+
+            var cachedMask = cache.GetDensityColumnMask(
+                sample.X,
+                sample.OriginY,
+                sample.Z,
+                out cacheHit,
+                out densityProbes);
+            Assert.True(cacheHit);
+            Assert.Equal(0, densityProbes);
+            Assert.Equal(mask, cachedMask);
+        }
+    }
+
+    [Fact]
+    public void SparseDensityBoundaryBatchesMatchScalarDensityAcrossOverlappingReads()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var volumePoint = FindVolumeSolid(generator, y: 96);
+        var position = VoxelCoordinates.FromWorld(
+            volumePoint.X, 96, volumePoint.Z);
+        var cache = new SurfaceTerrainColumnCache(
+            generator.Terrain,
+            capacity: 8,
+            densityColumnCapacity: Chunk.Area * 8);
+        var chunkX = position.Chunk.X;
+        var chunkZ = position.Chunk.Z;
+        var targetIndex = position.Local.Z * Chunk.Size + position.Local.X;
+        var firstBatch = new[]
+        {
+            0, 1, 15, 16, 17, 31, 32, 127, 240, 255, targetIndex,
+        };
+        var secondBatch = new[]
+        {
+            1, 17, 31, 64, 128, 224, 240, 254, 255, targetIndex,
+        };
+
+        void AssertBatchMatchesScalar(int[] indices)
+        {
+            var masks = new ushort[indices.Length];
+            cache.ReadDensityColumnMasks(
+                chunkX,
+                originY: 96,
+                chunkZ,
+                indices,
+                masks,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _);
+
+            var originX = checked(chunkX * Chunk.Size);
+            var originZ = checked(chunkZ * Chunk.Size);
+            for (var index = 0; index < indices.Length; index++)
+            {
+                var localX = indices[index] % Chunk.Size;
+                var localZ = indices[index] / Chunk.Size;
+                var worldX = checked(originX + localX);
+                var worldZ = checked(originZ + localZ);
+                for (var localY = 0; localY < Chunk.Size; localY++)
+                {
+                    var worldY = 96 + localY;
+                    var expectedSolid =
+                        generator.DensityAt(worldX, worldY, worldZ) >= 0d;
+                    var actualSolid =
+                        (masks[index] & (1u << localY)) != 0;
+                    Assert.True(
+                        expectedSolid == actualSolid,
+                        $"Sparse boundary batch diverged at {worldX},{worldY},{worldZ}: expected {expectedSolid}, actual {actualSolid}.");
+                }
+            }
+        }
+
+        AssertBatchMatchesScalar(firstBatch);
+        AssertBatchMatchesScalar(secondBatch);
     }
 
     [Fact]

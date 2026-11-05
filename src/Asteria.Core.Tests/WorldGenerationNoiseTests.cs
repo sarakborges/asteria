@@ -112,4 +112,55 @@ public sealed class WorldGenerationNoiseTests
             Assert.Equal(expected, actual);
         }
     }
+
+    [Theory]
+    [InlineData(-31, 7, -19, 1, 16, 16, 8u, 6u)]
+    [InlineData(13, 24, -42, 16, 16, 1, 16u, 12u)]
+    [InlineData(-128, 3, 64, 1, 16, 1, 4u, 3u)]
+    [InlineData(-31, 7, -19, 6, 16, 16, 56u, 36u)]
+    [InlineData(13, 24, -42, 16, 16, 6, 56u, 36u)]
+    public void ColumnMajorNoiseSamplerMatchesScalarNoiseExactly(
+        int originX,
+        int originY,
+        int originZ,
+        int width,
+        int height,
+        int depth,
+        uint horizontalScale,
+        uint verticalScale)
+    {
+        const ulong seed = 0xA57E_3D10_2026UL;
+        var domain = GenerationDomain.Named("tests/column-major-noise-sampler");
+        var sampler = new WorldGenerationEntropy.ValueNoise3DGridSampler(
+            seed,
+            domain,
+            originX,
+            originY,
+            originZ,
+            width,
+            height,
+            depth,
+            horizontalScale,
+            verticalScale);
+
+        // Horizontal boundary batches keep X fixed while visiting the
+        // requested Z strip, then scan the complete vertical column.
+        // This exercises both cached X and X/Y interpolation across Z.
+        for (var localX = 0; localX < width; localX++)
+        for (var localZ = 0; localZ < depth; localZ++)
+        for (var localY = 0; localY < height; localY++)
+        {
+            var expected = WorldGenerationEntropy.ValueNoise3D(
+                seed,
+                domain,
+                originX + localX,
+                originY + localY,
+                originZ + localZ,
+                horizontalScale,
+                verticalScale);
+            var actual = sampler.Sample(localX, localY, localZ);
+            Assert.Equal(expected, actual);
+        }
+    }
+
 }

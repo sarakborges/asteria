@@ -241,7 +241,7 @@ def compare(
         "digestsMatch": True,
         "metrics": metric_results,
         "notes": [
-            "Baseline is the direct parent of the latest terrain-materialization commit; candidate is that terrain-materialization commit.",
+            "Baseline is the fixed pre-feature worldgen revision; candidate is the complete pull-request head.",
             "Each value is the median across separate benchmark processes; each process also reports the benchmark's internal warm median where available.",
             "DirectionalFacePalettes timing includes both exposure derivation and palette application stages.",
             "Wall-clock deltas are informational and do not fail CI; seed, region, chunk count and generated-result digest mismatches do fail CI.",

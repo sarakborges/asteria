@@ -1,3 +1,7 @@
+#if DEBUG
+using System.Diagnostics;
+#endif
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -27,6 +31,9 @@ public sealed class SurfaceTerrainColumnCache
         (int X, int Z),
         SurfaceTerrainColumn> _columns;
     private readonly BoundedMemoCache<
+        (int X, int Z),
+        DensityTerrainColumnEntry> _densityTerrainColumns;
+    private readonly BoundedMemoCache<
         (int X, int Y, int Z),
         DensityChunkOccupancy> _densityChunks;
 
@@ -43,6 +50,9 @@ public sealed class SurfaceTerrainColumnCache
         _columns = new BoundedMemoCache<
             (int X, int Z),
             SurfaceTerrainColumn>(capacity);
+        _densityTerrainColumns = new BoundedMemoCache<
+            (int X, int Z),
+            DensityTerrainColumnEntry>(capacity);
         _densityChunks = new BoundedMemoCache<
             (int X, int Y, int Z),
             DensityChunkOccupancy>(
@@ -243,6 +253,73 @@ public sealed class SurfaceTerrainColumnCache
                 "Deterministic terrain occupancy disagreed for an already sampled voxel.");
     }
 
+    /// <summary>
+    /// Incrementally fills only the X/Z columns requested by horizontal
+    /// boundary batches. Sampled entries are immutable after publication.
+    /// </summary>
+    private sealed class DensityTerrainColumnEntry
+    {
+        private readonly object _gate = new();
+        private readonly BiomeSample?[] _biomes = new BiomeSample?[Chunk.Area];
+        private readonly BiomeSample?[] _volumeBiomes = new BiomeSample?[Chunk.Area];
+        private readonly int[] _baseHeights = new int[Chunk.Area];
+        private readonly bool[] _sampled = new bool[Chunk.Area];
+        private readonly BiomeField.Sampler _surfaceSampler;
+        private readonly BiomeField.Sampler? _volumeSampler;
+
+        public DensityTerrainColumnEntry(SurfaceTerrainField terrain)
+        {
+            _surfaceSampler = terrain.CreateDensitySurfaceSampler();
+            _volumeSampler = terrain.CreateDensityVolumeSampler();
+        }
+
+        public SurfaceTerrainDensityColumn GetOrSample(
+            SurfaceTerrainField terrain,
+            int chunkX,
+            int chunkZ,
+            ReadOnlySpan<int> columnIndices)
+        {
+            lock (_gate)
+            {
+                Span<bool> requested = stackalloc bool[Chunk.Area];
+                Span<int> missing = stackalloc int[Chunk.Area];
+                requested.Clear();
+                var missingCount = 0;
+
+                for (var index = 0; index < columnIndices.Length; index++)
+                {
+                    var columnIndex = columnIndices[index];
+                    if ((uint)columnIndex >= Chunk.Area)
+                        throw new ArgumentOutOfRangeException(nameof(columnIndices));
+                    if (requested[columnIndex])
+                        continue;
+
+                    requested[columnIndex] = true;
+                    if (!_sampled[columnIndex])
+                        missing[missingCount++] = columnIndex;
+                }
+
+                if (missingCount > 0)
+                {
+                    terrain.SampleDensityColumns(
+                        chunkX,
+                        chunkZ,
+                        missing[..missingCount],
+                        _surfaceSampler,
+                        _volumeSampler,
+                        _biomes,
+                        _volumeBiomes,
+                        _baseHeights);
+                    for (var index = 0; index < missingCount; index++)
+                        _sampled[missing[index]] = true;
+                }
+
+                return new SurfaceTerrainDensityColumn(
+                    _biomes, _volumeBiomes, _baseHeights);
+            }
+        }
+    }
+
     private static ushort HeightMask(int height) =>
         height == Chunk.Size
             ? ushort.MaxValue
@@ -265,6 +342,22 @@ public sealed class SurfaceTerrainColumnCache
         return _columns.GetOrAdd(
             key,
             () => _terrain.SampleColumn(chunkX, chunkZ));
+    }
+
+    private SurfaceTerrainDensityColumn GetDensityTerrainColumn(
+        int chunkX,
+        int chunkZ,
+        ReadOnlySpan<int> columnIndices)
+    {
+        var key = (X: chunkX, Z: chunkZ);
+        if (_columns.TryGet(key, out var fullColumn))
+            return new SurfaceTerrainDensityColumn(fullColumn);
+
+        var entry = _densityTerrainColumns.GetOrAdd(
+            key,
+            () => new DensityTerrainColumnEntry(_terrain));
+        return entry.GetOrSample(
+            _terrain, chunkX, chunkZ, columnIndices);
     }
 
     /// <summary>
@@ -366,7 +459,12 @@ public sealed class SurfaceTerrainColumnCache
         int chunkZ,
         ReadOnlySpan<int> columnIndices,
         Span<ushort> solidMasks,
-        out int densityProbes)
+        out int densityProbes,
+        out double columnBoundsMilliseconds,
+        out double caveSamplerBuildMilliseconds,
+        out double columnEvaluationMilliseconds,
+        out double densityTerrainColumnMilliseconds,
+        out double occupancyCacheAccessMilliseconds)
     {
         if (originY < 0 || originY % Chunk.Size != 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
@@ -376,12 +474,24 @@ public sealed class SurfaceTerrainColumnCache
                 "Density column batch must contain matching buffers of at most 256 columns.");
 
         densityProbes = 0;
+        columnBoundsMilliseconds = 0d;
+        caveSamplerBuildMilliseconds = 0d;
+        columnEvaluationMilliseconds = 0d;
+        densityTerrainColumnMilliseconds = 0d;
+        occupancyCacheAccessMilliseconds = 0d;
         if (columnIndices.IsEmpty)
             return;
 
         var occupancy = GetDensityChunk(chunkX, originY, chunkZ);
         Span<ushort> sampledMasks = stackalloc ushort[columnIndices.Length];
+#if DEBUG
+        var occupancyReadStarted = Stopwatch.GetTimestamp();
+#endif
         occupancy.ReadColumns(columnIndices, solidMasks, sampledMasks);
+#if DEBUG
+        occupancyCacheAccessMilliseconds +=
+            Stopwatch.GetElapsedTime(occupancyReadStarted).TotalMilliseconds;
+#endif
 
         var hasMissingSamples = false;
         for (var index = 0; index < columnIndices.Length; index++)
@@ -389,7 +499,15 @@ public sealed class SurfaceTerrainColumnCache
 
         if (hasMissingSamples)
         {
-            var column = Get(chunkX, chunkZ);
+#if DEBUG
+            var densityColumnStarted = Stopwatch.GetTimestamp();
+#endif
+            var column = GetDensityTerrainColumn(
+                chunkX, chunkZ, columnIndices);
+#if DEBUG
+            densityTerrainColumnMilliseconds =
+                Stopwatch.GetElapsedTime(densityColumnStarted).TotalMilliseconds;
+#endif
             var chunkOriginX = checked(chunkX * Chunk.Size);
             var chunkOriginZ = checked(chunkZ * Chunk.Size);
             _terrain.SampleDensityColumnMasks(
@@ -400,11 +518,21 @@ public sealed class SurfaceTerrainColumnCache
                 columnIndices,
                 solidMasks,
                 sampledMasks,
-                out densityProbes);
+                out densityProbes,
+                out columnBoundsMilliseconds,
+                out caveSamplerBuildMilliseconds,
+                out columnEvaluationMilliseconds);
+#if DEBUG
+            var occupancyMergeStarted = Stopwatch.GetTimestamp();
+#endif
             occupancy.MergeColumns(
                 columnIndices,
                 solidMasks,
                 sampledMasks);
+#if DEBUG
+            occupancyCacheAccessMilliseconds +=
+                Stopwatch.GetElapsedTime(occupancyMergeStarted).TotalMilliseconds;
+#endif
         }
     }
 
@@ -435,7 +563,10 @@ public sealed class SurfaceTerrainColumnCache
         }
 
         cacheHit = false;
-        var column = Get(coord.X, coord.Z);
+        Span<int> requestedColumn = stackalloc int[1];
+        requestedColumn[0] = index;
+        var column = GetDensityTerrainColumn(
+            coord.X, coord.Z, requestedColumn);
         var mask = _terrain.SampleDensityColumnMask(
             column,
             local.X,

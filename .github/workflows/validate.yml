@@ -225,7 +225,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      - name: Resolve the latest terrain-materialization change
+      - name: Resolve terrain A/B candidate and baseline
         id: terrain_scope
         shell: bash
         env:
@@ -234,34 +234,36 @@ jobs:
           BASELINE_SHA: f6affd92ddb1dcd109238c25f8ea40d1172bd872
         run: |
           set -euo pipefail
-          terrain_commit="$(git log --first-parent -1 --format=%H HEAD -- \
-            src/Asteria.Core/World/CaveSpikeField.cs \
-            src/Asteria.Core/World/SurfaceChunkMaterializer.cs \
-            src/Asteria.Core/World/Chunk.cs \
-            tools/WorldgenBenchmark/Program.cs \
-            src/Asteria.Core/World/WorldGenerationEntropy.cs \
-            src/Asteria.Core/World/SurfaceTerrainField.cs \
-            src/Asteria.Core/World/BiomeSurfaceMaterialField.cs \
-            src/Asteria.Core/World/BiomeField.cs \
-            src/Asteria.Core/World/BiomeWorldGenerator.cs \
-            src/Asteria.Core/World/VolumeStructureField.cs \
-            src/Asteria.Core/World/VolumeBiomeField.cs)"
-          if [ -z "$terrain_commit" ]; then
+          changed_paths=(
+            src/Asteria.Core/World/CaveSpikeField.cs
+            src/Asteria.Core/World/SurfaceChunkMaterializer.cs
+            src/Asteria.Core/World/Chunk.cs
+            tools/WorldgenBenchmark/Program.cs
+            src/Asteria.Core/World/WorldGenerationEntropy.cs
+            src/Asteria.Core/World/SurfaceTerrainField.cs
+            src/Asteria.Core/World/BiomeSurfaceMaterialField.cs
+            src/Asteria.Core/World/BiomeField.cs
+            src/Asteria.Core/World/BiomeWorldGenerator.cs
+            src/Asteria.Core/World/VolumeStructureField.cs
+            src/Asteria.Core/World/VolumeBiomeField.cs
+          )
+          baseline_commit="$BASELINE_SHA"
+          git cat-file -e "${baseline_commit}^{commit}"
+          if git diff --quiet "${baseline_commit}...HEAD" -- "${changed_paths[@]}"; then
             echo "run=false" >> "$GITHUB_OUTPUT"
             echo "No terrain materialization changes found in the pull-request history."
             exit 0
           fi
 
-          # Compare against the PR base, not the previous feature commit:
-          # intermediate optimization commits may intentionally fix a broken
-          # predecessor, so the parent is not always a valid output baseline.
-          baseline_commit="$BASELINE_SHA"
-          git cat-file -e "${baseline_commit}^{commit}"
-          echo "terrain_commit=$terrain_commit" >> "$GITHUB_OUTPUT"
+          # Benchmark the exact PR head, not the last commit touching a worldgen
+          # file. Diagnostic/interface fixes may land in a later commit and are
+          # still required to build and measure that terrain implementation.
+          candidate_commit="$(git rev-parse HEAD)"
+          echo "candidate_commit=$candidate_commit" >> "$GITHUB_OUTPUT"
           echo "baseline_commit=$baseline_commit" >> "$GITHUB_OUTPUT"
           echo "run=true" >> "$GITHUB_OUTPUT"
           echo "A/B baseline: $baseline_commit"
-          echo "A/B candidate: $terrain_commit"
+          echo "A/B candidate (PR head): $candidate_commit"
 
       - name: Setup .NET
         if: steps.terrain_scope.outputs.run == 'true'
@@ -274,7 +276,7 @@ jobs:
         shell: bash
         env:
           BASELINE_SHA: ${{ steps.terrain_scope.outputs.baseline_commit }}
-          CANDIDATE_SHA: ${{ steps.terrain_scope.outputs.terrain_commit }}
+          CANDIDATE_SHA: ${{ steps.terrain_scope.outputs.candidate_commit }}
         run: |
           set -euo pipefail
           root="$RUNNER_TEMP/terrain-layer-ab"
@@ -300,7 +302,7 @@ jobs:
         shell: bash
         env:
           BASELINE_SHA: ${{ env.TERRAIN_AB_BASELINE_SHA }}
-          CANDIDATE_SHA: ${{ steps.terrain_scope.outputs.terrain_commit }}
+          CANDIDATE_SHA: ${{ steps.terrain_scope.outputs.candidate_commit }}
         run: |
           set -euo pipefail
           root="$RUNNER_TEMP/terrain-layer-ab"
