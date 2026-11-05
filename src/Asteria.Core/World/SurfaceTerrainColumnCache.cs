@@ -524,6 +524,34 @@ public sealed class SurfaceTerrainColumnCache
         out double caveSamplerBuildMilliseconds,
         out double columnEvaluationMilliseconds,
         out double densityTerrainColumnMilliseconds,
+        out double occupancyCacheAccessMilliseconds) =>
+        ReadDensityColumnMasksWithSamplingMetrics(
+            chunkX,
+            originY,
+            chunkZ,
+            columnIndices,
+            requestedMasks,
+            solidMasks,
+            out densityProbes,
+            out columnBoundsMilliseconds,
+            out caveSamplerBuildMilliseconds,
+            out columnEvaluationMilliseconds,
+            out densityTerrainColumnMilliseconds,
+            out occupancyCacheAccessMilliseconds,
+            out _);
+
+    internal void ReadDensityColumnMasksWithSamplingMetrics(
+        int chunkX,
+        int originY,
+        int chunkZ,
+        ReadOnlySpan<int> columnIndices,
+        ReadOnlySpan<ushort> requestedMasks,
+        Span<ushort> solidMasks,
+        out int densityProbes,
+        out double columnBoundsMilliseconds,
+        out double caveSamplerBuildMilliseconds,
+        out double columnEvaluationMilliseconds,
+        out double densityTerrainColumnMilliseconds,
         out double occupancyCacheAccessMilliseconds,
         out double surfaceBiomeSamplingMilliseconds,
         out double volumeBiomeSamplingMilliseconds)
