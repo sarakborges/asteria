@@ -2128,7 +2128,6 @@ public sealed class SurfaceChunkMaterializer
                     "A horizontal Z boundary batch exceeded one chunk's column capacity.");
 
             var writeIndex = 0;
-            var firstLocalZ = first.Local.Z;
             // Keep local X fixed while traversing the Z strip. The cave-noise
             // grid sampler caches its X-interpolated lattice planes, so this
             // column-major order reuses them across every requested Z column.
