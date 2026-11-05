@@ -1407,11 +1407,22 @@ public sealed class SurfaceChunkMaterializer
 
     }
 
-    private sealed class MaterializationJob : IChunkMaterializationJob
+    private sealed class MaterializationJob : IChunkMaterializationJob, IChunkMaterializationStorageDiagnostics
     {
         private readonly SurfaceChunkMaterializer _owner;
         private WorldGenerationEntropy.ValueNoise3DLatticeCache? _geologyNoiseCache;
         private Chunk? _chunk;
+#if DEBUG
+        private bool _storageDiagnosticsAvailable = true;
+        private long _terrainLayerBlockPaletteGrowthBytes;
+        private int _terrainLayerBlockPaletteGrowthEvents;
+        private long _terrainLayerDirectionalPaletteGrowthBytes;
+        private int _terrainLayerDirectionalPaletteGrowthEvents;
+        private long _directionalFaceBlockPaletteGrowthBytes;
+        private int _directionalFaceBlockPaletteGrowthEvents;
+        private long _directionalFaceMetadataPaletteGrowthBytes;
+        private int _directionalFaceMetadataPaletteGrowthEvents;
+#endif
 
         public MaterializationJob(
             SurfaceChunkMaterializer owner,
@@ -1534,6 +1545,31 @@ public sealed class SurfaceChunkMaterializer
 
         public Chunk? Result { get; internal set; }
 
+        public ChunkMaterializationStorageDiagnostics StorageDiagnostics
+        {
+            get
+            {
+#if DEBUG
+                return new ChunkMaterializationStorageDiagnostics(
+                    _storageDiagnosticsAvailable,
+                    new PaletteStorageGrowthDelta(
+                        _terrainLayerBlockPaletteGrowthBytes,
+                        _terrainLayerBlockPaletteGrowthEvents),
+                    new PaletteStorageGrowthDelta(
+                        _terrainLayerDirectionalPaletteGrowthBytes,
+                        _terrainLayerDirectionalPaletteGrowthEvents),
+                    new PaletteStorageGrowthDelta(
+                        _directionalFaceBlockPaletteGrowthBytes,
+                        _directionalFaceBlockPaletteGrowthEvents),
+                    new PaletteStorageGrowthDelta(
+                        _directionalFaceMetadataPaletteGrowthBytes,
+                        _directionalFaceMetadataPaletteGrowthEvents));
+#else
+                return default;
+#endif
+            }
+        }
+
         private DirectionalFacePaletteMetrics? _directionalFacePaletteMetrics;
 
         public DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics
@@ -1543,7 +1579,86 @@ public sealed class SurfaceChunkMaterializer
             set => _directionalFacePaletteMetrics = value;
         }
 
-        public void Advance() => _owner.Advance(this);
+        public void Advance()
+        {
+#if DEBUG
+            var stage = Stage;
+            if (stage is ChunkMaterializationStage.TerrainLayer or
+                ChunkMaterializationStage.DirectionalFacePalettes)
+            {
+                if (_chunk is not { } chunk)
+                {
+                    _storageDiagnosticsAvailable = false;
+                    _owner.Advance(this);
+                    return;
+                }
+
+                var blockBefore = chunk.CellStorageCapacityMetrics;
+                var metadataBefore =
+                    chunk.DirectionalFaceStorageCapacityMetrics ?? default;
+                _owner.Advance(this);
+                var blockAfter = chunk.CellStorageCapacityMetrics;
+                var metadataAfter =
+                    chunk.DirectionalFaceStorageCapacityMetrics ?? default;
+
+                _storageDiagnosticsAvailable &=
+                    blockBefore.GrowthDiagnosticsAvailable &&
+                    blockAfter.GrowthDiagnosticsAvailable;
+
+                var blockDelta = GrowthDelta(blockBefore, blockAfter);
+                var metadataDelta = GrowthDelta(metadataBefore, metadataAfter);
+                if (stage == ChunkMaterializationStage.TerrainLayer)
+                {
+                    AddGrowth(
+                        ref _terrainLayerBlockPaletteGrowthBytes,
+                        ref _terrainLayerBlockPaletteGrowthEvents,
+                        blockDelta);
+                    AddGrowth(
+                        ref _terrainLayerDirectionalPaletteGrowthBytes,
+                        ref _terrainLayerDirectionalPaletteGrowthEvents,
+                        metadataDelta);
+                }
+                else
+                {
+                    AddGrowth(
+                        ref _directionalFaceBlockPaletteGrowthBytes,
+                        ref _directionalFaceBlockPaletteGrowthEvents,
+                        blockDelta);
+                    AddGrowth(
+                        ref _directionalFaceMetadataPaletteGrowthBytes,
+                        ref _directionalFaceMetadataPaletteGrowthEvents,
+                        metadataDelta);
+                }
+                return;
+            }
+#endif
+            _owner.Advance(this);
+        }
+
+#if DEBUG
+        private static PaletteStorageGrowthDelta GrowthDelta(
+            PaletteStorageCapacityMetrics before,
+            PaletteStorageCapacityMetrics after) =>
+            new(
+                after.PaletteGrowthArrayBytes - before.PaletteGrowthArrayBytes +
+                after.UsageGrowthArrayBytes - before.UsageGrowthArrayBytes +
+                after.LookupBucketGrowthArrayBytes - before.LookupBucketGrowthArrayBytes +
+                after.LookupEntryGrowthArrayBytes - before.LookupEntryGrowthArrayBytes +
+                after.FreeSlotGrowthArrayBytes - before.FreeSlotGrowthArrayBytes,
+                after.PaletteGrowthEvents - before.PaletteGrowthEvents +
+                after.UsageGrowthEvents - before.UsageGrowthEvents +
+                after.LookupGrowthEvents - before.LookupGrowthEvents +
+                after.FreeSlotGrowthEvents - before.FreeSlotGrowthEvents);
+
+        private static void AddGrowth(
+            ref long bytes,
+            ref int events,
+            PaletteStorageGrowthDelta delta)
+        {
+            bytes += delta.ArrayPayloadBytes;
+            events += delta.GrowthEvents;
+        }
+#endif
 
         public void Dispose()
         {
