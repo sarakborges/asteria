@@ -654,6 +654,9 @@ public sealed class Chunk
                 "Initial block writes require a fresh, empty chunk.");
         }
 
+        // The chunk is unpublished during TerrainLayer. Validate private
+        // palette storage once here rather than once per generated voxel.
+        _cells.EnsurePrivateForInitialWrites();
         return new InitialBlockWriter(this, blockRuntimeIdCount);
     }
 
