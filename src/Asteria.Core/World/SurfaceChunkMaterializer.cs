@@ -789,7 +789,7 @@ public sealed class SurfaceChunkMaterializer
                     }
 
                     var voxelIndex = columnIndex + Chunk.Area * localY;
-                    if (initialBlocks.SetBlockAtLinearIndexUnchecked(voxelIndex, block) &&
+                    if (initialBlocks.SetBlockAtLinearIndexFreshUnchecked(voxelIndex, block) &&
                         !block.IsAir &&
                         directionalMasks is not null &&
                         directionalCandidateColumns is { } candidateColumns &&
