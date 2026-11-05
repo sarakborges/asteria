@@ -136,12 +136,26 @@ internal sealed class PaletteStorage<T>
         ushort cachedPaletteIndex,
         out ushort resolvedPaletteIndex)
     {
+        if ((uint)voxelIndex >= Chunk.Volume)
+            throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+        return SetInitialWithPaletteIndexUnchecked(
+            voxelIndex, value, cachedPaletteIndex, out resolvedPaletteIndex);
+    }
+
+    /// <summary>
+    /// Initial write for a caller that has already proven the linear index.
+    /// </summary>
+    internal bool SetInitialWithPaletteIndexUnchecked(
+        int voxelIndex,
+        T value,
+        ushort cachedPaletteIndex,
+        out ushort resolvedPaletteIndex)
+    {
         var state = _state;
         if (state.IsShared)
             throw new InvalidOperationException(
                 "Initial palette writes require private chunk storage.");
-        if ((uint)voxelIndex >= Chunk.Volume)
-            throw new ArgumentOutOfRangeException(nameof(voxelIndex));
 
         var previousIndex = state.Indices[voxelIndex];
         if (previousIndex != 0)
