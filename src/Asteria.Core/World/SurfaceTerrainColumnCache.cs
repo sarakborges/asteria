@@ -16,6 +16,10 @@ internal readonly record struct DensityOccupancySlab(
          (1u << localY)) != 0;
 }
 
+internal readonly record struct DensityTerrainColumnSamplingMetrics(
+    double SurfaceBiomeSamplingMilliseconds,
+    double VolumeBiomeSamplingMilliseconds);
+
 /// <summary>
 /// Query-side cache of immutable terrain samples shared by range selection,
 /// vertical materialization and directional-face boundary occupancy.
@@ -278,8 +282,11 @@ public sealed class SurfaceTerrainColumnCache
             int chunkX,
             int chunkZ,
             ReadOnlySpan<int> columnIndices,
-            bool includeVolumeBiomes)
+            bool includeVolumeBiomes,
+            out DensityTerrainColumnSamplingMetrics samplingMetrics)
         {
+            var surfaceBiomeSamplingMilliseconds = 0d;
+            var volumeBiomeSamplingMilliseconds = 0d;
             lock (_gate)
             {
                 Span<bool> requested = stackalloc bool[Chunk.Area];
@@ -311,6 +318,9 @@ public sealed class SurfaceTerrainColumnCache
 
                 if (missingSurfaceCount > 0)
                 {
+#if DEBUG
+                    var surfaceSamplingStarted = Stopwatch.GetTimestamp();
+#endif
                     terrain.SampleDensitySurfaceColumns(
                         chunkX,
                         chunkZ,
@@ -318,6 +328,10 @@ public sealed class SurfaceTerrainColumnCache
                         _surfaceSampler,
                         _biomes,
                         _baseHeights);
+#if DEBUG
+                    surfaceBiomeSamplingMilliseconds =
+                        Stopwatch.GetElapsedTime(surfaceSamplingStarted).TotalMilliseconds;
+#endif
                     for (var index = 0; index < missingSurfaceCount; index++)
                         _sampled[missingSurface[index]] = true;
                 }
@@ -325,12 +339,19 @@ public sealed class SurfaceTerrainColumnCache
                 if (missingVolumeCount > 0)
                 {
                     _volumeSampler ??= terrain.CreateDensityVolumeSampler();
+#if DEBUG
+                    var volumeSamplingStarted = Stopwatch.GetTimestamp();
+#endif
                     terrain.SampleDensityVolumeColumns(
                         chunkX,
                         chunkZ,
                         missingVolume[..missingVolumeCount],
                         _volumeSampler,
                         _volumeBiomes);
+#if DEBUG
+                    volumeBiomeSamplingMilliseconds =
+                        Stopwatch.GetElapsedTime(volumeSamplingStarted).TotalMilliseconds;
+#endif
                     for (var index = 0; index < missingVolumeCount; index++)
                     {
                         var columnIndex = missingVolume[index];
@@ -339,6 +360,9 @@ public sealed class SurfaceTerrainColumnCache
                     }
                 }
 
+                samplingMetrics = new DensityTerrainColumnSamplingMetrics(
+                    surfaceBiomeSamplingMilliseconds,
+                    volumeBiomeSamplingMilliseconds);
                 return new SurfaceTerrainDensityColumn(
                     _biomes, _volumeBiomes, _baseHeights);
             }
@@ -373,17 +397,26 @@ public sealed class SurfaceTerrainColumnCache
         int chunkX,
         int chunkZ,
         ReadOnlySpan<int> columnIndices,
-        bool includeVolumeBiomes)
+        bool includeVolumeBiomes,
+        out DensityTerrainColumnSamplingMetrics samplingMetrics)
     {
         var key = (X: chunkX, Z: chunkZ);
         if (_columns.TryGet(key, out var fullColumn))
+        {
+            samplingMetrics = default;
             return new SurfaceTerrainDensityColumn(fullColumn);
+        }
 
         var entry = _densityTerrainColumns.GetOrAdd(
             key,
             () => new DensityTerrainColumnEntry(_terrain));
         return entry.GetOrSample(
-            _terrain, chunkX, chunkZ, columnIndices, includeVolumeBiomes);
+            _terrain,
+            chunkX,
+            chunkZ,
+            columnIndices,
+            includeVolumeBiomes,
+            out samplingMetrics);
     }
 
     /// <summary>
@@ -491,7 +524,9 @@ public sealed class SurfaceTerrainColumnCache
         out double caveSamplerBuildMilliseconds,
         out double columnEvaluationMilliseconds,
         out double densityTerrainColumnMilliseconds,
-        out double occupancyCacheAccessMilliseconds)
+        out double occupancyCacheAccessMilliseconds,
+        out double surfaceBiomeSamplingMilliseconds,
+        out double volumeBiomeSamplingMilliseconds)
     {
         if (originY < 0 || originY % Chunk.Size != 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
@@ -507,6 +542,8 @@ public sealed class SurfaceTerrainColumnCache
         columnEvaluationMilliseconds = 0d;
         densityTerrainColumnMilliseconds = 0d;
         occupancyCacheAccessMilliseconds = 0d;
+        surfaceBiomeSamplingMilliseconds = 0d;
+        volumeBiomeSamplingMilliseconds = 0d;
         if (columnIndices.IsEmpty)
             return;
 
@@ -569,7 +606,15 @@ public sealed class SurfaceTerrainColumnCache
             var includeVolumeBiomes =
                 _terrain.RequiresVolumeBiomeForDensityBand(originY);
             var column = GetDensityTerrainColumn(
-                chunkX, chunkZ, requestedColumns, includeVolumeBiomes);
+                chunkX,
+                chunkZ,
+                requestedColumns,
+                includeVolumeBiomes,
+                out var samplingMetrics);
+            surfaceBiomeSamplingMilliseconds =
+                samplingMetrics.SurfaceBiomeSamplingMilliseconds;
+            volumeBiomeSamplingMilliseconds =
+                samplingMetrics.VolumeBiomeSamplingMilliseconds;
 #if DEBUG
             densityTerrainColumnMilliseconds =
                 Stopwatch.GetElapsedTime(densityColumnStarted).TotalMilliseconds;
