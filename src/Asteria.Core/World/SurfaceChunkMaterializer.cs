@@ -23,6 +23,7 @@ public sealed class SurfaceChunkMaterializer
         double DensityTerrainColumnMilliseconds,
         double OccupancyCacheAccessMilliseconds,
         double SurfaceBiomeSamplingMilliseconds,
+        double BaseHeightSamplingMilliseconds,
         double VolumeBiomeSamplingMilliseconds,
         int HorizontalBoundaryBatchCount,
         int HorizontalBoundaryColumnCount);
@@ -37,6 +38,7 @@ public sealed class SurfaceChunkMaterializer
         double DensityTerrainColumnMilliseconds,
         double OccupancyCacheAccessMilliseconds,
         double SurfaceBiomeSamplingMilliseconds,
+        double BaseHeightSamplingMilliseconds,
         double VolumeBiomeSamplingMilliseconds);
 
     // A 16x16 chunk plus its one-column cardinal slope-probe halo is 18x18.
@@ -1536,6 +1538,9 @@ public sealed class SurfaceChunkMaterializer
         public double DirectionalFaceSurfaceBiomeSamplingMilliseconds =>
             DirectionalFacePalettePreparationProfile.SurfaceBiomeSamplingMilliseconds;
 
+        public double DirectionalFaceBaseHeightSamplingMilliseconds =>
+            DirectionalFacePalettePreparationProfile.BaseHeightSamplingMilliseconds;
+
         public double DirectionalFaceVolumeBiomeSamplingMilliseconds =>
             DirectionalFacePalettePreparationProfile.VolumeBiomeSamplingMilliseconds;
 
@@ -2260,6 +2265,7 @@ public sealed class SurfaceChunkMaterializer
         var densityTerrainColumnMilliseconds = 0d;
         var occupancyCacheAccessMilliseconds = 0d;
         var surfaceBiomeSamplingMilliseconds = 0d;
+        var baseHeightSamplingMilliseconds = 0d;
         var volumeBiomeSamplingMilliseconds = 0d;
 
         while (cursor < endLocalX)
@@ -2311,11 +2317,12 @@ public sealed class SurfaceChunkMaterializer
                 out var evaluationMilliseconds,
                 out var terrainColumnMilliseconds,
                 out var occupancyCacheMilliseconds,
-                out var samplingMetrics);
-            surfaceBiomeSamplingMilliseconds +=
-                samplingMetrics.SurfaceBiomeSamplingMilliseconds;
-            volumeBiomeSamplingMilliseconds +=
-                samplingMetrics.VolumeBiomeSamplingMilliseconds;
+                out var surfaceSamplingMilliseconds,
+                out var baseHeightMilliseconds,
+                out var volumeSamplingMilliseconds);
+            surfaceBiomeSamplingMilliseconds += surfaceSamplingMilliseconds;
+            baseHeightSamplingMilliseconds += baseHeightMilliseconds;
+            volumeBiomeSamplingMilliseconds += volumeSamplingMilliseconds;
             densityProbes = checked(densityProbes + probes);
             columnBoundsMilliseconds += boundsMilliseconds;
             caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
@@ -2345,6 +2352,7 @@ public sealed class SurfaceChunkMaterializer
             densityTerrainColumnMilliseconds,
             occupancyCacheAccessMilliseconds,
             surfaceBiomeSamplingMilliseconds,
+            baseHeightSamplingMilliseconds,
             volumeBiomeSamplingMilliseconds);
     }
 
@@ -2409,6 +2417,7 @@ public sealed class SurfaceChunkMaterializer
         var densityTerrainColumnMilliseconds = 0d;
         var occupancyCacheAccessMilliseconds = 0d;
         var surfaceBiomeSamplingMilliseconds = 0d;
+        var baseHeightSamplingMilliseconds = 0d;
         var volumeBiomeSamplingMilliseconds = 0d;
 
         while (cursor < endLocalZ)
@@ -2463,11 +2472,12 @@ public sealed class SurfaceChunkMaterializer
                 out var evaluationMilliseconds,
                 out var terrainColumnMilliseconds,
                 out var occupancyCacheMilliseconds,
-                out var samplingMetrics);
-            surfaceBiomeSamplingMilliseconds +=
-                samplingMetrics.SurfaceBiomeSamplingMilliseconds;
-            volumeBiomeSamplingMilliseconds +=
-                samplingMetrics.VolumeBiomeSamplingMilliseconds;
+                out var surfaceSamplingMilliseconds,
+                out var baseHeightMilliseconds,
+                out var volumeSamplingMilliseconds);
+            surfaceBiomeSamplingMilliseconds += surfaceSamplingMilliseconds;
+            baseHeightSamplingMilliseconds += baseHeightMilliseconds;
+            volumeBiomeSamplingMilliseconds += volumeSamplingMilliseconds;
             densityProbes = checked(densityProbes + probes);
             columnBoundsMilliseconds += boundsMilliseconds;
             caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
@@ -2497,6 +2507,7 @@ public sealed class SurfaceChunkMaterializer
             densityTerrainColumnMilliseconds,
             occupancyCacheAccessMilliseconds,
             surfaceBiomeSamplingMilliseconds,
+            baseHeightSamplingMilliseconds,
             volumeBiomeSamplingMilliseconds);
     }
 
@@ -2691,6 +2702,11 @@ public sealed class SurfaceChunkMaterializer
             rightXBoundary.SurfaceBiomeSamplingMilliseconds +
             negativeZBoundary.SurfaceBiomeSamplingMilliseconds +
             positiveZBoundary.SurfaceBiomeSamplingMilliseconds;
+        var baseHeightSamplingMilliseconds =
+            leftXBoundary.BaseHeightSamplingMilliseconds +
+            rightXBoundary.BaseHeightSamplingMilliseconds +
+            negativeZBoundary.BaseHeightSamplingMilliseconds +
+            positiveZBoundary.BaseHeightSamplingMilliseconds;
         var volumeBiomeSamplingMilliseconds =
             leftXBoundary.VolumeBiomeSamplingMilliseconds +
             rightXBoundary.VolumeBiomeSamplingMilliseconds +
@@ -2901,6 +2917,7 @@ public sealed class SurfaceChunkMaterializer
             densityTerrainColumnMilliseconds,
             occupancyCacheAccessMilliseconds,
             surfaceBiomeSamplingMilliseconds,
+            baseHeightSamplingMilliseconds,
             volumeBiomeSamplingMilliseconds,
             horizontalBoundaryBatchCount,
             horizontalBoundaryColumnCount);
@@ -3245,6 +3262,8 @@ public sealed class SurfaceChunkMaterializer
                 job.DirectionalFacePalettePreparationProfile.OccupancyCacheAccessMilliseconds,
             SurfaceBiomeSamplingMilliseconds:
                 job.DirectionalFacePalettePreparationProfile.SurfaceBiomeSamplingMilliseconds,
+            BaseHeightSamplingMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.BaseHeightSamplingMilliseconds,
             VolumeBiomeSamplingMilliseconds:
                 job.DirectionalFacePalettePreparationProfile.VolumeBiomeSamplingMilliseconds);
     }
