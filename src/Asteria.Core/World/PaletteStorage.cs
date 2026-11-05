@@ -219,6 +219,48 @@ internal sealed class PaletteStorage<T>
     }
 
     /// <summary>
+    /// Writes into a slot that the caller guarantees has never been written.
+    /// The owning chunk must be fresh and private, and each linear index must
+    /// be supplied at most once. Used only by the bounded TerrainLayer pass.
+    /// </summary>
+    internal bool SetInitialFreshSlotWithPaletteIndexUnchecked(
+        int voxelIndex,
+        T value,
+        ushort cachedPaletteIndex,
+        out ushort resolvedPaletteIndex)
+    {
+        var state = _state;
+        if (value.Equals(default))
+        {
+            resolvedPaletteIndex = 0;
+            return false;
+        }
+
+        var nextIndex = cachedPaletteIndex;
+        if (nextIndex == 0 &&
+            !state.Lookup.TryGetValue(value, out nextIndex))
+        {
+            if (state.Palette.Count >= ushort.MaxValue)
+                throw new InvalidOperationException(
+                    "Chunk palette capacity was exhausted.");
+
+            state.Palette.Add(value);
+            state.Usage.Add(0);
+            nextIndex = checked((ushort)state.Palette.Count);
+            state.Lookup.Add(value, nextIndex);
+        }
+
+        Retain(nextIndex);
+        state.Indices[voxelIndex] = nextIndex;
+        UpdateOccupancy(
+            voxelIndex,
+            wasOccupied: false,
+            isOccupied: true);
+        resolvedPaletteIndex = nextIndex;
+        return true;
+    }
+
+    /// <summary>
     /// Adds an initial value only when the slot is empty. Used by generation
     /// passes that batch additions while preserving pre-existing structure data.
     /// </summary>
