@@ -191,8 +191,11 @@ public sealed class VolumeBiomeField
                 nameof(worldY));
         }
 
-        var sample = grid[localX, localZ];
-        var formation = grid.FormationAt(localX, localZ);
+        grid.GetColumnUnchecked(
+            localX, localZ,
+            out var sample,
+            out var owner,
+            out var formation);
         if (sample is null ||
             formation is null ||
             !FormationContainsY(formation, worldY))
@@ -201,9 +204,9 @@ public sealed class VolumeBiomeField
         }
 
         // Horizontal placement, normalized owner and authored vertical ranges
-        // are immutable across vertical chunks. Keep all three in the grid so
-        // the per-voxel query does not repeat a biome-key dictionary lookup.
-        return grid.OwnerAt(localX, localZ);
+        // are immutable across vertical chunks. Resolve all three from one
+        // linear column index, with no repeated coordinate validation.
+        return owner;
     }
 
     private static bool FormationContainsY(
@@ -373,6 +376,19 @@ internal sealed class VolumeBiomePlacementGrid
     public int Width { get; }
 
     public int Depth { get; }
+
+    internal void GetColumnUnchecked(
+        int x,
+        int z,
+        out BiomeSample? placement,
+        out BiomeSample? owner,
+        out IReadOnlyList<BiomeAdditiveDensityDefinition>? formation)
+    {
+        var index = z * Width + x;
+        placement = _placements[index];
+        owner = _owners[index];
+        formation = _formations[index];
+    }
 
     internal IReadOnlyList<BiomeAdditiveDensityDefinition>? FormationAt(
         int x,
