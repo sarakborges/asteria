@@ -20,6 +20,8 @@ public sealed class SurfaceChunkMaterializer
         double BoundaryColumnBoundsMilliseconds,
         double CaveSamplerBuildMilliseconds,
         double BoundaryColumnEvaluationMilliseconds,
+        double DensityTerrainColumnMilliseconds,
+        double OccupancyCacheAccessMilliseconds,
         int HorizontalBoundaryBatchCount,
         int HorizontalBoundaryColumnCount);
 
@@ -29,7 +31,9 @@ public sealed class SurfaceChunkMaterializer
         int ColumnCount,
         double ColumnBoundsMilliseconds,
         double CaveSamplerBuildMilliseconds,
-        double ColumnEvaluationMilliseconds);
+        double ColumnEvaluationMilliseconds,
+        double DensityTerrainColumnMilliseconds,
+        double OccupancyCacheAccessMilliseconds);
 
     // A 16x16 chunk plus its one-column cardinal slope-probe halo is 18x18.
     private const int SlopeProbeSampleCacheCapacity =
@@ -2061,6 +2065,8 @@ public sealed class SurfaceChunkMaterializer
         var columnBoundsMilliseconds = 0d;
         var caveSamplerBuildMilliseconds = 0d;
         var columnEvaluationMilliseconds = 0d;
+        var densityTerrainColumnMilliseconds = 0d;
+        var occupancyCacheAccessMilliseconds = 0d;
 
         while (cursor < endLocalX)
         {
@@ -2095,11 +2101,15 @@ public sealed class SurfaceChunkMaterializer
                 out var probes,
                 out var boundsMilliseconds,
                 out var samplerBuildMilliseconds,
-                out var evaluationMilliseconds);
+                out var evaluationMilliseconds,
+                out var terrainColumnMilliseconds,
+                out var occupancyCacheMilliseconds);
             densityProbes = checked(densityProbes + probes);
             columnBoundsMilliseconds += boundsMilliseconds;
             caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
             columnEvaluationMilliseconds += evaluationMilliseconds;
+            densityTerrainColumnMilliseconds += terrainColumnMilliseconds;
+            occupancyCacheAccessMilliseconds += occupancyCacheMilliseconds;
 
             writeIndex = 0;
             for (var localX = cursor; localX < sliceEnd; localX++)
@@ -2119,7 +2129,9 @@ public sealed class SurfaceChunkMaterializer
             densityProbes, batchCount, columnCount,
             columnBoundsMilliseconds,
             caveSamplerBuildMilliseconds,
-            columnEvaluationMilliseconds);
+            columnEvaluationMilliseconds,
+            densityTerrainColumnMilliseconds,
+            occupancyCacheAccessMilliseconds);
     }
 
     private BoundaryMaskReadMetrics ReadDirectionalFaceZBoundaryMasks(
@@ -2141,6 +2153,8 @@ public sealed class SurfaceChunkMaterializer
         var columnBoundsMilliseconds = 0d;
         var caveSamplerBuildMilliseconds = 0d;
         var columnEvaluationMilliseconds = 0d;
+        var densityTerrainColumnMilliseconds = 0d;
+        var occupancyCacheAccessMilliseconds = 0d;
 
         while (cursor < endLocalZ)
         {
@@ -2179,11 +2193,15 @@ public sealed class SurfaceChunkMaterializer
                 out var probes,
                 out var boundsMilliseconds,
                 out var samplerBuildMilliseconds,
-                out var evaluationMilliseconds);
+                out var evaluationMilliseconds,
+                out var terrainColumnMilliseconds,
+                out var occupancyCacheMilliseconds);
             densityProbes = checked(densityProbes + probes);
             columnBoundsMilliseconds += boundsMilliseconds;
             caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
             columnEvaluationMilliseconds += evaluationMilliseconds;
+            densityTerrainColumnMilliseconds += terrainColumnMilliseconds;
+            occupancyCacheAccessMilliseconds += occupancyCacheMilliseconds;
 
             writeIndex = 0;
             for (var x = 0; x < Chunk.Size; x++)
@@ -2203,7 +2221,9 @@ public sealed class SurfaceChunkMaterializer
             densityProbes, batchCount, columnCount,
             columnBoundsMilliseconds,
             caveSamplerBuildMilliseconds,
-            columnEvaluationMilliseconds);
+            columnEvaluationMilliseconds,
+            densityTerrainColumnMilliseconds,
+            occupancyCacheAccessMilliseconds);
     }
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
@@ -2365,6 +2385,16 @@ public sealed class SurfaceChunkMaterializer
             rightXBoundary.ColumnEvaluationMilliseconds +
             negativeZBoundary.ColumnEvaluationMilliseconds +
             positiveZBoundary.ColumnEvaluationMilliseconds;
+        var densityTerrainColumnMilliseconds =
+            leftXBoundary.DensityTerrainColumnMilliseconds +
+            rightXBoundary.DensityTerrainColumnMilliseconds +
+            negativeZBoundary.DensityTerrainColumnMilliseconds +
+            positiveZBoundary.DensityTerrainColumnMilliseconds;
+        var occupancyCacheAccessMilliseconds =
+            leftXBoundary.OccupancyCacheAccessMilliseconds +
+            rightXBoundary.OccupancyCacheAccessMilliseconds +
+            negativeZBoundary.OccupancyCacheAccessMilliseconds +
+            positiveZBoundary.OccupancyCacheAccessMilliseconds;
         densityProbeCount = checked(
             densityProbeCount + horizontalBoundaryDensityProbes);
         boundaryDensityProbeCount = checked(
@@ -2541,6 +2571,8 @@ public sealed class SurfaceChunkMaterializer
             boundaryColumnBoundsMilliseconds,
             caveSamplerBuildMilliseconds,
             boundaryColumnEvaluationMilliseconds,
+            densityTerrainColumnMilliseconds,
+            occupancyCacheAccessMilliseconds,
             horizontalBoundaryBatchCount,
             horizontalBoundaryColumnCount);
         return new DirectionalFaceOccupancyMasks(
