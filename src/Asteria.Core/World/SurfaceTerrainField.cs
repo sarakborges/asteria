@@ -457,6 +457,21 @@ public sealed class SurfaceTerrainField
         volumeBiome is not null &&
         _additiveRules.ContainsKey(volumeBiome.Primary);
 
+    internal bool RequiresVolumeBiomeForDensityBand(int originY)
+    {
+        if (originY < 0 || originY % Chunk.Size != 0)
+            throw new ArgumentOutOfRangeException(nameof(originY));
+
+        var maximumY = checked(originY + Chunk.Size - 1);
+        foreach (var ruleSet in _additiveRules.Values)
+        {
+            if (ruleSet.IntersectsYRange(originY, maximumY))
+                return true;
+        }
+
+        return false;
+    }
+
     public double DensityAt(
         BiomeSample biome,
         int baseY,
@@ -1398,24 +1413,21 @@ public sealed class SurfaceTerrainField
     internal BiomeField.Sampler? CreateDensityVolumeSampler() =>
         _volumeBiomes.CreatePlacementSampler();
 
-    internal void SampleDensityColumns(
+    internal void SampleDensitySurfaceColumns(
         int chunkX,
         int chunkZ,
         ReadOnlySpan<int> columnIndices,
         BiomeField.Sampler surfaceSampler,
-        BiomeField.Sampler? volumeSampler,
         BiomeSample?[] biomes,
-        BiomeSample?[] volumeBiomes,
         int[] baseHeights)
     {
         ArgumentNullException.ThrowIfNull(surfaceSampler);
         if (columnIndices.Length > Chunk.Area ||
             biomes.Length != Chunk.Area ||
-            volumeBiomes.Length != Chunk.Area ||
             baseHeights.Length != Chunk.Area)
         {
             throw new ArgumentException(
-                "Density terrain snapshots must use chunk-sized buffers.");
+                "Density surface snapshots must use chunk-sized buffers.");
         }
 
         var (originX, _, originZ) =
@@ -1433,13 +1445,43 @@ public sealed class SurfaceTerrainField
             var worldX = checked(originX + localX);
             var worldZ = checked(originZ + localZ);
             var biome = surfaceSampler.Sample(worldX, worldZ);
-            var volumeBiome = _volumeBiomes.SamplePlacement(
-                volumeSampler, worldX, worldZ);
 
             biomes[columnIndex] = biome;
-            volumeBiomes[columnIndex] = volumeBiome;
             baseHeights[columnIndex] =
                 BaseHeightAt(biome, worldX, worldZ);
+        }
+    }
+
+    internal void SampleDensityVolumeColumns(
+        int chunkX,
+        int chunkZ,
+        ReadOnlySpan<int> columnIndices,
+        BiomeField.Sampler? volumeSampler,
+        BiomeSample?[] volumeBiomes)
+    {
+        if (columnIndices.Length > Chunk.Area ||
+            volumeBiomes.Length != Chunk.Area)
+        {
+            throw new ArgumentException(
+                "Density volume snapshots must use chunk-sized buffers.");
+        }
+
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(
+                new ChunkCoord(chunkX, 0, chunkZ));
+
+        for (var offset = 0; offset < columnIndices.Length; offset++)
+        {
+            var columnIndex = columnIndices[offset];
+            if ((uint)columnIndex >= Chunk.Area)
+                throw new ArgumentOutOfRangeException(nameof(columnIndices));
+
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            var worldX = checked(originX + localX);
+            var worldZ = checked(originZ + localZ);
+            volumeBiomes[columnIndex] = _volumeBiomes.SamplePlacement(
+                volumeSampler, worldX, worldZ);
         }
     }
 
@@ -1859,6 +1901,19 @@ public sealed class SurfaceTerrainField
         public int MinimumY { get; }
         public int MaximumY { get; }
         public int RuleCount => _rules.Length;
+
+        public bool IntersectsYRange(int minimumY, int maximumY)
+        {
+            for (var index = 0; index < _rules.Length; index++)
+            {
+                var rule = _rules[index];
+                if (minimumY <= rule.MaximumY &&
+                    maximumY >= rule.MinimumY)
+                    return true;
+            }
+
+            return false;
+        }
 
         public int SampleHorizontalSupports(
             ulong seed,
