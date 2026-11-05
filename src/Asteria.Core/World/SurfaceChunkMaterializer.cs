@@ -2197,11 +2197,37 @@ public sealed class SurfaceChunkMaterializer
         int originX,
         int originY,
         int originZ,
+        TerrainDensityVolume? sourceDensityVolume,
         ushort[] boundaryMasks,
         Span<int> columnIndices,
+        Span<ushort> requestedYMasks,
         Span<ushort> solidMasks)
     {
         var cursor = startLocalX;
+        Span<ushort> requestedYMaskByLocalZ = stackalloc ushort[Chunk.Size];
+        var hasSourceDensityMasks =
+            sourceDensityVolume is not null &&
+            sourceDensityVolume.Width == Chunk.Size &&
+            sourceDensityVolume.Height == Chunk.Size &&
+            sourceDensityVolume.Depth == Chunk.Size;
+        for (var z = 0; z < Chunk.Size; z++)
+        {
+            var requestedMask = hasSourceDensityMasks ? (ushort)0 : ushort.MaxValue;
+            if (hasSourceDensityMasks)
+            {
+                var sourceStartX =
+                    startLocalX < 0 ? 0 : Chunk.Size - maximumDepth;
+                for (var x = sourceStartX;
+                     x < sourceStartX + maximumDepth;
+                     x++)
+                {
+                    requestedMask |=
+                        sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z);
+                }
+            }
+
+            requestedYMaskByLocalZ[z] = requestedMask;
+        }
         var densityProbes = 0;
         var batchCount = 0;
         var columnCount = 0;
@@ -2231,8 +2257,12 @@ public sealed class SurfaceChunkMaterializer
             {
                 var neighborLocalX = firstLocalX + localX - cursor;
                 for (var z = 0; z < Chunk.Size; z++)
-                    columnIndices[writeIndex++] =
+                {
+                    columnIndices[writeIndex] =
                         z * Chunk.Size + neighborLocalX;
+                    requestedYMasks[writeIndex] = requestedYMaskByLocalZ[z];
+                    writeIndex++;
+                }
             }
 
             _columns.ReadDensityColumnMasks(
@@ -2240,6 +2270,7 @@ public sealed class SurfaceChunkMaterializer
                 originY,
                 first.Chunk.Z,
                 columnIndices[..count],
+                requestedYMasks[..count],
                 solidMasks[..count],
                 out var probes,
                 out var boundsMilliseconds,
@@ -2285,11 +2316,37 @@ public sealed class SurfaceChunkMaterializer
         int originY,
         int originZ,
         int regionSize,
+        TerrainDensityVolume? sourceDensityVolume,
         ushort[] boundaryMasks,
         Span<int> columnIndices,
+        Span<ushort> requestedYMasks,
         Span<ushort> solidMasks)
     {
         var cursor = startLocalZ;
+        Span<ushort> requestedYMaskByLocalX = stackalloc ushort[Chunk.Size];
+        var hasSourceDensityMasks =
+            sourceDensityVolume is not null &&
+            sourceDensityVolume.Width == Chunk.Size &&
+            sourceDensityVolume.Height == Chunk.Size &&
+            sourceDensityVolume.Depth == Chunk.Size;
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var requestedMask = hasSourceDensityMasks ? (ushort)0 : ushort.MaxValue;
+            if (hasSourceDensityMasks)
+            {
+                var sourceStartZ =
+                    startLocalZ < 0 ? 0 : Chunk.Size - maximumDepth;
+                for (var z = sourceStartZ;
+                     z < sourceStartZ + maximumDepth;
+                     z++)
+                {
+                    requestedMask |=
+                        sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z);
+                }
+            }
+
+            requestedYMaskByLocalX[x] = requestedMask;
+        }
         var densityProbes = 0;
         var batchCount = 0;
         var columnCount = 0;
@@ -2324,7 +2381,10 @@ public sealed class SurfaceChunkMaterializer
             for (var localZ = cursor; localZ < sliceEnd; localZ++)
             {
                 var neighborLocalZ = firstLocalZ + localZ - cursor;
-                columnIndices[writeIndex++] = neighborLocalZ * Chunk.Size + x;
+                columnIndices[writeIndex] =
+                    neighborLocalZ * Chunk.Size + x;
+                requestedYMasks[writeIndex] = requestedYMaskByLocalX[x];
+                writeIndex++;
             }
 
             _columns.ReadDensityColumnMasks(
@@ -2332,6 +2392,7 @@ public sealed class SurfaceChunkMaterializer
                 originY,
                 first.Chunk.Z,
                 columnIndices[..count],
+                requestedYMasks[..count],
                 solidMasks[..count],
                 out var probes,
                 out var boundsMilliseconds,
@@ -2471,6 +2532,7 @@ public sealed class SurfaceChunkMaterializer
         var xBoundaryMasks = new ushort[regionSize * size];
         var zBoundaryMasks = new ushort[size * regionSize];
         Span<int> boundaryColumnIndices = stackalloc int[Chunk.Area];
+        Span<ushort> boundaryRequestedYMasks = stackalloc ushort[Chunk.Area];
         Span<ushort> boundarySolidMasks = stackalloc ushort[Chunk.Area];
 
 #if DEBUG
@@ -2479,19 +2541,35 @@ public sealed class SurfaceChunkMaterializer
         var leftXBoundary = ReadDirectionalFaceXBoundaryMasks(
             -maximumDepth, 0, maximumDepth,
             originX, originY, originZ,
-            xBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+            densityVolume,
+            xBoundaryMasks,
+            boundaryColumnIndices,
+            boundaryRequestedYMasks,
+            boundarySolidMasks);
         var rightXBoundary = ReadDirectionalFaceXBoundaryMasks(
             size, size + maximumDepth, maximumDepth,
             originX, originY, originZ,
-            xBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+            densityVolume,
+            xBoundaryMasks,
+            boundaryColumnIndices,
+            boundaryRequestedYMasks,
+            boundarySolidMasks);
         var negativeZBoundary = ReadDirectionalFaceZBoundaryMasks(
             -maximumDepth, 0, maximumDepth,
             originX, originY, originZ, regionSize,
-            zBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+            densityVolume,
+            zBoundaryMasks,
+            boundaryColumnIndices,
+            boundaryRequestedYMasks,
+            boundarySolidMasks);
         var positiveZBoundary = ReadDirectionalFaceZBoundaryMasks(
             size, size + maximumDepth, maximumDepth,
             originX, originY, originZ, regionSize,
-            zBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+            densityVolume,
+            zBoundaryMasks,
+            boundaryColumnIndices,
+            boundaryRequestedYMasks,
+            boundarySolidMasks);
 #if DEBUG
         var horizontalBoundaryReadMilliseconds =
             Stopwatch.GetElapsedTime(horizontalBoundaryReadStarted).TotalMilliseconds;
