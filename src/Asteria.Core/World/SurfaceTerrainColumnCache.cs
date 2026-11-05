@@ -264,27 +264,30 @@ public sealed class SurfaceTerrainColumnCache
         private readonly BiomeSample?[] _volumeBiomes = new BiomeSample?[Chunk.Area];
         private readonly int[] _baseHeights = new int[Chunk.Area];
         private readonly bool[] _sampled = new bool[Chunk.Area];
+        private readonly ulong[] _volumeSampledMasks = new ulong[Chunk.Area / 64];
         private readonly BiomeField.Sampler _surfaceSampler;
-        private readonly BiomeField.Sampler? _volumeSampler;
+        private BiomeField.Sampler? _volumeSampler;
 
         public DensityTerrainColumnEntry(SurfaceTerrainField terrain)
         {
             _surfaceSampler = terrain.CreateDensitySurfaceSampler();
-            _volumeSampler = terrain.CreateDensityVolumeSampler();
         }
 
         public SurfaceTerrainDensityColumn GetOrSample(
             SurfaceTerrainField terrain,
             int chunkX,
             int chunkZ,
-            ReadOnlySpan<int> columnIndices)
+            ReadOnlySpan<int> columnIndices,
+            bool includeVolumeBiomes)
         {
             lock (_gate)
             {
                 Span<bool> requested = stackalloc bool[Chunk.Area];
-                Span<int> missing = stackalloc int[Chunk.Area];
+                Span<int> missingSurface = stackalloc int[Chunk.Area];
+                Span<int> missingVolume = stackalloc int[Chunk.Area];
                 requested.Clear();
-                var missingCount = 0;
+                var missingSurfaceCount = 0;
+                var missingVolumeCount = 0;
 
                 for (var index = 0; index < columnIndices.Length; index++)
                 {
@@ -296,22 +299,44 @@ public sealed class SurfaceTerrainColumnCache
 
                     requested[columnIndex] = true;
                     if (!_sampled[columnIndex])
-                        missing[missingCount++] = columnIndex;
+                        missingSurface[missingSurfaceCount++] = columnIndex;
+
+                    var volumeMask = 1UL << (columnIndex & 63);
+                    if (includeVolumeBiomes &&
+                        (_volumeSampledMasks[columnIndex >> 6] & volumeMask) == 0)
+                    {
+                        missingVolume[missingVolumeCount++] = columnIndex;
+                    }
                 }
 
-                if (missingCount > 0)
+                if (missingSurfaceCount > 0)
                 {
-                    terrain.SampleDensityColumns(
+                    terrain.SampleDensitySurfaceColumns(
                         chunkX,
                         chunkZ,
-                        missing[..missingCount],
+                        missingSurface[..missingSurfaceCount],
                         _surfaceSampler,
-                        _volumeSampler,
                         _biomes,
-                        _volumeBiomes,
                         _baseHeights);
-                    for (var index = 0; index < missingCount; index++)
-                        _sampled[missing[index]] = true;
+                    for (var index = 0; index < missingSurfaceCount; index++)
+                        _sampled[missingSurface[index]] = true;
+                }
+
+                if (missingVolumeCount > 0)
+                {
+                    _volumeSampler ??= terrain.CreateDensityVolumeSampler();
+                    terrain.SampleDensityVolumeColumns(
+                        chunkX,
+                        chunkZ,
+                        missingVolume[..missingVolumeCount],
+                        _volumeSampler,
+                        _volumeBiomes);
+                    for (var index = 0; index < missingVolumeCount; index++)
+                    {
+                        var columnIndex = missingVolume[index];
+                        _volumeSampledMasks[columnIndex >> 6] |=
+                            1UL << (columnIndex & 63);
+                    }
                 }
 
                 return new SurfaceTerrainDensityColumn(
@@ -347,7 +372,8 @@ public sealed class SurfaceTerrainColumnCache
     private SurfaceTerrainDensityColumn GetDensityTerrainColumn(
         int chunkX,
         int chunkZ,
-        ReadOnlySpan<int> columnIndices)
+        ReadOnlySpan<int> columnIndices,
+        bool includeVolumeBiomes)
     {
         var key = (X: chunkX, Z: chunkZ);
         if (_columns.TryGet(key, out var fullColumn))
@@ -357,7 +383,7 @@ public sealed class SurfaceTerrainColumnCache
             key,
             () => new DensityTerrainColumnEntry(_terrain));
         return entry.GetOrSample(
-            _terrain, chunkX, chunkZ, columnIndices);
+            _terrain, chunkX, chunkZ, columnIndices, includeVolumeBiomes);
     }
 
     /// <summary>
@@ -502,8 +528,10 @@ public sealed class SurfaceTerrainColumnCache
 #if DEBUG
             var densityColumnStarted = Stopwatch.GetTimestamp();
 #endif
+            var includeVolumeBiomes =
+                _terrain.RequiresVolumeBiomeForDensityBand(originY);
             var column = GetDensityTerrainColumn(
-                chunkX, chunkZ, columnIndices);
+                chunkX, chunkZ, columnIndices, includeVolumeBiomes);
 #if DEBUG
             densityTerrainColumnMilliseconds =
                 Stopwatch.GetElapsedTime(densityColumnStarted).TotalMilliseconds;
@@ -566,7 +594,10 @@ public sealed class SurfaceTerrainColumnCache
         Span<int> requestedColumn = stackalloc int[1];
         requestedColumn[0] = index;
         var column = GetDensityTerrainColumn(
-            coord.X, coord.Z, requestedColumn);
+            coord.X,
+            coord.Z,
+            requestedColumn,
+            _terrain.RequiresVolumeBiomeForDensityBand(originY));
         var mask = _terrain.SampleDensityColumnMask(
             column,
             local.X,
