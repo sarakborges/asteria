@@ -118,6 +118,22 @@ public interface IChunkMaterializationJob : IDisposable
 /// Optional incremental materialization capability. Providers that do not
 /// implement it remain supported through a single-step compatibility adapter.
 /// </summary>
+internal readonly record struct PaletteStorageGrowthDelta(
+    long ArrayPayloadBytes,
+    int GrowthEvents);
+
+internal readonly record struct ChunkMaterializationStorageDiagnostics(
+    bool Available,
+    PaletteStorageGrowthDelta TerrainLayerBlockPalette,
+    PaletteStorageGrowthDelta TerrainLayerDirectionalFacePalette,
+    PaletteStorageGrowthDelta DirectionalFaceBlockPalette,
+    PaletteStorageGrowthDelta DirectionalFaceMetadataPalette);
+
+internal interface IChunkMaterializationStorageDiagnostics
+{
+    ChunkMaterializationStorageDiagnostics StorageDiagnostics { get; }
+}
+
 public interface IIncrementalChunkProvider : IChunkProvider
 {
     IChunkMaterializationJob BeginMaterialization(ChunkCoord coord);
