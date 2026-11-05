@@ -1123,7 +1123,7 @@ public sealed class SurfaceTerrainField
             out densityProbes);
 
     private ushort SampleDensityColumnMask(
-        SurfaceTerrainColumn column,
+        SurfaceTerrainDensityColumn column,
         int localX,
         int originY,
         int localZ,
