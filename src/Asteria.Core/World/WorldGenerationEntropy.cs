@@ -259,6 +259,7 @@ internal static class WorldGenerationEntropy
         private readonly int _latticeHeight;
         private readonly int _latticeDepth;
         private readonly double[] _xInterpolatedColumn;
+        private readonly double[] _yInterpolatedColumn;
         private int _cachedLocalX = -1;
 
         public ValueNoise3DGridSampler(
@@ -304,6 +305,11 @@ internal static class WorldGenerationEntropy
             // the remaining Y/Z interpolation keeps the exact scalar order.
             _xInterpolatedColumn = new double[
                 checked(_latticeHeight * _latticeDepth)];
+            // After X interpolation, each local-Y interpolation is also
+            // independent of local Z. Cache those values for every lattice-Z
+            // plane so adjacent columns need only the final Z interpolation.
+            _yInterpolatedColumn = new double[
+                checked(_y.Length * _latticeDepth)];
 
             for (var z = _minimumZ; z <= maximumZ; z++)
             for (var y = _minimumY; y <= maximumY; y++)
@@ -327,22 +333,13 @@ internal static class WorldGenerationEntropy
             if (_cachedLocalX != localX)
                 PrepareXInterpolatedColumn(localX);
 
-            var y = _y[localY];
             var z = _z[localZ];
-            var yOffset = y.Lower - _minimumY;
+            var yRowOffset = localY * _latticeDepth;
             var zOffset = z.Lower - _minimumZ;
-            var lowerZ = zOffset * _latticeHeight;
-            var upperZ = (zOffset + 1) * _latticeHeight;
-
-            var firstZ = Lerp(
-                _xInterpolatedColumn[lowerZ + yOffset],
-                _xInterpolatedColumn[lowerZ + yOffset + 1],
-                y.Blend);
-            var secondZ = Lerp(
-                _xInterpolatedColumn[upperZ + yOffset],
-                _xInterpolatedColumn[upperZ + yOffset + 1],
-                y.Blend);
-            return Lerp(firstZ, secondZ, z.Blend);
+            return Lerp(
+                _yInterpolatedColumn[yRowOffset + zOffset],
+                _yInterpolatedColumn[yRowOffset + zOffset + 1],
+                z.Blend);
         }
 
         private void PrepareXInterpolatedColumn(int localX)
@@ -365,6 +362,21 @@ internal static class WorldGenerationEntropy
                         Lattice(x0, latticeY, latticeZ),
                         Lattice(x1, latticeY, latticeZ),
                         x.Blend);
+                }
+            }
+
+            for (var localY = 0; localY < _y.Length; localY++)
+            {
+                var y = _y[localY];
+                var yOffset = y.Lower - _minimumY;
+                var targetRowOffset = localY * _latticeDepth;
+                for (var zOffset = 0; zOffset < _latticeDepth; zOffset++)
+                {
+                    var sourceRowOffset = zOffset * _latticeHeight;
+                    _yInterpolatedColumn[targetRowOffset + zOffset] = Lerp(
+                        _xInterpolatedColumn[sourceRowOffset + yOffset],
+                        _xInterpolatedColumn[sourceRowOffset + yOffset + 1],
+                        y.Blend);
                 }
             }
 
