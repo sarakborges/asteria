@@ -130,7 +130,8 @@ internal readonly record struct ChunkMaterializationStorageDiagnostics(
     PaletteStorageGrowthDelta TerrainLayerBlockPalette,
     PaletteStorageGrowthDelta TerrainLayerDirectionalFacePalette,
     PaletteStorageGrowthDelta DirectionalFaceBlockPalette,
-    PaletteStorageGrowthDelta DirectionalFaceMetadataPalette);
+    PaletteStorageGrowthDelta DirectionalFaceMetadataPalette,
+    ValueNoise3DLatticeCacheMetrics TerrainLayerGeologyNoiseCache);
 
 internal interface IChunkMaterializationStorageDiagnostics
 {
