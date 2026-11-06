@@ -137,6 +137,17 @@ internal static class WorldGenerationEntropy
         {
             ArgumentNullException.ThrowIfNull(latticeCache);
             latticeCache.EnsureAlive();
+            return SampleUnchecked(seed, domain, latticeCache);
+        }
+
+        // Geology validates the job-owned cache once at the start of each
+        // noise batch. The eight lattice lookups then avoid repeating the
+        // same lifetime check for every field sample.
+        internal double SampleUnchecked(
+            ulong seed,
+            GenerationDomain domain,
+            ValueNoise3DLatticeCache latticeCache)
+        {
             var domainSeed = seed ^ domain.Key;
             var firstZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
