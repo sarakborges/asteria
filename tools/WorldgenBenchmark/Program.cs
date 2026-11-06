@@ -613,6 +613,10 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     var directionalFaceBlockPaletteGrowthEvents = 0;
     long directionalFaceMetadataPaletteGrowthBytes = 0;
     var directionalFaceMetadataPaletteGrowthEvents = 0;
+    var terrainLayerGeologyNoiseCacheCapacity = 0;
+    long terrainLayerGeologyNoiseCacheHits = 0;
+    long terrainLayerGeologyNoiseCacheMisses = 0;
+    long terrainLayerGeologyNoiseCacheCollisions = 0;
     var totalTimer = Stopwatch.StartNew();
 
     foreach (var coord in desired)
@@ -665,6 +669,15 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                 diagnostics.DirectionalFaceMetadataPalette.ArrayPayloadBytes;
             directionalFaceMetadataPaletteGrowthEvents +=
                 diagnostics.DirectionalFaceMetadataPalette.GrowthEvents;
+            terrainLayerGeologyNoiseCacheCapacity = Math.Max(
+                terrainLayerGeologyNoiseCacheCapacity,
+                diagnostics.TerrainLayerGeologyNoiseCache.Capacity);
+            terrainLayerGeologyNoiseCacheHits +=
+                diagnostics.TerrainLayerGeologyNoiseCache.Hits;
+            terrainLayerGeologyNoiseCacheMisses +=
+                diagnostics.TerrainLayerGeologyNoiseCache.Misses;
+            terrainLayerGeologyNoiseCacheCollisions +=
+                diagnostics.TerrainLayerGeologyNoiseCache.Collisions;
         }
         else
         {
@@ -993,6 +1006,25 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             },
             EstimatedBackingArrayPayloadBytes = estimatedBackingArrayPayloadBytes,
             StorageCapacityByChunk = directionalStorageByChunk,
+        },
+        TerrainLayerGeologyNoiseCache = new
+        {
+            Capacity = terrainLayerGeologyNoiseCacheCapacity,
+            Hits = terrainLayerGeologyNoiseCacheHits,
+            Misses = terrainLayerGeologyNoiseCacheMisses,
+            Collisions = terrainLayerGeologyNoiseCacheCollisions,
+            Lookups = terrainLayerGeologyNoiseCacheHits +
+                terrainLayerGeologyNoiseCacheMisses,
+            HitRate = terrainLayerGeologyNoiseCacheHits +
+                terrainLayerGeologyNoiseCacheMisses == 0
+                    ? 0d
+                    : terrainLayerGeologyNoiseCacheHits /
+                        (double)(terrainLayerGeologyNoiseCacheHits +
+                            terrainLayerGeologyNoiseCacheMisses),
+            CollisionRate = terrainLayerGeologyNoiseCacheMisses == 0
+                ? 0d
+                : terrainLayerGeologyNoiseCacheCollisions /
+                    (double)terrainLayerGeologyNoiseCacheMisses,
         },
     };
 }
