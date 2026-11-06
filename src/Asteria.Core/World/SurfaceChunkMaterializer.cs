@@ -1428,6 +1428,10 @@ public sealed class SurfaceChunkMaterializer
         private int _directionalFaceBlockPaletteGrowthEvents;
         private long _directionalFaceMetadataPaletteGrowthBytes;
         private int _directionalFaceMetadataPaletteGrowthEvents;
+        private int _terrainLayerGeologyNoiseCacheCapacity;
+        private long _terrainLayerGeologyNoiseCacheHits;
+        private long _terrainLayerGeologyNoiseCacheMisses;
+        private long _terrainLayerGeologyNoiseCacheCollisions;
 #endif
 
         public MaterializationJob(
@@ -1578,7 +1582,12 @@ public sealed class SurfaceChunkMaterializer
                         _directionalFaceBlockPaletteGrowthEvents),
                     new PaletteStorageGrowthDelta(
                         _directionalFaceMetadataPaletteGrowthBytes,
-                        _directionalFaceMetadataPaletteGrowthEvents));
+                        _directionalFaceMetadataPaletteGrowthEvents),
+                    new ValueNoise3DLatticeCacheMetrics(
+                        _terrainLayerGeologyNoiseCacheCapacity,
+                        _terrainLayerGeologyNoiseCacheHits,
+                        _terrainLayerGeologyNoiseCacheMisses,
+                        _terrainLayerGeologyNoiseCacheCollisions));
 #else
                 return default;
 #endif
@@ -1611,6 +1620,9 @@ public sealed class SurfaceChunkMaterializer
                 var blockBefore = chunk.CellStorageCapacityMetrics;
                 var metadataBefore =
                     chunk.DirectionalFaceStorageCapacityMetrics ?? default;
+                var noiseCacheBefore = stage == ChunkMaterializationStage.TerrainLayer
+                    ? _geologyNoiseCache?.Metrics ?? default
+                    : default;
                 _owner.Advance(this);
                 var blockAfter = chunk.CellStorageCapacityMetrics;
                 var metadataAfter =
@@ -1624,6 +1636,14 @@ public sealed class SurfaceChunkMaterializer
                 var metadataDelta = GrowthDelta(metadataBefore, metadataAfter);
                 if (stage == ChunkMaterializationStage.TerrainLayer)
                 {
+                    var noiseCacheAfter = _geologyNoiseCache?.Metrics ?? default;
+                    _terrainLayerGeologyNoiseCacheCapacity = noiseCacheAfter.Capacity;
+                    _terrainLayerGeologyNoiseCacheHits +=
+                        noiseCacheAfter.Hits - noiseCacheBefore.Hits;
+                    _terrainLayerGeologyNoiseCacheMisses +=
+                        noiseCacheAfter.Misses - noiseCacheBefore.Misses;
+                    _terrainLayerGeologyNoiseCacheCollisions +=
+                        noiseCacheAfter.Collisions - noiseCacheBefore.Collisions;
                     AddGrowth(
                         ref _terrainLayerBlockPaletteGrowthBytes,
                         ref _terrainLayerBlockPaletteGrowthEvents,
