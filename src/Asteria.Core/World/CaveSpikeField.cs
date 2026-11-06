@@ -543,7 +543,7 @@ public sealed class CaveSpikeField
             int y,
             int z,
             bool down,
-            TerrainDensityVolume densityVolume,
+            TerrainDensityVolume? densityVolume,
             int densityOriginY,
             int localX,
             int localZ,
