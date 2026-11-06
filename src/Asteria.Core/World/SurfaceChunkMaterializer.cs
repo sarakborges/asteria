@@ -4151,6 +4151,10 @@ public sealed class SurfaceChunkMaterializer
             var worldX = originX + x;
             var worldZ = originZ + z;
             var surfaceBiome = column.BiomeAt(x, z);
+            var spikeColumn = spikes.PrepareColumn(biome.Primary, surfaceBiome);
+            if (!spikeColumn.HasRules)
+                continue;
+
             var volumeBiome = densityVolume.VolumePlacementAt(x, z);
             for (var anchorY = first; anchorY <= last; anchorY++)
             {
@@ -4179,8 +4183,8 @@ public sealed class SurfaceChunkMaterializer
                         (solidColumnMask & (1u << localSupportY)) == 0)
                         continue;
 
-                    if (!spikes.TrySample(
-                            biome.Primary, surfaceBiome, volumeBiome, baseY,
+                    if (!spikeColumn.TrySample(
+                            surfaceBiome, volumeBiome, baseY,
                             worldX, anchorY, worldZ, down,
                             densityVolume, originY, x, z,
                             solidColumnMask, anchorKnownVoid,
