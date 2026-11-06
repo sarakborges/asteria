@@ -162,6 +162,15 @@ internal static class WorldGenerationEntropy
         }
     }
 
+    internal readonly record struct ValueNoise3DLatticeCacheMetrics(
+        int Capacity,
+        long Hits,
+        long Misses,
+        long Collisions)
+    {
+        public long Lookups => Hits + Misses;
+    }
+
     /// <summary>
     /// Bounded, chunk-local memoization of domain-salted 3D lattice values.
     /// Direct-mapped collisions only evict an entry; they never affect results.
@@ -174,6 +183,11 @@ internal static class WorldGenerationEntropy
         private readonly ulong[] _keys;
         private readonly double[] _values;
         private readonly bool[] _occupied;
+#if DEBUG
+        private long _hits;
+        private long _misses;
+        private long _collisions;
+#endif
         private bool _disposed;
 
         internal ValueNoise3DLatticeCache(int capacity = DefaultCapacity)
@@ -191,6 +205,19 @@ internal static class WorldGenerationEntropy
         internal void EnsureAlive() =>
             ObjectDisposedException.ThrowIf(_disposed, this);
 
+        internal ValueNoise3DLatticeCacheMetrics Metrics
+        {
+            get
+            {
+#if DEBUG
+                return new ValueNoise3DLatticeCacheMetrics(
+                    _mask + 1, _hits, _misses, _collisions);
+#else
+                return default;
+#endif
+            }
+        }
+
         internal double Sample(ulong domainCoordinate)
         {
             EnsureAlive();
@@ -205,8 +232,18 @@ internal static class WorldGenerationEntropy
             var folded = domainCoordinate ^ (domainCoordinate >> 32);
             var index = (int)(folded & (uint)_mask);
             if (_occupied[index] && _keys[index] == domainCoordinate)
+            {
+#if DEBUG
+                _hits++;
+#endif
                 return _values[index];
+            }
 
+#if DEBUG
+            if (_occupied[index])
+                _collisions++;
+            _misses++;
+#endif
             var value = WorldGenerationEntropy.SignedUnit(
                 WorldGenerationEntropy.Mix(domainCoordinate));
             _keys[index] = domainCoordinate;
