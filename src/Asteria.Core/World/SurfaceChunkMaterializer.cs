@@ -1583,7 +1583,7 @@ public sealed class SurfaceChunkMaterializer
                     new PaletteStorageGrowthDelta(
                         _directionalFaceMetadataPaletteGrowthBytes,
                         _directionalFaceMetadataPaletteGrowthEvents),
-                    new ValueNoise3DLatticeCacheMetrics(
+                    new WorldGenerationEntropy.ValueNoise3DLatticeCacheMetrics(
                         _terrainLayerGeologyNoiseCacheCapacity,
                         _terrainLayerGeologyNoiseCacheHits,
                         _terrainLayerGeologyNoiseCacheMisses,
