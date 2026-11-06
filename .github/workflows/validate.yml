@@ -231,7 +231,7 @@ jobs:
         env:
           # Pre-feature baseline: last correct version before per-voxel
           # directional exposure metadata was introduced.
-          BASELINE_SHA: 121bcbce440822d87ad5291b611ffa5ae2faaf9b
+          BASELINE_SHA: f6affd92ddb1dcd109238c25f8ea40d1172bd872
         run: |
           set -euo pipefail
           changed_paths=(
