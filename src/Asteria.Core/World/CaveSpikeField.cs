@@ -80,7 +80,7 @@ public sealed class CaveSpikeField
     internal ColumnSampler PrepareColumn(
         string undergroundBiome,
         BiomeSample surfaceBiome) =>
-        new(this, ResolveColumnRules(undergroundBiome, surfaceBiome));
+        new(this, undergroundBiome, surfaceBiome);
 
     public bool TrySample(
         string undergroundBiome,
@@ -527,9 +527,13 @@ public sealed class CaveSpikeField
 
     internal readonly struct ColumnSampler(
         CaveSpikeField owner,
-        ColumnRuleSelection selection)
+        string undergroundBiome,
+        BiomeSample surfaceBiome)
     {
-        internal bool HasRules => selection.HasRules;
+        private readonly ColumnRuleSelection _selection =
+            owner.ResolveColumnRules(undergroundBiome, surfaceBiome);
+
+        internal bool HasRules => _selection.HasRules;
 
         internal bool TrySample(
             BiomeSample surfaceBiome,
@@ -547,7 +551,7 @@ public sealed class CaveSpikeField
             bool anchorKnownVoid,
             out CaveSpikePlacement placement) =>
             owner.TrySampleCore(
-                selection,
+                _selection,
                 surfaceBiome,
                 volumeBiome,
                 baseY,
