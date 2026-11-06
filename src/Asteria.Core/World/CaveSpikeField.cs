@@ -11,6 +11,7 @@ public sealed class CaveSpikeField
     private readonly ulong _seed;
     private readonly SurfaceTerrainField _terrain;
     private readonly IReadOnlyDictionary<string, SpikeRule[]> _rules;
+    private readonly IReadOnlyDictionary<string, SpikeRule[]> _genericRules;
 
     // Cave-spike spacing is purely horizontal: the same (X,Z,radius) is
     // reconsidered for each anchor Y, both directions, and adjacent vertical
@@ -59,6 +60,12 @@ public sealed class CaveSpikeField
                             GenerationDomain.Named(domain + "/cluster"));
                     }).ToArray(),
                 StringComparer.Ordinal);
+        _genericRules = _rules.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value
+                .Where(rule => rule.Definition.SurfaceBiomes.Count == 0)
+                .ToArray(),
+            StringComparer.Ordinal);
         MaximumHeight = _rules.Values
             .SelectMany(rules => rules)
             .Select(rule => rule.Definition.MaxHeight)
@@ -69,6 +76,11 @@ public sealed class CaveSpikeField
     public int MaximumHeight { get; }
     public bool HasRulesFor(string biomeId) =>
         _rules.TryGetValue(biomeId, out var rules) && rules.Length > 0;
+
+    internal ColumnSampler PrepareColumn(
+        string undergroundBiome,
+        BiomeSample surfaceBiome) =>
+        new(this, ResolveColumnRules(undergroundBiome, surfaceBiome));
 
     public bool TrySample(
         string undergroundBiome,
@@ -81,7 +93,8 @@ public sealed class CaveSpikeField
         bool down,
         out CaveSpikePlacement placement) =>
         TrySampleCore(
-            undergroundBiome, surfaceBiome, volumeBiome, baseY,
+            ResolveColumnRules(undergroundBiome, surfaceBiome),
+            surfaceBiome, volumeBiome, baseY,
             x, y, z, down, densityVolume: null, densityOriginY: 0,
             localX: 0, localZ: 0, solidColumnMask: 0,
             anchorKnownVoid: false, out placement);
@@ -105,13 +118,39 @@ public sealed class CaveSpikeField
     {
         ArgumentNullException.ThrowIfNull(densityVolume);
         return TrySampleCore(
-            undergroundBiome, surfaceBiome, volumeBiome, baseY,
+            ResolveColumnRules(undergroundBiome, surfaceBiome),
+            surfaceBiome, volumeBiome, baseY,
             x, y, z, down, densityVolume, densityOriginY,
             localX, localZ, solidColumnMask, anchorKnownVoid, out placement);
     }
 
-    private bool TrySampleCore(
+    private ColumnRuleSelection ResolveColumnRules(
         string undergroundBiome,
+        BiomeSample surfaceBiome)
+    {
+        if (!_rules.TryGetValue(undergroundBiome, out var rules))
+            return default;
+
+        // A column uses the first matching surface-specific rule; only when
+        // none matches does it fall back to generic rules. Resolve that choice
+        // once and reuse it for every vertical anchor and both directions.
+        foreach (var candidate in rules)
+        {
+            if (candidate.Definition.SurfaceBiomes.Contains(
+                    surfaceBiome.Primary, StringComparer.Ordinal))
+            {
+                return new ColumnRuleSelection(candidate, null);
+            }
+        }
+
+        return _genericRules.TryGetValue(undergroundBiome, out var genericRules) &&
+            genericRules.Length > 0
+                ? new ColumnRuleSelection(null, genericRules)
+                : default;
+    }
+
+    private bool TrySampleCore(
+        ColumnRuleSelection ruleSelection,
         BiomeSample surfaceBiome,
         BiomeSample? volumeBiome,
         int baseY,
@@ -128,34 +167,22 @@ public sealed class CaveSpikeField
         out CaveSpikePlacement placement)
     {
         placement = default;
-        if (!_rules.TryGetValue(undergroundBiome, out var rules) ||
-            y <= 0 || y >= baseY)
+        if (!ruleSelection.HasRules || y <= 0 || y >= baseY)
             return false;
 
         var supportY = y + (down ? 1 : -1);
         var anchorValidated = anchorKnownVoid;
         var supportValidated = false;
 
-        // A specific surface material takes precedence over the generic
-        // stone fallback. One column cannot spawn competing materials.
-        SpikeRule? primaryRule = null;
-        foreach (var candidate in rules)
+        // Surface-specific selection or the generic fallback was resolved
+        // once for this column before scanning anchor Y values.
+        var ruleCount = ruleSelection.PrimaryRule is not null
+            ? 1
+            : ruleSelection.GenericRules!.Length;
+        for (var ruleIndex = 0; ruleIndex < ruleCount; ruleIndex++)
         {
-            if (candidate.Definition.SurfaceBiomes.Contains(
-                    surfaceBiome.Primary, StringComparer.Ordinal))
-            {
-                primaryRule = candidate;
-                break;
-            }
-        }
-
-        foreach (var rule in rules)
-        {
-            if (primaryRule is not null && !ReferenceEquals(rule, primaryRule))
-                continue;
-            if (primaryRule is null && rule.Definition.SurfaceBiomes.Count != 0)
-                continue;
-
+            var rule = ruleSelection.PrimaryRule ??
+                ruleSelection.GenericRules![ruleIndex];
             var definition = rule.Definition;
             var direction = down ? CaveSpikeDirection.Down : CaveSpikeDirection.Up;
             if (!definition.Directions.Contains(direction))
@@ -488,6 +515,53 @@ public sealed class CaveSpikeField
         }
 
         return true;
+    }
+
+    private readonly record struct ColumnRuleSelection(
+        SpikeRule? PrimaryRule,
+        SpikeRule[]? GenericRules)
+    {
+        public bool HasRules =>
+            PrimaryRule is not null || GenericRules is { Length: > 0 };
+    }
+
+    internal readonly struct ColumnSampler(
+        CaveSpikeField owner,
+        ColumnRuleSelection selection)
+    {
+        internal bool HasRules => selection.HasRules;
+
+        internal bool TrySample(
+            BiomeSample surfaceBiome,
+            BiomeSample? volumeBiome,
+            int baseY,
+            int x,
+            int y,
+            int z,
+            bool down,
+            TerrainDensityVolume densityVolume,
+            int densityOriginY,
+            int localX,
+            int localZ,
+            ushort solidColumnMask,
+            bool anchorKnownVoid,
+            out CaveSpikePlacement placement) =>
+            owner.TrySampleCore(
+                selection,
+                surfaceBiome,
+                volumeBiome,
+                baseY,
+                x,
+                y,
+                z,
+                down,
+                densityVolume,
+                densityOriginY,
+                localX,
+                localZ,
+                solidColumnMask,
+                anchorKnownVoid,
+                out placement);
     }
 
     private sealed record SpikeRule(
