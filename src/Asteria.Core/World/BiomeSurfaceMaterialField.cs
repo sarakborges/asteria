@@ -990,12 +990,13 @@ public sealed class BiomeSurfaceMaterialField
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache) =>
             latticeCache is null
                 ? coordinates.Sample(seed, domain)
-                : coordinates.Sample(seed, domain, latticeCache);
+                : coordinates.SampleUnchecked(seed, domain, latticeCache);
 
         private SpatialPosition WarpCoordinates(
             ulong seed, int x, int y, int z,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
         {
+            latticeCache?.EnsureAlive();
             var rotated = RotateCoordinates(x, y, z);
             var warpCoordinates =
                 WorldGenerationEntropy.PrepareValueNoise3D(
@@ -1037,6 +1038,7 @@ public sealed class BiomeSurfaceMaterialField
             if (_regionWarpStrength == 0d)
                 return rotated;
 
+            latticeCache?.EnsureAlive();
             var coordinates = WorldGenerationEntropy.PrepareValueNoise3D(
                 rotated.X,
                 rotated.Y,
@@ -1093,6 +1095,7 @@ public sealed class BiomeSurfaceMaterialField
             if (!nearX && !nearY && !nearZ)
                 return position;
 
+            latticeCache?.EnsureAlive();
             var coordinates = WorldGenerationEntropy.PrepareValueNoise3D(
                 position.X,
                 position.Y,
@@ -1166,6 +1169,7 @@ public sealed class BiomeSurfaceMaterialField
                 candidateBlocks.Length < 2)
                 return selected;
 
+            latticeCache?.EnsureAlive();
             // The large regional choice owns most of the formation. A second,
             // much smaller 3D field introduces sparse mineral inclusions
             // inside it; the mask is continuous, while the inclusion's
