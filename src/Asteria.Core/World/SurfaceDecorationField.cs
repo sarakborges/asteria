@@ -53,7 +53,8 @@ public sealed class SurfaceDecorationField
         _verticalBiomes = definitions
             .Where(biome => generateDecorations &&
                             biome.SurfaceLayout is null &&
-                            biome.Decorations.Count > 0)
+                            biome.Decorations.Any(decoration =>
+                                decoration.SupportSurface != DecorationSupportSurface.Wall))
             .Select(biome => biome.Id)
             .ToHashSet(StringComparer.Ordinal);
         _ceilingBiomes = definitions
