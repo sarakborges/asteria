@@ -81,9 +81,19 @@ public sealed class ChunkResidencyRuntimeTests
             completed.MaterializationStageTimings.Select(timing => timing.Stage));
         Assert.True(fixture.World.ContainsChunk(coord));
         Assert.Equal(0, fixture.Runtime.MaterializingCount);
-        Assert.Equal(
-            ChunkActivationSource.Provider,
-            Assert.Single(completed.Activations).Source);
+        var activation = Assert.Single(completed.Activations);
+        Assert.Equal(ChunkActivationSource.Provider, activation.Source);
+        Assert.True(double.IsFinite(activation.WorkerQueueWaitMilliseconds));
+        Assert.True(double.IsFinite(activation.WorkerWallMilliseconds));
+        Assert.True(double.IsFinite(activation.ResultCollectionWaitMilliseconds));
+        Assert.True(activation.WorkerQueueWaitMilliseconds >= 0d);
+        Assert.True(activation.WorkerWallMilliseconds >= activation.WorkerMilliseconds);
+        Assert.True(activation.ResultCollectionWaitMilliseconds >= 0d);
+        Assert.True(
+            activation.ElapsedMilliseconds + 0.01d >=
+            activation.WorkerQueueWaitMilliseconds +
+            activation.WorkerWallMilliseconds +
+            activation.ResultCollectionWaitMilliseconds);
     }
 
     [Fact]
