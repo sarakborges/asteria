@@ -81,7 +81,8 @@ public readonly record struct ChunkResidencyActivation(
     double WorkerQueueWaitMilliseconds = 0d,
     double WorkerWallMilliseconds = 0d,
     double ResultCollectionWaitMilliseconds = 0d,
-    double PendingQueueWaitMilliseconds = 0d);
+    double PendingQueueWaitMilliseconds = 0d,
+    double DispatchPreparationMilliseconds = 0d);
 
 public readonly record struct FluidActivationWorkReport(
     int CompletedChunks,
@@ -432,7 +433,6 @@ public sealed class ChunkResidencyRuntime
             }
 
             var result = task.GetAwaiter().GetResult();
-            var resultCollectedTimestamp = Stopwatch.GetTimestamp();
             stageTimings.AddRange(result.StageTimings);
 
             if (!_acceptingMaterializationWork)
@@ -481,7 +481,10 @@ public sealed class ChunkResidencyRuntime
                 resultCollectionWaitMilliseconds: 0d,
                 pendingQueueWaitMilliseconds: Stopwatch.GetElapsedTime(
                     work.PendingSinceTimestamp,
-                    work.DispatchTimestamp).TotalMilliseconds);
+                    work.DispatchTimestamp).TotalMilliseconds,
+                dispatchPreparationMilliseconds: Stopwatch.GetElapsedTime(
+                    work.DispatchTimestamp,
+                    work.WorkerQueuedTimestamp).TotalMilliseconds);
             var activatedTimestamp = Stopwatch.GetTimestamp();
             activations.Add(activation with
             {
@@ -600,6 +603,7 @@ public sealed class ChunkResidencyRuntime
             _materializationTasks.Add(selected, work);
             try
             {
+                work.WorkerQueuedTimestamp = Stopwatch.GetTimestamp();
                 work.WorkerTask = Task.Run(() => ExecuteMaterialization(work));
             }
             catch
@@ -703,7 +707,8 @@ public sealed class ChunkResidencyRuntime
         double workerQueueWaitMilliseconds = 0d,
         double workerWallMilliseconds = 0d,
         double resultCollectionWaitMilliseconds = 0d,
-        double pendingQueueWaitMilliseconds = 0d)
+        double pendingQueueWaitMilliseconds = 0d,
+        double dispatchPreparationMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
         EnqueueChunkLightingReconciliation(coord);
@@ -720,7 +725,8 @@ public sealed class ChunkResidencyRuntime
             workerQueueWaitMilliseconds,
             workerWallMilliseconds,
             resultCollectionWaitMilliseconds,
-            pendingQueueWaitMilliseconds);
+            pendingQueueWaitMilliseconds,
+            dispatchPreparationMilliseconds);
     }
 
     private MaterializationTaskResult ExecuteMaterialization(
@@ -728,7 +734,7 @@ public sealed class ChunkResidencyRuntime
     {
         var workerStartedTimestamp = Stopwatch.GetTimestamp();
         var workerQueueWaitMilliseconds = Stopwatch.GetElapsedTime(
-            work.DispatchTimestamp,
+            work.WorkerQueuedTimestamp,
             workerStartedTimestamp).TotalMilliseconds;
         var stageTimings = new List<ChunkMaterializationStageTiming>();
         var workerMilliseconds = 0d;
@@ -801,6 +807,8 @@ public sealed class ChunkResidencyRuntime
         public long PendingSinceTimestamp { get; }
 
         public long DispatchTimestamp { get; }
+
+        public long WorkerQueuedTimestamp { get; set; }
 
         public Task<MaterializationTaskResult> WorkerTask { get; set; } = null!;
     }
