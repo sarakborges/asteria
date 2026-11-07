@@ -54,6 +54,8 @@ public sealed class CaveSpikeField
                             $"worldgen/cave-spike/{biome.Id}/{spike.Block}/{index}/v1";
                         return new SpikeRule(
                             blockId, spike,
+                            spike.Directions.Contains(CaveSpikeDirection.Up),
+                            spike.Directions.Contains(CaveSpikeDirection.Down),
                             GenerationDomain.Named(domain + "/up"),
                             GenerationDomain.Named(domain + "/down"),
                             GenerationDomain.Named(domain + "/height"),
@@ -166,6 +168,36 @@ public sealed class CaveSpikeField
         bool anchorKnownVoid,
         out CaveSpikePlacement placement)
     {
+        byte spacingPriorityEvaluatedMask = 0;
+        byte spacingPriorityAllowedMask = 0;
+        return TrySampleCore(
+            ruleSelection, surfaceBiome, volumeBiome,
+            baseY, x, y, z, down, densityVolume, densityOriginY,
+            localX, localZ, solidColumnMask, anchorKnownVoid,
+            ref spacingPriorityEvaluatedMask,
+            ref spacingPriorityAllowedMask,
+            out placement);
+    }
+
+    private bool TrySampleCore(
+        ColumnRuleSelection ruleSelection,
+        BiomeSample surfaceBiome,
+        BiomeSample? volumeBiome,
+        int baseY,
+        int x,
+        int y,
+        int z,
+        bool down,
+        TerrainDensityVolume? densityVolume,
+        int densityOriginY,
+        int localX,
+        int localZ,
+        ushort solidColumnMask,
+        bool anchorKnownVoid,
+        ref byte spacingPriorityEvaluatedMask,
+        ref byte spacingPriorityAllowedMask,
+        out CaveSpikePlacement placement)
+    {
         placement = default;
         if (!ruleSelection.HasRules || y <= 0 || y >= baseY)
             return false;
@@ -184,8 +216,7 @@ public sealed class CaveSpikeField
             var rule = ruleSelection.PrimaryRule ??
                 ruleSelection.GenericRules![ruleIndex];
             var definition = rule.Definition;
-            var direction = down ? CaveSpikeDirection.Down : CaveSpikeDirection.Up;
-            if (!definition.Directions.Contains(direction))
+            if (down ? !rule.AllowsDown : !rule.AllowsUp)
                 continue;
 
             // Resolve occupancy only after confirming this rule supports the
@@ -219,7 +250,10 @@ public sealed class CaveSpikeField
             // columns from becoming a uniform carpet of spikes. Sampling
             // the same horizontal priority at every Y keeps the spacing
             // invariant independent of cave shelves and chunk order.
-            if (!HasSpacingPriority(x, z, definition.MinSpacing))
+            if (!HasSpacingPriorityCached(
+                    x, z, definition.MinSpacing,
+                    ref spacingPriorityEvaluatedMask,
+                    ref spacingPriorityAllowedMask))
                 continue;
 
             if (definition.Cluster is { } cluster)
@@ -457,6 +491,27 @@ public sealed class CaveSpikeField
         return value;
     }
 
+    private bool HasSpacingPriorityCached(
+        int x,
+        int z,
+        int radius,
+        ref byte evaluatedMask,
+        ref byte allowedMask)
+    {
+        if (radius == 0)
+            return true;
+
+        var bit = (byte)(1 << radius);
+        if ((evaluatedMask & bit) == 0)
+        {
+            evaluatedMask |= bit;
+            if (HasSpacingPriority(x, z, radius))
+                allowedMask |= bit;
+        }
+
+        return (allowedMask & bit) != 0;
+    }
+
     private static object[] CreateSpacingPriorityLocks()
     {
         var locks = new object[SpacingCacheLockCount];
@@ -525,15 +580,25 @@ public sealed class CaveSpikeField
             PrimaryRule is not null || GenericRules is { Length: > 0 };
     }
 
-    internal readonly struct ColumnSampler(
-        CaveSpikeField owner,
-        string undergroundBiome,
-        BiomeSample surfaceBiome)
+    internal struct ColumnSampler
     {
-        private readonly ColumnRuleSelection _selection =
-            owner.ResolveColumnRules(undergroundBiome, surfaceBiome);
+        private readonly CaveSpikeField _owner;
+        private readonly ColumnRuleSelection _selection;
+        private readonly BiomeSample _surfaceBiome;
+        private byte _spacingPriorityEvaluatedMask;
+        private byte _spacingPriorityAllowedMask;
 
-        private readonly BiomeSample _surfaceBiome = surfaceBiome;
+        internal ColumnSampler(
+            CaveSpikeField owner,
+            string undergroundBiome,
+            BiomeSample surfaceBiome)
+        {
+            _owner = owner;
+            _selection = owner.ResolveColumnRules(undergroundBiome, surfaceBiome);
+            _surfaceBiome = surfaceBiome;
+            _spacingPriorityEvaluatedMask = 0;
+            _spacingPriorityAllowedMask = 0;
+        }
 
         internal bool HasRules => _selection.HasRules;
 
@@ -551,7 +616,7 @@ public sealed class CaveSpikeField
             ushort solidColumnMask,
             bool anchorKnownVoid,
             out CaveSpikePlacement placement) =>
-            owner.TrySampleCore(
+            _owner.TrySampleCore(
                 _selection,
                 _surfaceBiome,
                 volumeBiome,
@@ -566,12 +631,16 @@ public sealed class CaveSpikeField
                 localZ,
                 solidColumnMask,
                 anchorKnownVoid,
+                ref _spacingPriorityEvaluatedMask,
+                ref _spacingPriorityAllowedMask,
                 out placement);
     }
 
     private sealed record SpikeRule(
         BlockRuntimeId Block,
         BiomeCaveSpikeDefinition Definition,
+        bool AllowsUp,
+        bool AllowsDown,
         GenerationDomain UpDomain,
         GenerationDomain DownDomain,
         GenerationDomain HeightDomain,
