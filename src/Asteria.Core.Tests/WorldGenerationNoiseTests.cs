@@ -52,6 +52,36 @@ public sealed class WorldGenerationNoiseTests
         Assert.Equal(expected, prepared.Sample(seed, domain, cache));
     }
 
+    [Fact]
+    public void LatticeCachePrecomputedFoldedIndicesPreserveSamplesAcrossSlots()
+    {
+        const ulong seed = 0xA57E_3D10_2026UL;
+        using var cache = new WorldGenerationEntropy.ValueNoise3DLatticeCache(
+            capacity: 64);
+
+        var domains = new[]
+        {
+            GenerationDomain.Named("tests/folded-index-a"),
+            GenerationDomain.Named("tests/folded-index-b"),
+            GenerationDomain.Named("tests/folded-index-c"),
+        };
+        var coordinates = new[]
+        {
+            WorldGenerationEntropy.PrepareValueNoise3D(-31.25d, 7.75d, -19.5d, 8u, 6u),
+            WorldGenerationEntropy.PrepareValueNoise3D(13.5d, 24.25d, -42.75d, 16u, 12u),
+            WorldGenerationEntropy.PrepareValueNoise3D(-128.125d, 3.5d, 64.875d, 4u, 3u),
+            WorldGenerationEntropy.PrepareValueNoise3D(0.25d, 0.75d, 1.5d, 32u, 24u),
+        };
+
+        foreach (var prepared in coordinates)
+        foreach (var domain in domains)
+        {
+            var expected = prepared.Sample(seed, domain);
+            Assert.Equal(expected, prepared.Sample(seed, domain, cache));
+            Assert.Equal(expected, prepared.Sample(seed, domain, cache));
+        }
+    }
+
     private static double ReferenceContinuousNoise(
         ulong seed,
         GenerationDomain domain,
