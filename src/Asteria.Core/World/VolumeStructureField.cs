@@ -7,6 +7,8 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class VolumeStructureField
 {
+    private const int AnchorBiomeSampleCacheCapacity = 128;
+
     private readonly ulong _seed;
     private readonly SurfaceTerrainField _terrain;
     private readonly VolumeBiomeField _volumes;
@@ -101,6 +103,9 @@ public sealed class VolumeStructureField
         var right = (long)origin.X + Chunk.Size - 1;
         var back = (long)origin.Z + Chunk.Size - 1;
         var results = new List<VolumeStructureVoxel>();
+        SurfaceTerrainField.TerrainSampleContext? anchorTerrainSamples = null;
+        BiomeField.Sampler? caveBiomeSampler = null;
+        var caveBiomeSamplerInitialized = false;
 
         for (var ruleIndex = 0; ruleIndex < _rules.Length; ruleIndex++)
         {
@@ -150,8 +155,32 @@ public sealed class VolumeStructureField
                         (uint)rule.Variants.Count)];
                 var anchor = _anchors.GetOrAdd(
                     new CandidateKey(ruleIndex, x, z),
-                    () => TryAnchor(rule, variant, (int)wx, (int)wz,
-                        out var located) ? located : null);
+                    () =>
+                    {
+                        // Samplers belong to this one chunk query. Create
+                        // them lazily because a warm anchor cache can satisfy
+                        // the whole query without entering anchor validation.
+                        anchorTerrainSamples ??=
+                            _terrain.CreateTerrainSampleContext(
+                                AnchorBiomeSampleCacheCapacity);
+                        if (!caveBiomeSamplerInitialized)
+                        {
+                            caveBiomeSampler = _volumes.CreateCaveSampler(
+                                AnchorBiomeSampleCacheCapacity);
+                            caveBiomeSamplerInitialized = true;
+                        }
+
+                        return TryAnchor(
+                            rule,
+                            variant,
+                            (int)wx,
+                            (int)wz,
+                            anchorTerrainSamples.Value,
+                            caveBiomeSampler,
+                            out var located)
+                            ? located
+                            : null;
+                    });
                 if (anchor is not { } supportY)
                     continue;
 
@@ -172,19 +201,35 @@ public sealed class VolumeStructureField
         return results;
     }
 
-    private bool TryAnchor(Rule rule, Variant variant, int x, int z,
-                           out int supportY)
+    private bool TryAnchor(
+        Rule rule,
+        Variant variant,
+        int x,
+        int z,
+        SurfaceTerrainField.TerrainSampleContext terrainSamples,
+        BiomeField.Sampler? caveBiomeSampler,
+        out int supportY)
     {
         supportY = 0;
         var direction = rule.Definition.SupportSurface ==
                         DecorationSupportSurface.Floor ? 1 : -1;
+        var (surfaceBiome, baseY) =
+            _terrain.SampleBaseSurface(terrainSamples, x, z);
         var cavity = rule.Placement == VolumeBiomePlacement.CarvedVoid
-            ? _volumes.SampleCave(x, z)
+            ? _volumes.SampleCave(caveBiomeSampler, x, z)
             : null;
 
         if (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
             cavity?.Primary != rule.Biome)
             return false;
+
+        // Additive placement is invariant across Y. Resolve its horizontal
+        // owner once, then test the authored vertical bounds without
+        // rebuilding a biome sampler for every candidate height.
+        var volumePlacement = _volumes.SamplePlacement(
+            terrainSamples.VolumePlacement,
+            x,
+            z);
 
         for (var y = rule.Definition.MaxY; y >= rule.Definition.MinY; y--)
         {
@@ -192,14 +237,19 @@ public sealed class VolumeStructureField
                 (long)y + variant.MaxY > int.MaxValue - 1)
                 continue;
 
-            var volume = cavity ?? _volumes.Sample(x, y, z);
+            var volume = cavity ?? _volumes.SampleAtY(volumePlacement, y);
             if (volume?.Primary != rule.Biome ||
-                _terrain.DensityAt(x, y, z) < 0d ||
-                _terrain.DensityAt(x, y + direction, z) >= 0d)
+                _terrain.DensityAt(
+                    surfaceBiome, baseY, x, y, z, volumePlacement) < 0d ||
+                _terrain.DensityAt(
+                    surfaceBiome, baseY, x, y + direction, z,
+                    volumePlacement) >= 0d)
                 continue;
 
+            var supportPosition = new WorldVoxelCoord(
+                x, y + direction, z);
             if (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
-                !_terrain.IsCaveVoidAt(x, y + direction, z))
+                !_terrain.IsCaveVoidAt(baseY, supportPosition))
                 continue;
 
             var face = direction > 0
@@ -221,13 +271,42 @@ public sealed class VolumeStructureField
                 var touchesGround = voxel.Y == direction;
                 if (px is < int.MinValue or > int.MaxValue ||
                     pz is < int.MinValue or > int.MaxValue ||
-                    py <= 0 || py > int.MaxValue ||
-                    _terrain.DensityAt((int)px, (int)py, (int)pz) >= 0d ||
+                    py <= 0 || py > int.MaxValue)
+                {
+                    valid = false;
+                    break;
+                }
+
+                var voxelX = (int)px;
+                var voxelY = (int)py;
+                var voxelZ = (int)pz;
+                var voxelPosition = new WorldVoxelCoord(
+                    voxelX, voxelY, voxelZ);
+                var (voxelSurfaceBiome, voxelBaseY) =
+                    _terrain.SampleBaseSurface(
+                        terrainSamples, voxelX, voxelZ);
+                var voxelVolumePlacement = _volumes.SamplePlacement(
+                    terrainSamples.VolumePlacement,
+                    voxelX,
+                    voxelZ);
+
+                if (_terrain.DensityAt(
+                        voxelSurfaceBiome,
+                        voxelBaseY,
+                        voxelX,
+                        voxelY,
+                        voxelZ,
+                        voxelVolumePlacement) >= 0d ||
                     (touchesGround &&
-                     _terrain.DensityAt((int)px, (int)py - direction,
-                         (int)pz) < 0d) ||
+                     _terrain.DensityAt(
+                         voxelSurfaceBiome,
+                         voxelBaseY,
+                         voxelX,
+                         voxelY - direction,
+                         voxelZ,
+                         voxelVolumePlacement) < 0d) ||
                     (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
-                     !_terrain.IsCaveVoidAt((int)px, (int)py, (int)pz)))
+                     !_terrain.IsCaveVoidAt(voxelBaseY, voxelPosition)))
                 {
                     valid = false;
                     break;

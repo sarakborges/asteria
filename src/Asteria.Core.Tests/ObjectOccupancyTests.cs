@@ -136,7 +136,7 @@ public sealed class ObjectOccupancyTests
         emptyObjects.SetBlock(0, 0, 0, Blocks.GetId("asteria:stone"));
         var currentFormat = ChunkSaveCodec.Encode(emptyObjects, Blocks, Fluids, Dyes, Layers);
         // Legacy v2 has neither the player-placement provenance byte nor the final Objects group-count field.
-        var legacyPayload = currentFormat[..^(32 + 4)];
+        var legacyPayload = currentFormat[..^(32 + 4 + 1 + 4)];
         using (var legacyStream = new MemoryStream(legacyPayload, writable: false))
         using (var legacyReader = new BinaryReader(legacyStream))
         {

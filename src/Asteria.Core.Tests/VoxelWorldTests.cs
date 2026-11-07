@@ -430,7 +430,7 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
-    public void MeshGeometryDependencyStampsTrackEditsAndResidency()
+    public void MeshGeometryDependencyStampsIgnoreLightingButDetectEditsAndResidency()
     {
         var blocks = new BlockRegistry(
         [
@@ -450,6 +450,12 @@ public sealed class VoxelWorldTests
         var same =
             world.CaptureMeshWorkerSnapshot(requested).Dependencies;
         Assert.True(first.HasSameWorldGeometryInputsAs(same));
+
+        world.GetChunk(center).SetLight(
+            0, 0, 0, new VoxelLight(0, 4, 0, 0));
+        var relit =
+            world.CaptureMeshWorkerSnapshot(requested).Dependencies;
+        Assert.True(first.HasSameWorldGeometryInputsAs(relit));
 
         world.GetChunk(center).SetBlock(
             0, 0, 0, blocks.GetId("asteria:stone"));
@@ -539,6 +545,60 @@ public sealed class VoxelWorldTests
         clone.ArchiveChunk(lower);
         Assert.Equal(0UL, clone.GetColumnResidencyRevision(column));
         Assert.Equal(restoredRevision, world.GetColumnResidencyRevision(column));
+    }
+
+    [Fact]
+    public void WorkerChunkCloneSharesPaletteUntilMutationButKeepsBothSidesIsolated()
+    {
+        var source = new Chunk();
+        var originalBlock = new BlockRuntimeId(1);
+        var replacementBlock = new BlockRuntimeId(2);
+        var cloneOnlyBlock = new BlockRuntimeId(3);
+        var originalFluid = new FluidRuntimeId(1);
+        var replacementFluid = new FluidRuntimeId(2);
+        var cloneOnlyFluid = new FluidRuntimeId(3);
+
+        source.SetBlock(1, 2, 3, originalBlock);
+        source.SetFluid(4, 5, 6, FluidCell.Source(originalFluid));
+        var clone = source.CloneForWorker();
+
+        // Mutating the live chunk after snapshot capture must detach its
+        // palette instead of changing the worker's immutable input.
+        source.SetBlock(1, 2, 3, replacementBlock);
+        source.SetFluid(4, 5, 6, FluidCell.Source(replacementFluid));
+        Assert.Equal(originalBlock, clone.GetBlock(1, 2, 3));
+        Assert.Equal(originalFluid, clone.GetFluid(4, 5, 6).Fluid);
+
+        // The worker clone also detaches on write; no mutation flows back.
+        clone.SetBlock(7, 8, 9, cloneOnlyBlock);
+        clone.SetFluid(10, 11, 12, FluidCell.Source(cloneOnlyFluid));
+        Assert.True(source.GetBlock(7, 8, 9).IsAir);
+        Assert.True(source.GetFluid(10, 11, 12).IsEmpty);
+        Assert.Equal(replacementBlock, source.GetBlock(1, 2, 3));
+        Assert.Equal(replacementFluid, source.GetFluid(4, 5, 6).Fluid);
+    }
+
+    [Fact]
+    public void WorkerCloneSharesMicroblockPaletteUntilEitherSideAddsAMask()
+    {
+        var source = new Chunk();
+        source.SetBlock(1, 2, 3, new BlockRuntimeId(1));
+        var originalMask = MicroblockMask.Full.Edit(
+            0, 0, 0, MicroblockResolution.Thick, occupied: false);
+        var sourceMask = MicroblockMask.Full.Edit(
+            1, 0, 0, MicroblockResolution.Thick, occupied: false);
+        var cloneMask = MicroblockMask.Full.Edit(
+            2, 0, 0, MicroblockResolution.Thick, occupied: false);
+        source.SetMicroblockMask(1, 2, 3, originalMask);
+
+        var clone = source.CloneForWorker();
+        source.SetMicroblockMask(1, 2, 3, sourceMask);
+        Assert.Equal(originalMask, clone.GetMicroblockMask(1, 2, 3));
+        Assert.Equal(sourceMask, source.GetMicroblockMask(1, 2, 3));
+
+        clone.SetMicroblockMask(1, 2, 3, cloneMask);
+        Assert.Equal(sourceMask, source.GetMicroblockMask(1, 2, 3));
+        Assert.Equal(cloneMask, clone.GetMicroblockMask(1, 2, 3));
     }
 
     [Fact]

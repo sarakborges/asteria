@@ -230,6 +230,7 @@ public sealed class TerrainMeshPipeline
             return false;
         }
 
+        var relightable = _presentations.CaptureRelightableTerrain(batch);
         if (!worker.TryStart(
                 _world,
                 _blocks,
@@ -238,7 +239,8 @@ public sealed class TerrainMeshPipeline
                 _layers,
                 _dyes,
                 batch,
-                _revisions))
+                _revisions,
+                relightable))
         {
             Requeue(batch, priority);
             return false;
@@ -297,6 +299,7 @@ public sealed class TerrainMeshPipeline
         var accepted = 0;
         var stale = 0;
         var salvaged = 0;
+        var relitWithoutMeshing = 0;
 
         foreach (var meshlet in result.Meshlets)
         {
@@ -345,6 +348,8 @@ public sealed class TerrainMeshPipeline
                 accepted++;
                 if (batchStale)
                     salvaged++;
+                if (meshlet.LightOnly)
+                    relitWithoutMeshing++;
             }
             else
             {
@@ -378,6 +383,7 @@ public sealed class TerrainMeshPipeline
                 accepted,
                 stale,
                 result.CaptureMilliseconds,
+                relitWithoutMeshing,
                 salvaged);
         return true;
     }

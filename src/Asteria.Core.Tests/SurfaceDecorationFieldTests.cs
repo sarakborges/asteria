@@ -5,6 +5,77 @@ namespace Asteria.Core.Tests;
 public sealed class SurfaceDecorationFieldTests
 {
     [Fact]
+    public void VerticalDecorationIndexExcludesWallOnlyVolumeBiomes()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/wall_only_volume",
+            surfaceLayout: null,
+            surfaceTerrain: null,
+            decorations:
+            [
+                new BiomeDecorationDefinition(
+                    "asteria:wall_growth",
+                    1f,
+                    ["asteria:stone"],
+                    supportSurface: DecorationSupportSurface.Wall,
+                    isLayer: true),
+            ],
+            volumeLayout: new BiomeVolumeLayoutDefinition(
+                placement: VolumeBiomePlacement.CarvedVoid),
+            palette: new BiomePaletteDefinition(
+            [
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]));
+        var field = new SurfaceDecorationField(71, [biome], blocks);
+
+        Assert.False(field.HasVerticalDecorations);
+        Assert.False(field.HasVerticalDecorationsFor(biome.Id));
+    }
+
+    [Fact]
+    public void SurfacePlacementCandidateIndexFiltersUnsupportedSurfaceBlocks()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:block_grass"),
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:pebble"),
+            new BlockDefinition("asteria:stick"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plains",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(0, 0, 64, 0, 32),
+            [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
+            decorations:
+            [
+                new BiomeDecorationDefinition(
+                    "asteria:pebble", 1f, ["asteria:block_grass"]),
+                new BiomeDecorationDefinition(
+                    "asteria:stick", 1f, ["asteria:block_grass"],
+                    isObject: true),
+            ]);
+        var field = new SurfaceDecorationField(71, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var grass = blocks.GetId("asteria:block_grass");
+        var stone = blocks.GetId("asteria:stone");
+
+        Assert.True(field.HasSurfacePlacementCandidates(
+            sample, grass, requireObject: false, onFluidSurface: false));
+        Assert.False(field.HasSurfacePlacementCandidates(
+            sample, stone, requireObject: false, onFluidSurface: false));
+        Assert.False(field.HasSurfacePlacementCandidates(
+            sample, grass, requireObject: true, onFluidSurface: false));
+        Assert.False(field.HasSurfacePlacementCandidates(
+            sample, grass, requireObject: false, onFluidSurface: true));
+    }
+
+    [Fact]
     public void ClusteredDecorationsAreDeterministicAndStayOnAllowedSurfaces()
     {
         var blocks = new BlockRegistry(

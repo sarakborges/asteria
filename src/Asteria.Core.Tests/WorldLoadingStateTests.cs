@@ -26,28 +26,62 @@ public sealed class WorldLoadingStateTests
         Assert.Equal(25, loading.Progress.Completed);
         Assert.Equal(264, loading.Progress.Total);
 
+        Assert.False(loading.UpdatePresentation(264, 264, SettledReadiness() with { LightingSettled = false }));
         Assert.False(loading.Progress.IsReady);
         Assert.True(loading.UpdatePresentation(264, 264, SettledReadiness()));
         Assert.True(loading.Progress.IsReady);
     }
 
     [Fact]
-    public void MeshDispatchOnlyPausesDuringRetirement()
+    public void SeamLightingDispatchWaitsUntilInitialResidencySettles()
     {
         var loading = new WorldLoadingState();
-        Assert.True(loading.AllowsMeshDispatch());
+        Assert.True(loading.AllowsLightingDispatch);
 
         loading.Begin(ChunkCoord.Zero);
-        Assert.True(loading.AllowsMeshDispatch());
+        Assert.False(loading.AllowsLightingDispatch);
+
+        loading.UpdateResidency(
+            desired: 4, pending: 2, materializing: 0, selectionRunning: false);
+        Assert.False(loading.AllowsLightingDispatch);
+
         loading.UpdateResidency(
             desired: 4, pending: 0, materializing: 0, selectionRunning: false);
-        Assert.True(loading.AllowsMeshDispatch());
+        Assert.Equal(
+            WorldLoadingPhase.PreparingPresentation,
+            loading.Progress.Phase);
+        Assert.True(loading.AllowsLightingDispatch);
 
         loading.BeginRetirement();
-        Assert.False(loading.AllowsMeshDispatch());
+        Assert.False(loading.AllowsLightingDispatch);
 
         loading.Reset();
-        Assert.True(loading.AllowsMeshDispatch());
+        Assert.True(loading.AllowsLightingDispatch);
+    }
+
+    [Fact]
+    public void MeshDispatchWaitsForLightingDuringBootstrapButNotAfterLoading()
+    {
+        var loading = new WorldLoadingState();
+        Assert.True(loading.AllowsMeshDispatch(lightingSettled: false));
+
+        loading.Begin(ChunkCoord.Zero);
+        Assert.False(loading.AllowsMeshDispatch(lightingSettled: false));
+        Assert.True(loading.AllowsMeshDispatch(lightingSettled: true));
+
+        loading.UpdateResidency(
+            desired: 4, pending: 0, materializing: 0, selectionRunning: false);
+        Assert.Equal(
+            WorldLoadingPhase.PreparingPresentation,
+            loading.Progress.Phase);
+        Assert.False(loading.AllowsMeshDispatch(lightingSettled: false));
+        Assert.True(loading.AllowsMeshDispatch(lightingSettled: true));
+
+        loading.BeginRetirement();
+        Assert.False(loading.AllowsMeshDispatch(lightingSettled: true));
+
+        loading.Reset();
+        Assert.True(loading.AllowsMeshDispatch(lightingSettled: false));
     }
 
     [Fact]
@@ -82,6 +116,7 @@ public sealed class WorldLoadingStateTests
         Assert.True(readiness.IsSettled);
         Assert.False((readiness with { ResidencySettled = false }).IsSettled);
         Assert.False((readiness with { SelectionSettled = false }).IsSettled);
+        Assert.False((readiness with { LightingSettled = false }).IsSettled);
         Assert.False((readiness with { TerrainMeshWorkSettled = false }).IsSettled);
         Assert.False((readiness with { TerrainPublicationsSettled = false }).IsSettled);
         Assert.False((readiness with { FluidMeshWorkSettled = false }).IsSettled);
@@ -103,6 +138,7 @@ public sealed class WorldLoadingStateTests
         new(
             ResidencySettled: true,
             SelectionSettled: true,
+            LightingSettled: true,
             TerrainMeshWorkSettled: true,
             TerrainPublicationsSettled: true,
             FluidMeshWorkSettled: true,

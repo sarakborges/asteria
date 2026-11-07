@@ -4,6 +4,26 @@ namespace Asteria.Core.Tests;
 
 public sealed class SparseOverworldBiomeContentTests
 {
+    [Fact]
+    public void DefaultPackUsesRegionalGeologyEverywhereExceptSwamp()
+    {
+        var geologyBiomes = ReadJsonDirectory("biomes")
+            .Select(BiomeDefinitionJson.Parse)
+            .Where(biome => biome.Geology is not null)
+            .ToArray();
+
+        Assert.NotEmpty(geologyBiomes);
+        foreach (var biome in geologyBiomes)
+        {
+            var expected = biome.Id == "asteria:overworld/swamp"
+                ? BiomeGeologySamplingMode.PerVoxel
+                : BiomeGeologySamplingMode.Regional;
+            Assert.Equal(
+                expected,
+                Assert.IsType<BiomeGeologyDefinition>(biome.Geology).SamplingMode);
+        }
+    }
+
     [Theory]
     [InlineData("arctic", "frozen_plain", "ice_fields", "rocky_ridges", 6)]
     [InlineData("desert", "open_dunes", "sand_flats", "sandstone_outcrops", 4)]
@@ -72,6 +92,54 @@ public sealed class SparseOverworldBiomeContentTests
         Assert.Contains(blocks.GetId(firstAlternative), seen);
         Assert.True(seen.Any(material => material != blocks.GetId(geology.BaseBlock)),
             $"Expected non-core geological deposits for {file}.");
+    }
+
+    [Fact]
+    public void RegionalHybridGeologyRoughensOnlyRegionalBoundariesDeterministically()
+    {
+        var source = LoadBiome("swamp");
+        var regionalBiome = WithGeologySamplingMode(
+            source, BiomeGeologySamplingMode.Regional);
+        var hybridBiome = WithGeologySamplingMode(
+            source, BiomeGeologySamplingMode.RegionalHybrid);
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        const ulong seed = 7808508665006554090UL;
+        var regional = new BiomeSurfaceMaterialField(
+            seed, [regionalBiome], blocks);
+        var hybrid = new BiomeSurfaceMaterialField(
+            seed, [hybridBiome], blocks);
+        var hybridRepeat = new BiomeSurfaceMaterialField(
+            seed, [hybridBiome], blocks);
+        var sample = new BiomeSample(
+            source.Id, [new BiomeInfluence(source.Id, 1f)]);
+        var seen = new HashSet<BlockRuntimeId>();
+        var changedFromRegional = 0;
+        var unchangedFromRegional = 0;
+
+        for (var z = -128; z <= 128; z += 2)
+        for (var x = -128; x <= 128; x += 2)
+        {
+            Assert.True(regional.TryGeologyBlockAt(
+                sample, x, 72, z, out var regionalBlock));
+            Assert.True(hybrid.TryGeologyBlockAt(
+                sample, x, 72, z, out var hybridBlock));
+            Assert.True(hybridRepeat.TryGeologyBlockAt(
+                sample, x, 72, z, out var repeatedBlock));
+            Assert.Equal(hybridBlock, repeatedBlock);
+            seen.Add(hybridBlock);
+
+            if (hybridBlock == regionalBlock)
+                unchangedFromRegional++;
+            else
+                changedFromRegional++;
+        }
+
+        Assert.True(seen.Count >= 2,
+            "The hybrid field should retain multiple authored geological materials.");
+        Assert.True(changedFromRegional > 0,
+            "Fine boundary displacement should alter at least some regional cell edges.");
+        Assert.True(unchangedFromRegional > 0,
+            "Voxels away from regional boundaries should retain their macro-region material.");
     }
 
     [Fact]
@@ -223,8 +291,8 @@ public sealed class SparseOverworldBiomeContentTests
     public void OceanRegressionRegionMaterializationMatchesThreeDimensionalGeology()
     {
         const ulong seed = 7808508665006554090UL;
-        const int centerX = 355;
-        const int centerZ = -230;
+        const int searchOriginX = 355;
+        const int searchOriginZ = -230;
         const int diagnosticY = 82;
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var fluids = FluidRegistry.FromJson(ReadJsonDirectory("fluids"));
@@ -240,6 +308,15 @@ public sealed class SparseOverworldBiomeContentTests
             new WorldGenerationOptions(
                 spawnStructures: false, spawnCaves: false, spawnOceans: true));
         var ocean = biomes.Get("asteria:overworld/ocean");
+        // Ocean now has authored incompatibilities with several hot-climate
+        // and mountainous biomes. Keep the fixed seed, but resolve a valid
+        // nearby ocean formation rather than pinning the fixture to a location
+        // whose primary biome is no longer guaranteed to be ocean.
+        var oceanRegion = generator.Biomes.FindNearestSurfaceBiome(
+            ocean.Id, searchOriginX, searchOriginZ, maxDistance: 4096);
+        Assert.NotNull(oceanRegion);
+        var centerX = oceanRegion!.X;
+        var centerZ = oceanRegion.Z;
         var geology = new BiomeSurfaceMaterialField(dimensionSeed, [ocean], blocks);
         var chunkCache = new Dictionary<ChunkCoord, Chunk>();
         var fixedAltitudeMaterials = new HashSet<BlockRuntimeId>();
@@ -443,6 +520,63 @@ public sealed class SparseOverworldBiomeContentTests
         Assert.All(stones, rule =>
             Assert.True(rule.HabitatWeights!.For("rocky_scrub") >
                         rule.HabitatWeights.For("deadwood_pockets")));
+    }
+
+    private static BiomeDefinition WithGeologySamplingMode(
+        BiomeDefinition source,
+        BiomeGeologySamplingMode samplingMode)
+    {
+        var original = source.Geology ??
+            throw new InvalidOperationException(
+                $"Biome {source.Id} has no authored geology.");
+        var weights = original.Blocks
+            .Select((block, index) => new
+            {
+                Block = block,
+                Weight = original.BlockWeights[index],
+            })
+            .ToDictionary(
+                item => item.Block,
+                item => item.Weight,
+                StringComparer.Ordinal);
+        var geology = new BiomeGeologyDefinition(
+            original.BaseBlock,
+            original.Blocks,
+            original.Scale,
+            original.VerticalScale,
+            original.DetailScale,
+            original.SelectionScale,
+            original.Coverage,
+            original.Roughness,
+            weights,
+            original.SurfaceCoverDepth,
+            original.SurfaceCoverage,
+            original.SurfaceSubmergedOnly,
+            original.GrainScale,
+            original.GrainVerticalScale,
+            original.GrainInfluence,
+            original.ClusterScale,
+            original.ClusterVerticalScale,
+            original.ClusterInfluence,
+            original.BoundaryGrainInfluence,
+            samplingMode,
+            original.RegionScale,
+            original.RegionVerticalScale,
+            original.RegionWarpStrength);
+
+        return new BiomeDefinition(
+            source.Id,
+            source.SurfaceLayout,
+            source.SurfaceTerrain,
+            decorations: source.Decorations,
+            tints: source.Tints,
+            terrain3d: source.Terrain3d,
+            volumeLayout: source.VolumeLayout,
+            surfaceHabitats: source.SurfaceHabitats,
+            caveSpikes: source.CaveSpikes,
+            palette: source.Palette,
+            volumeStructures: source.VolumeStructures,
+            geology: geology);
     }
 
     private static readonly string PackData =

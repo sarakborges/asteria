@@ -5,6 +5,97 @@ namespace Asteria.Core.Tests;
 public sealed class TerrainDensityTests
 {
     [Fact]
+    public void ContiguousSolidDepthAboveMatchesScalarScanForEveryDensityStorageMode()
+    {
+        const int width = 3;
+        const int height = 16;
+        const int depth = 2;
+        var masks = new ushort[]
+        {
+            ushort.MaxValue,
+            0b1011_1100_0001_1111,
+            0b0000_0000_0000_0000,
+            0b1000_0000_0000_0001,
+            0b1110_1111_1111_1111,
+            0b0000_1111_0000_1111,
+        };
+        var densities = new double[width * height * depth];
+
+        for (var z = 0; z < depth; z++)
+        for (var y = 0; y < height; y++)
+        for (var x = 0; x < width; x++)
+        {
+            var index = z * width * height + y * width + x;
+            densities[index] =
+                (masks[z * width + x] & (1 << y)) != 0
+                    ? 1d
+                    : -1d;
+        }
+
+        double DensityAt(int x, int y, int z) =>
+            densities[(z * height + y) * width + x];
+
+        var volumes = new[]
+        {
+            new TerrainDensityVolume(
+                width, height, depth, masks, DensityAt,
+                volumeBiomes: null, volumeBiomeField: null),
+            new TerrainDensityVolume(
+                width, height, depth, densities),
+            new TerrainDensityVolume(
+                width, height, depth, DensityAt,
+                volumeBiomes: null, volumeBiomeField: null),
+        };
+
+        uint[] maximumDepths = [0, 1, 2, 4, 15, 16, 32];
+        foreach (var volume in volumes)
+        for (var z = 0; z < depth; z++)
+        for (var x = 0; x < width; x++)
+        for (var y = -1; y < height; y++)
+        foreach (var maximumDepth in maximumDepths)
+        {
+            var expected = 0u;
+            while (expected < maximumDepth &&
+                   y + (long)expected + 1L < height &&
+                   volume.IsSolidAt(
+                       x, y + (int)expected + 1, z))
+            {
+                expected++;
+            }
+
+            Assert.Equal(
+                expected,
+                volume.ContiguousSolidDepthAboveInVolume(
+                    x, y, z, maximumDepth));
+        }
+    }
+
+    [Fact]
+    public void CaveSpikeClearanceBitCountsMatchScalarColumnScan()
+    {
+        const int height = 16;
+        for (var mask = 0; mask <= ushort.MaxValue; mask += 257)
+        for (var localY = 0; localY < height; localY++)
+        foreach (var down in new[] { false, true })
+        {
+            var expected = 0;
+            for (var offset = 0; offset < height; offset++)
+            {
+                var y = localY + (down ? -offset : offset);
+                if ((uint)y >= height ||
+                    (mask & (1 << y)) != 0)
+                    break;
+                expected++;
+            }
+
+            Assert.Equal(
+                expected,
+                CaveSpikeField.CountContiguousVoidDepthInMask(
+                    (ushort)mask, height, localY, down));
+        }
+    }
+
+    [Fact]
     public void CaveDensityIsSubtractiveAndCannotPierceTheSurface()
     {
         var generator = Generator(
@@ -67,9 +158,11 @@ public sealed class TerrainDensityTests
         var materialized = new Dictionary<ChunkCoord, Chunk>();
         var spike = Block("asteria:spike_stone");
 
-        foreach (var x in new[] { 15, 16 })
-        foreach (var z in new[] { 15, 16 })
-        foreach (var y in new[] { 32, 48, 64, 80 })
+        // Cover the complete six-voxel halo on both sides of the X/Z
+        // seams, including their overlap at the four-chunk corner.
+        for (var x = 10; x <= 21; x++)
+        for (var z = 10; z <= 21; z++)
+        for (var y = 32; y < 96; y++)
         {
             var (coord, local) = VoxelCoordinates.FromWorld(x, y, z);
             if (!materialized.TryGetValue(coord, out var chunk))
@@ -95,9 +188,14 @@ public sealed class TerrainDensityTests
         for (var y = 0; y < 4; y++)
         for (var x = 0; x < 4; x++)
         {
+            var expectedDensity =
+                generator.DensityAt(-17 + x, 41 + y, -17 + z);
             Assert.Equal(
-                generator.DensityAt(-17 + x, 41 + y, -17 + z),
+                expectedDensity,
                 volume.DensityAt(x, y, z));
+            Assert.Equal(
+                expectedDensity >= 0d,
+                volume.IsSolidAtUnchecked(x, y, z));
         }
     }
 
@@ -317,6 +415,25 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CachedDensityFastPathMatchesScalarInSolidSurfaceAndSkyBands()
+    {
+        var generator = Generator();
+        foreach (var chunkY in new[] { 0, 4, 6, 7 })
+        {
+            var chunk = generator.Materialize(new ChunkCoord(0, chunkY, 0));
+            var originY = chunkY * Chunk.Size;
+            for (var z = 0; z < Chunk.Size; z += 5)
+            for (var x = 0; x < Chunk.Size; x += 5)
+            for (var y = 0; y < Chunk.Size; y += 2)
+            {
+                Assert.Equal(
+                    generator.DensityAt(x, originY + y, z) >= 0d,
+                    !chunk.GetBlock(x, y, z).IsAir);
+            }
+        }
+    }
+
+    [Fact]
     public void SampleDensityVolumeMatchesScalarAcrossNegativeCoordinates()
     {
         var generator = Generator(caves: WideCaves());
@@ -512,6 +629,181 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CachedColumnDensityFastPathMatchesScalarAtEveryVoxel()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var point = FindVolumeSolid(generator, y: 96);
+        var horizontal = VoxelCoordinates.FromWorld(
+            point.X, 0, point.Z).Chunk;
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(horizontal);
+        const int chunkY = 5;
+        var chunk = generator.Materialize(
+            new ChunkCoord(horizontal.X, chunkY, horizontal.Z));
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var worldX = originX + x;
+            var worldY = chunkY * Chunk.Size + y;
+            var worldZ = originZ + z;
+            var expectedSolid =
+                generator.DensityAt(worldX, worldY, worldZ) >= 0d;
+            var actualSolid = !chunk.GetBlock(x, y, z).IsAir;
+            Assert.True(
+                expectedSolid == actualSolid,
+                $"Density fast path diverged at {worldX},{worldY},{worldZ}: expected {expectedSolid}, actual {actualSolid}.");
+        }
+    }
+
+    [Fact]
+    public void DensityOnlyBoundaryColumnCacheMatchesScalarDensityAcrossCavesAndFormations()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var cache = new SurfaceTerrainColumnCache(
+            generator.Terrain,
+            capacity: 8,
+            densityColumnCapacity: Chunk.Area * 8);
+        var volumePoint = FindVolumeSolid(generator, y: 96);
+        var samples = new[]
+        {
+            (X: volumePoint.X, Z: volumePoint.Z, OriginY: 16),
+            (X: volumePoint.X - 1, Z: volumePoint.Z, OriginY: 32),
+            (X: volumePoint.X, Z: volumePoint.Z + 1, OriginY: 80),
+            (X: volumePoint.X + Chunk.Size, Z: volumePoint.Z + Chunk.Size, OriginY: 96),
+        };
+
+        foreach (var sample in samples)
+        {
+            var mask = cache.GetDensityColumnMask(
+                sample.X,
+                sample.OriginY,
+                sample.Z,
+                out var cacheHit,
+                out var densityProbes);
+            Assert.False(cacheHit);
+            Assert.True(densityProbes > 0);
+
+            for (var localY = 0; localY < Chunk.Size; localY++)
+            {
+                var worldY = sample.OriginY + localY;
+                var expectedSolid =
+                    generator.DensityAt(sample.X, worldY, sample.Z) >= 0d;
+                var actualSolid = (mask & (1u << localY)) != 0;
+                Assert.True(
+                    expectedSolid == actualSolid,
+                    $"Density-only boundary cache diverged at {sample.X},{worldY},{sample.Z}: expected {expectedSolid}, actual {actualSolid}.");
+            }
+
+            var cachedMask = cache.GetDensityColumnMask(
+                sample.X,
+                sample.OriginY,
+                sample.Z,
+                out cacheHit,
+                out densityProbes);
+            Assert.True(cacheHit);
+            Assert.Equal(0, densityProbes);
+            Assert.Equal(mask, cachedMask);
+        }
+    }
+
+    [Fact]
+    public void SparseDensityBoundaryBatchesMatchScalarDensityAcrossOverlappingReads()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var volumePoint = FindVolumeSolid(generator, y: 96);
+        var position = VoxelCoordinates.FromWorld(
+            volumePoint.X, 96, volumePoint.Z);
+        var cache = new SurfaceTerrainColumnCache(
+            generator.Terrain,
+            capacity: 8,
+            densityColumnCapacity: Chunk.Area * 8);
+        var chunkX = position.Chunk.X;
+        var chunkZ = position.Chunk.Z;
+        var targetIndex = position.Local.Z * Chunk.Size + position.Local.X;
+        var firstBatch = new[]
+        {
+            0, 1, 15, 16, 17, 31, 32, 127, 240, 255, targetIndex,
+        };
+        var secondBatch = new[]
+        {
+            1, 17, 31, 64, 128, 224, 240, 254, 255, targetIndex,
+        };
+
+        void AssertBatchMatchesScalar(int[] indices)
+        {
+            var masks = new ushort[indices.Length];
+            var requestedMasks =
+                Enumerable.Repeat(ushort.MaxValue, indices.Length).ToArray();
+            cache.ReadDensityColumnMasks(
+                chunkX,
+                originY: 96,
+                chunkZ,
+                indices,
+                requestedMasks,
+                masks,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _);
+
+            var originX = checked(chunkX * Chunk.Size);
+            var originZ = checked(chunkZ * Chunk.Size);
+            for (var index = 0; index < indices.Length; index++)
+            {
+                var localX = indices[index] % Chunk.Size;
+                var localZ = indices[index] / Chunk.Size;
+                var worldX = checked(originX + localX);
+                var worldZ = checked(originZ + localZ);
+                for (var localY = 0; localY < Chunk.Size; localY++)
+                {
+                    var worldY = 96 + localY;
+                    var expectedSolid =
+                        generator.DensityAt(worldX, worldY, worldZ) >= 0d;
+                    var actualSolid =
+                        (masks[index] & (1u << localY)) != 0;
+                    Assert.True(
+                        expectedSolid == actualSolid,
+                        $"Sparse boundary batch diverged at {worldX},{worldY},{worldZ}: expected {expectedSolid}, actual {actualSolid}.");
+                }
+            }
+        }
+
+        AssertBatchMatchesScalar(firstBatch);
+        AssertBatchMatchesScalar(secondBatch);
+    }
+
+    [Fact]
     public void VolumeAndMaterializationStayAlignedAcrossVerticalChunkBoundary()
     {
         var generator = Generator(
@@ -703,6 +995,126 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void DensityBoundaryCacheDefersVolumeBiomeSamplingUntilAdditiveBands()
+    {
+        var generator = Generator(
+            additive:
+            [
+                new BiomeAdditiveDensityDefinition(
+                    80, 104, 64, 24, 1f, 0f, 30f,
+                    verticalFalloff: 2f),
+                new BiomeAdditiveDensityDefinition(
+                    120, 144, 64, 24, 1f, 0f, 30f,
+                    horizontalFalloff: 2f),
+            ]);
+        var terrain = generator.Terrain;
+
+        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(64));
+        Assert.True(terrain.RequiresVolumeBiomeForDensityBand(80));
+        Assert.True(terrain.RequiresVolumeBiomeForDensityBand(112));
+        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(160));
+
+        var point = FindVolumeSolid(generator, y: 92);
+        var (coord, local) = VoxelCoordinates.FromWorld(
+            point.X, 64, point.Z);
+        var columnIndices = new[]
+        {
+            local.Z * Chunk.Size + local.X,
+        };
+        var cache = new SurfaceTerrainColumnCache(terrain);
+        var lowerMask = new ushort[1];
+
+        cache.ReadDensityColumnMasks(
+            coord.X,
+            64,
+            coord.Z,
+            columnIndices,
+            [ushort.MaxValue],
+            lowerMask,
+            out _, out _, out _, out _, out _, out _);
+
+        for (var offset = 0; offset < Chunk.Size; offset++)
+        {
+            var worldY = 64 + offset;
+            var expected = generator.DensityAt(
+                point.X, worldY, point.Z) >= 0d;
+            var actual = (lowerMask[0] & (1 << offset)) != 0;
+            Assert.Equal(expected, actual);
+        }
+
+        // The same cached X/Z column must acquire its volume owner later,
+        // when the requested vertical band intersects additive formations.
+        var upperMask = new ushort[1];
+        cache.ReadDensityColumnMasks(
+            coord.X,
+            80,
+            coord.Z,
+            columnIndices,
+            [ushort.MaxValue],
+            upperMask,
+            out _, out _, out _, out _, out _, out _);
+
+        for (var offset = 0; offset < Chunk.Size; offset++)
+        {
+            var worldY = 80 + offset;
+            var expected = generator.DensityAt(
+                point.X, worldY, point.Z) >= 0d;
+            var actual = (upperMask[0] & (1 << offset)) != 0;
+            Assert.Equal(expected, actual);
+        }
+    }
+
+    [Fact]
+    public void VolumePlacementGridOwnersMatchScalarAcrossIndependentFormationBounds()
+    {
+        var generator = Generator(
+            additive:
+            [
+                new BiomeAdditiveDensityDefinition(
+                    80, 104, 64, 24, 1f, 0f, 30f,
+                    verticalFalloff: 2f),
+                new BiomeAdditiveDensityDefinition(
+                    120, 144, 64, 24, 1f, 0f, 30f,
+                    horizontalFalloff: 2f),
+            ]);
+        var point = FindVolumeSolid(generator, y: 92);
+        var coord = VoxelCoordinates.FromWorld(
+            point.X, 0, point.Z).Chunk;
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(coord);
+        var grid = generator.VolumeBiomes.SamplePlacementGrid(
+            originX, originZ, Chunk.Size, Chunk.Size);
+        var heights = new[]
+        {
+            0, 79, 80, 92, 104, 105, 112,
+            119, 120, 132, 144, 145, 160,
+        };
+
+        for (var localZ = 0; localZ < Chunk.Size; localZ += 5)
+        for (var localX = 0; localX < Chunk.Size; localX += 5)
+        foreach (var worldY in heights)
+        {
+            var worldX = originX + localX;
+            var worldZ = originZ + localZ;
+            var expected = generator.VolumeBiomes.Sample(
+                worldX, worldY, worldZ);
+            var actual = generator.VolumeBiomes.SampleAtY(
+                grid, localX, worldY, localZ);
+
+            Assert.Equal(expected?.Primary, actual?.Primary);
+            Assert.Equal(expected?.Influences.Count ?? 0,
+                actual?.Influences.Count ?? 0);
+            if (expected is null || actual is null)
+                continue;
+
+            for (var index = 0; index < expected.Influences.Count; index++)
+                Assert.Equal(
+                    expected.Influences[index],
+                    actual.Influences[index]);
+        }
+    }
+
+    [Fact]
     public void IndependentCaveLayersLeaveUncoveredDepthsSolid()
     {
         var generator = Generator(
@@ -795,8 +1207,8 @@ public sealed class TerrainDensityTests
         new BlockDefinition("asteria:dirt"),
         new BlockDefinition("asteria:shell_sphere"),
         new BlockDefinition("asteria:spike_stone",
-            shape: BlockShapeDefinition.Spike()),
-        new BlockDefinition("asteria:test_fern"),
+            shape: BlockShapeDefinition.Spike(), lightDampening: 0),
+        new BlockDefinition("asteria:test_fern", lightDampening: 0),
     ]);
 
     private static DimensionCaveDefinition ChamberCaves(bool withChambers) =>

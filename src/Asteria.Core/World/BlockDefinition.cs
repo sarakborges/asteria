@@ -28,6 +28,8 @@ public sealed class BlockDefinition
         bool isCollidable = true,
         BlockRenderMode renderMode = BlockRenderMode.Opaque,
         bool castsShadow = true,
+        byte lightDampening = 15,
+        BlockLightEmission lightEmission = default,
         BlockPreviewColor? previewColor = null,
         bool dropsSelf = true,
         BlockInteractionKind interaction = BlockInteractionKind.Break,
@@ -49,6 +51,11 @@ public sealed class BlockDefinition
         if (string.IsNullOrWhiteSpace(category) || category != category.Trim())
         {
             throw new ArgumentException("Block category must be non-empty and trimmed.", nameof(category));
+        }
+
+        if (lightDampening > 15)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lightDampening), "Light dampening must be within 0..15.");
         }
 
         var allowedOrientations = (orientations ?? DefaultOrientations).ToArray();
@@ -82,6 +89,8 @@ public sealed class BlockDefinition
         IsCollidable = isCollidable;
         RenderMode = renderMode;
         CastsShadow = castsShadow;
+        LightDampening = lightDampening;
+        LightEmission = lightEmission;
         PreviewColor = previewColor ?? BlockPreviewColor.Missing;
         DropsSelf = dropsSelf;
         LootTable = lootTable;
@@ -111,6 +120,8 @@ public sealed class BlockDefinition
     public BlockRenderMode RenderMode { get; }
     public bool IsOpaque => RenderMode == BlockRenderMode.Opaque;
     public bool CastsShadow { get; }
+    public byte LightDampening { get; }
+    public BlockLightEmission LightEmission { get; }
     public BlockPreviewColor PreviewColor { get; }
     public bool DropsSelf { get; }
     public LootTable? LootTable { get; }
@@ -132,6 +143,7 @@ public sealed class BlockDefinition
         isCollidable: false,
         renderMode: BlockRenderMode.Translucent,
         castsShadow: false,
+        lightDampening: 0,
         previewColor: new BlockPreviewColor(0, 0, 0),
         dropsSelf: false);
 

@@ -227,7 +227,8 @@ public sealed class DimensionRuntimeSession
         Mutations.ConfigureObjectDetachment(
             new ObjectDetachmentRuntime(World, objects, _droppedBlocks, fluids,
                 _inventoryCatalog, () => WorldTicks.CurrentTick));
-_saplings = new SaplingGrowthRuntime(
+        Mutations.ConfigureObjectLighting(objects);
+        _saplings = new SaplingGrowthRuntime(
             World, Mutations, blocks, objects, structures,
             state.DimensionSeed, WorldTicks.CurrentTick);
         var storageBoxLifecycle = new StorageBoxBlockLifecycle(
@@ -237,7 +238,12 @@ _saplings = new SaplingGrowthRuntime(
             new ManualStructurePlacementRuntime(
                 Generator, World, Mutations, blocks, structures, structureSets,
                 state.ManualStructures);
-FluidSimulation =
+        var lightingIntegration =
+            new LightingResultIntegrator(
+                World,
+                WorldUpdates,
+                FluidMeshUpdates);
+        FluidSimulation =
             new FluidSimulationRuntime(
                 World,
                 fluids,
@@ -246,7 +252,15 @@ FluidSimulation =
                 WorldTicks,
                 state.GameRules,
                 settings.MaxFluidUpdatesPerWorker);
-_blockPhysics =
+        Lighting =
+            new LightingRuntime(
+                World,
+                blocks,
+                fluids,
+                WorldUpdates,
+                lightingIntegration,
+                objects);
+        _blockPhysics =
             new BlockPhysicsRuntime(
                 World,
                 blocks,
@@ -756,14 +770,17 @@ _blockPhysics =
 
     public FluidSimulationRuntime FluidSimulation { get; }
 
-public bool IsRetiring =>
+    public LightingRuntime Lighting { get; }
+
+    public bool IsRetiring =>
         _retiring;
 
     public bool IsQuiescent =>
         Residency.MaterializingCount == 0 &&
         !Streaming.IsSelectionRunning &&
         !FluidSimulation.IsRunning &&
-!TerrainMesh.IsRunning &&
+        !Lighting.IsRunning &&
+        !TerrainMesh.IsRunning &&
         !FluidMesh.IsRunning;
 
     public NVector3 InitialPlayerPosition =>
@@ -941,9 +958,11 @@ public bool IsRetiring =>
         }
 
         _retiring = true;
+        Residency.BeginRetirement();
         Streaming.BeginRetirement();
         FluidSimulation.BeginRetirement();
-TerrainMesh.BeginRetirement();
+        Lighting.BeginRetirement();
+        TerrainMesh.BeginRetirement();
         FluidMesh.BeginRetirement();
     }
 
@@ -995,7 +1014,16 @@ TerrainMesh.BeginRetirement();
                     ? error
                     : null,
             errors);
-return new DimensionRetirementDrainReport(
+        DrainWorker(
+            () =>
+                Lighting.TryPollCompleted(
+                    out _,
+                    out var error)
+                    ? error
+                    : null,
+            errors);
+
+        return new DimensionRetirementDrainReport(
             materialization,
             errors);
     }

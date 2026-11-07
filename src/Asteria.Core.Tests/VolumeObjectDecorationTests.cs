@@ -50,6 +50,7 @@ public sealed class VolumeObjectDecorationTests
         {
             var key = "asteria:" + id;
             Assert.False(blocks.TryGetId(key, out _));
+            Assert.False(objects.Get(key).LightEmission.IsDark);
         }
     }
 

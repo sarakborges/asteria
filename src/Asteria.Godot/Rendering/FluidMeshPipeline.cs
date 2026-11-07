@@ -156,12 +156,14 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
+        var relightable = _presentations.CaptureRelightableFluid(batch);
         if (!availableWorker.Worker.TryStart(
                 _world,
                 _blocks,
                 _fluids,
                 batch,
-                _revisions))
+                _revisions,
+                relightable))
         {
             _updates.Requeue(batch);
             return false;
@@ -209,6 +211,7 @@ public sealed class FluidMeshPipeline
             var accepted = 0;
             var stale = 0;
             var salvaged = 0;
+            var relitWithoutMeshing = 0;
 
             foreach (var meshlet in result.Meshlets)
             {
@@ -234,6 +237,8 @@ public sealed class FluidMeshPipeline
                     accepted++;
                     if (batchStale)
                         salvaged++;
+                    if (meshlet.LightOnly)
+                        relitWithoutMeshing++;
                 }
                 else
                 {
@@ -252,6 +257,7 @@ public sealed class FluidMeshPipeline
                 accepted,
                 stale,
                 CaptureMilliseconds: result.CaptureMilliseconds,
+                RelitWithoutMeshing: relitWithoutMeshing,
                 SalvagedFromStaleBatch: salvaged);
             return true;
         }

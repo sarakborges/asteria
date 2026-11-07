@@ -5,7 +5,8 @@ namespace Asteria.Core.World;
 public sealed record FluidMeshletBuild(
     ChunkCoord Coord,
     int MeshletIndex,
-    ChunkFluidMeshData Data);
+    ChunkFluidMeshData Data,
+    bool LightOnly = false);
 
 public sealed record FluidMeshWorkerResult(
     WorldMeshBatch SourceBatch,
@@ -30,7 +31,8 @@ public sealed class FluidMeshWorker
         BlockRegistry blocks,
         FluidRegistry fluids,
         WorldMeshBatch batch,
-        MeshletContentRevisions revisions)
+        MeshletContentRevisions revisions,
+        IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>? relightable = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -62,7 +64,8 @@ public sealed class FluidMeshWorker
                     snapshot.World,
                     blocks,
                     fluids,
-                    batch.DirtyMeshlets);
+                    batch.DirtyMeshlets,
+                    relightable);
             stopwatch.Stop();
 
             return new FluidMeshWorkerResult(
@@ -88,10 +91,14 @@ public sealed class FluidMeshWorker
             VoxelWorld world,
             BlockRegistry blocks,
             FluidRegistry fluids,
-            IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty)
+            IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty,
+            IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>? relightable)
     {
         var result =
             new List<FluidMeshletBuild>();
+        // Created only when this batch has actual fluid geometry. All fluid
+        // meshlets in the batch share one cache over the immutable snapshot.
+        FluidMeshDataBuilder.FluidSurfaceHeightCache? surfaceHeightCache = null;
 
         foreach (var (coord, mask) in dirty
                      .OrderBy(entry => entry.Key.Y)
@@ -103,12 +110,33 @@ public sealed class FluidMeshWorker
                 continue;
             }
 
+            var occupiedMeshlets = world.GetChunk(coord).OccupiedFluidMeshlets();
             foreach (var meshletIndex in mask.Indices())
             {
+                if (!occupiedMeshlets.ContainsIndex(meshletIndex))
+                {
+                    result.Add(new FluidMeshletBuild(
+                        coord, meshletIndex, ChunkFluidMeshData.Empty));
+                    continue;
+                }
+
+                surfaceHeightCache ??=
+                    new FluidMeshDataBuilder.FluidSurfaceHeightCache(world);
+                var key = new ChunkMeshletKey(coord, meshletIndex);
+                if (relightable is not null &&
+                    relightable.TryGetValue(key, out var previous) &&
+                    FluidMeshLightingUpdater.TryRelight(
+                        world, coord, blocks, previous, out var relit))
+                {
+                    result.Add(new FluidMeshletBuild(
+                        coord, meshletIndex, relit, LightOnly: true));
+                    continue;
+                }
                 result.Add(new FluidMeshletBuild(
                     coord, meshletIndex,
                     FluidMeshDataBuilder.BuildMeshlet(
-                        world, coord, blocks, fluids, meshletIndex)));
+                        world, coord, blocks, fluids, meshletIndex,
+                        surfaceHeightCache)));
             }
         }
 

@@ -69,7 +69,18 @@ public static class BiomeDefinitionJson
             OptionalUInt32(value, "clusterScale"),
             OptionalUInt32(value, "clusterVerticalScale"),
             OptionalSingle(value, "clusterInfluence") ?? 0f,
-            OptionalSingle(value, "boundaryGrainInfluence") ?? 0f);
+            OptionalSingle(value, "boundaryGrainInfluence") ?? 0f,
+            OptionalString(value, "samplingMode") switch
+            {
+                null or "regional" => BiomeGeologySamplingMode.Regional,
+                "regional-hybrid" => BiomeGeologySamplingMode.RegionalHybrid,
+                "per-voxel" => BiomeGeologySamplingMode.PerVoxel,
+                var mode => throw new FormatException(
+                    $"Unknown geology.samplingMode: {mode}."),
+            },
+            OptionalUInt32(value, "regionScale"),
+            OptionalUInt32(value, "regionVerticalScale"),
+            OptionalSingle(value, "regionWarpStrength") ?? 0.22f);
     }
 
     private static PlacementLayoutValues?

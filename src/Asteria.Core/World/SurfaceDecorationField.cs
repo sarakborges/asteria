@@ -11,6 +11,7 @@ public sealed class SurfaceDecorationField
     private readonly ulong _seed;
     private readonly SurfaceTerrainField? _terrain;
     private readonly SurfaceHabitatField _habitats;
+
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
     private readonly HashSet<string> _objectBiomes;
     private readonly HashSet<string> _verticalBiomes;
@@ -18,6 +19,17 @@ public sealed class SurfaceDecorationField
     private readonly HashSet<string> _wallLayerBiomes;
     private readonly HashSet<string> _wallBlockBiomes;
     private readonly HashSet<string> _wallObjectBiomes;
+    private readonly HashSet<string> _surfaceDecorationBiomes;
+    private readonly HashSet<string> _fluidSurfaceDecorationBiomes;
+    private readonly IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        _groundBlockSupportIndex;
+    private readonly IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        _groundObjectSupportIndex;
+    private readonly IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        _fluidBlockSupportIndex;
+    private readonly IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        _fluidObjectSupportIndex;
+    private readonly bool _hasSlopeConditions;
 
     public SurfaceDecorationField(
         ulong seed,
@@ -41,7 +53,8 @@ public sealed class SurfaceDecorationField
         _verticalBiomes = definitions
             .Where(biome => generateDecorations &&
                             biome.SurfaceLayout is null &&
-                            biome.Decorations.Count > 0)
+                            biome.Decorations.Any(decoration =>
+                                decoration.SupportSurface != DecorationSupportSurface.Wall))
             .Select(biome => biome.Id)
             .ToHashSet(StringComparer.Ordinal);
         _ceilingBiomes = definitions
@@ -118,6 +131,28 @@ public sealed class SurfaceDecorationField
                             decoration.SupportSurface))
                     .ToArray(),
                 StringComparer.Ordinal);
+        _groundBlockSupportIndex = BuildSurfaceSupportIndex(
+            _rules, requireObject: false, onFluidSurface: false);
+        _groundObjectSupportIndex = BuildSurfaceSupportIndex(
+            _rules, requireObject: true, onFluidSurface: false);
+        _fluidBlockSupportIndex = BuildSurfaceSupportIndex(
+            _rules, requireObject: false, onFluidSurface: true);
+        _fluidObjectSupportIndex = BuildSurfaceSupportIndex(
+            _rules, requireObject: true, onFluidSurface: true);
+        _surfaceDecorationBiomes = _rules
+            .Where(pair => pair.Value.Any(rule =>
+                rule.SupportSurface != DecorationSupportSurface.Wall))
+            .Select(pair => pair.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        _fluidSurfaceDecorationBiomes = _rules
+            .Where(pair => pair.Value.Any(rule =>
+                !rule.RequiredFluid.IsNone &&
+                rule.FluidRelation == DecorationFluidRelation.Below))
+            .Select(pair => pair.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        _hasSlopeConditions = _rules.Values.Any(rules =>
+            rules.Any(rule => rule.Conditions?.RequiresSlope == true));
+
         foreach (var biome in definitions)
             foreach (var decoration in biome.Decorations)
                 _habitats.Validate(biome.Id, decoration.HabitatWeights);
@@ -133,6 +168,7 @@ public sealed class SurfaceDecorationField
     public bool HasWallObjects => _wallObjectBiomes.Count > 0;
     public bool HasWallObjectsFor(string biomeId) =>
         _wallObjectBiomes.Contains(biomeId);
+    internal bool HasSlopeConditions => _hasSlopeConditions;
     public bool HasWallBlocksFor(string biomeId) =>
         _wallBlockBiomes.Contains(biomeId);
     public bool HasWallLayersFor(string biomeId) =>
@@ -148,8 +184,7 @@ public sealed class SurfaceDecorationField
     {
         foreach (var influence in sample.Influences)
         {
-            if (_rules[influence.BiomeId].Any(rule =>
-                    rule.SupportSurface != DecorationSupportSurface.Wall))
+            if (_surfaceDecorationBiomes.Contains(influence.BiomeId))
                 return true;
         }
 
@@ -159,12 +194,61 @@ public sealed class SurfaceDecorationField
     public bool HasFluidSurfaceDecorations(BiomeSample sample)
     {
         foreach (var influence in sample.Influences)
-            if (_rules[influence.BiomeId].Any(rule =>
-                !rule.RequiredFluid.IsNone &&
-                rule.FluidRelation == DecorationFluidRelation.Below))
+            if (_fluidSurfaceDecorationBiomes.Contains(influence.BiomeId))
                 return true;
         return false;
     }
+
+    /// <summary>
+    /// Conservative filter for the floor-decoration materialization pass.
+    /// It only rejects queries when no authored rule can match this support
+    /// block and category. Chance, conditions, habitat and exact fluid identity
+    /// remain the responsibility of SelectRule.
+    /// </summary>
+    internal bool HasSurfacePlacementCandidates(
+        BiomeSample sample,
+        BlockRuntimeId supportBlock,
+        bool requireObject,
+        bool onFluidSurface)
+    {
+        var index = (requireObject, onFluidSurface) switch
+        {
+            (false, false) => _groundBlockSupportIndex,
+            (true, false) => _groundObjectSupportIndex,
+            (false, true) => _fluidBlockSupportIndex,
+            (true, true) => _fluidObjectSupportIndex,
+        };
+
+        foreach (var influence in sample.Influences)
+        {
+            // Object rules remain inert without an object catalog. Preserve
+            // the same gate previously applied by HasObjectDecorations.
+            if (requireObject && !_objectBiomes.Contains(influence.BiomeId))
+                continue;
+            if (index[influence.BiomeId].Contains(supportBlock))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
+        BuildSurfaceSupportIndex(
+            IReadOnlyDictionary<string, DecorationRule[]> rulesByBiome,
+            bool requireObject,
+            bool onFluidSurface) =>
+        rulesByBiome.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value
+                .Where(rule =>
+                    rule.SupportSurface == DecorationSupportSurface.Floor &&
+                    (rule.ObjectId is not null) == requireObject &&
+                    ((!rule.RequiredFluid.IsNone &&
+                      rule.FluidRelation == DecorationFluidRelation.Below) ==
+                     onFluidSurface))
+                .SelectMany(rule => rule.SurfaceBlocks)
+                .ToHashSet(),
+            StringComparer.Ordinal);
 
     public BlockRuntimeId BlockAt(
         BiomeSample sample,
@@ -178,13 +262,33 @@ public sealed class SurfaceDecorationField
         bool onFluidSurface = false,
         FluidRuntimeId fluidBelow = default,
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null,
-        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor)
+        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor) =>
+        BlockAtWithTerrainSampleContext(
+            sample, surfaceBlock, worldX, worldZ, suppliedPlacement,
+            verticalY, submerged, supportY, onFluidSurface, fluidBelow,
+            nearbyFluid, supportSurface, null);
+
+    internal BlockRuntimeId BlockAtWithTerrainSampleContext(
+        BiomeSample sample,
+        BlockRuntimeId surfaceBlock,
+        int worldX,
+        int worldZ,
+        SurfacePlacementContext? suppliedPlacement,
+        int? verticalY,
+        bool submerged,
+        int? supportY,
+        bool onFluidSurface,
+        FluidRuntimeId fluidBelow,
+        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid,
+        DecorationSupportSurface supportSurface,
+        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext)
     {
         if (supportSurface == DecorationSupportSurface.Wall)
             return BlockRuntimeId.Air;
         return SelectRule(sample, surfaceBlock, worldX, worldZ,
             suppliedPlacement, verticalY, submerged, supportY, onFluidSurface,
-            fluidBelow, nearbyFluid, supportSurface, requireObject: false)?.Block ?? BlockRuntimeId.Air;
+            fluidBelow, nearbyFluid, supportSurface, requireObject: false,
+            terrainSampleContext: terrainSampleContext)?.Block ?? BlockRuntimeId.Air;
     }
 
     public string? ObjectAt(BiomeSample sample, BlockRuntimeId supportBlock,
@@ -194,13 +298,33 @@ public sealed class SurfaceDecorationField
         int? supportY = null,
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null,
         DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor,
-        bool onFluidSurface = false, FluidRuntimeId fluidBelow = default)
+        bool onFluidSurface = false, FluidRuntimeId fluidBelow = default) =>
+        ObjectAtWithTerrainSampleContext(
+            sample, supportBlock, worldX, worldZ, placement, verticalY,
+            submerged, supportY, nearbyFluid, supportSurface,
+            onFluidSurface, fluidBelow, null);
+
+    internal string? ObjectAtWithTerrainSampleContext(
+        BiomeSample sample,
+        BlockRuntimeId supportBlock,
+        int worldX,
+        int worldZ,
+        SurfacePlacementContext? placement,
+        int? verticalY,
+        bool submerged,
+        int? supportY,
+        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid,
+        DecorationSupportSurface supportSurface,
+        bool onFluidSurface,
+        FluidRuntimeId fluidBelow,
+        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext)
     {
         if (!HasObjectDecorations(sample)) return null;
         return SelectRule(sample, supportBlock, worldX, worldZ,
             placement, verticalY, submerged, supportY,
             onFluidSurface, fluidBelow, nearbyFluid, supportSurface,
-            requireLayer: false, requireObject: true)?.ObjectId;
+            requireLayer: false, requireObject: true,
+            terrainSampleContext: terrainSampleContext)?.ObjectId;
     }
 
     public string? WallObjectAt(
@@ -251,7 +375,8 @@ public sealed class SurfaceDecorationField
         FluidRuntimeId fluidBelow,
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid,
         DecorationSupportSurface supportSurface,
-        bool? requireLayer = null, bool? requireObject = null)
+        bool? requireLayer = null, bool? requireObject = null,
+        SurfaceTerrainField.TerrainSampleContext? terrainSampleContext = null)
     {
         SurfacePlacementContext? placement = suppliedPlacement;
         var slopeSampled = suppliedPlacement.HasValue;
@@ -294,10 +419,13 @@ public sealed class SurfaceDecorationField
                                 "Conditional ground decorators require a terrain field.");
                         }
 
-                        placement = SurfacePlacementContext.Sample(
-                            _terrain, worldX, worldZ,
-                            conditions.RequiresSlope,
-                            rule.UsesBaseSurface);
+                        placement = terrainSampleContext is { } sharedContext
+                            ? SurfacePlacementContext.Sample(
+                                _terrain, sharedContext, worldX, worldZ,
+                                conditions.RequiresSlope, rule.UsesBaseSurface)
+                            : SurfacePlacementContext.Sample(
+                                _terrain, worldX, worldZ,
+                                conditions.RequiresSlope, rule.UsesBaseSurface);
                         slopeSampled = conditions.RequiresSlope;
                     }
 

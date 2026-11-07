@@ -1,5 +1,197 @@
 namespace Asteria.Core.World;
 
+internal enum DirectionalFaceDirection : byte
+{
+    Up, NegativeX, PositiveX, NegativeZ, PositiveZ, Down,
+}
+
+internal readonly record struct DirectionalFaceVoxelData
+{
+    // The built-in biome profiles need at most six distance bits. Keep seven
+    // bits per direction so a future profile can grow to depth seven without
+    // changing the common representation. Larger authored depths use the
+    // immutable overflow payload below and retain the full 64-bit masks.
+    private const int CandidateBits = 7;
+    private const ulong CandidateMask = (1UL << CandidateBits) - 1UL;
+    private const int BaseBlockShift = CandidateBits * 6;
+    private const int IsTerrainShift = BaseBlockShift + 16;
+    private const ulong CandidateFieldsMask = (1UL << BaseBlockShift) - 1UL;
+    private const ulong BaseBlockMask = (ulong)ushort.MaxValue << BaseBlockShift;
+    private const ulong IsTerrainMask = 1UL << IsTerrainShift;
+
+    private readonly ulong _packed;
+    private readonly DirectionalFaceVoxelOverflow? _overflow;
+
+    public DirectionalFaceVoxelData(
+        bool IsTerrainVoxel,
+        ulong Up,
+        ulong NegativeX,
+        ulong PositiveX,
+        ulong NegativeZ,
+        ulong PositiveZ,
+        ulong Down,
+        BlockRuntimeId BaseBlock)
+    {
+        _packed =
+            ((ulong)BaseBlock.Value << BaseBlockShift) |
+            (IsTerrainVoxel ? IsTerrainMask : 0UL);
+
+        if ((Up | NegativeX | PositiveX | NegativeZ | PositiveZ | Down) <=
+            CandidateMask)
+        {
+            _packed |=
+                Up |
+                (NegativeX << CandidateBits) |
+                (PositiveX << (CandidateBits * 2)) |
+                (NegativeZ << (CandidateBits * 3)) |
+                (PositiveZ << (CandidateBits * 4)) |
+                (Down << (CandidateBits * 5));
+            _overflow = null;
+        }
+        else
+        {
+            _overflow = new DirectionalFaceVoxelOverflow(
+                Up, NegativeX, PositiveX, NegativeZ, PositiveZ, Down);
+        }
+    }
+
+    private DirectionalFaceVoxelData(
+        ulong packed,
+        DirectionalFaceVoxelOverflow? overflow)
+    {
+        _packed = packed;
+        _overflow = overflow;
+    }
+
+    public bool IsTerrainVoxel => (_packed & IsTerrainMask) != 0;
+
+    public BlockRuntimeId BaseBlock =>
+        new((ushort)((_packed & BaseBlockMask) >> BaseBlockShift));
+
+    public ulong Up => Candidates(DirectionalFaceDirection.Up);
+
+    public ulong NegativeX => Candidates(DirectionalFaceDirection.NegativeX);
+
+    public ulong PositiveX => Candidates(DirectionalFaceDirection.PositiveX);
+
+    public ulong NegativeZ => Candidates(DirectionalFaceDirection.NegativeZ);
+
+    public ulong PositiveZ => Candidates(DirectionalFaceDirection.PositiveZ);
+
+    public ulong Down => Candidates(DirectionalFaceDirection.Down);
+
+    public ulong Candidates(DirectionalFaceDirection direction)
+    {
+        if (_overflow is { } overflow)
+        {
+            return direction switch
+            {
+                DirectionalFaceDirection.Up => overflow.Up,
+                DirectionalFaceDirection.NegativeX => overflow.NegativeX,
+                DirectionalFaceDirection.PositiveX => overflow.PositiveX,
+                DirectionalFaceDirection.NegativeZ => overflow.NegativeZ,
+                DirectionalFaceDirection.PositiveZ => overflow.PositiveZ,
+                DirectionalFaceDirection.Down => overflow.Down,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+            };
+        }
+
+        return (_packed >> CandidateShift(direction)) & CandidateMask;
+    }
+
+    public DirectionalFaceVoxelData WithCandidates(
+        DirectionalFaceDirection direction,
+        ulong candidates)
+    {
+        var previous = Candidates(direction);
+        if (previous == candidates)
+            return this;
+
+        if (_overflow is null && candidates <= CandidateMask)
+        {
+            var shift = CandidateShift(direction);
+            var fieldMask = CandidateMask << shift;
+            var packed = (_packed & ~fieldMask) | (candidates << shift);
+            return new DirectionalFaceVoxelData(packed, overflow: null);
+        }
+
+        var up = Up;
+        var negativeX = NegativeX;
+        var positiveX = PositiveX;
+        var negativeZ = NegativeZ;
+        var positiveZ = PositiveZ;
+        var down = Down;
+
+        switch (direction)
+        {
+            case DirectionalFaceDirection.Up:
+                up = candidates;
+                break;
+            case DirectionalFaceDirection.NegativeX:
+                negativeX = candidates;
+                break;
+            case DirectionalFaceDirection.PositiveX:
+                positiveX = candidates;
+                break;
+            case DirectionalFaceDirection.NegativeZ:
+                negativeZ = candidates;
+                break;
+            case DirectionalFaceDirection.PositiveZ:
+                positiveZ = candidates;
+                break;
+            case DirectionalFaceDirection.Down:
+                down = candidates;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(direction));
+        }
+
+        return new DirectionalFaceVoxelData(
+            IsTerrainVoxel,
+            up,
+            negativeX,
+            positiveX,
+            negativeZ,
+            positiveZ,
+            down,
+            BaseBlock);
+    }
+
+    public DirectionalFaceVoxelData WithBaseBlock(BlockRuntimeId baseBlock)
+    {
+        var packed =
+            (_packed & ~BaseBlockMask) |
+            ((ulong)baseBlock.Value << BaseBlockShift);
+        return new DirectionalFaceVoxelData(packed, _overflow);
+    }
+
+    public bool HasCandidates =>
+        _overflow is { } overflow
+            ? (overflow.Up | overflow.NegativeX | overflow.PositiveX |
+               overflow.NegativeZ | overflow.PositiveZ | overflow.Down) != 0
+            : (_packed & CandidateFieldsMask) != 0;
+
+    private static int CandidateShift(DirectionalFaceDirection direction) =>
+        direction switch
+        {
+            DirectionalFaceDirection.Up => 0,
+            DirectionalFaceDirection.NegativeX => CandidateBits,
+            DirectionalFaceDirection.PositiveX => CandidateBits * 2,
+            DirectionalFaceDirection.NegativeZ => CandidateBits * 3,
+            DirectionalFaceDirection.PositiveZ => CandidateBits * 4,
+            DirectionalFaceDirection.Down => CandidateBits * 5,
+            _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+        };
+
+    private sealed record DirectionalFaceVoxelOverflow(
+        ulong Up,
+        ulong NegativeX,
+        ulong PositiveX,
+        ulong NegativeZ,
+        ulong PositiveZ,
+        ulong Down);
+}
+
 public sealed class Chunk
 {
     public const int Size = 16;
@@ -9,24 +201,185 @@ public sealed class Chunk
     private readonly PaletteStorage<VoxelCell> _cells;
     private readonly PaletteStorage<FluidCell> _fluids;
     private readonly MicroblockMaskPalette _microblockMasks;
-    private readonly Dictionary<int, BlockSurfaceState> _surfaceStates;
-    private readonly Dictionary<int, List<ObjectCell>> _objects;
+    private Dictionary<int, BlockSurfaceState>? _surfaceStates;
+    private Dictionary<int, List<ObjectCell>>? _objects;
+    private PaletteStorage<DirectionalFaceVoxelData>? _directionalFaceData;
+    private bool _directionalFaceDataInitialized;
+    private readonly VoxelLight[] _light;
+
+    /// <summary>
+    /// Efficiently fills a fresh chunk's block storage before normal worldgen
+    /// passes begin. Initial writes cannot replace occupied cells; disposing
+    /// the writer commits one revision for the completed batch.
+    /// </summary>
+    internal sealed class InitialBlockWriter : IDisposable
+    {
+        private Chunk? _chunk;
+        private readonly ushort[] _paletteIndicesByBlock;
+        private bool _changed;
+
+        internal InitialBlockWriter(
+            Chunk chunk,
+            int blockRuntimeIdCount)
+        {
+            if (blockRuntimeIdCount is < 1 or > ushort.MaxValue + 1)
+                throw new ArgumentOutOfRangeException(nameof(blockRuntimeIdCount));
+
+            _chunk = chunk;
+            _paletteIndicesByBlock = new ushort[blockRuntimeIdCount];
+        }
+
+        public bool SetBlockAtLinearIndex(
+            int voxelIndex,
+            BlockRuntimeId block)
+        {
+            _ = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialBlockWriter));
+            if ((uint)voxelIndex >= Volume)
+                throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+            return SetBlockAtLinearIndexUnchecked(voxelIndex, block);
+        }
+
+        /// <summary>
+        /// Initial terrain write for loops that have already bounded X/Y/Z
+        /// to the chunk. Keeps the public writer's range validation available.
+        /// </summary>
+        internal bool SetBlockAtLinearIndexUnchecked(
+            int voxelIndex,
+            BlockRuntimeId block)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialBlockWriter));
+            var cachedPaletteIndex =
+                block.Value < _paletteIndicesByBlock.Length
+                    ? _paletteIndicesByBlock[block.Value]
+                    : (ushort)0;
+            var changed = chunk._cells.SetInitialWithPaletteIndexUnchecked(
+                voxelIndex,
+                new VoxelCell(block),
+                cachedPaletteIndex,
+                out var resolvedPaletteIndex);
+            if (cachedPaletteIndex == 0 &&
+                block.Value < _paletteIndicesByBlock.Length &&
+                resolvedPaletteIndex != 0)
+            {
+                _paletteIndicesByBlock[block.Value] = resolvedPaletteIndex;
+            }
+
+            _changed |= changed;
+            return changed;
+        }
+
+        /// <summary>
+        /// Fast path for TerrainLayer: the chunk starts empty, shell positions
+        /// are excluded, and each in-chunk terrain coordinate is visited once.
+        /// </summary>
+        internal bool SetBlockAtLinearIndexFreshUnchecked(
+            int voxelIndex,
+            BlockRuntimeId block)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialBlockWriter));
+            var cachedPaletteIndex = _paletteIndicesByBlock[block.Value];
+            var changed = chunk._cells.SetInitialFreshSlotWithPaletteIndexUnchecked(
+                voxelIndex,
+                new VoxelCell(block),
+                cachedPaletteIndex,
+                out var resolvedPaletteIndex);
+            if (cachedPaletteIndex == 0 && resolvedPaletteIndex != 0)
+                _paletteIndicesByBlock[block.Value] = resolvedPaletteIndex;
+
+            _changed |= changed;
+            return changed;
+        }
+
+        public void Complete()
+        {
+            var chunk = _chunk;
+            if (chunk is null)
+                return;
+
+            if (_changed)
+                chunk.Revision++;
+
+            _chunk = null;
+        }
+
+        public void Dispose() => Complete();
+    }
+
+    /// <summary>
+    /// Batches generation-time fluid additions into one chunk revision. This
+    /// writer may coexist with fluids already authored by structures, but it
+    /// never replaces occupied fluid cells and must run before Objects are added.
+    /// </summary>
+    internal sealed class InitialFluidWriter : IDisposable
+    {
+        private Chunk? _chunk;
+        private bool _changed;
+
+        internal InitialFluidWriter(Chunk chunk)
+        {
+            _chunk = chunk;
+        }
+
+        public bool IsEmptyAtLinearIndex(int voxelIndex)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialFluidWriter));
+            if ((uint)voxelIndex >= Volume)
+                throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+            return chunk._fluids.Get(voxelIndex).IsEmpty;
+        }
+
+        public bool SetFluidAtLinearIndexIfEmpty(
+            int voxelIndex,
+            FluidCell fluid)
+        {
+            var chunk = _chunk ??
+                throw new ObjectDisposedException(nameof(InitialFluidWriter));
+            if ((uint)voxelIndex >= Volume)
+                throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+            var changed = chunk._fluids.SetInitialIfEmpty(voxelIndex, fluid);
+            _changed |= changed;
+            return changed;
+        }
+
+        public void Complete()
+        {
+            var chunk = _chunk;
+            if (chunk is null)
+                return;
+
+            if (_changed)
+                chunk.Revision++;
+
+            _chunk = null;
+        }
+
+        public void Dispose() => Complete();
+    }
 
     public Chunk()
     {
         _cells = new PaletteStorage<VoxelCell>();
         _fluids = new PaletteStorage<FluidCell>();
         _microblockMasks = new MicroblockMaskPalette();
-        _surfaceStates = [];
-        _objects = [];
+        _light = new VoxelLight[Volume];
     }
 
     private Chunk(
         PaletteStorage<VoxelCell> cells,
         PaletteStorage<FluidCell> fluids,
         MicroblockMaskPalette microblockMasks,
-        Dictionary<int, BlockSurfaceState> surfaceStates,
-        Dictionary<int, List<ObjectCell>> objects,
+        Dictionary<int, BlockSurfaceState>? surfaceStates,
+        Dictionary<int, List<ObjectCell>>? objects,
+        PaletteStorage<DirectionalFaceVoxelData>? directionalFaceData,
+        bool directionalFaceDataInitialized,
+        VoxelLight[] light,
         ulong revision,
         ulong objectRevision)
     {
@@ -35,6 +388,9 @@ public sealed class Chunk
         _microblockMasks = microblockMasks;
         _surfaceStates = surfaceStates;
         _objects = objects;
+        _directionalFaceData = directionalFaceData;
+        _directionalFaceDataInitialized = directionalFaceDataInitialized;
+        _light = light;
         Revision = revision;
         ObjectRevision = objectRevision;
     }
@@ -74,6 +430,30 @@ public sealed class Chunk
     public ChunkMeshletMask OccupiedFluidMeshlets() =>
         OccupiedMeshlets(_fluids);
 
+    public bool HasTerrainInMeshlet(int meshletIndex) =>
+        HasOccupiedMeshlet(_cells, meshletIndex);
+
+    public bool HasFluidInMeshlet(int meshletIndex) =>
+        HasOccupiedMeshlet(_fluids, meshletIndex);
+
+    public int TerrainVoxelCountInMeshlet(int meshletIndex) =>
+        CountOccupiedMeshlet(_cells, meshletIndex);
+
+    public int FluidVoxelCountInMeshlet(int meshletIndex) =>
+        CountOccupiedMeshlet(_fluids, meshletIndex);
+
+    private static bool HasOccupiedMeshlet<T>(
+        PaletteStorage<T> storage,
+        int meshletIndex)
+        where T : struct, IEquatable<T> =>
+        storage.OccupiedCountInMeshlet(meshletIndex) > 0;
+
+    private static int CountOccupiedMeshlet<T>(
+        PaletteStorage<T> storage,
+        int meshletIndex)
+        where T : struct, IEquatable<T> =>
+        storage.OccupiedCountInMeshlet(meshletIndex);
+
     private static ChunkMeshletMask OccupiedMeshlets<T>(
         PaletteStorage<T> storage)
         where T : struct, IEquatable<T>
@@ -86,15 +466,8 @@ public sealed class Chunk
         byte bits = 0;
         for (var index = 0; index < ChunkMeshletMask.Count; index++)
         {
-            var bounds = ChunkMeshletMask.Bounds(index);
-            if (storage.AnyOccupiedInBox(
-                    bounds.MinX, bounds.MinY, bounds.MinZ,
-                    ChunkMeshletMask.Edge,
-                    ChunkMeshletMask.Edge,
-                    ChunkMeshletMask.Edge))
-            {
+            if (storage.OccupiedCountInMeshlet(index) > 0)
                 bits |= (byte)(1 << index);
-            }
         }
 
         return new ChunkMeshletMask(bits);
@@ -126,6 +499,13 @@ public sealed class Chunk
         return _cells.Get(ToIndex(x, y, z));
     }
 
+    /// <summary>
+    /// Reads a voxel by its already-validated linear index. Internal callers
+    /// must establish that the index belongs to this chunk before using it.
+    /// </summary>
+    internal VoxelCell GetCellAtLinearIndexUnchecked(int voxelIndex) =>
+        _cells.Get(voxelIndex);
+
     public VoxelCell GetCellOrEmpty(int x, int y, int z)
     {
         if (!Contains(x, y, z))
@@ -141,22 +521,231 @@ public sealed class Chunk
     public bool SetCell(int x, int y, int z, VoxelCell cell)
     {
         ValidateCoordinates(x, y, z);
-        var index = ToIndex(x, y, z);
-        var previous = _cells.Get(index);
-        if (!_cells.Set(index, cell))
+        return SetCellAtIndex(ToIndex(x, y, z), cell);
+    }
+
+    /// <summary>
+    /// Writes a block using its already-linearized chunk index. Intended for
+    /// bounded internal loops that have established X/Y/Z coordinates; normal
+    /// callers keep using the coordinate-validated SetBlock/SetCell APIs.
+    /// </summary>
+    internal bool SetBlockAtLinearIndex(int voxelIndex, BlockRuntimeId block)
+    {
+        if ((uint)voxelIndex >= Volume)
+            throw new ArgumentOutOfRangeException(nameof(voxelIndex));
+
+        return SetCellAtIndex(voxelIndex, new VoxelCell(block));
+    }
+
+    internal DirectionalFaceVoxelData DirectionalFaceDataAtLinearIndex(int index)
+    {
+        if ((uint)index >= Volume) throw new ArgumentOutOfRangeException(nameof(index));
+        return _directionalFaceData?.Get(index) ?? default;
+    }
+
+    internal bool SetInitialDirectionalFaceDataAtLinearIndex(
+        int index, DirectionalFaceVoxelData data, bool updateRevision = true)
+    {
+        if ((uint)index >= Volume) throw new ArgumentOutOfRangeException(nameof(index));
+        if (data == default) return false;
+        _directionalFaceData ??= new PaletteStorage<DirectionalFaceVoxelData>();
+        if (!_directionalFaceData.SetInitial(index, data)) return false;
+        if (updateRevision) Revision++;
+        return true;
+    }
+
+    internal void SetDirectionalFaceDataAtLinearIndex(
+        int index, DirectionalFaceVoxelData data, bool updateRevision = true)
+    {
+        if ((uint)index >= Volume) throw new ArgumentOutOfRangeException(nameof(index));
+        if (data == default && _directionalFaceData is null) return;
+        _directionalFaceData ??= new PaletteStorage<DirectionalFaceVoxelData>();
+        if (!_directionalFaceData.Set(index, data)) return;
+        if (_directionalFaceData.OccupiedCount == 0) _directionalFaceData = null;
+        if (updateRevision) Revision++;
+    }
+
+    internal bool UpdateDirectionalFaceCandidateAtLinearIndex(
+        int index,
+        DirectionalFaceDirection direction,
+        int distance,
+        bool exposed,
+        bool updateRevision = true)
+    {
+        if (distance is < 1 or > 64)
+            throw new ArgumentOutOfRangeException(nameof(distance));
+        var data = DirectionalFaceDataAtLinearIndex(index);
+        if (!data.IsTerrainVoxel)
         {
+            var source = _cells.Get(index);
+            if (source.IsEmpty || source.IsPlayerPlaced || !exposed)
+                return false;
+            data = new DirectionalFaceVoxelData(
+                true, 0, 0, 0, 0, 0, 0, BlockRuntimeId.Air);
+        }
+        var bit = 1UL << (distance - 1);
+        var oldMask = data.Candidates(direction);
+        var nextMask = exposed ? oldMask | bit : oldMask & ~bit;
+        if (oldMask == nextMask && data.IsTerrainVoxel &&
+            DirectionalFaceDataAtLinearIndex(index).IsTerrainVoxel)
             return false;
+        SetDirectionalFaceDataAtLinearIndex(
+            index, data.WithCandidates(direction, nextMask), updateRevision);
+        return true;
+    }
+
+    internal bool RestoreDirectionalFaceBaseBlockAtLinearIndex(int index)
+    {
+        var data = DirectionalFaceDataAtLinearIndex(index);
+        if (data.BaseBlock.IsAir) return false;
+        SetDirectionalFaceDataAtLinearIndex(
+            index, data.WithBaseBlock(BlockRuntimeId.Air), updateRevision: false);
+        SetCellAtIndex(index, new VoxelCell(data.BaseBlock), preserveDirectionalFaceData: true);
+        return true;
+    }
+
+    internal bool SetDirectionalFacePaletteBlockAtLinearIndex(
+        int index, BlockRuntimeId replacement)
+    {
+        if ((uint)index >= Volume) throw new ArgumentOutOfRangeException(nameof(index));
+        var data = DirectionalFaceDataAtLinearIndex(index);
+        if (!data.IsTerrainVoxel) return false;
+        var current = _cells.Get(index);
+        if (current.IsEmpty) return false;
+        var changedMetadata = false;
+        if (data.BaseBlock.IsAir)
+        {
+            data = data.WithBaseBlock(current.Block);
+            SetDirectionalFaceDataAtLinearIndex(index, data, updateRevision: false);
+            changedMetadata = true;
+        }
+        var changedBlock = SetCellAtIndex(
+            index, new VoxelCell(replacement), preserveDirectionalFaceData: true);
+        if (changedMetadata && !changedBlock) Revision++;
+        return changedBlock || changedMetadata;
+    }
+
+    internal void VisitDirectionalFaceVoxels(Action<int, DirectionalFaceVoxelData> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+        _directionalFaceData?.VisitOccupied((index, data) => visit(index, data));
+    }
+
+    internal bool HasDirectionalFaceData =>
+        _directionalFaceData is { OccupiedCount: > 0 };
+
+    internal int DirectionalFaceDataVoxelCount =>
+        _directionalFaceData?.OccupiedCount ?? 0;
+
+    internal int DirectionalFaceDataPaletteEntryCount =>
+        _directionalFaceData?.ActivePaletteEntryCount ?? 0;
+
+    internal PaletteStorageCapacityMetrics? DirectionalFaceStorageCapacityMetrics =>
+        _directionalFaceData is { } storage
+            ? storage.CapacityMetrics
+            : null;
+
+    internal PaletteStorageCapacityMetrics CellStorageCapacityMetrics =>
+        _cells.CapacityMetrics;
+
+    internal bool DirectionalFaceDataInitialized =>
+        _directionalFaceDataInitialized;
+
+    internal void MarkDirectionalFaceDataInitialized(bool updateRevision = true)
+    {
+        if (_directionalFaceDataInitialized)
+            return;
+        _directionalFaceDataInitialized = true;
+        if (updateRevision)
+            Revision++;
+    }
+
+    internal void SetDirectionalFaceDataInitialized(bool initialized) =>
+        _directionalFaceDataInitialized = initialized;
+
+    internal void MarkDirectionalFaceDataChanged()
+    {
+        _directionalFaceDataInitialized = true;
+        Revision++;
+    }
+
+    internal InitialBlockWriter BeginInitialBlockWrites(
+        int blockRuntimeIdCount)
+    {
+        if (Revision != 0 ||
+            ObjectRevision != 0 ||
+            NonEmptyVoxelCount != 0 ||
+            FluidCount != 0 ||
+            MicroblockMaskCount != 0 ||
+            ObjectCount != 0 ||
+            _surfaceStates is not null ||
+            _objects is not null)
+        {
+            throw new InvalidOperationException(
+                "Initial block writes require a fresh, empty chunk.");
+        }
+
+        // The chunk is unpublished during TerrainLayer. Validate private
+        // palette storage once here rather than once per generated voxel.
+        _cells.EnsurePrivateForInitialWrites();
+        return new InitialBlockWriter(this, blockRuntimeIdCount);
+    }
+
+    /// <summary>
+    /// Begins batched generated-fluid writes. Existing block and fluid content
+    /// is preserved, but callers must add no Objects until the batch completes.
+    /// </summary>
+    internal InitialFluidWriter BeginInitialFluidWrites()
+    {
+        if (ObjectCount != 0 || _objects is not null)
+        {
+            throw new InvalidOperationException(
+                "Initial fluid writes must complete before Objects are added.");
+        }
+
+        return new InitialFluidWriter(this);
+    }
+
+    private bool SetCellAtIndex(
+        int index, VoxelCell cell, bool preserveDirectionalFaceData = false)
+    {
+        if (!_cells.Set(index, cell, out var previous))
+            return false;
+        if (!preserveDirectionalFaceData &&
+            (previous.Block != cell.Block ||
+             previous.IsPlayerPlaced != cell.IsPlayerPlaced) &&
+            _directionalFaceData is { } directionalData)
+        {
+            directionalData.Set(index, default);
+            if (directionalData.OccupiedCount == 0)
+                _directionalFaceData = null;
         }
 
         if (cell.IsEmpty || previous.Block != cell.Block)
         {
-            _surfaceStates.Remove(index);
-            if (_objects.Remove(index, out var detached))
+            // Surface state can only be attached to a non-empty block. Fresh
+            // procedural chunks therefore need no dictionary lookup here.
+            if (!previous.IsEmpty &&
+                _surfaceStates is { } surfaceStates)
+            {
+                surfaceStates.Remove(index);
+                if (surfaceStates.Count == 0)
+                    _surfaceStates = null;
+            }
+
+            // ObjectCount is the authoritative aggregate for this chunk. When
+            // zero, the support-index dictionary is known to be empty.
+            if (ObjectCount > 0 &&
+                _objects is { } objects &&
+                objects.Remove(index, out var detached))
             {
                 ObjectCount -= detached.Count;
                 ObjectRevision++;
+                if (objects.Count == 0)
+                    _objects = null;
             }
         }
+
         Revision++;
         return true;
     }
@@ -168,7 +757,8 @@ public sealed class Chunk
     public IReadOnlyList<ObjectCell> ObjectsAt(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
-        return _objects.TryGetValue(ToIndex(x, y, z), out var objects)
+        return _objects is { } objectIndex &&
+               objectIndex.TryGetValue(ToIndex(x, y, z), out var objects)
             ? objects.ToArray()
             : Array.Empty<ObjectCell>();
     }
@@ -186,17 +776,17 @@ public sealed class Chunk
              _fluids.Get(index).Level != FluidCell.MaxLevel ||
              !_fluids.Get(index).IsSource))
             return false;
+        _objects ??= [];
         if (_objects.TryGetValue(index, out var current))
         {
             if (current.Count >= MaximumObjectsPerSupport || current.Contains(obj))
                 return false;
+            current.Add(obj);
         }
         else
         {
-            current = [];
-            _objects.Add(index, current);
+            _objects.Add(index, [obj]);
         }
-        current.Add(obj);
         ObjectCount++;
         ObjectRevision++;
         Revision++;
@@ -207,10 +797,14 @@ public sealed class Chunk
     {
         ValidateCoordinates(x, y, z);
         var index = ToIndex(x, y, z);
-        if (!_objects.TryGetValue(index, out var objects) || !objects.Remove(obj))
+        if (_objects is not { } objectIndex ||
+            !objectIndex.TryGetValue(index, out var objects) ||
+            !objects.Remove(obj))
             return false;
         if (objects.Count == 0)
-            _objects.Remove(index);
+            objectIndex.Remove(index);
+        if (objectIndex.Count == 0)
+            _objects = null;
         ObjectCount--;
         ObjectRevision++;
         Revision++;
@@ -224,13 +818,16 @@ public sealed class Chunk
         // Rendering/persistence can retain deterministic support order.
         // Spatial queries supply their own hit-distance and identity tie-breaks
         // and should not sort the entire support dictionary each frame.
+        if (_objects is not { } objectIndex)
+            return;
+
         IEnumerable<int> supports = ordered
-            ? _objects.Keys.OrderBy(key => key)
-            : _objects.Keys;
+            ? objectIndex.Keys.OrderBy(key => key)
+            : objectIndex.Keys;
         foreach (var index in supports)
         {
             var (x, y, z) = FromIndex(index);
-            foreach (var obj in _objects[index])
+            foreach (var obj in objectIndex[index])
                 visit(x, y, z, obj);
         }
     }
@@ -255,6 +852,13 @@ public sealed class Chunk
         return _fluids.Get(ToIndex(x, y, z));
     }
 
+    /// <summary>
+    /// Reads a fluid by its already-validated linear index. Internal callers
+    /// must establish that the index belongs to this chunk before using it.
+    /// </summary>
+    internal FluidCell GetFluidAtLinearIndexUnchecked(int voxelIndex) =>
+        _fluids.Get(voxelIndex);
+
     public FluidCell GetFluidOrEmpty(int x, int y, int z)
     {
         if (!Contains(x, y, z))
@@ -274,25 +878,47 @@ public sealed class Chunk
         ValidateCoordinates(x, y, z);
 
         var index = ToIndex(x, y, z);
-        var previous = _fluids.Get(index);
-        if (!_fluids.Set(index, fluid))
+        if (!_fluids.Set(index, fluid, out var previous))
             return false;
 
         // Fluid-supported Objects are removed when their supporting surface
         // disappears, changes identity, or drops below the voxel's top face.
-        // No solid-block attachments are affected by fluid changes.
+        // No solid-block attachments are affected by fluid changes. If the
+        // chunk has no Objects, avoid a dictionary lookup on generated fluids.
         if (_cells.Get(index).IsEmpty &&
             (fluid.IsEmpty || fluid.Level != FluidCell.MaxLevel ||
              !fluid.IsSource ||
              previous.Fluid != fluid.Fluid) &&
-            _objects.Remove(index, out var detached))
+            ObjectCount > 0 &&
+            _objects is { } objectIndex &&
+            objectIndex.Remove(index, out var detached))
         {
             ObjectCount -= detached.Count;
             ObjectRevision++;
+            if (objectIndex.Count == 0)
+                _objects = null;
         }
 
         Revision++;
         return true;
+    }
+
+    public int VisitFluidCellsInMeshlet(
+        int meshletIndex,
+        Action<int, int, int, FluidCell> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        return _fluids.VisitOccupiedInBox(
+            bounds.MinX, bounds.MinY, bounds.MinZ,
+            ChunkMeshletMask.Edge,
+            ChunkMeshletMask.Edge,
+            ChunkMeshletMask.Edge,
+            (voxelIndex, fluid) =>
+            {
+                var (x, y, z) = FromIndex(voxelIndex);
+                visit(x, y, z, fluid);
+            });
     }
 
     public void VisitFluidCells(
@@ -331,29 +957,142 @@ public sealed class Chunk
             out visitedCount);
     }
 
+    public VoxelLight GetLight(int x, int y, int z)
+    {
+        ValidateCoordinates(x, y, z);
+        return _light[ToIndex(x, y, z)];
+    }
 
+    public void SetLight(int x, int y, int z, VoxelLight light)
+    {
+        ValidateCoordinates(x, y, z);
+        _light[ToIndex(x, y, z)] = light;
+    }
 
+    public void ClearLight()
+    {
+        Array.Clear(_light);
+    }
 
     // Fills one horizontal Y layer of the light field. The voxel storage
     // order is X/Z within each Y layer, so this avoids thousands of
     // coordinate validations and method calls for horizontally uniform light.
+    internal void FillLightLayer(int y, VoxelLight value)
+    {
+        if ((uint)y >= Size)
+            throw new ArgumentOutOfRangeException(nameof(y));
 
-public Chunk CloneForWorker() =>
+        Array.Fill(_light, value, y * Area, Area);
+    }
+
+    // Initial light of a truly empty chunk is uniform open sky. Filling
+    // the packed field once avoids four thousand medium/registry lookups.
+    public void FillLight(VoxelLight value)
+    {
+        Array.Fill(_light, value);
+    }
+
+    public Chunk CloneForWorker() =>
         new(
             _cells.Clone(),
             _fluids.Clone(),
             _microblockMasks.Clone(),
-            new Dictionary<int, BlockSurfaceState>(_surfaceStates),
-            _objects.ToDictionary(entry => entry.Key,
-                entry => new List<ObjectCell>(entry.Value)),
+            _surfaceStates is { Count: > 0 } surfaceStates
+                ? new Dictionary<int, BlockSurfaceState>(surfaceStates)
+                : null,
+            _objects is { Count: > 0 } objectIndex
+                ? objectIndex.ToDictionary(entry => entry.Key,
+                    entry => new List<ObjectCell>(entry.Value))
+                : null,
+            _directionalFaceData?.Clone(),
+            _directionalFaceDataInitialized,
+            (VoxelLight[])_light.Clone(),
             Revision,
             ObjectRevision)
         { ObjectCount = this.ObjectCount };
 
+    /// <summary>
+    /// Creates an isolated lighting snapshot. Surface appearance state is
+    /// intentionally omitted because the light solver only reads block/fluid
+    /// cells, microblock geometry, attached Objects and the current light field.
+    /// </summary>
+    internal Chunk CloneForLightingWorker() =>
+        new(
+            _cells.Clone(),
+            _fluids.Clone(),
+            _microblockMasks.Clone(),
+            [],
+            _objects is { Count: > 0 } objectIndex
+                ? objectIndex.ToDictionary(entry => entry.Key,
+                    entry => new List<ObjectCell>(entry.Value))
+                : null,
+            null,
+            false,
+            (VoxelLight[])_light.Clone(),
+            Revision,
+            ObjectRevision)
+        { ObjectCount = this.ObjectCount };
+
+    public bool CopyLightFrom(Chunk source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var changed = false;
+        for (var index = 0; index < Volume; index++)
+        {
+            var light = source._light[index];
+            changed |= _light[index] != light;
+            _light[index] = light;
+        }
+
+        return changed;
+    }
+
+    public int VisitLayeredCellsInMeshlet(
+        int meshletIndex,
+        Action<int, int, int, BlockSurfaceState> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+        var surfaceStates = _surfaceStates;
+        if (surfaceStates is not { Count: > 0 })
+            return 0;
+
+        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        List<int>? selected = null;
+        foreach (var (voxelIndex, state) in surfaceStates)
+        {
+            if (state.Layers.Count == 0)
+                continue;
+
+            var (x, y, z) = FromIndex(voxelIndex);
+            if (x < bounds.MinX || x >= bounds.MaxXExclusive ||
+                y < bounds.MinY || y >= bounds.MaxYExclusive ||
+                z < bounds.MinZ || z >= bounds.MaxZExclusive)
+                continue;
+
+            selected ??= [];
+            selected.Add(voxelIndex);
+        }
+
+        if (selected is null)
+            return 0;
+
+        // Match the chunk's normal Y/Z/X traversal order independent of
+        // insertion/removal history in the sparse state dictionary.
+        selected.Sort();
+        foreach (var voxelIndex in selected)
+        {
+            var (x, y, z) = FromIndex(voxelIndex);
+            visit(x, y, z, surfaceStates[voxelIndex]);
+        }
+
+        return selected.Count;
+    }
+
     public BlockSurfaceState GetSurfaceState(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
-        return _surfaceStates.TryGetValue(ToIndex(x, y, z), out var state)
+        return _surfaceStates is { } surfaceStates &&
+               surfaceStates.TryGetValue(ToIndex(x, y, z), out var state)
             ? state
             : BlockSurfaceState.Empty;
     }
@@ -371,9 +1110,15 @@ public Chunk CloneForWorker() =>
             return false;
 
         if (state.IsEmpty)
-            _surfaceStates.Remove(index);
+        {
+            _surfaceStates?.Remove(index);
+            if (_surfaceStates is { Count: 0 })
+                _surfaceStates = null;
+        }
         else
-            _surfaceStates[index] = state;
+        {
+            (_surfaceStates ??= [])[index] = state;
+        }
 
         Revision++;
         return true;

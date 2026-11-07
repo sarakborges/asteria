@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,6 +41,11 @@ jobs:
 
       - name: Test engine-agnostic core
         run: dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --configuration Release
+
+      - name: Test directional palette diagnostics in Debug
+        run: |
+          dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --configuration Debug \
+            --filter FullyQualifiedName~DirectionalPaletteDiagnosticsAreReproducibleForFixedSeedAndChunk
 
       - name: Build Godot C# Debug assembly for native script loading
         run: dotnet build Asteria.csproj --configuration Debug
@@ -76,6 +85,21 @@ jobs:
             --enforce-ci-budgets true \
             --output worldgen-benchmark.json
 
+      - name: Profile fixed-seed directional face palettes
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Debug -- \
+            --seed 181960897289965 --dimension asteria:overworld \
+            --samples 2 --area-size 4 --chunks 1 \
+            --output worldgen-directional-face-palette-profile.json
+
+      - name: Profile per-voxel, regional and regional-hybrid geology selection
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 181960897289965 --dimension asteria:overworld \
+            --samples 1 --area-size 1 --chunks 1 \
+            --profile-geology-sampling true \
+            --output worldgen-geology-sampling.json
+
       - name: Render fixed-seed biome map fixtures
         run: |
           dotnet run --project tools/BiomeMap --configuration Release -- \
@@ -95,6 +119,25 @@ jobs:
             --map-size 96 --map-step 4 --chunks 1 --search-radius 64 \
             --material-map-output biome-map-geology-ocean.svg
 
+      - name: Render regional geology in ocean terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 64 \
+            --material-map-sampling-mode regional \
+            --material-map-output biome-map-geology-ocean-regional.svg
+
+      - name: Render per-voxel geology in ocean terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/ocean \
+            --material-map-sampling-mode per-voxel \
+            --material-map-output biome-map-geology-ocean-per-voxel.svg
+
       - name: Render materialized 3D geology on elevated mountain terrain
         run: |
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
@@ -104,12 +147,63 @@ jobs:
             --material-map-biome asteria:overworld/mountains \
             --material-map-output biome-map-geology-mountains.svg
 
+      - name: Render regional geology on elevated mountain terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/mountains \
+            --material-map-sampling-mode regional \
+            --material-map-output biome-map-geology-mountains-regional.svg
+
+      - name: Render per-voxel geology on elevated mountain terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/mountains \
+            --material-map-sampling-mode per-voxel \
+            --material-map-output biome-map-geology-mountains-per-voxel.svg
+
+      - name: Render authored and regional geology in swamp terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 0 --center-z 0 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/swamp \
+            --material-map-output biome-map-geology-swamp-authored.svg
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 0 --center-z 0 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/swamp \
+            --material-map-sampling-mode regional \
+            --material-map-output biome-map-geology-swamp-regional.svg
+
+      - name: Render regional-hybrid geology across representative biomes
+        run: |
+          for biome in plains swamp ocean mountains; do
+            dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+              --seed 7808508665006554090 --dimension asteria:overworld \
+              --center-x 0 --center-z 0 --samples 1 --area-size 1 \
+              --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+              --material-map-biome "asteria:overworld/${biome}" \
+              --material-map-sampling-mode regional-hybrid \
+              --material-map-output "biome-map-geology-${biome}-regional-hybrid.svg"
+          done
+
       - name: Upload worldgen query baseline
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: worldgen-query-baseline
-          path: worldgen-benchmark.json
+          path: |
+            worldgen-benchmark.json
+            worldgen-directional-face-palette-profile.json
+            worldgen-geology-sampling.json
           if-no-files-found: ignore
 
       - name: Upload biome map fixture
@@ -120,6 +214,198 @@ jobs:
           path: biome-map-*.svg
           if-no-files-found: ignore
 
+  terrain-ab:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout pull request head and history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Resolve terrain A/B candidate and baseline
+        id: terrain_scope
+        shell: bash
+        env:
+          # Pre-feature baseline: last correct version before per-voxel
+          # directional exposure metadata was introduced.
+          BASELINE_SHA: f6affd92ddb1dcd109238c25f8ea40d1172bd872
+        run: |
+          set -euo pipefail
+          changed_paths=(
+            src/Asteria.Core/World/CaveSpikeField.cs
+            src/Asteria.Core/World/SurfaceChunkMaterializer.cs
+            src/Asteria.Core/World/Chunk.cs
+            tools/WorldgenBenchmark/Program.cs
+            src/Asteria.Core/World/WorldGenerationEntropy.cs
+            src/Asteria.Core/World/SurfaceTerrainField.cs
+            src/Asteria.Core/World/BiomeSurfaceMaterialField.cs
+            src/Asteria.Core/World/BiomeField.cs
+            src/Asteria.Core/World/BiomeWorldGenerator.cs
+            src/Asteria.Core/World/VolumeStructureField.cs
+            src/Asteria.Core/World/VolumeBiomeField.cs
+          )
+          baseline_commit="$BASELINE_SHA"
+          git cat-file -e "${baseline_commit}^{commit}"
+          if git diff --quiet "${baseline_commit}...HEAD" -- "${changed_paths[@]}"; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No terrain materialization changes found in the pull-request history."
+            exit 0
+          fi
+
+          # Benchmark the exact PR head, not the last commit touching a worldgen
+          # file. Diagnostic/interface fixes may land in a later commit and are
+          # still required to build and measure that terrain implementation.
+          candidate_commit="$(git rev-parse HEAD)"
+          echo "candidate_commit=$candidate_commit" >> "$GITHUB_OUTPUT"
+          echo "baseline_commit=$baseline_commit" >> "$GITHUB_OUTPUT"
+          echo "run=true" >> "$GITHUB_OUTPUT"
+          echo "A/B baseline: $baseline_commit"
+          echo "A/B candidate (PR head): $candidate_commit"
+
+      - name: Setup .NET
+        if: steps.terrain_scope.outputs.run == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build baseline and candidate benchmark tools
+        if: steps.terrain_scope.outputs.run == 'true'
+        shell: bash
+        env:
+          BASELINE_SHA: ${{ steps.terrain_scope.outputs.baseline_commit }}
+          CANDIDATE_SHA: ${{ steps.terrain_scope.outputs.candidate_commit }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/terrain-layer-ab"
+          baseline="$root/baseline"
+          candidate="$root/candidate"
+          mkdir -p "$root"
+          baseline_sha="$BASELINE_SHA"
+          git worktree add --detach "$baseline" "$baseline_sha"
+          git worktree add --detach "$candidate" "$CANDIDATE_SHA"
+          dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+            --configuration Release --nologo
+          dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+            --configuration Debug --nologo
+          echo "TERRAIN_AB_BASELINE_SHA=$baseline_sha" >> "$GITHUB_ENV"
+          echo "Selected terrain A/B baseline: $baseline_sha"
+          dotnet build "$candidate/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+            --configuration Release --nologo
+          dotnet build "$candidate/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+            --configuration Debug --nologo
+
+      - name: Run alternating fixed-seed terrain A/B benchmarks
+        if: steps.terrain_scope.outputs.run == 'true'
+        shell: bash
+        env:
+          BASELINE_SHA: ${{ env.TERRAIN_AB_BASELINE_SHA }}
+          CANDIDATE_SHA: ${{ steps.terrain_scope.outputs.candidate_commit }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/terrain-layer-ab"
+          mkdir -p "$root/results/baseline" "$root/results/candidate"
+
+          run_benchmark() {
+            local version="$1"
+            local project_root="$2"
+            local repetition="$3"
+            local output="$root/results/$version/$repetition.json"
+            local log="$root/results/$version/$repetition.log"
+            if ! dotnet run \
+              --project "$project_root/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+              --configuration Release --no-build -- \
+              --project-root "$project_root" \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --samples 2 --area-size 4 --chunks 1 \
+              --output "$output" > "$log" 2>&1; then
+              cat "$log"
+              return 1
+            fi
+          }
+
+          baseline="$root/baseline"
+          candidate="$root/candidate"
+          for repetition in 1 2 3 4; do
+            if [ "$((repetition % 2))" -eq 1 ]; then
+              run_benchmark baseline "$baseline" "$repetition"
+              run_benchmark candidate "$candidate" "$repetition"
+            else
+              run_benchmark candidate "$candidate" "$repetition"
+              run_benchmark baseline "$baseline" "$repetition"
+            fi
+          done
+
+          python3 tools/perf/compare_worldgen_ab.py \
+            --baseline-dir "$root/results/baseline" \
+            --candidate-dir "$root/results/candidate" \
+            --repetitions 4 --expected-chunks 67 \
+            --baseline-sha "$BASELINE_SHA" \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --json-output "$root/results/summary.json" \
+            --report-output "$root/results/report.md"
+          
+          mkdir -p "$root/results/profiles"
+          run_debug_profile() {
+            local version="$1"
+            local project_root="$2"
+            local output="$root/results/profiles/$version.json"
+            local log="$root/results/profiles/$version.log"
+            if ! dotnet run \
+              --project "$project_root/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+              --configuration Debug --no-build -- \
+              --project-root "$project_root" \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --samples 2 --area-size 4 --chunks 1 \
+              --output "$output" > "$log" 2>&1; then
+              cat "$log"
+              return 1
+            fi
+          }
+          run_debug_profile baseline "$baseline"
+          run_debug_profile candidate "$candidate"
+          
+          python3 - "$root/results/profiles/baseline.json" "$root/results/profiles/candidate.json" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import sys
+          
+          def read(path):
+              with open(path, encoding="utf-8") as stream:
+                  document = json.load(stream)
+              return document["initialAreaStageTimingDiagnostics"]["warm"][
+                  "directionalFacePaletteProfile"
+              ]
+          
+          baseline, candidate = map(read, sys.argv[1:])
+          fields = (
+              "densitySlabReadMilliseconds",
+              "horizontalBoundaryReadMilliseconds",
+              "occupancyRowAssemblyMilliseconds",
+              "candidateMaskBuildMilliseconds",
+              "horizontalBoundaryBatchCount",
+              "horizontalBoundaryColumnCount",
+          )
+          print("\n### Directional-face preparation profile (Debug)\n")
+          print("| Metric | Baseline | Candidate |")
+          print("|---|---:|---:|")
+          for field in fields:
+              baseline_value = baseline.get(field, "not instrumented")
+              candidate_value = candidate.get(field, "not instrumented")
+              print(f"| {field} | {baseline_value} | {candidate_value} |")
+          print()
+          PY
+          
+          cat "$root/results/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload terrain A/B evidence
+        if: always() && steps.terrain_scope.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terrain-layer-ab
+          path: ${{ runner.temp }}/terrain-layer-ab/results/
+          if-no-files-found: ignore
   webui:
     runs-on: ubuntu-latest
 

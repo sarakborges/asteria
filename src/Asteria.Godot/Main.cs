@@ -20,11 +20,14 @@ public partial class Main : Node3D
         Math.Clamp(
             System.Environment.ProcessorCount - 2,
             1,
-            4);
-    // All CPU-bound world jobs share one admission budget instead of letting
-    // terrain, fluids and streaming independently saturate the pool.
+            6);
+    // Terrain, lighting, fluids and streaming share the bounded CPU worker pool.
+    // Minecraft Java's chunk pipeline shares a bounded worker pool across
+    // worldgen and downstream work. Keep that shared admission model, but
+    // allow more of the available CPU to serve Asteria's smaller vertical
+    // chunks when streaming backlog is sustained.
     private static readonly int MaxConcurrentWorldJobs =
-        Math.Clamp(System.Environment.ProcessorCount - 1, 2, 6);
+        Math.Clamp(System.Environment.ProcessorCount - 1, 2, 8);
     private static readonly int MaxMaterializationDispatchesPerFrame =
         MaxMaterializationTasksInFlight;
     private const int MaxMaterializationResultsPerFrame = 8;
@@ -95,9 +98,13 @@ public partial class Main : Node3D
         _sessions.Active.FluidMesh;
     private FluidSimulationRuntime _fluidSimulationRuntime =>
         _sessions.Active.FluidSimulation;
+    private LightingRuntime _lightingRuntime =>
+        _sessions.Active.Lighting;
+
     private int ActiveWorldWorkerCount =>
         _residency.ActiveWorkerCount +
         _fluidSimulationRuntime.ActiveWorkerCount +
+        _lightingRuntime.ActiveWorkerCount +
         _terrainMeshPipeline.ActiveWorkerCount +
         _fluidMeshPipeline.ActiveWorkerCount;
 
@@ -106,6 +113,7 @@ public partial class Main : Node3D
     private bool HasReadyNonStreamingWorldWork =>
         (!_fluidSimulationRuntime.IsRunning &&
          _fluidUpdates.HasReadyWork(_worldTicks.CurrentTick)) ||
+        (!_lightingRuntime.IsRunning && _worldUpdates.HasLightingWork) ||
         (_terrainMeshPipeline.ActiveWorkerCount < 2 &&
          (_worldUpdates.HasPriorityMeshWork || _worldUpdates.HasBackgroundMeshWork)) ||
         (_fluidMeshPipeline.ActiveWorkerCount < MaxFluidMeshWorkers &&
@@ -163,6 +171,7 @@ public partial class Main : Node3D
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
     private VoxelTerrainMaterialSet _terrainMaterials = null!;
+    private HeldDynamicLightPresentation _heldDynamicLight = null!;
     private FluidMaterialCatalog _fluidMaterials = null!;
     private readonly WorldHudStateTracker _worldHud =
         new();
@@ -317,7 +326,7 @@ public partial class Main : Node3D
             _dimensions, _blocks, _fluids, _dyes, _layers);
         _worldLoad = new WorldLoadController(
             WorldSaveDirectories.Root,
-            _dimensions, _blocks, _fluids, _dyes, _layers);
+            _dimensions, _blocks, _fluids, _dyes, _layers, _objects);
         _worldDelete = new WorldDeleteController(
             WorldSaveDirectories.Root);
         _structures.ValidateBlocks(
@@ -341,6 +350,8 @@ public partial class Main : Node3D
         _terrainMaterials =
             VoxelTerrainMaterialSet.Create(
                 _terrainTextures);
+        _heldDynamicLight = new HeldDynamicLightPresentation(
+            this, _blocks, _objects);
         _placementPreview = new BlockPlacementPreviewPresentation(
             this, _blocks, _fluids, _terrainTextureLookup, _terrainMaterials);
         _objectPlacementPreview = new ObjectPlacementPreviewPresentation(
@@ -637,7 +648,7 @@ public partial class Main : Node3D
         {
             _placementPreview.Hide();
             _objectPlacementPreview.Hide();
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu", 0, 0, false);
+            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu", 0, 0, 0, false, false);
             return;
         }
 
@@ -657,8 +668,21 @@ public partial class Main : Node3D
         {
             _placementPreview.Hide();
             _objectPlacementPreview.Hide();
+            _heldDynamicLight.Clear();
             AdvanceDimensionTransition();
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, false);
+
+            // A successful Save and Leave completes the transition by
+            // clearing _sessions. Do not dereference Active afterward.
+            if (_sessions is { Active: { } activeSession })
+            {
+                _worldDiagnostics?.FlushIfDue(
+                    0, 0, activeSession.Residency.MaterializingCount, 0,
+                    "Transitioning", 0, 0, 0, false, false,
+                    activeSession.Residency.ActiveWorkerCount,
+                    activeSession.Residency.MaterializationJobCount,
+                    activeSession.Residency.SuspendedMaterializationCount);
+            }
+
             return;
         }
 
@@ -686,7 +710,9 @@ public partial class Main : Node3D
             delta,
             _worldUpdates.DirtyChunkCount,
             loadingWorld,
-            pendingPhysicsWakeups: _blockPhysicsUpdates.Count);
+            pendingLightingSeeds: _worldUpdates.LightingEditCount,
+            pendingPhysicsWakeups: _blockPhysicsUpdates.Count,
+            pendingTerrainPublications: _chunkPresentations.PendingTerrainPublications);
         var stageStart = Stopwatch.GetTimestamp();
         var availableWorkerSlots = Math.Max(
             0, MaxConcurrentWorldJobs - ActiveWorldWorkerCount);
@@ -695,14 +721,16 @@ public partial class Main : Node3D
             : 0;
         var materializationSlots = Math.Max(
             0, availableWorkerSlots - reservedWorkerSlots);
+        var materializationStarts = streamingPressure.IsPressured
+            ? 0
+            : materializationSlots;
         var streamingBegin =
             _chunkStreaming.BeginFrame(
                 streamingCenter,
                 _worldFrameBudget,
                 streamingRadius,
                 RequiresPortalSurfaceAccess,
-                streamingPressure,
-                materializationSlots);
+                materializationStarts);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.StreamingBegin, stageStart);
         ReportStreamingSelection(
@@ -799,11 +827,20 @@ public partial class Main : Node3D
             WorldFrameStage.ObjectPresentation, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
+        PollLightingWorker();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.LightingPoll, stageStart);
+
         stageStart = Stopwatch.GetTimestamp();
-        var allowMeshDispatch = _loading.AllowsMeshDispatch();
+        // Initial lighting can revise mesh inputs while the seam queue drains.
+        // Let it settle before starting bootstrap mesh builds, avoiding work
+        // that will immediately be rejected and rebuilt against newer light.
+        var allowMeshDispatch = _loading.AllowsMeshDispatch(
+            lightingSettled:
+                !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant));
         DispatchReadyWorldWorkers(
             streamingPressure.IsPressured, streamingCenter,
-            allowMeshDispatch);
+            _loading.AllowsLightingDispatch, allowMeshDispatch);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.WorkerDispatch, stageStart);
 
@@ -831,9 +868,24 @@ public partial class Main : Node3D
             _residency.MaterializingCount,
             _chunkPresentations.Count,
             _loading.Progress.Phase.ToString(),
+            _worldUpdates.LightingEditCount,
             _worldUpdates.DirtyChunkCount,
             _fluidMeshUpdates.DirtyChunkCount,
-            _fluidSimulationRuntime.IsRunning);
+            _lightingRuntime.IsRunning,
+            _fluidSimulationRuntime.IsRunning,
+            _residency.ActiveWorkerCount,
+            _residency.MaterializationJobCount,
+            _residency.SuspendedMaterializationCount,
+            priorityLightingPending: _worldUpdates.PriorityLightingEditCount,
+            backgroundLightingPending: _worldUpdates.BackgroundLightingEditCount,
+            priorityTerrainMeshPending: _worldUpdates.PriorityDirtyChunkCount,
+            backgroundTerrainMeshPending: _worldUpdates.BackgroundDirtyChunkCount,
+            terrainMeshWorkersActive: _terrainMeshPipeline.ActiveWorkerCount,
+            fluidMeshWorkersActive: _fluidMeshPipeline.ActiveWorkerCount,
+            terrainPublicationsPending: _chunkPresentations.PendingTerrainPublications,
+            terrainMeshFlushPending: _chunkPresentations.PendingTerrainMeshFlushCount,
+            activeWorldWorkers: ActiveWorldWorkerCount,
+            maximumWorldWorkers: MaxConcurrentWorldJobs);
 
         if (loadingWorld)
         {
@@ -1224,6 +1276,7 @@ public partial class Main : Node3D
         _worldDiagnostics?.Write(
             $"world.leave.complete generation={completion.SavedGeneration}");
         _dimensionEnvironment.Clear();
+        _heldDynamicLight.Clear();
         _placementPreview.Hide();
         _objectPlacementPreview.Hide();
         _ambientParticleRuntime = null;
@@ -1295,6 +1348,11 @@ public partial class Main : Node3D
             _dimensionEnvironment.FollowCamera(
                 player.Camera.GlobalPosition, deltaSeconds);
         }
+        _heldDynamicLight.Sync(
+            _worldReadySent && _sessionStates.Player.CanInteract
+                ? _sessionStates.Player.Inventory
+                : null,
+            _player?.Camera);
     }
 
     private void SendWorldClockState(
@@ -2516,6 +2574,8 @@ public partial class Main : Node3D
         _worldDiagnostics?.Write(
             $"world.settings render_distance_chunks={_clientPreferences.RenderDistanceChunks} " +
             $"retention_margin_chunks={RetentionMarginChunks} " +
+            $"processor_count={System.Environment.ProcessorCount} " +
+            $"max_world_jobs={MaxConcurrentWorldJobs} " +
             $"max_materialization_workers={MaxMaterializationTasksInFlight}");
         GD.Print(
             $"world.start seed={_sessionStates.WorldSeed} " +
@@ -2555,6 +2615,8 @@ public partial class Main : Node3D
         new(
             ResidencySettled: !_residency.HasRenderableBacklog,
             SelectionSettled: !_chunkStreaming.IsSelectionRunning,
+            LightingSettled:
+                !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant),
             TerrainMeshWorkSettled:
                 !_terrainMeshPipeline.HasWorkAffecting(_residency.IsDesired),
             TerrainPublicationsSettled:
@@ -4615,6 +4677,8 @@ public partial class Main : Node3D
                                 objectHit.Support))
                         : IconDataUri(definition.Icon),
                     face = objectHit.Object.Face.ToString().ToLowerInvariant(),
+                    skyLight = objectSnapshot.SkyLight,
+                    blockLight = objectSnapshot.BlockLight,
                     position = new
                     {
                         x = objectHit.Support.X,
@@ -4664,6 +4728,8 @@ public partial class Main : Node3D
                         value = selectedFluid.Fluid.Level,
                         maximum = FluidCell.MaxLevel,
                     },
+                    skyLight = selectedFluid.Light.Sky,
+                    blockLight = selectedFluid.Light.BlockPeak,
                     position = new { x = voxel.X, y = voxel.Y, z = voxel.Z },
                 });
                 SendWebUi("game.hud.prompt", new { });
@@ -4717,6 +4783,8 @@ public partial class Main : Node3D
                         face = layer.Face.ToString().ToLowerInvariant(),
                     })
                     .ToArray(),
+                skyLight = value.SkyLight,
+                blockLight = value.BlockLight,
                 position = new { x = value.X, y = value.Y, z = value.Z },
             });
         var breakHint = _clientPreferences.HintVisible(
@@ -4765,6 +4833,11 @@ public partial class Main : Node3D
         string type,
         object payload)
     {
+        // Main can receive a final frame while its WebUi child is being freed.
+        // HUD updates are best-effort and must not take down the client.
+        if (_webUi is null || !GodotObject.IsInstanceValid(_webUi))
+            return;
+
         _webUi.Call(
             "post_message",
             JsonSerializer.Serialize(
@@ -5708,6 +5781,7 @@ public partial class Main : Node3D
             _worldDiagnostics?.ObserveFluidMesh(
                 completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
                 completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
+                completed.RelitWithoutMeshing,
                 completed.SalvagedFromStaleBatch,
                 completed.CaptureMilliseconds);
             if (completed.Kind != MeshPipelineCompletionKind.Applied)
@@ -5731,6 +5805,8 @@ public partial class Main : Node3D
             _fluidMeshPipeline.IntegratePublications(
                 MaxFluidMeshletPublishesPerFrame,
                 budget);
+        _worldDiagnostics?.ObserveFluidPublication(stats);
+
         if (_debugHudVisible &&
             stats.Handled > 0)
         {
@@ -5764,6 +5840,7 @@ public partial class Main : Node3D
             completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
             completed.CaptureMilliseconds,
             completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
+            completed.RelitWithoutMeshing,
             completed.SalvagedFromStaleBatch);
         if (completed.Kind != MeshPipelineCompletionKind.Applied)
             return;
@@ -5777,6 +5854,50 @@ public partial class Main : Node3D
         }
     }
 
+    private void PollLightingWorker()
+    {
+        if (!_lightingRuntime.TryPollCompleted(
+                out var report,
+                out var error))
+        {
+            return;
+        }
+
+        if (error is not null)
+        {
+            _worldDiagnostics?.Error("worker.lighting.failed", error);
+            GD.PushError(error.ToString());
+            return;
+        }
+
+        if (report is null)
+        {
+            return;
+        }
+
+        _worldDiagnostics?.ObserveLighting(report);
+        if (report.Kind != LightingCompletionKind.Applied)
+        {
+            return;
+        }
+        if (_debugHudVisible)
+        {
+            GD.Print(
+                $"world.lighting worker_ms=" +
+                $"{report.WorkerMilliseconds:F2} " +
+                $"light_changes=" +
+                $"{report.ChangedVoxelCount} " +
+                $"dirty_chunks=" +
+                $"{report.DirtyChunkCount} " +
+                $"dirty_meshlets=" +
+                $"{report.DirtyMeshletCount} " +
+                $"light_processed=" +
+                $"{report.ProcessedVoxelCount} " +
+                $"capture_ms={report.CaptureMilliseconds:F2} " +
+                $"apply_ms={report.ApplyMilliseconds:F2}");
+        }
+
+    }
 
     private void IntegrateMeshletPublications(
         WorldFrameWorkBudget budget)
@@ -5800,7 +5921,7 @@ public partial class Main : Node3D
 
     private void DispatchReadyWorldWorkers(
         bool underStreamingPressure, ChunkCoord center,
-        bool allowMeshDispatch)
+        bool allowLightingDispatch, bool allowMeshDispatch)
     {
         // Each domain owns an independent async worker. Snapshot capture still
         // runs against the authoritative world on this thread, so cap dispatch
@@ -5825,7 +5946,8 @@ public partial class Main : Node3D
                 0 => _fluidSimulationRuntime.TryStartReadyWork(),
                 1 => allowMeshDispatch && _terrainMeshPipeline.TryStartReadyWork(
                     underStreamingPressure, center, _residency.MovementDirection),
-                2 => false,
+                2 => allowLightingDispatch && _lightingRuntime.TryStartReadyWork(
+                    center, _residency.MovementDirection),
                 _ => allowMeshDispatch && _fluidMeshPipeline.TryStartReadyWork(
                     center, _residency.MovementDirection),
             };

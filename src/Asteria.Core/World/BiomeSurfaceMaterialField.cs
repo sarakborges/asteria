@@ -1,5 +1,28 @@
 namespace Asteria.Core.World;
 
+[Flags]
+internal enum BiomePaletteFaceMask : byte
+{
+    None = 0,
+    Floor = 1 << 0,
+    Walls = 1 << 1,
+    Ceiling = 1 << 2,
+}
+
+internal readonly record struct BiomeDirectionalPalette(
+    BiomePaletteFaceMask Faces,
+    uint MaxDepth)
+{
+    public bool Has(BiomePaletteFace face) =>
+        (Faces & (face switch
+        {
+            BiomePaletteFace.Floor => BiomePaletteFaceMask.Floor,
+            BiomePaletteFace.Walls => BiomePaletteFaceMask.Walls,
+            BiomePaletteFace.Ceiling => BiomePaletteFaceMask.Ceiling,
+            _ => throw new ArgumentOutOfRangeException(nameof(face)),
+        })) != 0;
+}
+
 /// <summary>
 /// Resolves authored surface coatings and three-dimensional solid geology.
 /// Terrain height may blend biome influences; material ownership stays with
@@ -7,6 +30,86 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class BiomeSurfaceMaterialField
 {
+    /// <summary>
+    /// Resolved per-biome geology rule for hot voxel loops. A chunk column
+    /// keeps this handle so each voxel does not repeat a string-keyed lookup.
+    /// </summary>
+    internal readonly struct GeologySampler
+    {
+        // One reference per column instead of duplicating the immutable seed
+        // and rule reference in every cache entry.
+        private readonly ResolvedGeology? _geology;
+
+        private GeologySampler(ResolvedGeology? geology)
+        {
+            _geology = geology;
+        }
+
+        internal static GeologySampler Resolve(
+            BiomeSurfaceMaterialField field,
+            BiomeSample sample) =>
+            field._geologyRules.TryGetValue(sample.Primary, out var geology)
+                ? new GeologySampler(geology)
+                : default;
+
+        internal uint? SurfaceCoverDepth =>
+            _geology?.SurfaceCoverDepth;
+
+        internal bool RequiresSubmergedSurface =>
+            _geology is { SurfaceCoverage: > 0f } &&
+            _geology.SurfaceSubmergedOnly;
+
+        internal bool TryBlockAtCached(
+            int worldX,
+            int worldY,
+            int worldZ,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+            out BlockRuntimeId block)
+        {
+            if (_geology is null)
+            {
+                block = BlockRuntimeId.Air;
+                return false;
+            }
+
+            block = _geology.BlockAtCached(
+                worldX, worldY, worldZ, latticeCache);
+            return true;
+        }
+
+        internal bool TrySurfaceBlockAtCached(
+            int worldX,
+            int worldY,
+            int worldZ,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+            out BlockRuntimeId block)
+        {
+            if (_geology is null ||
+                !_geology.TrySurfaceBlockAtCached(
+                    worldX, worldY, worldZ,
+                    out block, latticeCache))
+            {
+                block = BlockRuntimeId.Air;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    private const int SampledColumnCacheCapacity = 8192;
+
+    private readonly record struct MaterialColumnKey(
+        BiomeSample Sample,
+        int WorldX,
+        int WorldZ,
+        SurfacePlacementContext? Placement);
+
+    private readonly BoundedMemoCache<
+        MaterialColumnKey,
+        BiomeSurfaceMaterialColumn> _sampledColumns =
+            new(SampledColumnCacheCapacity);
+
     private readonly ulong _seed;
     private readonly SurfaceTerrainField? _terrain;
     private readonly SurfaceMosaicField? _mosaic;
@@ -42,16 +145,26 @@ public sealed class BiomeSurfaceMaterialField
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
                 biome => biome.Id,
-                biome => ResolvedGeology.Create(biome.Id, biome.Geology!, blocks),
+                biome => ResolvedGeology.Create(seed, biome.Id, biome.Geology!, blocks),
                 StringComparer.Ordinal);
-        HasExteriorOverrides = _faceRules.Values.Any(
-            profile => profile.Exterior &&
-                (profile.OverrideWalls || profile.OverrideCeiling));
-        MaximumCavePaintDepth = _faceRules.Values
-            .Where(profile => !profile.Exterior)
-            .Select(profile => profile.MaxDepth)
+
+        var volumeBiomeIds = biomeDefinitions
+            .Where(biome => biome.VolumeLayout is not null)
+            .Select(biome => biome.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        HasDirectionalFacePalettes = _faceRules.Any(pair =>
+            pair.Value.OverrideWalls ||
+            pair.Value.OverrideCeiling ||
+            (volumeBiomeIds.Contains(pair.Key) &&
+             (!_geologyRules.ContainsKey(pair.Key) ||
+              pair.Value.OverrideFloor)));
+        MaximumDirectionalPaintDepth = _faceRules.Values
+            .Select(rule => rule.MaxDepth)
             .DefaultIfEmpty(0u)
             .Max();
+        FacePalettesPreserveOccupancy =
+            _faceRules.Values.All(profile => profile.PreservesOccupancy) &&
+            _geologyRules.Values.All(rule => !rule.MayResolveAir);
 
         if (_rules.Count == 0)
         {
@@ -62,16 +175,23 @@ public sealed class BiomeSurfaceMaterialField
     }
 
     /// <summary>
-    /// True only if a surface or additive volume biome authors wall/ceiling
-    /// overrides. Cave-only wall rules do not trigger exterior scanning.
+    /// True when at least one selected volume biome or authored surface
+    /// wall/ceiling override can contribute a directional face material.
     /// </summary>
-    public bool HasExteriorOverrides { get; }
+    public bool HasDirectionalFacePalettes { get; }
 
     /// <summary>
-    /// Immutable upper bound on cave-facing layer depth. Lets the chunk
-    /// materializer detect exposed faces before resolving biome ownership.
+    /// Global upper bound for exposed-face search. The selected owner's
+    /// individual palette depth is checked before painting.
     /// </summary>
-    public uint MaximumCavePaintDepth { get; }
+    public uint MaximumDirectionalPaintDepth { get; }
+
+    /// <summary>
+    /// True when directional face palettes can only replace an existing
+    /// solid block with another solid block. Support-face queries may omit
+    /// these presentation-material rules without changing occupancy.
+    /// </summary>
+    public bool FacePalettesPreserveOccupancy { get; }
 
     public BlockRuntimeId BlockAt(
         BiomeSample sample,
@@ -119,6 +239,15 @@ public sealed class BiomeSurfaceMaterialField
     }
 
     /// <summary>
+    /// Resolves the hot-loop handle for one biome's authored geology.
+    /// </summary>
+    internal GeologySampler ResolveGeology(BiomeSample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return GeologySampler.Resolve(this, sample);
+    }
+
+    /// <summary>
     /// Returns the authored surface-cover depth, or null for biomes using only
     /// the legacy surface profile. Beyond this depth, the 3D geology owns solids.
     /// </summary>
@@ -136,6 +265,23 @@ public sealed class BiomeSurfaceMaterialField
     /// </summary>
     public bool TryGeologyBlockAt(
         BiomeSample sample, int worldX, int worldY, int worldZ,
+        out BlockRuntimeId block) =>
+        TryGeologyBlockAtCore(
+            sample, worldX, worldY, worldZ, null, out block);
+
+    internal bool TryGeologyBlockAtCached(
+        BiomeSample sample, int worldX, int worldY, int worldZ,
+        WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+        out BlockRuntimeId block)
+    {
+        ArgumentNullException.ThrowIfNull(latticeCache);
+        return TryGeologyBlockAtCore(
+            sample, worldX, worldY, worldZ, latticeCache, out block);
+    }
+
+    private bool TryGeologyBlockAtCore(
+        BiomeSample sample, int worldX, int worldY, int worldZ,
+        WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache,
         out BlockRuntimeId block)
     {
         ArgumentNullException.ThrowIfNull(sample);
@@ -145,7 +291,7 @@ public sealed class BiomeSurfaceMaterialField
             return false;
         }
 
-        block = geology.BlockAt(_seed, worldX, worldY, worldZ);
+        block = geology.BlockAt(_seed, worldX, worldY, worldZ, latticeCache);
         return true;
     }
 
@@ -167,11 +313,29 @@ public sealed class BiomeSurfaceMaterialField
     /// </summary>
     public bool TrySurfaceGeologyBlockAt(
         BiomeSample sample, int worldX, int worldY, int worldZ,
+        out BlockRuntimeId block) =>
+        TrySurfaceGeologyBlockAtCore(
+            sample, worldX, worldY, worldZ, null, out block);
+
+    internal bool TrySurfaceGeologyBlockAtCached(
+        BiomeSample sample, int worldX, int worldY, int worldZ,
+        WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+        out BlockRuntimeId block)
+    {
+        ArgumentNullException.ThrowIfNull(latticeCache);
+        return TrySurfaceGeologyBlockAtCore(
+            sample, worldX, worldY, worldZ, latticeCache, out block);
+    }
+
+    private bool TrySurfaceGeologyBlockAtCore(
+        BiomeSample sample, int worldX, int worldY, int worldZ,
+        WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache,
         out BlockRuntimeId block)
     {
         ArgumentNullException.ThrowIfNull(sample);
         if (!_geologyRules.TryGetValue(sample.Primary, out var geology) ||
-            !geology.TrySurfaceBlockAt(_seed, worldX, worldY, worldZ, out block))
+            !geology.TrySurfaceBlockAt(
+                _seed, worldX, worldY, worldZ, out block, latticeCache))
         {
             block = BlockRuntimeId.Air;
             return false;
@@ -230,6 +394,41 @@ public sealed class BiomeSurfaceMaterialField
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
         rules.HasOverride(face);
 
+    internal BiomeDirectionalPalette DirectionalPaletteFor(
+        BiomeRegionOwner owner)
+    {
+        if (!_faceRules.TryGetValue(owner.Biome.Primary, out var rules))
+            return default;
+
+        var faces = BiomePaletteFaceMask.None;
+        if (owner.Kind == BiomeRegionOwnerKind.Surface)
+        {
+            if (rules.OverrideWalls)
+                faces |= BiomePaletteFaceMask.Walls;
+            if (rules.OverrideCeiling)
+                faces |= BiomePaletteFaceMask.Ceiling;
+        }
+        else
+        {
+            var hasGeology = _geologyRules.ContainsKey(owner.Biome.Primary);
+            if (rules.OverrideFloor || !hasGeology)
+                faces |= BiomePaletteFaceMask.Floor;
+            if (rules.OverrideWalls || !hasGeology)
+                faces |= BiomePaletteFaceMask.Walls;
+            if (rules.OverrideCeiling || !hasGeology)
+                faces |= BiomePaletteFaceMask.Ceiling;
+        }
+
+        return faces == BiomePaletteFaceMask.None
+            ? default
+            : new BiomeDirectionalPalette(faces, rules.MaxDepth);
+    }
+
+    internal bool ShouldApplyDirectionalFacePalette(
+        BiomeRegionOwner owner,
+        BiomePaletteFace face) =>
+        DirectionalPaletteFor(owner).Has(face);
+
     public BiomeSurfaceMaterialColumn SampleColumn(
         BiomeSample sample,
         int worldX,
@@ -244,13 +443,27 @@ public sealed class BiomeSurfaceMaterialField
                 $"Surface biome {sample.Primary} has no material rule.");
         }
 
-        var mosaic = _mosaic?.Sample(sample, worldX, worldZ) ?? default;
-        return rule.SampleColumn(
-            _seed,
-            worldX,
-            worldZ,
-            PlacementFor(rule, worldX, worldZ, placement),
-            mosaic.Block);
+        // The same immutable X/Z biome is sampled again for each vertical
+        // chunk band. Cache the resolved layer-depth and block arrays so
+        // vertical materialization does not repeatedly allocate them.
+        var key = new MaterialColumnKey(
+            sample, worldX, worldZ, placement);
+        if (_sampledColumns.TryGet(key, out var cached))
+            return cached;
+
+        return _sampledColumns.GetOrAdd(
+            key,
+            () =>
+            {
+                var mosaic = _mosaic?.Sample(
+                    sample, worldX, worldZ) ?? default;
+                return rule.SampleColumn(
+                    _seed,
+                    worldX,
+                    worldZ,
+                    PlacementFor(rule, worldX, worldZ, placement),
+                    mosaic.Block);
+            });
     }
 
     /// <summary>
@@ -303,8 +516,7 @@ public sealed class BiomeSurfaceMaterialField
         MaterialRule Ceiling,
         bool OverrideFloor,
         bool OverrideWalls,
-        bool OverrideCeiling,
-        bool Exterior)
+        bool OverrideCeiling)
     {
         public uint MaxDepth =>
             Math.Max(1u, Math.Max(Floor.CoreStartDepth,
@@ -317,6 +529,10 @@ public sealed class BiomeSurfaceMaterialField
             BiomePaletteFace.Ceiling => Ceiling,
             _ => throw new ArgumentOutOfRangeException(nameof(face)),
         };
+
+        public bool PreservesOccupancy =>
+            !Floor.MayResolveAir && !Walls.MayResolveAir &&
+            !Ceiling.MayResolveAir;
 
         public bool HasOverride(BiomePaletteFace face) => face switch
         {
@@ -336,18 +552,30 @@ public sealed class BiomeSurfaceMaterialField
                 ? defaults : MaterialRule.Create(biome, blocks, palette.Walls, "walls");
             var ceiling = palette.Ceiling is null
                 ? defaults : MaterialRule.Create(biome, blocks, palette.Ceiling, "ceiling");
-            return new FaceRules(floor, walls, ceiling,
-                palette.Floor is not null, palette.Walls is not null,
-                palette.Ceiling is not null,
-                biome.SurfaceLayout is not null ||
-                biome.VolumeLayout?.Placement == VolumeBiomePlacement.Additive);
+            return new FaceRules(
+                floor, walls, ceiling,
+                palette.Floor is not null,
+                palette.Walls is not null,
+                palette.Ceiling is not null);
         }
     }
 
     private sealed class ResolvedGeology
     {
+        // Each blended field maps to a unit value clamped to
+        // [1e-6, 1 - 1e-6] before its Gumbel score. This is an exact upper
+        // bound for any candidate, enabling safe score pruning when boundary
+        // perturbation (which needs every candidate score) is disabled.
+        private static readonly double MaximumGumbelScore =
+            -Math.Log(-Math.Log(1d - 1e-6d));
+
         private readonly record struct SpatialPosition(double X, double Y, double Z);
 
+        public bool MayResolveAir => _baseBlock.IsAir ||
+            _blocks.Any(block => block.IsAir) ||
+            _volumeBlocks.Any(block => block.IsAir);
+
+        private readonly ulong _seed;
         private readonly BiomeGeologyDefinition _definition;
         private readonly BlockRuntimeId _baseBlock;
         private readonly BlockRuntimeId[] _blocks;
@@ -367,14 +595,98 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain[] _surfaceGrainDomains;
         private readonly double[] _volumeBiases;
         private readonly double[] _surfaceBiases;
+        private readonly double[] _volumeRegionThresholds;
+        private readonly double[] _surfaceRegionThresholds;
+        private readonly GenerationDomain[] _regionWarpDomains;
+        private readonly GenerationDomain[] _regionalEdgeDomains;
+        private readonly GenerationDomain _volumeRegionMaterialDomain;
+        private readonly GenerationDomain _surfaceRegionMaterialDomain;
+        private readonly GenerationDomain _volumeRegionalDetailNoiseDomain;
+        private readonly GenerationDomain _surfaceRegionalDetailNoiseDomain;
+        private readonly GenerationDomain _volumeRegionalDetailMaterialDomain;
+        private readonly GenerationDomain _surfaceRegionalDetailMaterialDomain;
+        private readonly BiomeGeologySamplingMode _samplingMode;
+        private readonly uint _regionScale;
+        private readonly uint _regionVerticalScale;
+        private readonly uint _regionalDetailScale;
+        private readonly uint _regionalDetailVerticalScale;
+        private readonly uint _regionalEdgeScale;
+        private readonly uint _regionalEdgeVerticalScale;
+        private readonly double _regionWarpStrength;
+        private readonly uint _surfaceExposureScale;
+        private readonly uint _warpHorizontalScale;
+        private readonly uint _warpVerticalScale;
+        private readonly double _warpHorizontalStrength;
+        private readonly double _warpVerticalStrength;
+        private readonly uint _detailWarpScale;
+        private readonly uint _detailWarpVerticalScale;
+        private readonly double _detailWarpStrength;
+        private readonly double _detailWarpVerticalStrength;
+        private readonly uint _selectionScale;
+        private readonly uint _selectionVerticalScale;
+        private readonly uint _detailScale;
+        private readonly uint _detailVerticalScale;
+        private readonly uint _microScale;
+        private readonly uint _microVerticalScale;
+        private readonly uint _clusterScale;
+        private readonly uint _clusterVerticalScale;
+        private readonly uint _grainScale;
+        private readonly uint _grainVerticalScale;
+        private readonly double _grainInfluence;
+        private readonly double _clusterInfluence;
+        private readonly double _remainingInfluence;
+        private readonly double _boundaryInfluence;
 
         private ResolvedGeology(
+            ulong seed,
             BiomeGeologyDefinition definition,
             BlockRuntimeId baseBlock,
             BlockRuntimeId[] blocks,
             string biomeId)
         {
+            _seed = seed;
             _definition = definition;
+            _surfaceExposureScale = Math.Max(6u, definition.DetailScale / 2u);
+            _warpHorizontalScale = Math.Max(12u, definition.Scale / 3u);
+            _warpVerticalScale = Math.Max(10u, definition.VerticalScale / 3u);
+            _warpHorizontalStrength = Math.Max(6d, definition.DetailScale * 0.9d);
+            _warpVerticalStrength = Math.Max(5d, definition.DetailScale * 0.7d);
+            _detailWarpScale = Math.Max(6u, definition.DetailScale / 2u);
+            _detailWarpVerticalScale = Math.Max(
+                5u, Math.Min(definition.VerticalScale / 4u, definition.DetailScale / 2u));
+            _detailWarpStrength = Math.Max(2d, definition.DetailScale * 0.35d);
+            _detailWarpVerticalStrength = Math.Max(2d, definition.DetailScale * 0.28d);
+            _selectionScale = Math.Max(12u, definition.SelectionScale);
+            _selectionVerticalScale = Math.Max(10u, definition.VerticalScale);
+            _detailScale = Math.Max(6u, definition.DetailScale);
+            _detailVerticalScale = Math.Max(
+                6u, Math.Min(definition.VerticalScale / 3u, definition.DetailScale));
+            _microScale = Math.Max(4u, definition.DetailScale / 2u);
+            _microVerticalScale = Math.Max(4u, _detailVerticalScale / 2u);
+            _grainScale = definition.GrainScale ?? Math.Max(2u, _detailScale / 8u);
+            _grainVerticalScale = definition.GrainVerticalScale ??
+                Math.Max(2u, _detailVerticalScale / 8u);
+            _clusterScale = definition.ClusterScale ?? Math.Max(3u, _detailScale / 4u);
+            _clusterVerticalScale = definition.ClusterVerticalScale ??
+                Math.Max(3u, _detailVerticalScale / 4u);
+            _grainInfluence = definition.GrainInfluence;
+            _clusterInfluence = definition.ClusterInfluence;
+            _remainingInfluence = 1d - _grainInfluence - _clusterInfluence;
+            _boundaryInfluence = definition.BoundaryGrainInfluence;
+            _samplingMode = definition.SamplingMode;
+            _regionScale = definition.RegionScale;
+            _regionVerticalScale = definition.RegionVerticalScale;
+            _regionalDetailScale = Math.Max(
+                4u, Math.Min(_detailScale, Math.Max(4u, _regionScale / 3u)));
+            _regionalDetailVerticalScale = Math.Max(
+                4u, Math.Min(
+                    _detailVerticalScale,
+                    Math.Max(4u, _regionVerticalScale / 3u)));
+            _regionalEdgeScale = Math.Max(3u, Math.Min(
+                _clusterScale, _regionScale / 6u));
+            _regionalEdgeVerticalScale = Math.Max(3u, Math.Min(
+                _clusterVerticalScale, _regionVerticalScale / 6u));
+            _regionWarpStrength = definition.RegionWarpStrength;
             _baseBlock = baseBlock;
             _blocks = blocks;
             _volumeBlocks = [baseBlock, .. blocks];
@@ -388,6 +700,26 @@ public sealed class BiomeSurfaceMaterialField
                 .Select(axis => GenerationDomain.Named(
                     $"material/geology/domain-warp-detail/v1/{biomeId}/{axis}"))
                 .ToArray();
+            _regionWarpDomains = new[] { "x", "y", "z" }
+                .Select(axis => GenerationDomain.Named(
+                    $"material/geology/regional-warp/v1/{biomeId}/{axis}"))
+                .ToArray();
+            _regionalEdgeDomains = new[] { "x", "y", "z" }
+                .Select(axis => GenerationDomain.Named(
+                    $"material/geology/regional-edge/v1/{biomeId}/{axis}"))
+                .ToArray();
+            _volumeRegionMaterialDomain = GenerationDomain.Named(
+                $"material/geology/regional-volume-material/v1/{biomeId}");
+            _surfaceRegionMaterialDomain = GenerationDomain.Named(
+                $"material/geology/regional-surface-material/v1/{biomeId}");
+            _volumeRegionalDetailNoiseDomain = GenerationDomain.Named(
+                $"material/geology/regional-volume-detail-noise/v1/{biomeId}");
+            _surfaceRegionalDetailNoiseDomain = GenerationDomain.Named(
+                $"material/geology/regional-surface-detail-noise/v1/{biomeId}");
+            _volumeRegionalDetailMaterialDomain = GenerationDomain.Named(
+                $"material/geology/regional-volume-detail-material/v1/{biomeId}");
+            _surfaceRegionalDetailMaterialDomain = GenerationDomain.Named(
+                $"material/geology/regional-surface-detail-material/v1/{biomeId}");
 
             var volumeNames = new[] { definition.BaseBlock }
                 .Concat(definition.Blocks).ToArray();
@@ -454,26 +786,72 @@ public sealed class BiomeSurfaceMaterialField
             _surfaceBiases = definition.BlockWeights
                 .Select(weight => biasStrength * Math.Log(weight / alternativeWeightTotal))
                 .ToArray();
+
+            var volumeProbabilities = new double[_volumeBlocks.Length];
+            volumeProbabilities[0] = baseProbability;
+            for (var index = 0; index < definition.BlockWeights.Count; index++)
+            {
+                volumeProbabilities[index + 1] =
+                    definition.Coverage *
+                    definition.BlockWeights[index] /
+                    alternativeWeightTotal;
+            }
+
+            _volumeRegionThresholds = CumulativeThresholds(volumeProbabilities);
+            _surfaceRegionThresholds = CumulativeThresholds(
+                definition.BlockWeights
+                    .Select(weight => weight / alternativeWeightTotal)
+                    .ToArray());
         }
 
         public uint SurfaceCoverDepth => _definition.SurfaceCoverDepth;
         public float SurfaceCoverage => _definition.SurfaceCoverage;
         public bool SurfaceSubmergedOnly => _definition.SurfaceSubmergedOnly;
 
-        public BlockRuntimeId BlockAt(ulong seed, int x, int y, int z)
+        internal BlockRuntimeId BlockAtCached(
+            int x,
+            int y,
+            int z,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache) =>
+            BlockAt(_seed, x, y, z, latticeCache);
+
+        public BlockRuntimeId BlockAt(
+            ulong seed, int x, int y, int z,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
         {
+            if (_samplingMode != BiomeGeologySamplingMode.PerVoxel)
+            {
+                return SelectRegionalMaterial(
+                    seed, x, y, z,
+                    _volumeBlocks, _volumeRegionThresholds,
+                    _volumeRegionMaterialDomain,
+                    _volumeRegionalDetailNoiseDomain,
+                    _volumeRegionalDetailMaterialDomain,
+                    latticeCache);
+            }
+
             // Base material and deposits now compete in one spatial selector.
             // The previous separate formation mask created a second set of
             // broad, continuous boundaries that looked like columns/sheets.
-            var position = WarpCoordinates(seed, x, y, z);
+            var position = WarpCoordinates(seed, x, y, z, latticeCache);
             return SelectMaterial(
                 seed, position, _volumeBlocks,
                 _volumeMaterialDomains, _volumeDetailDomains, _volumeMicroDomains,
-                _volumeClusterDomains, _volumeGrainDomains, _volumeBiases);
+                _volumeClusterDomains, _volumeGrainDomains, _volumeBiases,
+                latticeCache);
         }
 
+        internal bool TrySurfaceBlockAtCached(
+            int x,
+            int y,
+            int z,
+            out BlockRuntimeId block,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache) =>
+            TrySurfaceBlockAt(_seed, x, y, z, out block, latticeCache);
+
         public bool TrySurfaceBlockAt(
-            ulong seed, int x, int y, int z, out BlockRuntimeId block)
+            ulong seed, int x, int y, int z, out BlockRuntimeId block,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
         {
             if (_definition.SurfaceCoverage <= 0f)
             {
@@ -484,20 +862,40 @@ public sealed class BiomeSurfaceMaterialField
             // Surface coverage is a dedicated shallow X/Z exposure field. It
             // must not also pass the volumetric occupancy threshold; that
             // double gate made many flat surfaces remain entirely grass/sand.
-            var exposureScale = Math.Max(6u, _definition.DetailScale / 2u);
             var exposure = WorldGenerationEntropy.SmoothNoise2D(
-                seed, _surfaceExposureDomain, x, z, exposureScale);
+                seed, _surfaceExposureDomain, x, z, _surfaceExposureScale);
             if (exposure < 1d - _definition.SurfaceCoverage * 2d)
             {
                 block = BlockRuntimeId.Air;
                 return false;
             }
 
-            var position = WarpCoordinates(seed, x, y, z);
+            // With one authored surface material, exposure is the only
+            // spatial decision; material selection itself is constant.
+            if (_blocks.Length == 1)
+            {
+                block = _blocks[0];
+                return true;
+            }
+
+            if (_samplingMode != BiomeGeologySamplingMode.PerVoxel)
+            {
+                block = SelectRegionalMaterial(
+                    seed, x, y, z,
+                    _blocks, _surfaceRegionThresholds,
+                    _surfaceRegionMaterialDomain,
+                    _surfaceRegionalDetailNoiseDomain,
+                    _surfaceRegionalDetailMaterialDomain,
+                    latticeCache);
+                return true;
+            }
+
+            var position = WarpCoordinates(seed, x, y, z, latticeCache);
             block = SelectMaterial(
                 seed, position, _blocks,
                 _surfaceMaterialDomains, _surfaceDetailDomains, _surfaceMicroDomains,
-                _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases);
+                _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases,
+                latticeCache);
             return true;
         }
 
@@ -593,51 +991,289 @@ public sealed class BiomeSurfaceMaterialField
             }
         }
 
+        private static double SampleNoise(
+            WorldGenerationEntropy.ValueNoise3DCoordinates coordinates,
+            ulong seed,
+            GenerationDomain domain,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache) =>
+            latticeCache is null
+                ? coordinates.Sample(seed, domain)
+                : coordinates.Sample(seed, domain, latticeCache);
+
         private SpatialPosition WarpCoordinates(
-            ulong seed, int x, int y, int z)
+            ulong seed, int x, int y, int z,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
         {
             var rotated = RotateCoordinates(x, y, z);
-            var warpHorizontalScale = Math.Max(12u, _definition.Scale / 3u);
-            var warpVerticalScale = Math.Max(10u, _definition.VerticalScale / 3u);
-            var horizontalStrength = Math.Max(6d, _definition.DetailScale * 0.9d);
-            var verticalStrength = Math.Max(5d, _definition.DetailScale * 0.7d);
-
-            var warpX = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDomains[0], rotated.X, rotated.Y, rotated.Z,
-                warpHorizontalScale, warpVerticalScale);
-            var warpY = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDomains[1], rotated.X, rotated.Y, rotated.Z,
-                warpHorizontalScale, warpVerticalScale);
-            var warpZ = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDomains[2], rotated.X, rotated.Y, rotated.Z,
-                warpHorizontalScale, warpVerticalScale);
+            var warpCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    rotated.X, rotated.Y, rotated.Z,
+                    _warpHorizontalScale, _warpVerticalScale);
+            var warpX = SampleNoise(warpCoordinates, seed, _warpDomains[0], latticeCache);
+            var warpY = SampleNoise(warpCoordinates, seed, _warpDomains[1], latticeCache);
+            var warpZ = SampleNoise(warpCoordinates, seed, _warpDomains[2], latticeCache);
 
             // A second, smaller-scale warp breaks the broad domain warp's
             // smooth directional bends. It is sampled in another basis and is
             // strong enough to bend material boundaries, not to randomize voxels.
             var detailPosition = RotateFieldPosition(rotated, 2);
-            var detailWarpScale = Math.Max(6u, _definition.DetailScale / 2u);
-            var detailWarpVerticalScale = Math.Max(
-                5u, Math.Min(_definition.VerticalScale / 4u, _definition.DetailScale / 2u));
-            var detailStrength = Math.Max(2d, _definition.DetailScale * 0.35d);
-            var detailVerticalStrength = Math.Max(2d, _definition.DetailScale * 0.28d);
-            var detailWarpX = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDetailDomains[0],
-                detailPosition.X, detailPosition.Y, detailPosition.Z,
-                detailWarpScale, detailWarpVerticalScale);
-            var detailWarpY = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDetailDomains[1],
-                detailPosition.X, detailPosition.Y, detailPosition.Z,
-                detailWarpScale, detailWarpVerticalScale);
-            var detailWarpZ = WorldGenerationEntropy.ValueNoise3D(
-                seed, _warpDetailDomains[2],
-                detailPosition.X, detailPosition.Y, detailPosition.Z,
-                detailWarpScale, detailWarpVerticalScale);
+            var detailWarpCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    detailPosition.X, detailPosition.Y, detailPosition.Z,
+                    _detailWarpScale, _detailWarpVerticalScale);
+            var detailWarpX =
+                SampleNoise(detailWarpCoordinates, seed, _warpDetailDomains[0], latticeCache);
+            var detailWarpY =
+                SampleNoise(detailWarpCoordinates, seed, _warpDetailDomains[1], latticeCache);
+            var detailWarpZ =
+                SampleNoise(detailWarpCoordinates, seed, _warpDetailDomains[2], latticeCache);
 
             return new SpatialPosition(
-                rotated.X + warpX * horizontalStrength + detailWarpX * detailStrength,
-                rotated.Y + warpY * verticalStrength + detailWarpY * detailVerticalStrength,
-                rotated.Z + warpZ * horizontalStrength + detailWarpZ * detailStrength);
+                rotated.X + warpX * _warpHorizontalStrength + detailWarpX * _detailWarpStrength,
+                rotated.Y + warpY * _warpVerticalStrength + detailWarpY * _detailWarpVerticalStrength,
+                rotated.Z + warpZ * _warpHorizontalStrength + detailWarpZ * _detailWarpStrength);
+        }
+
+        private SpatialPosition WarpRegionalCoordinates(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
+        {
+            var rotated = RotateCoordinates(x, y, z);
+            if (_regionWarpStrength == 0d)
+                return rotated;
+
+            var coordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                rotated.X,
+                rotated.Y,
+                rotated.Z,
+                _detailScale,
+                _detailVerticalScale);
+            var warpX = SampleNoise(
+                coordinates, seed, _regionWarpDomains[0], latticeCache);
+            var warpY = SampleNoise(
+                coordinates, seed, _regionWarpDomains[1], latticeCache);
+            var warpZ = SampleNoise(
+                coordinates, seed, _regionWarpDomains[2], latticeCache);
+
+            // One smooth 3D vector field bends the material-cell grid. Cell
+            // identity and material choice remain anchored to world space, so
+            // neighboring chunks independently resolve identical regions.
+            return new SpatialPosition(
+                rotated.X + warpX * _regionScale * _regionWarpStrength,
+                rotated.Y + warpY * _regionVerticalScale * _regionWarpStrength,
+                rotated.Z + warpZ * _regionScale * _regionWarpStrength);
+        }
+
+        private SpatialPosition WarpRegionalEdges(
+            ulong seed,
+            SpatialPosition position,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
+        {
+            // The macro region remains the material owner. Only voxels close
+            // to a cell face evaluate this smaller-scale vector field, so the
+            // expensive detail work is concentrated on boundaries rather than
+            // repeated throughout every solid voxel.
+            const double edgeBand = 0.12d;
+            const double maximumDisplacement = 0.10d;
+
+            var scaledX = position.X / _regionScale;
+            var scaledY = position.Y / _regionVerticalScale;
+            var scaledZ = position.Z / _regionScale;
+            var fractionX = scaledX - Math.Floor(scaledX);
+            var fractionY = scaledY - Math.Floor(scaledY);
+            var fractionZ = scaledZ - Math.Floor(scaledZ);
+            var distanceX = Math.Min(fractionX, 1d - fractionX);
+            var distanceY = Math.Min(fractionY, 1d - fractionY);
+            var distanceZ = Math.Min(fractionZ, 1d - fractionZ);
+            var weightX = Math.Clamp(1d - distanceX / edgeBand, 0d, 1d);
+            var weightY = Math.Clamp(1d - distanceY / edgeBand, 0d, 1d);
+            var weightZ = Math.Clamp(1d - distanceZ / edgeBand, 0d, 1d);
+            weightX *= weightX * (3d - 2d * weightX);
+            weightY *= weightY * (3d - 2d * weightY);
+            weightZ *= weightZ * (3d - 2d * weightZ);
+            var nearX = weightX > 0d;
+            var nearY = weightY > 0d;
+            var nearZ = weightZ > 0d;
+
+            if (!nearX && !nearY && !nearZ)
+                return position;
+
+            var coordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                position.X,
+                position.Y,
+                position.Z,
+                _regionalEdgeScale,
+                _regionalEdgeVerticalScale);
+            var x = position.X;
+            var y = position.Y;
+            var z = position.Z;
+            if (nearX)
+            {
+                x += SampleNoise(
+                    coordinates, seed, _regionalEdgeDomains[0], latticeCache) *
+                    (_regionScale * maximumDisplacement * weightX);
+            }
+            if (nearY)
+            {
+                y += SampleNoise(
+                    coordinates, seed, _regionalEdgeDomains[1], latticeCache) *
+                    (_regionVerticalScale * maximumDisplacement * weightY);
+            }
+            if (nearZ)
+            {
+                z += SampleNoise(
+                    coordinates, seed, _regionalEdgeDomains[2], latticeCache) *
+                    (_regionScale * maximumDisplacement * weightZ);
+            }
+
+            return new SpatialPosition(x, y, z);
+        }
+
+        private BlockRuntimeId SelectRegionalMaterial(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            BlockRuntimeId[] candidateBlocks,
+            double[] cumulativeThresholds,
+            GenerationDomain materialDomain,
+            GenerationDomain detailNoiseDomain,
+            GenerationDomain detailMaterialDomain,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
+        {
+            var position = WarpRegionalCoordinates(
+                seed, x, y, z, latticeCache);
+            if (_samplingMode == BiomeGeologySamplingMode.RegionalHybrid)
+            {
+                position = WarpRegionalEdges(seed, position, latticeCache);
+            }
+
+            var cellX = FloorToInt(position.X / _regionScale);
+            var cellY = FloorToInt(position.Y / _regionVerticalScale);
+            var cellZ = FloorToInt(position.Z / _regionScale);
+            var selectionHash = WorldGenerationEntropy.Sample3D(
+                seed, materialDomain, cellX, cellY, cellZ);
+            var unit = (selectionHash >> 11) *
+                (1d / 9007199254740992d);
+
+            var selectedIndex = cumulativeThresholds.Length - 1;
+            for (var index = 0; index < cumulativeThresholds.Length; index++)
+            {
+                if (unit < cumulativeThresholds[index])
+                {
+                    selectedIndex = index;
+                    break;
+                }
+            }
+
+            var selected = candidateBlocks[selectedIndex];
+            if (_samplingMode != BiomeGeologySamplingMode.RegionalHybrid ||
+                candidateBlocks.Length < 2)
+                return selected;
+
+            // The large regional choice owns most of the formation. A second,
+            // much smaller 3D field introduces sparse mineral inclusions
+            // inside it; the mask is continuous, while the inclusion's
+            // material is stable per detail cell and independent of chunk
+            // traversal order.
+            var detailCoordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                position.X, position.Y, position.Z,
+                _regionalDetailScale, _regionalDetailVerticalScale);
+            const double inclusionThreshold = 0.60d;
+            if (SampleNoise(
+                    detailCoordinates, seed, detailNoiseDomain, latticeCache) <=
+                inclusionThreshold)
+                return selected;
+
+            var detailCellScale = _regionalDetailScale * 2u;
+            var detailCellVerticalScale = _regionalDetailVerticalScale * 2u;
+            var detailCellX = FloorToInt(position.X / detailCellScale);
+            var detailCellY = FloorToInt(position.Y / detailCellVerticalScale);
+            var detailCellZ = FloorToInt(position.Z / detailCellScale);
+            var detailHash = WorldGenerationEntropy.Sample3D(
+                seed, detailMaterialDomain,
+                detailCellX, detailCellY, detailCellZ);
+            var detailUnit = (detailHash >> 11) *
+                (1d / 9007199254740992d);
+            return SelectRegionalDetailMaterial(
+                detailUnit, candidateBlocks, cumulativeThresholds,
+                selectedIndex);
+        }
+
+        private static BlockRuntimeId SelectRegionalDetailMaterial(
+            double sample,
+            BlockRuntimeId[] candidateBlocks,
+            double[] cumulativeThresholds,
+            int excludedIndex)
+        {
+            // Preserve authored mineral weights when selecting an inclusion.
+            // Re-normalize only the alternatives, excluding the macro cell's
+            // selected material so the finer layer always adds contrast.
+            var previousThreshold = 0d;
+            var excludedProbability = 0d;
+            for (var index = 0; index < cumulativeThresholds.Length; index++)
+            {
+                var threshold = cumulativeThresholds[index];
+                if (index == excludedIndex)
+                    excludedProbability = threshold - previousThreshold;
+                previousThreshold = threshold;
+            }
+
+            var remainingProbability = Math.Max(0d, 1d - excludedProbability);
+            if (remainingProbability <= 1e-12d)
+                return candidateBlocks[excludedIndex];
+
+            var target = sample * remainingProbability;
+            var cumulative = 0d;
+            previousThreshold = 0d;
+            var fallbackIndex = -1;
+            for (var index = 0; index < cumulativeThresholds.Length; index++)
+            {
+                var threshold = cumulativeThresholds[index];
+                var probability = threshold - previousThreshold;
+                previousThreshold = threshold;
+                if (index == excludedIndex)
+                    continue;
+
+                fallbackIndex = index;
+                cumulative += probability;
+                if (target < cumulative)
+                    return candidateBlocks[index];
+            }
+
+            return candidateBlocks[fallbackIndex >= 0
+                ? fallbackIndex
+                : excludedIndex];
+        }
+
+        private static double[] CumulativeThresholds(
+            IReadOnlyList<double> probabilities)
+        {
+            var thresholds = new double[probabilities.Count];
+            var cumulative = 0d;
+            for (var index = 0; index < probabilities.Count; index++)
+            {
+                cumulative += probabilities[index];
+                thresholds[index] = cumulative;
+            }
+
+            // Authored weights are normalized; pin the last threshold to one
+            // to absorb floating-point summation error.
+            thresholds[^1] = 1d;
+            return thresholds;
+        }
+
+        private static int FloorToInt(double value)
+        {
+            var floor = Math.Floor(value);
+            if (floor <= int.MinValue)
+                return int.MinValue;
+            if (floor >= int.MaxValue)
+                return int.MaxValue;
+            return (int)floor;
         }
 
         private BlockRuntimeId SelectMaterial(
@@ -649,83 +1285,116 @@ public sealed class BiomeSurfaceMaterialField
             GenerationDomain[] microDomains,
             GenerationDomain[] clusterDomains,
             GenerationDomain[] grainDomains,
-            double[] biases)
+            double[] biases,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
         {
-            var detailScale = Math.Max(6u, _definition.DetailScale);
-            var detailVerticalScale = Math.Max(
-                6u, Math.Min(_definition.VerticalScale / 3u, _definition.DetailScale));
-            var microScale = Math.Max(4u, _definition.DetailScale / 2u);
-            var microVerticalScale = Math.Max(4u, detailVerticalScale / 2u);
             // Fine-grain field introduces small three-dimensional pockets so
             // large formations cannot keep a single material through long
             // vertical columns merely because the broad fields change slowly.
-            var grainScale = _definition.GrainScale ??
-                Math.Max(2u, detailScale / 8u);
-            var grainVerticalScale = _definition.GrainVerticalScale ??
-                Math.Max(2u, detailVerticalScale / 8u);
-            var clusterScale = _definition.ClusterScale ??
-                Math.Max(3u, detailScale / 4u);
-            var clusterVerticalScale = _definition.ClusterVerticalScale ??
-                Math.Max(3u, detailVerticalScale / 4u);
-
-            var clusterInfluence = _definition.ClusterInfluence;
             var broadPosition = RotateFieldPosition(position, 0);
             var detailPosition = RotateFieldPosition(position, 1);
             var microPosition = RotateFieldPosition(position, 2);
-            var clusterPosition = RotateFieldPosition(position, 3);
-            // Preserve the established grain orientation for biomes that do
-            // not opt into the intermediate cluster field.
+            // The cluster field is optional. Avoid rotating its coordinate
+            // basis for biomes that do not use it; their grain basis remains
+            // the established orientation 3.
+            var clusterPosition = _clusterInfluence > 0d
+                ? RotateFieldPosition(position, 3)
+                : default;
             var grainPosition = RotateFieldPosition(
-                position, clusterInfluence > 0d ? 4 : 3);
-            var scores = new double[candidateBlocks.Length];
-            var grainValues = new double[candidateBlocks.Length];
+                position, _clusterInfluence > 0d ? 4 : 3);
+            var broadCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    broadPosition.X, broadPosition.Y, broadPosition.Z,
+                    _selectionScale,
+                    _selectionVerticalScale);
+            var detailCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    detailPosition.X, detailPosition.Y, detailPosition.Z,
+                    _detailScale, _detailVerticalScale);
+            var microCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    microPosition.X, microPosition.Y, microPosition.Z,
+                    _microScale, _microVerticalScale);
+            var clusterCoordinates = _clusterInfluence > 0d
+                ? WorldGenerationEntropy.PrepareValueNoise3D(
+                    clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
+                    _clusterScale, _clusterVerticalScale)
+                : default;
+            var grainCoordinates =
+                WorldGenerationEntropy.PrepareValueNoise3D(
+                    grainPosition.X, grainPosition.Y, grainPosition.Z,
+                    _grainScale, _grainVerticalScale);
+            var needsBoundaryScores =
+                _boundaryInfluence > 0d && candidateBlocks.Length > 1;
+            // Most geology selections need only the winning score. Allocate
+            // score vectors only for definitions that explicitly enable
+            // boundary roughening; ordinary geological voxels allocate none.
+            // Boundary roughening needs both vectors, but allocating two
+            // arrays for every solid voxel creates heavy GC pressure during
+            // chunk synthesis. Candidate sets are normally small, so keep the
+            // scratch data on this call's stack and retain a heap fallback for
+            // unusually large authored material sets.
+            const int StackScoreCapacity = 16;
+            // Do not reserve per-call stack scratch for the overwhelmingly
+            // common path that only needs the winning material score.
+            Span<double> scores =
+                needsBoundaryScores && candidateBlocks.Length <= StackScoreCapacity
+                    ? stackalloc double[candidateBlocks.Length]
+                    : Span<double>.Empty;
+            Span<double> grainValues =
+                needsBoundaryScores && candidateBlocks.Length <= StackScoreCapacity
+                    ? stackalloc double[candidateBlocks.Length]
+                    : Span<double>.Empty;
+            if (needsBoundaryScores && candidateBlocks.Length > StackScoreCapacity)
+            {
+                scores = new double[candidateBlocks.Length];
+                grainValues = new double[candidateBlocks.Length];
+            }
+
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
             {
-                var broad = WorldGenerationEntropy.ValueNoise3D(
-                    seed, broadDomains[index],
-                    broadPosition.X, broadPosition.Y, broadPosition.Z,
-                    Math.Max(12u, _definition.SelectionScale),
-                    Math.Max(10u, _definition.VerticalScale));
-                var detail = WorldGenerationEntropy.ValueNoise3D(
-                    seed, detailDomains[index],
-                    detailPosition.X, detailPosition.Y, detailPosition.Z,
-                    detailScale, detailVerticalScale);
-                var micro = WorldGenerationEntropy.ValueNoise3D(
-                    seed, microDomains[index],
-                    microPosition.X, microPosition.Y, microPosition.Z,
-                    microScale, microVerticalScale);
-                var cluster = 0d;
-                if (clusterInfluence > 0d)
-                {
-                    cluster = WorldGenerationEntropy.ValueNoise3D(
-                        seed, clusterDomains[index],
-                        clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
-                        clusterScale, clusterVerticalScale);
-                }
-                var grain = WorldGenerationEntropy.ValueNoise3D(
-                    seed, grainDomains[index],
-                    grainPosition.X, grainPosition.Y, grainPosition.Z,
-                    grainScale, grainVerticalScale);
+                // Every weighted noise component lies in [-1, 1], their
+                // coefficients sum to one, and the resulting Gumbel term is
+                // upper-bounded by MaximumGumbelScore. If the best score
+                // already reaches this candidate's bound, sampling its five
+                // fields cannot change the winner. Boundary roughening keeps
+                // the full candidate vector and deliberately bypasses pruning.
+                if (!needsBoundaryScores &&
+                    bestScore >= biases[index] + MaximumGumbelScore)
+                    continue;
+
+                var broad =
+                    SampleNoise(broadCoordinates, seed, broadDomains[index], latticeCache);
+                var detail =
+                    SampleNoise(detailCoordinates, seed, detailDomains[index], latticeCache);
+                var micro =
+                    SampleNoise(microCoordinates, seed, microDomains[index], latticeCache);
+                var cluster = _clusterInfluence > 0d
+                    ? SampleNoise(clusterCoordinates, seed, clusterDomains[index], latticeCache)
+                    : 0d;
+                var grain =
+                    SampleNoise(grainCoordinates, seed, grainDomains[index], latticeCache);
 
                 // Split finer detail across intermediate clusters and very
                 // fine grain. The former creates coherent mineral pockets;
                 // the latter still nicks their boundaries to avoid long bands.
-                var grainInfluence = _definition.GrainInfluence;
-                var remainingInfluence = 1d - grainInfluence - clusterInfluence;
                 var field =
-                    broad * (remainingInfluence * 0.04d / 0.30d) +
-                    detail * (remainingInfluence * 0.10d / 0.30d) +
-                    micro * (remainingInfluence * 0.16d / 0.30d) +
-                    cluster * clusterInfluence +
-                    grain * grainInfluence;
+                    broad * (_remainingInfluence * 0.04d / 0.30d) +
+                    detail * (_remainingInfluence * 0.10d / 0.30d) +
+                    micro * (_remainingInfluence * 0.16d / 0.30d) +
+                    cluster * _clusterInfluence +
+                    grain * _grainInfluence;
                 var unit = Math.Clamp(
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
                 var gumbel = -Math.Log(-Math.Log(unit));
                 var score = gumbel + biases[index];
-                scores[index] = score;
-                grainValues[index] = grain;
+                if (needsBoundaryScores)
+                {
+                    scores[index] = score;
+                    grainValues[index] = grain;
+                }
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -737,11 +1406,10 @@ public sealed class BiomeSurfaceMaterialField
             // perturbation near material boundaries. That keeps deposit
             // interiors coherent while letting high-frequency grain roughen
             // edges where the leading candidates are already competitive.
-            var boundaryInfluence = _definition.BoundaryGrainInfluence;
-            if (boundaryInfluence > 0d && candidateBlocks.Length > 1)
+            if (_boundaryInfluence > 0d && candidateBlocks.Length > 1)
             {
                 var secondBestScore = double.NegativeInfinity;
-                for (var index = 0; index < scores.Length; index++)
+                for (var index = 0; index < candidateBlocks.Length; index++)
                 {
                     if (index != bestIndex)
                         secondBestScore = Math.Max(secondBestScore, scores[index]);
@@ -752,17 +1420,17 @@ public sealed class BiomeSurfaceMaterialField
                 // zone so large deposits do not leave occasional straight runs,
                 // while keeping the perturbation absent in confident interiors.
                 var boundaryFactor = Math.Clamp(
-                    1d - margin / (3d * boundaryInfluence),
+                    1d - margin / (3d * _boundaryInfluence),
                     0d,
                     1d);
                 if (boundaryFactor > 0d)
                 {
                     bestScore = double.NegativeInfinity;
                     bestIndex = 0;
-                    for (var index = 0; index < scores.Length; index++)
+                    for (var index = 0; index < candidateBlocks.Length; index++)
                     {
                         var score = scores[index] +
-                            grainValues[index] * boundaryInfluence * boundaryFactor;
+                            grainValues[index] * _boundaryInfluence * boundaryFactor;
                         if (score > bestScore)
                         {
                             bestScore = score;
@@ -776,10 +1444,12 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         public static ResolvedGeology Create(
+            ulong seed,
             string biomeId,
             BiomeGeologyDefinition definition,
             BlockRegistry blocks) =>
             new ResolvedGeology(
+                seed,
                 definition,
                 blocks.GetId(definition.BaseBlock),
                 definition.Blocks.Select(blocks.GetId).ToArray(),
@@ -820,6 +1490,7 @@ public sealed class BiomeSurfaceMaterialField
         public bool UsesBaseSurface { get; }
         public BlockRuntimeId CoreBlock { get; }
         public uint CoreStartDepth { get; }
+        public bool MayResolveAir => Layers.Any(layer => layer.MayResolveAir);
 
         public BlockRuntimeId BlockAtDepth(
             ulong seed,
@@ -882,26 +1553,28 @@ public sealed class BiomeSurfaceMaterialField
             SurfacePlacementContext? placement,
             BlockRuntimeId surfaceOverride)
         {
-            var depths = new uint[Layers.Length];
-            var blocks = new BlockRuntimeId[Layers.Length];
+            var resolvedLayers =
+                new BiomeSurfaceMaterialColumn.Layer[Layers.Length];
 
             var previousEndDepth = 0u;
             for (var index = 0; index < Layers.Length; index++)
             {
                 var layer = Layers[index];
-                depths[index] = layer.EndDepthExclusive is { } nominalEndDepth
+                var endDepth = layer.EndDepthExclusive is { } nominalEndDepth
                     ? AdjustedEndDepth(
                         seed, worldX, worldZ, index,
                         nominalEndDepth, previousEndDepth)
                     : uint.MaxValue;
-                if (depths[index] != uint.MaxValue)
-                    previousEndDepth = depths[index];
-                blocks[index] = layer.Resolve(
-                    seed, worldX, worldZ, placement);
+                if (endDepth != uint.MaxValue)
+                    previousEndDepth = endDepth;
+                resolvedLayers[index] =
+                    new BiomeSurfaceMaterialColumn.Layer(
+                        endDepth,
+                        layer.Resolve(seed, worldX, worldZ, placement));
             }
 
             return new BiomeSurfaceMaterialColumn(
-                depths, blocks, surfaceOverride);
+                resolvedLayers, surfaceOverride);
         }
 
         private uint AdjustedEndDepth(
@@ -1016,6 +1689,7 @@ public sealed class BiomeSurfaceMaterialField
         private ResolvedPatch? Patch { get; }
 
         public bool HasConditions => Patch?.HasConditions == true;
+        public bool MayResolveAir => Block.IsAir || Patch?.MayResolveAir == true;
 
         public bool RequiresSlope => Patch?.RequiresSlope == true;
 
@@ -1185,6 +1859,8 @@ public sealed class BiomeSurfaceMaterialField
             return _blocks[^1];
         }
 
+        public bool MayResolveAir => _blocks.Any(block => block.IsAir);
+
         private static double Noise(
             ulong seed,
             GenerationDomain domain,
@@ -1219,36 +1895,41 @@ public sealed class BiomeSurfaceMaterialField
 /// </summary>
 public sealed class BiomeSurfaceMaterialColumn
 {
-    private readonly uint[] _endDepths;
-    private readonly BlockRuntimeId[] _blocks;
+    internal readonly record struct Layer(
+        uint EndDepthExclusive,
+        BlockRuntimeId Block);
+
+    private readonly Layer[] _layers;
+    private readonly uint _finiteDepth;
     private readonly BlockRuntimeId _surfaceOverride;
 
     internal BiomeSurfaceMaterialColumn(
-        uint[] endDepths,
-        BlockRuntimeId[] blocks,
+        Layer[] layers,
         BlockRuntimeId surfaceOverride = default)
     {
-        _endDepths = endDepths;
-        _blocks = blocks;
+        _layers = layers;
+        _finiteDepth = layers.Length > 1
+            ? layers[^2].EndDepthExclusive
+            : 0u;
         _surfaceOverride = surfaceOverride;
     }
 
-    public uint FiniteDepth =>
-        _endDepths.Length > 1
-            ? _endDepths[^2]
-            : 0u;
+    public uint FiniteDepth => _finiteDepth;
 
     public BlockRuntimeId BlockAt(uint depth)
     {
         if (depth == 0 && !_surfaceOverride.IsAir)
             return _surfaceOverride;
 
-        for (var i = 0; i < _endDepths.Length; i++)
+        // Most terrain voxels are below the finite authored cover. Resolve
+        // those directly to the core layer instead of scanning every layer.
+        if (depth >= _finiteDepth)
+            return _layers[^1].Block;
+
+        for (var i = 0; i < _layers.Length - 1; i++)
         {
-            if (depth < _endDepths[i])
-            {
-                return _blocks[i];
-            }
+            if (depth < _layers[i].EndDepthExclusive)
+                return _layers[i].Block;
         }
 
         throw new InvalidOperationException(

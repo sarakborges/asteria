@@ -7,8 +7,9 @@ namespace Asteria.Core.World;
 /// materials, decorations and chunk materialization own their own decisions.
 /// </summary>
 public sealed class BiomeWorldGenerator :
-    IChunkProvider,
-    IChunkSurfaceRangeProvider
+    IIncrementalChunkProvider,
+    IChunkSurfaceRangeProvider,
+    IChunkDirectionalFacePaletteUpdater
 {
     private static readonly FluidRegistry EmptyFluids =
         new(Array.Empty<FluidDefinition>());
@@ -23,6 +24,9 @@ public sealed class BiomeWorldGenerator :
     private readonly SurfaceChunkMaterializer _materializer;
     private readonly SurfaceStructureField _surfaceStructures;
     private readonly VolumeBiomeField _volumeBiomes;
+
+    // Exposes the authoritative density field to engine-agnostic diagnostics.
+    internal SurfaceTerrainField Terrain => _terrain;
 
     public BiomeWorldGenerator(
         ulong seed,
@@ -429,6 +433,13 @@ public sealed class BiomeWorldGenerator :
 
     public Chunk Materialize(ChunkCoord coord) =>
         _materializer.Materialize(coord);
+
+    public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+        _materializer.BeginMaterialization(coord);
+
+    public IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
+        VoxelWorld world, ChunkCoord arriving) =>
+        _materializer.ReconcileChunkArrival(world, arriving);
 
     public int SurfaceHeight(int worldX, int worldZ) =>
         _voidSpawnPlatform?.SurfaceHeight(worldX, worldZ) ??
