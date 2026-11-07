@@ -1,6 +1,7 @@
 #if DEBUG
 using System.Diagnostics;
 #endif
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Asteria.Core.World;
@@ -472,6 +473,7 @@ public sealed class SurfaceTerrainField
         return false;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public double DensityAt(
         BiomeSample biome,
         int baseY,
@@ -488,6 +490,7 @@ public sealed class SurfaceTerrainField
                 worldX,
                 worldZ));
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal double DensityAt(
         BiomeSample biome,
         int baseY,
@@ -507,6 +510,7 @@ public sealed class SurfaceTerrainField
             localY: 0,
             localZ: 0);
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private double DensityAt(
         BiomeSample biome,
         int baseY,
@@ -525,6 +529,7 @@ public sealed class SurfaceTerrainField
             additiveHorizontalSupports: default,
             additiveRuleResolved: false);
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private double DensityAt(
         BiomeSample biome,
         int baseY,
@@ -617,6 +622,7 @@ public sealed class SurfaceTerrainField
         worldY == _floorY ||
         worldY == _roofY;
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private double CaveVoidDensityAt(
         int baseY,
         int worldX,
