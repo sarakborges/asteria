@@ -1318,11 +1318,26 @@ var terrainLayerGeologyModeDiagnostics = options.ProfileGeologySampling
     ? CaptureTerrainLayerGeologyModeDiagnostics()
     : null;
 
+const int StageWarmSampleCount = 3;
 var stageTimingGenerator = NewGenerator();
-var coldStageTimingDiagnostics =
-    CaptureMaterializationStageTimings(stageTimingGenerator);
-var warmStageTimingDiagnostics =
-    CaptureMaterializationStageTimings(stageTimingGenerator);
+var stageTimingSamples = new List<object>(StageWarmSampleCount + 1);
+for (var sample = 0; sample <= StageWarmSampleCount; sample++)
+{
+    stageTimingSamples.Add(
+        CaptureMaterializationStageTimings(stageTimingGenerator));
+}
+var coldStageTimingDiagnostics = stageTimingSamples[0];
+// Preserve the original Warm field for existing CI consumers: it remains
+// the first same-generator pass after the cold materialization.
+var warmStageTimingDiagnostics = stageTimingSamples[1];
+var warmStageTimingSamples = stageTimingSamples
+    .Skip(1)
+    .Select((timing, index) => new
+    {
+        Sample = index + 1,
+        Timing = timing,
+    })
+    .ToArray();
 var geologySamplingDiagnostics = options.ProfileGeologySampling
     ? CaptureGeologySamplingDiagnostics(
         biomes, blocks, dimensionSeed)
@@ -1364,6 +1379,8 @@ var result = new
     {
         Cold = coldStageTimingDiagnostics,
         Warm = warmStageTimingDiagnostics,
+        WarmSampleCount = warmStageTimingSamples.Length,
+        WarmSamples = warmStageTimingSamples,
     },
     TerrainLayerGeologyModeDiagnostics = terrainLayerGeologyModeDiagnostics,
     GeologySamplingDiagnostics = geologySamplingDiagnostics,
