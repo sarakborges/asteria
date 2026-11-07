@@ -4184,7 +4184,7 @@ public sealed class SurfaceChunkMaterializer
                         continue;
 
                     if (!spikeColumn.TrySample(
-                            surfaceBiome, volumeBiome, baseY,
+                            volumeBiome, baseY,
                             worldX, anchorY, worldZ, down,
                             densityVolume, originY, x, z,
                             solidColumnMask, anchorKnownVoid,
