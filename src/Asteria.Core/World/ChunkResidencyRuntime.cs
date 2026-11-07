@@ -77,7 +77,10 @@ public readonly record struct ChunkResidencyActivation(
     double WorkerMilliseconds,
     double TerrainMilliseconds = 0d,
     double ElapsedMilliseconds = 0d,
-    double InitialLightingMilliseconds = 0d);
+    double InitialLightingMilliseconds = 0d,
+    double WorkerQueueWaitMilliseconds = 0d,
+    double WorkerWallMilliseconds = 0d,
+    double ResultCollectionWaitMilliseconds = 0d);
 
 public readonly record struct FluidActivationWorkReport(
     int CompletedChunks,
@@ -428,6 +431,7 @@ public sealed class ChunkResidencyRuntime
             }
 
             var result = task.GetAwaiter().GetResult();
+            var resultCollectedTimestamp = Stopwatch.GetTimestamp();
             stageTimings.AddRange(result.StageTimings);
 
             if (!_acceptingMaterializationWork)
@@ -471,7 +475,12 @@ public sealed class ChunkResidencyRuntime
                 result.WorkerMilliseconds - result.InitialLightingMilliseconds,
                 Stopwatch.GetElapsedTime(
                     work.StartedTimestamp).TotalMilliseconds,
-                result.InitialLightingMilliseconds));
+                result.InitialLightingMilliseconds,
+                result.WorkerQueueWaitMilliseconds,
+                result.WorkerWallMilliseconds,
+                Stopwatch.GetElapsedTime(
+                    result.WorkerCompletedTimestamp,
+                    resultCollectedTimestamp).TotalMilliseconds));
         }
 
         if (processed > 0)
@@ -673,7 +682,10 @@ public sealed class ChunkResidencyRuntime
         double workerMilliseconds,
         double terrainMilliseconds = 0d,
         double elapsedMilliseconds = 0d,
-        double initialLightingMilliseconds = 0d)
+        double initialLightingMilliseconds = 0d,
+        double workerQueueWaitMilliseconds = 0d,
+        double workerWallMilliseconds = 0d,
+        double resultCollectionWaitMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
         EnqueueChunkLightingReconciliation(coord);
@@ -686,12 +698,19 @@ public sealed class ChunkResidencyRuntime
             workerMilliseconds,
             terrainMilliseconds,
             elapsedMilliseconds,
-            initialLightingMilliseconds);
+            initialLightingMilliseconds,
+            workerQueueWaitMilliseconds,
+            workerWallMilliseconds,
+            resultCollectionWaitMilliseconds);
     }
 
     private MaterializationTaskResult ExecuteMaterialization(
         MaterializationWork work)
     {
+        var workerStartedTimestamp = Stopwatch.GetTimestamp();
+        var workerQueueWaitMilliseconds = Stopwatch.GetElapsedTime(
+            work.StartedTimestamp,
+            workerStartedTimestamp).TotalMilliseconds;
         var stageTimings = new List<ChunkMaterializationStageTiming>();
         var workerMilliseconds = 0d;
 
@@ -733,10 +752,17 @@ public sealed class ChunkResidencyRuntime
             lightingStarted).TotalMilliseconds;
         workerMilliseconds += initialLightingMilliseconds;
 
+        var workerCompletedTimestamp = Stopwatch.GetTimestamp();
+        var workerWallMilliseconds = Stopwatch.GetElapsedTime(
+            workerStartedTimestamp,
+            workerCompletedTimestamp).TotalMilliseconds;
         return new MaterializationTaskResult(
             stageTimings,
             workerMilliseconds,
-            initialLightingMilliseconds);
+            initialLightingMilliseconds,
+            workerQueueWaitMilliseconds,
+            workerWallMilliseconds,
+            workerCompletedTimestamp);
     }
 
     private sealed class MaterializationWork
@@ -757,7 +783,10 @@ public sealed class ChunkResidencyRuntime
     private sealed record MaterializationTaskResult(
         IReadOnlyList<ChunkMaterializationStageTiming> StageTimings,
         double WorkerMilliseconds,
-        double InitialLightingMilliseconds);
+        double InitialLightingMilliseconds,
+        double WorkerQueueWaitMilliseconds,
+        double WorkerWallMilliseconds,
+        long WorkerCompletedTimestamp);
 
     private sealed class ProviderMaterializationJob : IChunkMaterializationJob
     {
