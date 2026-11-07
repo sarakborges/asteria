@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.CompilerServices;
 
 #if DEBUG
 using System.Diagnostics;
@@ -98,6 +99,7 @@ public sealed class SurfaceChunkMaterializer
 
         public ushort[] CandidateColumns => _candidateColumns;
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public DirectionalFaceVoxelData AtCandidate(int x, int y, int z)
         {
             if ((uint)x >= Chunk.Size ||
@@ -141,6 +143,7 @@ public sealed class SurfaceChunkMaterializer
                 BlockRuntimeId.Air);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static ulong ReverseBits(ulong bits)
         {
             bits = ((bits & 0x5555555555555555UL) << 1) |
@@ -156,6 +159,7 @@ public sealed class SurfaceChunkMaterializer
             return (bits << 32) | (bits >> 32);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static ulong ReadBits(
             ulong[] rows, int rowOffset, int wordCount, int start, int length)
         {
@@ -167,6 +171,7 @@ public sealed class SurfaceChunkMaterializer
             return bits;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static ulong EmptyOffsets(
             ulong[] rows,
             int rowOffset,
@@ -2973,6 +2978,7 @@ public sealed class SurfaceChunkMaterializer
             candidateColumns);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private DirectionalPaletteColumnData SampleDirectionalPaletteColumnData(int worldX, int worldZ)
     {
         var (coord, local) = VoxelCoordinates.FromWorld(worldX, 0, worldZ);
@@ -4265,6 +4271,7 @@ public sealed class SurfaceChunkMaterializer
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private bool HasGeneratedFluidAboveSurface(
         BiomeSample fluidBiome,
         BiomeSample surfaceBiome,
