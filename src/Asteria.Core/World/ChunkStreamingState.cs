@@ -1,4 +1,10 @@
+using System.Diagnostics;
+
 namespace Asteria.Core.World;
+
+internal readonly record struct ChunkPendingDispatch(
+    ChunkCoord Coord,
+    long EnqueuedTimestamp);
 
 public readonly record struct ChunkMovementDirection(int X, int Z)
 {
@@ -75,6 +81,7 @@ public sealed class ChunkStreamingState
     private readonly HashSet<(int X, int Z)> _lightingRelevantColumns = [];
     private readonly HashSet<ChunkCoord> _retained = [];
     private readonly HashSet<ChunkCoord> _pending = [];
+    private readonly Dictionary<ChunkCoord, long> _pendingEnqueuedTimestamps = [];
     private readonly HashSet<ChunkCoord> _materializing = [];
     private readonly HashSet<ChunkCoord> _presentationPending = [];
     private readonly RetiredChunkQueue _retired = new();
@@ -214,7 +221,7 @@ public sealed class ChunkStreamingState
             _retired.Remove(coord);
         }
 
-        _pending.RemoveWhere(coord =>
+        RemovePendingWhere(coord =>
             !_desired.Contains(coord));
         _presentationPending.RemoveWhere(coord =>
             !_desired.Contains(coord));
@@ -239,7 +246,7 @@ public sealed class ChunkStreamingState
             if (!residentSet.Contains(coord) &&
                 !_materializing.Contains(coord))
             {
-                _pending.Add(coord);
+                EnqueuePendingCore(coord);
                 continue;
             }
 
@@ -250,7 +257,7 @@ public sealed class ChunkStreamingState
             }
         }
 
-        _pending.RemoveWhere(coord =>
+        RemovePendingWhere(coord =>
             residentSet.Contains(coord) ||
             _materializing.Contains(coord) ||
             !_desired.Contains(coord));
@@ -266,12 +273,25 @@ public sealed class ChunkStreamingState
         if (IsDesired(coord) &&
             !_materializing.Contains(coord))
         {
-            _pending.Add(coord);
+            EnqueuePendingCore(coord);
+        }
+    }
+
+    internal void EnqueuePending(ChunkCoord coord, long enqueuedTimestamp)
+    {
+        if (IsDesired(coord) &&
+            !_materializing.Contains(coord))
+        {
+            EnqueuePendingCore(coord, enqueuedTimestamp);
         }
     }
 
     // Deferred distant chunks remain in the authoritative pending set.
-    public ChunkCoord? PopPendingByPriority(long? maximumHorizontalDistanceSquared = null)
+    public ChunkCoord? PopPendingByPriority(long? maximumHorizontalDistanceSquared = null) =>
+        PopPendingEntryByPriority(maximumHorizontalDistanceSquared)?.Coord;
+
+    internal ChunkPendingDispatch? PopPendingEntryByPriority(
+        long? maximumHorizontalDistanceSquared = null)
     {
         if (maximumHorizontalDistanceSquared is < 0)
             throw new ArgumentOutOfRangeException(
@@ -311,8 +331,15 @@ public sealed class ChunkStreamingState
             return null;
         }
 
-        _pending.Remove(result);
-        return result;
+        if (!_pendingEnqueuedTimestamps.TryGetValue(
+                result, out var enqueuedTimestamp))
+        {
+            throw new InvalidOperationException(
+                $"Pending chunk has no enqueue timestamp: {result}");
+        }
+
+        RemovePending(result);
+        return new ChunkPendingDispatch(result, enqueuedTimestamp);
     }
 
     public void MarkMaterializing(ChunkCoord coord)
@@ -323,7 +350,7 @@ public sealed class ChunkStreamingState
                 $"Chunk is already materializing: {coord}");
         }
 
-        _pending.Remove(coord);
+        RemovePending(coord);
     }
 
     public void FinishMaterializing(ChunkCoord coord)
@@ -412,10 +439,37 @@ public sealed class ChunkStreamingState
         if (_desired.Remove(coord))
             RebuildLightingRelevantColumns();
         _retained.Remove(coord);
-        _pending.Remove(coord);
+        RemovePending(coord);
         _materializing.Remove(coord);
         _presentationPending.Remove(coord);
         _retired.Remove(coord);
+    }
+
+    private void EnqueuePendingCore(
+        ChunkCoord coord,
+        long? enqueuedTimestamp = null)
+    {
+        if (_pending.Add(coord))
+        {
+            _pendingEnqueuedTimestamps.Add(
+                coord,
+                enqueuedTimestamp ?? Stopwatch.GetTimestamp());
+        }
+    }
+
+    private void RemovePending(ChunkCoord coord)
+    {
+        _pending.Remove(coord);
+        _pendingEnqueuedTimestamps.Remove(coord);
+    }
+
+    private void RemovePendingWhere(Predicate<ChunkCoord> predicate)
+    {
+        var removed = _pending
+            .Where(coord => predicate(coord))
+            .ToArray();
+        foreach (var coord in removed)
+            RemovePending(coord);
     }
 
     public static ChunkLoadPriority Priority(
