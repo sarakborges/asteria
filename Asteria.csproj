@@ -2,6 +2,10 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
+    <!-- Worldgen is sensitive to unoptimized Tier0 helpers on its first pass.
+         Disable Quick JIT for non-ReadyToRun game methods while retaining tiering
+         for precompiled runtime code; the Core also marks editor-hot helpers. -->
+    <TieredCompilationQuickJit>false</TieredCompilationQuickJit>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Asteria.Client</RootNamespace>
