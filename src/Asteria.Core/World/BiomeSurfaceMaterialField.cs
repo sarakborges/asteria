@@ -819,6 +819,13 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed, int x, int y, int z,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
         {
+            // A single possible material has no spatial selection to perform.
+            // Zero coverage likewise makes the base material the only winner.
+            // Return before coordinate warping and noise preparation so these
+            // common cases do not pay for five unused 3D noise channels.
+            if (_volumeBlocks.Length == 1 || _definition.Coverage <= 0f)
+                return _volumeBlocks[0];
+
             if (_samplingMode != BiomeGeologySamplingMode.PerVoxel)
             {
                 return SelectRegionalMaterial(
@@ -868,6 +875,14 @@ public sealed class BiomeSurfaceMaterialField
             {
                 block = BlockRuntimeId.Air;
                 return false;
+            }
+
+            // With one authored surface material, exposure is the only
+            // spatial decision; material selection itself is constant.
+            if (_blocks.Length == 1)
+            {
+                block = _blocks[0];
+                return true;
             }
 
             if (_samplingMode != BiomeGeologySamplingMode.PerVoxel)
