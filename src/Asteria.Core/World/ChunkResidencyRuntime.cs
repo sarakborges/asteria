@@ -80,7 +80,8 @@ public readonly record struct ChunkResidencyActivation(
     double InitialLightingMilliseconds = 0d,
     double WorkerQueueWaitMilliseconds = 0d,
     double WorkerWallMilliseconds = 0d,
-    double ResultCollectionWaitMilliseconds = 0d);
+    double ResultCollectionWaitMilliseconds = 0d,
+    double PendingQueueWaitMilliseconds = 0d);
 
 public readonly record struct FluidActivationWorkReport(
     int CompletedChunks,
@@ -426,7 +427,7 @@ public sealed class ChunkResidencyRuntime
                 failures.Add(new ChunkMaterializationFailure(coord, error));
                 work.Job.Dispose();
                 if (_acceptingMaterializationWork)
-                    RequeueIfDesired(coord);
+                    RequeueIfDesired(coord, work.PendingSinceTimestamp);
                 continue;
             }
 
@@ -447,7 +448,7 @@ public sealed class ChunkResidencyRuntime
                     coord,
                     new InvalidOperationException(
                         $"Materialization worker returned before completing chunk {coord}.")));
-                RequeueIfDesired(coord);
+                RequeueIfDesired(coord, work.PendingSinceTimestamp);
                 continue;
             }
 
@@ -460,7 +461,7 @@ public sealed class ChunkResidencyRuntime
                     coord,
                     new InvalidOperationException(
                         $"Completed materialization job returned no chunk: {coord}")));
-                RequeueIfDesired(coord);
+                RequeueIfDesired(coord, work.PendingSinceTimestamp);
                 continue;
             }
 
@@ -468,19 +469,29 @@ public sealed class ChunkResidencyRuntime
                 continue;
 
             _world.InsertChunk(coord, generatedChunk);
-            activations.Add(ActivateResidentChunk(
+            var activation = ActivateResidentChunk(
                 coord,
                 ChunkActivationSource.Provider,
                 result.WorkerMilliseconds,
                 result.WorkerMilliseconds - result.InitialLightingMilliseconds,
-                Stopwatch.GetElapsedTime(
-                    work.StartedTimestamp).TotalMilliseconds,
+                elapsedMilliseconds: 0d,
                 result.InitialLightingMilliseconds,
                 result.WorkerQueueWaitMilliseconds,
                 result.WorkerWallMilliseconds,
-                Stopwatch.GetElapsedTime(
+                resultCollectionWaitMilliseconds: 0d,
+                pendingQueueWaitMilliseconds: Stopwatch.GetElapsedTime(
+                    work.PendingSinceTimestamp,
+                    work.DispatchTimestamp).TotalMilliseconds);
+            var activatedTimestamp = Stopwatch.GetTimestamp();
+            activations.Add(activation with
+            {
+                ElapsedMilliseconds = Stopwatch.GetElapsedTime(
+                    work.PendingSinceTimestamp,
+                    activatedTimestamp).TotalMilliseconds,
+                ResultCollectionWaitMilliseconds = Stopwatch.GetElapsedTime(
                     result.WorkerCompletedTimestamp,
-                    resultCollectedTimestamp).TotalMilliseconds));
+                    activatedTimestamp).TotalMilliseconds,
+            });
         }
 
         if (processed > 0)
@@ -522,18 +533,19 @@ public sealed class ChunkResidencyRuntime
                 break;
             }
 
-            var coord = _streaming.PopPendingByPriority();
-            if (coord is null)
+            var pending = _streaming.PopPendingEntryByPriority();
+            if (pending is null)
                 break;
 
-            if (!_streaming.IsDesired(coord.Value) ||
-                _world.ContainsChunk(coord.Value) ||
-                _materializationTasks.ContainsKey(coord.Value))
+            var pendingEntry = pending.Value;
+            var dispatchTimestamp = Stopwatch.GetTimestamp();
+            var selected = pendingEntry.Coord;
+            if (!_streaming.IsDesired(selected) ||
+                _world.ContainsChunk(selected) ||
+                _materializationTasks.ContainsKey(selected))
             {
                 continue;
             }
-
-            var selected = coord.Value;
             var restore = _world.RestoreChunk(selected);
             if (restore == ChunkRestoreResult.Restored)
             {
@@ -550,7 +562,8 @@ public sealed class ChunkResidencyRuntime
 
             if (startedTasks >= maximumTaskStarts)
             {
-                _streaming.EnqueuePending(selected);
+                _streaming.EnqueuePending(
+                    selected, pendingEntry.EnqueuedTimestamp);
                 break;
             }
 
@@ -564,7 +577,7 @@ public sealed class ChunkResidencyRuntime
             catch (Exception error)
             {
                 failures.Add(new ChunkMaterializationFailure(selected, error));
-                RequeueIfDesired(selected);
+                RequeueIfDesired(selected, pendingEntry.EnqueuedTimestamp);
                 break;
             }
 
@@ -575,11 +588,14 @@ public sealed class ChunkResidencyRuntime
                     selected,
                     new InvalidOperationException(
                         $"Materialization provider returned a job for {job.Coord}, expected {selected}.")));
-                RequeueIfDesired(selected);
+                RequeueIfDesired(selected, pendingEntry.EnqueuedTimestamp);
                 break;
             }
 
-            var work = new MaterializationWork(job);
+            var work = new MaterializationWork(
+                job,
+                pendingEntry.EnqueuedTimestamp,
+                dispatchTimestamp);
             _streaming.MarkMaterializing(selected);
             _materializationTasks.Add(selected, work);
             try
@@ -591,6 +607,7 @@ public sealed class ChunkResidencyRuntime
                 _materializationTasks.Remove(selected);
                 work.Job.Dispose();
                 _streaming.FinishMaterializing(selected);
+                RequeueIfDesired(selected, pendingEntry.EnqueuedTimestamp);
                 throw;
             }
             startedTasks++;
@@ -685,7 +702,8 @@ public sealed class ChunkResidencyRuntime
         double initialLightingMilliseconds = 0d,
         double workerQueueWaitMilliseconds = 0d,
         double workerWallMilliseconds = 0d,
-        double resultCollectionWaitMilliseconds = 0d)
+        double resultCollectionWaitMilliseconds = 0d,
+        double pendingQueueWaitMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
         EnqueueChunkLightingReconciliation(coord);
@@ -701,7 +719,8 @@ public sealed class ChunkResidencyRuntime
             initialLightingMilliseconds,
             workerQueueWaitMilliseconds,
             workerWallMilliseconds,
-            resultCollectionWaitMilliseconds);
+            resultCollectionWaitMilliseconds,
+            pendingQueueWaitMilliseconds);
     }
 
     private MaterializationTaskResult ExecuteMaterialization(
@@ -709,7 +728,7 @@ public sealed class ChunkResidencyRuntime
     {
         var workerStartedTimestamp = Stopwatch.GetTimestamp();
         var workerQueueWaitMilliseconds = Stopwatch.GetElapsedTime(
-            work.StartedTimestamp,
+            work.DispatchTimestamp,
             workerStartedTimestamp).TotalMilliseconds;
         var stageTimings = new List<ChunkMaterializationStageTiming>();
         var workerMilliseconds = 0d;
@@ -767,15 +786,21 @@ public sealed class ChunkResidencyRuntime
 
     private sealed class MaterializationWork
     {
-        public MaterializationWork(IChunkMaterializationJob job)
+        public MaterializationWork(
+            IChunkMaterializationJob job,
+            long pendingSinceTimestamp,
+            long dispatchTimestamp)
         {
             Job = job ?? throw new ArgumentNullException(nameof(job));
-            StartedTimestamp = Stopwatch.GetTimestamp();
+            PendingSinceTimestamp = pendingSinceTimestamp;
+            DispatchTimestamp = dispatchTimestamp;
         }
 
         public IChunkMaterializationJob Job { get; }
 
-        public long StartedTimestamp { get; }
+        public long PendingSinceTimestamp { get; }
+
+        public long DispatchTimestamp { get; }
 
         public Task<MaterializationTaskResult> WorkerTask { get; set; } = null!;
     }
@@ -1242,12 +1267,16 @@ public sealed class ChunkResidencyRuntime
     }
 
     private void RequeueIfDesired(
-        ChunkCoord coord)
+        ChunkCoord coord,
+        long? enqueuedTimestamp = null)
     {
-        if (_streaming.IsDesired(coord))
-        {
+        if (!_streaming.IsDesired(coord))
+            return;
+
+        if (enqueuedTimestamp is { } timestamp)
+            _streaming.EnqueuePending(coord, timestamp);
+        else
             _streaming.EnqueuePending(coord);
-        }
     }
 
     private static ulong SaturatingAdd(
