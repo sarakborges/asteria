@@ -339,7 +339,9 @@ jobs:
             local repetition="$3"
             local output="$root/results/$version/$repetition.json"
             local log="$root/results/$version/$repetition.log"
-            if ! dotnet run \
+            # Match the game's Asteria.runtimeconfig.json for both revisions.
+            # The baseline gets the same runtime setting so A/B isolates code.
+            if ! env DOTNET_TC_QuickJit=0 dotnet run \
               --project "$project_root/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
               --configuration Release --no-build -- \
               --project-root "$project_root" \
