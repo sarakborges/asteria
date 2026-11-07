@@ -533,10 +533,11 @@ public sealed class CaveSpikeField
         private readonly ColumnRuleSelection _selection =
             owner.ResolveColumnRules(undergroundBiome, surfaceBiome);
 
+        private readonly BiomeSample _surfaceBiome = surfaceBiome;
+
         internal bool HasRules => _selection.HasRules;
 
         internal bool TrySample(
-            BiomeSample surfaceBiome,
             BiomeSample? volumeBiome,
             int baseY,
             int x,
@@ -552,7 +553,7 @@ public sealed class CaveSpikeField
             out CaveSpikePlacement placement) =>
             owner.TrySampleCore(
                 _selection,
-                surfaceBiome,
+                _surfaceBiome,
                 volumeBiome,
                 baseY,
                 x,
