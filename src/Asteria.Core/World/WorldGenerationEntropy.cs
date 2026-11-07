@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.CompilerServices;
 
 namespace Asteria.Core.World;
 
@@ -115,6 +116,7 @@ internal static class WorldGenerationEntropy
             _tz = WorldGenerationEntropy.SmoothStep(gz - floorZ);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         internal double Sample(ulong seed, GenerationDomain domain)
         {
             var domainSeed = seed ^ domain.Key;
@@ -149,6 +151,7 @@ internal static class WorldGenerationEntropy
             return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         internal double Sample(
             ulong seed,
             GenerationDomain domain,
@@ -294,6 +297,7 @@ internal static class WorldGenerationEntropy
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static ValueNoise3DCoordinates PrepareValueNoise3D(
         double x, double y, double z,
         uint horizontalScale, uint verticalScale)
@@ -502,6 +506,7 @@ internal static class WorldGenerationEntropy
             (x - _minimumX);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static ulong Sample2D(
         ulong seed,
         GenerationDomain domain,
@@ -546,6 +551,7 @@ internal static class WorldGenerationEntropy
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static ulong Sample3D(
         ulong seed,
         GenerationDomain domain,
@@ -559,6 +565,7 @@ internal static class WorldGenerationEntropy
             HashYCoordinate(y) ^
             HashZCoordinate(z));
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static double ValueNoise3D(
         ulong seed,
         GenerationDomain domain,
@@ -620,6 +627,7 @@ internal static class WorldGenerationEntropy
     /// Continuous-coordinate 3D value noise. This overload supports rotated
     /// world-space sampling without rounding transformed coordinates to voxels.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static double ValueNoise3D(
         ulong seed,
         GenerationDomain domain,
@@ -632,6 +640,7 @@ internal static class WorldGenerationEntropy
             x, y, z, horizontalScale, verticalScale)
         .Sample(seed, domain);
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static double SmoothNoise2D(
         ulong seed,
         GenerationDomain domain,
@@ -708,6 +717,7 @@ internal static class WorldGenerationEntropy
             tz);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static double ValueNoise2D(
         ulong seed,
         GenerationDomain domain,
