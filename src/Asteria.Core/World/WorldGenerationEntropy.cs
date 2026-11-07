@@ -182,7 +182,6 @@ internal static class WorldGenerationEntropy
         private readonly int _mask;
         private readonly ulong[] _keys;
         private readonly double[] _values;
-        private readonly bool[] _occupied;
 #if DEBUG
         private long _hits;
         private long _misses;
@@ -198,8 +197,10 @@ internal static class WorldGenerationEntropy
             _mask = capacity - 1;
             _keys = ArrayPool<ulong>.Shared.Rent(capacity);
             _values = ArrayPool<double>.Shared.Rent(capacity);
-            _occupied = ArrayPool<bool>.Shared.Rent(capacity);
-            Array.Clear(_occupied, 0, capacity);
+            // Lattice samples are always finite values in [-1, 1]. Use NaN
+            // as the empty-slot sentinel and avoid a third pooled array/read
+            // in this very hot lookup path.
+            Array.Fill(_values, double.NaN, 0, capacity);
         }
 
         internal void EnsureAlive() =>
@@ -231,16 +232,18 @@ internal static class WorldGenerationEntropy
         {
             var folded = domainCoordinate ^ (domainCoordinate >> 32);
             var index = (int)(folded & (uint)_mask);
-            if (_occupied[index] && _keys[index] == domainCoordinate)
+            var cachedValue = _values[index];
+            var occupied = !double.IsNaN(cachedValue);
+            if (occupied && _keys[index] == domainCoordinate)
             {
 #if DEBUG
                 _hits++;
 #endif
-                return _values[index];
+                return cachedValue;
             }
 
 #if DEBUG
-            if (_occupied[index])
+            if (occupied)
                 _collisions++;
             _misses++;
 #endif
@@ -248,7 +251,6 @@ internal static class WorldGenerationEntropy
                 WorldGenerationEntropy.Mix(domainCoordinate));
             _keys[index] = domainCoordinate;
             _values[index] = value;
-            _occupied[index] = true;
             return value;
         }
 
@@ -260,7 +262,6 @@ internal static class WorldGenerationEntropy
             _disposed = true;
             ArrayPool<ulong>.Shared.Return(_keys);
             ArrayPool<double>.Shared.Return(_values);
-            ArrayPool<bool>.Shared.Return(_occupied);
         }
     }
 
