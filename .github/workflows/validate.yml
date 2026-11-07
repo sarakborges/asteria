@@ -366,6 +366,77 @@ jobs:
           }
           run_debug_profile baseline "$baseline"
           run_debug_profile candidate "$candidate"
+
+          # Isolate runtime tiering/PGO from generator-cache warmup. The same
+          # candidate build, fixed seed, region and four-process repetition
+          # count are used; only dynamic tiering and PGO are disabled.
+          mkdir -p "$root/results/candidate-no-tiering"
+          run_candidate_no_tiering() {
+            local repetition="$1"
+            local output="$root/results/candidate-no-tiering/$repetition.json"
+            local log="$root/results/candidate-no-tiering/$repetition.log"
+            if ! env DOTNET_TieredCompilation=0 DOTNET_TieredPGO=0 dotnet run \
+              --project "$candidate/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+              --configuration Release --no-build -- \
+              --project-root "$candidate" \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --samples 2 --area-size 4 --chunks 1 \
+              --output "$output" > "$log" 2>&1; then
+              cat "$log"
+              return 1
+            fi
+          }
+          for repetition in 1 2 3 4; do
+            run_candidate_no_tiering "$repetition"
+          done
+
+          python3 - "$root/results/candidate" "$root/results/candidate-no-tiering" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import glob
+          import json
+          import statistics
+          import sys
+
+          def read(folder):
+              paths = sorted(glob.glob(f"{folder}/*.json"))
+              if len(paths) != 4:
+                  raise SystemExit(f"Expected four runs in {folder}, got {len(paths)}")
+              runs = []
+              for path in paths:
+                  with open(path, encoding="utf-8") as stream:
+                      runs.append(json.load(stream)["initialAreaSynthesisTimingBreakdown"])
+              return runs
+
+          normal, no_tiering = map(read, sys.argv[1:])
+          stages = ("TerrainLayer", "DirectionalFacePalettes", "CaveSpikes")
+
+          def median_value(runs, sample_index, field, stage=None):
+              values = []
+              for run in runs:
+                  sample = run["warmSamples"][sample_index]
+                  if stage is None:
+                      values.append(float(sample[field]))
+                  else:
+                      values.append(float(sample["materializationStageTimings"]
+                                          .get(stage, {})
+                                          .get("elapsedMilliseconds", 0)))
+              return statistics.median(values)
+
+          print("\n### Candidate warm-up: default .NET JIT vs tiering disabled\n")
+          print("| Warm pass | Default materialization (ms) | Tiering disabled (ms) | " +
+                " | ".join(f"{stage} default / disabled (ms)" for stage in stages) + " |")
+          print("|---:|---:|---:|" + "---:|" * len(stages))
+          for index in range(3):
+              normal_total = median_value(normal, index, "materializationMilliseconds")
+              no_tiering_total = median_value(no_tiering, index, "materializationMilliseconds")
+              stage_pairs = [
+                  f"{median_value(normal, index, '', stage):.2f} / " +
+                  f"{median_value(no_tiering, index, '', stage):.2f}"
+                  for stage in stages
+              ]
+              print(f"| {index + 1} | {normal_total:.2f} | {no_tiering_total:.2f} | " +
+                    " | ".join(stage_pairs) + " |")
+          print()
+          PY
           
           python3 - "$root/results/profiles/baseline.json" "$root/results/profiles/candidate.json" <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
