@@ -27,6 +27,31 @@ public sealed class WorldGenerationNoiseTests
         Assert.Equal(expected, actual);
     }
 
+    [Fact]
+    public void LatticeCachePreservesNoiseAcrossHitsAndDirectMappedCollisions()
+    {
+        const ulong seed = 0xA57E_3D10_2026UL;
+        var domain = GenerationDomain.Named("tests/colliding-lattice-cache");
+        var prepared = WorldGenerationEntropy.PrepareValueNoise3D(
+            -31.25d, 7.75d, -19.5d, 8u, 6u);
+        var expected = prepared.Sample(seed, domain);
+
+        using var cache = new WorldGenerationEntropy.ValueNoise3DLatticeCache(
+            capacity: 1);
+
+        var firstKey = 0x1234_5678_9ABC_DEF0UL;
+        var secondKey = 0x0FED_CBA9_8765_4321UL;
+        var firstValue = cache.Sample(firstKey);
+        Assert.Equal(firstValue, cache.Sample(firstKey));
+
+        // A one-slot cache forces every distinct lattice corner to evict the
+        // previous one. Eviction may affect work, never the sampled result.
+        Assert.Equal(expected, prepared.Sample(seed, domain, cache));
+        _ = cache.Sample(secondKey);
+        Assert.Equal(firstValue, cache.Sample(firstKey));
+        Assert.Equal(expected, prepared.Sample(seed, domain, cache));
+    }
+
     private static double ReferenceContinuousNoise(
         ulong seed,
         GenerationDomain domain,
