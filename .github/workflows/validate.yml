@@ -398,7 +398,7 @@ jobs:
           # with the same candidate, seed, region and four-process sample size.
           mkdir -p "$root/results/candidate-no-pgo" \
             "$root/results/candidate-no-tiering" \
-            "$root/results/candidate-no-quickjit"
+            "$root/results/candidate-quickjit-on"
           run_candidate_runtime_mode() {
             local mode="$1"
             local repetition="$2"
@@ -421,13 +421,13 @@ jobs:
           }
           for repetition in 1 2 3 4; do
             run_candidate_runtime_mode candidate-no-pgo "$repetition" 1 0 1
-            run_candidate_runtime_mode candidate-no-quickjit "$repetition" 1 1 0
+            run_candidate_runtime_mode candidate-quickjit-on "$repetition" 1 1 1
             run_candidate_runtime_mode candidate-no-tiering "$repetition" 0 0 1
           done
 
           python3 - "$root/results/candidate" \
+            "$root/results/candidate-quickjit-on" \
             "$root/results/candidate-no-pgo" \
-            "$root/results/candidate-no-quickjit" \
             "$root/results/candidate-no-tiering" <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import glob
           import json
@@ -450,14 +450,14 @@ jobs:
                   raise SystemExit(f"Generated-result digests differ within {folder}")
               return documents
 
-          default, no_pgo, no_quickjit, no_tiering = map(read, sys.argv[1:])
+          production, quickjit_on, no_pgo, no_tiering = map(read, sys.argv[1:])
           reference = {
               name: metric["digest"]
-              for name, metric in default[0]["metrics"].items()
+              for name, metric in production[0]["metrics"].items()
           }
           for mode, documents in (
+              ("tiered-quickjit-on", quickjit_on),
               ("tiered-no-pgo", no_pgo),
-              ("tiered-no-quickjit", no_quickjit),
               ("no-tiering", no_tiering),
           ):
               for document in documents:
@@ -482,11 +482,11 @@ jobs:
                                           .get("elapsedMilliseconds", 0)))
               return statistics.median(values)
 
-          print("\n### Candidate warm-up: .NET tiering and dynamic PGO isolation\n")
+          print("\n### Candidate warm-up: production runtime vs JIT/PGO alternatives\n")
           modes = (
-              ("Default", default),
+              ("Production (QuickJIT off)", production),
+              ("Tiered (QuickJIT on)", quickjit_on),
               ("Tiered, PGO off", no_pgo),
-              ("Tiered, QuickJIT off", no_quickjit),
               ("Tiering off", no_tiering),
           )
           print("| Warm pass / mode | Materialization (ms) | " +
