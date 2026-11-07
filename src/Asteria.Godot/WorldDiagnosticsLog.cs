@@ -116,6 +116,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _materializationMaxMs;
     private double _materializationElapsedMs;
     private double _materializationElapsedMaxMs;
+    private double _materializationPendingQueueWaitMs;
+    private double _materializationPendingQueueWaitMaxMs;
+    private double _materializationDispatchPreparationMs;
+    private double _materializationDispatchPreparationMaxMs;
     private double _materializationWorkerQueueWaitMs;
     private double _materializationWorkerQueueWaitMaxMs;
     private double _materializationWorkerWallMs;
@@ -513,6 +517,16 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _materializationElapsedMaxMs = Math.Max(
                 _materializationElapsedMaxMs,
                 activation.ElapsedMilliseconds);
+            _materializationPendingQueueWaitMs +=
+                activation.PendingQueueWaitMilliseconds;
+            _materializationPendingQueueWaitMaxMs = Math.Max(
+                _materializationPendingQueueWaitMaxMs,
+                activation.PendingQueueWaitMilliseconds);
+            _materializationDispatchPreparationMs +=
+                activation.DispatchPreparationMilliseconds;
+            _materializationDispatchPreparationMaxMs = Math.Max(
+                _materializationDispatchPreparationMaxMs,
+                activation.DispatchPreparationMilliseconds);
             _materializationWorkerQueueWaitMs +=
                 activation.WorkerQueueWaitMilliseconds;
             _materializationWorkerQueueWaitMaxMs = Math.Max(
@@ -832,6 +846,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"generation_ms_max={Format1(_materializationMaxMs)} " +
             $"generation_latency_ms_total={Format1(_materializationElapsedMs)} " +
             $"generation_latency_ms_max={Format1(_materializationElapsedMaxMs)} " +
+            $"generation_pending_queue_wait_ms_total={Format1(_materializationPendingQueueWaitMs)} " +
+            $"generation_pending_queue_wait_ms_max={Format1(_materializationPendingQueueWaitMaxMs)} " +
+            $"generation_dispatch_preparation_ms_total={Format1(_materializationDispatchPreparationMs)} " +
+            $"generation_dispatch_preparation_ms_max={Format1(_materializationDispatchPreparationMaxMs)} " +
             $"generation_worker_queue_wait_ms_total={Format1(_materializationWorkerQueueWaitMs)} " +
             $"generation_worker_queue_wait_ms_max={Format1(_materializationWorkerQueueWaitMaxMs)} " +
             $"generation_worker_wall_ms_total={Format1(_materializationWorkerWallMs)} " +
@@ -1003,6 +1021,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _materializationMaxMs = 0d;
         _materializationElapsedMs = 0d;
         _materializationElapsedMaxMs = 0d;
+        _materializationPendingQueueWaitMs = 0d;
+        _materializationPendingQueueWaitMaxMs = 0d;
+        _materializationDispatchPreparationMs = 0d;
+        _materializationDispatchPreparationMaxMs = 0d;
         _materializationWorkerQueueWaitMs = 0d;
         _materializationWorkerQueueWaitMaxMs = 0d;
         _materializationWorkerWallMs = 0d;
