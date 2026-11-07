@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Asteria.Core.World;
 
 internal enum DirectionalFaceDirection : byte
@@ -275,6 +277,7 @@ public sealed class Chunk
         /// Fast path for TerrainLayer: the chunk starts empty, shell positions
         /// are excluded, and each in-chunk terrain coordinate is visited once.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         internal bool SetBlockAtLinearIndexFreshUnchecked(
             int voxelIndex,
             BlockRuntimeId block)
