@@ -134,6 +134,8 @@ var initialAreaDiagnostics = new
 
 object? coldMaterializationDiagnostics = null;
 object? warmMaterializationDiagnostics = null;
+object? coldInitialAreaTimingDiagnostics = null;
+object? warmInitialAreaTimingDiagnostics = null;
 var initialAreaInvocation = 0;
 
 metrics.Add("biomeScalar", Measure(
@@ -448,6 +450,8 @@ metrics.Add("initialAreaSynthesis", Measure(
     generator =>
     {
         var invocation = ++initialAreaInvocation;
+        var totalTimer = Stopwatch.StartNew();
+        var preparationTimer = Stopwatch.StartNew();
         var spawn =
             generator.FindGeneratedSurfaceDestination(
                 dimension.Spawn.X,
@@ -477,6 +481,7 @@ metrics.Add("initialAreaSynthesis", Measure(
                     coord =>
                         coord.Y)
                 .ToArray();
+        preparationTimer.Stop();
         ulong digest =
             14695981039346656037UL;
         var materializeMsByY = new SortedDictionary<int, double>();
@@ -484,6 +489,8 @@ metrics.Add("initialAreaSynthesis", Measure(
         var chunkCountByY = new SortedDictionary<int, int>();
         var totalMaterializeMs = 0d;
         var totalMaterializeBytes = 0L;
+        var totalDigestMs = 0d;
+        var totalDigestBytes = 0L;
 
         foreach (var coord in
                  desired)
@@ -506,6 +513,8 @@ metrics.Add("initialAreaSynthesis", Measure(
             chunkCountByY[coord.Y] =
                 chunkCountByY.GetValueOrDefault(coord.Y) + 1;
 
+            var beforeDigestBytes = GC.GetAllocatedBytesForCurrentThread();
+            var digestTimer = Stopwatch.StartNew();
             digest =
                 HashNumber(
                     digest,
@@ -541,6 +550,10 @@ metrics.Add("initialAreaSynthesis", Measure(
                             digest,
                             cell.Block.Value);
                 });
+            digestTimer.Stop();
+            totalDigestMs += digestTimer.Elapsed.TotalMilliseconds;
+            totalDigestBytes += checked(
+                GC.GetAllocatedBytesForCurrentThread() - beforeDigestBytes);
         }
 
         var materializationByY = new SortedDictionary<int, object>();
@@ -567,10 +580,37 @@ metrics.Add("initialAreaSynthesis", Measure(
         else
             warmMaterializationDiagnostics = materializationSnapshot;
 
+        var finalDigestTimer = Stopwatch.StartNew();
+        var beforeFinalDigestBytes = GC.GetAllocatedBytesForCurrentThread();
         digest =
             HashNumber(
                 digest,
                 (ulong)desired.Length);
+        finalDigestTimer.Stop();
+        totalDigestMs += finalDigestTimer.Elapsed.TotalMilliseconds;
+        totalDigestBytes += checked(
+            GC.GetAllocatedBytesForCurrentThread() - beforeFinalDigestBytes);
+
+        totalTimer.Stop();
+        var timingSnapshot = new
+        {
+            TotalElapsedMilliseconds = totalTimer.Elapsed.TotalMilliseconds,
+            SpawnAndSelectionMilliseconds = preparationTimer.Elapsed.TotalMilliseconds,
+            MaterializationMilliseconds = totalMaterializeMs,
+            DigestMilliseconds = totalDigestMs,
+            UnattributedMilliseconds = Math.Max(
+                0d,
+                totalTimer.Elapsed.TotalMilliseconds -
+                preparationTimer.Elapsed.TotalMilliseconds -
+                totalMaterializeMs -
+                totalDigestMs),
+            MaterializationAllocatedBytes = totalMaterializeBytes,
+            DigestAllocatedBytes = totalDigestBytes,
+        };
+        if (invocation == 1)
+            coldInitialAreaTimingDiagnostics = timingSnapshot;
+        else
+            warmInitialAreaTimingDiagnostics = timingSnapshot;
         return digest;
     }));
 
@@ -1313,6 +1353,11 @@ var result = new
     {
         Cold = coldMaterializationDiagnostics,
         Warm = warmMaterializationDiagnostics,
+    },
+    InitialAreaSynthesisTimingBreakdown = new
+    {
+        Cold = coldInitialAreaTimingDiagnostics,
+        Warm = warmInitialAreaTimingDiagnostics,
     },
     InitialAreaStageTimingDiagnostics = new
     {
