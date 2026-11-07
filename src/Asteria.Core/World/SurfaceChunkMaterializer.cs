@@ -2867,41 +2867,68 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        var yBitMask = 0u;
-        for (var y = 0; y < size; y++)
+        // Boundary masks already carry all Y occupancy for one horizontal
+        // column. Iterate their set bits instead of scanning every Y and
+        // testing the same mask repeatedly. The resulting X/Z rows are
+        // identical, while sparse boundary columns avoid empty voxel probes.
+        for (var z = 0; z < size; z++)
         {
-            yBitMask = 1u << y;
-            for (var z = 0; z < size; z++)
+            for (var regionX = 0; regionX < maximumDepth; regionX++)
             {
-                var rowOffset = (y * size + z) * wordCount;
-                for (var regionX = 0; regionX < maximumDepth; regionX++)
+                var remainingMask = (uint)xBoundaryMasks[regionX * size + z];
+                while (remainingMask != 0)
                 {
-                    if ((xBoundaryMasks[regionX * size + z] & yBitMask) != 0)
-                        MarkSolid(xRows, rowOffset, regionX);
-                }
-                for (var regionX = maximumDepth + size;
-                     regionX < regionSize;
-                     regionX++)
-                {
-                    if ((xBoundaryMasks[regionX * size + z] & yBitMask) != 0)
-                        MarkSolid(xRows, rowOffset, regionX);
+                    var y = System.Numerics.BitOperations.TrailingZeroCount(
+                        remainingMask);
+                    var rowOffset = (y * size + z) * wordCount;
+                    MarkSolid(xRows, rowOffset, regionX);
+                    remainingMask &= remainingMask - 1;
                 }
             }
 
-            for (var x = 0; x < size; x++)
+            for (var regionX = maximumDepth + size;
+                 regionX < regionSize;
+                 regionX++)
             {
-                var rowOffset = (y * size + x) * wordCount;
-                for (var regionZ = 0; regionZ < maximumDepth; regionZ++)
+                var remainingMask = (uint)xBoundaryMasks[regionX * size + z];
+                while (remainingMask != 0)
                 {
-                    if ((zBoundaryMasks[x * regionSize + regionZ] & yBitMask) != 0)
-                        MarkSolid(zRows, rowOffset, regionZ);
+                    var y = System.Numerics.BitOperations.TrailingZeroCount(
+                        remainingMask);
+                    var rowOffset = (y * size + z) * wordCount;
+                    MarkSolid(xRows, rowOffset, regionX);
+                    remainingMask &= remainingMask - 1;
                 }
-                for (var regionZ = maximumDepth + size;
-                     regionZ < regionSize;
-                     regionZ++)
+            }
+        }
+
+        for (var x = 0; x < size; x++)
+        {
+            for (var regionZ = 0; regionZ < maximumDepth; regionZ++)
+            {
+                var remainingMask = (uint)zBoundaryMasks[x * regionSize + regionZ];
+                while (remainingMask != 0)
                 {
-                    if ((zBoundaryMasks[x * regionSize + regionZ] & yBitMask) != 0)
-                        MarkSolid(zRows, rowOffset, regionZ);
+                    var y = System.Numerics.BitOperations.TrailingZeroCount(
+                        remainingMask);
+                    var rowOffset = (y * size + x) * wordCount;
+                    MarkSolid(zRows, rowOffset, regionZ);
+                    remainingMask &= remainingMask - 1;
+                }
+            }
+
+            for (var regionZ = maximumDepth + size;
+                 regionZ < regionSize;
+                 regionZ++)
+            {
+                var remainingMask = (uint)zBoundaryMasks[x * regionSize + regionZ];
+                while (remainingMask != 0)
+                {
+                    var y = System.Numerics.BitOperations.TrailingZeroCount(
+                        remainingMask);
+                    var rowOffset = (y * size + x) * wordCount;
+                    MarkSolid(zRows, rowOffset, regionZ);
+                    remainingMask &= remainingMask - 1;
                 }
             }
         }
