@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
 
+using System.Runtime.CompilerServices;
+
 namespace Asteria.Core.World;
 
 internal readonly record struct PaletteStorageCapacityMetrics(
@@ -300,6 +302,7 @@ internal sealed class PaletteStorage<T>
     /// The owning chunk must be fresh and private, and each linear index must
     /// be supplied at most once. Used only by the bounded TerrainLayer pass.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal bool SetInitialFreshSlotWithPaletteIndexUnchecked(
         int voxelIndex,
         T value,
@@ -699,6 +702,7 @@ internal sealed class PaletteStorage<T>
         public readonly ushort Value;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private void Retain(ushort paletteIndex)
     {
         if (paletteIndex == 0)
@@ -732,6 +736,7 @@ internal sealed class PaletteStorage<T>
         PushFreeSlot(state, paletteIndex);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private void UpdateOccupancy(
         int voxelIndex,
         bool wasOccupied,
