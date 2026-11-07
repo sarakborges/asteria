@@ -3587,6 +3587,7 @@ public sealed class SurfaceChunkMaterializer
         if (!_decorations.HasVerticalDecorations)
             return;
 
+        var hasCaveBiomeField = _volumeBiomes is { HasBiomes: true };
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
@@ -3597,7 +3598,6 @@ public sealed class SurfaceChunkMaterializer
             var volumePlacement = densityVolume.VolumePlacementAt(localX, localZ);
             var hasVolumeDecorations = volumePlacement is not null &&
                 _decorations.HasVerticalDecorationsFor(volumePlacement.Primary);
-            var hasCaveBiomeField = _volumeBiomes is { HasBiomes: true };
             if (!hasCaveBiomeField && !hasVolumeDecorations)
                 continue;
 
