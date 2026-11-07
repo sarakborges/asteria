@@ -491,15 +491,33 @@ metrics.Add("initialAreaSynthesis", Measure(
         var totalMaterializeBytes = 0L;
         var totalDigestMs = 0d;
         var totalDigestBytes = 0L;
+        var materializationStages = Enum.GetValues<ChunkMaterializationStage>();
+        var stageElapsedMilliseconds = new double[materializationStages.Length];
+        var stageAdvanceCounts = new int[materializationStages.Length];
 
         foreach (var coord in
                  desired)
         {
             var beforeChunkBytes = GC.GetAllocatedBytesForCurrentThread();
             var chunkTimer = Stopwatch.StartNew();
-            var chunk =
-                generator.Materialize(
-                    coord);
+            Chunk chunk;
+            using (var job = generator.BeginMaterialization(coord))
+            {
+                while (!job.IsComplete)
+                {
+                    var stage = job.ActiveWorkStage;
+                    var stageIndex = (int)stage;
+                    var stageStartedAt = Stopwatch.GetTimestamp();
+                    job.Advance();
+                    stageElapsedMilliseconds[stageIndex] +=
+                        Stopwatch.GetElapsedTime(stageStartedAt).TotalMilliseconds;
+                    stageAdvanceCounts[stageIndex]++;
+                }
+
+                chunk = job.Result ??
+                    throw new InvalidOperationException(
+                        $"Chunk {coord} completed without a materialized result.");
+            }
             chunkTimer.Stop();
             var chunkMs = chunkTimer.Elapsed.TotalMilliseconds;
             var chunkBytes = checked(
@@ -592,11 +610,30 @@ metrics.Add("initialAreaSynthesis", Measure(
             GC.GetAllocatedBytesForCurrentThread() - beforeFinalDigestBytes);
 
         totalTimer.Stop();
+        var stageTimingsByName = new SortedDictionary<string, object>(
+            StringComparer.Ordinal);
+        for (var stageIndex = 0;
+             stageIndex < materializationStages.Length;
+             stageIndex++)
+        {
+            if (stageAdvanceCounts[stageIndex] == 0)
+                continue;
+
+            stageTimingsByName.Add(
+                materializationStages[stageIndex].ToString(),
+                new
+                {
+                    AdvanceCount = stageAdvanceCounts[stageIndex],
+                    ElapsedMilliseconds = stageElapsedMilliseconds[stageIndex],
+                });
+        }
+
         var timingSnapshot = new
         {
             TotalElapsedMilliseconds = totalTimer.Elapsed.TotalMilliseconds,
             SpawnAndSelectionMilliseconds = preparationTimer.Elapsed.TotalMilliseconds,
             MaterializationMilliseconds = totalMaterializeMs,
+            MaterializationStageTimings = stageTimingsByName,
             DigestMilliseconds = totalDigestMs,
             UnattributedMilliseconds = Math.Max(
                 0d,
@@ -1389,7 +1426,8 @@ var result = new
         "Cold and warm passes use identical coordinates and independent generator instances per metric.",
         "Elapsed times include immutable query/cache cost, not Godot meshing, physics or GPU publication.",
         "Allocation counters use the current benchmark thread and are comparative diagnostics, not retained-memory truth.",
-        "Initial-area stage timings isolate chunk materialization work and are diagnostic only; they are not regression thresholds.",
+        "Initial-area synthesis stage timings wrap each Advance call in the exact cold/warm benchmark pass; the measured materialization total includes this lightweight diagnostic overhead.",
+        "Separate repeated materialization-stage profiles are diagnostic only and are not regression thresholds.",
         "Directional face-palette profiles use operation counters and sampled Debug timings; cold and warm passes use the same fixed-seed chunk selection.",
         options.ProfileGeologySampling
             ? "Per-voxel and regional geology profiles compare the same fixed world-space voxel sample with chunk-local noise-cache lifetimes."
