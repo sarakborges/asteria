@@ -3594,18 +3594,18 @@ public sealed class SurfaceChunkMaterializer
             var surfaceBiome = column.BiomeAt(localX, localZ);
             var worldX = originX + localX;
             var worldZ = originZ + localZ;
-            var underground = column.CaveBiomeAt(localX, localZ);
             var volumePlacement = densityVolume.VolumePlacementAt(localX, localZ);
-            var hasCaveDecorations = underground is not null &&
-                _decorations.HasVerticalDecorationsFor(underground.Primary);
             var hasVolumeDecorations = volumePlacement is not null &&
                 _decorations.HasVerticalDecorationsFor(volumePlacement.Primary);
-            // A column with neither a decorated cave owner nor a decorated
-            // additive owner cannot receive vertical decorations at any Y.
-            // Skip its density and support scans before entering the Y loop.
-            if (!hasCaveDecorations && !hasVolumeDecorations)
+            var hasCaveBiomeField = _volumeBiomes is { HasBiomes: true };
+            if (!hasCaveBiomeField && !hasVolumeDecorations)
                 continue;
 
+            // Cave ownership is resolved only after an actual supported void
+            // face is found. Most columns never need a cave-biome lookup.
+            BiomeSample? underground = null;
+            var undergroundResolved = false;
+            var hasCaveDecorations = false;
             BiomeSurfaceMaterialColumn? volumeMaterials = null;
 
             // Include adjacent vertical seam targets: an Object is stored on
@@ -3615,7 +3615,8 @@ public sealed class SurfaceChunkMaterializer
                 var worldY = originY + localY;
                 if (worldY <= 0 ||
                     (_floorY is { } floorY && worldY <= floorY) ||
-                    (_roofY is { } roofY && worldY >= roofY))
+                    (_roofY is { } roofY && worldY >= roofY) ||
+                    (worldY > baseY && !hasVolumeDecorations))
                     continue;
 
                 var targetInChunk = (uint)localY < Chunk.Size;
@@ -3684,9 +3685,18 @@ public sealed class SurfaceChunkMaterializer
                 {
                     // A solid face outside a carved void does not authorize
                     // a volume decorator on the ordinary terrain surface.
-                    if (_volumeBiomes is not { HasBiomes: true } ||
+                    if (!hasCaveBiomeField ||
                         !_terrain.IsCaveVoidAt(
                             baseY, new WorldVoxelCoord(worldX, worldY, worldZ)))
+                        continue;
+                    if (!undergroundResolved)
+                    {
+                        underground = column.CaveBiomeAt(localX, localZ);
+                        hasCaveDecorations = underground is not null &&
+                            _decorations.HasVerticalDecorationsFor(underground.Primary);
+                        undergroundResolved = true;
+                    }
+                    if (!hasCaveDecorations)
                         continue;
                     decoratorBiome = underground;
                 }
