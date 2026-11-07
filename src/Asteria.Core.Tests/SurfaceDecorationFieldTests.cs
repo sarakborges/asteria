@@ -5,6 +5,34 @@ namespace Asteria.Core.Tests;
 public sealed class SurfaceDecorationFieldTests
 {
     [Fact]
+    public void VerticalDecorationIndexExcludesWallOnlyVolumeBiomes()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/wall_only_volume",
+            surfaceLayout: null,
+            surfaceTerrain: null,
+            decorations:
+            [
+                new BiomeDecorationDefinition(
+                    "asteria:wall_growth",
+                    1f,
+                    ["asteria:stone"],
+                    supportSurface: DecorationSupportSurface.Wall,
+                    isLayer: true),
+            ],
+            volumeLayout: new BiomeVolumeLayoutDefinition(
+                placement: VolumeBiomePlacement.CarvedVoid));
+        var field = new SurfaceDecorationField(71, [biome], blocks);
+
+        Assert.False(field.HasVerticalDecorations);
+        Assert.False(field.HasVerticalDecorationsFor(biome.Id));
+    }
+
+    [Fact]
     public void SurfacePlacementCandidateIndexFiltersUnsupportedSurfaceBlocks()
     {
         var blocks = new BlockRegistry(
