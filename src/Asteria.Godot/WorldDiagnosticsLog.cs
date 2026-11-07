@@ -116,6 +116,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _materializationMaxMs;
     private double _materializationElapsedMs;
     private double _materializationElapsedMaxMs;
+    private double _materializationWorkerQueueWaitMs;
+    private double _materializationWorkerQueueWaitMaxMs;
+    private double _materializationWorkerWallMs;
+    private double _materializationWorkerWallMaxMs;
+    private double _materializationResultCollectionWaitMs;
+    private double _materializationResultCollectionWaitMaxMs;
     private ChunkCoord? _slowestChunk;
     private int _slowChunks;
     private int _restored;
@@ -507,6 +513,21 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _materializationElapsedMaxMs = Math.Max(
                 _materializationElapsedMaxMs,
                 activation.ElapsedMilliseconds);
+            _materializationWorkerQueueWaitMs +=
+                activation.WorkerQueueWaitMilliseconds;
+            _materializationWorkerQueueWaitMaxMs = Math.Max(
+                _materializationWorkerQueueWaitMaxMs,
+                activation.WorkerQueueWaitMilliseconds);
+            _materializationWorkerWallMs +=
+                activation.WorkerWallMilliseconds;
+            _materializationWorkerWallMaxMs = Math.Max(
+                _materializationWorkerWallMaxMs,
+                activation.WorkerWallMilliseconds);
+            _materializationResultCollectionWaitMs +=
+                activation.ResultCollectionWaitMilliseconds;
+            _materializationResultCollectionWaitMaxMs = Math.Max(
+                _materializationResultCollectionWaitMaxMs,
+                activation.ResultCollectionWaitMilliseconds);
             if (activation.WorkerMilliseconds > _materializationMaxMs)
             {
                 _materializationMaxMs = activation.WorkerMilliseconds;
@@ -811,6 +832,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"generation_ms_max={Format1(_materializationMaxMs)} " +
             $"generation_latency_ms_total={Format1(_materializationElapsedMs)} " +
             $"generation_latency_ms_max={Format1(_materializationElapsedMaxMs)} " +
+            $"generation_worker_queue_wait_ms_total={Format1(_materializationWorkerQueueWaitMs)} " +
+            $"generation_worker_queue_wait_ms_max={Format1(_materializationWorkerQueueWaitMaxMs)} " +
+            $"generation_worker_wall_ms_total={Format1(_materializationWorkerWallMs)} " +
+            $"generation_worker_wall_ms_max={Format1(_materializationWorkerWallMaxMs)} " +
+            $"generation_result_collection_wait_ms_total={Format1(_materializationResultCollectionWaitMs)} " +
+            $"generation_result_collection_wait_ms_max={Format1(_materializationResultCollectionWaitMaxMs)} " +
             $"generation_slow_chunks={_slowChunks} slowest_chunk={_slowestChunk} " +
             $"fluid_activation_chunks={_fluidActivationChunks} " +
             $"fluid_activation_slices={_fluidActivationSlices} " +
@@ -976,6 +1003,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _materializationMaxMs = 0d;
         _materializationElapsedMs = 0d;
         _materializationElapsedMaxMs = 0d;
+        _materializationWorkerQueueWaitMs = 0d;
+        _materializationWorkerQueueWaitMaxMs = 0d;
+        _materializationWorkerWallMs = 0d;
+        _materializationWorkerWallMaxMs = 0d;
+        _materializationResultCollectionWaitMs = 0d;
+        _materializationResultCollectionWaitMaxMs = 0d;
         _slowChunks = 0;
         _slowestChunk = null;
         _terrainMeshBatches = 0;
