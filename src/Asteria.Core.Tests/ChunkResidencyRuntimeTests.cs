@@ -83,14 +83,20 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(0, fixture.Runtime.MaterializingCount);
         var activation = Assert.Single(completed.Activations);
         Assert.Equal(ChunkActivationSource.Provider, activation.Source);
+        Assert.True(double.IsFinite(activation.PendingQueueWaitMilliseconds));
+        Assert.True(double.IsFinite(activation.DispatchPreparationMilliseconds));
         Assert.True(double.IsFinite(activation.WorkerQueueWaitMilliseconds));
         Assert.True(double.IsFinite(activation.WorkerWallMilliseconds));
         Assert.True(double.IsFinite(activation.ResultCollectionWaitMilliseconds));
+        Assert.True(activation.PendingQueueWaitMilliseconds >= 0d);
+        Assert.True(activation.DispatchPreparationMilliseconds >= 0d);
         Assert.True(activation.WorkerQueueWaitMilliseconds >= 0d);
         Assert.True(activation.WorkerWallMilliseconds >= activation.WorkerMilliseconds);
         Assert.True(activation.ResultCollectionWaitMilliseconds >= 0d);
         Assert.True(
             activation.ElapsedMilliseconds + 0.01d >=
+            activation.PendingQueueWaitMilliseconds +
+            activation.DispatchPreparationMilliseconds +
             activation.WorkerQueueWaitMilliseconds +
             activation.WorkerWallMilliseconds +
             activation.ResultCollectionWaitMilliseconds);
