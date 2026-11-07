@@ -457,6 +457,21 @@ public sealed class SurfaceTerrainField
         volumeBiome is not null &&
         _additiveRules.ContainsKey(volumeBiome.Primary);
 
+    internal bool RequiresVolumeBiomeForDensityBand(int originY)
+    {
+        if (originY < 0 || originY % Chunk.Size != 0)
+            throw new ArgumentOutOfRangeException(nameof(originY));
+
+        var maximumY = checked(originY + Chunk.Size - 1);
+        foreach (var ruleSet in _additiveRules.Values)
+        {
+            if (ruleSet.IntersectsYRange(originY, maximumY))
+                return true;
+        }
+
+        return false;
+    }
+
     public double DensityAt(
         BiomeSample biome,
         int baseY,
@@ -957,7 +972,7 @@ public sealed class SurfaceTerrainField
     }
 
     /// <summary>
-    /// Completes missing occupancy columns from one vertical chunk band.
+    /// Completes only requested, unsampled Y bits from one vertical chunk band.
     /// The cave-noise lattice is prepared once for the batch and shared by
     /// every requested column, matching the chunk-volume sampling path.
     /// </summary>
@@ -967,6 +982,7 @@ public sealed class SurfaceTerrainField
         int originY,
         int originZ,
         ReadOnlySpan<int> columnIndices,
+        ReadOnlySpan<ushort> requestedMasks,
         Span<ushort> solidMasks,
         Span<ushort> sampledMasks,
         out int densityProbes,
@@ -976,7 +992,8 @@ public sealed class SurfaceTerrainField
     {
         if (originY < 0 || originY % Chunk.Size != 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
-        if (columnIndices.Length != solidMasks.Length ||
+        if (columnIndices.Length != requestedMasks.Length ||
+            columnIndices.Length != solidMasks.Length ||
             columnIndices.Length != sampledMasks.Length ||
             columnIndices.Length > Chunk.Area)
             throw new ArgumentException(
@@ -998,6 +1015,23 @@ public sealed class SurfaceTerrainField
         var maximumCaveLocalZ = -1;
         var hasMissingSamples = false;
         var mayContainCaves = false;
+
+        static ushort VerticalRangeMask(
+            int worldOriginY,
+            long minimumWorldY,
+            long maximumWorldY)
+        {
+            var firstLocalY = Math.Max(0L, minimumWorldY - worldOriginY);
+            var lastLocalY = Math.Min(
+                (long)Chunk.Size - 1L,
+                maximumWorldY - worldOriginY);
+            if (firstLocalY > lastLocalY)
+                return 0;
+
+            var count = checked((int)(lastLocalY - firstLocalY + 1L));
+            return (ushort)(((1u << count) - 1u) << (int)firstLocalY);
+        }
+
 #if DEBUG
         var columnBoundsStarted = Stopwatch.GetTimestamp();
 #endif
@@ -1007,7 +1041,9 @@ public sealed class SurfaceTerrainField
             var columnIndex = columnIndices[index];
             if ((uint)columnIndex >= Chunk.Area)
                 throw new ArgumentOutOfRangeException(nameof(columnIndices));
-            if (sampledMasks[index] == ushort.MaxValue)
+            var missingMask = (ushort)(
+                requestedMasks[index] & (ushort)~sampledMasks[index]);
+            if (missingMask == 0)
                 continue;
 
             hasMissingSamples = true;
@@ -1015,8 +1051,10 @@ public sealed class SurfaceTerrainField
             var localZ = columnIndex / Chunk.Size;
             var baseY = column.BaseHeightAt(localX, localZ);
             if (_caves is { } caves &&
-                (long)originY <= (long)baseY - caves.MinimumDepth &&
-                (long)maximumY >= (long)baseY - caves.MaximumDepth)
+                (missingMask & VerticalRangeMask(
+                    originY,
+                    (long)baseY - caves.MaximumDepth,
+                    (long)baseY - caves.MinimumDepth)) != 0)
             {
                 // Only cave-eligible columns contribute to the sampler bounds.
                 // Including unrelated high/low columns can unnecessarily
@@ -1066,7 +1104,9 @@ public sealed class SurfaceTerrainField
 
         for (var index = 0; index < columnIndices.Length; index++)
         {
-            if (sampledMasks[index] == ushort.MaxValue)
+            var missingMask = (ushort)(
+                requestedMasks[index] & (ushort)~sampledMasks[index]);
+            if (missingMask == 0)
                 continue;
 
             var columnIndex = columnIndices[index];
@@ -1081,11 +1121,12 @@ public sealed class SurfaceTerrainField
                 checked(originZ + localZ),
                 solidMasks[index],
                 sampledMasks[index],
+                requestedMasks[index],
                 caveSampler,
                 minimumCaveLocalX,
                 minimumCaveLocalZ,
                 out var probes);
-            sampledMasks[index] = ushort.MaxValue;
+            sampledMasks[index] |= requestedMasks[index];
             densityProbes = checked(densityProbes + probes);
         }
 #if DEBUG
@@ -1117,6 +1158,7 @@ public sealed class SurfaceTerrainField
             worldZ,
             cachedSolidMask,
             sampledMask,
+            requestedMask: ushort.MaxValue,
             caveSampler: null,
             caveSamplerOriginLocalX: 0,
             caveSamplerOriginLocalZ: 0,
@@ -1131,6 +1173,7 @@ public sealed class SurfaceTerrainField
         int worldZ,
         ushort cachedSolidMask,
         ushort sampledMask,
+        ushort requestedMask,
         CaveNoiseVolumeSampler? caveSampler,
         int caveSamplerOriginLocalX,
         int caveSamplerOriginLocalZ,
@@ -1146,6 +1189,13 @@ public sealed class SurfaceTerrainField
         var baseY = column.BaseHeightAt(localX, localZ);
         var volumeBiome = column.VolumeBiomeAt(localX, localZ);
         var solidMask = (ushort)(cachedSolidMask & sampledMask);
+        var unknownMask = (ushort)(requestedMask & (ushort)~sampledMask);
+        if (unknownMask == 0)
+        {
+            densityProbes = 0;
+            return solidMask;
+        }
+
         var additiveRule =
             volumeBiome is not null &&
             _additiveRules.TryGetValue(volumeBiome.Primary, out var resolvedAdditive)
@@ -1189,10 +1239,10 @@ public sealed class SurfaceTerrainField
             }
 
             densityProbes = System.Numerics.BitOperations.PopCount(
-                (uint)(ushort)~sampledMask);
+                (uint)unknownMask);
             return (ushort)(
                 solidMask |
-                (baselineMask & (ushort)~sampledMask));
+                (baselineMask & unknownMask));
         }
 
         static ushort VerticalRangeMask(
@@ -1219,7 +1269,6 @@ public sealed class SurfaceTerrainField
                 : (ushort)0;
         }
 
-        var unknownMask = (ushort)~sampledMask;
         densityProbes = System.Numerics.BitOperations.PopCount(
             (uint)unknownMask);
 
@@ -1398,24 +1447,98 @@ public sealed class SurfaceTerrainField
     internal BiomeField.Sampler? CreateDensityVolumeSampler() =>
         _volumeBiomes.CreatePlacementSampler();
 
-    internal void SampleDensityColumns(
+    internal void SampleDensitySurfaceColumns(
         int chunkX,
         int chunkZ,
         ReadOnlySpan<int> columnIndices,
         BiomeField.Sampler surfaceSampler,
-        BiomeField.Sampler? volumeSampler,
         BiomeSample?[] biomes,
-        BiomeSample?[] volumeBiomes,
-        int[] baseHeights)
+        int[] baseHeights,
+        out double biomeAssignmentSamplingMilliseconds,
+        out double baseHeightSamplingMilliseconds)
     {
         ArgumentNullException.ThrowIfNull(surfaceSampler);
+        biomeAssignmentSamplingMilliseconds = 0d;
+        baseHeightSamplingMilliseconds = 0d;
         if (columnIndices.Length > Chunk.Area ||
             biomes.Length != Chunk.Area ||
-            volumeBiomes.Length != Chunk.Area ||
             baseHeights.Length != Chunk.Area)
         {
             throw new ArgumentException(
-                "Density terrain snapshots must use chunk-sized buffers.");
+                "Density surface snapshots must use chunk-sized buffers.");
+        }
+
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(
+                new ChunkCoord(chunkX, 0, chunkZ));
+
+#if DEBUG
+        // Measure whole passes rather than timing every column individually.
+        // Per-column Stopwatch calls materially inflate this hot path and make
+        // the breakdown less representative of the work being measured.
+        var biomeSamplingStarted = Stopwatch.GetTimestamp();
+        for (var offset = 0; offset < columnIndices.Length; offset++)
+        {
+            var columnIndex = columnIndices[offset];
+            if ((uint)columnIndex >= Chunk.Area)
+                throw new ArgumentOutOfRangeException(nameof(columnIndices));
+
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            var worldX = checked(originX + localX);
+            var worldZ = checked(originZ + localZ);
+            biomes[columnIndex] = surfaceSampler.Sample(worldX, worldZ);
+        }
+        biomeAssignmentSamplingMilliseconds =
+            Stopwatch.GetElapsedTime(biomeSamplingStarted).TotalMilliseconds;
+
+        var baseHeightSamplingStarted = Stopwatch.GetTimestamp();
+        for (var offset = 0; offset < columnIndices.Length; offset++)
+        {
+            var columnIndex = columnIndices[offset];
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            var worldX = checked(originX + localX);
+            var worldZ = checked(originZ + localZ);
+            var biome = biomes[columnIndex] ??
+                throw new InvalidOperationException(
+                    "Density surface sampling did not populate a requested biome column.");
+            baseHeights[columnIndex] =
+                BaseHeightAt(biome, worldX, worldZ);
+        }
+        baseHeightSamplingMilliseconds =
+            Stopwatch.GetElapsedTime(baseHeightSamplingStarted).TotalMilliseconds;
+#else
+        for (var offset = 0; offset < columnIndices.Length; offset++)
+        {
+            var columnIndex = columnIndices[offset];
+            if ((uint)columnIndex >= Chunk.Area)
+                throw new ArgumentOutOfRangeException(nameof(columnIndices));
+
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            var worldX = checked(originX + localX);
+            var worldZ = checked(originZ + localZ);
+            var biome = surfaceSampler.Sample(worldX, worldZ);
+            biomes[columnIndex] = biome;
+            baseHeights[columnIndex] =
+                BaseHeightAt(biome, worldX, worldZ);
+        }
+#endif
+    }
+
+    internal void SampleDensityVolumeColumns(
+        int chunkX,
+        int chunkZ,
+        ReadOnlySpan<int> columnIndices,
+        BiomeField.Sampler? volumeSampler,
+        BiomeSample?[] volumeBiomes)
+    {
+        if (columnIndices.Length > Chunk.Area ||
+            volumeBiomes.Length != Chunk.Area)
+        {
+            throw new ArgumentException(
+                "Density volume snapshots must use chunk-sized buffers.");
         }
 
         var (originX, _, originZ) =
@@ -1432,14 +1555,8 @@ public sealed class SurfaceTerrainField
             var localZ = columnIndex / Chunk.Size;
             var worldX = checked(originX + localX);
             var worldZ = checked(originZ + localZ);
-            var biome = surfaceSampler.Sample(worldX, worldZ);
-            var volumeBiome = _volumeBiomes.SamplePlacement(
+            volumeBiomes[columnIndex] = _volumeBiomes.SamplePlacement(
                 volumeSampler, worldX, worldZ);
-
-            biomes[columnIndex] = biome;
-            volumeBiomes[columnIndex] = volumeBiome;
-            baseHeights[columnIndex] =
-                BaseHeightAt(biome, worldX, worldZ);
         }
     }
 
@@ -1859,6 +1976,19 @@ public sealed class SurfaceTerrainField
         public int MinimumY { get; }
         public int MaximumY { get; }
         public int RuleCount => _rules.Length;
+
+        public bool IntersectsYRange(int minimumY, int maximumY)
+        {
+            for (var index = 0; index < _rules.Length; index++)
+            {
+                var rule = _rules[index];
+                if (minimumY <= rule.MaximumY &&
+                    maximumY >= rule.MinimumY)
+                    return true;
+            }
+
+            return false;
+        }
 
         public int SampleHorizontalSupports(
             ulong seed,
@@ -2765,6 +2895,11 @@ public sealed class TerrainDensityVolume
         return mask;
     }
 
+    // Materialization traverses one Y layer at a time. Expose the compact
+    // per-column masks so the hot loop can hoist the array lookup and bit
+    // selection outside TerrainDensityVolume's general-purpose accessor.
+    internal ushort[]? ColumnSolidMasks => _columnSolidMask;
+
     internal BiomeSample? VolumePlacementAt(
         int localX,
         int localZ)
@@ -2791,7 +2926,6 @@ public sealed class TerrainDensityVolume
             throw new InvalidOperationException(
                 "Density volume does not carry volume-biome placement metadata.");
         }
-
         return _volumeBiomeField.SampleAtY(
             _volumeBiomes,
             localX,

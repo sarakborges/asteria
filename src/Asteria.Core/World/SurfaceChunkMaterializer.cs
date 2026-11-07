@@ -22,6 +22,9 @@ public sealed class SurfaceChunkMaterializer
         double BoundaryColumnEvaluationMilliseconds,
         double DensityTerrainColumnMilliseconds,
         double OccupancyCacheAccessMilliseconds,
+        double SurfaceBiomeSamplingMilliseconds,
+        double BaseHeightSamplingMilliseconds,
+        double VolumeBiomeSamplingMilliseconds,
         int HorizontalBoundaryBatchCount,
         int HorizontalBoundaryColumnCount);
 
@@ -33,7 +36,10 @@ public sealed class SurfaceChunkMaterializer
         double CaveSamplerBuildMilliseconds,
         double ColumnEvaluationMilliseconds,
         double DensityTerrainColumnMilliseconds,
-        double OccupancyCacheAccessMilliseconds);
+        double OccupancyCacheAccessMilliseconds,
+        double SurfaceBiomeSamplingMilliseconds,
+        double BaseHeightSamplingMilliseconds,
+        double VolumeBiomeSamplingMilliseconds);
 
     // A 16x16 chunk plus its one-column cardinal slope-probe halo is 18x18.
     private const int SlopeProbeSampleCacheCapacity =
@@ -48,12 +54,12 @@ public sealed class SurfaceChunkMaterializer
         public int WorldZ;
         public BiomeSample? Sample;
         public (BlockRuntimeId Block, uint StartDepth) SurfaceCore;
-        public uint? SurfaceCoverDepth;
+        public BiomeSurfaceMaterialField.GeologySampler SurfaceGeology;
         public bool HasSurfaceMaterialMetadata;
         public BiomeSurfaceMaterialColumn? SurfaceMaterials;
         public BiomeSample? VolumeSample;
+        public BiomeSurfaceMaterialField.GeologySampler VolumeGeology;
         public BiomeSurfaceMaterialColumn? VolumeMaterials;
-        public uint? VolumeCoverDepth;
         public GeneratedFluidColumnPlan GeneratedFluidPlan;
     }
 
@@ -591,10 +597,24 @@ public sealed class SurfaceChunkMaterializer
             throw new InvalidOperationException("Terrain writes are already complete.");
         var directionalMasks = job.DirectionalFaceOccupancyMasks;
         var directionalCandidateColumns = directionalMasks?.CandidateColumns;
+        var columnSolidMasks = densityVolume.ColumnSolidMasks;
         var localY = job.NextTerrainLocalY;
+        var solidBit = (ushort)(1u << localY);
+        var worldY = checked(originY + localY);
+        var minimumTerrainY = _floorY ?? 0;
+        var maximumTerrainY = _roofY ?? int.MaxValue;
+        if (worldY < minimumTerrainY ||
+            worldY > maximumTerrainY ||
+            (!_shellBlock.IsAir &&
+             (worldY == _floorY || worldY == _roofY)))
+        {
+            // Every column in this layer is outside the playable terrain
+            // range or belongs to an already-written shell plane.
+            job.NextTerrainLocalY++;
+            return;
+        }
 
-            var worldY = checked(originY + localY);
-            for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
             {
                 for (var localX = 0; localX < Chunk.Size; localX++)
                 {
@@ -605,35 +625,30 @@ public sealed class SurfaceChunkMaterializer
                         continue;
 
                     ref var state = ref columnMaterializationCaches[columnIndex];
+                    var surfaceY = state.SurfaceY;
+                    if (worldY > surfaceY ||
+                        (columnSolidMasks is null
+                            ? !densityVolume.IsSolidAtUnchecked(
+                                localX, localY, localZ)
+                            : (columnSolidMasks[columnIndex] & solidBit) == 0))
+                    {
+                        continue;
+                    }
+
+                    // Only solid cells below their column surface need the
+                    // heavier biome/material metadata from the column cache.
                     var sample = state.Sample ??
                         throw new InvalidOperationException(
                             "Materialization column has no biome sample.");
-                    var surfaceY = state.SurfaceY;
                     var baseY = state.BaseY;
                     var surfaceFluidCutDepth = state.SurfaceFluidCutDepth;
                     var worldX = state.WorldX;
                     var worldZ = state.WorldZ;
 
-                    // Shell planes were installed before terrain writes.
-                    // Skip their voxels so geology cannot overwrite them.
-                    if (!_shellBlock.IsAir &&
-                        (worldY == _floorY || worldY == _roofY))
-                        continue;
-
-                    if (worldY < (_floorY ?? 0) ||
-                        worldY > surfaceY ||
-                        worldY > (_roofY ?? int.MaxValue) ||
-                        !densityVolume.IsSolidAtUnchecked(
-                            localX, localY, localZ))
-                    {
-                        continue;
-                    }
-
                     if (!state.HasSurfaceMaterialMetadata)
                     {
                         state.SurfaceCore = _materials.CoreLayer(sample);
-                        state.SurfaceCoverDepth =
-                            _materials.GeologySurfaceCoverDepth(sample);
+                        state.SurfaceGeology = _materials.ResolveGeology(sample);
                         state.HasSurfaceMaterialMetadata = true;
                     }
 
@@ -650,8 +665,11 @@ public sealed class SurfaceChunkMaterializer
                             var aboveLocalY = aboveY - originY;
                             if (aboveLocalY < 0 ||
                                 aboveLocalY >= Chunk.Size ||
-                                densityVolume.IsSolidAtUnchecked(
-                                    localX, aboveLocalY, localZ))
+                                (columnSolidMasks is null
+                                    ? densityVolume.IsSolidAtUnchecked(
+                                        localX, aboveLocalY, localZ)
+                                    : (columnSolidMasks[columnIndex] &
+                                       (1u << aboveLocalY)) != 0))
                             {
                                 isExposedTerrainTop = false;
                                 break;
@@ -663,20 +681,36 @@ public sealed class SurfaceChunkMaterializer
                     var hasExposedGeology = false;
                     if (isExposedTerrainTop)
                     {
-                        var surfaceOwner = worldY > baseY
-                            ? densityVolume.VolumeBiomeAt(
-                                localX, worldY, localZ) ??
-                              throw new InvalidOperationException(
-                                  "Additive surface has no volume biome owner.")
-                            : sample;
-                        if (!_materials.SurfaceGeologyRequiresSubmerged(surfaceOwner) ||
+                        var exposedGeology = state.SurfaceGeology;
+                        BiomeSample surfaceOwner;
+                        if (worldY > baseY)
+                        {
+                            surfaceOwner = state.VolumeSample ??
+                                densityVolume.VolumeBiomeAt(
+                                    localX, worldY, localZ) ??
+                                throw new InvalidOperationException(
+                                    "Additive surface has no volume biome owner.");
+                            if (state.VolumeSample is null)
+                            {
+                                state.VolumeSample = surfaceOwner;
+                                state.VolumeGeology =
+                                    _materials.ResolveGeology(surfaceOwner);
+                            }
+                            exposedGeology = state.VolumeGeology;
+                        }
+                        else
+                        {
+                            surfaceOwner = sample;
+                        }
+
+                        if (!exposedGeology.RequiresSubmergedSurface ||
                             HasGeneratedFluidAboveSurface(
                                 surfaceOwner, sample, baseY,
                                 surfaceFluidCutDepth, worldX, worldY, worldZ,
                                 densityVolume.VolumePlacementAt(localX, localZ)))
                         {
-                            hasExposedGeology = _materials.TrySurfaceGeologyBlockAtCached(
-                                surfaceOwner, worldX, worldY, worldZ,
+                            hasExposedGeology = exposedGeology.TrySurfaceBlockAtCached(
+                                worldX, worldY, worldZ,
                                 job.GetGeologyNoiseCache(),
                                 out exposedBlock);
                         }
@@ -693,16 +727,16 @@ public sealed class SurfaceChunkMaterializer
                         var surfaceMaterials = state.SurfaceMaterials ??=
                             _materials.SampleColumn(sample, worldX, worldZ);
                         var useSurfaceCover =
-                            state.SurfaceCoverDepth is { } authoredCoverDepth
+                            state.SurfaceGeology.SurfaceCoverDepth is { } authoredCoverDepth
                                 ? depth < authoredCoverDepth
                                 : depth == 0 || depth < surfaceMaterials.FiniteDepth;
                         if (useSurfaceCover)
                         {
                             block = surfaceMaterials.BlockAt(depth);
                         }
-                        else if (state.SurfaceCoverDepth is not null &&
-                                 _materials.TryGeologyBlockAtCached(
-                                     sample, worldX, worldY, worldZ,
+                        else if (state.SurfaceGeology.SurfaceCoverDepth is not null &&
+                                 state.SurfaceGeology.TryBlockAtCached(
+                                     worldX, worldY, worldZ,
                                      job.GetGeologyNoiseCache(),
                                      out var geologyBlock))
                         {
@@ -727,8 +761,8 @@ public sealed class SurfaceChunkMaterializer
                                 throw new InvalidOperationException(
                                     "Additive solid voxel has no volume biome owner.");
                             state.VolumeSample = volumeSample;
-                            state.VolumeCoverDepth =
-                                _materials.GeologySurfaceCoverDepth(volumeSample);
+                            state.VolumeGeology =
+                                _materials.ResolveGeology(volumeSample);
                         }
 
                         var volumeMaterials = state.VolumeMaterials ??=
@@ -737,16 +771,16 @@ public sealed class SurfaceChunkMaterializer
                             densityVolume, sample, baseY, localX, localY, localZ,
                             worldX, worldY, worldZ, volumeMaterials.FiniteDepth);
                         var useSurfaceCover =
-                            state.VolumeCoverDepth is { } authoredCoverDepth
+                            state.VolumeGeology.SurfaceCoverDepth is { } authoredCoverDepth
                                 ? depth < authoredCoverDepth
                                 : depth == 0 || depth < volumeMaterials.FiniteDepth;
                         if (useSurfaceCover)
                         {
                             block = volumeMaterials.BlockAt(depth);
                         }
-                        else if (state.VolumeCoverDepth is not null &&
-                                 _materials.TryGeologyBlockAtCached(
-                                     volumeSample, worldX, worldY, worldZ,
+                        else if (state.VolumeGeology.SurfaceCoverDepth is not null &&
+                                 state.VolumeGeology.TryBlockAtCached(
+                                     worldX, worldY, worldZ,
                                      job.GetGeologyNoiseCache(),
                                      out var volumeGeologyBlock))
                         {
@@ -761,7 +795,7 @@ public sealed class SurfaceChunkMaterializer
                     }
 
                     var voxelIndex = columnIndex + Chunk.Area * localY;
-                    if (initialBlocks.SetBlockAtLinearIndex(voxelIndex, block) &&
+                    if (initialBlocks.SetBlockAtLinearIndexFreshUnchecked(voxelIndex, block) &&
                         !block.IsAir &&
                         directionalMasks is not null &&
                         directionalCandidateColumns is { } candidateColumns &&
@@ -1379,11 +1413,26 @@ public sealed class SurfaceChunkMaterializer
 
     }
 
-    private sealed class MaterializationJob : IChunkMaterializationJob
+    private sealed class MaterializationJob : IChunkMaterializationJob, IChunkMaterializationStorageDiagnostics
     {
         private readonly SurfaceChunkMaterializer _owner;
         private WorldGenerationEntropy.ValueNoise3DLatticeCache? _geologyNoiseCache;
         private Chunk? _chunk;
+#if DEBUG
+        private bool _storageDiagnosticsAvailable = true;
+        private long _terrainLayerBlockPaletteGrowthBytes;
+        private int _terrainLayerBlockPaletteGrowthEvents;
+        private long _terrainLayerDirectionalPaletteGrowthBytes;
+        private int _terrainLayerDirectionalPaletteGrowthEvents;
+        private long _directionalFaceBlockPaletteGrowthBytes;
+        private int _directionalFaceBlockPaletteGrowthEvents;
+        private long _directionalFaceMetadataPaletteGrowthBytes;
+        private int _directionalFaceMetadataPaletteGrowthEvents;
+        private int _terrainLayerGeologyNoiseCacheCapacity;
+        private long _terrainLayerGeologyNoiseCacheHits;
+        private long _terrainLayerGeologyNoiseCacheMisses;
+        private long _terrainLayerGeologyNoiseCacheCollisions;
+#endif
 
         public MaterializationJob(
             SurfaceChunkMaterializer owner,
@@ -1490,6 +1539,15 @@ public sealed class SurfaceChunkMaterializer
         public double DirectionalFaceBoundaryColumnEvaluationMilliseconds =>
             DirectionalFacePalettePreparationProfile.BoundaryColumnEvaluationMilliseconds;
 
+        public double DirectionalFaceSurfaceBiomeSamplingMilliseconds =>
+            DirectionalFacePalettePreparationProfile.SurfaceBiomeSamplingMilliseconds;
+
+        public double DirectionalFaceBaseHeightSamplingMilliseconds =>
+            DirectionalFacePalettePreparationProfile.BaseHeightSamplingMilliseconds;
+
+        public double DirectionalFaceVolumeBiomeSamplingMilliseconds =>
+            DirectionalFacePalettePreparationProfile.VolumeBiomeSamplingMilliseconds;
+
         public int DirectionalFacePaletteDensityProbes { get; set; }
 
         public int DirectionalFacePaletteBoundaryDensityProbes { get; set; }
@@ -1506,6 +1564,36 @@ public sealed class SurfaceChunkMaterializer
 
         public Chunk? Result { get; internal set; }
 
+        public ChunkMaterializationStorageDiagnostics StorageDiagnostics
+        {
+            get
+            {
+#if DEBUG
+                return new ChunkMaterializationStorageDiagnostics(
+                    _storageDiagnosticsAvailable,
+                    new PaletteStorageGrowthDelta(
+                        _terrainLayerBlockPaletteGrowthBytes,
+                        _terrainLayerBlockPaletteGrowthEvents),
+                    new PaletteStorageGrowthDelta(
+                        _terrainLayerDirectionalPaletteGrowthBytes,
+                        _terrainLayerDirectionalPaletteGrowthEvents),
+                    new PaletteStorageGrowthDelta(
+                        _directionalFaceBlockPaletteGrowthBytes,
+                        _directionalFaceBlockPaletteGrowthEvents),
+                    new PaletteStorageGrowthDelta(
+                        _directionalFaceMetadataPaletteGrowthBytes,
+                        _directionalFaceMetadataPaletteGrowthEvents),
+                    new WorldGenerationEntropy.ValueNoise3DLatticeCacheMetrics(
+                        _terrainLayerGeologyNoiseCacheCapacity,
+                        _terrainLayerGeologyNoiseCacheHits,
+                        _terrainLayerGeologyNoiseCacheMisses,
+                        _terrainLayerGeologyNoiseCacheCollisions));
+#else
+                return default;
+#endif
+            }
+        }
+
         private DirectionalFacePaletteMetrics? _directionalFacePaletteMetrics;
 
         public DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics
@@ -1515,7 +1603,97 @@ public sealed class SurfaceChunkMaterializer
             set => _directionalFacePaletteMetrics = value;
         }
 
-        public void Advance() => _owner.Advance(this);
+        public void Advance()
+        {
+#if DEBUG
+            var stage = Stage;
+            if (stage is ChunkMaterializationStage.TerrainLayer or
+                ChunkMaterializationStage.DirectionalFacePalettes)
+            {
+                if (_chunk is not { } chunk)
+                {
+                    _storageDiagnosticsAvailable = false;
+                    _owner.Advance(this);
+                    return;
+                }
+
+                var blockBefore = chunk.CellStorageCapacityMetrics;
+                var metadataBefore =
+                    chunk.DirectionalFaceStorageCapacityMetrics ?? default;
+                var noiseCacheBefore = stage == ChunkMaterializationStage.TerrainLayer
+                    ? _geologyNoiseCache?.Metrics ?? default
+                    : default;
+                _owner.Advance(this);
+                var blockAfter = chunk.CellStorageCapacityMetrics;
+                var metadataAfter =
+                    chunk.DirectionalFaceStorageCapacityMetrics ?? default;
+
+                _storageDiagnosticsAvailable &=
+                    blockBefore.GrowthDiagnosticsAvailable &&
+                    blockAfter.GrowthDiagnosticsAvailable;
+
+                var blockDelta = GrowthDelta(blockBefore, blockAfter);
+                var metadataDelta = GrowthDelta(metadataBefore, metadataAfter);
+                if (stage == ChunkMaterializationStage.TerrainLayer)
+                {
+                    var noiseCacheAfter = _geologyNoiseCache?.Metrics ?? default;
+                    _terrainLayerGeologyNoiseCacheCapacity = noiseCacheAfter.Capacity;
+                    _terrainLayerGeologyNoiseCacheHits +=
+                        noiseCacheAfter.Hits - noiseCacheBefore.Hits;
+                    _terrainLayerGeologyNoiseCacheMisses +=
+                        noiseCacheAfter.Misses - noiseCacheBefore.Misses;
+                    _terrainLayerGeologyNoiseCacheCollisions +=
+                        noiseCacheAfter.Collisions - noiseCacheBefore.Collisions;
+                    AddGrowth(
+                        ref _terrainLayerBlockPaletteGrowthBytes,
+                        ref _terrainLayerBlockPaletteGrowthEvents,
+                        blockDelta);
+                    AddGrowth(
+                        ref _terrainLayerDirectionalPaletteGrowthBytes,
+                        ref _terrainLayerDirectionalPaletteGrowthEvents,
+                        metadataDelta);
+                }
+                else
+                {
+                    AddGrowth(
+                        ref _directionalFaceBlockPaletteGrowthBytes,
+                        ref _directionalFaceBlockPaletteGrowthEvents,
+                        blockDelta);
+                    AddGrowth(
+                        ref _directionalFaceMetadataPaletteGrowthBytes,
+                        ref _directionalFaceMetadataPaletteGrowthEvents,
+                        metadataDelta);
+                }
+                return;
+            }
+#endif
+            _owner.Advance(this);
+        }
+
+#if DEBUG
+        private static PaletteStorageGrowthDelta GrowthDelta(
+            PaletteStorageCapacityMetrics before,
+            PaletteStorageCapacityMetrics after) =>
+            new(
+                after.PaletteGrowthArrayBytes - before.PaletteGrowthArrayBytes +
+                after.UsageGrowthArrayBytes - before.UsageGrowthArrayBytes +
+                after.LookupBucketGrowthArrayBytes - before.LookupBucketGrowthArrayBytes +
+                after.LookupEntryGrowthArrayBytes - before.LookupEntryGrowthArrayBytes +
+                after.FreeSlotGrowthArrayBytes - before.FreeSlotGrowthArrayBytes,
+                after.PaletteGrowthEvents - before.PaletteGrowthEvents +
+                after.UsageGrowthEvents - before.UsageGrowthEvents +
+                after.LookupGrowthEvents - before.LookupGrowthEvents +
+                after.FreeSlotGrowthEvents - before.FreeSlotGrowthEvents);
+
+        private static void AddGrowth(
+            ref long bytes,
+            ref int events,
+            PaletteStorageGrowthDelta delta)
+        {
+            bytes += delta.ArrayPayloadBytes;
+            events += delta.GrowthEvents;
+        }
+#endif
 
         public void Dispose()
         {
@@ -2054,11 +2232,50 @@ public sealed class SurfaceChunkMaterializer
         int originX,
         int originY,
         int originZ,
+        TerrainDensityVolume? sourceDensityVolume,
         ushort[] boundaryMasks,
         Span<int> columnIndices,
+        Span<ushort> requestedYMasks,
         Span<ushort> solidMasks)
     {
         var cursor = startLocalX;
+        var hasSourceDensityMasks =
+            sourceDensityVolume is not null &&
+            sourceDensityVolume.Width == Chunk.Size &&
+            sourceDensityVolume.Height == Chunk.Size &&
+            sourceDensityVolume.Depth == Chunk.Size;
+        const int cumulativeMaskStride = Chunk.Size + 1;
+        Span<ushort> cumulativeYMasksByLocalZ =
+            stackalloc ushort[Chunk.Size * cumulativeMaskStride];
+        if (hasSourceDensityMasks)
+        {
+            for (var z = 0; z < Chunk.Size; z++)
+            {
+                var offset = z * cumulativeMaskStride;
+                if (startLocalX < 0)
+                {
+                    cumulativeYMasksByLocalZ[offset] = 0;
+                    for (var x = 0; x < Chunk.Size; x++)
+                    {
+                        cumulativeYMasksByLocalZ[offset + x + 1] =
+                            (ushort)(
+                                cumulativeYMasksByLocalZ[offset + x] |
+                                sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z));
+                    }
+                }
+                else
+                {
+                    cumulativeYMasksByLocalZ[offset + Chunk.Size] = 0;
+                    for (var x = Chunk.Size - 1; x >= 0; x--)
+                    {
+                        cumulativeYMasksByLocalZ[offset + x] =
+                            (ushort)(
+                                cumulativeYMasksByLocalZ[offset + x + 1] |
+                                sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z));
+                    }
+                }
+            }
+        }
         var densityProbes = 0;
         var batchCount = 0;
         var columnCount = 0;
@@ -2067,6 +2284,9 @@ public sealed class SurfaceChunkMaterializer
         var columnEvaluationMilliseconds = 0d;
         var densityTerrainColumnMilliseconds = 0d;
         var occupancyCacheAccessMilliseconds = 0d;
+        var surfaceBiomeSamplingMilliseconds = 0d;
+        var baseHeightSamplingMilliseconds = 0d;
+        var volumeBiomeSamplingMilliseconds = 0d;
 
         while (cursor < endLocalX)
         {
@@ -2079,7 +2299,9 @@ public sealed class SurfaceChunkMaterializer
                 checked(cursor + Chunk.Size - firstLocalX));
 
             var count = checked((sliceEnd - cursor) * Chunk.Size);
-            if (count > columnIndices.Length || count > solidMasks.Length)
+            if (count > columnIndices.Length ||
+                count > requestedYMasks.Length ||
+                count > solidMasks.Length)
                 throw new InvalidOperationException(
                     "A horizontal X boundary batch exceeded one chunk's column capacity.");
 
@@ -2087,23 +2309,40 @@ public sealed class SurfaceChunkMaterializer
             for (var localX = cursor; localX < sliceEnd; localX++)
             {
                 var neighborLocalX = firstLocalX + localX - cursor;
+                var sourceBoundaryIndex = startLocalX < 0
+                    ? Math.Clamp(maximumDepth + localX + 1, 0, Chunk.Size)
+                    : Math.Clamp(localX - maximumDepth, 0, Chunk.Size);
                 for (var z = 0; z < Chunk.Size; z++)
-                    columnIndices[writeIndex++] =
+                {
+                    columnIndices[writeIndex] =
                         z * Chunk.Size + neighborLocalX;
+                    requestedYMasks[writeIndex] = hasSourceDensityMasks
+                        ? cumulativeYMasksByLocalZ[
+                            z * cumulativeMaskStride + sourceBoundaryIndex]
+                        : ushort.MaxValue;
+                    writeIndex++;
+                }
             }
 
-            _columns.ReadDensityColumnMasks(
+            _columns.ReadDensityColumnMasksWithSamplingMetrics(
                 first.Chunk.X,
                 originY,
                 first.Chunk.Z,
                 columnIndices[..count],
+                requestedYMasks[..count],
                 solidMasks[..count],
                 out var probes,
                 out var boundsMilliseconds,
                 out var samplerBuildMilliseconds,
                 out var evaluationMilliseconds,
                 out var terrainColumnMilliseconds,
-                out var occupancyCacheMilliseconds);
+                out var occupancyCacheMilliseconds,
+                out var surfaceSamplingMilliseconds,
+                out var baseHeightMilliseconds,
+                out var volumeSamplingMilliseconds);
+            surfaceBiomeSamplingMilliseconds += surfaceSamplingMilliseconds;
+            baseHeightSamplingMilliseconds += baseHeightMilliseconds;
+            volumeBiomeSamplingMilliseconds += volumeSamplingMilliseconds;
             densityProbes = checked(densityProbes + probes);
             columnBoundsMilliseconds += boundsMilliseconds;
             caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
@@ -2131,7 +2370,10 @@ public sealed class SurfaceChunkMaterializer
             caveSamplerBuildMilliseconds,
             columnEvaluationMilliseconds,
             densityTerrainColumnMilliseconds,
-            occupancyCacheAccessMilliseconds);
+            occupancyCacheAccessMilliseconds,
+            surfaceBiomeSamplingMilliseconds,
+            baseHeightSamplingMilliseconds,
+            volumeBiomeSamplingMilliseconds);
     }
 
     private BoundaryMaskReadMetrics ReadDirectionalFaceZBoundaryMasks(
@@ -2142,11 +2384,50 @@ public sealed class SurfaceChunkMaterializer
         int originY,
         int originZ,
         int regionSize,
+        TerrainDensityVolume? sourceDensityVolume,
         ushort[] boundaryMasks,
         Span<int> columnIndices,
+        Span<ushort> requestedYMasks,
         Span<ushort> solidMasks)
     {
         var cursor = startLocalZ;
+        var hasSourceDensityMasks =
+            sourceDensityVolume is not null &&
+            sourceDensityVolume.Width == Chunk.Size &&
+            sourceDensityVolume.Height == Chunk.Size &&
+            sourceDensityVolume.Depth == Chunk.Size;
+        const int cumulativeMaskStride = Chunk.Size + 1;
+        Span<ushort> cumulativeYMasksByLocalX =
+            stackalloc ushort[Chunk.Size * cumulativeMaskStride];
+        if (hasSourceDensityMasks)
+        {
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                var offset = x * cumulativeMaskStride;
+                if (startLocalZ < 0)
+                {
+                    cumulativeYMasksByLocalX[offset] = 0;
+                    for (var z = 0; z < Chunk.Size; z++)
+                    {
+                        cumulativeYMasksByLocalX[offset + z + 1] =
+                            (ushort)(
+                                cumulativeYMasksByLocalX[offset + z] |
+                                sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z));
+                    }
+                }
+                else
+                {
+                    cumulativeYMasksByLocalX[offset + Chunk.Size] = 0;
+                    for (var z = Chunk.Size - 1; z >= 0; z--)
+                    {
+                        cumulativeYMasksByLocalX[offset + z] =
+                            (ushort)(
+                                cumulativeYMasksByLocalX[offset + z + 1] |
+                                sourceDensityVolume!.SolidColumnMaskAtUnchecked(x, z));
+                    }
+                }
+            }
+        }
         var densityProbes = 0;
         var batchCount = 0;
         var columnCount = 0;
@@ -2155,6 +2436,9 @@ public sealed class SurfaceChunkMaterializer
         var columnEvaluationMilliseconds = 0d;
         var densityTerrainColumnMilliseconds = 0d;
         var occupancyCacheAccessMilliseconds = 0d;
+        var surfaceBiomeSamplingMilliseconds = 0d;
+        var baseHeightSamplingMilliseconds = 0d;
+        var volumeBiomeSamplingMilliseconds = 0d;
 
         while (cursor < endLocalZ)
         {
@@ -2167,7 +2451,9 @@ public sealed class SurfaceChunkMaterializer
                 checked(cursor + Chunk.Size - firstLocalZ));
 
             var count = checked((sliceEnd - cursor) * Chunk.Size);
-            if (count > columnIndices.Length || count > solidMasks.Length)
+            if (count > columnIndices.Length ||
+                count > requestedYMasks.Length ||
+                count > solidMasks.Length)
                 throw new InvalidOperationException(
                     "A horizontal Z boundary batch exceeded one chunk's column capacity.");
 
@@ -2181,21 +2467,37 @@ public sealed class SurfaceChunkMaterializer
             for (var localZ = cursor; localZ < sliceEnd; localZ++)
             {
                 var neighborLocalZ = firstLocalZ + localZ - cursor;
-                columnIndices[writeIndex++] = neighborLocalZ * Chunk.Size + x;
+                var sourceBoundaryIndex = startLocalZ < 0
+                    ? Math.Clamp(maximumDepth + localZ + 1, 0, Chunk.Size)
+                    : Math.Clamp(localZ - maximumDepth, 0, Chunk.Size);
+                columnIndices[writeIndex] =
+                    neighborLocalZ * Chunk.Size + x;
+                requestedYMasks[writeIndex] = hasSourceDensityMasks
+                    ? cumulativeYMasksByLocalX[
+                        x * cumulativeMaskStride + sourceBoundaryIndex]
+                    : ushort.MaxValue;
+                writeIndex++;
             }
 
-            _columns.ReadDensityColumnMasks(
+            _columns.ReadDensityColumnMasksWithSamplingMetrics(
                 first.Chunk.X,
                 originY,
                 first.Chunk.Z,
                 columnIndices[..count],
+                requestedYMasks[..count],
                 solidMasks[..count],
                 out var probes,
                 out var boundsMilliseconds,
                 out var samplerBuildMilliseconds,
                 out var evaluationMilliseconds,
                 out var terrainColumnMilliseconds,
-                out var occupancyCacheMilliseconds);
+                out var occupancyCacheMilliseconds,
+                out var surfaceSamplingMilliseconds,
+                out var baseHeightMilliseconds,
+                out var volumeSamplingMilliseconds);
+            surfaceBiomeSamplingMilliseconds += surfaceSamplingMilliseconds;
+            baseHeightSamplingMilliseconds += baseHeightMilliseconds;
+            volumeBiomeSamplingMilliseconds += volumeSamplingMilliseconds;
             densityProbes = checked(densityProbes + probes);
             columnBoundsMilliseconds += boundsMilliseconds;
             caveSamplerBuildMilliseconds += samplerBuildMilliseconds;
@@ -2223,7 +2525,10 @@ public sealed class SurfaceChunkMaterializer
             caveSamplerBuildMilliseconds,
             columnEvaluationMilliseconds,
             densityTerrainColumnMilliseconds,
-            occupancyCacheAccessMilliseconds);
+            occupancyCacheAccessMilliseconds,
+            surfaceBiomeSamplingMilliseconds,
+            baseHeightSamplingMilliseconds,
+            volumeBiomeSamplingMilliseconds);
     }
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
@@ -2328,6 +2633,7 @@ public sealed class SurfaceChunkMaterializer
         var xBoundaryMasks = new ushort[regionSize * size];
         var zBoundaryMasks = new ushort[size * regionSize];
         Span<int> boundaryColumnIndices = stackalloc int[Chunk.Area];
+        Span<ushort> boundaryRequestedYMasks = stackalloc ushort[Chunk.Area];
         Span<ushort> boundarySolidMasks = stackalloc ushort[Chunk.Area];
 
 #if DEBUG
@@ -2336,19 +2642,35 @@ public sealed class SurfaceChunkMaterializer
         var leftXBoundary = ReadDirectionalFaceXBoundaryMasks(
             -maximumDepth, 0, maximumDepth,
             originX, originY, originZ,
-            xBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+            densityVolume,
+            xBoundaryMasks,
+            boundaryColumnIndices,
+            boundaryRequestedYMasks,
+            boundarySolidMasks);
         var rightXBoundary = ReadDirectionalFaceXBoundaryMasks(
             size, size + maximumDepth, maximumDepth,
             originX, originY, originZ,
-            xBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+            densityVolume,
+            xBoundaryMasks,
+            boundaryColumnIndices,
+            boundaryRequestedYMasks,
+            boundarySolidMasks);
         var negativeZBoundary = ReadDirectionalFaceZBoundaryMasks(
             -maximumDepth, 0, maximumDepth,
             originX, originY, originZ, regionSize,
-            zBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+            densityVolume,
+            zBoundaryMasks,
+            boundaryColumnIndices,
+            boundaryRequestedYMasks,
+            boundarySolidMasks);
         var positiveZBoundary = ReadDirectionalFaceZBoundaryMasks(
             size, size + maximumDepth, maximumDepth,
             originX, originY, originZ, regionSize,
-            zBoundaryMasks, boundaryColumnIndices, boundarySolidMasks);
+            densityVolume,
+            zBoundaryMasks,
+            boundaryColumnIndices,
+            boundaryRequestedYMasks,
+            boundarySolidMasks);
 #if DEBUG
         var horizontalBoundaryReadMilliseconds =
             Stopwatch.GetElapsedTime(horizontalBoundaryReadStarted).TotalMilliseconds;
@@ -2395,6 +2717,21 @@ public sealed class SurfaceChunkMaterializer
             rightXBoundary.OccupancyCacheAccessMilliseconds +
             negativeZBoundary.OccupancyCacheAccessMilliseconds +
             positiveZBoundary.OccupancyCacheAccessMilliseconds;
+        var surfaceBiomeSamplingMilliseconds =
+            leftXBoundary.SurfaceBiomeSamplingMilliseconds +
+            rightXBoundary.SurfaceBiomeSamplingMilliseconds +
+            negativeZBoundary.SurfaceBiomeSamplingMilliseconds +
+            positiveZBoundary.SurfaceBiomeSamplingMilliseconds;
+        var baseHeightSamplingMilliseconds =
+            leftXBoundary.BaseHeightSamplingMilliseconds +
+            rightXBoundary.BaseHeightSamplingMilliseconds +
+            negativeZBoundary.BaseHeightSamplingMilliseconds +
+            positiveZBoundary.BaseHeightSamplingMilliseconds;
+        var volumeBiomeSamplingMilliseconds =
+            leftXBoundary.VolumeBiomeSamplingMilliseconds +
+            rightXBoundary.VolumeBiomeSamplingMilliseconds +
+            negativeZBoundary.VolumeBiomeSamplingMilliseconds +
+            positiveZBoundary.VolumeBiomeSamplingMilliseconds;
         densityProbeCount = checked(
             densityProbeCount + horizontalBoundaryDensityProbes);
         boundaryDensityProbeCount = checked(
@@ -2403,10 +2740,12 @@ public sealed class SurfaceChunkMaterializer
 #if DEBUG
         var occupancyRowAssemblyStarted = Stopwatch.GetTimestamp();
 #endif
-        if (densityVolume is not null &&
+        var hasDensityColumnMasks =
+            densityVolume is not null &&
             densityVolume.Width == size &&
             densityVolume.Height == size &&
-            densityVolume.Depth == size)
+            densityVolume.Depth == size;
+        if (hasDensityColumnMasks)
         {
             // The main terrain volume already stores one 16-bit occupancy mask
             // per X/Z column. Copy those masks directly instead of probing
@@ -2425,11 +2764,32 @@ public sealed class SurfaceChunkMaterializer
             {
                 var rowOffset = (z * size + x) * wordCount;
                 yRows[rowOffset] |= belowWorldMinimumMask;
+                var solidMask =
+                    densityVolume!.SolidColumnMaskAtUnchecked(x, z);
                 MarkMask(
                     yRows,
                     rowOffset,
                     maximumDepth,
-                    densityVolume.SolidColumnMaskAtUnchecked(x, z));
+                    solidMask);
+
+                // The same source mask can populate the interior X/Z rows
+                // without reading the just-written Y row again. Iterate only
+                // set bits so sparse columns do not scan all 16 vertical cells.
+                var remainingSolidMask = (uint)solidMask;
+                while (remainingSolidMask != 0)
+                {
+                    var localY = System.Numerics.BitOperations
+                        .TrailingZeroCount(remainingSolidMask);
+                    MarkSolid(
+                        xRows,
+                        (localY * size + z) * wordCount,
+                        maximumDepth + x);
+                    MarkSolid(
+                        zRows,
+                        (localY * size + x) * wordCount,
+                        maximumDepth + z);
+                    remainingSolidMask &= remainingSolidMask - 1;
+                }
             }
 
             foreach (var slab in bottomSlabs)
@@ -2487,58 +2847,88 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        // Transpose the interior occupancy rows once and populate both
-        // horizontal axes in the same pass over X/Z columns.
-        for (var y = 0; y < size; y++)
-        for (var z = 0; z < size; z++)
-        for (var x = 0; x < size; x++)
+        if (!hasDensityColumnMasks)
         {
-            var yRowOffset = (z * size + x) * wordCount;
-            if (!IsSolid(yRows, yRowOffset, maximumDepth + y))
-                continue;
+            // Fallback providers expose occupancy only through an indexer, so
+            // derive the horizontal rows from the completed Y rows.
+            for (var y = 0; y < size; y++)
+            for (var z = 0; z < size; z++)
+            for (var x = 0; x < size; x++)
+            {
+                var yRowOffset = (z * size + x) * wordCount;
+                if (!IsSolid(yRows, yRowOffset, maximumDepth + y))
+                    continue;
 
-            var xRowOffset = (y * size + z) * wordCount;
-            MarkSolid(xRows, xRowOffset, maximumDepth + x);
+                var xRowOffset = (y * size + z) * wordCount;
+                MarkSolid(xRows, xRowOffset, maximumDepth + x);
 
-            var zRowOffset = (y * size + x) * wordCount;
-            MarkSolid(zRows, zRowOffset, maximumDepth + z);
+                var zRowOffset = (y * size + x) * wordCount;
+                MarkSolid(zRows, zRowOffset, maximumDepth + z);
+            }
         }
 
-        var yBitMask = 0u;
-        for (var y = 0; y < size; y++)
+        // Boundary masks already carry all Y occupancy for one horizontal
+        // column. Iterate their set bits instead of scanning every Y and
+        // testing the same mask repeatedly. The resulting X/Z rows are
+        // identical, while sparse boundary columns avoid empty voxel probes.
+        for (var z = 0; z < size; z++)
         {
-            yBitMask = 1u << y;
-            for (var z = 0; z < size; z++)
+            for (var regionX = 0; regionX < maximumDepth; regionX++)
             {
-                var rowOffset = (y * size + z) * wordCount;
-                for (var regionX = 0; regionX < maximumDepth; regionX++)
+                var remainingMask = (uint)xBoundaryMasks[regionX * size + z];
+                while (remainingMask != 0)
                 {
-                    if ((xBoundaryMasks[regionX * size + z] & yBitMask) != 0)
-                        MarkSolid(xRows, rowOffset, regionX);
-                }
-                for (var regionX = maximumDepth + size;
-                     regionX < regionSize;
-                     regionX++)
-                {
-                    if ((xBoundaryMasks[regionX * size + z] & yBitMask) != 0)
-                        MarkSolid(xRows, rowOffset, regionX);
+                    var y = System.Numerics.BitOperations.TrailingZeroCount(
+                        remainingMask);
+                    var rowOffset = (y * size + z) * wordCount;
+                    MarkSolid(xRows, rowOffset, regionX);
+                    remainingMask &= remainingMask - 1;
                 }
             }
 
-            for (var x = 0; x < size; x++)
+            for (var regionX = maximumDepth + size;
+                 regionX < regionSize;
+                 regionX++)
             {
-                var rowOffset = (y * size + x) * wordCount;
-                for (var regionZ = 0; regionZ < maximumDepth; regionZ++)
+                var remainingMask = (uint)xBoundaryMasks[regionX * size + z];
+                while (remainingMask != 0)
                 {
-                    if ((zBoundaryMasks[x * regionSize + regionZ] & yBitMask) != 0)
-                        MarkSolid(zRows, rowOffset, regionZ);
+                    var y = System.Numerics.BitOperations.TrailingZeroCount(
+                        remainingMask);
+                    var rowOffset = (y * size + z) * wordCount;
+                    MarkSolid(xRows, rowOffset, regionX);
+                    remainingMask &= remainingMask - 1;
                 }
-                for (var regionZ = maximumDepth + size;
-                     regionZ < regionSize;
-                     regionZ++)
+            }
+        }
+
+        for (var x = 0; x < size; x++)
+        {
+            for (var regionZ = 0; regionZ < maximumDepth; regionZ++)
+            {
+                var remainingMask = (uint)zBoundaryMasks[x * regionSize + regionZ];
+                while (remainingMask != 0)
                 {
-                    if ((zBoundaryMasks[x * regionSize + regionZ] & yBitMask) != 0)
-                        MarkSolid(zRows, rowOffset, regionZ);
+                    var y = System.Numerics.BitOperations.TrailingZeroCount(
+                        remainingMask);
+                    var rowOffset = (y * size + x) * wordCount;
+                    MarkSolid(zRows, rowOffset, regionZ);
+                    remainingMask &= remainingMask - 1;
+                }
+            }
+
+            for (var regionZ = maximumDepth + size;
+                 regionZ < regionSize;
+                 regionZ++)
+            {
+                var remainingMask = (uint)zBoundaryMasks[x * regionSize + regionZ];
+                while (remainingMask != 0)
+                {
+                    var y = System.Numerics.BitOperations.TrailingZeroCount(
+                        remainingMask);
+                    var rowOffset = (y * size + x) * wordCount;
+                    MarkSolid(zRows, rowOffset, regionZ);
+                    remainingMask &= remainingMask - 1;
                 }
             }
         }
@@ -2573,6 +2963,9 @@ public sealed class SurfaceChunkMaterializer
             boundaryColumnEvaluationMilliseconds,
             densityTerrainColumnMilliseconds,
             occupancyCacheAccessMilliseconds,
+            surfaceBiomeSamplingMilliseconds,
+            baseHeightSamplingMilliseconds,
+            volumeBiomeSamplingMilliseconds,
             horizontalBoundaryBatchCount,
             horizontalBoundaryColumnCount);
         return new DirectionalFaceOccupancyMasks(
@@ -2913,7 +3306,13 @@ public sealed class SurfaceChunkMaterializer
             DensityTerrainColumnMilliseconds:
                 job.DirectionalFacePalettePreparationProfile.DensityTerrainColumnMilliseconds,
             OccupancyCacheAccessMilliseconds:
-                job.DirectionalFacePalettePreparationProfile.OccupancyCacheAccessMilliseconds);
+                job.DirectionalFacePalettePreparationProfile.OccupancyCacheAccessMilliseconds,
+            SurfaceBiomeSamplingMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.SurfaceBiomeSamplingMilliseconds,
+            BaseHeightSamplingMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.BaseHeightSamplingMilliseconds,
+            VolumeBiomeSamplingMilliseconds:
+                job.DirectionalFacePalettePreparationProfile.VolumeBiomeSamplingMilliseconds);
     }
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
@@ -3779,6 +4178,10 @@ public sealed class SurfaceChunkMaterializer
             var worldX = originX + x;
             var worldZ = originZ + z;
             var surfaceBiome = column.BiomeAt(x, z);
+            var spikeColumn = spikes.PrepareColumn(biome.Primary, surfaceBiome);
+            if (!spikeColumn.HasRules)
+                continue;
+
             var volumeBiome = densityVolume.VolumePlacementAt(x, z);
             for (var anchorY = first; anchorY <= last; anchorY++)
             {
@@ -3807,8 +4210,8 @@ public sealed class SurfaceChunkMaterializer
                         (solidColumnMask & (1u << localSupportY)) == 0)
                         continue;
 
-                    if (!spikes.TrySample(
-                            biome.Primary, surfaceBiome, volumeBiome, baseY,
+                    if (!spikeColumn.TrySample(
+                            volumeBiome, baseY,
                             worldX, anchorY, worldZ, down,
                             densityVolume, originY, x, z,
                             solidColumnMask, anchorKnownVoid,

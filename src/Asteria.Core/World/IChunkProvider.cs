@@ -37,7 +37,10 @@ public readonly record struct DirectionalFacePaletteMetrics(
     int HorizontalBoundaryBatchCount = 0,
     int HorizontalBoundaryColumnCount = 0,
     double DensityTerrainColumnMilliseconds = 0d,
-    double OccupancyCacheAccessMilliseconds = 0d);
+    double OccupancyCacheAccessMilliseconds = 0d,
+    double SurfaceBiomeSamplingMilliseconds = 0d,
+    double BaseHeightSamplingMilliseconds = 0d,
+    double VolumeBiomeSamplingMilliseconds = 0d);
 
 /// <summary>
 /// Pure chunk materialization boundary consumed by residency workers.
@@ -118,6 +121,23 @@ public interface IChunkMaterializationJob : IDisposable
 /// Optional incremental materialization capability. Providers that do not
 /// implement it remain supported through a single-step compatibility adapter.
 /// </summary>
+internal readonly record struct PaletteStorageGrowthDelta(
+    long ArrayPayloadBytes,
+    int GrowthEvents);
+
+internal readonly record struct ChunkMaterializationStorageDiagnostics(
+    bool Available,
+    PaletteStorageGrowthDelta TerrainLayerBlockPalette,
+    PaletteStorageGrowthDelta TerrainLayerDirectionalFacePalette,
+    PaletteStorageGrowthDelta DirectionalFaceBlockPalette,
+    PaletteStorageGrowthDelta DirectionalFaceMetadataPalette,
+    WorldGenerationEntropy.ValueNoise3DLatticeCacheMetrics TerrainLayerGeologyNoiseCache);
+
+internal interface IChunkMaterializationStorageDiagnostics
+{
+    ChunkMaterializationStorageDiagnostics StorageDiagnostics { get; }
+}
+
 public interface IIncrementalChunkProvider : IChunkProvider
 {
     IChunkMaterializationJob BeginMaterialization(ChunkCoord coord);

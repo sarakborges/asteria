@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using Asteria.Core.Content;
 using Asteria.Core.Diagnostics;
 using Asteria.Core.World;
@@ -596,8 +597,26 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     var directionalMetadataChunkCount = 0;
     var directionalMetadataVoxelCount = 0L;
     var directionalMetadataPaletteEntryCount = 0L;
+    var directionalMetadataStorageProfiles = new List<(
+        ChunkCoord Coord,
+        int MetadataVoxelCount,
+        PaletteStorageCapacityMetrics Storage)>();
     var maximumDirectionalMetadataVoxelsPerChunk = 0;
     var totalNonEmptyVoxels = 0L;
+    var storageDiagnosticsSeen = false;
+    var storageDiagnosticsAvailable = true;
+    long terrainLayerBlockPaletteGrowthBytes = 0;
+    var terrainLayerBlockPaletteGrowthEvents = 0;
+    long terrainLayerDirectionalPaletteGrowthBytes = 0;
+    var terrainLayerDirectionalPaletteGrowthEvents = 0;
+    long directionalFaceBlockPaletteGrowthBytes = 0;
+    var directionalFaceBlockPaletteGrowthEvents = 0;
+    long directionalFaceMetadataPaletteGrowthBytes = 0;
+    var directionalFaceMetadataPaletteGrowthEvents = 0;
+    var terrainLayerGeologyNoiseCacheCapacity = 0;
+    long terrainLayerGeologyNoiseCacheHits = 0;
+    long terrainLayerGeologyNoiseCacheMisses = 0;
+    long terrainLayerGeologyNoiseCacheCollisions = 0;
     var totalTimer = Stopwatch.StartNew();
 
     foreach (var coord in desired)
@@ -629,6 +648,42 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             }
         }
 
+        if (job is IChunkMaterializationStorageDiagnostics storageDiagnostic)
+        {
+            var diagnostics = storageDiagnostic.StorageDiagnostics;
+            storageDiagnosticsSeen = true;
+            storageDiagnosticsAvailable &= diagnostics.Available;
+            terrainLayerBlockPaletteGrowthBytes +=
+                diagnostics.TerrainLayerBlockPalette.ArrayPayloadBytes;
+            terrainLayerBlockPaletteGrowthEvents +=
+                diagnostics.TerrainLayerBlockPalette.GrowthEvents;
+            terrainLayerDirectionalPaletteGrowthBytes +=
+                diagnostics.TerrainLayerDirectionalFacePalette.ArrayPayloadBytes;
+            terrainLayerDirectionalPaletteGrowthEvents +=
+                diagnostics.TerrainLayerDirectionalFacePalette.GrowthEvents;
+            directionalFaceBlockPaletteGrowthBytes +=
+                diagnostics.DirectionalFaceBlockPalette.ArrayPayloadBytes;
+            directionalFaceBlockPaletteGrowthEvents +=
+                diagnostics.DirectionalFaceBlockPalette.GrowthEvents;
+            directionalFaceMetadataPaletteGrowthBytes +=
+                diagnostics.DirectionalFaceMetadataPalette.ArrayPayloadBytes;
+            directionalFaceMetadataPaletteGrowthEvents +=
+                diagnostics.DirectionalFaceMetadataPalette.GrowthEvents;
+            terrainLayerGeologyNoiseCacheCapacity = Math.Max(
+                terrainLayerGeologyNoiseCacheCapacity,
+                diagnostics.TerrainLayerGeologyNoiseCache.Capacity);
+            terrainLayerGeologyNoiseCacheHits +=
+                diagnostics.TerrainLayerGeologyNoiseCache.Hits;
+            terrainLayerGeologyNoiseCacheMisses +=
+                diagnostics.TerrainLayerGeologyNoiseCache.Misses;
+            terrainLayerGeologyNoiseCacheCollisions +=
+                diagnostics.TerrainLayerGeologyNoiseCache.Collisions;
+        }
+        else
+        {
+            storageDiagnosticsAvailable = false;
+        }
+
         var materializedChunk = job.Result ??
             throw new InvalidOperationException(
                 $"Chunk {coord} completed without a materialized result.");
@@ -641,6 +696,12 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                 materializedChunk.DirectionalFaceDataPaletteEntryCount;
             maximumDirectionalMetadataVoxelsPerChunk = Math.Max(
                 maximumDirectionalMetadataVoxelsPerChunk, metadataVoxels);
+            directionalMetadataStorageProfiles.Add((
+                coord,
+                metadataVoxels,
+                materializedChunk.DirectionalFaceStorageCapacityMetrics ??
+                    throw new InvalidOperationException(
+                        $"Chunk {coord} has directional metadata without palette storage diagnostics.")));
         }
         totalNonEmptyVoxels += materializedChunk.NonEmptyVoxelCount;
     }
@@ -728,6 +789,12 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             profile => profile.DensityTerrainColumnMilliseconds),
         OccupancyCacheAccessMilliseconds = paletteProfiles.Sum(
             profile => profile.OccupancyCacheAccessMilliseconds),
+        SurfaceBiomeSamplingMilliseconds = paletteProfiles.Sum(
+            profile => profile.SurfaceBiomeSamplingMilliseconds),
+        BaseHeightSamplingMilliseconds = paletteProfiles.Sum(
+            profile => profile.BaseHeightSamplingMilliseconds),
+        VolumeBiomeSamplingMilliseconds = paletteProfiles.Sum(
+            profile => profile.VolumeBiomeSamplingMilliseconds),
         HorizontalBoundaryBatchCount = paletteProfiles.Sum(
             profile => (long)profile.HorizontalBoundaryBatchCount),
         HorizontalBoundaryColumnCount = paletteProfiles.Sum(
@@ -737,6 +804,65 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             : paletteProfiles.Average(profile => profile.TotalMilliseconds),
     };
 
+    var storageProfiles = directionalMetadataStorageProfiles;
+    var paletteElementSizeBytes = Unsafe.SizeOf<DirectionalFaceVoxelData>();
+    var lookupEntrySizeBytes = Unsafe.SizeOf<DirectionalFacePaletteLookupEntryLayout>();
+    var paletteListCapacity = storageProfiles.Sum(
+        profile => (long)profile.Storage.PaletteCapacity);
+    var paletteListEntries = storageProfiles.Sum(
+        profile => (long)profile.Storage.PaletteEntryCount);
+    var usageListCapacity = storageProfiles.Sum(
+        profile => (long)profile.Storage.UsageCapacity);
+    var usageListEntries = storageProfiles.Sum(
+        profile => (long)profile.Storage.UsageEntryCount);
+    var lookupCapacity = storageProfiles.Sum(
+        profile => (long)profile.Storage.LookupCapacity);
+    var lookupEntries = storageProfiles.Sum(
+        profile => (long)profile.Storage.LookupEntryCount);
+    var freeSlotCapacity = storageProfiles.Sum(
+        profile => (long)profile.Storage.FreeSlotCapacity);
+    var freeSlotCount = storageProfiles.Sum(
+        profile => (long)profile.Storage.FreeSlotCount);
+    var indexCount = storageProfiles.Sum(
+        profile => (long)profile.Storage.IndexCount);
+    var occupancyWordCount = storageProfiles.Sum(
+        profile => (long)profile.Storage.OccupancyWordCount);
+    var meshletOccupancyCount = storageProfiles.Sum(
+        profile => (long)profile.Storage.MeshletOccupancyCount);
+    var paletteListBytes = paletteListCapacity * paletteElementSizeBytes;
+    var usageListBytes = usageListCapacity * sizeof(ushort);
+    var lookupBucketBytes = lookupCapacity * sizeof(int);
+    var lookupEntryBytesEstimate = lookupCapacity * lookupEntrySizeBytes;
+    var freeSlotStackBytes = freeSlotCapacity * sizeof(ushort);
+    var denseIndexBytes = indexCount * sizeof(ushort);
+    var occupancyBitsetBytes = occupancyWordCount * sizeof(ulong);
+    var meshletOccupancyBytes = meshletOccupancyCount * sizeof(int);
+    var fixedBufferBytes =
+        denseIndexBytes + occupancyBitsetBytes + meshletOccupancyBytes;
+    var estimatedBackingArrayPayloadBytes =
+        paletteListBytes + usageListBytes +
+        lookupBucketBytes + lookupEntryBytesEstimate +
+        freeSlotStackBytes + fixedBufferBytes;
+    var directionalStorageByChunk = storageProfiles.Select(profile => new
+    {
+        X = profile.Coord.X,
+        Y = profile.Coord.Y,
+        Z = profile.Coord.Z,
+        MetadataVoxels = profile.MetadataVoxelCount,
+        OccupiedVoxels = profile.Storage.OccupiedVoxelCount,
+        PaletteEntries = profile.Storage.PaletteEntryCount,
+        PaletteCapacity = profile.Storage.PaletteCapacity,
+        UsageEntries = profile.Storage.UsageEntryCount,
+        UsageCapacity = profile.Storage.UsageCapacity,
+        LookupEntries = profile.Storage.LookupEntryCount,
+        LookupCapacity = profile.Storage.LookupCapacity,
+        FreeSlotCount = profile.Storage.FreeSlotCount,
+        FreeSlotCapacity = profile.Storage.FreeSlotCapacity,
+        IndexCount = profile.Storage.IndexCount,
+        OccupancyWordCount = profile.Storage.OccupancyWordCount,
+        MeshletOccupancyCount = profile.Storage.MeshletOccupancyCount,
+    }).ToArray();
+
     return new
     {
         ChunkCount = desired.Length,
@@ -744,6 +870,41 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         TotalAdvanceMs = totalAdvanceMs,
         ByStage = byStage,
         DirectionalFacePaletteProfile = paletteProfile,
+        PaletteStorageGrowthByStage = new
+        {
+            DiagnosticsAvailable =
+                storageDiagnosticsSeen && storageDiagnosticsAvailable,
+            TerrainLayer = new
+            {
+                BlockPalette = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth =
+                        terrainLayerBlockPaletteGrowthBytes,
+                    GrowthEvents = terrainLayerBlockPaletteGrowthEvents,
+                },
+                DirectionalMetadataPalette = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth =
+                        terrainLayerDirectionalPaletteGrowthBytes,
+                    GrowthEvents = terrainLayerDirectionalPaletteGrowthEvents,
+                },
+            },
+            DirectionalFacePalettes = new
+            {
+                BlockPalette = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth =
+                        directionalFaceBlockPaletteGrowthBytes,
+                    GrowthEvents = directionalFaceBlockPaletteGrowthEvents,
+                },
+                DirectionalMetadataPalette = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth =
+                        directionalFaceMetadataPaletteGrowthBytes,
+                    GrowthEvents = directionalFaceMetadataPaletteGrowthEvents,
+                },
+            },
+        },
         DirectionalMetadataStorage = new
         {
             ChunksWithMetadata = directionalMetadataChunkCount,
@@ -760,11 +921,110 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                     : directionalMetadataVoxelCount / (double)directionalMetadataChunkCount,
             MaximumMetadataVoxelsPerChunk =
                 maximumDirectionalMetadataVoxelsPerChunk,
-            DenseIndexBytes =
-                (long)directionalMetadataChunkCount * Chunk.Volume * sizeof(ushort),
-            OccupancyBitsetBytes =
-                (long)directionalMetadataChunkCount *
-                ((Chunk.Volume + 63) / 64) * sizeof(ulong),
+            DenseIndexBytes = denseIndexBytes,
+            OccupancyBitsetBytes = occupancyBitsetBytes,
+            PaletteList = new
+            {
+                Entries = paletteListEntries,
+                Capacity = paletteListCapacity,
+                UnusedSlots = paletteListCapacity - paletteListEntries,
+                ElementSizeBytes = paletteElementSizeBytes,
+                BackingArrayPayloadBytes = paletteListBytes,
+            },
+            UsageList = new
+            {
+                Entries = usageListEntries,
+                Capacity = usageListCapacity,
+                UnusedSlots = usageListCapacity - usageListEntries,
+                ElementSizeBytes = sizeof(ushort),
+                BackingArrayPayloadBytes = usageListBytes,
+            },
+            LookupDictionary = new
+            {
+                Entries = lookupEntries,
+                Capacity = lookupCapacity,
+                UnusedSlots = lookupCapacity - lookupEntries,
+                BucketArrayPayloadBytes = lookupBucketBytes,
+                EntrySizeBytesEstimate = lookupEntrySizeBytes,
+                EntryArrayPayloadBytesEstimate = lookupEntryBytesEstimate,
+            },
+            FreeSlotStack = new
+            {
+                Entries = freeSlotCount,
+                Capacity = freeSlotCapacity,
+                UnusedSlots = freeSlotCapacity - freeSlotCount,
+                BackingArrayPayloadBytes = freeSlotStackBytes,
+            },
+            FixedBuffers = new
+            {
+                DenseIndexBytes = denseIndexBytes,
+                OccupancyBitsetBytes = occupancyBitsetBytes,
+                MeshletOccupancyBytes = meshletOccupancyBytes,
+                TotalBytes = fixedBufferBytes,
+            },
+            CapacityGrowth = new
+            {
+                DiagnosticsAvailable = storageProfiles.All(
+                    profile => profile.Storage.GrowthDiagnosticsAvailable),
+                PaletteList = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.PaletteGrowthArrayBytes),
+                    GrowthEvents = storageProfiles.Sum(
+                        profile => profile.Storage.PaletteGrowthEvents),
+                },
+                UsageList = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.UsageGrowthArrayBytes),
+                    GrowthEvents = storageProfiles.Sum(
+                        profile => profile.Storage.UsageGrowthEvents),
+                },
+                LookupDictionary = new
+                {
+                    BucketArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.LookupBucketGrowthArrayBytes),
+                    EntryArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.LookupEntryGrowthArrayBytes),
+                    GrowthEvents = storageProfiles.Sum(
+                        profile => profile.Storage.LookupGrowthEvents),
+                },
+                FreeSlotStack = new
+                {
+                    ArrayPayloadBytesAllocatedAcrossGrowth = storageProfiles.Sum(
+                        profile => profile.Storage.FreeSlotGrowthArrayBytes),
+                    GrowthEvents = storageProfiles.Sum(
+                        profile => profile.Storage.FreeSlotGrowthEvents),
+                },
+                TotalArrayPayloadBytesAllocatedAcrossGrowth =
+                    storageProfiles.Sum(profile =>
+                        profile.Storage.PaletteGrowthArrayBytes +
+                        profile.Storage.UsageGrowthArrayBytes +
+                        profile.Storage.LookupBucketGrowthArrayBytes +
+                        profile.Storage.LookupEntryGrowthArrayBytes +
+                        profile.Storage.FreeSlotGrowthArrayBytes),
+            },
+            EstimatedBackingArrayPayloadBytes = estimatedBackingArrayPayloadBytes,
+            StorageCapacityByChunk = directionalStorageByChunk,
+        },
+        TerrainLayerGeologyNoiseCache = new
+        {
+            Capacity = terrainLayerGeologyNoiseCacheCapacity,
+            Hits = terrainLayerGeologyNoiseCacheHits,
+            Misses = terrainLayerGeologyNoiseCacheMisses,
+            Collisions = terrainLayerGeologyNoiseCacheCollisions,
+            Lookups = terrainLayerGeologyNoiseCacheHits +
+                terrainLayerGeologyNoiseCacheMisses,
+            HitRate = terrainLayerGeologyNoiseCacheHits +
+                terrainLayerGeologyNoiseCacheMisses == 0
+                    ? 0d
+                    : terrainLayerGeologyNoiseCacheHits /
+                        (double)(terrainLayerGeologyNoiseCacheHits +
+                            terrainLayerGeologyNoiseCacheMisses),
+            CollisionRate = terrainLayerGeologyNoiseCacheMisses == 0
+                ? 0d
+                : terrainLayerGeologyNoiseCacheCollisions /
+                    (double)terrainLayerGeologyNoiseCacheMisses,
         },
     };
 }
@@ -2025,4 +2285,13 @@ internal sealed record Arguments(
             materialMapOutput,
             materialMapBiome);
     }
+}
+
+
+internal struct DirectionalFacePaletteLookupEntryLayout
+{
+    public int HashCode;
+    public int Next;
+    public DirectionalFaceVoxelData Key;
+    public ushort Value;
 }

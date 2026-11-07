@@ -380,6 +380,8 @@ public sealed class BiomeField
     {
         private readonly BiomeField _field;
         private readonly Dictionary<SeedBucket, SeedAssignment> _assignments = [];
+        private readonly Dictionary<SeedBucket, FormationSeed> _formationSeeds = [];
+        private readonly Dictionary<SeedBucket, double[]> _contourPhases = [];
         private readonly Dictionary<(int X, int Z), BiomeSample>? _samples;
         private readonly (int X, int Z)[]? _sampleOrder;
         private int _nextSampleOrderIndex;
@@ -401,13 +403,15 @@ public sealed class BiomeField
         public BiomeSample Sample(int x, int z)
         {
             if (_samples is not { } samples)
-                return _field.SampleCached(x, z, _assignments);
+                return _field.SampleCached(
+                    x, z, _assignments, _formationSeeds, _contourPhases);
 
             var coordinate = (X: x, Z: z);
             if (samples.TryGetValue(coordinate, out var cached))
                 return cached;
 
-            var sample = _field.SampleCached(x, z, _assignments);
+            var sample = _field.SampleCached(
+                x, z, _assignments, _formationSeeds, _contourPhases);
             Prime(x, z, sample);
             return sample;
         }
@@ -714,7 +718,9 @@ public sealed class BiomeField
         int z,
         Dictionary<
             SeedBucket,
-            SeedAssignment> assignments)
+            SeedAssignment> assignments,
+        Dictionary<SeedBucket, FormationSeed>? formationSeeds = null,
+        Dictionary<SeedBucket, double[]>? contourPhaseCache = null)
     {
         var (warpedX, warpedZ) =
             WarpedPosition(
@@ -766,12 +772,14 @@ public sealed class BiomeField
                 var seed =
                     FormationSeedFor(
                         bucket,
-                        assignments);
+                        assignments,
+                        formationSeeds);
                 var score =
                     SeedScore(
                         seed,
                         warpedX,
-                        warpedZ);
+                        warpedZ,
+                        contourPhaseCache);
 
                 if (score >
                     bestScores[
@@ -865,7 +873,10 @@ public sealed class BiomeField
                 FormationStrength(
                     bestSeeds[rule].Assignment,
                     warpedX,
-                    warpedZ));
+                    warpedZ,
+                    assignments,
+                    formationSeeds,
+                    contourPhaseCache));
             total += weight;
         }
 
@@ -1064,21 +1075,55 @@ public sealed class BiomeField
         SeedBucket bucket,
         Dictionary<
             SeedBucket,
-            SeedAssignment> cache)
+            SeedAssignment> cache,
+        Dictionary<SeedBucket, FormationSeed>? formationSeeds = null)
     {
+        if (formationSeeds is not null &&
+            formationSeeds.TryGetValue(bucket, out var cached))
+        {
+            return cached;
+        }
+
         var assignment =
             SeedAssignmentFor(
                 bucket,
                 cache);
-        var (centerX, centerZ) =
-            SeedCenter(
-                bucket);
+        var (centerX, centerZ) = SeedCenter(bucket);
+        var hasCachedScore = formationSeeds is not null;
+        var sizeScale = 0d;
+        var bias = 0d;
+        var continuationBonus = 0d;
 
-        return new FormationSeed(
+        if (hasCachedScore)
+        {
+            var spacing = (double)_seedSpacing;
+            var targetRatio = Math.Clamp(
+                assignment.TargetSpan / (spacing * 3d),
+                0.5d,
+                12d);
+            sizeScale = Math.Pow(targetRatio, _blending.SizeExponent);
+            bias = WorldGenerationEntropy.SignedUnit(
+                WorldGenerationEntropy.Sample2D(
+                    _seed,
+                    _seedBiasDomain,
+                    bucket.X,
+                    bucket.Z)) * _blending.SeedBiasAmplitude;
+            continuationBonus = assignment.Root != bucket
+                ? _blending.ContinuationBonus
+                : 0d;
+        }
+
+        var seed = new FormationSeed(
             bucket,
             assignment,
             centerX,
-            centerZ);
+            centerZ,
+            hasCachedScore,
+            sizeScale,
+            bias,
+            continuationBonus);
+        formationSeeds?.Add(bucket, seed);
+        return seed;
     }
 
     private SeedAssignment SeedAssignmentFor(
@@ -1549,11 +1594,20 @@ public sealed class BiomeField
     private double FormationStrength(
         SeedAssignment assignment,
         double x,
-        double z)
+        double z,
+        Dictionary<SeedBucket, SeedAssignment> assignments,
+        Dictionary<SeedBucket, FormationSeed>? formationSeeds = null,
+        Dictionary<SeedBucket, double[]>? contourPhaseCache = null)
     {
-        var (centerX, centerZ) =
-            SeedCenter(
-                assignment.Root);
+        FormationSeed? rootSeed = formationSeeds is null
+            ? null
+            : FormationSeedFor(
+                assignment.Root,
+                assignments,
+                formationSeeds);
+        var (centerX, centerZ) = rootSeed is { } cachedRoot
+            ? (cachedRoot.CenterX, cachedRoot.CenterZ)
+            : SeedCenter(assignment.Root);
         var dx =
             x -
             centerX;
@@ -1568,7 +1622,12 @@ public sealed class BiomeField
             Math.Atan2(
                 dz,
                 dx);
-        var shape = ContourShape(angle, assignment.Root);
+        var shape = contourPhaseCache is null
+            ? ContourShape(angle, assignment.Root)
+            : ContourShape(
+                angle,
+                assignment.Root,
+                ContourPhasesFor(assignment.Root, contourPhaseCache));
         var radius =
             Math.Max(
                 _seedSpacing,
@@ -1588,7 +1647,10 @@ public sealed class BiomeField
                 radius);
     }
 
-    private double ContourShape(double angle, SeedBucket bucket)
+    private double ContourShape(
+        double angle,
+        SeedBucket bucket,
+        double[]? cachedPhases = null)
     {
         var shape = 1d;
         for (var index = 0; index < _contourDomains.Length; index++)
@@ -1599,12 +1661,14 @@ public sealed class BiomeField
                 continue;
             }
 
-            var phase = WorldGenerationEntropy.Unit(
-                WorldGenerationEntropy.Sample2D(
-                    _seed,
-                    _contourDomains[index],
-                    bucket.X,
-                    bucket.Z)) * Math.Tau;
+            var phase = cachedPhases is null
+                ? WorldGenerationEntropy.Unit(
+                    WorldGenerationEntropy.Sample2D(
+                        _seed,
+                        _contourDomains[index],
+                        bucket.X,
+                        bucket.Z)) * Math.Tau
+                : cachedPhases[index];
             shape += harmonic.Amplitude *
                 Math.Sin(angle * harmonic.Lobes + phase);
         }
@@ -1612,10 +1676,36 @@ public sealed class BiomeField
         return shape;
     }
 
+    private double[] ContourPhasesFor(
+        SeedBucket bucket,
+        Dictionary<SeedBucket, double[]> cache)
+    {
+        if (cache.TryGetValue(bucket, out var cached))
+            return cached;
+
+        var phases = new double[_contourDomains.Length];
+        for (var index = 0; index < _contourDomains.Length; index++)
+        {
+            if (_blending.ContourHarmonics[index].Amplitude == 0d)
+                continue;
+
+            phases[index] = WorldGenerationEntropy.Unit(
+                WorldGenerationEntropy.Sample2D(
+                    _seed,
+                    _contourDomains[index],
+                    bucket.X,
+                    bucket.Z)) * Math.Tau;
+        }
+
+        cache.Add(bucket, phases);
+        return phases;
+    }
+
     private double SeedScore(
         FormationSeed seed,
         double x,
-        double z)
+        double z,
+        Dictionary<SeedBucket, double[]>? contourPhaseCache = null)
     {
         var spacing =
             (double)_seedSpacing;
@@ -1634,32 +1724,49 @@ public sealed class BiomeField
             Math.Atan2(
                 dz,
                 dx);
-        var shape = ContourShape(angle, seed.Bucket);
-        var targetRatio =
-            Math.Clamp(
-                seed.Assignment.TargetSpan /
-                (spacing * 3d),
-                0.5d,
-                12d);
-        var sizeScale =
-            Math.Pow(
-                targetRatio,
-                _blending.SizeExponent);
-        var bias =
-            WorldGenerationEntropy
-                .SignedUnit(
-                    WorldGenerationEntropy
-                        .Sample2D(
-                            _seed,
-                            _seedBiasDomain,
-                            seed.Bucket.X,
-                            seed.Bucket.Z)) *
-            _blending.SeedBiasAmplitude;
-        var continuationBonus =
-            seed.Assignment.Root !=
-            seed.Bucket
-                ? _blending.ContinuationBonus
-                : 0d;
+        var shape = contourPhaseCache is null
+            ? ContourShape(angle, seed.Bucket)
+            : ContourShape(
+                angle,
+                seed.Bucket,
+                ContourPhasesFor(seed.Bucket, contourPhaseCache));
+        double sizeScale;
+        double bias;
+        double continuationBonus;
+        if (seed.HasCachedScore)
+        {
+            sizeScale = seed.SizeScale;
+            bias = seed.Bias;
+            continuationBonus = seed.ContinuationBonus;
+        }
+        else
+        {
+            var targetRatio =
+                Math.Clamp(
+                    seed.Assignment.TargetSpan /
+                    (spacing * 3d),
+                    0.5d,
+                    12d);
+            sizeScale =
+                Math.Pow(
+                    targetRatio,
+                    _blending.SizeExponent);
+            bias =
+                WorldGenerationEntropy
+                    .SignedUnit(
+                        WorldGenerationEntropy
+                            .Sample2D(
+                                _seed,
+                                _seedBiasDomain,
+                                seed.Bucket.X,
+                                seed.Bucket.Z)) *
+                _blending.SeedBiasAmplitude;
+            continuationBonus =
+                seed.Assignment.Root !=
+                seed.Bucket
+                    ? _blending.ContinuationBonus
+                    : 0d;
+        }
 
         return -distance /
                    (shape *
@@ -1947,7 +2054,11 @@ public sealed class BiomeField
         SeedBucket Bucket,
         SeedAssignment Assignment,
         double CenterX,
-        double CenterZ);
+        double CenterZ,
+        bool HasCachedScore,
+        double SizeScale,
+        double Bias,
+        double ContinuationBonus);
 }
 
 internal readonly record struct BiomeFieldRuleSource(

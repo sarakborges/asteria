@@ -761,11 +761,14 @@ public sealed class TerrainDensityTests
         void AssertBatchMatchesScalar(int[] indices)
         {
             var masks = new ushort[indices.Length];
+            var requestedMasks =
+                Enumerable.Repeat(ushort.MaxValue, indices.Length).ToArray();
             cache.ReadDensityColumnMasks(
                 chunkX,
                 originY: 96,
                 chunkZ,
                 indices,
+                requestedMasks,
                 masks,
                 out _,
                 out _,
@@ -989,6 +992,126 @@ public sealed class TerrainDensityTests
             point.X, 132, point.Z));
         Assert.True(generator.DensityAt(
             point.X, 112, point.Z) < 0d);
+    }
+
+    [Fact]
+    public void DensityBoundaryCacheDefersVolumeBiomeSamplingUntilAdditiveBands()
+    {
+        var generator = Generator(
+            additive:
+            [
+                new BiomeAdditiveDensityDefinition(
+                    80, 104, 64, 24, 1f, 0f, 30f,
+                    verticalFalloff: 2f),
+                new BiomeAdditiveDensityDefinition(
+                    120, 144, 64, 24, 1f, 0f, 30f,
+                    horizontalFalloff: 2f),
+            ]);
+        var terrain = generator.Terrain;
+
+        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(64));
+        Assert.True(terrain.RequiresVolumeBiomeForDensityBand(80));
+        Assert.True(terrain.RequiresVolumeBiomeForDensityBand(112));
+        Assert.False(terrain.RequiresVolumeBiomeForDensityBand(160));
+
+        var point = FindVolumeSolid(generator, y: 92);
+        var (coord, local) = VoxelCoordinates.FromWorld(
+            point.X, 64, point.Z);
+        var columnIndices = new[]
+        {
+            local.Z * Chunk.Size + local.X,
+        };
+        var cache = new SurfaceTerrainColumnCache(terrain);
+        var lowerMask = new ushort[1];
+
+        cache.ReadDensityColumnMasks(
+            coord.X,
+            64,
+            coord.Z,
+            columnIndices,
+            [ushort.MaxValue],
+            lowerMask,
+            out _, out _, out _, out _, out _, out _);
+
+        for (var offset = 0; offset < Chunk.Size; offset++)
+        {
+            var worldY = 64 + offset;
+            var expected = generator.DensityAt(
+                point.X, worldY, point.Z) >= 0d;
+            var actual = (lowerMask[0] & (1 << offset)) != 0;
+            Assert.Equal(expected, actual);
+        }
+
+        // The same cached X/Z column must acquire its volume owner later,
+        // when the requested vertical band intersects additive formations.
+        var upperMask = new ushort[1];
+        cache.ReadDensityColumnMasks(
+            coord.X,
+            80,
+            coord.Z,
+            columnIndices,
+            [ushort.MaxValue],
+            upperMask,
+            out _, out _, out _, out _, out _, out _);
+
+        for (var offset = 0; offset < Chunk.Size; offset++)
+        {
+            var worldY = 80 + offset;
+            var expected = generator.DensityAt(
+                point.X, worldY, point.Z) >= 0d;
+            var actual = (upperMask[0] & (1 << offset)) != 0;
+            Assert.Equal(expected, actual);
+        }
+    }
+
+    [Fact]
+    public void VolumePlacementGridOwnersMatchScalarAcrossIndependentFormationBounds()
+    {
+        var generator = Generator(
+            additive:
+            [
+                new BiomeAdditiveDensityDefinition(
+                    80, 104, 64, 24, 1f, 0f, 30f,
+                    verticalFalloff: 2f),
+                new BiomeAdditiveDensityDefinition(
+                    120, 144, 64, 24, 1f, 0f, 30f,
+                    horizontalFalloff: 2f),
+            ]);
+        var point = FindVolumeSolid(generator, y: 92);
+        var coord = VoxelCoordinates.FromWorld(
+            point.X, 0, point.Z).Chunk;
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(coord);
+        var grid = generator.VolumeBiomes.SamplePlacementGrid(
+            originX, originZ, Chunk.Size, Chunk.Size);
+        var heights = new[]
+        {
+            0, 79, 80, 92, 104, 105, 112,
+            119, 120, 132, 144, 145, 160,
+        };
+
+        for (var localZ = 0; localZ < Chunk.Size; localZ += 5)
+        for (var localX = 0; localX < Chunk.Size; localX += 5)
+        foreach (var worldY in heights)
+        {
+            var worldX = originX + localX;
+            var worldZ = originZ + localZ;
+            var expected = generator.VolumeBiomes.Sample(
+                worldX, worldY, worldZ);
+            var actual = generator.VolumeBiomes.SampleAtY(
+                grid, localX, worldY, localZ);
+
+            Assert.Equal(expected?.Primary, actual?.Primary);
+            Assert.Equal(expected?.Influences.Count ?? 0,
+                actual?.Influences.Count ?? 0);
+            if (expected is null || actual is null)
+                continue;
+
+            for (var index = 0; index < expected.Influences.Count; index++)
+                Assert.Equal(
+                    expected.Influences[index],
+                    actual.Influences[index]);
+        }
     }
 
     [Fact]

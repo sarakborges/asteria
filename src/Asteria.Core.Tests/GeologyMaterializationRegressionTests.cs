@@ -224,6 +224,12 @@ public sealed class GeologyMaterializationRegressionTests
         Assert.Equal(
             coordinates.Length * 4 * wallDepth * Chunk.Size,
             first.BoundaryColumnCount);
+        var completeBoundaryProbeUpperBound =
+            first.BoundaryColumnCount * Chunk.Size;
+        Assert.True(
+            first.BoundaryProbes < completeBoundaryProbeUpperBound,
+            $"Boundary sampling evaluated unused vertical levels: " +
+            $"{first.BoundaryProbes}/{completeBoundaryProbeUpperBound} samples.");
         Assert.Equal(first.BoundaryBatchCount, second.BoundaryBatchCount);
         Assert.Equal(first.BoundaryColumnCount, second.BoundaryColumnCount);
         Assert.Equal(coordinates.Length, first.Digests.Count);

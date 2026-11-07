@@ -30,6 +30,73 @@ internal readonly record struct BiomeDirectionalPalette(
 /// </summary>
 public sealed class BiomeSurfaceMaterialField
 {
+    /// <summary>
+    /// Resolved per-biome geology rule for hot voxel loops. A chunk column
+    /// keeps this handle so each voxel does not repeat a string-keyed lookup.
+    /// </summary>
+    internal readonly struct GeologySampler
+    {
+        // One reference per column instead of duplicating the immutable seed
+        // and rule reference in every cache entry.
+        private readonly ResolvedGeology? _geology;
+
+        private GeologySampler(ResolvedGeology? geology)
+        {
+            _geology = geology;
+        }
+
+        internal static GeologySampler Resolve(
+            BiomeSurfaceMaterialField field,
+            BiomeSample sample) =>
+            field._geologyRules.TryGetValue(sample.Primary, out var geology)
+                ? new GeologySampler(geology)
+                : default;
+
+        internal uint? SurfaceCoverDepth =>
+            _geology?.SurfaceCoverDepth;
+
+        internal bool RequiresSubmergedSurface =>
+            _geology is { SurfaceCoverage: > 0f } &&
+            _geology.SurfaceSubmergedOnly;
+
+        internal bool TryBlockAtCached(
+            int worldX,
+            int worldY,
+            int worldZ,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+            out BlockRuntimeId block)
+        {
+            if (_geology is null)
+            {
+                block = BlockRuntimeId.Air;
+                return false;
+            }
+
+            block = _geology.BlockAtCached(
+                worldX, worldY, worldZ, latticeCache);
+            return true;
+        }
+
+        internal bool TrySurfaceBlockAtCached(
+            int worldX,
+            int worldY,
+            int worldZ,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache,
+            out BlockRuntimeId block)
+        {
+            if (_geology is null ||
+                !_geology.TrySurfaceBlockAtCached(
+                    worldX, worldY, worldZ,
+                    out block, latticeCache))
+            {
+                block = BlockRuntimeId.Air;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
     private const int SampledColumnCacheCapacity = 8192;
 
     private readonly record struct MaterialColumnKey(
@@ -78,7 +145,7 @@ public sealed class BiomeSurfaceMaterialField
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
                 biome => biome.Id,
-                biome => ResolvedGeology.Create(biome.Id, biome.Geology!, blocks),
+                biome => ResolvedGeology.Create(seed, biome.Id, biome.Geology!, blocks),
                 StringComparer.Ordinal);
 
         var volumeBiomeIds = biomeDefinitions
@@ -169,6 +236,15 @@ public sealed class BiomeSurfaceMaterialField
             worldZ,
             depth,
             PlacementFor(rule, worldX, worldZ, placement));
+    }
+
+    /// <summary>
+    /// Resolves the hot-loop handle for one biome's authored geology.
+    /// </summary>
+    internal GeologySampler ResolveGeology(BiomeSample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return GeologySampler.Resolve(this, sample);
     }
 
     /// <summary>
@@ -499,6 +575,7 @@ public sealed class BiomeSurfaceMaterialField
             _blocks.Any(block => block.IsAir) ||
             _volumeBlocks.Any(block => block.IsAir);
 
+        private readonly ulong _seed;
         private readonly BiomeGeologyDefinition _definition;
         private readonly BlockRuntimeId _baseBlock;
         private readonly BlockRuntimeId[] _blocks;
@@ -561,11 +638,13 @@ public sealed class BiomeSurfaceMaterialField
         private readonly double _boundaryInfluence;
 
         private ResolvedGeology(
+            ulong seed,
             BiomeGeologyDefinition definition,
             BlockRuntimeId baseBlock,
             BlockRuntimeId[] blocks,
             string biomeId)
         {
+            _seed = seed;
             _definition = definition;
             _surfaceExposureScale = Math.Max(6u, definition.DetailScale / 2u);
             _warpHorizontalScale = Math.Max(12u, definition.Scale / 3u);
@@ -729,6 +808,13 @@ public sealed class BiomeSurfaceMaterialField
         public float SurfaceCoverage => _definition.SurfaceCoverage;
         public bool SurfaceSubmergedOnly => _definition.SurfaceSubmergedOnly;
 
+        internal BlockRuntimeId BlockAtCached(
+            int x,
+            int y,
+            int z,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache) =>
+            BlockAt(_seed, x, y, z, latticeCache);
+
         public BlockRuntimeId BlockAt(
             ulong seed, int x, int y, int z,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
@@ -754,6 +840,14 @@ public sealed class BiomeSurfaceMaterialField
                 _volumeClusterDomains, _volumeGrainDomains, _volumeBiases,
                 latticeCache);
         }
+
+        internal bool TrySurfaceBlockAtCached(
+            int x,
+            int y,
+            int z,
+            out BlockRuntimeId block,
+            WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache) =>
+            TrySurfaceBlockAt(_seed, x, y, z, out block, latticeCache);
 
         public bool TrySurfaceBlockAt(
             ulong seed, int x, int y, int z, out BlockRuntimeId block,
@@ -1342,10 +1436,12 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         public static ResolvedGeology Create(
+            ulong seed,
             string biomeId,
             BiomeGeologyDefinition definition,
             BlockRegistry blocks) =>
             new ResolvedGeology(
+                seed,
                 definition,
                 blocks.GetId(definition.BaseBlock),
                 definition.Blocks.Select(blocks.GetId).ToArray(),
@@ -1449,26 +1545,28 @@ public sealed class BiomeSurfaceMaterialField
             SurfacePlacementContext? placement,
             BlockRuntimeId surfaceOverride)
         {
-            var depths = new uint[Layers.Length];
-            var blocks = new BlockRuntimeId[Layers.Length];
+            var resolvedLayers =
+                new BiomeSurfaceMaterialColumn.Layer[Layers.Length];
 
             var previousEndDepth = 0u;
             for (var index = 0; index < Layers.Length; index++)
             {
                 var layer = Layers[index];
-                depths[index] = layer.EndDepthExclusive is { } nominalEndDepth
+                var endDepth = layer.EndDepthExclusive is { } nominalEndDepth
                     ? AdjustedEndDepth(
                         seed, worldX, worldZ, index,
                         nominalEndDepth, previousEndDepth)
                     : uint.MaxValue;
-                if (depths[index] != uint.MaxValue)
-                    previousEndDepth = depths[index];
-                blocks[index] = layer.Resolve(
-                    seed, worldX, worldZ, placement);
+                if (endDepth != uint.MaxValue)
+                    previousEndDepth = endDepth;
+                resolvedLayers[index] =
+                    new BiomeSurfaceMaterialColumn.Layer(
+                        endDepth,
+                        layer.Resolve(seed, worldX, worldZ, placement));
             }
 
             return new BiomeSurfaceMaterialColumn(
-                depths, blocks, surfaceOverride);
+                resolvedLayers, surfaceOverride);
         }
 
         private uint AdjustedEndDepth(
@@ -1789,36 +1887,41 @@ public sealed class BiomeSurfaceMaterialField
 /// </summary>
 public sealed class BiomeSurfaceMaterialColumn
 {
-    private readonly uint[] _endDepths;
-    private readonly BlockRuntimeId[] _blocks;
+    internal readonly record struct Layer(
+        uint EndDepthExclusive,
+        BlockRuntimeId Block);
+
+    private readonly Layer[] _layers;
+    private readonly uint _finiteDepth;
     private readonly BlockRuntimeId _surfaceOverride;
 
     internal BiomeSurfaceMaterialColumn(
-        uint[] endDepths,
-        BlockRuntimeId[] blocks,
+        Layer[] layers,
         BlockRuntimeId surfaceOverride = default)
     {
-        _endDepths = endDepths;
-        _blocks = blocks;
+        _layers = layers;
+        _finiteDepth = layers.Length > 1
+            ? layers[^2].EndDepthExclusive
+            : 0u;
         _surfaceOverride = surfaceOverride;
     }
 
-    public uint FiniteDepth =>
-        _endDepths.Length > 1
-            ? _endDepths[^2]
-            : 0u;
+    public uint FiniteDepth => _finiteDepth;
 
     public BlockRuntimeId BlockAt(uint depth)
     {
         if (depth == 0 && !_surfaceOverride.IsAir)
             return _surfaceOverride;
 
-        for (var i = 0; i < _endDepths.Length; i++)
+        // Most terrain voxels are below the finite authored cover. Resolve
+        // those directly to the core layer instead of scanning every layer.
+        if (depth >= _finiteDepth)
+            return _layers[^1].Block;
+
+        for (var i = 0; i < _layers.Length - 1; i++)
         {
-            if (depth < _endDepths[i])
-            {
-                return _blocks[i];
-            }
+            if (depth < _layers[i].EndDepthExclusive)
+                return _layers[i].Block;
         }
 
         throw new InvalidOperationException(
