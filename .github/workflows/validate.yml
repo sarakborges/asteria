@@ -39,6 +39,31 @@ jobs:
       - name: Build Godot C# project
         run: dotnet build Asteria.csproj --configuration Release
 
+      - name: Verify game runtime Quick JIT configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime_config="$(find .godot/mono/temp/bin -type f \
+            -name 'Asteria.runtimeconfig.json' -print -quit)"
+          if [ -z "$runtime_config" ]; then
+            echo "Asteria.runtimeconfig.json was not generated for the dynamic Godot assembly."
+            exit 1
+          fi
+          python3 - "$runtime_config" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              config = json.load(stream)
+          properties = config.get("runtimeOptions", {}).get("configProperties", {})
+          key = "System.Runtime.TieredCompilation.QuickJit"
+          if properties.get(key) is not False:
+              raise SystemExit(
+                  f"{key} must be false in {sys.argv[1]}, got {properties.get(key)!r}"
+              )
+          print(f"Verified {key}=false in {sys.argv[1]}")
+          PY
+
       - name: Test engine-agnostic core
         run: dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --configuration Release
 
