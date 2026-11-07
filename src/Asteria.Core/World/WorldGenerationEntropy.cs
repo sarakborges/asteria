@@ -56,6 +56,14 @@ internal static class WorldGenerationEntropy
         private readonly ulong _c101;
         private readonly ulong _c011;
         private readonly ulong _c111;
+        private readonly uint _foldedC000;
+        private readonly uint _foldedC100;
+        private readonly uint _foldedC010;
+        private readonly uint _foldedC110;
+        private readonly uint _foldedC001;
+        private readonly uint _foldedC101;
+        private readonly uint _foldedC011;
+        private readonly uint _foldedC111;
         private readonly double _tx;
         private readonly double _ty;
         private readonly double _tz;
@@ -91,6 +99,17 @@ internal static class WorldGenerationEntropy
             _c101 = x1Hash ^ y0Hash ^ z1Hash;
             _c011 = x0Hash ^ y1Hash ^ z1Hash;
             _c111 = x1Hash ^ y1Hash ^ z1Hash;
+            // The direct-mapped cache folds the upper 32 key bits into the
+            // lower 32. XOR-linearity lets each corner's folded component be
+            // prepared once instead of recomputed for every sampled domain.
+            _foldedC000 = (uint)(_c000 ^ (_c000 >> 32));
+            _foldedC100 = (uint)(_c100 ^ (_c100 >> 32));
+            _foldedC010 = (uint)(_c010 ^ (_c010 >> 32));
+            _foldedC110 = (uint)(_c110 ^ (_c110 >> 32));
+            _foldedC001 = (uint)(_c001 ^ (_c001 >> 32));
+            _foldedC101 = (uint)(_c101 ^ (_c101 >> 32));
+            _foldedC011 = (uint)(_c011 ^ (_c011 >> 32));
+            _foldedC111 = (uint)(_c111 ^ (_c111 >> 32));
             _tx = WorldGenerationEntropy.SmoothStep(gx - floorX);
             _ty = WorldGenerationEntropy.SmoothStep(gy - floorY);
             _tz = WorldGenerationEntropy.SmoothStep(gz - floorZ);
@@ -138,24 +157,25 @@ internal static class WorldGenerationEntropy
             ArgumentNullException.ThrowIfNull(latticeCache);
             latticeCache.EnsureAlive();
             var domainSeed = seed ^ domain.Key;
+            var foldedDomainSeed = (uint)(domainSeed ^ (domainSeed >> 32));
             var firstZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
-                    latticeCache.SampleUnchecked(domainSeed ^ _c000),
-                    latticeCache.SampleUnchecked(domainSeed ^ _c100),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c000, foldedDomainSeed ^ _foldedC000),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c100, foldedDomainSeed ^ _foldedC100),
                     _tx),
                 WorldGenerationEntropy.Lerp(
-                    latticeCache.SampleUnchecked(domainSeed ^ _c010),
-                    latticeCache.SampleUnchecked(domainSeed ^ _c110),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c010, foldedDomainSeed ^ _foldedC010),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c110, foldedDomainSeed ^ _foldedC110),
                     _tx),
                 _ty);
             var secondZ = WorldGenerationEntropy.Lerp(
                 WorldGenerationEntropy.Lerp(
-                    latticeCache.SampleUnchecked(domainSeed ^ _c001),
-                    latticeCache.SampleUnchecked(domainSeed ^ _c101),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c001, foldedDomainSeed ^ _foldedC001),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c101, foldedDomainSeed ^ _foldedC101),
                     _tx),
                 WorldGenerationEntropy.Lerp(
-                    latticeCache.SampleUnchecked(domainSeed ^ _c011),
-                    latticeCache.SampleUnchecked(domainSeed ^ _c111),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c011, foldedDomainSeed ^ _foldedC011),
+                    latticeCache.SampleUnchecked(domainSeed ^ _c111, foldedDomainSeed ^ _foldedC111),
                     _tx),
                 _ty);
             return WorldGenerationEntropy.Lerp(firstZ, secondZ, _tz);
@@ -228,10 +248,19 @@ internal static class WorldGenerationEntropy
         // Callers sampling a full 3D value-noise lattice validate the cache
         // once before resolving its eight corners, avoiding eight repeated
         // lifetime and nullable-buffer checks for the same query.
-        internal double SampleUnchecked(ulong domainCoordinate)
+        internal double SampleUnchecked(ulong domainCoordinate) =>
+            SampleUnchecked(
+                domainCoordinate,
+                (uint)(domainCoordinate ^ (domainCoordinate >> 32)));
+
+        // Callers with several corners sharing a domain seed can provide the
+        // pre-folded index key. The full coordinate key is still compared,
+        // preserving collision and eviction semantics exactly.
+        internal double SampleUnchecked(
+            ulong domainCoordinate,
+            uint foldedDomainCoordinate)
         {
-            var folded = domainCoordinate ^ (domainCoordinate >> 32);
-            var index = (int)(folded & (uint)_mask);
+            var index = (int)(foldedDomainCoordinate & (uint)_mask);
             var cachedValue = _values[index];
             var occupied = !double.IsNaN(cachedValue);
             if (occupied && _keys[index] == domainCoordinate)
