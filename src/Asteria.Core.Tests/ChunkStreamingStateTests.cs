@@ -182,6 +182,36 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void PendingDispatchPreservesOriginalQueueTimestamp()
+    {
+        var state = new ChunkStreamingState();
+        var coord = new ChunkCoord(1, 0, 0);
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired: new HashSet<ChunkCoord> { coord });
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var first = state.PopPendingEntryByPriority();
+        Assert.NotNull(first);
+        Assert.Equal(coord, first.Value.Coord);
+        Assert.InRange(
+            first.Value.EnqueuedTimestamp,
+            1L,
+            System.Diagnostics.Stopwatch.GetTimestamp());
+
+        state.EnqueuePending(coord, first.Value.EnqueuedTimestamp);
+        var requeued = state.PopPendingEntryByPriority();
+
+        Assert.NotNull(requeued);
+        Assert.Equal(first.Value.EnqueuedTimestamp, requeued.Value.EnqueuedTimestamp);
+        Assert.Equal(0, state.PendingCount);
+    }
+
+    [Fact]
     public void BootstrapKeepsKnownSurfaceChunksWithinNewRadius()
     {
         var state = new ChunkStreamingState();
