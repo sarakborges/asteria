@@ -25,7 +25,11 @@ public sealed class SurfaceDecorationFieldTests
                     isLayer: true),
             ],
             volumeLayout: new BiomeVolumeLayoutDefinition(
-                placement: VolumeBiomePlacement.CarvedVoid));
+                placement: VolumeBiomePlacement.CarvedVoid),
+            palette: new BiomePaletteDefinition(
+            [
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]));
         var field = new SurfaceDecorationField(71, [biome], blocks);
 
         Assert.False(field.HasVerticalDecorations);
