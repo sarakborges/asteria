@@ -135,7 +135,7 @@ var initialAreaDiagnostics = new
 object? coldMaterializationDiagnostics = null;
 object? warmMaterializationDiagnostics = null;
 object? coldInitialAreaTimingDiagnostics = null;
-object? warmInitialAreaTimingDiagnostics = null;
+var warmInitialAreaTimingDiagnostics = new List<object>();
 var initialAreaInvocation = 0;
 
 metrics.Add("biomeScalar", Measure(
@@ -610,7 +610,7 @@ metrics.Add("initialAreaSynthesis", Measure(
         if (invocation == 1)
             coldInitialAreaTimingDiagnostics = timingSnapshot;
         else
-            warmInitialAreaTimingDiagnostics = timingSnapshot;
+            warmInitialAreaTimingDiagnostics.Add(timingSnapshot);
         return digest;
     }));
 
@@ -1357,7 +1357,8 @@ var result = new
     InitialAreaSynthesisTimingBreakdown = new
     {
         Cold = coldInitialAreaTimingDiagnostics,
-        Warm = warmInitialAreaTimingDiagnostics,
+        WarmSampleCount = warmInitialAreaTimingDiagnostics.Count,
+        WarmSamples = warmInitialAreaTimingDiagnostics,
     },
     InitialAreaStageTimingDiagnostics = new
     {
