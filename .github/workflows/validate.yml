@@ -56,7 +56,7 @@ jobs:
           with open(sys.argv[1], encoding="utf-8") as stream:
               config = json.load(stream)
           properties = config.get("runtimeOptions", {}).get("configProperties", {})
-          key = "System.Runtime.TieredCompilation.QuickJit"
+          key = "System.Runtime.TieredCompilation"
           if properties.get(key) is not False:
               raise SystemExit(
                   f"{key} must be false in {sys.argv[1]}, got {properties.get(key)!r}"
@@ -340,8 +340,8 @@ jobs:
             local output="$root/results/$version/$repetition.json"
             local log="$root/results/$version/$repetition.log"
             # Match the game's Asteria.runtimeconfig.json for both revisions.
-            # Keep tiering on and disable Quick JIT on both sides so A/B isolates code.
-            if ! env DOTNET_TieredCompilation=1 DOTNET_TC_QuickJit=0 dotnet run \
+            # Compile each IL method once with full optimization on first use.
+            if ! env DOTNET_TieredCompilation=0 dotnet run \
               --project "$project_root/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
               --configuration Release --no-build -- \
               --project-root "$project_root" \
@@ -397,8 +397,8 @@ jobs:
           # Separate dynamic PGO from tiered compilation, then compare both
           # with the same candidate, seed, region and four-process sample size.
           mkdir -p "$root/results/candidate-no-pgo" \
-            "$root/results/candidate-no-tiering" \
-            "$root/results/candidate-quickjit-on"
+            "$root/results/candidate-tiered-quickjit-on" \
+            "$root/results/candidate-tiered-quickjit-off"
           run_candidate_runtime_mode() {
             local mode="$1"
             local repetition="$2"
@@ -421,14 +421,14 @@ jobs:
           }
           for repetition in 1 2 3 4; do
             run_candidate_runtime_mode candidate-no-pgo "$repetition" 1 0 1
-            run_candidate_runtime_mode candidate-quickjit-on "$repetition" 1 1 1
-            run_candidate_runtime_mode candidate-no-tiering "$repetition" 0 0 1
+            run_candidate_runtime_mode candidate-tiered-quickjit-on "$repetition" 1 1 1
+            run_candidate_runtime_mode candidate-tiered-quickjit-off "$repetition" 1 1 0
           done
 
           python3 - "$root/results/candidate" \
-            "$root/results/candidate-quickjit-on" \
+            "$root/results/candidate-tiered-quickjit-on" \
             "$root/results/candidate-no-pgo" \
-            "$root/results/candidate-no-tiering" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+            "$root/results/candidate-tiered-quickjit-off" <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import glob
           import json
           import statistics
@@ -450,15 +450,15 @@ jobs:
                   raise SystemExit(f"Generated-result digests differ within {folder}")
               return documents
 
-          production, quickjit_on, no_pgo, no_tiering = map(read, sys.argv[1:])
+          production, tiered_quickjit_on, no_pgo, tiered_quickjit_off = map(read, sys.argv[1:])
           reference = {
               name: metric["digest"]
               for name, metric in production[0]["metrics"].items()
           }
           for mode, documents in (
-              ("tiered-quickjit-on", quickjit_on),
+              ("tiered-quickjit-on", tiered_quickjit_on),
               ("tiered-no-pgo", no_pgo),
-              ("no-tiering", no_tiering),
+              ("tiered-quickjit-off", tiered_quickjit_off),
           ):
               for document in documents:
                   actual = {
@@ -484,10 +484,10 @@ jobs:
 
           print("\n### Candidate warm-up: production runtime vs JIT/PGO alternatives\n")
           modes = (
-              ("Production (QuickJIT off)", production),
-              ("Tiered (QuickJIT on)", quickjit_on),
+              ("Production (tiering off)", production),
+              ("Tiered (QuickJIT on)", tiered_quickjit_on),
               ("Tiered, PGO off", no_pgo),
-              ("Tiering off", no_tiering),
+              ("Tiered (QuickJIT off)", tiered_quickjit_off),
           )
           print("| Warm pass / mode | Materialization (ms) | " +
                 " | ".join(stages) + " |")
