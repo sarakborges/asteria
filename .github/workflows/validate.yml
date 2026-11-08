@@ -782,7 +782,7 @@ jobs:
               ("CaveSpikes warm", lambda d: d["initialAreaStageTimingDiagnostics"]["warm"]["byStage"]["CaveSpikes"]["elapsedMs"]),
           )
 
-          print("\n### IL/JIT vs ReadyToRun worldgen (4 processes per mode)\\n")
+          print("\n### IL/JIT vs ReadyToRun worldgen (4 processes per mode)\n")
           print("Seed 181960897289965, 67 chunks, DOTNET_TieredCompilation=0; generated digests are identical.\n")
           print("| Metric | IL + JIT (ms) | ReadyToRun (ms) | R2R delta |")
           print("|---|---:|---:|---:|")
