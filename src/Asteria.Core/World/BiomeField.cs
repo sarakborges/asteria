@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Asteria.Core.World;
 
 public readonly record struct BiomeInfluence(
@@ -400,6 +402,7 @@ public sealed class BiomeField
             _sampleOrder = new (int X, int Z)[sampleCacheCapacity];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public BiomeSample Sample(int x, int z)
         {
             if (_samples is not { } samples)

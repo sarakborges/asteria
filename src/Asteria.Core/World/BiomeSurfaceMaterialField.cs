@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Asteria.Core.World;
 
 [Flags]
@@ -429,6 +431,7 @@ public sealed class BiomeSurfaceMaterialField
         BiomePaletteFace face) =>
         DirectionalPaletteFor(owner).Has(face);
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public BiomeSurfaceMaterialColumn SampleColumn(
         BiomeSample sample,
         int worldX,
@@ -815,6 +818,7 @@ public sealed class BiomeSurfaceMaterialField
             WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache) =>
             BlockAt(_seed, x, y, z, latticeCache);
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public BlockRuntimeId BlockAt(
             ulong seed, int x, int y, int z,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
@@ -849,6 +853,7 @@ public sealed class BiomeSurfaceMaterialField
             WorldGenerationEntropy.ValueNoise3DLatticeCache latticeCache) =>
             TrySurfaceBlockAt(_seed, x, y, z, out block, latticeCache);
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public bool TrySurfaceBlockAt(
             ulong seed, int x, int y, int z, out BlockRuntimeId block,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache = null)
@@ -868,6 +873,14 @@ public sealed class BiomeSurfaceMaterialField
             {
                 block = BlockRuntimeId.Air;
                 return false;
+            }
+
+            // With one authored surface material, exposure is the only
+            // spatial decision; material selection itself is constant.
+            if (_blocks.Length == 1)
+            {
+                block = _blocks[0];
+                return true;
             }
 
             if (_samplingMode != BiomeGeologySamplingMode.PerVoxel)
@@ -983,6 +996,7 @@ public sealed class BiomeSurfaceMaterialField
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static double SampleNoise(
             WorldGenerationEntropy.ValueNoise3DCoordinates coordinates,
             ulong seed,
@@ -992,6 +1006,7 @@ public sealed class BiomeSurfaceMaterialField
                 ? coordinates.Sample(seed, domain)
                 : coordinates.Sample(seed, domain, latticeCache);
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private SpatialPosition WarpCoordinates(
             ulong seed, int x, int y, int z,
             WorldGenerationEntropy.ValueNoise3DLatticeCache? latticeCache)
@@ -1026,6 +1041,7 @@ public sealed class BiomeSurfaceMaterialField
                 rotated.Z + warpZ * _warpHorizontalStrength + detailWarpZ * _detailWarpStrength);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private SpatialPosition WarpRegionalCoordinates(
             ulong seed,
             int x,
@@ -1059,6 +1075,7 @@ public sealed class BiomeSurfaceMaterialField
                 rotated.Z + warpZ * _regionScale * _regionWarpStrength);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private SpatialPosition WarpRegionalEdges(
             ulong seed,
             SpatialPosition position,

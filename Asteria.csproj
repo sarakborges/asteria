@@ -2,6 +2,12 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
+    <!-- Prefer one fully optimized JIT compilation on first use over
+         executing Tier 0 and later promoting hot methods to Tier 1. -->
+    <TieredCompilation>false</TieredCompilation>
+    <!-- Godot exports publish with a concrete RID; precompile all eligible game assemblies. -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishReadyToRunShowWarnings>true</PublishReadyToRunShowWarnings>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Asteria.Client</RootNamespace>

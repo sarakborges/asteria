@@ -244,6 +244,7 @@ def compare(
             "Baseline is the fixed pre-feature worldgen revision; candidate is the complete pull-request head.",
             "Each value is the median across separate benchmark processes; each process also reports the benchmark's internal warm median where available.",
             "DirectionalFacePalettes timing includes both exposure derivation and palette application stages.",
+            "Release A/B runs set DOTNET_TieredCompilation=0 for both revisions, matching the game's single-tier optimizing JIT configuration.",
             "Wall-clock deltas are informational and do not fail CI; seed, region, chunk count and generated-result digest mismatches do fail CI.",
         ],
     }
