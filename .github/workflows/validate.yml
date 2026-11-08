@@ -673,7 +673,7 @@ jobs:
                   raise SystemExit(f"Missing published assembly: {path}")
               data = path.read_bytes()
               pe = u32(data, 0x3C)
-              if data[pe:pe + 4] != b"PE\\0\\0":
+              if data[pe:pe + 4] != b"PE\0\0":
                   raise SystemExit(f"{name} is not a valid PE image.")
               coff = pe + 4
               count = u16(data, coff + 2)
@@ -782,8 +782,8 @@ jobs:
               ("CaveSpikes warm", lambda d: d["initialAreaStageTimingDiagnostics"]["warm"]["byStage"]["CaveSpikes"]["elapsedMs"]),
           )
 
-          print("\\n### IL/JIT vs ReadyToRun worldgen (4 processes per mode)\\n")
-          print("Seed 181960897289965, 67 chunks, DOTNET_TieredCompilation=0; generated digests are identical.\\n")
+          print("\n### IL/JIT vs ReadyToRun worldgen (4 processes per mode)\\n")
+          print("Seed 181960897289965, 67 chunks, DOTNET_TieredCompilation=0; generated digests are identical.\n")
           print("| Metric | IL + JIT (ms) | ReadyToRun (ms) | R2R delta |")
           print("|---|---:|---:|---:|")
           for label, getter in metrics:
@@ -796,7 +796,7 @@ jobs:
               il_size = (pathlib.Path(sys.argv[2]) / "tools/WorldgenBenchmark/bin/Release/net8.0" / name).stat().st_size
               r2r_size = (pathlib.Path(sys.argv[3]) / name).stat().st_size
               increase = (r2r_size - il_size) / il_size * 100
-              print(f"\\n- {name}: IL {il_size / 1024:.1f} KiB; R2R {r2r_size / 1024:.1f} KiB ({increase:+.1f}%).")
+              print(f"\n- {name}: IL {il_size / 1024:.1f} KiB; R2R {r2r_size / 1024:.1f} KiB ({increase:+.1f}%).")
           PY
 
       - name: Upload terrain A/B evidence
