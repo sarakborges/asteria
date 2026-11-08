@@ -39,7 +39,7 @@ jobs:
       - name: Build Godot C# project
         run: dotnet build Asteria.csproj --configuration Release
 
-      - name: Verify game runtime Quick JIT configuration
+      - name: Verify game runtime single-tier JIT configuration
         shell: bash
         run: |
           set -euo pipefail
@@ -62,6 +62,84 @@ jobs:
                   f"{key} must be false in {sys.argv[1]}, got {properties.get(key)!r}"
               )
           print(f"Verified {key}=false in {sys.argv[1]}")
+          PY
+
+      - name: Publish and verify ReadyToRun game assemblies
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_dir="$RUNNER_TEMP/asteria-r2r"
+          dotnet publish Asteria.csproj \
+            --configuration ExportRelease \
+            --runtime linux-x64 \
+            --self-contained false \
+            --output "$publish_dir" \
+            --nologo
+
+          python3 - "$publish_dir" <<'PY'
+          import pathlib
+          import struct
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          assemblies = ("Asteria.dll", "Asteria.Core.dll", "Asteria.ModAPI.dll")
+
+          def u16(data, offset):
+              return struct.unpack_from("<H", data, offset)[0]
+
+          def u32(data, offset):
+              return struct.unpack_from("<I", data, offset)[0]
+
+          def rva_to_offset(data, sections, rva):
+              for offset in sections:
+                  virtual_size = u32(data, offset + 8)
+                  virtual_address = u32(data, offset + 12)
+                  raw_size = u32(data, offset + 16)
+                  raw_pointer = u32(data, offset + 20)
+                  span = max(virtual_size, raw_size)
+                  if virtual_address <= rva < virtual_address + span:
+                      return raw_pointer + rva - virtual_address
+              raise SystemExit(f"Could not map PE RVA 0x{rva:x} to a file offset.")
+
+          for name in assemblies:
+              path = root / name
+              if not path.is_file():
+                  raise SystemExit(f"Missing published assembly: {path}")
+
+              data = path.read_bytes()
+              pe_offset = u32(data, 0x3C)
+              if data[pe_offset:pe_offset + 4] != b"PE\\0\\0":
+                  raise SystemExit(f"{name} is not a valid PE image.")
+
+              coff = pe_offset + 4
+              section_count = u16(data, coff + 2)
+              optional_size = u16(data, coff + 16)
+              optional = coff + 20
+              magic = u16(data, optional)
+              if magic == 0x20B:
+                  directories = optional + 112
+              elif magic == 0x10B:
+                  directories = optional + 96
+              else:
+                  raise SystemExit(f"{name} has an unsupported PE optional header.")
+
+              cli_rva = u32(data, directories + 14 * 8)
+              if cli_rva == 0:
+                  raise SystemExit(f"{name} has no CLR header.")
+              section_table = optional + optional_size
+              sections = [
+                  section_table + index * 40
+                  for index in range(section_count)
+              ]
+              cli_offset = rva_to_offset(data, sections, cli_rva)
+
+              # IMAGE_COR20_HEADER.ManagedNativeHeader points to the R2R header.
+              native_header_rva = u32(data, cli_offset + 64)
+              native_header_size = u32(data, cli_offset + 68)
+              if native_header_rva == 0 or native_header_size == 0:
+                  raise SystemExit(f"{name} was not published with a ReadyToRun header.")
+
+              print(f"Verified ReadyToRun: {name}")
           PY
 
       - name: Test engine-agnostic core
