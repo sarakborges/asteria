@@ -623,6 +623,182 @@ jobs:
           
           cat "$root/results/report.md" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Compare IL/JIT and ReadyToRun worldgen execution
+        if: steps.terrain_scope.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/terrain-layer-ab"
+          candidate="$root/candidate"
+          publish="$root/r2r-publish"
+          results="$root/results/r2r-comparison"
+          mkdir -p "$results/il" "$results/r2r"
+
+          # Publish the exact same Core/benchmark sources with ReadyToRun.
+          dotnet publish "$candidate/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+            --configuration Release \
+            --runtime linux-x64 \
+            --self-contained false \
+            -p:PublishReadyToRun=true \
+            --output "$publish" \
+            --nologo
+
+          python3 - "$publish" <<'PY'
+          import pathlib
+          import struct
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          assemblies = ("WorldgenBenchmark.dll", "Asteria.Core.dll")
+
+          def u16(data, offset):
+              return struct.unpack_from("<H", data, offset)[0]
+
+          def u32(data, offset):
+              return struct.unpack_from("<I", data, offset)[0]
+
+          def rva_to_offset(data, sections, rva):
+              for offset in sections:
+                  virtual_size = u32(data, offset + 8)
+                  virtual_address = u32(data, offset + 12)
+                  raw_size = u32(data, offset + 16)
+                  raw_pointer = u32(data, offset + 20)
+                  if virtual_address <= rva < virtual_address + max(virtual_size, raw_size):
+                      return raw_pointer + rva - virtual_address
+              raise SystemExit(f"Could not map PE RVA 0x{rva:x}.")
+
+          for name in assemblies:
+              path = root / name
+              if not path.is_file():
+                  raise SystemExit(f"Missing published assembly: {path}")
+              data = path.read_bytes()
+              pe = u32(data, 0x3C)
+              if data[pe:pe + 4] != b"PE\\0\\0":
+                  raise SystemExit(f"{name} is not a valid PE image.")
+              coff = pe + 4
+              count = u16(data, coff + 2)
+              optional_size = u16(data, coff + 16)
+              optional = coff + 20
+              magic = u16(data, optional)
+              directories = optional + (112 if magic == 0x20B else 96 if magic == 0x10B else 0)
+              if directories == optional:
+                  raise SystemExit(f"{name} has an unsupported PE optional header.")
+              cli_rva = u32(data, directories + 14 * 8)
+              table = optional + optional_size
+              sections = [table + index * 40 for index in range(count)]
+              cli = rva_to_offset(data, sections, cli_rva)
+              native_rva = u32(data, cli + 64)
+              native_size = u32(data, cli + 68)
+              if native_rva == 0 or native_size == 0:
+                  raise SystemExit(f"{name} has no ReadyToRun native header.")
+              print(f"Verified ReadyToRun: {name}")
+          PY
+
+          run_il() {
+            local repetition="$1"
+            local output="$results/il/$repetition.json"
+            local log="$results/il/$repetition.log"
+            if ! env DOTNET_TieredCompilation=0 dotnet run \
+              --project "$candidate/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
+              --configuration Release --no-build -- \
+              --project-root "$candidate" \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --samples 2 --area-size 4 --chunks 1 \
+              --output "$output" > "$log" 2>&1; then
+              cat "$log"
+              return 1
+            fi
+          }
+
+          run_r2r() {
+            local repetition="$1"
+            local output="$results/r2r/$repetition.json"
+            local log="$results/r2r/$repetition.log"
+            if ! env DOTNET_TieredCompilation=0 dotnet "$publish/WorldgenBenchmark.dll" \
+              --project-root "$candidate" \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --samples 2 --area-size 4 --chunks 1 \
+              --output "$output" > "$log" 2>&1; then
+              cat "$log"
+              return 1
+            fi
+          }
+
+          # Alternate execution order to reduce shared-runner drift.
+          for repetition in 1 2 3 4; do
+            if [ "$((repetition % 2))" -eq 1 ]; then
+              run_il "$repetition"
+              run_r2r "$repetition"
+            else
+              run_r2r "$repetition"
+              run_il "$repetition"
+            fi
+          done
+
+          python3 - "$results" "$candidate" "$publish" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import pathlib
+          import statistics
+          import sys
+
+          results = pathlib.Path(sys.argv[1])
+          il_dir = results / "il"
+          r2r_dir = results / "r2r"
+
+          def read_repetitions(directory):
+              paths = sorted(directory.glob("*.json"))
+              if len(paths) != 4:
+                  raise SystemExit(f"Expected four repetitions in {directory}, got {len(paths)}")
+              documents = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
+              identity = None
+              digests = None
+              for document in documents:
+                  current = (
+                      document["seed"], document["dimension"], document["dimensionSeed"],
+                      tuple(document["center"]),
+                      document["initialAreaDiagnostics"]["desiredChunkCount"],
+                  )
+                  actual_digests = {
+                      name: metric["digest"]
+                      for name, metric in sorted(document["metrics"].items())
+                  }
+                  if identity is None:
+                      identity, digests = current, actual_digests
+                  elif current != identity or actual_digests != digests:
+                      raise SystemExit(f"Seed/region/digest mismatch in {directory}")
+              return documents, identity, digests
+
+          il, il_identity, il_digests = read_repetitions(il_dir)
+          r2r, r2r_identity, r2r_digests = read_repetitions(r2r_dir)
+          if il_identity != r2r_identity or il_digests != r2r_digests:
+              raise SystemExit("IL/JIT and ReadyToRun generated different world results.")
+
+          metrics = (
+              ("Cold materialization", lambda d: d["initialAreaSynthesisTimingBreakdown"]["cold"]["materializationMilliseconds"]),
+              ("Warm synthesis", lambda d: d["metrics"]["initialAreaSynthesis"]["warmMs"]),
+              ("Warm region materialization", lambda d: d["initialAreaMaterializationDiagnostics"]["warm"]["totalMaterializeMs"]),
+              ("TerrainLayer warm", lambda d: d["initialAreaStageTimingDiagnostics"]["warm"]["byStage"]["TerrainLayer"]["elapsedMs"]),
+              ("SurfaceDecorations warm", lambda d: d["initialAreaStageTimingDiagnostics"]["warm"]["byStage"]["SurfaceDecorations"]["elapsedMs"]),
+              ("CaveSpikes warm", lambda d: d["initialAreaStageTimingDiagnostics"]["warm"]["byStage"]["CaveSpikes"]["elapsedMs"]),
+          )
+
+          print("\\n### IL/JIT vs ReadyToRun worldgen (4 processes per mode)\\n")
+          print("Seed 181960897289965, 67 chunks, DOTNET_TieredCompilation=0; generated digests are identical.\\n")
+          print("| Metric | IL + JIT (ms) | ReadyToRun (ms) | R2R delta |")
+          print("|---|---:|---:|---:|")
+          for label, getter in metrics:
+              before = statistics.median(getter(d) for d in il)
+              after = statistics.median(getter(d) for d in r2r)
+              delta = 0 if before == 0 else (after - before) / before * 100
+              print(f"| {label} | {before:.2f} | {after:.2f} | {delta:+.1f}% |")
+
+          for name in ("WorldgenBenchmark.dll", "Asteria.Core.dll"):
+              il_size = (pathlib.Path(sys.argv[2]) / "tools/WorldgenBenchmark/bin/Release/net8.0" / name).stat().st_size
+              r2r_size = (pathlib.Path(sys.argv[3]) / name).stat().st_size
+              increase = (r2r_size - il_size) / il_size * 100
+              print(f"\\n- {name}: IL {il_size / 1024:.1f} KiB; R2R {r2r_size / 1024:.1f} KiB ({increase:+.1f}%).")
+          PY
+
       - name: Upload terrain A/B evidence
         if: always() && steps.terrain_scope.outputs.run == 'true'
         uses: actions/upload-artifact@v4
