@@ -108,7 +108,7 @@ jobs:
 
               data = path.read_bytes()
               pe_offset = u32(data, 0x3C)
-              if data[pe_offset:pe_offset + 4] != b"PE\\0\\0":
+              if data[pe_offset:pe_offset + 4] != b"PE\0\0":
                   raise SystemExit(f"{name} is not a valid PE image.")
 
               coff = pe_offset + 4
