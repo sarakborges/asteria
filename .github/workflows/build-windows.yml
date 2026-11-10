@@ -292,6 +292,17 @@ jobs:
           $stdoutPath = Join-Path $workingDirectory "smoke-stdout.log"
           $stderrPath = Join-Path $workingDirectory "smoke-stderr.log"
 
+          # WebView2 reads this override while creating its process environment.
+          # Set it in the parent as well as in WebUiHost so the child starts with
+          # the fixed runtime selected before any native extension initializes.
+          $runtimeDirectory = Join-Path $workingDirectory "WebView2Runtime"
+          $runtimeExecutable = Join-Path $runtimeDirectory "msedgewebview2.exe"
+          if (-not (Test-Path $runtimeExecutable -PathType Leaf)) {
+            throw "Packaged WebView2 runtime executable is missing: $runtimeExecutable"
+          }
+          $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER = $runtimeDirectory
+          Write-Host "Smoke-test WebView2 Fixed Version folder: $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER"
+
           Write-Host "Launching the exported Windows game and waiting for the React ui.ready handshake..."
           $process = Start-Process -FilePath $executable -WorkingDirectory $workingDirectory -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
           $uiReady = $false
