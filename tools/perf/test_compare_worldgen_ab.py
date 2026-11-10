@@ -8,15 +8,15 @@ from pathlib import Path
 from compare_worldgen_ab import compare, load_repetitions, render_report
 
 
-def sample_run(*, palette_ms: float = 50.0, exposure_ms: float = 0.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67, extra_stages: dict | None = None) -> dict:
+def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_ms: float = 0.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, terrain_layer_bytes: int = 512, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67, extra_stages: dict | None = None) -> dict:
     stages = {
         "DirectionalFaceExposure": {"elapsedMs": exposure_ms, "allocatedBytes": 128},
-        "DirectionalFacePalettes": {"elapsedMs": palette_ms, "allocatedBytes": 256},
+        "DirectionalFacePalettes": {"elapsedMs": palette_ms, "allocatedBytes": palette_bytes},
         "SurfaceDecorations": {
             "elapsedMs": surface_decoration_ms,
             "allocatedBytes": surface_decoration_bytes,
         },
-        "TerrainLayer": {"elapsedMs": stage_ms, "allocatedBytes": 512},
+        "TerrainLayer": {"elapsedMs": stage_ms, "allocatedBytes": terrain_layer_bytes},
     }
     if extra_stages:
         stages.update(extra_stages)
@@ -78,6 +78,57 @@ class CompareWorldgenAbTests(unittest.TestCase):
         report = render_report(result)
         self.assertIn("DirectionalFacePalettes", report)
         self.assertIn("identical", report)
+
+    def test_combines_terrain_and_directional_face_work_before_median(self) -> None:
+        baseline = [
+            sample_run(
+                palette_ms=palette,
+                stage_ms=terrain,
+                palette_bytes=palette_bytes,
+                terrain_layer_bytes=terrain_bytes,
+            )
+            for palette, terrain, palette_bytes, terrain_bytes in zip(
+                (60.0, 80.0, 70.0),
+                (100.0, 120.0, 110.0),
+                (2, 4, 6),
+                (6, 8, 10),
+            )
+        ]
+        candidate = [
+            sample_run(
+                palette_ms=palette,
+                stage_ms=terrain,
+                palette_bytes=palette_bytes,
+                terrain_layer_bytes=terrain_bytes,
+            )
+            for palette, terrain, palette_bytes, terrain_bytes in zip(
+                (40.0, 50.0, 60.0),
+                (80.0, 90.0, 100.0),
+                (4, 6, 8),
+                (8, 10, 12),
+            )
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        combined = next(
+            metric for metric in result["metrics"]
+            if metric["metric"] == "TerrainLayer + directional faces (warm)"
+        )
+
+        # Sum within each process before taking the median; do not add
+        # independently calculated medians from different samples.
+        self.assertEqual(180.0, combined["baselineMedianMs"])
+        self.assertEqual(140.0, combined["candidateMedianMs"])
+        self.assertAlmostEqual(22.2222, combined["reductionPercent"], places=3)
+
+        allocations = result["terrainAndFaceAllocations"]
+        self.assertAlmostEqual(14.0 / (1024 * 1024), allocations["baselineMedianMiB"])
+        self.assertAlmostEqual(18.0 / (1024 * 1024), allocations["candidateMedianMiB"])
+        self.assertAlmostEqual(-28.5714, allocations["reductionPercent"], places=3)
+
+        report = render_report(result)
+        self.assertIn("TerrainLayer + directional-face combined allocations", report)
+        self.assertIn("TerrainLayer + directional faces (warm)", report)
 
     def test_reports_surface_decoration_time_and_allocations(self) -> None:
         baseline = [
