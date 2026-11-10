@@ -8,7 +8,19 @@ from pathlib import Path
 from compare_worldgen_ab import compare, load_repetitions, render_report
 
 
-def sample_run(*, palette_ms: float = 50.0, exposure_ms: float = 0.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67) -> dict:
+def sample_run(*, palette_ms: float = 50.0, exposure_ms: float = 0.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67, extra_stages: dict | None = None) -> dict:
+    stages = {
+        "DirectionalFaceExposure": {"elapsedMs": exposure_ms, "allocatedBytes": 128},
+        "DirectionalFacePalettes": {"elapsedMs": palette_ms, "allocatedBytes": 256},
+        "SurfaceDecorations": {
+            "elapsedMs": surface_decoration_ms,
+            "allocatedBytes": surface_decoration_bytes,
+        },
+        "TerrainLayer": {"elapsedMs": stage_ms, "allocatedBytes": 512},
+    }
+    if extra_stages:
+        stages.update(extra_stages)
+
     return {
         "seed": 181960897289965,
         "dimension": "asteria:overworld",
@@ -31,15 +43,7 @@ def sample_run(*, palette_ms: float = 50.0, exposure_ms: float = 0.0, surface_de
             "warm": {"totalMaterializeMs": materialize_ms},
         },
         "initialAreaStageTimingDiagnostics": {
-            "warm": {"byStage": {
-                "DirectionalFaceExposure": {"elapsedMs": exposure_ms},
-                "DirectionalFacePalettes": {"elapsedMs": palette_ms},
-                "SurfaceDecorations": {
-                    "elapsedMs": surface_decoration_ms,
-                    "allocatedBytes": surface_decoration_bytes,
-                },
-                "TerrainLayer": {"elapsedMs": stage_ms},
-            }},
+            "warm": {"byStage": stages},
         },
     }
 
@@ -110,6 +114,83 @@ class CompareWorldgenAbTests(unittest.TestCase):
         report = render_report(result)
         self.assertIn("SurfaceDecorations allocations", report)
         self.assertIn("21.00", report)
+
+    def test_compares_all_materialization_stages_and_normalizes_per_chunk(self) -> None:
+        baseline = [
+            sample_run(extra_stages={
+                "GravitySupport": {
+                    "elapsedMs": value,
+                    "allocatedBytes": allocation * 1024 * 1024,
+                },
+            })
+            for value, allocation in zip((24.0, 28.0, 32.0), (6, 7, 8))
+        ]
+        candidate = [
+            sample_run(extra_stages={
+                "GravitySupport": {
+                    "elapsedMs": value,
+                    "allocatedBytes": allocation * 1024 * 1024,
+                },
+            })
+            for value, allocation in zip((12.0, 16.0, 20.0), (3, 4, 5))
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        gravity = next(
+            stage for stage in result["materializationStages"]
+            if stage["stage"] == "GravitySupport"
+        )
+
+        self.assertEqual("both", gravity["availability"])
+        self.assertEqual(28.0, gravity["baselineMedianMs"])
+        self.assertEqual(16.0, gravity["candidateMedianMs"])
+        self.assertAlmostEqual(42.8571, gravity["timeReductionPercent"], places=3)
+        self.assertEqual(7.0, gravity["baselineMedianMiB"])
+        self.assertEqual(4.0, gravity["candidateMedianMiB"])
+        self.assertAlmostEqual(7.0 / 67.0, gravity["baselineMiBPerChunk"])
+        self.assertAlmostEqual(16.0 / 67.0, gravity["candidateMsPerChunk"])
+
+        report = render_report(result)
+        self.assertIn("Materialization stage breakdown", report)
+        self.assertIn("| GravitySupport | 28.00 | 16.00 | +42.9%", report)
+
+    def test_stage_added_in_candidate_is_reported_without_fake_baseline_zero(self) -> None:
+        baseline = [sample_run()] * 3
+        candidate = [
+            sample_run(extra_stages={
+                "NewStage": {"elapsedMs": 5.0, "allocatedBytes": 4096},
+            })
+        ] * 3
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        stage = next(
+            value for value in result["materializationStages"]
+            if value["stage"] == "NewStage"
+        )
+
+        self.assertEqual("candidate-only", stage["availability"])
+        self.assertIsNone(stage["baselineMedianMs"])
+        self.assertEqual(5.0, stage["candidateMedianMs"])
+        self.assertIsNone(stage["timeReductionPercent"])
+        self.assertIn("| NewStage | n/a | 5.00 | n/a |", render_report(result))
+
+    def test_load_repetitions_rejects_inconsistent_stage_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "1.json").write_text(
+                json.dumps(sample_run()), encoding="utf-8"
+            )
+            (root / "2.json").write_text(
+                json.dumps(sample_run(extra_stages={
+                    "UnexpectedStage": {"elapsedMs": 1.0, "allocatedBytes": 1},
+                })), encoding="utf-8"
+            )
+            (root / "3.json").write_text(
+                json.dumps(sample_run()), encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(ValueError, "same materialization stages"):
+                load_repetitions(root, 3)
 
     def test_rejects_different_chunk_count(self) -> None:
         with self.assertRaisesRegex(ValueError, "Expected 67 initial-area chunks"):
