@@ -70,15 +70,18 @@ jobs:
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $archive = [System.IO.Compression.ZipFile]::OpenRead($templatesZip)
           try {
-            $versionEntry = $archive.GetEntry("version.txt")
-            if (-not $versionEntry) {
-              throw "Godot export templates archive has no version.txt."
+            $versionEntry = $archive.Entries |
+              Where-Object { $_.Name -eq "version.txt" } |
+              Select-Object -First 1
+            $templateVersion = "4.7.2.stable.mono"
+            if ($versionEntry) {
+              $reader = [System.IO.StreamReader]::new($versionEntry.Open())
+              try { $archiveVersion = $reader.ReadToEnd().Trim() } finally { $reader.Dispose() }
+              if ($archiveVersion -ne $templateVersion) {
+                throw "Unexpected Godot template version: $archiveVersion"
+              }
             }
-            $reader = [System.IO.StreamReader]::new($versionEntry.Open())
-            try { $templateVersion = $reader.ReadToEnd().Trim() } finally { $reader.Dispose() }
-            if ($templateVersion -ne "4.7.2.stable.mono") {
-              throw "Unexpected Godot template version: $templateVersion"
-            }
+            Write-Host "Installing Godot export templates for $templateVersion"
 
             $templateDir = Join-Path $env:APPDATA "Godot/export_templates/$templateVersion"
             New-Item -ItemType Directory -Force $templateDir | Out-Null
@@ -89,7 +92,9 @@ jobs:
               "windows_release_x86_64_console.exe"
             )
             foreach ($name in $requiredTemplates) {
-              $entry = $archive.GetEntry($name)
+              $entry = $archive.Entries |
+                Where-Object { $_.Name -eq $name } |
+                Select-Object -First 1
               if (-not $entry) { throw "Missing export template in archive: $name" }
               $destination = Join-Path $templateDir $name
               [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destination, $true)
