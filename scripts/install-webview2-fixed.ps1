@@ -35,13 +35,21 @@ try {
         throw "Windows expand.exe failed for the WebView2 Fixed Version cabinet."
     }
 
-    $browserExecutable = Get-ChildItem -LiteralPath $extractPath -Filter "msedgewebview2.exe" -File -Recurse |
-        Select-Object -First 1
-    if ($null -eq $browserExecutable) {
-        throw "The WebView2 Fixed Version package did not contain msedgewebview2.exe."
+    # The loader requires the runtime root, not an arbitrary nested executable.
+    # A valid Fixed Version root contains both the bootstrap executable and msedge.dll.
+    $browserCandidates = @(
+        Get-ChildItem -LiteralPath $extractPath -Filter "msedgewebview2.exe" -File -Recurse |
+            Where-Object {
+                Test-Path (Join-Path $_.Directory.FullName "msedge.dll") -PathType Leaf
+            }
+    )
+    if ($browserCandidates.Count -ne 1) {
+        throw "Expected exactly one WebView2 runtime root containing msedgewebview2.exe and msedge.dll; found $($browserCandidates.Count)."
     }
 
+    $browserExecutable = $browserCandidates[0]
     $sourceDirectory = Split-Path -Parent $browserExecutable.FullName
+    Write-Host "Selected WebView2 runtime root: $sourceDirectory"
     if (Test-Path $DestinationPath) {
         Remove-Item $DestinationPath -Recurse -Force
     }
@@ -52,8 +60,10 @@ try {
     }
 
     $packagedBrowser = Join-Path $DestinationPath "msedgewebview2.exe"
-    if (-not (Test-Path $packagedBrowser -PathType Leaf)) {
-        throw "Failed to place msedgewebview2.exe at the packaged runtime root."
+    $packagedCore = Join-Path $DestinationPath "msedge.dll"
+    if (-not (Test-Path $packagedBrowser -PathType Leaf) -or
+        -not (Test-Path $packagedCore -PathType Leaf)) {
+        throw "The packaged WebView2 runtime root is incomplete; msedgewebview2.exe and msedge.dll must be adjacent."
     }
 
     Set-Content -LiteralPath (Join-Path $DestinationPath "asteria-runtime-version.txt") -Value $runtimeVersion -Encoding ascii
