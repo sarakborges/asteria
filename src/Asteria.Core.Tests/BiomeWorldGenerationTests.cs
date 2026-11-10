@@ -2032,6 +2032,73 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void NestedGravitySupportFallsBackWhenSupportFaceContainsGravityBlocks()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                19f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                // Both cells below the seam are gravity blocks. A two-row
+                // support probe cannot prove that the stack has a stable base.
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 6),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            seaLevel: 0,
+            gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f));
+        var generator = new BiomeWorldGenerator(
+            101UL,
+            dimension,
+            blocks,
+            new BiomeRegistry([biome]));
+
+        var lower = generator.Materialize(new ChunkCoord(0, 0, 0));
+        var gravel = blocks.GetId("asteria:gravel");
+        Assert.Equal(gravel, lower.GetBlock(0, Chunk.Size - 1, 0));
+        Assert.Equal(gravel, lower.GetBlock(0, Chunk.Size - 2, 0));
+
+        using var job = generator.BeginMaterialization(
+            new ChunkCoord(0, 1, 0));
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        job.Advance(); // Create the sparse face query.
+        job.Advance(); // Terrain setup.
+        job.Advance(); // Y=14.
+        job.Advance(); // Y=15, then complete the sparse query.
+        Assert.Equal(ChunkMaterializationStage.GravitySupport,
+            job.ActiveWorkStage);
+
+        // A gravity-owned support face must use the full lower-chunk path.
+        job.Advance();
+        Assert.Equal(new ChunkCoord(0, 0, 0), job.ActiveWorkCoord);
+        Assert.Equal(ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
+    }
+
+    [Fact]
     public void SphereShellMaterializesFloorAndRoofAndRejectsNegativeChunks()
     {
         var blocks =
