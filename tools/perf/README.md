@@ -1,5 +1,34 @@
 # Performance baseline comparison
 
+## Deterministic world-generation A/B
+
+```sh
+dotnet run -c Release --project tools/WorldgenBenchmark -- \
+  --seed 181960897289965 --dimension asteria:overworld \
+  --samples 2 --area-size 4 --chunks 1 --output candidate.json
+
+python tools/perf/compare_worldgen_ab.py \
+  --baseline-dir path/to/baseline-results \
+  --candidate-dir path/to/candidate-results \
+  --repetitions 4 --expected-chunks 67 \
+  --json-output worldgen-ab.json --report-output worldgen-ab.md
+```
+
+The A/B comparator requires matching seed, Sphere, center, spawn, initial
+chunk selection and generated-content digests. It summarizes repeated processes
+using medians and reports every materialization stage's elapsed time and
+allocations, including per-chunk values in the JSON output. A stage present in
+only one revision is shown as unavailable on the other side rather than being
+treated as zero. The headline directional-face-palette metric includes both
+exposure derivation and palette application; the stage breakdown keeps them
+separate.
+
+This is a headless Core world-generation benchmark. It does not measure Godot
+mesh publication, collision creation, GPU work or frame pacing.
+
+## Gameplay-session comparison
+
+
 This compares equal post-ready snapshot windows from two Asteria logs. It does
 not substitute for a deterministic camera route or a GPU profiler.
 
