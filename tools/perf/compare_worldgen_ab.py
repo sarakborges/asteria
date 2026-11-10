@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import statistics
 import sys
 from pathlib import Path
@@ -33,6 +34,7 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
     runs = [_load_json(directory / f"{index}.json") for index in range(1, repetitions + 1)]
     identity = None
     expected_digests = None
+    expected_stage_names = None
 
     for index, run in enumerate(runs, start=1):
         run_identity = (
@@ -51,6 +53,35 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
         metrics = _at(run, "metrics")
         if not isinstance(metrics, dict) or not metrics:
             raise ValueError(f"{directory}/{index}.json contains no benchmark metrics.")
+
+        stages = _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage")
+        if not isinstance(stages, dict):
+            raise ValueError(
+                f"{directory}/{index}.json has an invalid materialization stage profile."
+            )
+        stage_names = tuple(sorted(stages))
+        if expected_stage_names is None:
+            expected_stage_names = stage_names
+        elif stage_names != expected_stage_names:
+            raise ValueError(
+                f"{directory} repetitions do not contain the same materialization stages."
+            )
+        for stage_name, stage in stages.items():
+            if not isinstance(stage, dict):
+                raise ValueError(
+                    f"{directory}/{index}.json stage {stage_name} must contain an object."
+                )
+            for field in ("elapsedMs", "allocatedBytes"):
+                if field not in stage:
+                    raise ValueError(
+                        f"{directory}/{index}.json stage {stage_name} is missing {field}."
+                    )
+                value = float(stage[field])
+                if not math.isfinite(value) or value < 0:
+                    raise ValueError(
+                        f"{directory}/{index}.json stage {stage_name} has invalid {field}."
+                    )
+
         digests = {
             name: _at(metrics, name, "digest")
             for name in sorted(metrics)
@@ -81,8 +112,8 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
 
 def median_metric(runs: list[dict[str, Any]], *keys: str) -> float:
     values = [float(_at(run, *keys)) for run in runs]
-    if any(value < 0 for value in values):
-        raise ValueError(f"Benchmark metric {'.'.join(keys)} cannot be negative.")
+    if any(not math.isfinite(value) or value < 0 for value in values):
+        raise ValueError(f"Benchmark metric {'.'.join(keys)} must be finite and non-negative.")
     return statistics.median(values)
 
 
@@ -104,6 +135,82 @@ def _directional_face_palette_elapsed(run: dict[str, Any]) -> float:
         _stage_elapsed(run, "DirectionalFaceExposure")
         + _stage_elapsed(run, "DirectionalFacePalettes")
     )
+
+
+def _stage_median(
+    runs: list[dict[str, Any]],
+    stage_name: str,
+    field: str,
+) -> float | None:
+    stages = _at(runs[0], "initialAreaStageTimingDiagnostics", "warm", "byStage")
+    if stage_name not in stages:
+        return None
+    values = [
+        float(_at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", stage_name)[field])
+        for run in runs
+    ]
+    if any(not math.isfinite(value) or value < 0 for value in values):
+        raise ValueError(
+            f"Materialization stage {stage_name}.{field} must be finite and non-negative."
+        )
+    return statistics.median(values)
+
+
+def _reduction_percent(before: float | None, after: float | None) -> float | None:
+    if before is None or after is None:
+        return None
+    return 0.0 if before == 0 else (before - after) / before * 100.0
+
+
+def _compare_materialization_stages(
+    baseline: list[dict[str, Any]],
+    candidate: list[dict[str, Any]],
+    expected_chunks: int,
+) -> list[dict[str, Any]]:
+    baseline_stages = _at(
+        baseline[0], "initialAreaStageTimingDiagnostics", "warm", "byStage"
+    )
+    candidate_stages = _at(
+        candidate[0], "initialAreaStageTimingDiagnostics", "warm", "byStage"
+    )
+    results = []
+
+    for stage_name in sorted(set(baseline_stages) | set(candidate_stages)):
+        before_ms = _stage_median(baseline, stage_name, "elapsedMs")
+        after_ms = _stage_median(candidate, stage_name, "elapsedMs")
+        before_bytes = _stage_median(baseline, stage_name, "allocatedBytes")
+        after_bytes = _stage_median(candidate, stage_name, "allocatedBytes")
+        before_mib = None if before_bytes is None else before_bytes / (1024 * 1024)
+        after_mib = None if after_bytes is None else after_bytes / (1024 * 1024)
+
+        results.append({
+            "stage": stage_name,
+            "availability": (
+                "both" if before_ms is not None and after_ms is not None
+                else "baseline-only" if before_ms is not None
+                else "candidate-only"
+            ),
+            "baselineMedianMs": before_ms,
+            "candidateMedianMs": after_ms,
+            "timeReductionPercent": _reduction_percent(before_ms, after_ms),
+            "baselineMedianMiB": before_mib,
+            "candidateMedianMiB": after_mib,
+            "allocationReductionPercent": _reduction_percent(before_bytes, after_bytes),
+            "baselineMsPerChunk": (
+                None if before_ms is None else before_ms / expected_chunks
+            ),
+            "candidateMsPerChunk": (
+                None if after_ms is None else after_ms / expected_chunks
+            ),
+            "baselineMiBPerChunk": (
+                None if before_mib is None else before_mib / expected_chunks
+            ),
+            "candidateMiBPerChunk": (
+                None if after_mib is None else after_mib / expected_chunks
+            ),
+        })
+
+    return results
 
 
 def compare(
@@ -225,7 +332,12 @@ def compare(
         / baseline_surface_decoration_bytes * 100.0
     )
 
+    materialization_stages = _compare_materialization_stages(
+        baseline, candidate, expected_chunks
+    )
+
     return {
+        "materializationStages": materialization_stages,
         "surfaceDecorationAllocations": {
             "baselineMedianMiB": baseline_surface_decoration_mib,
             "candidateMedianMiB": candidate_surface_decoration_mib,
@@ -282,7 +394,38 @@ def render_report(result: dict[str, Any]) -> str:
         f"| {allocations['candidateMedianMiB']:.2f} "
         f"| {allocations['reductionPercent']:+.1f}% |",
     ])
-    lines.extend(["", *[f"- {note}" for note in result["notes"]], ""])
+    lines.extend([
+        "",
+        "## Materialization stage breakdown",
+        "",
+        "| Stage | Baseline (ms) | Candidate (ms) | Time delta | Baseline (MiB) | Candidate (MiB) | Allocation delta |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ])
+    for stage in result["materializationStages"]:
+        before_ms = stage["baselineMedianMs"]
+        after_ms = stage["candidateMedianMs"]
+        before_mib = stage["baselineMedianMiB"]
+        after_mib = stage["candidateMedianMiB"]
+        time_delta = stage["timeReductionPercent"]
+        allocation_delta = stage["allocationReductionPercent"]
+        lines.append(
+            f"| {stage['stage']} "
+            f"| {'n/a' if before_ms is None else f'{before_ms:.2f}'} "
+            f"| {'n/a' if after_ms is None else f'{after_ms:.2f}'} "
+            f"| {'n/a' if time_delta is None else f'{time_delta:+.1f}%'} "
+            f"| {'n/a' if before_mib is None else f'{before_mib:.2f}'} "
+            f"| {'n/a' if after_mib is None else f'{after_mib:.2f}'} "
+            f"| {'n/a' if allocation_delta is None else f'{allocation_delta:+.1f}%'} |"
+        )
+    lines.extend([
+        "",
+        "Stage timings are medians across benchmark processes. Per-chunk values are also available in the JSON output.",
+        "A stage present in only one revision is reported as n/a on the other side; it is never treated as zero.",
+        "DirectionalFacePalettes (warm) in the headline table includes exposure plus palette application; the breakdown keeps them separate.",
+        "",
+        *[f"- {note}" for note in result["notes"]],
+        "",
+    ])
     return "\n".join(lines)
 
 
