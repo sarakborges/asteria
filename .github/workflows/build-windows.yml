@@ -260,6 +260,6 @@ jobs:
           gh release create $tag "build/Asteria-Windows-x64.zip" `
             --repo $env:GITHUB_REPOSITORY `
             --title $title `
-            --notes "Automated Windows x64 Release build from commit $env:GITHUB_SHA. Godot 4.7.2 .NET; ReadyToRun enabled; WebView2 Fixed Version $runtimeVersion bundled." `
+            --notes "Automated Windows x64 Release build from commit $env:GITHUB_SHA. Godot 4.7.2 .NET; ReadyToRun enabled; WebView2 Fixed Version 157.0.4341.42 bundled." `
             --prerelease
           if ($LASTEXITCODE -ne 0) { throw "Failed to publish GitHub Release asset." }
