@@ -114,6 +114,30 @@ jobs:
           & "$env:GITHUB_WORKSPACE/scripts/install-webui.ps1"
           if ($LASTEXITCODE -ne 0) { throw "WebUI setup failed." }
 
+      - name: Verify WebUI export inputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dist = Join-Path $env:GITHUB_WORKSPACE "ui/dist"
+          $index = Join-Path $dist "index.html"
+          $manifest = Join-Path $dist "source-manifest.txt"
+
+          foreach ($required in @($index, $manifest)) {
+            if (-not (Test-Path $required -PathType Leaf)) {
+              throw "Required WebUI export input is missing: $required"
+            }
+          }
+
+          $assets = @(Get-ChildItem -LiteralPath $dist -File -Recurse |
+            Where-Object { $_.Extension -in @(".js", ".css") })
+          if ($assets.Count -lt 2) {
+            throw "WebUI build did not produce its JavaScript and CSS bundles."
+          }
+
+          Write-Host "WebUI export input: $index"
+          Write-Host "WebUI export input: $manifest"
+          Write-Host "Verified $($assets.Count) generated JS/CSS assets for Godot export."
+
       - name: Prepare shared Windows export preset
         shell: pwsh
         run: |
