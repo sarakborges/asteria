@@ -33,6 +33,11 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup Rust for the patched Windows WebView extension
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
       - name: Install Godot 4.7.2 .NET and Windows export templates
         shell: pwsh
         run: |
@@ -113,6 +118,12 @@ jobs:
         run: |
           & "$env:GITHUB_WORKSPACE/scripts/install-webui.ps1"
           if ($LASTEXITCODE -ne 0) { throw "WebUI setup failed." }
+
+      - name: Build Godot WRY with explicit Fixed Version runtime selection
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/scripts/build-godot-wry-windows.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "Patched Windows WebView extension build failed." }
 
       - name: Verify WebUI export inputs
         shell: pwsh
