@@ -122,9 +122,9 @@ class CompareWorldgenAbTests(unittest.TestCase):
         self.assertAlmostEqual(22.2222, combined["reductionPercent"], places=3)
 
         allocations = result["terrainAndFaceAllocations"]
-        self.assertAlmostEqual(14.0 / (1024 * 1024), allocations["baselineMedianMiB"])
-        self.assertAlmostEqual(18.0 / (1024 * 1024), allocations["candidateMedianMiB"])
-        self.assertAlmostEqual(-28.5714, allocations["reductionPercent"], places=3)
+        self.assertAlmostEqual(12.0 / (1024 * 1024), allocations["baselineMedianMiB"])
+        self.assertAlmostEqual(16.0 / (1024 * 1024), allocations["candidateMedianMiB"])
+        self.assertAlmostEqual(-33.3333, allocations["reductionPercent"], places=3)
 
         report = render_report(result)
         self.assertIn("TerrainLayer + directional-face combined allocations", report)
