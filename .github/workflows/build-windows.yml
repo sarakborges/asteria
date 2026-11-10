@@ -239,12 +239,6 @@ jobs:
           )
           $buildInfo | Set-Content (Join-Path (Split-Path $output) "BUILD_INFO.txt") -Encoding utf8
 
-          $package = Join-Path $env:GITHUB_WORKSPACE "build/Asteria-Windows-x64.zip"
-          Compress-Archive -Path (Join-Path (Split-Path $output) "*") -DestinationPath $package -CompressionLevel Optimal -Force
-          if (-not (Test-Path $package -PathType Leaf)) {
-            throw "Windows build archive was not created."
-          }
-
       - name: Verify embedded built-in pack resources
         shell: pwsh
         run: |
