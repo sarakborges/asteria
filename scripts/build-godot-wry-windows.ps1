@@ -29,11 +29,12 @@ Write-Host "Checking out Godot WRY v1.0.2 source..."
 git clone --quiet --depth 1 --branch v1.0.2 --single-branch https://github.com/doceazedo/godot_wry.git $pluginSource
 if ($LASTEXITCODE -ne 0) { throw "Failed to retrieve Godot WRY v1.0.2 source." }
 
-Write-Host "Checking out WRY 0.50.4 source..."
-git clone --quiet --depth 1 --branch wry-v0.50.4 --single-branch https://github.com/tauri-apps/wry.git $wryRoot
-if ($LASTEXITCODE -ne 0) { throw "Failed to retrieve WRY 0.50.4 source." }
+New-Item -ItemType Directory -Force (Split-Path -Parent $wryRoot) | Out-Null
+Write-Host "Checking out WRY 0.50.5 source (the version resolved by the upstream Cargo.lock)..."
+git clone --quiet --depth 1 --branch wry-v0.50.5 --single-branch https://github.com/tauri-apps/wry.git $wryRoot
+if ($LASTEXITCODE -ne 0) { throw "Failed to retrieve WRY 0.50.5 source." }
 
-$expectedWryCommit = "8008ee18cfb6cb26bacea932b628363287221cad"
+$expectedWryCommit = "97fd5b1f5576ba4ac646cfb71830b7997f5f7018"
 $actualWryCommit = (git -C $wryRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $actualWryCommit -ne $expectedWryCommit) {
     throw "Unexpected WRY source revision: $actualWryCommit"
@@ -108,5 +109,5 @@ if (-not (Test-Path (Split-Path -Parent $destinationLibrary))) {
 Copy-Item -LiteralPath $builtLibrary -Destination $destinationLibrary -Force
 
 $hash = (Get-FileHash $destinationLibrary -Algorithm SHA256).Hash.ToLowerInvariant()
-Write-Host "Installed patched Godot WRY 1.0.2 / WRY 0.50.4 ($hash)."
+Write-Host "Installed patched Godot WRY 1.0.2 / WRY 0.50.5 ($hash)."
 Remove-Item $sourceRoot -Recurse -Force -ErrorAction SilentlyContinue
