@@ -1,0 +1,174 @@
+name: build-windows
+
+on:
+  push:
+    branches:
+      - worldgen-perf-fix
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  export:
+    name: Export Windows x64 (Godot .NET + ReadyToRun)
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Godot 4.7.2 .NET and Windows export templates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "4.7.2-stable"
+          $root = Join-Path $env:RUNNER_TEMP "asteria-godot"
+          New-Item -ItemType Directory -Force $root | Out-Null
+
+          $editorZip = Join-Path $root "godot-mono-win64.zip"
+          $editorUrl = "https://github.com/godotengine/godot/releases/download/$version/Godot_v$($version)_mono_win64.zip"
+          Invoke-WebRequest -Uri $editorUrl -OutFile $editorZip
+          $editorHash = (Get-FileHash $editorZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($editorHash -ne "a2a48473a7414c5f19fab690518caebb738c09ef9601f6bd2388676a7f53b3c0") {
+            throw "Godot editor archive SHA-256 mismatch: $editorHash"
+          }
+
+          $editorDir = Join-Path $root "editor"
+          Expand-Archive -Path $editorZip -DestinationPath $editorDir -Force
+          $godot = Get-ChildItem $editorDir -Recurse -File |
+            Where-Object { $_.Name -eq "Godot_v4.7.2-stable_mono_win64_console.exe" } |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $godot) {
+            throw "Godot 4.7.2 .NET console editor executable was not found."
+          }
+
+          $templatesZip = Join-Path $root "godot-mono-templates.tpz"
+          $templatesUrl = "https://github.com/godotengine/godot/releases/download/$version/Godot_v$($version)_mono_export_templates.tpz"
+          Invoke-WebRequest -Uri $templatesUrl -OutFile $templatesZip
+          $templatesHash = (Get-FileHash $templatesZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($templatesHash -ne "92f8681e349ef1f90891b792da95e3b2b0bd1ed610b78018c58feb2d87e15a9d") {
+            throw "Godot export templates SHA-256 mismatch: $templatesHash"
+          }
+
+          Add-Type -AssemblyName System.IO.Compression
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($templatesZip)
+          try {
+            $versionEntry = $archive.GetEntry("version.txt")
+            if (-not $versionEntry) {
+              throw "Godot export templates archive has no version.txt."
+            }
+            $reader = [System.IO.StreamReader]::new($versionEntry.Open())
+            try { $templateVersion = $reader.ReadToEnd().Trim() } finally { $reader.Dispose() }
+            if ($templateVersion -ne "4.7.2.stable.mono") {
+              throw "Unexpected Godot template version: $templateVersion"
+            }
+
+            $templateDir = Join-Path $env:APPDATA "Godot/export_templates/$templateVersion"
+            New-Item -ItemType Directory -Force $templateDir | Out-Null
+            $requiredTemplates = @(
+              "windows_debug_x86_64.exe",
+              "windows_debug_x86_64_console.exe",
+              "windows_release_x86_64.exe",
+              "windows_release_x86_64_console.exe"
+            )
+            foreach ($name in $requiredTemplates) {
+              $entry = $archive.GetEntry($name)
+              if (-not $entry) { throw "Missing export template in archive: $name" }
+              $destination = Join-Path $templateDir $name
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destination, $true)
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+
+          & $godot --headless --version
+          if ($LASTEXITCODE -ne 0) { throw "Godot version check failed." }
+          "GODOT_BIN=$godot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install Godot WRY and build WebUI
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/scripts/install-webui.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "WebUI setup failed." }
+
+      - name: Prepare shared Windows export preset
+        shell: pwsh
+        run: |
+          Copy-Item `
+            "$env:GITHUB_WORKSPACE/scripts/export-presets/windows-desktop.cfg" `
+            "$env:GITHUB_WORKSPACE/export_presets.cfg" `
+            -Force
+
+      - name: Restore and build C# solution
+        shell: pwsh
+        run: |
+          dotnet restore .\Asteria.sln
+          if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed." }
+
+          dotnet build .\Asteria.sln --configuration ExportRelease --no-restore --nologo
+          if ($LASTEXITCODE -ne 0) { throw "C# solution build failed." }
+
+      - name: Import Godot resources and build editor solution
+        shell: pwsh
+        run: |
+          & "$env:GODOT_BIN" --headless --path "$env:GITHUB_WORKSPACE" --editor --import --quit
+          if ($LASTEXITCODE -ne 0) { throw "Godot resource import failed." }
+
+          & "$env:GODOT_BIN" --headless --path "$env:GITHUB_WORKSPACE" --editor --build-solutions --quit
+          if ($LASTEXITCODE -ne 0) { throw "Godot C# solution build failed." }
+
+      - name: Export Windows x64 Release
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:GITHUB_WORKSPACE "build/Asteria.exe"
+          New-Item -ItemType Directory -Force (Split-Path $output) | Out-Null
+
+          & "$env:GODOT_BIN" --headless --path "$env:GITHUB_WORKSPACE" `
+            --export-release "Windows Desktop" $output
+          if ($LASTEXITCODE -ne 0) { throw "Godot Windows export failed." }
+          if (-not (Test-Path $output -PathType Leaf)) {
+            throw "Export command succeeded but build/Asteria.exe was not created."
+          }
+
+          $buildInfo = @(
+            "Asteria Windows x64 Release",
+            "Commit: $env:GITHUB_SHA",
+            "Godot: 4.7.2.stable.mono",
+            "Target: win-x64",
+            "ReadyToRun: enabled by Asteria.csproj",
+            "Built: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+          )
+          $buildInfo | Set-Content (Join-Path (Split-Path $output) "BUILD_INFO.txt") -Encoding utf8
+
+          $package = Join-Path $env:GITHUB_WORKSPACE "build/Asteria-Windows-x64.zip"
+          Compress-Archive -Path (Join-Path (Split-Path $output) "*") -DestinationPath $package -CompressionLevel Optimal -Force
+          if (-not (Test-Path $package -PathType Leaf)) {
+            throw "Windows build archive was not created."
+          }
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Asteria-Windows-x64
+          path: build/Asteria-Windows-x64.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
