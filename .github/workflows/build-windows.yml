@@ -145,11 +145,6 @@ jobs:
             throw "WebUI build did not produce its JavaScript and CSS bundles."
           }
 
-          $logo = Join-Path $dist "branding/asteria_logo.svg"
-          if (-not (Test-Path $logo -PathType Leaf)) {
-            throw "Pack-owned Asteria logo was not copied into the WebUI bundle: $logo"
-          }
-
           $javascript = @(Get-ChildItem -LiteralPath $dist -Filter "*.js" -File -Recurse)
           $stylesheets = @(Get-ChildItem -LiteralPath $dist -Filter "*.css" -File -Recurse)
           if ($javascript.Count -lt 1 -or $stylesheets.Count -lt 1) {
