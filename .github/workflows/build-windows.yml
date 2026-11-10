@@ -433,7 +433,7 @@ jobs:
           }
 
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          Compress-Archive -LiteralPath $appRoot -DestinationPath $package -CompressionLevel NoCompression -Force
+          Compress-Archive -LiteralPath $appRoot -DestinationPath $package -CompressionLevel Optimal -Force
           $archive = [System.IO.Compression.ZipFile]::OpenRead($package)
           try {
             $entries = @($archive.Entries)
