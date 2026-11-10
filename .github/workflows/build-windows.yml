@@ -134,11 +134,23 @@ jobs:
       - name: Import Godot resources and build editor solution
         shell: pwsh
         run: |
-          & "$env:GODOT_BIN" --headless --path "$env:GITHUB_WORKSPACE" --editor --import --quit
-          if ($LASTEXITCODE -ne 0) { throw "Godot resource import failed." }
+          $importOutput = & "$env:GODOT_BIN" --headless --path "$env:GITHUB_WORKSPACE" --editor --import --quit 2>&1
+          $importExitCode = $LASTEXITCODE
+          $importText = $importOutput -join "`n"
+          $importOutput | ForEach-Object { Write-Host $_ }
+          if ($importExitCode -ne 0) { throw "Godot resource import failed (exit code $importExitCode)." }
+          if ($importText -match '(?im)SCRIPT ERROR:|Parse Error:|Failed to load script') {
+            throw "Godot resource import reported a GDScript parse or script-load error."
+          }
 
-          & "$env:GODOT_BIN" --headless --path "$env:GITHUB_WORKSPACE" --editor --build-solutions --quit
-          if ($LASTEXITCODE -ne 0) { throw "Godot C# solution build failed." }
+          $buildOutput = & "$env:GODOT_BIN" --headless --path "$env:GITHUB_WORKSPACE" --editor --build-solutions --quit 2>&1
+          $buildExitCode = $LASTEXITCODE
+          $buildText = $buildOutput -join "`n"
+          $buildOutput | ForEach-Object { Write-Host $_ }
+          if ($buildExitCode -ne 0) { throw "Godot C# solution build failed (exit code $buildExitCode)." }
+          if ($buildText -match '(?im)SCRIPT ERROR:|Parse Error:|Failed to load script') {
+            throw "Godot editor build reported a GDScript parse or script-load error."
+          }
 
       - name: Export Windows x64 Release
         shell: pwsh

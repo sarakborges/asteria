@@ -84,39 +84,40 @@ func _prepare_webview_runtime() -> bool:
 
 	# Fixed Version 120+ needs these inherited AppContainer read permissions
 	# on unpackaged Win32 applications running on Windows 10.
-	var windows_build := int(OS.get_version_info().get("build", 0))
-	var needs_appcontainer_acl := windows_build > 0 and windows_build < 22000
-	if needs_appcontainer_acl:
-		var permission_marker := "user://webview2-fixed-runtime-acl.txt"
-		var expected_marker := runtime_directory + "|" + runtime_version
-		var permissions_applied := FileAccess.file_exists(permission_marker)
-		if permissions_applied:
-			permissions_applied = FileAccess.get_file_as_string(permission_marker).strip_edges() == expected_marker
-		if not permissions_applied:
-			var required_permissions := [
-				"*S-1-15-2-2:(OI)(CI)(RX)",
-				"*S-1-15-2-1:(OI)(CI)(RX)",
-			]
-			for permission in required_permissions:
-				var output: Array = []
-				var exit_code := OS.execute(
-					"icacls.exe",
-					PackedStringArray([runtime_directory, "/grant", permission]),
-					output,
-					true
-				)
-				if exit_code != 0:
-					var details := "\n".join(output)
-					push_error("Could not prepare WebView2 runtime permissions: " + details)
-					OS.alert("Asteria could not prepare its bundled interface runtime. Extract the game into a folder writable by your Windows user, then try again.")
-					return false
-
-			var marker := FileAccess.open(permission_marker, FileAccess.WRITE)
-			if marker == null:
-				push_error("Could not persist WebView2 runtime permission marker.")
+	# Grant WebView2's sandbox identities read/execute access to the fixed
+	# runtime. This is required for unpackaged Windows applications, including
+	# Windows 10 with Fixed Version runtimes 120 and newer. The marker avoids
+	# repeating the ACL update on every launch.
+	var permission_marker := "user://webview2-fixed-runtime-acl.txt"
+	var expected_marker := runtime_directory + "|" + runtime_version
+	var permissions_applied := FileAccess.file_exists(permission_marker)
+	if permissions_applied:
+		permissions_applied = FileAccess.get_file_as_string(permission_marker).strip_edges() == expected_marker
+	if not permissions_applied:
+		var required_permissions := [
+			"*S-1-15-2-2:(OI)(CI)(RX)",
+			"*S-1-15-2-1:(OI)(CI)(RX)",
+		]
+		for permission in required_permissions:
+			var output: Array = []
+			var exit_code := OS.execute(
+				"icacls.exe",
+				PackedStringArray([runtime_directory, "/grant", permission]),
+				output,
+				true
+			)
+			if exit_code != 0:
+				var details := "\\n".join(output)
+				push_error("Could not prepare WebView2 runtime permissions: " + details)
+				OS.alert("Asteria could not prepare its bundled interface runtime. Extract the game into a folder writable by your Windows user, then try again.")
 				return false
-			marker.store_string(expected_marker)
-			marker.close()
+
+		var marker := FileAccess.open(permission_marker, FileAccess.WRITE)
+		if marker == null:
+			push_error("Could not persist WebView2 runtime permission marker.")
+			return false
+		marker.store_string(expected_marker)
+		marker.close()
 
 	OS.set_environment("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", runtime_directory)
 	print("WebView2 Fixed Version runtime: " + runtime_version)
