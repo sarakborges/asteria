@@ -317,20 +317,16 @@ jobs:
               if (Test-Path $webUiLog) {
                 $webUiContent = Get-Content -LiteralPath $webUiLog -Raw
                 if ($webUiContent -match 'ERROR webui\.(javascript\.error|javascript\.unhandled_rejection|startup\.timeout)') {
-                  Write-Host $webUiContent
-                  throw "The exported WebUI reported a startup error."
+                  Write-Host "Detected WebUI startup failure; collecting complete process diagnostics."
+                  break
                 }
               }
 
               if ($lastLog) {
                 $content = Get-Content -LiteralPath $lastLog.FullName -Raw
-                if ($content -match 'event=webui\.javascript\.(error|unhandled_rejection)') {
-                  Write-Host $content
-                  throw "The exported WebUI reported a JavaScript startup error."
-                }
-                if ($content -match 'event=webui\.startup\.timeout') {
-                  Write-Host $content
-                  throw "The exported WebView did not complete the UI startup handshake."
+                if ($content -match 'event=webui\.javascript\.(error|unhandled_rejection)|event=webui\.startup\.timeout') {
+                  Write-Host "Detected runtime startup failure; collecting complete process diagnostics."
+                  break
                 }
                 if ($content -match 'event=webui\.bridge\.ready') {
                   $uiReady = $true
