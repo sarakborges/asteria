@@ -260,22 +260,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public static WorldDiagnosticsLog Open()
     {
-        var preferred = ProjectSettings.GlobalizePath("res://logs");
-        DiagnosticSessionLog session;
-        try
-        {
-            session = DiagnosticSessionLog.Open(preferred);
-        }
-        catch (Exception exception) when (
-            exception is IOException or UnauthorizedAccessException)
-        {
-            var fallback = ProjectSettings.GlobalizePath("user://logs");
-            GD.PushWarning(
-                $"Project log directory unavailable ({exception.Message}); " +
-                $"using {fallback}");
-            session = DiagnosticSessionLog.Open(fallback);
-        }
-
+        // Keep diagnostics beside the portable launcher; never hide them in user://.
+        var session = DiagnosticSessionLog.Open(GameDirectories.Logs);
         var result = new WorldDiagnosticsLog(session);
         result.Write($"diagnostics.ready path={session.Path}");
 #if DEBUG

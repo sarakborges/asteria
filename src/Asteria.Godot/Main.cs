@@ -250,7 +250,7 @@ public partial class Main : Node3D
         GD.Print($"worlds directory: {WorldSaveDirectories.Root}");
         _keybindCapture = new KeybindCaptureController(
             _clientSettings);
-        _packSettings = new PackSelectionStore(OS.GetUserDataDir());
+        _packSettings = new PackSelectionStore(GameDirectories.Root);
         _packSelection = _packSettings.Current;
         _mods = new ModLoader(GameDirectories.Mods);
         GD.Print($"mods directory: {GameDirectories.Mods}");

@@ -21,6 +21,7 @@
     <Compile Remove="src/Asteria.ModAPI/**/*.cs" />
     <Compile Remove="tools/WorldgenBenchmark/**/*.cs" />
     <Compile Remove="tools/BiomeMap/**/*.cs" />
+    <Compile Remove="tools/Asteria.Launcher/**/*.cs" />
     <ProjectReference Include="src/Asteria.Core/Asteria.Core.csproj" />
     <ProjectReference Include="src/Asteria.ModAPI/Asteria.ModAPI.csproj" />
   </ItemGroup>

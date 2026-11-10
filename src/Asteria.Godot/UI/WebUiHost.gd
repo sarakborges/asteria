@@ -36,6 +36,12 @@ var _diagnostic_file: FileAccess
 
 
 func _ready() -> void:
+	# Main connects diagnostic_event during its own _ready(). Child _ready()
+	# methods run first, so defer startup or early WebUI failures are lost.
+	call_deferred("_initialize_webui")
+
+
+func _initialize_webui() -> void:
 	_open_diagnostic_log()
 	_diagnostic("INFO", "webui.host.ready", "os=%s url=%s" % [OS.get_name(), UI_URL])
 
@@ -95,18 +101,31 @@ func _ready() -> void:
 	)
 
 
+func _portable_root() -> String:
+	var configured_root := OS.get_environment("ASTERIA_PORTABLE_ROOT")
+	if not configured_root.is_empty():
+		return configured_root
+	if OS.has_feature("editor"):
+		return ProjectSettings.globalize_path("res://")
+	return OS.get_executable_path().get_base_dir()
+
+
 func _open_diagnostic_log() -> void:
-	var directory := ProjectSettings.globalize_path("user://logs")
+	var directory := _portable_root().path_join("logs")
 	var error := DirAccess.make_dir_recursive_absolute(directory)
 	if error != OK:
 		print("ASTERIA_WEBUI_DIAGNOSTICS directory_error=%s path=%s" % [error, directory])
 		return
 
-	_diagnostic_file = FileAccess.open("user://logs/webui-startup.log", FileAccess.WRITE)
+	var log_path := directory.path_join("webui-startup.log")
+	_diagnostic_file = FileAccess.open_absolute(log_path, FileAccess.WRITE)
 	if _diagnostic_file == null:
-		print("ASTERIA_WEBUI_DIAGNOSTICS open_error=%s" % FileAccess.get_open_error())
+		print("ASTERIA_WEBUI_DIAGNOSTICS open_error=%s path=%s" % [
+			FileAccess.get_open_error(),
+			log_path,
+		])
 		return
-	_diagnostic_file.store_line("session.start os=%s" % OS.get_name())
+	_diagnostic_file.store_line("session.start os=%s pid=%s" % [OS.get_name(), OS.get_process_id()])
 	_diagnostic_file.flush()
 
 
@@ -297,7 +316,7 @@ func _show_startup_failure(details: String) -> void:
 	message.text = (
 		"O jogo iniciou, mas a interface WebView/React não confirmou a inicialização.\n\n" +
 		details +
-		"\n\nO diagnóstico foi salvo na pasta logs, ao lado do executável."
+		"\n\nO diagnóstico foi salvo em: %s" % _portable_root().path_join("logs")
 	)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(message)

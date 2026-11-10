@@ -10,11 +10,13 @@ internal sealed class PackSelectionStore
     private readonly PackDirectoryCatalog _directories;
     private readonly string _settingsPath;
 
-    public PackSelectionStore(string userDataRoot)
+    public PackSelectionStore(string portableRoot)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(portableRoot);
+        var root = Path.GetFullPath(portableRoot);
         _directories = ProjectPackDirectories.Catalog;
-        _settingsPath = Path.Combine(userDataRoot, "pack-selection.json");
-        Directory.CreateDirectory(Path.Combine(userDataRoot, "packs"));
+        _settingsPath = Path.Combine(root, "pack-selection.json");
+        Directory.CreateDirectory(Path.Combine(root, "packs"));
         Current = ReadSelection();
     }
 
