@@ -132,13 +132,19 @@ internal static class ProjectPackFiles
             : ReadEmbeddedText(EmbeddedPrefix + relativePath);
     }
 
+    private static Stream OpenEmbeddedResource(string resourceName)
+    {
+        var canonicalName = CanonicalEmbeddedName(resourceName);
+        if (!EmbeddedResourceNames.TryGetValue(canonicalName, out var manifestName))
+            throw new FileNotFoundException($"Built-in pack resource is missing: {canonicalName}");
+
+        return BuiltInAssembly.GetManifestResourceStream(manifestName)
+            ?? throw new FileNotFoundException($"Built-in pack resource stream is missing: {canonicalName}");
+    }
+
     private static string ReadEmbeddedText(string resourceName)
     {
-        var manifestName = EmbeddedResourceNames.TryGetValue(resourceName, out var actualName)
-            ? actualName
-            : resourceName;
-        using var stream = BuiltInAssembly.GetManifestResourceStream(manifestName)
-            ?? throw new FileNotFoundException($"Built-in pack resource is missing: {resourceName}");
+        using var stream = OpenEmbeddedResource(resourceName);
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return reader.ReadToEnd();
     }
@@ -150,8 +156,7 @@ internal static class ProjectPackFiles
         if (File.Exists(local)) return local;
 
         var name = EmbeddedPrefix + relativePath;
-        using var stream = BuiltInAssembly.GetManifestResourceStream(name)
-            ?? throw new FileNotFoundException($"Built-in pack resource is missing: {relativePath}");
+        using var stream = OpenEmbeddedResource(name);
 
         // Resource consumers may need an absolute path (e.g. native image
         // decoders). Extract on demand into a versioned internal cache,

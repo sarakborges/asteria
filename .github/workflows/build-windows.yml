@@ -178,16 +178,47 @@ jobs:
           }
 
           $assembly = [System.Reflection.Assembly]::LoadFrom($assemblyPath)
-          $resources = @($assembly.GetManifestResourceNames() | ForEach-Object { $_.Replace('\', '/') })
+          $resourcesByCanonicalName = @{}
+          foreach ($manifestName in $assembly.GetManifestResourceNames()) {
+            $canonicalName = $manifestName.Replace('\', '/')
+            if ($resourcesByCanonicalName.ContainsKey($canonicalName)) {
+              throw "Duplicate built-in resource after path normalization: $canonicalName"
+            }
+            $resourcesByCanonicalName[$canonicalName] = $manifestName
+          }
+
           $required = @(
             "asteria.pack.default/ui/theme.json",
-            "asteria.pack.default/data/blocks/stone.json"
+            "asteria.pack.default/data/blocks/stone.json",
+            "asteria.pack.default/resources/textures/blocks/basalt.png"
           )
           foreach ($resource in $required) {
-            if ($resources -notcontains $resource) {
+            if (-not $resourcesByCanonicalName.ContainsKey($resource)) {
               throw "Exported Asteria.dll is missing required built-in pack resource: $resource"
             }
-            Write-Host "Verified embedded resource: $resource"
+
+            $manifestName = $resourcesByCanonicalName[$resource]
+            $stream = $assembly.GetManifestResourceStream($manifestName)
+            if ($null -eq $stream) {
+              throw "Could not open exported built-in pack resource: $resource ($manifestName)"
+            }
+
+            try {
+              if ($resource.EndsWith(".png", [StringComparison]::OrdinalIgnoreCase)) {
+                $signature = New-Object byte[] 8
+                $read = $stream.Read($signature, 0, $signature.Length)
+                $expected = [byte[]](137, 80, 78, 71, 13, 10, 26, 10)
+                if ($read -ne 8 -or
+                    -not [System.Linq.Enumerable]::SequenceEqual([byte[]]$signature, $expected)) {
+                  throw "Embedded texture is not a valid PNG resource: $resource"
+                }
+              }
+            }
+            finally {
+              $stream.Dispose()
+            }
+
+            Write-Host "Verified readable embedded resource: $resource"
           }
 
       - name: Upload Windows build
