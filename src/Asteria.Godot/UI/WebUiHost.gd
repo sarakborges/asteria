@@ -118,7 +118,7 @@ func _open_diagnostic_log() -> void:
 		return
 
 	var log_path := directory.path_join("webui-startup.log")
-	_diagnostic_file = FileAccess.open_absolute(log_path, FileAccess.WRITE)
+	_diagnostic_file = FileAccess.open(log_path, FileAccess.WRITE)
 	if _diagnostic_file == null:
 		print("ASTERIA_WEBUI_DIAGNOSTICS open_error=%s path=%s" % [
 			FileAccess.get_open_error(),
