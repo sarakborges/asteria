@@ -50,14 +50,44 @@ public sealed class WorldStreamingWorkPressureTests
             pendingPhysicsWakeups: pendingWakeups).IsPressured);
     }
 
+    [Theory]
+    [InlineData(false, 6, 6)]
+    [InlineData(true, 6, 2)]
+    [InlineData(true, 1, 1)]
+    [InlineData(true, 0, 0)]
+    public void DownstreamPressureLimitsButDoesNotStarveMaterialization(
+        bool pressured, int availableSlots, int expectedStarts)
+    {
+        var pressure = WorldStreamingWorkPressure.Evaluate(
+            pressured ? 1.0 / 40.0 : 1.0 / 60.0,
+            dirtyTerrainChunks: pressured ? 16 : 0,
+            loadingWorld: false);
+
+        Assert.Equal(pressured, pressure.IsPressured);
+        Assert.Equal(expectedStarts,
+            pressure.LimitMaterializationStarts(availableSlots));
+    }
+
+    [Fact]
+    public void MaterializationAdmissionRejectsNegativeCapacity()
+    {
+        var pressure = WorldStreamingWorkPressure.Evaluate(
+            1.0 / 60.0, 0, loadingWorld: false);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            pressure.LimitMaterializationStarts(-1));
+    }
+
     [Fact]
     public void InitialLoadingNeverThrottlesWorldMaterialization()
     {
-        Assert.False(WorldStreamingWorkPressure.Evaluate(
+        var pressure = WorldStreamingWorkPressure.Evaluate(
             0.1, 1000, loadingWorld: true,
             pendingLightingSeeds: 100_000,
             pendingPhysicsWakeups: 100_000,
-            pendingTerrainPublications: 100_000).IsPressured);
+            pendingTerrainPublications: 100_000);
+
+        Assert.False(pressure.IsPressured);
+        Assert.Equal(6, pressure.LimitMaterializationStarts(6));
     }
 
     [Fact]
