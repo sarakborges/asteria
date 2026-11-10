@@ -54,6 +54,31 @@
             url: window.location.href,
           });
         });
+
+        // The native host smoke test must verify real browser assets, not only
+        // that React mounted and the IPC bridge became available.
+        window.addEventListener("load", () => {
+          void (async () => {
+            let fontFaces = [];
+            try {
+              await document.fonts.ready;
+              fontFaces = await document.fonts.load('16px "Winky Rough Variable"');
+            } catch (_) {}
+
+            const logo = document.querySelector(".starting-screen__logo");
+            report("ui.assets.ready", {
+              font_loaded:
+                fontFaces.length > 0 &&
+                document.fonts.check('16px "Winky Rough Variable"'),
+              font_faces_loaded: fontFaces.length,
+              logo_loaded:
+                logo instanceof HTMLImageElement &&
+                logo.complete &&
+                logo.naturalWidth > 0,
+              logo_src: logo instanceof HTMLImageElement ? logo.currentSrc : "",
+            });
+          })();
+        });
       })();
     </script>
   </head>
