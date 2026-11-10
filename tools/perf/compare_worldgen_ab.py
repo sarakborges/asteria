@@ -137,6 +137,29 @@ def _directional_face_palette_elapsed(run: dict[str, Any]) -> float:
     )
 
 
+def _combined_stage_median(
+    runs: list[dict[str, Any]],
+    stage_names: tuple[str, ...],
+    field: str,
+) -> float:
+    values = []
+    for run in runs:
+        stages = _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage")
+        missing = [name for name in stage_names if name not in stages]
+        if missing:
+            raise ValueError(
+                "Benchmark result is missing materialization stages: "
+                + ", ".join(missing)
+            )
+        total = sum(float(stages[name][field]) for name in stage_names)
+        if not math.isfinite(total) or total < 0:
+            raise ValueError(
+                f"Combined materialization stages {stage_names}.{field} must be finite and non-negative."
+            )
+        values.append(total)
+    return statistics.median(values)
+
+
 def _stage_median(
     runs: list[dict[str, Any]],
     stage_name: str,
@@ -282,6 +305,13 @@ def compare(
             _directional_face_palette_elapsed,
         ),
         (
+            "TerrainLayer + directional faces (warm)",
+            lambda run: (
+                float(_at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "TerrainLayer", "elapsedMs"))
+                + float(_at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "DirectionalFacePalettes", "elapsedMs"))
+            ),
+        ),
+        (
             "SurfaceDecorations (warm)",
             lambda run: _at(run, "initialAreaStageTimingDiagnostics", "warm", "byStage", "SurfaceDecorations", "elapsedMs"),
         ),
@@ -335,9 +365,29 @@ def compare(
     materialization_stages = _compare_materialization_stages(
         baseline, candidate, expected_chunks
     )
+    baseline_terrain_face_ms = _combined_stage_median(
+        baseline, ("TerrainLayer", "DirectionalFacePalettes"), "elapsedMs"
+    )
+    candidate_terrain_face_ms = _combined_stage_median(
+        candidate, ("TerrainLayer", "DirectionalFacePalettes"), "elapsedMs"
+    )
+    baseline_terrain_face_bytes = _combined_stage_median(
+        baseline, ("TerrainLayer", "DirectionalFacePalettes"), "allocatedBytes"
+    )
+    candidate_terrain_face_bytes = _combined_stage_median(
+        candidate, ("TerrainLayer", "DirectionalFacePalettes"), "allocatedBytes"
+    )
+    terrain_face_allocations = {
+        "baselineMedianMiB": baseline_terrain_face_bytes / (1024 * 1024),
+        "candidateMedianMiB": candidate_terrain_face_bytes / (1024 * 1024),
+        "reductionPercent": _reduction_percent(
+            baseline_terrain_face_bytes, candidate_terrain_face_bytes
+        ),
+    }
 
     return {
         "materializationStages": materialization_stages,
+        "terrainAndFaceAllocations": terrain_face_allocations,
         "surfaceDecorationAllocations": {
             "baselineMedianMiB": baseline_surface_decoration_mib,
             "candidateMedianMiB": candidate_surface_decoration_mib,
@@ -355,7 +405,7 @@ def compare(
         "notes": [
             "Baseline is the fixed pre-feature worldgen revision; candidate is the complete pull-request head.",
             "Each value is the median across separate benchmark processes; each process also reports the benchmark's internal warm median where available.",
-            "DirectionalFacePalettes timing includes both exposure derivation and palette application stages.",
+            "TerrainLayer and DirectionalFacePalettes are also compared as one combined operation because directional-face candidate preparation is performed during TerrainLayer in the candidate implementation.",
             "Release A/B runs set DOTNET_TieredCompilation=0 for both revisions, matching the game's single-tier optimizing JIT configuration.",
             "Wall-clock deltas are informational and do not fail CI; seed, region, chunk count and generated-result digest mismatches do fail CI.",
         ],
@@ -383,6 +433,17 @@ def render_report(result: dict[str, Any]) -> str:
             f"| {metric['candidateMedianMs']:.2f} "
             f"| {metric['reductionPercent']:+.1f}% |"
         )
+    terrain_face_allocations = result["terrainAndFaceAllocations"]
+    lines.extend([
+        "",
+        "## TerrainLayer + directional-face combined allocations",
+        "",
+        "| Métrica | Baseline (MiB) | Candidate (MiB) | Redução |",
+        "|---|---:|---:|---:|",
+        f"| Alocações combinadas | {terrain_face_allocations['baselineMedianMiB']:.2f} "
+        f"| {terrain_face_allocations['candidateMedianMiB']:.2f} "
+        f"| {terrain_face_allocations['reductionPercent']:+.1f}% |",
+    ])
     allocations = result["surfaceDecorationAllocations"]
     lines.extend([
         "",
