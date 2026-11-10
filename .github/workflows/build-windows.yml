@@ -178,7 +178,7 @@ jobs:
           }
 
           $assembly = [System.Reflection.Assembly]::LoadFrom($assemblyPath)
-          $resources = @($assembly.GetManifestResourceNames() | ForEach-Object { $_.Replace('\\', '/') })
+          $resources = @($assembly.GetManifestResourceNames() | ForEach-Object { $_.Replace('\', '/') })
           $required = @(
             "asteria.pack.default/ui/theme.json",
             "asteria.pack.default/data/blocks/stone.json"
