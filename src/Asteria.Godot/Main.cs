@@ -731,6 +731,12 @@ public partial class Main : Node3D
                 streamingRadius,
                 RequiresPortalSurfaceAccess,
                 materializationStarts);
+        _worldDiagnostics?.ObserveStreamingAdmission(
+            streamingPressure.IsPressured,
+            availableWorkerSlots,
+            materializationSlots,
+            materializationStarts,
+            streamingBegin.Dispatched.StartedTasks);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.StreamingBegin, stageStart);
         ReportStreamingSelection(

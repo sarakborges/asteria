@@ -103,6 +103,40 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void MaterializationDispatchReportsAndHonorsAdmissionLimit()
+    {
+        var fixture = CreateFixture(new StagedChunkProvider());
+        var coords = new HashSet<ChunkCoord>
+        {
+            ChunkCoord.Zero,
+            new(1, 0, 0),
+            new(0, 0, 1),
+        };
+        fixture.Runtime.SyncSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired: coords,
+            presented: Array.Empty<ChunkCoord>());
+
+        var first = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>(),
+            maximumNewTasks: 1);
+
+        Assert.Equal(1, first.StartedTasks);
+        Assert.Equal(1, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(2, fixture.Runtime.PendingCount);
+
+        var second = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>(),
+            maximumNewTasks: 1);
+
+        Assert.Equal(1, second.StartedTasks);
+        Assert.Equal(2, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(1, fixture.Runtime.PendingCount);
+    }
+
+    [Fact]
     public void CompletedMaterializationReleasesWorkerSlotBeforeResultCollection()
     {
         var fixture = CreateFixture(new StagedChunkProvider());

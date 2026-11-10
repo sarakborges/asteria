@@ -114,7 +114,8 @@ public readonly record struct ChunkMaterializationStageTiming(
 public sealed record ChunkResidencyUpdate(
     IReadOnlyList<ChunkResidencyActivation> Activations,
     IReadOnlyList<ChunkMaterializationFailure> Failures,
-    IReadOnlyList<ChunkMaterializationStageTiming>? StageTimings = null)
+    IReadOnlyList<ChunkMaterializationStageTiming>? StageTimings = null,
+    int StartedTasks = 0)
 {
     public IReadOnlyList<ChunkMaterializationStageTiming> MaterializationStageTimings =>
         StageTimings ?? Array.Empty<ChunkMaterializationStageTiming>();
@@ -620,12 +621,13 @@ public sealed class ChunkResidencyRuntime
         if (restored > 0)
             SyncResidentState(presented);
 
-        if (activations.Count == 0 && failures.Count == 0)
+        if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
             return ChunkResidencyUpdate.Empty;
         return new ChunkResidencyUpdate(
             activations,
             failures,
-            Array.Empty<ChunkMaterializationStageTiming>());
+            Array.Empty<ChunkMaterializationStageTiming>(),
+            startedTasks);
     }
 
     public IReadOnlyList<ChunkResidencyRetirement>
