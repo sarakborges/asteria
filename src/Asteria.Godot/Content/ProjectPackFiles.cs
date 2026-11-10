@@ -27,7 +27,7 @@ internal static class ProjectPackFiles
         EmbeddedResourceNames.Keys.ToHashSet(StringComparer.Ordinal);
 
     private static string CanonicalEmbeddedName(string name) =>
-        name.Replace('\\\\', '/');
+        name.Replace('\\', '/');
 
     public static string ExternalRoot(string name) =>
         ProjectPackDirectories.Catalog.Resolve(name);
