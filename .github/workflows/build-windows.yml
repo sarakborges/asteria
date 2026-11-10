@@ -169,6 +169,27 @@ jobs:
             throw "Windows build archive was not created."
           }
 
+      - name: Verify embedded built-in pack resources
+        shell: pwsh
+        run: |
+          $assemblyPath = Join-Path $env:GITHUB_WORKSPACE "build/data_Asteria_windows_x86_64/Asteria.dll"
+          if (-not (Test-Path $assemblyPath -PathType Leaf)) {
+            throw "Exported managed assembly not found: $assemblyPath"
+          }
+
+          $assembly = [System.Reflection.Assembly]::LoadFrom($assemblyPath)
+          $resources = @($assembly.GetManifestResourceNames() | ForEach-Object { $_.Replace('\\', '/') })
+          $required = @(
+            "asteria.pack.default/ui/theme.json",
+            "asteria.pack.default/data/blocks/stone.json"
+          )
+          foreach ($resource in $required) {
+            if ($resources -notcontains $resource) {
+              throw "Exported Asteria.dll is missing required built-in pack resource: $resource"
+            }
+            Write-Host "Verified embedded resource: $resource"
+          }
+
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
