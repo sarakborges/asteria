@@ -721,9 +721,9 @@ public partial class Main : Node3D
             : 0;
         var materializationSlots = Math.Max(
             0, availableWorkerSlots - reservedWorkerSlots);
-        var materializationStarts = streamingPressure.IsPressured
-            ? 0
-            : materializationSlots;
+        var materializationStarts =
+            streamingPressure.LimitMaterializationStarts(
+                materializationSlots);
         var streamingBegin =
             _chunkStreaming.BeginFrame(
                 streamingCenter,
