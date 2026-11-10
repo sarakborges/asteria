@@ -13,10 +13,21 @@ internal static class ProjectPackFiles
 {
     private const string EmbeddedPrefix = "asteria.pack.default/";
     private static readonly Assembly BuiltInAssembly = typeof(Main).Assembly;
-    private static readonly HashSet<string> EmbeddedNames =
+    // MSBuild preserves the host OS directory separator in LogicalName
+    // metadata. Windows exports can therefore contain '\\' where the pack
+    // contract uses '/'. Keep canonical names for lookups and retain the
+    // manifest's actual name for GetManifestResourceStream.
+    private static readonly IReadOnlyDictionary<string, string> EmbeddedResourceNames =
         BuiltInAssembly.GetManifestResourceNames()
-            .Where(name => name.StartsWith(EmbeddedPrefix, StringComparison.Ordinal))
-            .ToHashSet(StringComparer.Ordinal);
+            .Select(name => (Canonical: CanonicalEmbeddedName(name), Actual: name))
+            .Where(entry => entry.Canonical.StartsWith(EmbeddedPrefix, StringComparison.Ordinal))
+            .ToDictionary(entry => entry.Canonical, entry => entry.Actual, StringComparer.Ordinal);
+
+    private static readonly HashSet<string> EmbeddedNames =
+        EmbeddedResourceNames.Keys.ToHashSet(StringComparer.Ordinal);
+
+    private static string CanonicalEmbeddedName(string name) =>
+        name.Replace('\\\\', '/');
 
     public static string ExternalRoot(string name) =>
         ProjectPackDirectories.Catalog.Resolve(name);
@@ -123,7 +134,10 @@ internal static class ProjectPackFiles
 
     private static string ReadEmbeddedText(string resourceName)
     {
-        using var stream = BuiltInAssembly.GetManifestResourceStream(resourceName)
+        var manifestName = EmbeddedResourceNames.TryGetValue(resourceName, out var actualName)
+            ? actualName
+            : resourceName;
+        using var stream = BuiltInAssembly.GetManifestResourceStream(manifestName)
             ?? throw new FileNotFoundException($"Built-in pack resource is missing: {resourceName}");
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return reader.ReadToEnd();
