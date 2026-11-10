@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-windows-${{ github.ref }}
@@ -177,3 +177,18 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
+
+      - name: Publish public GitHub Release download
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $shortSha = $env:GITHUB_SHA.Substring(0, 12)
+          $tag = "windows-$shortSha"
+          $title = "Asteria Windows x64 ($shortSha)"
+          gh release create $tag "build/Asteria-Windows-x64.zip" `
+            --repo $env:GITHUB_REPOSITORY `
+            --title $title `
+            --notes "Automated Windows x64 Release build from commit $env:GITHUB_SHA. Godot 4.7.2 .NET; ReadyToRun enabled." `
+            --prerelease
+          if ($LASTEXITCODE -ne 0) { throw "Failed to publish GitHub Release asset." }
