@@ -134,6 +134,24 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(1, second.StartedTasks);
         Assert.Equal(2, fixture.Runtime.MaterializationJobCount);
         Assert.Equal(1, fixture.Runtime.PendingCount);
+
+        var completedActivations = 0;
+        var failures = 0;
+        var drained = SpinWait.SpinUntil(
+            () =>
+            {
+                var update = fixture.Runtime.CollectMaterializationResults(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                completedActivations += update.Activations.Count;
+                failures += update.Failures.Count;
+                return fixture.Runtime.MaterializationJobCount == 0;
+            },
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(drained, "Admitted materialization tasks did not drain.");
+        Assert.Equal(2, completedActivations);
+        Assert.Equal(0, failures);
+        Assert.Equal(1, fixture.Runtime.PendingCount);
     }
 
     [Fact]
