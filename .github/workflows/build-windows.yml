@@ -145,9 +145,32 @@ jobs:
             throw "WebUI build did not produce its JavaScript and CSS bundles."
           }
 
+          $logo = Join-Path $dist "branding/asteria_logo.svg"
+          if (-not (Test-Path $logo -PathType Leaf)) {
+            throw "Pack-owned Asteria logo was not copied into the WebUI bundle: $logo"
+          }
+
+          $fonts = @(Get-ChildItem -LiteralPath $dist -Filter "*.woff2" -File -Recurse)
+          if ($fonts.Count -lt 1) {
+            throw "The WebUI bundle does not contain its Winky Rough WOFF2 font files."
+          }
+          foreach ($font in $fonts) {
+            $stream = [System.IO.File]::OpenRead($font.FullName)
+            try {
+              $signature = New-Object byte[] 4
+              $read = $stream.Read($signature, 0, 4)
+              if ($read -ne 4 -or [System.Text.Encoding]::ASCII.GetString($signature) -ne "wOF2") {
+                throw "Invalid WOFF2 font asset: $($font.FullName)"
+              }
+            }
+            finally {
+              $stream.Dispose()
+            }
+          }
+
           Write-Host "WebUI export input: $index"
           Write-Host "WebUI export input: $manifest"
-          Write-Host "Verified $($assets.Count) generated JS/CSS assets for Godot export."
+          Write-Host "Verified $($assets.Count) JS/CSS assets, $($fonts.Count) raw WOFF2 fonts, and the Asteria logo."
 
       - name: Prepare shared Windows export preset
         shell: pwsh
@@ -317,6 +340,7 @@ jobs:
           Write-Host "Launching the exported Windows game and waiting for the React ui.ready handshake..."
           $process = Start-Process -FilePath $executable -WorkingDirectory $workingDirectory -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
           $uiReady = $false
+          $assetsReady = $false
           $lastLog = $null
 
           try {
@@ -352,11 +376,14 @@ jobs:
                 }
                 if ($content -match 'event=webui\.bridge\.ready') {
                   $uiReady = $true
-                  Write-Host "Verified WebUI React mount in exported Windows build."
-                  Write-Host $content
-                  if (Test-Path $webUiLog) { Write-Host (Get-Content -LiteralPath $webUiLog -Raw) }
-                  break
                 }
+              }
+
+              if ($uiReady -and $assetsReady) {
+                Write-Host "Verified React mount, Winky Rough font, and Asteria logo in exported Windows build."
+                if (Test-Path $webUiLog) { Write-Host (Get-Content -LiteralPath $webUiLog -Raw) }
+                break
+              }
               }
 
               Start-Sleep -Seconds 1
@@ -378,6 +405,53 @@ jobs:
               $process.WaitForExit()
             }
           }
+
+          if (-not $uiReady -or -not $assetsReady) {
+            throw "The exported WebUI did not verify React, Winky Rough, and the Asteria logo within 45 seconds."
+          }
+
+      - name: Package Windows app under one directory
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $buildRoot = Join-Path $env:GITHUB_WORKSPACE "build"
+          $appRoot = Join-Path $buildRoot "package/Asteria"
+          $package = Join-Path $buildRoot "Asteria-Windows-x64.zip"
+          $dataDirectory = Join-Path $buildRoot "data_Asteria_windows_x86_64"
+          $runtimeDirectory = Join-Path $buildRoot "WebView2Runtime"
+
+          Remove-Item (Split-Path $appRoot -Parent) -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $package -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force $appRoot | Out-Null
+
+          $requiredItems = @(
+            (Join-Path $buildRoot "Asteria.exe"),
+            $dataDirectory,
+            $runtimeDirectory,
+            (Join-Path $buildRoot "BUILD_INFO.txt")
+          )
+          foreach ($item in $requiredItems) {
+            if (-not (Test-Path -LiteralPath $item)) {
+              throw "Windows application package input is missing: $item"
+            }
+            Copy-Item -LiteralPath $item -Destination $appRoot -Recurse -Force
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          Compress-Archive -LiteralPath $appRoot -DestinationPath $package -CompressionLevel NoCompression -Force
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($package)
+          try {
+            $entries = @($archive.Entries)
+            if ($entries.Count -eq 0 -or
+                @($entries | Where-Object { -not $_.FullName.StartsWith("Asteria/") }).Count -gt 0) {
+              throw "Windows ZIP must contain one top-level Asteria/ directory."
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+
+          Write-Host "Packaged Windows application with a single top-level Asteria/ directory."
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
