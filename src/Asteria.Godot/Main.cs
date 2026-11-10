@@ -1505,6 +1505,32 @@ public partial class Main : Node3D
         _webUi.Connect(
             "webui_ready",
             Callable.From(OnWebUiReady));
+        _webUi.Connect(
+            "diagnostic_event",
+            Callable.From<string, string, string>(OnWebUiDiagnostic));
+    }
+
+    private void OnWebUiDiagnostic(
+        string level, string eventName, string details)
+    {
+        if (_worldDiagnostics is not { } diagnostics)
+            return;
+
+        switch (level)
+        {
+            case "ERROR":
+                diagnostics.Error(eventName, details);
+                break;
+            case "WARN":
+                diagnostics.Warn(eventName, details);
+                break;
+            default:
+                diagnostics.Write(
+                    string.IsNullOrWhiteSpace(details)
+                        ? eventName
+                        : $"{eventName} {details}");
+                break;
+        }
     }
 
     private void OnWebUiReady()
@@ -1535,6 +1561,31 @@ public partial class Main : Node3D
             }
 
             var type = typeElement.GetString();
+
+            if (type == "ui.ready")
+            {
+                var version = document.RootElement.TryGetProperty("payload", out var readyPayload) &&
+                              readyPayload.TryGetProperty("version", out var versionElement)
+                    ? versionElement.ToString()
+                    : "unknown";
+                _worldDiagnostics?.Write($"webui.bridge.ready version={version}");
+            }
+            else if (type == "ui.dom.ready")
+            {
+                _worldDiagnostics?.Write("webui.dom.ready");
+            }
+            else if (type == "ui.runtime.error" ||
+                     type == "ui.runtime.unhandled_rejection")
+            {
+                var details = document.RootElement.TryGetProperty("payload", out var errorPayload)
+                    ? errorPayload.ToString()
+                    : "payload=missing";
+                _worldDiagnostics?.Error(
+                    type == "ui.runtime.error"
+                        ? "webui.javascript.error"
+                        : "webui.javascript.unhandled_rejection",
+                    details);
+            }
 
             if (_debugHudVisible)
             {

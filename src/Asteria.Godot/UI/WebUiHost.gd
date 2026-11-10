@@ -2,6 +2,7 @@ extends Node
 
 signal message_received(message: String)
 signal webui_ready
+signal diagnostic_event(level: String, event_name: String, details: String)
 
 const WEBVIEW_CLASS := "WebView"
 const UI_URL := "res://ui/dist/index.html"
@@ -15,35 +16,49 @@ const UI_SOURCE_PATHS := [
 	"res://ui/vite.config.ts",
 	"res://packs/default/data/localization",
 ]
+const UI_STARTUP_TIMEOUT_SECONDS := 20.0
 
 var _webview: Control
+var _fallback_layer: CanvasLayer
 var _loaded := false
+var _page_load_started := false
+var _page_load_finished := false
+var _bridge_ready := false
 var _creation_mode := true
 var _mouse_captured := false
 var _native_key_capture := false
+var _runtime_version := "system"
+
 
 func _ready() -> void:
+	_diagnostic("INFO", "webui.host.ready", "os=%s url=%s" % [OS.get_name(), UI_URL])
+
 	if not _ensure_webui_bundle():
+		_diagnostic("ERROR", "webui.bundle.missing", "path=%s" % UI_URL)
+		_show_startup_failure("O pacote da interface não foi encontrado.")
 		return
+	_diagnostic("INFO", "webui.bundle.ready", "path=%s" % UI_URL)
 
 	# The release package carries its own WebView2 Fixed Version runtime.
 	# Configure it before WRY instantiates its native WebView2 environment.
 	if not _prepare_webview_runtime():
+		_show_startup_failure("O runtime local da interface não pôde ser preparado.")
 		return
 
 	if not ClassDB.class_exists(WEBVIEW_CLASS):
-		push_error("Godot WRY is not installed. Run scripts/install-webui.ps1 and restart Godot.")
-		OS.alert("Asteria could not initialize its embedded interface because the WebView component is missing.")
+		_diagnostic("ERROR", "webui.extension.missing", "class=%s" % WEBVIEW_CLASS)
+		_show_startup_failure("O componente nativo WebView não foi carregado.")
 		return
 
 	_webview = ClassDB.instantiate(WEBVIEW_CLASS) as Control
 	if _webview == null:
-		push_error("Failed to instantiate Godot WRY WebView.")
-		OS.alert("Asteria could not create its embedded interface.")
+		_diagnostic("ERROR", "webui.extension.instantiate_failed", "class=%s" % WEBVIEW_CLASS)
+		_show_startup_failure("O componente nativo WebView não pôde ser criado.")
 		return
 
 	_webview.name = "WebView"
 	_webview.set("full_window_size", true)
+	_webview.set("url", UI_URL)
 	_webview.set("transparent", true)
 	_webview.set("forward_input_events", true)
 	_webview.set("focused_when_created", false)
@@ -51,13 +66,37 @@ func _ready() -> void:
 	_webview.set("devtools", OS.is_debug_build())
 	_webview.set("data_directory", "user://webview")
 	_webview.connect("ipc_message", Callable(self, "_on_ipc_message"))
+	_webview.connect("page_load_started", Callable(self, "_on_page_load_started"))
 	_webview.connect("page_load_finished", Callable(self, "_on_page_load_finished"))
+
+	# Set the local res:// URL before entering the tree. WRY then creates
+	# the native browser directly on the game UI instead of first navigating
+	# to its upstream GitHub demo URL and replacing it afterward.
+	_diagnostic(
+		"INFO",
+		"webui.webview.create_requested",
+		"url=%s viewport=%s fixed_runtime=%s" % [
+			UI_URL,
+			get_viewport().get_visible_rect().size,
+			_runtime_version,
+		]
+	)
 	add_child(_webview)
-	_webview.call("load_url", UI_URL)
+	_diagnostic("INFO", "webui.webview.created", "visible=%s" % _webview.is_visible_in_tree())
+
+	get_tree().create_timer(UI_STARTUP_TIMEOUT_SECONDS).timeout.connect(
+		Callable(self, "_on_startup_timeout")
+	)
+
+
+func _diagnostic(level: String, event_name: String, details: String = "") -> void:
+	diagnostic_event.emit(level, event_name, details)
 
 
 func _prepare_webview_runtime() -> bool:
 	if OS.get_name() != "Windows":
+		_runtime_version = "platform-default"
+		_diagnostic("INFO", "webui.runtime.platform_default", "os=%s" % OS.get_name())
 		return true
 
 	var executable_directory := OS.get_executable_path().get_base_dir()
@@ -68,26 +107,22 @@ func _prepare_webview_runtime() -> bool:
 	# A Release export must always have the self-contained runtime beside it.
 	if not FileAccess.file_exists(browser_executable):
 		if OS.is_debug_build():
+			_runtime_version = "evergreen-debug"
+			_diagnostic("WARN", "webui.runtime.fixed_missing", "debug_build=true using_system_runtime=true")
 			return true
 
-		var message := "The bundled WebView2 runtime is missing from: " + runtime_directory
-		push_error(message)
-		OS.alert("Asteria's bundled interface runtime is missing. Re-extract the complete game package.")
+		_diagnostic("ERROR", "webui.runtime.fixed_missing", "path=%s" % browser_executable)
 		return false
 
 	var version_file := runtime_directory.path_join("asteria-runtime-version.txt")
 	var runtime_version := FileAccess.get_file_as_string(version_file).strip_edges()
 	if runtime_version.is_empty():
-		push_error("Bundled WebView2 runtime version marker is missing.")
-		OS.alert("Asteria's interface runtime is incomplete. Re-extract the complete game package.")
+		_diagnostic("ERROR", "webui.runtime.version_marker_missing", "path=%s" % version_file)
 		return false
 
 	# Fixed Version 120+ needs these inherited AppContainer read permissions
-	# on unpackaged Win32 applications running on Windows 10.
-	# Grant WebView2's sandbox identities read/execute access to the fixed
-	# runtime. This is required for unpackaged Windows applications, including
-	# Windows 10 with Fixed Version runtimes 120 and newer. The marker avoids
-	# repeating the ACL update on every launch.
+	# on unpackaged Win32 applications. Granting them is harmless on Windows 11
+	# and required on Windows 10.
 	var permission_marker := "user://webview2-fixed-runtime-acl.txt"
 	var expected_marker := runtime_directory + "|" + runtime_version
 	var permissions_applied := FileAccess.file_exists(permission_marker)
@@ -107,21 +142,146 @@ func _prepare_webview_runtime() -> bool:
 				true
 			)
 			if exit_code != 0:
-				var details := "\\n".join(output)
-				push_error("Could not prepare WebView2 runtime permissions: " + details)
-				OS.alert("Asteria could not prepare its bundled interface runtime. Extract the game into a folder writable by your Windows user, then try again.")
+				var details := "\n".join(output)
+				_diagnostic("ERROR", "webui.runtime.acl_failed", "permission=%s output=%s" % [permission, details])
 				return false
 
 		var marker := FileAccess.open(permission_marker, FileAccess.WRITE)
 		if marker == null:
-			push_error("Could not persist WebView2 runtime permission marker.")
+			_diagnostic("ERROR", "webui.runtime.marker_write_failed", "path=%s" % permission_marker)
 			return false
 		marker.store_string(expected_marker)
 		marker.close()
 
 	OS.set_environment("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", runtime_directory)
-	print("WebView2 Fixed Version runtime: " + runtime_version)
+	_runtime_version = runtime_version
+	_diagnostic(
+		"INFO",
+		"webui.runtime.fixed_selected",
+		"version=%s path=%s env=%s" % [
+			runtime_version,
+			runtime_directory,
+			OS.get_environment("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER"),
+		]
+	)
 	return true
+
+
+func _on_page_load_started(url: String) -> void:
+	_page_load_started = true
+	_diagnostic("INFO", "webui.page.load_started", "url=%s" % url)
+
+
+func _on_page_load_finished(url: String) -> void:
+	_page_load_finished = true
+	_loaded = true
+	_diagnostic("INFO", "webui.page.load_finished", "url=%s" % url)
+	_restore_keyboard_focus()
+	webui_ready.emit()
+
+
+func _on_ipc_message(message: String) -> void:
+	var decoded: Variant = JSON.parse_string(message)
+	if decoded is Dictionary:
+		var message_type := String(decoded.get("type", ""))
+		if message_type == "ui.ready":
+			_bridge_ready = true
+			_loaded = true
+			_dismiss_startup_failure()
+		elif message_type == "ui.dom.ready":
+			_diagnostic("INFO", "webui.dom.ready", "payload=%s" % JSON.stringify(decoded.get("payload", {})))
+
+	message_received.emit(message)
+	call_deferred("_restore_keyboard_focus")
+
+
+func _on_startup_timeout() -> void:
+	if _bridge_ready or _fallback_layer != null:
+		return
+
+	var details := "webview_created=%s page_load_started=%s page_load_finished=%s ui_ready=%s runtime=%s" % [
+		_webview != null,
+		_page_load_started,
+		_page_load_finished,
+		_bridge_ready,
+		_runtime_version,
+	]
+	_diagnostic("ERROR", "webui.startup.timeout", details)
+	_show_startup_failure(details)
+
+
+func _show_startup_failure(details: String) -> void:
+	if _fallback_layer != null:
+		return
+
+	if _webview != null:
+		_webview.call("set_visible", false)
+
+	_fallback_layer = CanvasLayer.new()
+	_fallback_layer.name = "WebUiStartupFailure"
+	_fallback_layer.layer = 100
+	add_child(_fallback_layer)
+
+	var full_screen := Control.new()
+	full_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fallback_layer.add_child(full_screen)
+
+	var background := ColorRect.new()
+	background.color = Color(0.055, 0.065, 0.085, 1.0)
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	full_screen.add_child(background)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	full_screen.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(680, 290)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.09, 0.105, 0.14, 1.0)
+	panel_style.border_color = Color(0.28, 0.32, 0.40, 1.0)
+	panel_style.set_border_width_all(1)
+	panel_style.set_corner_radius_all(10)
+	panel_style.set_content_margin_all(24.0)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(panel)
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 14)
+	panel.add_child(content)
+
+	var title := Label.new()
+	title.text = "A interface do Asteria não iniciou"
+	title.add_theme_font_size_override("font_size", 26)
+	content.add_child(title)
+
+	var message := Label.new()
+	message.text = (
+		"O jogo iniciou, mas a interface WebView/React não confirmou a inicialização.\n\n" +
+		details +
+		"\n\nO diagnóstico foi salvo na pasta logs, ao lado do executável."
+	)
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(message)
+
+	var close_button := Button.new()
+	close_button.text = "Fechar Asteria"
+	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	close_button.pressed.connect(_on_startup_failure_close)
+	content.add_child(close_button)
+
+
+func _dismiss_startup_failure() -> void:
+	if _fallback_layer != null:
+		_fallback_layer.queue_free()
+		_fallback_layer = null
+	if _webview != null:
+		_webview.call("set_visible", true)
+	_diagnostic("INFO", "webui.startup.recovered", "ui_ready=true")
+
+
+func _on_startup_failure_close() -> void:
+	get_tree().quit()
 
 
 func _notification(what: int) -> void:
@@ -156,15 +316,6 @@ func set_mouse_captured(captured: bool) -> void:
 	# html.mouse-captured in App.tsx. Global CSS hides the cursor,
 	# including descendants, without O(DOM size) inline mutations.
 	# Do not eval the entire browser tree on each capture change.
-
-func _on_page_load_finished(_url: String) -> void:
-	_loaded = true
-	_restore_keyboard_focus()
-	webui_ready.emit()
-
-func _on_ipc_message(message: String) -> void:
-	message_received.emit(message)
-	call_deferred("_restore_keyboard_focus")
 
 func set_native_key_capture(active: bool) -> void:
 	_native_key_capture = active

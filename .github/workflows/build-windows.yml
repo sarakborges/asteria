@@ -252,6 +252,76 @@ jobs:
             Write-Host "Verified readable embedded resource: $resource"
           }
 
+      - name: Smoke-test exported WebView2 interface
+        shell: pwsh
+        timeout-minutes: 2
+        run: |
+          $ErrorActionPreference = "Stop"
+          $executable = Join-Path $env:GITHUB_WORKSPACE "build/Asteria.exe"
+          $workingDirectory = Split-Path $executable
+          $startedAt = Get-Date
+          $logDirectories = @(
+            (Join-Path $workingDirectory "logs"),
+            (Join-Path $env:APPDATA "Godot/app_userdata/Asteria/logs")
+          )
+
+          Write-Host "Launching the exported Windows game and waiting for the React ui.ready handshake..."
+          $process = Start-Process -FilePath $executable -WorkingDirectory $workingDirectory -PassThru
+          $uiReady = $false
+          $lastLog = $null
+
+          try {
+            $deadline = (Get-Date).AddSeconds(45)
+            while ((Get-Date) -lt $deadline) {
+              if ($process.HasExited) {
+                throw "Asteria exited before the WebUI became ready (exit code $($process.ExitCode))."
+              }
+
+              $logFiles = @(
+                foreach ($directory in $logDirectories) {
+                  if (Test-Path $directory) {
+                    Get-ChildItem -LiteralPath $directory -Filter "run-*.log" -File -ErrorAction SilentlyContinue |
+                      Where-Object { $_.LastWriteTime -ge $startedAt }
+                  }
+                }
+              )
+              $lastLog = $logFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+
+              if ($lastLog) {
+                $content = Get-Content -LiteralPath $lastLog.FullName -Raw
+                if ($content -match 'event=webui\.javascript\.(error|unhandled_rejection)') {
+                  Write-Host $content
+                  throw "The exported WebUI reported a JavaScript startup error."
+                }
+                if ($content -match 'event=webui\.startup\.timeout') {
+                  Write-Host $content
+                  throw "The exported WebView did not complete the UI startup handshake."
+                }
+                if ($content -match 'event=webui\.bridge\.ready') {
+                  $uiReady = $true
+                  Write-Host "Verified WebUI React mount in exported Windows build."
+                  Write-Host $content
+                  break
+                }
+              }
+
+              Start-Sleep -Seconds 1
+            }
+
+            if (-not $uiReady) {
+              if ($lastLog) {
+                Write-Host (Get-Content -LiteralPath $lastLog.FullName -Raw)
+              }
+              throw "The exported WebUI did not send ui.ready within 45 seconds."
+            }
+          }
+          finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              $process.WaitForExit()
+            }
+          }
+
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
