@@ -26,13 +26,20 @@ func _ready() -> void:
 	if not _ensure_webui_bundle():
 		return
 
+	# The release package carries its own WebView2 Fixed Version runtime.
+	# Configure it before WRY instantiates its native WebView2 environment.
+	if not _prepare_webview_runtime():
+		return
+
 	if not ClassDB.class_exists(WEBVIEW_CLASS):
 		push_error("Godot WRY is not installed. Run scripts/install-webui.ps1 and restart Godot.")
+		OS.alert("Asteria could not initialize its embedded interface because the WebView component is missing.")
 		return
 
 	_webview = ClassDB.instantiate(WEBVIEW_CLASS) as Control
 	if _webview == null:
 		push_error("Failed to instantiate Godot WRY WebView.")
+		OS.alert("Asteria could not create its embedded interface.")
 		return
 
 	_webview.name = "WebView"
@@ -47,6 +54,70 @@ func _ready() -> void:
 	_webview.connect("page_load_finished", Callable(self, "_on_page_load_finished"))
 	add_child(_webview)
 	_webview.call("load_url", UI_URL)
+
+
+func _prepare_webview_runtime() -> bool:
+	if OS.get_name() != "Windows":
+		return true
+
+	var executable_directory := OS.get_executable_path().get_base_dir()
+	var runtime_directory := executable_directory.path_join("WebView2Runtime")
+	var browser_executable := runtime_directory.path_join("msedgewebview2.exe")
+
+	# Editor/debug runs may use the developer's installed Evergreen runtime.
+	# A Release export must always have the self-contained runtime beside it.
+	if not FileAccess.file_exists(browser_executable):
+		if OS.is_debug_build():
+			return true
+
+		var message := "The bundled WebView2 runtime is missing from: " + runtime_directory
+		push_error(message)
+		OS.alert("Asteria's bundled interface runtime is missing. Re-extract the complete game package.")
+		return false
+
+	var version_file := runtime_directory.path_join("asteria-runtime-version.txt")
+	var runtime_version := FileAccess.get_file_as_string(version_file).strip_edges()
+	if runtime_version.is_empty():
+		push_error("Bundled WebView2 runtime version marker is missing.")
+		OS.alert("Asteria's interface runtime is incomplete. Re-extract the complete game package.")
+		return false
+
+	# Fixed Version 120+ needs these inherited AppContainer read permissions
+	# on unpackaged Win32 applications running on Windows 10.
+	var permission_marker := "user://webview2-fixed-runtime-acl.txt"
+	var expected_marker := runtime_directory + "|" + runtime_version
+	var permissions_applied := FileAccess.file_exists(permission_marker) and \
+		FileAccess.get_file_as_string(permission_marker).strip_edges() == expected_marker
+	if not permissions_applied:
+		var required_permissions := [
+			"*S-1-15-2-2:(OI)(CI)(RX)",
+			"*S-1-15-2-1:(OI)(CI)(RX)",
+		]
+		for permission in required_permissions:
+			var output: Array = []
+			var exit_code := OS.execute(
+				"icacls.exe",
+				PackedStringArray([runtime_directory, "/grant", permission]),
+				output,
+				true
+			)
+			if exit_code != 0:
+				var details := "\n".join(output)
+				push_error("Could not prepare WebView2 runtime permissions: " + details)
+				OS.alert("Asteria could not prepare its bundled interface runtime. Extract the game into a folder writable by your Windows user, then try again.")
+				return false
+
+		var marker := FileAccess.open(permission_marker, FileAccess.WRITE)
+		if marker == null:
+			push_error("Could not persist WebView2 runtime permission marker.")
+			return false
+		marker.store_string(expected_marker)
+		marker.close()
+
+	OS.set_environment("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", runtime_directory)
+	print("WebView2 Fixed Version runtime: " + runtime_version)
+	return true
+
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_WINDOW_FOCUS_IN:

@@ -153,12 +153,18 @@ jobs:
             throw "Export command succeeded but build/Asteria.exe was not created."
           }
 
+          $runtimePath = Join-Path (Split-Path $output) "WebView2Runtime"
+          & "$env:GITHUB_WORKSPACE/scripts/install-webview2-fixed.ps1" -DestinationPath $runtimePath
+          if ($LASTEXITCODE -ne 0) { throw "WebView2 Fixed Version packaging failed." }
+
+          $runtimeVersion = (Get-Content (Join-Path $runtimePath "asteria-runtime-version.txt") -Raw).Trim()
           $buildInfo = @(
             "Asteria Windows x64 Release",
             "Commit: $env:GITHUB_SHA",
             "Godot: 4.7.2.stable.mono",
             "Target: win-x64",
             "ReadyToRun: enabled by Asteria.csproj",
+            "WebView2 Fixed Version: $runtimeVersion",
             "Built: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))"
           )
           $buildInfo | Set-Content (Join-Path (Split-Path $output) "BUILD_INFO.txt") -Encoding utf8
@@ -176,6 +182,19 @@ jobs:
           if (-not (Test-Path $assemblyPath -PathType Leaf)) {
             throw "Exported managed assembly not found: $assemblyPath"
           }
+
+          $runtimeRoot = Join-Path $env:GITHUB_WORKSPACE "build/WebView2Runtime"
+          $runtimeBrowser = Join-Path $runtimeRoot "msedgewebview2.exe"
+          $runtimeVersionFile = Join-Path $runtimeRoot "asteria-runtime-version.txt"
+          if (-not (Test-Path $runtimeBrowser -PathType Leaf) -or
+              -not (Test-Path $runtimeVersionFile -PathType Leaf)) {
+            throw "Self-contained WebView2 Fixed Version runtime is missing from the Windows package."
+          }
+          $runtimeVersion = (Get-Content $runtimeVersionFile -Raw).Trim()
+          if ($runtimeVersion -ne "157.0.4341.42") {
+            throw "Unexpected WebView2 Fixed Version in package: $runtimeVersion"
+          }
+          Write-Host "Verified bundled WebView2 Fixed Version runtime: $runtimeVersion"
 
           $assembly = [System.Reflection.Assembly]::LoadFrom($assemblyPath)
           $resourcesByCanonicalName = @{}
@@ -241,6 +260,6 @@ jobs:
           gh release create $tag "build/Asteria-Windows-x64.zip" `
             --repo $env:GITHUB_REPOSITORY `
             --title $title `
-            --notes "Automated Windows x64 Release build from commit $env:GITHUB_SHA. Godot 4.7.2 .NET; ReadyToRun enabled." `
+            --notes "Automated Windows x64 Release build from commit $env:GITHUB_SHA. Godot 4.7.2 .NET; ReadyToRun enabled; WebView2 Fixed Version $runtimeVersion bundled." `
             --prerelease
           if ($LASTEXITCODE -ne 0) { throw "Failed to publish GitHub Release asset." }
