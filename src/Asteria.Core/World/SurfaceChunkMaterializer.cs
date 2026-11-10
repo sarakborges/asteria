@@ -1245,9 +1245,16 @@ public sealed class SurfaceChunkMaterializer
             return false;
 
         var topLocalY = Chunk.Size - 1;
-        var belowLocalY = topLocalY - 1;
         var top = supportJob.Chunk.GetCell(localX, topLocalY, localZ);
         if (top.IsEmpty || !_materials.FacePalettesPreserveOccupancy)
+            return false;
+
+        // A gravity block may appear supported by another gravity block
+        // whose own support lies deeper in the chunk. This sparse query only
+        // materializes the top two rows, so it cannot prove that the entire
+        // gravity stack reaches stable terrain. Let the complete materializer
+        // resolve any gravity-owned support face before it is trusted.
+        if (_gravityBlocks.Contains(top.Block))
             return false;
 
         var topWorldY = supportJob.OriginY + topLocalY;
