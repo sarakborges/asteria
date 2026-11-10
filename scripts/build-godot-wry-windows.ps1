@@ -57,16 +57,26 @@ if ($wryContent -notmatch 'use std::os::windows::ffi::OsStrExt;') {
 $runtimeSelection = @'
     // Pass the packaged Fixed Version folder directly to WebView2.
     // Relying only on loader environment overrides is not sufficient in this host.
-    let browser_executable_folder = std::env::var_os("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER")
-      .filter(|path| !path.is_empty())
-      .map(|path| path.encode_wide().chain(std::iter::once(0)).collect::<Vec<u16>>());
+    let configured_browser_folder = std::env::var("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER")
+      .unwrap_or_default();
+    // Godot returns normalized resource-style paths with forward slashes.
+    // The WebView2 loader expects a native Windows filesystem path.
+    let browser_executable_folder_text = configured_browser_folder.replace('/', "\\");
+    let browser_executable_folder = if browser_executable_folder_text.is_empty() {
+      None
+    } else {
+      Some(
+        std::ffi::OsStr::new(&browser_executable_folder_text)
+          .encode_wide()
+          .chain(std::iter::once(0))
+          .collect::<Vec<u16>>()
+      )
+    };
     let browser_executable_folder_ptr = browser_executable_folder
       .as_ref()
       .map(|path| PCWSTR::from_raw(path.as_ptr()))
       .unwrap_or(PCWSTR::null());
 
-    let browser_executable_folder_text = std::env::var("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER")
-      .unwrap_or_default();
     let browser_executable_folder_path = PathBuf::from(&browser_executable_folder_text);
     let data_directory_display = data_directory
       .as_ref()
