@@ -19,9 +19,14 @@ chunk selection and generated-content digests. It summarizes repeated processes
 using medians and reports every materialization stage's elapsed time and
 allocations, including per-chunk values in the JSON output. A stage present in
 only one revision is shown as unavailable on the other side rather than being
-treated as zero. The headline directional-face-palette metric includes both
-exposure derivation and palette application; the stage breakdown keeps them
-separate.
+treated as zero.
+
+The report also combines `TerrainLayer` and `DirectionalFacePalettes` per
+process before calculating the median. Candidate-face preparation is performed
+inside `TerrainLayer`, while the baseline performs more of that work in the
+directional-palette stage; the combined metric prevents this change in stage
+ownership from looking like a false regression. Individual stage results remain
+available to identify where the work is performed.
 
 This is a headless Core world-generation benchmark. It does not measure Godot
 mesh publication, collision creation, GPU work or frame pacing.
