@@ -1271,14 +1271,6 @@ public sealed class SurfaceChunkMaterializer
                 supportJob.Coord, worldX, belowWorldY, worldZ))
             return false;
 
-        // A gravity voxel on the requested face must itself be stable before
-        // it can be trusted as support. If its lower cell is empty, retain the
-        // complete materialization path so decorations/structures and the
-        // generated-gravity invariant are evaluated in their normal order.
-        if (_gravityBlocks.Contains(top.Block) &&
-            supportJob.Chunk.GetCell(localX, belowLocalY, localZ).IsEmpty)
-            return false;
-
         return true;
     }
 
