@@ -18,6 +18,7 @@ const UI_SOURCE_PATHS := [
 	"res://ui/tsconfig.json",
 	"res://ui/vite.config.ts",
 	"res://packs/default/data/localization",
+	"res://packs/default/ui",
 ]
 const UI_STARTUP_TIMEOUT_SECONDS := 20.0
 
@@ -216,6 +217,15 @@ func _on_ipc_message(message: String) -> void:
 			_bridge_ready = true
 			_loaded = true
 			_dismiss_startup_failure()
+		elif message_type == "ui.assets.ready":
+			var payload: Variant = decoded.get("payload", {})
+			if payload is Dictionary:
+				var font_loaded := bool(payload.get("font_loaded", false))
+				var logo_loaded := bool(payload.get("logo_loaded", false))
+				var level := "INFO" if font_loaded and logo_loaded else "ERROR"
+				_diagnostic(level, "webui.assets.ready", "payload=%s" % JSON.stringify(payload))
+			else:
+				_diagnostic("ERROR", "webui.assets.ready", "payload_invalid=true")
 		elif message_type == "ui.dom.ready":
 			_diagnostic("INFO", "webui.dom.ready", "payload=%s" % JSON.stringify(decoded.get("payload", {})))
 
