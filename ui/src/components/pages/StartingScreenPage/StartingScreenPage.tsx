@@ -3,7 +3,7 @@ import { Button } from "../../atoms/Button/Button";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import "./StartingScreenPage.css";
 
-const logoUrl = "./branding/asteria_logo.svg";
+const logoUrl = new URL("../../../../../packs/default/ui/branding/asteria_logo.svg", import.meta.url).href;
 
 export type StartingScreenPageProps = {
   settingsAvailable?: boolean;

@@ -26,4 +26,4 @@ const entries = sourceRoots.flatMap(path => visit(resolve(project, path)))
     return relativePath + "\t" + hash;
   }).sort();
 
-writeFileSync(resolve(project, "ui/dist/source-manifest.txt"), entries.join("\n") + "\n");
+writeFileSync(resolve(project, "webui-dist/source-manifest.txt"), entries.join("\n") + "\n");

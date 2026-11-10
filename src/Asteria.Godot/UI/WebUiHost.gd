@@ -5,11 +5,11 @@ signal webui_ready
 signal diagnostic_event(level: String, event_name: String, details: String)
 
 const WEBVIEW_CLASS := "WebView"
-const UI_URL := "res://ui/dist/index.html"
+const UI_URL := "res://webui-dist/index.html"
 # Keep the registered custom protocol in the URL passed to WRY. On Windows,
 # WRY itself rewrites res:// URLs for WebView2 and routes them back through
 # the res handler. Pre-rewriting to http:// bypasses that custom-protocol path.
-const UI_SOURCE_MANIFEST := "res://ui/dist/source-manifest.txt"
+const UI_SOURCE_MANIFEST := "res://webui-dist/source-manifest.txt"
 const UI_SOURCE_PATHS := [
 	"res://ui/src",
 	"res://ui/index.html",
@@ -404,7 +404,7 @@ func _ensure_webui_bundle() -> bool:
 		if FileAccess.file_exists(UI_URL):
 			return true
 
-		push_error("WebUI bundle is missing at %s. Build ui/dist before running a release build." % UI_URL)
+		push_error("WebUI bundle is missing at %s. Build WebUI before running a release build." % UI_URL)
 		return false
 
 	if not _webui_bundle_is_stale():

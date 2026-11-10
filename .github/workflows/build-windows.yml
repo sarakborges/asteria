@@ -129,7 +129,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $dist = Join-Path $env:GITHUB_WORKSPACE "ui/dist"
+          $dist = Join-Path $env:GITHUB_WORKSPACE "webui-dist"
           $index = Join-Path $dist "index.html"
           $manifest = Join-Path $dist "source-manifest.txt"
 
@@ -150,27 +150,30 @@ jobs:
             throw "Pack-owned Asteria logo was not copied into the WebUI bundle: $logo"
           }
 
-          $fonts = @(Get-ChildItem -LiteralPath $dist -Filter "*.woff2" -File -Recurse)
-          if ($fonts.Count -lt 1) {
-            throw "The WebUI bundle does not contain its Winky Rough WOFF2 font files."
+          $javascript = @(Get-ChildItem -LiteralPath $dist -Filter "*.js" -File -Recurse)
+          $stylesheets = @(Get-ChildItem -LiteralPath $dist -Filter "*.css" -File -Recurse)
+          if ($javascript.Count -lt 1 -or $stylesheets.Count -lt 1) {
+            throw "WebUI build must contain JavaScript and CSS bundles."
           }
-          foreach ($font in $fonts) {
-            $stream = [System.IO.File]::OpenRead($font.FullName)
-            try {
-              $signature = New-Object byte[] 4
-              $read = $stream.Read($signature, 0, 4)
-              if ($read -ne 4 -or [System.Text.Encoding]::ASCII.GetString($signature) -ne "wOF2") {
-                throw "Invalid WOFF2 font asset: $($font.FullName)"
-              }
-            }
-            finally {
-              $stream.Dispose()
-            }
+
+          $javascriptContent = ($javascript | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
+          $stylesheetContent = ($stylesheets | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
+          if ($javascriptContent -notmatch 'data:image/svg\+xml') {
+            throw "The Asteria SVG logo was not inlined into the WebUI JavaScript bundle."
+          }
+          if ($stylesheetContent -notmatch 'data:font/woff2;base64,') {
+            throw "Winky Rough WOFF2 font data was not inlined into the WebUI stylesheet."
+          }
+
+          $externalAssets = @(Get-ChildItem -LiteralPath $dist -File -Recurse |
+            Where-Object { $_.Extension -in @(".woff", ".woff2", ".ttf", ".otf", ".svg", ".png") })
+          if ($externalAssets.Count -gt 0) {
+            throw "WebUI emitted raw external presentation assets that Godot may import: $($externalAssets.FullName -join ', ')"
           }
 
           Write-Host "WebUI export input: $index"
           Write-Host "WebUI export input: $manifest"
-          Write-Host "Verified $($assets.Count) JS/CSS assets, $($fonts.Count) raw WOFF2 fonts, and the Asteria logo."
+          Write-Host "Verified inline Winky Rough and logo data in $($assets.Count) browser bundles."
 
       - name: Prepare shared Windows export preset
         shell: pwsh
