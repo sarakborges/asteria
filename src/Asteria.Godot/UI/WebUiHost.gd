@@ -178,14 +178,17 @@ func _prepare_webview_runtime() -> bool:
 		marker.store_string(expected_marker)
 		marker.close()
 
-	OS.set_environment("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", runtime_directory)
+	# Keep the loader environment in native Windows path format. The WRY
+	# native layer normalizes this again before calling the WebView2 API.
+	var native_runtime_directory := runtime_directory.replace("/", "\\")
+	OS.set_environment("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", native_runtime_directory)
 	_runtime_version = runtime_version
 	_diagnostic(
 		"INFO",
 		"webui.runtime.fixed_selected",
 		"version=%s path=%s env=%s" % [
 			runtime_version,
-			runtime_directory,
+			native_runtime_directory,
 			OS.get_environment("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER"),
 		]
 	)
