@@ -6,10 +6,9 @@ signal diagnostic_event(level: String, event_name: String, details: String)
 
 const WEBVIEW_CLASS := "WebView"
 const UI_URL := "res://ui/dist/index.html"
-# WRY normalizes res:// URLs only through load_url(); its exported url
-# property is passed straight to WebView2. This is the equivalent URL after
-# WRY's res:// -> http://res.* custom-protocol normalization.
-const UI_WEBVIEW_URL := "http://res.ui/dist/index.html"
+# Keep the registered custom protocol in the URL passed to WRY. On Windows,
+# WRY itself rewrites res:// URLs for WebView2 and routes them back through
+# the res handler. Pre-rewriting to http:// bypasses that custom-protocol path.
 const UI_SOURCE_MANIFEST := "res://ui/dist/source-manifest.txt"
 const UI_SOURCE_PATHS := [
 	"res://ui/src",
@@ -37,7 +36,7 @@ var _diagnostic_file: FileAccess
 
 func _ready() -> void:
 	_open_diagnostic_log()
-	_diagnostic("INFO", "webui.host.ready", "os=%s url=%s webview_url=%s" % [OS.get_name(), UI_URL, UI_WEBVIEW_URL])
+	_diagnostic("INFO", "webui.host.ready", "os=%s url=%s" % [OS.get_name(), UI_URL])
 
 	if not _ensure_webui_bundle():
 		_diagnostic("ERROR", "webui.bundle.missing", "path=%s" % UI_URL)
@@ -64,7 +63,7 @@ func _ready() -> void:
 
 	_webview.name = "WebView"
 	_webview.set("full_window_size", true)
-	_webview.set("url", UI_WEBVIEW_URL)
+	_webview.set("url", UI_URL)
 	_webview.set("transparent", true)
 	_webview.set("forward_input_events", true)
 	_webview.set("focused_when_created", false)
@@ -81,9 +80,8 @@ func _ready() -> void:
 	_diagnostic(
 		"INFO",
 		"webui.webview.create_requested",
-		"url=%s webview_url=%s viewport=%s fixed_runtime=%s" % [
+		"url=%s viewport=%s fixed_runtime=%s" % [
 			UI_URL,
-			UI_WEBVIEW_URL,
 			get_viewport().get_visible_rect().size,
 			_runtime_version,
 		]
