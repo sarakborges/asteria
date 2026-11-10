@@ -326,18 +326,15 @@ jobs:
           $stdoutPath = Join-Path $workingDirectory "smoke-stdout.log"
           $stderrPath = Join-Path $workingDirectory "smoke-stderr.log"
 
-          # WebView2 reads this override while creating its process environment.
-          # Set it in the parent as well as in WebUiHost so the child starts with
-          # the fixed runtime selected before any native extension initializes.
+          # Select Fixed Version before WebView2 initializes.
           $runtimeDirectory = Join-Path $workingDirectory "WebView2Runtime"
           $runtimeExecutable = Join-Path $runtimeDirectory "msedgewebview2.exe"
           if (-not (Test-Path $runtimeExecutable -PathType Leaf)) {
             throw "Packaged WebView2 runtime executable is missing: $runtimeExecutable"
           }
           $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER = $runtimeDirectory
-          Write-Host "Smoke-test WebView2 Fixed Version folder: $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER"
 
-          Write-Host "Launching the exported Windows game and waiting for the React ui.ready handshake..."
+          Write-Host "Launching exported Windows app; waiting for React, Winky Rough, and the logo..."
           $process = Start-Process -FilePath $executable -WorkingDirectory $workingDirectory -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
           $uiReady = $false
           $assetsReady = $false
@@ -347,7 +344,7 @@ jobs:
             $deadline = (Get-Date).AddSeconds(45)
             while ((Get-Date) -lt $deadline) {
               if ($process.HasExited) {
-                throw "Asteria exited before the WebUI became ready (exit code $($process.ExitCode))."
+                throw "Asteria exited before WebUI readiness (exit code $($process.ExitCode))."
               }
 
               $logFiles = @(
@@ -362,16 +359,19 @@ jobs:
 
               if (Test-Path $webUiLog) {
                 $webUiContent = Get-Content -LiteralPath $webUiLog -Raw
-                if ($webUiContent -match 'ERROR webui\.(javascript\.error|javascript\.unhandled_rejection|startup\.timeout)') {
-                  Write-Host "Detected WebUI startup failure; collecting complete process diagnostics."
+                if ($webUiContent -match 'ERROR webui\.(javascript\.error|javascript\.unhandled_rejection|startup\.timeout|assets\.ready)') {
+                  Write-Host "Detected WebUI startup or asset failure; collecting diagnostics."
                   break
+                }
+                if ($webUiContent -match 'INFO webui\.assets\.ready payload=.*"font_loaded":true.*"logo_loaded":true') {
+                  $assetsReady = $true
                 }
               }
 
               if ($lastLog) {
                 $content = Get-Content -LiteralPath $lastLog.FullName -Raw
                 if ($content -match 'event=webui\.javascript\.(error|unhandled_rejection)|event=webui\.startup\.timeout') {
-                  Write-Host "Detected runtime startup failure; collecting complete process diagnostics."
+                  Write-Host "Detected WebUI runtime failure; collecting diagnostics."
                   break
                 }
                 if ($content -match 'event=webui\.bridge\.ready') {
@@ -384,19 +384,18 @@ jobs:
                 if (Test-Path $webUiLog) { Write-Host (Get-Content -LiteralPath $webUiLog -Raw) }
                 break
               }
-              }
 
               Start-Sleep -Seconds 1
             }
 
-            if (-not $uiReady) {
+            if (-not $uiReady -or -not $assetsReady) {
               if ($lastLog) {
                 Write-Host (Get-Content -LiteralPath $lastLog.FullName -Raw)
               }
               if (Test-Path $webUiLog) { Write-Host (Get-Content -LiteralPath $webUiLog -Raw) }
               if (Test-Path $stdoutPath) { Write-Host (Get-Content -LiteralPath $stdoutPath -Raw) }
               if (Test-Path $stderrPath) { Write-Host (Get-Content -LiteralPath $stderrPath -Raw) }
-              throw "The exported WebUI did not send ui.ready within 45 seconds."
+              throw "The exported WebUI did not verify React, Winky Rough, and the Asteria logo within 45 seconds."
             }
           }
           finally {
@@ -404,10 +403,6 @@ jobs:
               Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
               $process.WaitForExit()
             }
-          }
-
-          if (-not $uiReady -or -not $assetsReady) {
-            throw "The exported WebUI did not verify React, Winky Rough, and the Asteria logo within 45 seconds."
           }
 
       - name: Package Windows app under one directory
