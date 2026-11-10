@@ -6,6 +6,10 @@ signal diagnostic_event(level: String, event_name: String, details: String)
 
 const WEBVIEW_CLASS := "WebView"
 const UI_URL := "res://ui/dist/index.html"
+# WRY normalizes res:// URLs only through load_url(); its exported url
+# property is passed straight to WebView2. This is the equivalent URL after
+# WRY's res:// -> http://res.* custom-protocol normalization.
+const UI_WEBVIEW_URL := "http://res.ui/dist/index.html"
 const UI_SOURCE_MANIFEST := "res://ui/dist/source-manifest.txt"
 const UI_SOURCE_PATHS := [
 	"res://ui/src",
@@ -28,10 +32,12 @@ var _creation_mode := true
 var _mouse_captured := false
 var _native_key_capture := false
 var _runtime_version := "system"
+var _diagnostic_file: FileAccess
 
 
 func _ready() -> void:
-	_diagnostic("INFO", "webui.host.ready", "os=%s url=%s" % [OS.get_name(), UI_URL])
+	_open_diagnostic_log()
+	_diagnostic("INFO", "webui.host.ready", "os=%s url=%s webview_url=%s" % [OS.get_name(), UI_URL, UI_WEBVIEW_URL])
 
 	if not _ensure_webui_bundle():
 		_diagnostic("ERROR", "webui.bundle.missing", "path=%s" % UI_URL)
@@ -58,7 +64,7 @@ func _ready() -> void:
 
 	_webview.name = "WebView"
 	_webview.set("full_window_size", true)
-	_webview.set("url", UI_URL)
+	_webview.set("url", UI_WEBVIEW_URL)
 	_webview.set("transparent", true)
 	_webview.set("forward_input_events", true)
 	_webview.set("focused_when_created", false)
@@ -75,8 +81,9 @@ func _ready() -> void:
 	_diagnostic(
 		"INFO",
 		"webui.webview.create_requested",
-		"url=%s viewport=%s fixed_runtime=%s" % [
+		"url=%s webview_url=%s viewport=%s fixed_runtime=%s" % [
 			UI_URL,
+			UI_WEBVIEW_URL,
 			get_viewport().get_visible_rect().size,
 			_runtime_version,
 		]
@@ -89,7 +96,27 @@ func _ready() -> void:
 	)
 
 
+func _open_diagnostic_log() -> void:
+	var directory := ProjectSettings.globalize_path("user://logs")
+	var error := DirAccess.make_dir_recursive_absolute(directory)
+	if error != OK:
+		print("ASTERIA_WEBUI_DIAGNOSTICS directory_error=%s path=%s" % [error, directory])
+		return
+
+	_diagnostic_file = FileAccess.open("user://logs/webui-startup.log", FileAccess.WRITE)
+	if _diagnostic_file == null:
+		print("ASTERIA_WEBUI_DIAGNOSTICS open_error=%s" % FileAccess.get_open_error())
+		return
+	_diagnostic_file.store_line("session.start os=%s" % OS.get_name())
+	_diagnostic_file.flush()
+
+
 func _diagnostic(level: String, event_name: String, details: String = "") -> void:
+	var line := "%s %s %s" % [level, event_name, details]
+	print("ASTERIA_WEBUI_DIAGNOSTICS " + line)
+	if _diagnostic_file != null:
+		_diagnostic_file.store_line(line)
+		_diagnostic_file.flush()
 	diagnostic_event.emit(level, event_name, details)
 
 
