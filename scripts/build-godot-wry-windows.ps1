@@ -65,6 +65,48 @@ $runtimeSelection = @'
       .map(|path| PCWSTR::from_raw(path.as_ptr()))
       .unwrap_or(PCWSTR::null());
 
+    let browser_executable_folder_text = std::env::var("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER")
+      .unwrap_or_default();
+    let browser_executable_folder_path = PathBuf::from(&browser_executable_folder_text);
+    let data_directory_display = data_directory
+      .as_ref()
+      .map(|path| path.to_string())
+      .unwrap_or_else(|| "<default>".to_string());
+    let mut available_browser_version = PWSTR::null();
+    match unsafe {
+      GetAvailableCoreWebView2BrowserVersionString(
+        browser_executable_folder_ptr,
+        &mut available_browser_version,
+      )
+    } {
+      Ok(()) => {
+        let version = unsafe {
+          PCWSTR::from_raw(available_browser_version.0).to_string()
+        }.unwrap_or_else(|_| "<decode-failed>".to_string());
+        println!(
+          "ASTERIA_WRY_DIAGNOSTICS runtime_probe=ok folder={} folder_exists={} browser_exe={} msedge_dll={} user_data={} user_data_exists={} detected_version={}",
+          browser_executable_folder_text,
+          browser_executable_folder_path.is_dir(),
+          browser_executable_folder_path.join("msedgewebview2.exe").is_file(),
+          browser_executable_folder_path.join("msedge.dll").is_file(),
+          data_directory_display,
+          PathBuf::from(&data_directory_display).is_dir(),
+          version,
+        );
+        unsafe { CoTaskMemFree(Some(available_browser_version.0 as _)); }
+      }
+      Err(error) => println!(
+        "ASTERIA_WRY_DIAGNOSTICS runtime_probe=failed folder={} folder_exists={} browser_exe={} msedge_dll={} user_data={} user_data_exists={} error={:?}",
+        browser_executable_folder_text,
+        browser_executable_folder_path.is_dir(),
+        browser_executable_folder_path.join("msedgewebview2.exe").is_file(),
+        browser_executable_folder_path.join("msedge.dll").is_file(),
+        data_directory_display,
+        PathBuf::from(&data_directory_display).is_dir(),
+        error,
+      ),
+    }
+
 '@
 
 $anchor = "    // additional browser args"
@@ -82,6 +124,18 @@ if ($wryContent -notmatch 'browser_executable_folder_ptr,') {
     throw "Failed to patch WRY to pass browserExecutableFolder explicitly."
 }
 Set-Content -LiteralPath $wryModule -Value $wryContent -Encoding utf8
+
+# Report whether Godot successfully created the selected WebView2 user-data folder.
+$godotModule = Join-Path $pluginRust "src/lib.rs"
+$godotContent = Get-Content -LiteralPath $godotModule -Raw
+$directoryCreationCall = "std::fs::create_dir_all(&absolute_path).ok();"
+$directoryCreationDiagnostic = 'let directory_result = std::fs::create_dir_all(&absolute_path);' + $newline +
+    '                println!("ASTERIA_WRY_DIAGNOSTICS user_data_directory={} exists={} create_result={:?}", absolute_path.display(), absolute_path.is_dir(), directory_result);'
+if (-not $godotContent.Contains($directoryCreationCall)) {
+    throw "Could not locate Godot WRY user-data directory creation for diagnostics."
+}
+$godotContent = $godotContent.Replace($directoryCreationCall, $directoryCreationDiagnostic)
+Set-Content -LiteralPath $godotModule -Value $godotContent -Encoding utf8
 
 $manifestContent = Get-Content -LiteralPath $cargoManifest -Raw
 if ($manifestContent -notmatch '(?m)^\[patch\.crates-io\]') {
