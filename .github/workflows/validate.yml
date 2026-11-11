@@ -187,6 +187,8 @@ jobs:
             --seed 181960897289965 --dimension asteria:overworld \
             --samples 2 --area-size 4 --chunks 1 \
             --enforce-ci-budgets true \
+            --profile-streaming-route true \
+            --streaming-route-steps 8 --streaming-route-radius 4 \
             --output worldgen-benchmark.json
 
       - name: Profile fixed-seed directional face palettes
@@ -426,6 +428,8 @@ jobs:
               --project-root "$project_root" \
               --seed 181960897289965 --dimension asteria:overworld \
               --samples 2 --area-size 4 --chunks 1 \
+              --profile-streaming-route true \
+              --streaming-route-steps 8 --streaming-route-radius 4 \
               --output "$output" > "$log" 2>&1; then
               cat "$log"
               return 1
