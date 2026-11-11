@@ -431,7 +431,7 @@ class CompareWorldgenAbTests(unittest.TestCase):
             changed["gravityBlockCounts"] = {"asteria:gravel": 1}
             changed["blockVoxelIndicesById"] = {
                 "asteria:gravel": [33],
-                "asteria:stone": list(range(32)),
+                "asteria:stone": list(range(33)),
             }
 
         result = compare(baseline, candidate, expected_chunks=67)
