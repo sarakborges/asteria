@@ -7,15 +7,6 @@ using System.Diagnostics;
 
 namespace Asteria.Core.World;
 
-internal readonly record struct DirectionalFacePaletteApplicationDiagnostic(
-    WorldVoxelCoord SolidPosition,
-    string OwnerBiome,
-    BiomeRegionOwnerKind OwnerKind,
-    BiomePaletteFace Face,
-    uint Depth,
-    WorldVoxelCoord EmptyNeighbor,
-    BlockRuntimeId Replacement);
-
 /// <summary>
 /// Only the materialization stage writes chunk voxels. It consumes immutable
 /// terrain/biome snapshots and material/decorator capabilities.
@@ -3108,8 +3099,7 @@ public sealed class SurfaceChunkMaterializer
         int worldY,
         int worldZ,
         Func<int, int, DirectionalPaletteColumnData> columnAt,
-        VoxelWorld? supportWorld = null,
-        Action<DirectionalFacePaletteApplicationDiagnostic>? diagnostic = null)
+        VoxelWorld? supportWorld = null)
     {
         chunk.RestoreDirectionalFaceBaseBlockAtLinearIndex(index);
         var data = chunk.DirectionalFaceDataAtLinearIndex(index);
@@ -3304,14 +3294,6 @@ public sealed class SurfaceChunkMaterializer
                 // The restored base material remains the safe representation.
                 return false;
             }
-            diagnostic?.Invoke(new DirectionalFacePaletteApplicationDiagnostic(
-                new WorldVoxelCoord(worldX, worldY, worldZ),
-                owner.Biome.Primary,
-                owner.Kind,
-                face,
-                depth,
-                new WorldVoxelCoord(worldX + dx, neighborY, worldZ + dz),
-                replacement));
             return chunk.SetDirectionalFacePaletteBlockAtLinearIndex(index, replacement);
         }
     }
@@ -3470,22 +3452,7 @@ public sealed class SurfaceChunkMaterializer
     }
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
-        VoxelWorld world, ChunkCoord arriving) =>
-        ReconcileChunkArrivalCore(world, arriving, diagnostic: null);
-
-    internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalWithDiagnostics(
-        VoxelWorld world,
-        ChunkCoord arriving,
-        Action<DirectionalFacePaletteApplicationDiagnostic> diagnostic)
-    {
-        ArgumentNullException.ThrowIfNull(diagnostic);
-        return ReconcileChunkArrivalCore(world, arriving, diagnostic);
-    }
-
-    private IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalCore(
-        VoxelWorld world,
-        ChunkCoord arriving,
-        Action<DirectionalFacePaletteApplicationDiagnostic>? diagnostic)
+        VoxelWorld world, ChunkCoord arriving)
     {
         ArgumentNullException.ThrowIfNull(world);
         var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
@@ -3506,8 +3473,7 @@ public sealed class SurfaceChunkMaterializer
                 world, sourceCoord, axis, sign, maximumDepth,
                 changedSources, dirtyChunks, ensured);
         }
-        return ApplyDirectionalFaceChanges(
-            world, changedSources, dirtyChunks, diagnostic);
+        return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks);
     }
 
     private void ReconcileChunkOutward(
@@ -3609,8 +3575,7 @@ public sealed class SurfaceChunkMaterializer
     private IReadOnlyList<WorldVoxelCoord> ApplyDirectionalFaceChanges(
         VoxelWorld world,
         HashSet<(ChunkCoord Coord, int Index)> changedSources,
-        HashSet<ChunkCoord> dirtyChunks,
-        Action<DirectionalFacePaletteApplicationDiagnostic>? diagnostic)
+        HashSet<ChunkCoord> dirtyChunks)
     {
         var visualChanges = new HashSet<WorldVoxelCoord>();
         foreach (var group in changedSources.GroupBy(entry => entry.Coord))
@@ -3663,8 +3628,7 @@ public sealed class SurfaceChunkMaterializer
                 ReapplyDirectionalFacePaletteAt(
                     chunk, densityVolume, index,
                     origin.X + x, origin.Y + y, origin.Z + z, ColumnAt,
-                    supportWorld: world,
-                    diagnostic: diagnostic);
+                    supportWorld: world);
                 var after = chunk.GetCellAtLinearIndexUnchecked(index);
                 if (before.Block != after.Block)
                 {
