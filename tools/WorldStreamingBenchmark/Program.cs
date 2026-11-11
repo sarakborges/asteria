@@ -74,13 +74,15 @@ var streamingRoute = ChunkStreamingRouteBenchmark.Run(
     fluids,
     start,
     options.RouteSteps,
-    options.Radius);
+    options.Radius,
+    options.DisableDirectionalFaceReconciliation);
 var result = new
 {
     options.Seed,
     Dimension = options.Dimension,
     DimensionSeed = dimensionSeed,
     StartChunk = new[] { start.X, start.Y, start.Z },
+    options.DisableDirectionalFaceReconciliation,
     StreamingRouteDiagnostics = streamingRoute,
 };
 var json = JsonSerializer.Serialize(
@@ -105,6 +107,7 @@ internal sealed record Arguments(
     ulong Seed,
     int RouteSteps,
     int Radius,
+    bool DisableDirectionalFaceReconciliation,
     string? Output)
 {
     public static Arguments Parse(string[] input)
@@ -115,6 +118,7 @@ internal sealed record Arguments(
         var seed = 181960897289965UL;
         var routeSteps = 8;
         var radius = 4;
+        var disableDirectionalFaceReconciliation = false;
         string? output = null;
         if (input.Length % 2 != 0)
             throw new ArgumentException("CLI flags require values.");
@@ -143,6 +147,9 @@ internal sealed record Arguments(
                 case "--radius":
                     radius = int.Parse(value);
                     break;
+                case "--disable-directional-face-reconciliation":
+                    disableDirectionalFaceReconciliation = bool.Parse(value);
+                    break;
                 case "--output":
                     output = value;
                     break;
@@ -157,6 +164,7 @@ internal sealed record Arguments(
                 "Route steps must be 2–64 and radius must be 1–8.");
 
         return new Arguments(
-            root, pack, dimension, seed, routeSteps, radius, output);
+            root, pack, dimension, seed, routeSteps, radius,
+            disableDirectionalFaceReconciliation, output);
     }
 }

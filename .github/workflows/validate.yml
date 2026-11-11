@@ -443,12 +443,16 @@ jobs:
             fi
 
             local route_output="$root/route-results/$version/$repetition.json"
+            local route_args=()
+            if [ "$version" = "candidate" ]; then
+              route_args+=(--disable-directional-face-reconciliation true)
+            fi
             if ! env DOTNET_TieredCompilation=0 dotnet run \
               --project "$project_root/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
               --configuration Release --no-build -- \
               --project-root "$project_root" \
               --seed 181960897289965 --dimension asteria:overworld \
-              --route-steps 8 --radius 4 \
+              --route-steps 8 --radius 4 "${route_args[@]}" \
               --output "$route_output" > "$log.route" 2>&1; then
               cat "$log.route"
               return 1
