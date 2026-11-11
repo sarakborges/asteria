@@ -115,6 +115,9 @@ def _streaming_physics_signature(run: dict[str, Any]) -> tuple[Any, ...] | None:
     for sample in wakeup_samples:
         if not isinstance(sample, dict):
             raise ValueError("Gravity wakeup samples must be objects.")
+        # Physics timing and queue depth are observations, not deterministic
+        # world outcomes. Compare only the generated material and coordinates;
+        # retain the timing fields in the first-run report for diagnosis.
         normalized_wakeups.append((
             str(_at(sample, "block")),
             int(_at(sample, "x")),
@@ -123,17 +126,10 @@ def _streaming_physics_signature(run: dict[str, Any]) -> tuple[Any, ...] | None:
             int(_at(sample, "sourceChunkX")),
             int(_at(sample, "sourceChunkY")),
             int(_at(sample, "sourceChunkZ")),
-            int(_at(sample, "wakeupFrame")),
-            optional_int(sample, "sourceChunkActivatedFrame"),
-            optional_int(sample, "framesSinceSourceChunkActivation"),
             int(_at(sample, "belowChunkX")),
             int(_at(sample, "belowChunkY")),
             int(_at(sample, "belowChunkZ")),
-            optional_int(sample, "belowChunkActivatedFrame"),
-            optional_int(sample, "framesSinceBelowChunkActivation"),
-            int(_at(sample, "queueDepth")),
             str(_at(sample, "belowBlock")),
-            optional_int(sample, "framesSinceBothChunksResident"),
         ))
 
     wakeup_count = int(_at(
