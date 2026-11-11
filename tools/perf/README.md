@@ -54,12 +54,15 @@ must reproduce the same content.
 
 The A/B workflow builds this same route-harness source against each revision's
 own `Asteria.Core` and executes four alternating processes per revision. It
-rejects different route geometry, activated chunk counts, or content digests,
-then compares median route drain time, total worker time, selection latency,
-local gaps and backlog. Admission pressure is normalized across revisions and
-uses only physics wakeups, which the route processes. Lighting and terrain-mesh
-queues are recorded but their workers are outside this Core-only comparison.
-These are diagnostic comparisons, not hard timing budgets.
+rejects different route geometry or nondeterministic chunk content within a
+revision. Across revisions it compares per-coordinate chunk digests: identical
+content permits timing percentage deltas, while different content is reported
+with changed/missing coordinate samples and all timing percentages are withheld.
+The static 67-chunk fixture remains independently digest-gated. Admission
+pressure is normalized across revisions and uses only physics wakeups, which
+the route processes. Lighting and terrain-mesh queues are recorded but their
+workers are outside this Core-only comparison. These are diagnostic
+comparisons, not hard timing budgets.
 
 The route treats presentation reservations as immediate and cost-free. It
 does not execute Godot mesh construction, collision-shape creation, GPU upload,
