@@ -6,6 +6,7 @@ namespace Asteria.Core.Tests;
 public sealed class CavernPaletteStreamingDivergenceTests
 {
     private const ulong Seed = 181960897289965UL;
+    private const string CavernBiomeId = "asteria:overworld/caverns";
 
     private static readonly (WorldVoxelCoord Position, string BaselineBlock)[] DivergentVoxels =
     [
@@ -72,8 +73,10 @@ public sealed class CavernPaletteStreamingDivergenceTests
         var world = new VoxelWorld();
         world.InsertChunk(sourceCoord, sourceChunk);
 
-        // Every target has its baseline block before the adjacent +Z chunk
-        // arrives. The arrival-time reconciliation introduces the 12 deltas.
+        // The visible block is the initial directional palette result;
+        // BaseBlock retains the underlying geologic material.
+        var geologicBaseBlocks = new Dictionary<WorldVoxelCoord, BlockRuntimeId>();
+        var gravel = blocks.GetId("asteria:gravel");
         foreach (var (position, baselineBlock) in DivergentVoxels)
         {
             var (_, local) = VoxelCoordinates.FromWorld(
@@ -90,10 +93,12 @@ public sealed class CavernPaletteStreamingDivergenceTests
                 $"current={blocks.GetDefinition(current).Id}; storedBase={storedBase}; " +
                 $"terrain={faceData.IsTerrainVoxel}; hasCandidates={faceData.HasCandidates}";
             Assert.Equal(blocks.GetId(baselineBlock), current);
-            Assert.True(
-                faceData.BaseBlock.IsAir ||
-                faceData.BaseBlock == blocks.GetId(baselineBlock),
-                $"Directional base metadata already disagrees before neighbor arrival: {metadata}");
+            Assert.True(faceData.IsTerrainVoxel, metadata);
+            Assert.True(faceData.HasCandidates, metadata);
+            Assert.Equal(CavernBiomeId, generator.EffectiveBiomeAt(
+                position.X, position.Y, position.Z));
+            Assert.Equal(gravel, faceData.BaseBlock);
+            geologicBaseBlocks.Add(position, faceData.BaseBlock);
         }
 
         var arrivingNeighbor = new ChunkCoord(9, 3, -2);
@@ -112,7 +117,6 @@ public sealed class CavernPaletteStreamingDivergenceTests
             expectedPositions.SetEquals(changedPositions),
             "Neighbor arrival must change exactly the twelve voxels identified by the streaming A/B artifact.");
 
-        var gravel = blocks.GetId("asteria:gravel");
         var transitions = new Dictionary<string, int>(StringComparer.Ordinal);
         var metadataSummary = new List<string>(DivergentVoxels.Length);
         foreach (var (position, baselineBlock) in DivergentVoxels)
@@ -132,12 +136,13 @@ public sealed class CavernPaletteStreamingDivergenceTests
                 $"U:{faceData.Up:X}/-X:{faceData.NegativeX:X}/+X:{faceData.PositiveX:X}/" +
                 $"-Z:{faceData.NegativeZ:X}/+Z:{faceData.PositiveZ:X}/D:{faceData.Down:X}");
             Assert.Equal(gravel, current);
+            Assert.Equal(geologicBaseBlocks[position], current);
             Assert.True(
                 faceData.IsTerrainVoxel,
                 $"Changed voxel lost terrain provenance: {metadataSummary[^1]}");
-            Assert.Equal(
-                blocks.GetId(baselineBlock),
-                faceData.BaseBlock);
+            Assert.True(
+                faceData.BaseBlock.IsAir,
+                $"The arrival reapplication unexpectedly retained a palette base for a voxel restored from geology: {metadataSummary[^1]}");
             Assert.True(
                 faceData.HasCandidates,
                 $"Changed voxel has no directional candidates: {metadataSummary[^1]}");
