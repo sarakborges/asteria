@@ -428,7 +428,7 @@ public sealed class SurfaceTerrainColumnCache
         // the scalar terrain source without consuming occupancy bits that may
         // have been sampled earlier by neighboring directional-face jobs.
         return _terrain.SampleDensityVolume(
-            column, originX, originY, originZ);
+            column, originX, originY, originZ, Chunk.Size);
     }
 
     /// <summary>
