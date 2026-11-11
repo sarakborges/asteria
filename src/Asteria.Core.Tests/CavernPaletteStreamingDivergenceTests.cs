@@ -103,13 +103,23 @@ public sealed class CavernPaletteStreamingDivergenceTests
             .ToDictionary(decision => decision.SolidPosition);
 
         var gravel = blocks.GetId("asteria:gravel");
-        Assert.Equal(DivergentVoxels.Length, decisions.Count);
+        var traceSummary = string.Join(
+            Environment.NewLine,
+            allDecisions.Take(24).Select(decision =>
+                $"{decision.SolidPosition.X},{decision.SolidPosition.Y},{decision.SolidPosition.Z}: " +
+                $"{decision.OwnerBiome}/{decision.Face}/{decision.Depth} => " +
+                blocks.GetDefinition(decision.Replacement).Id));
+        Assert.True(
+            decisions.Count == DivergentVoxels.Length,
+            $"Expected {DivergentVoxels.Length} traces, got {decisions.Count}; " +
+            $"all traces={allDecisions.Count}; changed positions={changedPositions.Count}.{Environment.NewLine}{traceSummary}");
 
         foreach (var (position, baselineBlock) in DivergentVoxels)
         {
             var (_, local) = VoxelCoordinates.FromWorld(
                 position.X, position.Y, position.Z);
             var currentBlock = chunk.GetBlock(local.X, local.Y, local.Z);
+            Assert.Equal(gravel, currentBlock);
             var decision = decisions[position];
             var description =
                 $"voxel={position.X},{position.Y},{position.Z}; " +
