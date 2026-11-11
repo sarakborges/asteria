@@ -27,8 +27,12 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
         "framesPerChunk": 8,
         "horizontalRadius": 3,
         "retentionRadius": 7,
-        "uniqueActivatedChunkCount": 120,
+        "uniqueActivatedChunkCount": 2,
         "routeDigest": 987654321,
+        "activatedChunkDigests": [
+            {"x": 1, "y": 2, "z": 3, "digest": 111},
+            {"x": 2, "y": 2, "z": 3, "digest": 222},
+        ],
         "generatedChunkDigestsMatchOnReactivation": True,
         "totalElapsedMilliseconds": 1000.0,
         "totalWorkerMilliseconds": 600.0,
@@ -187,7 +191,8 @@ class CompareWorldgenAbTests(unittest.TestCase):
         result = compare(baseline, candidate, expected_chunks=67)
         route = result["streamingRoute"]
         self.assertTrue(route["digestsMatch"])
-        self.assertEqual(120, route["uniqueActivatedChunkCount"])
+        self.assertEqual(2, route["baselineUniqueActivatedChunkCount"])
+        self.assertEqual(2, route["candidateUniqueActivatedChunkCount"])
 
         elapsed = next(
             metric for metric in route["metrics"]
@@ -208,13 +213,53 @@ class CompareWorldgenAbTests(unittest.TestCase):
         self.assertIn("Headless moving-route A/B", report)
         self.assertIn("Route content digest: identical", report)
 
-    def test_rejects_streaming_route_content_digest_mismatch(self) -> None:
+    def test_reports_route_content_mismatch_without_fake_delta(self) -> None:
         baseline = [sample_run()] * 3
         candidate = [
-            sample_run(streaming_route={"routeDigest": 987654322})
+            sample_run(streaming_route={
+                "routeDigest": 987654322,
+                "activatedChunkDigests": [
+                    {"x": 1, "y": 2, "z": 3, "digest": 111},
+                    {"x": 2, "y": 2, "z": 3, "digest": 333},
+                ],
+            })
         ] * 3
-        with self.assertRaisesRegex(ValueError, "streaming routes produced different"):
-            compare(baseline, candidate, expected_chunks=67)
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+
+        self.assertFalse(route["digestsMatch"])
+        self.assertEqual(1, route["routeContentDifferences"]["changedContentChunkCount"])
+        self.assertEqual([[2, 2, 3]], route["routeContentDifferences"]["changedContentSamples"])
+        elapsed = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Wall-clock route completion (ms)"
+        )
+        self.assertEqual(1000.0, elapsed["baselineMedian"])
+        self.assertEqual(1000.0, elapsed["candidateMedian"])
+        self.assertIsNone(elapsed["reductionPercent"])
+
+        report = render_report(result)
+        self.assertIn("Timing values are descriptive only", report)
+        self.assertIn("Changed content on shared coordinates: 1", report)
+        self.assertIn("| Wall-clock route completion (ms) | 1000.00 | 1000.00 | n/a |", report)
+
+    def test_rejects_inconsistent_route_chunk_digest_between_repetitions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, digest in enumerate((111, 111, 333), start=1):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(streaming_route={
+                        "activatedChunkDigests": [
+                            {"x": 1, "y": 2, "z": 3, "digest": digest},
+                            {"x": 2, "y": 2, "z": 3, "digest": 222},
+                        ],
+                    })),
+                    encoding="utf-8",
+                )
+
+            with self.assertRaisesRegex(ValueError, "different per-coordinate"):
+                load_repetitions(root, 3)
 
     def test_load_repetitions_rejects_inconsistent_streaming_route_digest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
