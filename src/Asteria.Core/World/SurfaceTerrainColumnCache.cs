@@ -400,23 +400,14 @@ public sealed class SurfaceTerrainColumnCache
         bool includeVolumeBiomes,
         out DensityTerrainColumnSamplingMetrics samplingMetrics)
     {
-        var key = (X: chunkX, Z: chunkZ);
-        if (_columns.TryGet(key, out var fullColumn))
-        {
-            samplingMetrics = default;
-            return new SurfaceTerrainDensityColumn(fullColumn);
-        }
-
-        var entry = _densityTerrainColumns.GetOrAdd(
-            key,
-            () => new DensityTerrainColumnEntry(_terrain));
-        return entry.GetOrSample(
-            _terrain,
-            chunkX,
-            chunkZ,
-            columnIndices,
-            includeVolumeBiomes,
-            out samplingMetrics);
+        // Diagnostic isolation path: resolve the immutable full terrain column
+        // before answering sparse directional-face density requests. This
+        // keeps the exact same biome/base-height snapshot as normal chunk
+        // materialization while retaining the occupancy-mask cache under test.
+        _ = columnIndices;
+        _ = includeVolumeBiomes;
+        samplingMetrics = default;
+        return new SurfaceTerrainDensityColumn(Get(chunkX, chunkZ));
     }
 
     /// <summary>
