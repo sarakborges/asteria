@@ -535,6 +535,31 @@ internal static class ChunkStreamingRouteBenchmark
             digest = HashNumber(digest, fluid.IsSource ? 1UL : 0UL);
             digest = HashNumber(digest, fluid.SpreadDistance);
         });
+
+        // Objects are attached to support voxels rather than occupying block
+        // cells, so include their identity and transform as separate content.
+        digest = HashNumber(digest, 0x0B1EC7UL);
+        digest = HashNumber(digest, (ulong)chunk.ObjectCount);
+        chunk.VisitObjectCells((x, y, z, obj) =>
+        {
+            digest = HashNumber(digest, (ulong)x);
+            digest = HashNumber(digest, (ulong)y);
+            digest = HashNumber(digest, (ulong)z);
+            digest = HashNumber(digest, (ulong)obj.Id.Length);
+            foreach (var character in obj.Id)
+                digest = HashNumber(digest, character);
+            digest = HashNumber(digest, (ulong)obj.Face);
+            digest = HashNumber(digest, (ulong)obj.Rotation);
+            digest = HashNumber(
+                digest, unchecked((ulong)(long)obj.Transform.OffsetX));
+            digest = HashNumber(
+                digest, unchecked((ulong)(long)obj.Transform.OffsetY));
+            digest = HashNumber(
+                digest, unchecked((ulong)(long)obj.Transform.OffsetZ));
+            digest = HashNumber(digest, obj.Transform.ScaleX);
+            digest = HashNumber(digest, obj.Transform.ScaleY);
+            digest = HashNumber(digest, obj.Transform.ScaleZ);
+        });
         return digest;
     }
 
