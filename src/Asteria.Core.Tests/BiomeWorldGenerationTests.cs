@@ -3232,6 +3232,71 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void StreamingBenchmarkSeedKeepsObservedGravityCoordinatesSupported()
+    {
+        const ulong seed = 181960897289965UL;
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension,
+            blocks,
+            LoadDefaultFluids(),
+            LoadDefaultBiomes(),
+            LoadDefaultStructures(),
+            LoadDefaultStructureSets());
+        WorldVoxelCoord[] observedPositions =
+        [
+            new(71, 82, -3),
+            new(72, 82, -3),
+            new(73, 82, -2),
+            new(73, 82, -19),
+            new(74, 82, -19),
+            new(68, 82, -18),
+            new(72, 82, -18),
+            new(69, 82, -17),
+            new(70, 82, -17),
+            new(71, 82, -17),
+        ];
+        var chunks = new Dictionary<ChunkCoord, Chunk>();
+
+        Chunk GetChunk(ChunkCoord coord)
+        {
+            if (!chunks.TryGetValue(coord, out var chunk))
+            {
+                chunk = generator.Materialize(coord);
+                chunks.Add(coord, chunk);
+            }
+
+            return chunk;
+        }
+
+        foreach (var position in observedPositions)
+        {
+            var (coord, local) = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            var chunk = GetChunk(coord);
+            var cell = chunk.GetCell(local.X, local.Y, local.Z);
+            if (cell.IsEmpty ||
+                !blocks.GetDefinition(cell.Block).HasTag(
+                    BlockPhysicsCapabilities.Gravity))
+                continue;
+
+            var below = position.Y > coord.Y * Chunk.Size
+                ? chunk.GetCell(local.X, local.Y - 1, local.Z)
+                : GetChunk(new ChunkCoord(
+                    coord.X, coord.Y - 1, coord.Z))
+                    .GetCell(local.X, Chunk.Size - 1, local.Z);
+
+            Assert.False(
+                below.IsEmpty,
+                $"The streaming benchmark seed generated unsupported " +
+                $"gravity block {blocks.GetDefinition(cell.Block).Id} at " +
+                $"{position.X},{position.Y},{position.Z}.");
+        }
+    }
+
+    [Fact]
     public void DefaultWorldGeneratorProducesGroundPlantsFromBiomeDecorators()
     {
         var blocks =
