@@ -69,6 +69,7 @@ def _streaming_route_identity(run: dict[str, Any]) -> tuple[Any, ...] | None:
         "totalFluidActivationMilliseconds",
         "maximumFluidActivationSliceMilliseconds",
         "maximumPendingFluidActivationChunks",
+        "gravityWakeupsWithAirBelowBeforeProcessing",
     ):
         value = float(_at(route, field))
         if not math.isfinite(value) or value < 0:
@@ -82,14 +83,19 @@ def _streaming_physics_signature(run: dict[str, Any]) -> tuple[Any, ...] | None:
     route = run.get("streamingRouteDiagnostics")
     if route is None:
         return None
-    samples = _at(route, "fallingBlockSamples")
-    if not isinstance(samples, list):
+
+    def optional_int(source: dict[str, Any], field: str) -> int | None:
+        value = _at(source, field)
+        return None if value is None else int(value)
+
+    falling_samples = _at(route, "fallingBlockSamples")
+    if not isinstance(falling_samples, list):
         raise ValueError("Streaming route fallingBlockSamples must be an array.")
-    normalized = []
-    for sample in samples:
+    normalized_falling = []
+    for sample in falling_samples:
         if not isinstance(sample, dict):
             raise ValueError("Falling block samples must be objects.")
-        normalized.append((
+        normalized_falling.append((
             str(_at(sample, "block")),
             bool(_at(sample, "isGravityTagged")),
             int(_at(sample, "x")),
@@ -101,11 +107,48 @@ def _streaming_physics_signature(run: dict[str, Any]) -> tuple[Any, ...] | None:
             str(_at(sample, "belowBlock")),
             bool(_at(sample, "belowChunkLoaded")),
         ))
+
+    wakeup_samples = _at(route, "gravityWakeupSamples")
+    if not isinstance(wakeup_samples, list):
+        raise ValueError("Streaming route gravityWakeupSamples must be an array.")
+    normalized_wakeups = []
+    for sample in wakeup_samples:
+        if not isinstance(sample, dict):
+            raise ValueError("Gravity wakeup samples must be objects.")
+        normalized_wakeups.append((
+            str(_at(sample, "block")),
+            int(_at(sample, "x")),
+            int(_at(sample, "y")),
+            int(_at(sample, "z")),
+            int(_at(sample, "sourceChunkX")),
+            int(_at(sample, "sourceChunkY")),
+            int(_at(sample, "sourceChunkZ")),
+            int(_at(sample, "wakeupFrame")),
+            optional_int(sample, "sourceChunkActivatedFrame"),
+            optional_int(sample, "framesSinceSourceChunkActivation"),
+            int(_at(sample, "belowChunkX")),
+            int(_at(sample, "belowChunkY")),
+            int(_at(sample, "belowChunkZ")),
+            optional_int(sample, "belowChunkActivatedFrame"),
+            optional_int(sample, "framesSinceBelowChunkActivation"),
+            int(_at(sample, "queueDepth")),
+            str(_at(sample, "belowBlock")),
+        ))
+
+    wakeup_count = int(_at(
+        route, "gravityWakeupsWithAirBelowBeforeProcessing"))
+    if wakeup_count < len(normalized_wakeups):
+        raise ValueError(
+            "Gravity wakeup sample count exceeds observed air-below wakeups."
+        )
+
     return (
         int(_at(route, "totalFallingBlocksStarted")),
         int(_at(route, "totalUnsupportedBlocksRemoved")),
         int(_at(route, "observedFallingEntityCount")),
-        tuple(normalized),
+        tuple(normalized_falling),
+        wakeup_count,
+        tuple(normalized_wakeups),
     )
 
 
@@ -586,6 +629,7 @@ def compare(
             ("Maximum pending fluid-activation chunks", "maximumPendingFluidActivationChunks"),
             ("Gravity blocks started falling", "totalFallingBlocksStarted"),
             ("Unsupported blocks removed", "totalUnsupportedBlocksRemoved"),
+            ("Gravity wakeups with air below before processing", "gravityWakeupsWithAirBelowBeforeProcessing"),
         ]
         route_metrics = []
         for label, field in streaming_route_definitions:
@@ -604,6 +648,42 @@ def compare(
         baseline_physics = _streaming_physics_signature(baseline_first)
         candidate_physics = _streaming_physics_signature(candidate_first)
         streaming_route_result = {
+            "gravityWakeupDiagnostics": {
+                "baselineWakeupsWithAirBelow": baseline_physics[4],
+                "candidateWakeupsWithAirBelow": candidate_physics[4],
+                "baselineSamples": [
+                    {
+                        "block": item[0],
+                        "position": [item[1], item[2], item[3]],
+                        "sourceChunk": [item[4], item[5], item[6]],
+                        "wakeupFrame": item[7],
+                        "sourceChunkActivatedFrame": item[8],
+                        "framesSinceSourceChunkActivation": item[9],
+                        "belowChunk": [item[10], item[11], item[12]],
+                        "belowChunkActivatedFrame": item[13],
+                        "framesSinceBelowChunkActivation": item[14],
+                        "queueDepth": item[15],
+                        "belowBlock": item[16],
+                    }
+                    for item in baseline_physics[5]
+                ],
+                "candidateSamples": [
+                    {
+                        "block": item[0],
+                        "position": [item[1], item[2], item[3]],
+                        "sourceChunk": [item[4], item[5], item[6]],
+                        "wakeupFrame": item[7],
+                        "sourceChunkActivatedFrame": item[8],
+                        "framesSinceSourceChunkActivation": item[9],
+                        "belowChunk": [item[10], item[11], item[12]],
+                        "belowChunkActivatedFrame": item[13],
+                        "framesSinceBelowChunkActivation": item[14],
+                        "queueDepth": item[15],
+                        "belowBlock": item[16],
+                    }
+                    for item in candidate_physics[5]
+                ],
+            },
             "physicsDifferences": {
                 "baselineFallingBlocksStarted": baseline_physics[0],
                 "candidateFallingBlocksStarted": candidate_physics[0],
@@ -772,6 +852,18 @@ def render_report(result: dict[str, Any]) -> str:
         ])
         differences = streaming_route["routeContentDifferences"]
         physics = streaming_route["physicsDifferences"]
+        wakeups = streaming_route["gravityWakeupDiagnostics"]
+        if wakeups["baselineWakeupsWithAirBelow"] != wakeups["candidateWakeupsWithAirBelow"]:
+            lines.append(
+                f"- Gravity wakeups with air below before processing: baseline "
+                f"{wakeups['baselineWakeupsWithAirBelow']}; candidate "
+                f"{wakeups['candidateWakeupsWithAirBelow']}"
+            )
+        if wakeups["baselineSamples"] or wakeups["candidateSamples"]:
+            lines.extend([
+                f"- Baseline pre-wakeup gravity samples: {wakeups['baselineSamples']}",
+                f"- Candidate pre-wakeup gravity samples: {wakeups['candidateSamples']}",
+            ])
         if physics["baselineFallingBlocksStarted"] != physics["candidateFallingBlocksStarted"] or physics["baselineUnsupportedBlocksRemoved"] != physics["candidateUnsupportedBlocksRemoved"]:
             lines.extend([
                 f"- Gravity blocks started falling: baseline {physics['baselineFallingBlocksStarted']}; candidate {physics['candidateFallingBlocksStarted']}",
