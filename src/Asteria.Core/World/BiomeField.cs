@@ -403,21 +403,8 @@ public sealed class BiomeField
         }
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        public BiomeSample Sample(int x, int z)
-        {
-            if (_samples is not { } samples)
-                return _field.SampleCached(
-                    x, z, _assignments, _formationSeeds, _contourPhases);
-
-            var coordinate = (X: x, Z: z);
-            if (samples.TryGetValue(coordinate, out var cached))
-                return cached;
-
-            var sample = _field.SampleCached(
-                x, z, _assignments, _formationSeeds, _contourPhases);
-            Prime(x, z, sample);
-            return sample;
-        }
+        public BiomeSample Sample(int x, int z) =>
+            _field.SampleCached(x, z, _assignments);
 
         /// <summary>
         /// Seeds a query-local sample cache with immutable samples that were
@@ -426,23 +413,6 @@ public sealed class BiomeField
         internal void Prime(int x, int z, BiomeSample sample)
         {
             ArgumentNullException.ThrowIfNull(sample);
-            if (_samples is not { } samples)
-                return;
-
-            var coordinate = (X: x, Z: z);
-            if (samples.ContainsKey(coordinate))
-                return;
-
-            var sampleOrder = _sampleOrder ??
-                throw new InvalidOperationException(
-                    "Biome sample cache has no eviction order.");
-            if (samples.Count == sampleOrder.Length)
-                samples.Remove(sampleOrder[_nextSampleOrderIndex]);
-
-            samples.Add(coordinate, sample);
-            sampleOrder[_nextSampleOrderIndex] = coordinate;
-            _nextSampleOrderIndex =
-                (_nextSampleOrderIndex + 1) % sampleOrder.Length;
         }
     }
 
