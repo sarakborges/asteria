@@ -1347,56 +1347,86 @@ public sealed class SurfaceChunkMaterializer
     private void ValidateGravitySupportBeforePublication(
         MaterializationJob job)
     {
-        List<string>? unsupported = null;
-        var gravityCells = 0;
+        var visitedBlockCells = 0;
+        var visitedGravityCells = 0;
+        var directlyReadBlockCells = 0;
+        var directlyReadGravityCells = 0;
         var gravitySetMisses = 0;
+        List<string>? discrepancies = null;
+        List<string>? unsupported = null;
 
+        // Compare sparse palette enumeration with authoritative indexed reads.
+        // This is deliberately a full-volume verification: it detects a stale
+        // occupancy bitmap that could hide a generated gravity voxel from the
+        // GravitySupport pass but expose it after later palette mutations.
         job.Chunk.VisitBlockCells((x, y, z, cell) =>
         {
+            visitedBlockCells++;
             var definition = _blocks.GetDefinition(cell.Block);
             if (!definition.HasTag(BlockPhysicsCapabilities.Gravity))
                 return;
 
-            gravityCells++;
+            visitedGravityCells++;
             if (!_gravityBlocks.Contains(cell.Block))
                 gravitySetMisses++;
+        });
 
-            bool supported;
-            if (y > 0)
-            {
-                supported = !job.Chunk.GetCell(x, y - 1, z).IsEmpty;
-            }
-            else if (job.OriginY == 0)
-            {
-                supported = true;
-            }
-            else
-            {
-                var supportFace = job.SupportChunkTopOccupancy;
-                supported = supportFace is not null &&
-                    supportFace[x + Chunk.Size * z];
-            }
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var cell = job.Chunk.GetCell(x, y, z);
+            if (cell.IsEmpty)
+                continue;
 
-            if (supported && _gravityBlocks.Contains(cell.Block))
-                return;
+            directlyReadBlockCells++;
+            var definition = _blocks.GetDefinition(cell.Block);
+            if (!definition.HasTag(BlockPhysicsCapabilities.Gravity))
+                continue;
+
+            directlyReadGravityCells++;
+            var recognizedBySet = _gravityBlocks.Contains(cell.Block);
+            var supported = y > 0
+                ? !job.Chunk.GetCell(x, y - 1, z).IsEmpty
+                : job.OriginY == 0 ||
+                  (job.SupportChunkTopOccupancy is { } supportFace &&
+                   supportFace[x + Chunk.Size * z]);
+
+            if (recognizedBySet && supported)
+                continue;
 
             unsupported ??= new List<string>(8);
             if (unsupported.Count < 16)
             {
+                var below = y > 0
+                    ? _blocks.GetDefinition(job.Chunk.GetBlock(x, y - 1, z)).Id
+                    : "chunk-seam";
                 unsupported.Add(
                     $"{definition.Id}@{job.OriginX + x},{job.OriginY + y},{job.OriginZ + z}" +
-                    $"(local={x},{y},{z},set={_gravityBlocks.Contains(cell.Block)}," +
-                    $"below={(y > 0 ? _blocks.GetDefinition(job.Chunk.GetBlock(x, y - 1, z)).Id : "chunk-seam")})");
+                    $"(local={x},{y},{z},set={recognizedBySet},below={below})");
             }
-        });
+        }
 
-        if (unsupported is { Count: > 0 })
+        if (visitedBlockCells != directlyReadBlockCells ||
+            visitedGravityCells != directlyReadGravityCells)
+        {
+            discrepancies = new List<string>(1)
+            {
+                $"sparseVisit={visitedBlockCells}/{visitedGravityCells} " +
+                $"directRead={directlyReadBlockCells}/{directlyReadGravityCells}"
+            };
+        }
+
+        if (unsupported is { Count: > 0 } ||
+            discrepancies is { Count: > 0 } ||
+            gravitySetMisses != 0)
         {
             throw new InvalidOperationException(
-                $"Generated chunk {job.Coord} contains gravity blocks without stable support " +
-                $"after materialization ({unsupported.Count} sampled, gravityCells={gravityCells}, " +
+                $"Generated chunk {job.Coord} failed the final gravity/occupancy invariant " +
+                $"(gravityCells={directlyReadGravityCells}, visitedGravityCells={visitedGravityCells}, " +
                 $"gravitySetMisses={gravitySetMisses}, gravityPositions={job.GravityPositions?.Count ?? -1}): " +
-                string.Join("; ", unsupported));
+                string.Join("; ", discrepancies ?? []) +
+                string.Join("; ", unsupported ?? []));
         }
     }
 
