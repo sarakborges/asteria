@@ -33,8 +33,8 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
         "totalElapsedMilliseconds": 1000.0,
         "totalWorkerMilliseconds": 600.0,
         "averageWorkerMillisecondsPerProviderActivation": 8.0,
-        "activationQueueWaitP95Milliseconds": 3.0,
-        "workerQueueWaitP95Milliseconds": 1.0,
+        "selectionResultLatencyMedianFrames": 2.0,
+        "selectionResultLatencyP95Frames": 4.0,
         "frameCount": 90,
         "framesWithPlayerLocalGaps": 20,
         "maximumPlayerLocalMissingChunks": 60,
@@ -196,6 +196,13 @@ class CompareWorldgenAbTests(unittest.TestCase):
         self.assertEqual(1100.0, elapsed["baselineMedian"])
         self.assertEqual(900.0, elapsed["candidateMedian"])
         self.assertAlmostEqual(18.1818, elapsed["reductionPercent"], places=3)
+
+        selection_latency = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Selection result latency p95 (frames)"
+        )
+        self.assertEqual(4.0, selection_latency["baselineMedian"])
+        self.assertEqual(4.0, selection_latency["candidateMedian"])
 
         report = render_report(result)
         self.assertIn("Headless moving-route A/B", report)
