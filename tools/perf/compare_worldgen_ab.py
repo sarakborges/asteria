@@ -394,24 +394,31 @@ def compare(
         raise ValueError(
             "Baseline and candidate must both include the streaming route profile."
         )
-    if baseline_route_identity[:5] != candidate_route_identity[:5]:
-        raise ValueError("Baseline and candidate streaming route geometry does not match.")
 
-    baseline_route_chunks = _streaming_route_chunks(baseline_first) or {}
-    candidate_route_chunks = _streaming_route_chunks(candidate_first) or {}
-    shared_route_coords = set(baseline_route_chunks) & set(candidate_route_chunks)
-    changed_route_coords = sorted(
-        coord for coord in shared_route_coords
-        if baseline_route_chunks[coord] != candidate_route_chunks[coord]
-    )
-    baseline_only_route_coords = sorted(set(baseline_route_chunks) - set(candidate_route_chunks))
-    candidate_only_route_coords = sorted(set(candidate_route_chunks) - set(baseline_route_chunks))
-    route_digests_match = (
-        baseline_route_identity[5:] == candidate_route_identity[5:]
-        and not changed_route_coords
-        and not baseline_only_route_coords
-        and not candidate_only_route_coords
-    )
+    streaming_route_result = None
+    if baseline_route_identity is not None:
+        if baseline_route_identity[:5] != candidate_route_identity[:5]:
+            raise ValueError("Baseline and candidate streaming route geometry does not match.")
+
+        baseline_route_chunks = _streaming_route_chunks(baseline_first) or {}
+        candidate_route_chunks = _streaming_route_chunks(candidate_first) or {}
+        shared_route_coords = set(baseline_route_chunks) & set(candidate_route_chunks)
+        changed_route_coords = sorted(
+            coord for coord in shared_route_coords
+            if baseline_route_chunks[coord] != candidate_route_chunks[coord]
+        )
+        baseline_only_route_coords = sorted(
+            set(baseline_route_chunks) - set(candidate_route_chunks)
+        )
+        candidate_only_route_coords = sorted(
+            set(candidate_route_chunks) - set(baseline_route_chunks)
+        )
+        route_digests_match = (
+            baseline_route_identity[5:] == candidate_route_identity[5:]
+            and not changed_route_coords
+            and not baseline_only_route_coords
+            and not candidate_only_route_coords
+        )
 
     definitions = [
         (
@@ -499,7 +506,6 @@ def compare(
         ),
     }
 
-    streaming_route_result = None
     if baseline_route_identity is not None:
         streaming_route_definitions = [
             ("Wall-clock route completion (ms)", "totalElapsedMilliseconds"),
