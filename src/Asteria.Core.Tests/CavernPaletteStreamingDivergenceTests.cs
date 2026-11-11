@@ -25,7 +25,7 @@ public sealed class CavernPaletteStreamingDivergenceTests
     ];
 
     [Fact]
-    public void StreamingBenchmarkSeedReproducesAllTwelveCavernPaletteTransitionsOnNeighborArrival()
+    public void StreamingBenchmarkSeedRestoresGeologicGravelWhenNeighborArrivalRemovesDirectionalExposure()
     {
         var dataRoot = Path.Combine(
             AppContext.BaseDirectory, "packs", "default", "data");
@@ -212,12 +212,12 @@ public sealed class CavernPaletteStreamingDivergenceTests
                     : 1;
         }
 
-        Assert.True(
-            paletteApplications > 0,
-            "No cavern wall palette applications were observed.");
-        Assert.True(
-            geologicRestorations > 0,
-            "Expected at least one voxel to retain its geologic gravel without a directional palette application.");
+        Assert.Equal(
+            0,
+            paletteApplications);
+        Assert.Equal(
+            DivergentVoxels.Length,
+            geologicRestorations);
 
         Assert.Equal(5, transitions["asteria:stone"]);
         Assert.Equal(7, transitions["asteria:cobble_stone"]);
