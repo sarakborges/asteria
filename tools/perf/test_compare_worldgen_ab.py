@@ -30,8 +30,8 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
         "uniqueActivatedChunkCount": 2,
         "routeDigest": 987654321,
         "activatedChunkDigests": [
-            {"x": 1, "y": 2, "z": 3, "digest": 111},
-            {"x": 2, "y": 2, "z": 3, "digest": 222},
+            {"x": 1, "y": 2, "z": 3, "digest": 111, "blockDigest": 11, "fluidDigest": 12, "objectDigest": 13},
+            {"x": 2, "y": 2, "z": 3, "digest": 222, "blockDigest": 22, "fluidDigest": 23, "objectDigest": 24},
         ],
         "generatedChunkDigestsMatchOnReactivation": True,
         "totalElapsedMilliseconds": 1000.0,
@@ -228,8 +228,8 @@ class CompareWorldgenAbTests(unittest.TestCase):
             sample_run(streaming_route={
                 "routeDigest": 987654322,
                 "activatedChunkDigests": [
-                    {"x": 1, "y": 2, "z": 3, "digest": 111},
-                    {"x": 3, "y": 2, "z": 3, "digest": 333},
+                    {"x": 1, "y": 2, "z": 3, "digest": 111, "blockDigest": 11, "fluidDigest": 12, "objectDigest": 13},
+                    {"x": 3, "y": 2, "z": 3, "digest": 333, "blockDigest": 33, "fluidDigest": 34, "objectDigest": 35},
                 ],
             })
             for _ in range(3)
@@ -241,6 +241,9 @@ class CompareWorldgenAbTests(unittest.TestCase):
 
         self.assertFalse(route["digestsMatch"])
         self.assertEqual(0, differences["changedContentChunkCount"])
+        self.assertEqual(0, differences["changedBlockContentChunkCount"])
+        self.assertEqual(0, differences["changedFluidContentChunkCount"])
+        self.assertEqual(0, differences["changedObjectContentChunkCount"])
         self.assertEqual(1, differences["baselineOnlyChunkCount"])
         self.assertEqual(1, differences["candidateOnlyChunkCount"])
         self.assertEqual([[2, 2, 3]], differences["baselineOnlySamples"])
@@ -258,8 +261,8 @@ class CompareWorldgenAbTests(unittest.TestCase):
             sample_run(streaming_route={
                 "routeDigest": 987654322,
                 "activatedChunkDigests": [
-                    {"x": 1, "y": 2, "z": 3, "digest": 111},
-                    {"x": 2, "y": 2, "z": 3, "digest": 333},
+                    {"x": 1, "y": 2, "z": 3, "digest": 111, "blockDigest": 11, "fluidDigest": 12, "objectDigest": 13},
+                    {"x": 2, "y": 2, "z": 3, "digest": 333, "blockDigest": 22, "fluidDigest": 333, "objectDigest": 24},
                 ],
             })
         ] * 3
@@ -269,7 +272,10 @@ class CompareWorldgenAbTests(unittest.TestCase):
 
         self.assertFalse(route["digestsMatch"])
         self.assertEqual(1, route["routeContentDifferences"]["changedContentChunkCount"])
-        self.assertEqual([[2, 2, 3]], route["routeContentDifferences"]["changedContentSamples"])
+        self.assertEqual(0, route["routeContentDifferences"]["changedBlockContentChunkCount"])
+        self.assertEqual(1, route["routeContentDifferences"]["changedFluidContentChunkCount"])
+        self.assertEqual(0, route["routeContentDifferences"]["changedObjectContentChunkCount"])
+        self.assertEqual([[2, 2, 3]], route["routeContentDifferences"]["changedFluidContentSamples"])
         elapsed = next(
             metric for metric in route["metrics"]
             if metric["metric"] == "Wall-clock route completion (ms)"
@@ -290,8 +296,8 @@ class CompareWorldgenAbTests(unittest.TestCase):
                 (root / f"{index}.json").write_text(
                     json.dumps(sample_run(streaming_route={
                         "activatedChunkDigests": [
-                            {"x": 1, "y": 2, "z": 3, "digest": digest},
-                            {"x": 2, "y": 2, "z": 3, "digest": 222},
+                            {"x": 1, "y": 2, "z": 3, "digest": digest, "blockDigest": digest, "fluidDigest": 12, "objectDigest": 13},
+                            {"x": 2, "y": 2, "z": 3, "digest": 222, "blockDigest": 22, "fluidDigest": 23, "objectDigest": 24},
                         ],
                     })),
                     encoding="utf-8",
