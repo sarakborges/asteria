@@ -188,6 +188,9 @@ class CompareWorldgenAbTests(unittest.TestCase):
                 "totalWorkerMilliseconds": worker,
                 "framesWithPlayerLocalGaps": gaps,
                 "maximumPendingChunks": pending,
+                "totalFluidActivationMilliseconds": value / 10.0,
+                "maximumFluidActivationSliceMilliseconds": value / 100.0,
+                "totalFluidFrontierCellsActivated": int(value),
             })
             for value, worker, gaps, pending in zip(
                 (800.0, 900.0, 1000.0),
