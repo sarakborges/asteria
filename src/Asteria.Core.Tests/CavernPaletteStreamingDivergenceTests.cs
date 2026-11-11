@@ -113,6 +113,9 @@ public sealed class CavernPaletteStreamingDivergenceTests
             Assert.Equal(gravel, currentBlock);
             Assert.Contains(position, changedPositions);
 
+            var linearIndex = local.X +
+                Chunk.Size * (local.Z + Chunk.Size * local.Y);
+            var faceData = chunk.DirectionalFaceDataAtLinearIndex(linearIndex);
             var decision = FindAppliedPaletteDecision(
                 generator,
                 blocks,
@@ -121,6 +124,7 @@ public sealed class CavernPaletteStreamingDivergenceTests
                 sourceColumn,
                 density,
                 position,
+                faceData,
                 dimension.Shell);
             var description = decision is null
                 ? $"voxel={position.X},{position.Y},{position.Z}; baseline={baselineBlock}; current=asteria:gravel; no eligible directional palette decision"
@@ -155,8 +159,12 @@ public sealed class CavernPaletteStreamingDivergenceTests
         SurfaceTerrainColumn sourceColumn,
         TerrainDensityVolume density,
         WorldVoxelCoord position,
+        DirectionalFaceVoxelData data,
         DimensionShellDefinition? shell)
     {
+        if (!data.IsTerrainVoxel || !data.HasCandidates)
+            return null;
+
         var (_, sourceLocal) = VoxelCoordinates.FromWorld(
             position.X, position.Y, position.Z);
         var baseY = sourceColumn.BaseHeightAt(
@@ -173,35 +181,122 @@ public sealed class CavernPaletteStreamingDivergenceTests
             : new BiomeRegionOwner(volumeBiome, BiomeRegionOwnerKind.Volume);
         var solidPalette = materials.DirectionalPaletteFor(solidOwner);
 
-        // This is the production ReapplyDirectionalFacePaletteAt tie order.
-        // The outer distance loop reproduces nearest-face selection; the
-        // inner order preserves Up, -X, +X, -Z, +Z, Down precedence.
-        (int Dx, int Dy, int Dz, BiomePaletteFace Face)[] directions =
-        [
-            (0, 1, 0, BiomePaletteFace.Floor),
-            (-1, 0, 0, BiomePaletteFace.Walls),
-            (1, 0, 0, BiomePaletteFace.Walls),
-            (0, 0, -1, BiomePaletteFace.Walls),
-            (0, 0, 1, BiomePaletteFace.Walls),
-            (0, -1, 0, BiomePaletteFace.Ceiling),
-        ];
+        var maximumDepth = checked((int)materials.MaximumDirectionalPaintDepth);
+        if (maximumDepth == 0)
+            return null;
+        var up = data.Up;
+        var negativeX = data.NegativeX;
+        var positiveX = data.PositiveX;
+        var negativeZ = data.NegativeZ;
+        var positiveZ = data.PositiveZ;
+        var down = data.Down;
+        var depthMask = maximumDepth == 64
+            ? ulong.MaxValue
+            : (1UL << maximumDepth) - 1UL;
 
-        for (var distance = 1;
-             distance <= checked((int)materials.MaximumDirectionalPaintDepth);
-             distance++)
-        foreach (var direction in directions)
+        static int FirstCandidateDistance(ulong candidates, ulong validDepthMask)
         {
-            var neighborX = checked(position.X + direction.Dx * distance);
-            var neighborY = checked(position.Y + direction.Dy * distance);
-            var neighborZ = checked(position.Z + direction.Dz * distance);
-            if (neighborY < 0 ||
-                generator.DensityAt(neighborX, neighborY, neighborZ) >= 0d)
+            candidates &= validDepthMask;
+            return candidates == 0
+                ? int.MaxValue
+                : System.Numerics.BitOperations.TrailingZeroCount(candidates) + 1;
+        }
+
+        while (true)
+        {
+            var nearestDistance = int.MaxValue;
+            var direction = -1;
+
+            // Match the production strict-comparison tie order:
+            // Up, -X, +X, -Z, +Z, Down.
+            var candidateDistance = FirstCandidateDistance(up, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 0;
+            }
+            candidateDistance = FirstCandidateDistance(negativeX, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 1;
+            }
+            candidateDistance = FirstCandidateDistance(positiveX, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 2;
+            }
+            candidateDistance = FirstCandidateDistance(negativeZ, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 3;
+            }
+            candidateDistance = FirstCandidateDistance(positiveZ, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 4;
+            }
+            candidateDistance = FirstCandidateDistance(down, depthMask);
+            if (candidateDistance < nearestDistance)
+            {
+                nearestDistance = candidateDistance;
+                direction = 5;
+            }
+
+            if (direction < 0)
+                return null;
+
+            var distance = nearestDistance;
+            var candidateBit = 1UL << (distance - 1);
+            switch (direction)
+            {
+                case 0: up &= ~candidateBit; break;
+                case 1: negativeX &= ~candidateBit; break;
+                case 2: positiveX &= ~candidateBit; break;
+                case 3: negativeZ &= ~candidateBit; break;
+                case 4: positiveZ &= ~candidateBit; break;
+                case 5: down &= ~candidateBit; break;
+                default: throw new ArgumentOutOfRangeException(nameof(direction));
+            }
+
+            var dx = direction switch
+            {
+                1 => -distance,
+                2 => distance,
+                _ => 0,
+            };
+            var dy = direction switch
+            {
+                0 => distance,
+                5 => -distance,
+                _ => 0,
+            };
+            var dz = direction switch
+            {
+                3 => -distance,
+                4 => distance,
+                _ => 0,
+            };
+            var neighborX = checked(position.X + dx);
+            var neighborY = checked(position.Y + dy);
+            var neighborZ = checked(position.Z + dz);
+            if (neighborY < 0)
                 continue;
 
-            var (_, neighborLocal) = VoxelCoordinates.FromWorld(
-                neighborX, neighborY, neighborZ);
+            var face = direction switch
+            {
+                0 => BiomePaletteFace.Floor,
+                1 or 2 or 3 or 4 => BiomePaletteFace.Walls,
+                5 => BiomePaletteFace.Ceiling,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction)),
+            };
             var neighborChunk = VoxelCoordinates.FromWorld(
                 neighborX, 0, neighborZ).Chunk;
+            var (_, neighborLocal) = VoxelCoordinates.FromWorld(
+                neighborX, neighborY, neighborZ);
             var targetColumn = columns.Get(
                 neighborChunk.X, neighborChunk.Z);
             var emptyBiome = targetColumn.CaveBiomeAt(
@@ -218,14 +313,14 @@ public sealed class CavernPaletteStreamingDivergenceTests
             var shellBoundary = IsSphereShellBoundaryOrLining(
                 neighborY, shell);
             var emptyCanOwn =
-                emptyPalette.Has(direction.Face) &&
+                emptyPalette.Has(face) &&
                 emptyBiome is not null &&
                 neighborY > 0 &&
                 (long)neighborY <= (long)targetBaseY - surfaceFluidCutDepth;
             if (emptyCanOwn)
                 emptyCanOwn = !shellBoundary;
 
-            if (!solidPalette.Has(direction.Face) && !emptyCanOwn)
+            if (!solidPalette.Has(face) && !emptyCanOwn)
                 continue;
 
             var owner = solidOwner;
@@ -249,7 +344,7 @@ public sealed class CavernPaletteStreamingDivergenceTests
             }
 
             var depth = checked((uint)distance - 1u);
-            if (!palette.Has(direction.Face) || depth >= palette.MaxDepth)
+            if (!palette.Has(face) || depth >= palette.MaxDepth)
                 continue;
 
             var replacement = materials.VolumeBlockAt(
@@ -257,19 +352,17 @@ public sealed class CavernPaletteStreamingDivergenceTests
                 position.X,
                 position.Y,
                 position.Z,
-                direction.Face,
+                face,
                 depth);
             return new PaletteDecision(
                 owner.Biome.Primary,
                 owner.Kind,
-                direction.Face,
+                face,
                 depth,
                 new WorldVoxelCoord(neighborX, neighborY, neighborZ),
                 generator.IsCaveVoidAt(neighborX, neighborY, neighborZ),
                 blocks.GetDefinition(replacement).Id);
         }
-
-        return null;
     }
 
     private static bool IsSphereShellBoundaryOrLining(
