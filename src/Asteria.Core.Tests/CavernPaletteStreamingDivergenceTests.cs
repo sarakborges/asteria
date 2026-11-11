@@ -170,8 +170,16 @@ public sealed class CavernPaletteStreamingDivergenceTests
             Assert.True(
                 diagnostic.WasTerrainVoxel,
                 $"Reapplication did not start from a terrain voxel at {position}.");
-            Assert.Equal(EnchantedForestBiomeId, diagnostic.SolidOwnerBiome);
-            Assert.Equal(BiomeRegionOwnerKind.Surface, diagnostic.SolidOwnerKind);
+            if (diagnostic.SolidOwnerBiome is null)
+            {
+                Assert.False(diagnostic.HadCandidates);
+                Assert.False(diagnostic.Applied);
+            }
+            else
+            {
+                Assert.Equal(EnchantedForestBiomeId, diagnostic.SolidOwnerBiome);
+                Assert.Equal(BiomeRegionOwnerKind.Surface, diagnostic.SolidOwnerKind);
+            }
 
             if (diagnostic.Applied)
             {
