@@ -55,9 +55,11 @@ must reproduce the same content.
 The A/B workflow builds this same route-harness source against each revision's
 own `Asteria.Core` and executes four alternating processes per revision. It
 rejects different route geometry or nondeterministic chunk content within a
-revision. Across revisions it compares per-coordinate chunk digests: identical
-content permits timing percentage deltas, while different content is reported
-with changed/missing coordinate samples and all timing percentages are withheld.
+revision. Per-chunk digests cover block IDs, fluid IDs/levels/source state and
+attached Objects (ID, face, rotation and transform). Across revisions it
+compares per-coordinate chunk digests: identical content permits timing
+percentage deltas, while different content is reported with changed/missing
+coordinate samples and all timing percentages are withheld.
 The static 67-chunk fixture remains independently digest-gated. Admission
 pressure is normalized across revisions and uses only physics wakeups, which
 the route processes. Lighting and terrain-mesh queues are recorded but their
