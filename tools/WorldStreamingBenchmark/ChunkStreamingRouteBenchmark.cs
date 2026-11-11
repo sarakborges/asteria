@@ -334,6 +334,11 @@ internal static class ChunkStreamingRouteBenchmark
                             belowActivatedFrame is { } belowActivated
                                 ? frame - belowActivated
                                 : (int?)null,
+                        FramesSinceBothChunksResident =
+                            activatedFrame is { } sourceAt &&
+                            belowActivatedFrame is { } supportAt
+                                ? frame - Math.Max(sourceAt, supportAt)
+                                : (int?)null,
                         QueueDepth = physicsUpdates.Count,
                         BelowBlock = "asteria:air",
                     });
@@ -401,6 +406,12 @@ internal static class ChunkStreamingRouteBenchmark
                         FramesSinceBelowChunkActivation =
                             hasWakeup && wakeup.BelowActivatedFrame is { } belowActivatedAt
                                 ? wakeup.Frame - belowActivatedAt
+                                : (int?)null,
+                        FramesSinceBothChunksResident =
+                            hasWakeup &&
+                            wakeup.ActivatedFrame is { } sourceAt &&
+                            wakeup.BelowActivatedFrame is { } supportAt
+                                ? wakeup.Frame - Math.Max(sourceAt, supportAt)
                                 : (int?)null,
                         QueueDepthAtWakeup = hasWakeup ? wakeup.QueueDepth : (int?)null,
                         BelowBlockAtWakeup = hasWakeup ? "asteria:air" : "not-captured",
