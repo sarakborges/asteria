@@ -54,6 +54,8 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
         "totalUnsupportedBlocksRemoved": 0,
         "observedFallingEntityCount": 0,
         "fallingBlockSamples": [],
+        "gravityWakeupsWithAirBelowBeforeProcessing": 0,
+        "gravityWakeupSamples": [],
     }
     if streaming_route:
         route.update(streaming_route)
@@ -188,6 +190,20 @@ class CompareWorldgenAbTests(unittest.TestCase):
                 "totalFallingBlocksStarted": 10,
                 "observedFallingEntityCount": 10,
                 "fallingBlockSamples": [falling_sample],
+                "gravityWakeupsWithAirBelowBeforeProcessing": 1,
+                "gravityWakeupSamples": [{
+                    "block": "asteria:gravel",
+                    "x": 69, "y": 42, "z": 3,
+                    "sourceChunkX": 4, "sourceChunkY": 2, "sourceChunkZ": 0,
+                    "wakeupFrame": 48,
+                    "sourceChunkActivatedFrame": 16,
+                    "framesSinceSourceChunkActivation": 32,
+                    "belowChunkX": 4, "belowChunkY": 2, "belowChunkZ": 0,
+                    "belowChunkActivatedFrame": 16,
+                    "framesSinceBelowChunkActivation": 32,
+                    "queueDepth": 4,
+                    "belowBlock": "asteria:air",
+                }],
             })
             for _ in range(3)
         ]
@@ -200,6 +216,11 @@ class CompareWorldgenAbTests(unittest.TestCase):
         self.assertEqual(10, physics["candidateFallingBlocksStarted"])
         self.assertEqual([], physics["baselineFallingBlockSamples"])
         self.assertEqual("asteria:gravel", physics["candidateFallingBlockSamples"][0]["block"])
+        wakeups = route["gravityWakeupDiagnostics"]
+        self.assertEqual(0, wakeups["baselineWakeupsWithAirBelow"])
+        self.assertEqual(1, wakeups["candidateWakeupsWithAirBelow"])
+        self.assertEqual(32, wakeups["candidateSamples"][0]["framesSinceSourceChunkActivation"])
+        self.assertEqual(32, wakeups["candidateSamples"][0]["framesSinceBelowChunkActivation"])
         self.assertEqual([4, 2, 0], physics["candidateFallingBlockSamples"][0]["chunk"])
 
         report = render_report(result)
@@ -208,6 +229,9 @@ class CompareWorldgenAbTests(unittest.TestCase):
             report,
         )
         self.assertIn("asteria:gravel", report)
+        self.assertIn("Gravity wakeups with air below before processing: baseline 0; candidate 1", report)
+        self.assertIn("'framesSinceSourceChunkActivation': 32", report)
+        self.assertIn("'framesSinceBelowChunkActivation': 32", report)
         self.assertIn("'x': 69, 'y': 42, 'z': 3", report)
 
     def test_rejects_nondeterministic_falling_block_samples_between_route_runs(self) -> None:
@@ -234,6 +258,33 @@ class CompareWorldgenAbTests(unittest.TestCase):
                     })),
                     encoding="utf-8",
                 )
+            with self.assertRaisesRegex(ValueError, "falling-block physics outcomes"):
+                load_repetitions(root, 3)
+
+    def test_rejects_nondeterministic_pre_wakeup_gravity_samples_between_route_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, wakeup_frame in enumerate((48, 48, 49), start=1):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(streaming_route={
+                        "gravityWakeupsWithAirBelowBeforeProcessing": 1,
+                        "gravityWakeupSamples": [{
+                            "block": "asteria:gravel",
+                            "x": 69, "y": 42, "z": 3,
+                            "sourceChunkX": 4, "sourceChunkY": 2, "sourceChunkZ": 0,
+                            "wakeupFrame": wakeup_frame,
+                            "sourceChunkActivatedFrame": 16,
+                            "framesSinceSourceChunkActivation": wakeup_frame - 16,
+                            "belowChunkX": 4, "belowChunkY": 2, "belowChunkZ": 0,
+                            "belowChunkActivatedFrame": 16,
+                            "framesSinceBelowChunkActivation": wakeup_frame - 16,
+                            "queueDepth": 4,
+                            "belowBlock": "asteria:air",
+                        }],
+                    })),
+                    encoding="utf-8",
+                )
+
             with self.assertRaisesRegex(ValueError, "falling-block physics outcomes"):
                 load_repetitions(root, 3)
 
