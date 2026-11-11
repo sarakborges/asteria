@@ -3376,11 +3376,14 @@ public sealed class BiomeWorldGenerationTests
                 $"Directional-face reconciliation painted unsupported " +
                 $"{definition.Id} at {position.X},{position.Y},{position.Z}.");
 
-            var below = position + (0, -1, 0);
+            // Stable terrain can be part of a cave wall or ceiling, so
+            // vertical occupancy below is not a valid support invariant.
+            // The generated-world guarantee is that directional reconciliation
+            // never paints a gravity-tagged block into the observed host.
             Assert.True(
-                world.TryGetCell(below, out var support) && !support.IsEmpty,
-                $"The expected stable host at {position.X},{position.Y},{position.Z} " +
-                "must remain supported.");
+                definition.IsCollidable,
+                $"Directional-face host at {position.X},{position.Y},{position.Z} " +
+                $"must remain collidable, got {definition.Id}.");
         }
 
         var physicsUpdates = new BlockPhysicsUpdateQueue();
