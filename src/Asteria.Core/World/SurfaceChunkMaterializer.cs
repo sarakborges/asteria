@@ -542,9 +542,8 @@ public sealed class SurfaceChunkMaterializer
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
             var index = localX + Chunk.Size * localZ;
-            if (job.SupportFaceFastPath &&
-                !(job.SupportFaceColumns ?? throw new InvalidOperationException(
-                    "Support-face query has no requested-column mask."))[index])
+            if (job.SupportFaceColumns is { } supportColumns &&
+                !supportColumns[index])
                 continue;
 
             var surfaceY = column.HeightAt(localX, localZ);
@@ -624,9 +623,8 @@ public sealed class SurfaceChunkMaterializer
                 for (var localX = 0; localX < Chunk.Size; localX++)
                 {
                     var columnIndex = localX + Chunk.Size * localZ;
-                    if (job.SupportFaceFastPath &&
-                        !(job.SupportFaceColumns ?? throw new InvalidOperationException(
-                            "Support-face query has no requested-column mask."))[columnIndex])
+                    if (job.SupportFaceColumns is { } supportColumns &&
+                        !supportColumns[columnIndex])
                         continue;
 
                     ref var state = ref columnMaterializationCaches[columnIndex];
@@ -1061,16 +1059,25 @@ public sealed class SurfaceChunkMaterializer
             positions = new List<(int X, int Y, int Z)>();
             if (job.SupportOnly)
             {
-                // The parent reads only this chunk's upper face. Inspecting
-                // every voxel and sorting a full-chunk candidate list repeats
-                // work that cannot affect the answer.
-                var supportY = Chunk.Size - 1;
+                // A support-only query must validate the complete gravity
+                // stack in each requested X/Z column. Checking just the top
+                // face can accept a gravity block resting on another gravity
+                // block whose own support is deeper in an unloaded chunk.
+                var supportColumns = job.SupportFaceColumns;
                 for (var z = 0; z < Chunk.Size; z++)
                 for (var x = 0; x < Chunk.Size; x++)
                 {
-                    var cell = job.Chunk.GetCell(x, supportY, z);
-                    if (_gravityBlocks.Contains(cell.Block))
-                        positions.Add((x, supportY, z));
+                    var columnIndex = x + Chunk.Size * z;
+                    if (supportColumns is not null &&
+                        !supportColumns[columnIndex])
+                        continue;
+
+                    for (var y = 0; y < Chunk.Size; y++)
+                    {
+                        var cell = job.Chunk.GetCell(x, y, z);
+                        if (_gravityBlocks.Contains(cell.Block))
+                            positions.Add((x, y, z));
+                    }
                 }
             }
             else
@@ -1080,19 +1087,19 @@ public sealed class SurfaceChunkMaterializer
                     if (_gravityBlocks.Contains(cell.Block))
                         positions.Add((x, y, z));
                 });
-
-                positions.Sort(static (left, right) =>
-                {
-                    var result = left.Y.CompareTo(right.Y);
-                    if (result != 0) return result;
-                    result = left.Z.CompareTo(right.Z);
-                    return result != 0 ? result : left.X.CompareTo(right.X);
-                });
             }
+
+            positions.Sort(static (left, right) =>
+            {
+                var result = left.Y.CompareTo(right.Y);
+                if (result != 0) return result;
+                result = left.Z.CompareTo(right.Z);
+                return result != 0 ? result : left.X.CompareTo(right.X);
+            });
             job.GravityPositions = positions;
 
             // The child dependency must survive across multiple worker slices.
-            if (!job.SupportOnly && job.OriginY > 0 &&
+            if (job.OriginY > 0 &&
                 positions.Any(position => position.Y == 0))
             {
                 var supportColumns = new bool[Chunk.Area];
@@ -1153,7 +1160,8 @@ public sealed class SurfaceChunkMaterializer
                     job.SupportChunkJob = new MaterializationJob(
                         this,
                         new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
-                        supportOnly: true);
+                        supportOnly: true,
+                        supportFaceColumns: fallbackColumns);
                     return;
                 }
 
