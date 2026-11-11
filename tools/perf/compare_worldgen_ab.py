@@ -72,12 +72,37 @@ def _streaming_route_identity(run: dict[str, Any]) -> tuple[Any, ...] | None:
     return identity
 
 
+def _streaming_route_chunks(run: dict[str, Any]) -> dict[tuple[int, int, int], int] | None:
+    route = run.get("streamingRouteDiagnostics")
+    if route is None:
+        return None
+    entries = _at(route, "activatedChunkDigests")
+    if not isinstance(entries, list):
+        raise ValueError("Streaming route activatedChunkDigests must be an array.")
+
+    chunks: dict[tuple[int, int, int], int] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError("Streaming route chunk digest entries must be objects.")
+        coord = (int(_at(entry, "x")), int(_at(entry, "y")), int(_at(entry, "z")))
+        if coord in chunks:
+            raise ValueError(f"Streaming route contains duplicate chunk coordinate {coord}.")
+        chunks[coord] = int(_at(entry, "digest"))
+
+    expected_count = int(_at(route, "uniqueActivatedChunkCount"))
+    if len(chunks) != expected_count:
+        raise ValueError(
+            f"Streaming route reports {expected_count} unique chunks but includes {len(chunks)} chunk digests."
+        )
+    return chunks
+
 def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
     runs = [_load_json(directory / f"{index}.json") for index in range(1, repetitions + 1)]
     identity = None
     expected_digests = None
     expected_stage_names = None
     expected_streaming_identity = None
+    expected_streaming_chunks = None
     expected_streaming_presence = None
 
     for index, run in enumerate(runs, start=1):
@@ -132,10 +157,12 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
         }
 
         streaming_identity = _streaming_route_identity(run)
+        streaming_chunks = _streaming_route_chunks(run)
         streaming_presence = streaming_identity is not None
         if expected_streaming_presence is None:
             expected_streaming_presence = streaming_presence
             expected_streaming_identity = streaming_identity
+            expected_streaming_chunks = streaming_chunks
         elif streaming_presence != expected_streaming_presence:
             raise ValueError(
                 f"{directory} repetitions must all include the same streaming route profile."
@@ -143,6 +170,10 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
         elif streaming_identity != expected_streaming_identity:
             raise ValueError(
                 f"{directory} repetitions do not use the same streaming route or generated chunk digest."
+            )
+        elif streaming_chunks != expected_streaming_chunks:
+            raise ValueError(
+                f"{directory} repetitions generated different per-coordinate streaming chunk digests."
             )
 
         if identity is None:
@@ -363,10 +394,24 @@ def compare(
         raise ValueError(
             "Baseline and candidate must both include the streaming route profile."
         )
-    if baseline_route_identity != candidate_route_identity:
-        raise ValueError(
-            "Baseline and candidate streaming routes produced different activated chunks or content digests."
-        )
+    if baseline_route_identity[:5] != candidate_route_identity[:5]:
+        raise ValueError("Baseline and candidate streaming route geometry does not match.")
+
+    baseline_route_chunks = _streaming_route_chunks(baseline_first) or {}
+    candidate_route_chunks = _streaming_route_chunks(candidate_first) or {}
+    shared_route_coords = set(baseline_route_chunks) & set(candidate_route_chunks)
+    changed_route_coords = sorted(
+        coord for coord in shared_route_coords
+        if baseline_route_chunks[coord] != candidate_route_chunks[coord]
+    )
+    baseline_only_route_coords = sorted(set(baseline_route_chunks) - set(candidate_route_chunks))
+    candidate_only_route_coords = sorted(set(candidate_route_chunks) - set(baseline_route_chunks))
+    route_digests_match = (
+        baseline_route_identity[5:] == candidate_route_identity[5:]
+        and not changed_route_coords
+        and not baseline_only_route_coords
+        and not candidate_only_route_coords
+    )
 
     definitions = [
         (
@@ -473,7 +518,11 @@ def compare(
                 "metric": label,
                 "baselineMedian": before,
                 "candidateMedian": after,
-                "reductionPercent": _reduction_percent(before, after),
+                "reductionPercent": (
+                    _reduction_percent(before, after)
+                    if route_digests_match
+                    else None
+                ),
             })
         streaming_route_result = {
             "routeSteps": baseline_route_identity[0],
@@ -481,9 +530,19 @@ def compare(
             "framesPerChunk": baseline_route_identity[2],
             "horizontalRadius": baseline_route_identity[3],
             "retentionRadius": baseline_route_identity[4],
-            "uniqueActivatedChunkCount": baseline_route_identity[5],
-            "routeDigest": baseline_route_identity[6],
-            "digestsMatch": True,
+            "baselineUniqueActivatedChunkCount": len(baseline_route_chunks),
+            "candidateUniqueActivatedChunkCount": len(candidate_route_chunks),
+            "baselineRouteDigest": baseline_route_identity[6],
+            "candidateRouteDigest": candidate_route_identity[6],
+            "digestsMatch": route_digests_match,
+            "routeContentDifferences": {
+                "changedContentChunkCount": len(changed_route_coords),
+                "baselineOnlyChunkCount": len(baseline_only_route_coords),
+                "candidateOnlyChunkCount": len(candidate_only_route_coords),
+                "changedContentSamples": [list(coord) for coord in changed_route_coords[:12]],
+                "baselineOnlySamples": [list(coord) for coord in baseline_only_route_coords[:12]],
+                "candidateOnlySamples": [list(coord) for coord in candidate_only_route_coords[:12]],
+            },
             "metrics": route_metrics,
             "baselineMaximumActiveWorkers": max(
                 int(_at(run, "streamingRouteDiagnostics", "maximumActiveWorkers"))
@@ -595,19 +654,32 @@ def render_report(result: dict[str, Any]) -> str:
             "",
             "## Headless moving-route A/B",
             "",
-            f"- Route: {streaming_route['routeSteps']} positions, "
-            f"radius {streaming_route['horizontalRadius']} chunks, "
-            f"{streaming_route['uniqueActivatedChunkCount']} unique activated chunks",
-            f"- Route content digest: identical ({streaming_route['routeDigest']})",
+            f"- Route: {streaming_route['routeSteps']} positions, radius {streaming_route['horizontalRadius']} chunks",
+            f"- Unique activated chunks: baseline {streaming_route['baselineUniqueActivatedChunkCount']}; candidate {streaming_route['candidateUniqueActivatedChunkCount']}",
+        ])
+        differences = streaming_route["routeContentDifferences"]
+        if streaming_route["digestsMatch"]:
+            lines.append(f"- Route content digest: identical ({streaming_route['baselineRouteDigest']})")
+        else:
+            lines.extend([
+                "- Route content digest: DIFFERENT. Timing values are descriptive only; percentage deltas are withheld.",
+                f"- Changed content on shared coordinates: {differences['changedContentChunkCount']}",
+                f"- Coordinates only in baseline/candidate: {differences['baselineOnlyChunkCount']}/{differences['candidateOnlyChunkCount']}",
+                f"- Changed-coordinate samples: {differences['changedContentSamples']}",
+                f"- Baseline-only samples: {differences['baselineOnlySamples']}",
+                f"- Candidate-only samples: {differences['candidateOnlySamples']}",
+            ])
+        lines.extend([
             "",
             "| Metric | Baseline median | Candidate median | Reduction |",
             "|---|---:|---:|---:|",
         ])
         for metric in streaming_route["metrics"]:
+            reduction = metric["reductionPercent"]
+            reduction_text = "n/a" if reduction is None else f"{reduction:+.1f}%"
             lines.append(
                 f"| {metric['metric']} | {metric['baselineMedian']:.2f} "
-                f"| {metric['candidateMedian']:.2f} "
-                f"| {metric['reductionPercent']:+.1f}% |"
+                f"| {metric['candidateMedian']:.2f} | {reduction_text} |"
             )
         lines.extend([
             "",
