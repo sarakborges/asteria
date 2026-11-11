@@ -379,8 +379,10 @@ internal static class ChunkStreamingRouteBenchmark
             MaximumWorldWorkers = maximumWorldWorkers,
             FrameCount = frame,
             TotalElapsedMilliseconds = elapsedMilliseconds,
-            SelectionResultLatencyMedianFrames = Median(selectionLatencyFrames),
-            SelectionResultLatencyP95Frames = Percentile95(selectionLatencyFrames),
+            SelectionResultLatencyMedianFrames = Median(
+                selectionLatencyFrames.Select(value => (double)value).ToArray()),
+            SelectionResultLatencyP95Frames = Percentile95(
+                selectionLatencyFrames.Select(value => (double)value).ToArray()),
             StartedMaterializationTasks = totalStartedTasks,
             ProviderActivations = providerActivations,
             ArchivedChunkRestores = archiveRestores,
