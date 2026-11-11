@@ -233,12 +233,46 @@ def _streaming_route_block_diagnostics(
                 raise ValueError(f"Streaming route {name} for chunk {coord} cannot be negative.")
             return parsed
 
+        raw_voxels = entry.get("blockVoxelIndicesById")
+        if raw_voxels is None:
+            voxel_map = ()
+        else:
+            if not isinstance(raw_voxels, dict):
+                raise ValueError(
+                    f"Streaming route blockVoxelIndicesById for chunk {coord} must be an object."
+                )
+            voxel_entries = []
+            seen_indices = set()
+            for block_id, indices in sorted(raw_voxels.items()):
+                if not isinstance(indices, list):
+                    raise ValueError(
+                        f"Streaming route voxel indices for {block_id} in chunk {coord} must be an array."
+                    )
+                parsed_indices = tuple(int(value) for value in indices)
+                if tuple(sorted(parsed_indices)) != parsed_indices:
+                    raise ValueError(
+                        f"Streaming route voxel indices for {block_id} in chunk {coord} must be sorted."
+                    )
+                for voxel_index in parsed_indices:
+                    if voxel_index < 0 or voxel_index >= 4096:
+                        raise ValueError(
+                            f"Streaming route voxel index {voxel_index} for chunk {coord} is outside the chunk."
+                        )
+                    if voxel_index in seen_indices:
+                        raise ValueError(
+                            f"Streaming route chunk {coord} assigns voxel index {voxel_index} to multiple blocks."
+                        )
+                    seen_indices.add(voxel_index)
+                    voxel_entries.append((voxel_index, str(block_id)))
+            voxel_map = tuple(sorted(voxel_entries))
+
         diagnostics[coord] = {
             "blockLayerDigests": digest_array("blockLayerDigests", 16),
             "blockColumnDigests": digest_array("blockColumnDigests", 256),
             "blockCounts": count_map("blockCounts"),
             "gravityBlockCountsByLayer": digest_array("gravityBlockCountsByLayer", 16),
             "gravityBlockCounts": count_map("gravityBlockCounts"),
+            "blockVoxelMap": voxel_map,
         }
     return diagnostics
 
@@ -300,9 +334,44 @@ def _block_change_diagnostics(
             for block in sorted(set(before_gravity) | set(after_gravity))
             if before_gravity.get(block, 0) != after_gravity.get(block, 0)
         ]
+        before_voxels = dict(before.get("blockVoxelMap", ()))
+        after_voxels = dict(after.get("blockVoxelMap", ()))
+        changed_voxel_indices = [
+            index for index in sorted(set(before_voxels) | set(after_voxels))
+            if before_voxels.get(index) != after_voxels.get(index)
+        ]
+        transitions: dict[tuple[str, str], int] = {}
+        voxel_samples = []
+        for index in changed_voxel_indices:
+            before_block = before_voxels.get(index, "air")
+            after_block = after_voxels.get(index, "air")
+            transition = (before_block, after_block)
+            transitions[transition] = transitions.get(transition, 0) + 1
+            if len(voxel_samples) < 48:
+                local_y = index // 256
+                in_layer = index % 256
+                local_z = in_layer // 16
+                local_x = in_layer % 16
+                voxel_samples.append({
+                    "x": local_x,
+                    "y": local_y,
+                    "z": local_z,
+                    "baselineBlock": before_block,
+                    "candidateBlock": after_block,
+                })
+
+        transition_rows = [
+            {
+                "baselineBlock": before_block,
+                "candidateBlock": after_block,
+                "voxelCount": count,
+            }
+            for (before_block, after_block), count in sorted(transitions.items())
+        ]
         if not (
             changed_layers or changed_columns or block_count_changes
             or gravity_layer_changes or gravity_type_changes
+            or changed_voxel_indices
         ):
             continue
 
@@ -318,6 +387,9 @@ def _block_change_diagnostics(
             "gravityBlockTypeCountChanges": gravity_type_changes[:16],
             "baselineGravityBlockCount": sum(before_gravity.values()),
             "candidateGravityBlockCount": sum(after_gravity.values()),
+            "changedVoxelCount": len(changed_voxel_indices),
+            "blockTransitions": transition_rows[:24],
+            "changedVoxelSamples": voxel_samples,
         })
     return result
 
@@ -1034,11 +1106,20 @@ def render_report(result: dict[str, Any]) -> str:
                         for item in detail["blockCountChanges"]
                     ) or "no block-count delta"
                     lines.append(
-                        f"  - {detail['chunk']}: {detail['changedLocalColumnCount']} changed X/Z columns "
-                        f"(samples {columns}); local Y layers {layers}; "
+                        f"  - {detail['chunk']}: {detail['changedVoxelCount']} changed voxels across "
+                        f"{detail['changedLocalColumnCount']} X/Z columns; local Y layers {layers}; "
                         f"gravity blocks {detail['baselineGravityBlockCount']}→"
                         f"{detail['candidateGravityBlockCount']}; {block_changes}"
                     )
+                    for transition in detail["blockTransitions"]:
+                        lines.append(
+                            f"    - {transition['baselineBlock']} → "
+                            f"{transition['candidateBlock']}: {transition['voxelCount']} voxels"
+                        )
+                    if detail["changedVoxelSamples"]:
+                        lines.append(
+                            f"    - Local voxel samples (x,y,z): {detail['changedVoxelSamples'][:16]}"
+                        )
         lines.extend([
             "",
             "| Metric | Baseline median | Candidate median | Reduction |",

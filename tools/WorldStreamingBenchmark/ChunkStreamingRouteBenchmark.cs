@@ -629,6 +629,7 @@ internal static class ChunkStreamingRouteBenchmark
                     BlockCounts = chunkBlockDiagnostics[entry.Key].BlockCounts,
                     GravityBlockCountsByLayer = chunkBlockDiagnostics[entry.Key].GravityBlockCountsByLayer,
                     GravityBlockCounts = chunkBlockDiagnostics[entry.Key].GravityBlockCounts,
+                    BlockVoxelIndicesById = chunkBlockDiagnostics[entry.Key].BlockVoxelIndicesById,
                 })
                 .ToArray(),
             GeneratedChunkDigestsMatchOnReactivation = true,
@@ -718,6 +719,8 @@ internal static class ChunkStreamingRouteBenchmark
         var blockCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var gravityBlockCountsByLayer = new int[Chunk.Size];
         var gravityBlockCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        var blockVoxelIndicesById = new SortedDictionary<string, List<ushort>>(
+            StringComparer.Ordinal);
 
         var blockDigest = FnvOffset;
         blockDigest = HashNumber(blockDigest, unchecked((ulong)coord.X));
@@ -737,6 +740,14 @@ internal static class ChunkStreamingRouteBenchmark
             blockCounts[blockId] = blockCounts.TryGetValue(blockId, out var count)
                 ? count + 1
                 : 1;
+            if (!blockVoxelIndicesById.TryGetValue(blockId, out var voxelIndices))
+            {
+                voxelIndices = [];
+                blockVoxelIndicesById.Add(blockId, voxelIndices);
+            }
+            var voxelIndex = checked((ushort)(
+                x + Chunk.Size * (z + Chunk.Size * y)));
+            voxelIndices.Add(voxelIndex);
 
             var columnIndex = z * Chunk.Size + x;
             blockColumnDigests[columnIndex] = HashNumber(
@@ -756,12 +767,21 @@ internal static class ChunkStreamingRouteBenchmark
             }
         });
 
+        var blockVoxelMap = new SortedDictionary<string, ushort[]>(
+            StringComparer.Ordinal);
+        foreach (var (blockId, voxelIndices) in blockVoxelIndicesById)
+        {
+            voxelIndices.Sort();
+            blockVoxelMap.Add(blockId, voxelIndices.ToArray());
+        }
+
         var blockDiagnostics = new ChunkBlockDiagnostics(
             blockLayerDigests,
             blockColumnDigests,
             blockCounts,
             gravityBlockCountsByLayer,
-            gravityBlockCounts);
+            gravityBlockCounts,
+            blockVoxelMap);
 
         // Keep fluid occupancy and simulation state in its own digest.
         var fluidDigest = FnvOffset;
@@ -866,7 +886,8 @@ internal static class ChunkStreamingRouteBenchmark
         ulong[] BlockColumnDigests,
         SortedDictionary<string, int> BlockCounts,
         int[] GravityBlockCountsByLayer,
-        SortedDictionary<string, int> GravityBlockCounts);
+        SortedDictionary<string, int> GravityBlockCounts,
+        SortedDictionary<string, ushort[]> BlockVoxelIndicesById);
 
     private sealed class RouteStepState(
         int step,

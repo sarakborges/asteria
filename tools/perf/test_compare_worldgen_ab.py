@@ -37,6 +37,7 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
                 "blockCounts": {"asteria:stone": 16},
                 "gravityBlockCountsByLayer": [0] * 16,
                 "gravityBlockCounts": {},
+                "blockVoxelIndicesById": {"asteria:stone": list(range(16))},
             },
             {
                 "x": 2, "y": 2, "z": 3, "digest": 222, "blockDigest": 22, "fluidDigest": 23, "objectDigest": 24,
@@ -45,6 +46,10 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
                 "blockCounts": {"asteria:stone": 32, "asteria:gravel": 2},
                 "gravityBlockCountsByLayer": [0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 "gravityBlockCounts": {"asteria:gravel": 2},
+                "blockVoxelIndicesById": {
+                    "asteria:gravel": [32, 33],
+                    "asteria:stone": list(range(32)),
+                },
             },
         ],
         "generatedChunkDigestsMatchOnReactivation": True,
@@ -424,6 +429,10 @@ class CompareWorldgenAbTests(unittest.TestCase):
             changed["blockCounts"] = {"asteria:stone": 33, "asteria:gravel": 1}
             changed["gravityBlockCountsByLayer"][5] = 1
             changed["gravityBlockCounts"] = {"asteria:gravel": 1}
+            changed["blockVoxelIndicesById"] = {
+                "asteria:gravel": [33],
+                "asteria:stone": list(range(32)),
+            }
 
         result = compare(baseline, candidate, expected_chunks=67)
         route = result["streamingRoute"]
@@ -440,10 +449,28 @@ class CompareWorldgenAbTests(unittest.TestCase):
             [{"block": "asteria:gravel", "baseline": 2, "candidate": 1, "delta": -1}],
             detail["gravityBlockTypeCountChanges"],
         )
+        self.assertEqual(1, detail["changedVoxelCount"])
+        self.assertEqual(
+            [{
+                "baselineBlock": "asteria:gravel",
+                "candidateBlock": "asteria:stone",
+                "voxelCount": 1,
+            }],
+            detail["blockTransitions"],
+        )
+        self.assertEqual(
+            [{
+                "x": 1, "y": 2, "z": 0,
+                "baselineBlock": "asteria:gravel",
+                "candidateBlock": "asteria:stone",
+            }],
+            detail["changedVoxelSamples"],
+        )
         report = render_report(result)
         self.assertIn("Block-level divergence by changed chunk", report)
         self.assertIn("gravity blocks 2→1", report)
         self.assertIn("asteria:gravel 2→1", report)
+        self.assertIn("asteria:gravel → asteria:stone: 1 voxels", report)
 
     def test_compares_static_benchmark_without_streaming_route_profile(self) -> None:
         baseline = [sample_run() for _ in range(3)]
