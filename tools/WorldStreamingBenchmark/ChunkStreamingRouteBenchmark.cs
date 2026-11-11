@@ -99,6 +99,8 @@ internal static class ChunkStreamingRouteBenchmark
         var totalPhysicsWakeupsProcessed = 0L;
         var totalFallingBlocksStarted = 0L;
         var totalUnsupportedBlocksRemoved = 0L;
+        var observedFallingBlockIds = new HashSet<ulong>();
+        var fallingBlockSamples = new List<object>();
         var totalWorkerMilliseconds = 0d;
         var totalTerrainMilliseconds = 0d;
         var totalLightingMilliseconds = 0d;
@@ -259,6 +261,45 @@ internal static class ChunkStreamingRouteBenchmark
             totalUnsupportedBlocksRemoved += physicsReport.UnsupportedRemoved;
             totalPhysicsWakeupsProcessed += physicsReport.FallingStarted +
                 physicsReport.UnsupportedRemoved;
+
+            foreach (var falling in physics.ActiveBlocks)
+            {
+                if (!observedFallingBlockIds.Add(falling.Id.Value))
+                    continue;
+
+                var worldY = checked((int)Math.Floor(falling.CenterY));
+                var source = new WorldVoxelCoord(
+                    falling.ColumnX, worldY, falling.ColumnZ);
+                var sourceChunk = VoxelCoordinates.FromWorld(
+                    source.X, source.Y, source.Z).Chunk;
+                var definition = blocks.GetDefinition(falling.Cell.Block);
+                var below = source + (0, -1, 0);
+                var belowLoaded = world.TryGetCell(below, out var belowCell);
+                var belowBlock = !belowLoaded
+                    ? "unloaded"
+                    : belowCell.IsEmpty
+                        ? BlockDefinition.Air.Id
+                        : blocks.GetDefinition(belowCell.Block).Id;
+
+                if (fallingBlockSamples.Count < 64)
+                {
+                    fallingBlockSamples.Add(new
+                    {
+                        FallingId = falling.Id.Value,
+                        Block = definition.Id,
+                        IsGravityTagged = definition.HasTag(
+                            BlockPhysicsCapabilities.Gravity),
+                        X = source.X,
+                        Y = source.Y,
+                        Z = source.Z,
+                        SourceChunkX = sourceChunk.X,
+                        SourceChunkY = sourceChunk.Y,
+                        SourceChunkZ = sourceChunk.Z,
+                        BelowBlock = belowBlock,
+                        BelowChunkLoaded = belowLoaded,
+                    });
+                }
+            }
 
             var reservedPresentations = 0;
             while (reservedPresentations < MaximumPresentationReservationsPerFrame &&
@@ -431,6 +472,8 @@ internal static class ChunkStreamingRouteBenchmark
             TotalPhysicsChanges = totalPhysicsWakeupsProcessed,
             TotalFallingBlocksStarted = totalFallingBlocksStarted,
             TotalUnsupportedBlocksRemoved = totalUnsupportedBlocksRemoved,
+            ObservedFallingEntityCount = observedFallingBlockIds.Count,
+            FallingBlockSamples = fallingBlockSamples,
             MaterializationStages = stageCounts.Select(pair => new
             {
                 Stage = pair.Key,
@@ -462,6 +505,7 @@ internal static class ChunkStreamingRouteBenchmark
                 "Presentation reservations are treated as immediate and cost-free; Godot mesh building, collision construction, GPU upload and actual frame pacing are excluded.",
                 "Admission pressure is normalized across revisions and uses only physics wakeups, which this route processes. Lighting and terrain-mesh queues are observed but their workers are excluded from this Core-only route.",
                 "Per-chunk digests cover block cells, fluid state and attached Objects; repeated activation must reproduce all three content digests.",
+                "FallingBlockSamples records the first 64 gravity entities created by support wakeups, including the source coordinate, block ID, and the below-block state after the wakeup batch.",
             },
         };
     }
