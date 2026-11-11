@@ -93,6 +93,9 @@ internal static class ChunkStreamingRouteBenchmark
         var totalRetirements = 0;
         var totalFluidCellsProcessed = 0L;
         var totalFluidFrontierCellsProcessed = 0L;
+        var totalFluidActivationSlices = 0L;
+        var totalFluidActivationMilliseconds = 0d;
+        var maximumFluidActivationSliceMilliseconds = 0d;
         var totalPhysicsWakeupsProcessed = 0L;
         var totalFallingBlocksStarted = 0L;
         var totalUnsupportedBlocksRemoved = 0L;
@@ -243,6 +246,11 @@ internal static class ChunkStreamingRouteBenchmark
             lastFluidPending = fluidReport.PendingChunks;
             totalFluidCellsProcessed += fluidReport.FluidCellsProcessed;
             totalFluidFrontierCellsProcessed += fluidReport.FrontierCellsProcessed;
+            totalFluidActivationSlices += fluidReport.SlicesProcessed;
+            totalFluidActivationMilliseconds += fluidReport.ProcessingMilliseconds;
+            maximumFluidActivationSliceMilliseconds = Math.Max(
+                maximumFluidActivationSliceMilliseconds,
+                fluidReport.MaximumSliceMilliseconds);
 
             maximumPhysicsWakeups = Math.Max(
                 maximumPhysicsWakeups, physicsUpdates.Count);
@@ -417,6 +425,9 @@ internal static class ChunkStreamingRouteBenchmark
             TotalRetiredChunks = totalRetirements,
             TotalFluidCellsActivated = totalFluidCellsProcessed,
             TotalFluidFrontierCellsActivated = totalFluidFrontierCellsProcessed,
+            TotalFluidActivationSlices = totalFluidActivationSlices,
+            TotalFluidActivationMilliseconds = totalFluidActivationMilliseconds,
+            MaximumFluidActivationSliceMilliseconds = maximumFluidActivationSliceMilliseconds,
             TotalPhysicsChanges = totalPhysicsWakeupsProcessed,
             TotalFallingBlocksStarted = totalFallingBlocksStarted,
             TotalUnsupportedBlocksRemoved = totalUnsupportedBlocksRemoved,
