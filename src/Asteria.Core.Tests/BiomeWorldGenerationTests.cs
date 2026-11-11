@@ -2032,6 +2032,73 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void NestedGravitySupportFallbackRecursesAcrossMultipleVerticalChunks()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                34f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                // The gravity stack crosses chunk Y=2, Y=1 and Y=0.
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 20),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            seaLevel: 0,
+            gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f));
+        var generator = new BiomeWorldGenerator(
+            101UL,
+            dimension,
+            blocks,
+            new BiomeRegistry([biome]));
+
+        using var job = generator.BeginMaterialization(
+            new ChunkCoord(0, 2, 0));
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        // Start the sparse Y=1 support-face probe, then wait for the Y=1
+        // fallback to materialize the complete gravity stack in its columns.
+        var advanced = 0;
+        while (job.ActiveWorkCoord != new ChunkCoord(0, 0, 0) &&
+               advanced++ < 512)
+        {
+            job.Advance();
+        }
+
+        Assert.True(
+            advanced < 512,
+            $"Expected recursive support query to reach chunk Y=0; current work is {job.ActiveWorkCoord} at {job.ActiveWorkStage}.");
+        Assert.Equal(
+            new ChunkCoord(0, 0, 0),
+            job.ActiveWorkCoord);
+        Assert.Equal(
+            ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
+    }
+
+    [Fact]
     public void NestedGravitySupportFallsBackWhenSupportFaceContainsGravityBlocks()
     {
         var blocks = new BlockRegistry(
