@@ -208,7 +208,7 @@ class CompareWorldgenAbTests(unittest.TestCase):
             report,
         )
         self.assertIn("asteria:gravel", report)
-        self.assertIn("[69, 42, 3]", report)
+        self.assertIn("'x': 69, 'y': 42, 'z': 3", report)
 
     def test_rejects_nondeterministic_falling_block_samples_between_route_runs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
