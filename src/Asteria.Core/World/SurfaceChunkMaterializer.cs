@@ -542,8 +542,9 @@ public sealed class SurfaceChunkMaterializer
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
             var index = localX + Chunk.Size * localZ;
-            if (job.SupportFaceColumns is { } supportColumns &&
-                !supportColumns[index])
+            if (job.SupportFaceFastPath &&
+                !(job.SupportFaceColumns ?? throw new InvalidOperationException(
+                    "Support-face query has no requested-column mask."))[index])
                 continue;
 
             var surfaceY = column.HeightAt(localX, localZ);
@@ -623,8 +624,9 @@ public sealed class SurfaceChunkMaterializer
                 for (var localX = 0; localX < Chunk.Size; localX++)
                 {
                     var columnIndex = localX + Chunk.Size * localZ;
-                    if (job.SupportFaceColumns is { } supportColumns &&
-                        !supportColumns[columnIndex])
+                    if (job.SupportFaceFastPath &&
+                        !(job.SupportFaceColumns ?? throw new InvalidOperationException(
+                            "Support-face query has no requested-column mask."))[columnIndex])
                         continue;
 
                     ref var state = ref columnMaterializationCaches[columnIndex];
