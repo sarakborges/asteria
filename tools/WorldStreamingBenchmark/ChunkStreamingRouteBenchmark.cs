@@ -278,7 +278,7 @@ internal static class ChunkStreamingRouteBenchmark
                 var belowBlock = !belowLoaded
                     ? "unloaded"
                     : belowCell.IsEmpty
-                        ? BlockDefinition.Air.Id
+                        ? "asteria:air"
                         : blocks.GetDefinition(belowCell.Block).Id;
 
                 if (fallingBlockSamples.Count < 64)
