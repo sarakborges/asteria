@@ -81,7 +81,7 @@ internal static class ChunkStreamingRouteBenchmark
                 gameRules: rules));
         var selection = new ChunkStreamingSelectionRuntime(generator);
         var presented = new HashSet<ChunkCoord>();
-        var chunkDigests = new Dictionary<ChunkCoord, ulong>();
+        var chunkDigests = new Dictionary<ChunkCoord, ChunkContentDigest>();
         var stageCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var stageMilliseconds = new SortedDictionary<string, double>(StringComparer.Ordinal);
         var selectionLatencyFrames = new List<int>();
@@ -361,7 +361,7 @@ internal static class ChunkStreamingRouteBenchmark
                 routeDigest, unchecked((ulong)pair.Key.Y));
             routeDigest = HashNumber(
                 routeDigest, unchecked((ulong)pair.Key.Z));
-            routeDigest = HashNumber(routeDigest, pair.Value);
+            routeDigest = HashNumber(routeDigest, pair.Value.Combined);
         }
 
         return new
@@ -436,7 +436,10 @@ internal static class ChunkStreamingRouteBenchmark
                     X = entry.Key.X,
                     Y = entry.Key.Y,
                     Z = entry.Key.Z,
-                    Digest = entry.Value,
+                    Digest = entry.Value.Combined,
+                    BlockDigest = entry.Value.Blocks,
+                    FluidDigest = entry.Value.Fluids,
+                    ObjectDigest = entry.Value.Objects,
                 })
                 .ToArray(),
             GeneratedChunkDigestsMatchOnReactivation = true,
@@ -447,7 +450,7 @@ internal static class ChunkStreamingRouteBenchmark
                 "Materialization worker limits, dispatch/result limits, retention margin and presentation reservation throughput mirror Main.cs.",
                 "Presentation reservations are treated as immediate and cost-free; Godot mesh building, collision construction, GPU upload and actual frame pacing are excluded.",
                 "Admission pressure is normalized across revisions and uses only physics wakeups, which this route processes. Lighting and terrain-mesh queues are observed but their workers are excluded from this Core-only route.",
-                "A route digest covers every unique activated chunk coordinate and its generated block content; repeated activation must reproduce the same chunk digest.",
+                "Per-chunk digests cover block cells, fluid state and attached Objects; repeated activation must reproduce all three content digests.",
             },
         };
     }
@@ -455,7 +458,7 @@ internal static class ChunkStreamingRouteBenchmark
     private static void AccumulateUpdate(
         ChunkResidencyUpdate update,
         VoxelWorld world,
-        IDictionary<ChunkCoord, ulong> chunkDigests,
+        IDictionary<ChunkCoord, ChunkContentDigest> chunkDigests,
         ref int providerActivations,
         ref int archiveRestores,
         ref double totalWorkerMilliseconds,
@@ -507,60 +510,77 @@ internal static class ChunkStreamingRouteBenchmark
         }
     }
 
-    private static ulong ChunkDigest(ChunkCoord coord, Chunk chunk)
+    private static ChunkContentDigest ChunkDigest(
+        ChunkCoord coord,
+        Chunk chunk)
     {
-        var digest = FnvOffset;
-        digest = HashNumber(digest, unchecked((ulong)coord.X));
-        digest = HashNumber(digest, unchecked((ulong)coord.Y));
-        digest = HashNumber(digest, unchecked((ulong)coord.Z));
+        var blockDigest = FnvOffset;
+        blockDigest = HashNumber(blockDigest, unchecked((ulong)coord.X));
+        blockDigest = HashNumber(blockDigest, unchecked((ulong)coord.Y));
+        blockDigest = HashNumber(blockDigest, unchecked((ulong)coord.Z));
+        blockDigest = HashNumber(blockDigest, 0xB10CUL);
+        blockDigest = HashNumber(blockDigest, (ulong)chunk.NonEmptyVoxelCount);
         chunk.VisitBlockCells((x, y, z, cell) =>
         {
-            digest = HashNumber(digest, (ulong)x);
-            digest = HashNumber(digest, (ulong)y);
-            digest = HashNumber(digest, (ulong)z);
-            digest = HashNumber(digest, cell.Block.Value);
+            blockDigest = HashNumber(blockDigest, (ulong)x);
+            blockDigest = HashNumber(blockDigest, (ulong)y);
+            blockDigest = HashNumber(blockDigest, (ulong)z);
+            blockDigest = HashNumber(blockDigest, cell.Block.Value);
         });
 
-        // Keep fluid occupancy and simulation state in the same deterministic
-        // chunk digest. Sparse visitation avoids scanning every empty voxel.
-        digest = HashNumber(digest, 0xF10DUL);
-        digest = HashNumber(digest, (ulong)chunk.FluidCount);
+        // Keep fluid occupancy and simulation state in its own digest.
+        var fluidDigest = FnvOffset;
+        fluidDigest = HashNumber(fluidDigest, unchecked((ulong)coord.X));
+        fluidDigest = HashNumber(fluidDigest, unchecked((ulong)coord.Y));
+        fluidDigest = HashNumber(fluidDigest, unchecked((ulong)coord.Z));
+        fluidDigest = HashNumber(fluidDigest, 0xF10DUL);
+        fluidDigest = HashNumber(fluidDigest, (ulong)chunk.FluidCount);
         chunk.VisitFluidCells((x, y, z, fluid) =>
         {
-            digest = HashNumber(digest, (ulong)x);
-            digest = HashNumber(digest, (ulong)y);
-            digest = HashNumber(digest, (ulong)z);
-            digest = HashNumber(digest, fluid.Fluid.Value);
-            digest = HashNumber(digest, fluid.Level);
-            digest = HashNumber(digest, fluid.IsSource ? 1UL : 0UL);
-            digest = HashNumber(digest, fluid.SpreadDistance);
+            fluidDigest = HashNumber(fluidDigest, (ulong)x);
+            fluidDigest = HashNumber(fluidDigest, (ulong)y);
+            fluidDigest = HashNumber(fluidDigest, (ulong)z);
+            fluidDigest = HashNumber(fluidDigest, fluid.Fluid.Value);
+            fluidDigest = HashNumber(fluidDigest, fluid.Level);
+            fluidDigest = HashNumber(fluidDigest, fluid.IsSource ? 1UL : 0UL);
+            fluidDigest = HashNumber(fluidDigest, fluid.SpreadDistance);
         });
 
         // Objects are attached to support voxels rather than occupying block
-        // cells, so include their identity and transform as separate content.
-        digest = HashNumber(digest, 0x0B1EC7UL);
-        digest = HashNumber(digest, (ulong)chunk.ObjectCount);
+        // cells, so include their identity and transform independently.
+        var objectDigest = FnvOffset;
+        objectDigest = HashNumber(objectDigest, unchecked((ulong)coord.X));
+        objectDigest = HashNumber(objectDigest, unchecked((ulong)coord.Y));
+        objectDigest = HashNumber(objectDigest, unchecked((ulong)coord.Z));
+        objectDigest = HashNumber(objectDigest, 0x0B1EC7UL);
+        objectDigest = HashNumber(objectDigest, (ulong)chunk.ObjectCount);
         chunk.VisitObjectCells((x, y, z, obj) =>
         {
-            digest = HashNumber(digest, (ulong)x);
-            digest = HashNumber(digest, (ulong)y);
-            digest = HashNumber(digest, (ulong)z);
-            digest = HashNumber(digest, (ulong)obj.Id.Length);
+            objectDigest = HashNumber(objectDigest, (ulong)x);
+            objectDigest = HashNumber(objectDigest, (ulong)y);
+            objectDigest = HashNumber(objectDigest, (ulong)z);
+            objectDigest = HashNumber(objectDigest, (ulong)obj.Id.Length);
             foreach (var character in obj.Id)
-                digest = HashNumber(digest, character);
-            digest = HashNumber(digest, (ulong)obj.Face);
-            digest = HashNumber(digest, (ulong)obj.Rotation);
-            digest = HashNumber(
-                digest, unchecked((ulong)(long)obj.Transform.OffsetX));
-            digest = HashNumber(
-                digest, unchecked((ulong)(long)obj.Transform.OffsetY));
-            digest = HashNumber(
-                digest, unchecked((ulong)(long)obj.Transform.OffsetZ));
-            digest = HashNumber(digest, obj.Transform.ScaleX);
-            digest = HashNumber(digest, obj.Transform.ScaleY);
-            digest = HashNumber(digest, obj.Transform.ScaleZ);
+                objectDigest = HashNumber(objectDigest, character);
+            objectDigest = HashNumber(objectDigest, (ulong)obj.Face);
+            objectDigest = HashNumber(objectDigest, (ulong)obj.Rotation);
+            objectDigest = HashNumber(
+                objectDigest, unchecked((ulong)(long)obj.Transform.OffsetX));
+            objectDigest = HashNumber(
+                objectDigest, unchecked((ulong)(long)obj.Transform.OffsetY));
+            objectDigest = HashNumber(
+                objectDigest, unchecked((ulong)(long)obj.Transform.OffsetZ));
+            objectDigest = HashNumber(objectDigest, obj.Transform.ScaleX);
+            objectDigest = HashNumber(objectDigest, obj.Transform.ScaleY);
+            objectDigest = HashNumber(objectDigest, obj.Transform.ScaleZ);
         });
-        return digest;
+
+        var combined = FnvOffset;
+        combined = HashNumber(combined, blockDigest);
+        combined = HashNumber(combined, fluidDigest);
+        combined = HashNumber(combined, objectDigest);
+        return new ChunkContentDigest(
+            combined, blockDigest, fluidDigest, objectDigest);
     }
 
     private static ulong HashNumber(ulong current, ulong value) =>
@@ -588,6 +608,12 @@ internal static class ChunkStreamingRouteBenchmark
             ordered.Length - 1);
         return ordered[index];
     }
+
+    private readonly record struct ChunkContentDigest(
+        ulong Combined,
+        ulong Blocks,
+        ulong Fluids,
+        ulong Objects);
 
     private sealed class RouteStepState(
         int step,
