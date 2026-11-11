@@ -187,8 +187,6 @@ jobs:
             --seed 181960897289965 --dimension asteria:overworld \
             --samples 2 --area-size 4 --chunks 1 \
             --enforce-ci-budgets true \
-            --profile-streaming-route true \
-            --streaming-route-steps 8 --streaming-route-radius 4 \
             --output worldgen-benchmark.json
 
       - name: Profile fixed-seed directional face palettes
@@ -392,6 +390,17 @@ jobs:
           baseline_sha="$BASELINE_SHA"
           git worktree add --detach "$baseline" "$baseline_sha"
           git worktree add --detach "$candidate" "$CANDIDATE_SHA"
+
+          # Overlay the identical route-harness sources on the baseline worktree.
+          # Core and the ordinary worldgen benchmark remain at their own commits.
+          mkdir -p "$baseline/tools/WorldStreamingBenchmark"
+          cp -a "$candidate/tools/WorldStreamingBenchmark/." \
+            "$baseline/tools/WorldStreamingBenchmark/"
+
+          dotnet build "$baseline/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
+            --configuration Release --nologo
+          dotnet build "$candidate/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
+            --configuration Release --nologo
           dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
             --configuration Release --nologo
           dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
@@ -428,12 +437,38 @@ jobs:
               --project-root "$project_root" \
               --seed 181960897289965 --dimension asteria:overworld \
               --samples 2 --area-size 4 --chunks 1 \
-              --profile-streaming-route true \
-              --streaming-route-steps 8 --streaming-route-radius 4 \
               --output "$output" > "$log" 2>&1; then
               cat "$log"
               return 1
             fi
+
+            local route_output="$root/results/$version/$repetition-route.json"
+            if ! env DOTNET_TieredCompilation=0 dotnet run \
+              --project "$project_root/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
+              --configuration Release --no-build -- \
+              --project-root "$project_root" \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --route-steps 8 --radius 4 \
+              --output "$route_output" > "$log.route" 2>&1; then
+              cat "$log.route"
+              return 1
+            fi
+
+            python3 - "$output" "$route_output" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          benchmark_path = pathlib.Path(sys.argv[1])
+          route_path = pathlib.Path(sys.argv[2])
+          benchmark = json.loads(benchmark_path.read_text(encoding="utf-8"))
+          route = json.loads(route_path.read_text(encoding="utf-8"))
+          benchmark["streamingRouteDiagnostics"] = route["streamingRouteDiagnostics"]
+          benchmark_path.write_text(
+              json.dumps(benchmark, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
           }
 
           baseline="$root/baseline"
