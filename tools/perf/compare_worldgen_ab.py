@@ -666,6 +666,7 @@ def compare(
                         "queueDepth": item[15],
                         "belowBlock": item[16],
                         "framesSinceBothChunksResident": item[17],
+                        "framesSinceBothChunksResident": item[17],
                     }
                     for item in baseline_physics[5]
                 ],
@@ -682,6 +683,7 @@ def compare(
                         "framesSinceBelowChunkActivation": item[14],
                         "queueDepth": item[15],
                         "belowBlock": item[16],
+                        "framesSinceBothChunksResident": item[17],
                     }
                     for item in candidate_physics[5]
                 ],
