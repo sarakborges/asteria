@@ -286,7 +286,7 @@ class CompareWorldgenAbTests(unittest.TestCase):
 
         report = render_report(result)
         self.assertIn("Timing values are descriptive only", report)
-        self.assertIn("Changed content on shared coordinates: 1", report)
+        self.assertIn("Chunks with changed blocks / fluids / Objects: 0 / 1 / 0", report)
         self.assertIn("| Wall-clock route completion (ms) | 1000.00 | 1000.00 | n/a |", report)
 
     def test_rejects_inconsistent_route_chunk_digest_between_repetitions(self) -> None:
