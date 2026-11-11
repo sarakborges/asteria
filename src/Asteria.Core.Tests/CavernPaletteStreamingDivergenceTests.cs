@@ -6,7 +6,7 @@ namespace Asteria.Core.Tests;
 public sealed class CavernPaletteStreamingDivergenceTests
 {
     private const ulong Seed = 181960897289965UL;
-    private const string CavernBiomeId = "asteria:overworld/caverns";
+    private const string EnchantedForestBiomeId = "asteria:overworld/enchanted_forest";
 
     private static readonly (WorldVoxelCoord Position, string BaselineBlock)[] DivergentVoxels =
     [
@@ -68,6 +68,15 @@ public sealed class CavernPaletteStreamingDivergenceTests
             structures,
             structureSets);
 
+        var materials = new BiomeSurfaceMaterialField(
+            dimensionSeed,
+            dimension.SurfaceBiomes
+                .Concat(dimension.VolumeBiomes)
+                .Distinct(StringComparer.Ordinal)
+                .Select(biomes.Get),
+            blocks,
+            generator.Terrain);
+
         var sourceCoord = new ChunkCoord(9, 3, -3);
         var sourceChunk = generator.Materialize(sourceCoord);
         var world = new VoxelWorld();
@@ -95,8 +104,24 @@ public sealed class CavernPaletteStreamingDivergenceTests
             Assert.Equal(blocks.GetId(baselineBlock), current);
             Assert.True(faceData.IsTerrainVoxel, metadata);
             Assert.True(faceData.HasCandidates, metadata);
-            Assert.Equal(CavernBiomeId, generator.EffectiveBiomeAt(
-                position.X, position.Y, position.Z));
+            var surfaceBiome = generator.Biomes.Sample(
+                position.X, position.Z);
+            Assert.Equal(EnchantedForestBiomeId, surfaceBiome.Primary);
+            Assert.Equal(
+                EnchantedForestBiomeId,
+                generator.EffectiveBiomeAt(position.X, position.Y, position.Z));
+
+            var surfaceOwner = new BiomeRegionOwner(
+                surfaceBiome, BiomeRegionOwnerKind.Surface);
+            var surfacePalette = materials.DirectionalPaletteFor(surfaceOwner);
+            Assert.False(surfacePalette.Has(BiomePaletteFace.Walls));
+            Assert.Equal(
+                gravel,
+                materials.VolumeBlockAt(
+                    surfaceBiome,
+                    position.X, position.Y, position.Z,
+                    BiomePaletteFace.Walls,
+                    depth: 0));
             Assert.Equal(gravel, faceData.BaseBlock);
             geologicBaseBlocks.Add(position, faceData.BaseBlock);
         }
@@ -142,7 +167,7 @@ public sealed class CavernPaletteStreamingDivergenceTests
                 $"Changed voxel lost terrain provenance: {metadataSummary[^1]}");
             Assert.True(
                 faceData.BaseBlock.IsAir,
-                $"The arrival reapplication unexpectedly retained a palette base for a voxel restored from geology: {metadataSummary[^1]}");
+                $"The arrival reapplication unexpectedly retained a directional palette base: {metadataSummary[^1]}");
             Assert.True(
                 faceData.HasCandidates,
                 $"Changed voxel has no directional candidates: {metadataSummary[^1]}");
