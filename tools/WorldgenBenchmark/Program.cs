@@ -1379,18 +1379,6 @@ var geologySamplingDiagnostics = options.ProfileGeologySampling
     ? CaptureGeologySamplingDiagnostics(
         biomes, blocks, dimensionSeed)
     : null;
-var streamingRouteDiagnostics = options.ProfileStreamingRoute
-    ? ChunkStreamingRouteBenchmark.Run(
-        NewGenerator(),
-        blocks,
-        fluids,
-        new ChunkCoord(
-            initialAreaDiagnostics.CenterChunkX,
-            initialAreaDiagnostics.CenterChunkY,
-            initialAreaDiagnostics.CenterChunkZ),
-        options.StreamingRouteSteps,
-        options.StreamingRouteRadius)
-    : null;
 
 if (options.EnforceCiBudgets)
 {
@@ -1433,7 +1421,6 @@ var result = new
     },
     TerrainLayerGeologyModeDiagnostics = terrainLayerGeologyModeDiagnostics,
     GeologySamplingDiagnostics = geologySamplingDiagnostics,
-    StreamingRouteDiagnostics = streamingRouteDiagnostics,
     Notes = new[]
     {
         "Cold and warm passes use identical coordinates and independent generator instances per metric.",
@@ -1447,9 +1434,6 @@ var result = new
             : "Pass --profile-geology-sampling true to compare per-voxel and regional geology selection on representative surface biomes.",
         "Every metric records its generated-result digest so determinism can be compared across runs.",
         "Search/destination metrics include near and far world coordinates without chunk materialization.",
-        options.ProfileStreamingRoute
-            ? "StreamingRouteDiagnostics uses the real Core selection/residency runtime on a deterministic moving route; Godot presentation, collision meshes and GPU upload are excluded."
-            : "Pass --profile-streaming-route true to benchmark Core chunk streaming while moving along a deterministic route without launching Godot.",
         options.EnforceCiBudgets
             ? "CI regression budgets are enforced only for the canonical fixed-seed fixture and include deliberate headroom over the measured baseline."
             : "No time thresholds are enforced unless --enforce-ci-budgets true is supplied.",
@@ -2261,9 +2245,6 @@ internal sealed record Arguments(
     int SearchRadius,
     bool EnforceCiBudgets,
     bool ProfileGeologySampling,
-    bool ProfileStreamingRoute,
-    int StreamingRouteSteps,
-    int StreamingRouteRadius,
     BiomeGeologySamplingMode? MaterialMapSamplingMode,
     string? Output,
     string? MaterialMapOutput,
@@ -2285,9 +2266,6 @@ internal sealed record Arguments(
         var searchRadius = 1024;
         var enforceCiBudgets = false;
         var profileGeologySampling = false;
-        var profileStreamingRoute = false;
-        var streamingRouteSteps = 8;
-        var streamingRouteRadius = 4;
         BiomeGeologySamplingMode? materialMapSamplingMode = null;
         string? output = null;
         string? materialMapOutput = null;
@@ -2352,15 +2330,6 @@ internal sealed record Arguments(
                 case "--profile-geology-sampling":
                     profileGeologySampling = bool.Parse(value);
                     break;
-                case "--profile-streaming-route":
-                    profileStreamingRoute = bool.Parse(value);
-                    break;
-                case "--streaming-route-steps":
-                    streamingRouteSteps = int.Parse(value);
-                    break;
-                case "--streaming-route-radius":
-                    streamingRouteRadius = int.Parse(value);
-                    break;
                 case "--material-map-sampling-mode":
                     materialMapSamplingMode = value switch
                     {
@@ -2390,13 +2359,11 @@ internal sealed record Arguments(
             mapSize is < 1 or > 512 ||
             mapStep is < 1 or > 4096 ||
             chunks is < 1 or > 16 ||
-            searchRadius is < 1 or > 8192 ||
-            streamingRouteSteps is < 2 or > 64 ||
-            streamingRouteRadius is < 1 or > 8)
+            searchRadius is < 1 or > 8192)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(input),
-                "Samples must be 1–4096, area-size 1–128, map-size 1–512, map-step 1–4096, chunks 1–16, search-radius 1–8192, streaming-route-steps 2–64 and streaming-route-radius 1–8.");
+                "Samples must be 1–4096, area-size 1–128, map-size 1–512, map-step 1–4096, chunks 1–16 and search-radius 1–8192.");
         }
 
         return new Arguments(
@@ -2414,9 +2381,6 @@ internal sealed record Arguments(
             searchRadius,
             enforceCiBudgets,
             profileGeologySampling,
-            profileStreamingRoute,
-            streamingRouteSteps,
-            streamingRouteRadius,
             materialMapSamplingMode,
             output,
             materialMapOutput,
