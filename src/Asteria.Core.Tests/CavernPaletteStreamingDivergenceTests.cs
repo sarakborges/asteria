@@ -89,20 +89,18 @@ public sealed class CavernPaletteStreamingDivergenceTests
         var tracePositions = DivergentVoxels
             .Select(voxel => voxel.Position)
             .ToHashSet();
-        var decisions =
-            new Dictionary<WorldVoxelCoord, DirectionalFacePaletteApplicationDiagnostic>();
+        var allDecisions =
+            new List<DirectionalFacePaletteApplicationDiagnostic>();
         var changedPositions = generator.ReconcileChunkArrivalWithDiagnostics(
             world,
             arrivingNeighbor,
-            decision =>
-            {
-                if (!tracePositions.Contains(decision.SolidPosition))
-                    return;
-                Assert.False(
-                    decisions.ContainsKey(decision.SolidPosition),
-                    $"Multiple palette decisions for {decision.SolidPosition}.");
-                decisions.Add(decision.SolidPosition, decision);
-            }).ToHashSet();
+            allDecisions.Add).ToHashSet();
+        Assert.All(
+            DivergentVoxels,
+            voxel => Assert.Contains(voxel.Position, changedPositions));
+        var decisions = allDecisions
+            .Where(decision => tracePositions.Contains(decision.SolidPosition))
+            .ToDictionary(decision => decision.SolidPosition);
 
         var gravel = blocks.GetId("asteria:gravel");
         Assert.Equal(DivergentVoxels.Length, decisions.Count);
