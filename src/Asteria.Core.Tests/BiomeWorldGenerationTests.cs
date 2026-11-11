@@ -3365,17 +3365,22 @@ public sealed class BiomeWorldGenerationTests
         foreach (var position in observedPositions)
         {
             Assert.True(world.TryGetCell(position, out var cell));
-            if (cell.IsEmpty ||
-                !blocks.GetDefinition(cell.Block).HasTag(
-                    BlockPhysicsCapabilities.Gravity))
-                continue;
+            Assert.False(
+                cell.IsEmpty,
+                $"Directional-face reconciliation erased terrain at " +
+                $"{position.X},{position.Y},{position.Z}.");
+
+            var definition = blocks.GetDefinition(cell.Block);
+            Assert.False(
+                definition.HasTag(BlockPhysicsCapabilities.Gravity),
+                $"Directional-face reconciliation painted unsupported " +
+                $"{definition.Id} at {position.X},{position.Y},{position.Z}.");
 
             var below = position + (0, -1, 0);
             Assert.True(
                 world.TryGetCell(below, out var support) && !support.IsEmpty,
-                $"Directional-face reconciliation introduced unsupported " +
-                $"{blocks.GetDefinition(cell.Block).Id} at " +
-                $"{position.X},{position.Y},{position.Z}.");
+                $"The expected stable host at {position.X},{position.Y},{position.Z} " +
+                "must remain supported.");
         }
 
         var physicsUpdates = new BlockPhysicsUpdateQueue();
