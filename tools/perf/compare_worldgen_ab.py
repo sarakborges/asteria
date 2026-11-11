@@ -133,6 +133,7 @@ def _streaming_physics_signature(run: dict[str, Any]) -> tuple[Any, ...] | None:
             optional_int(sample, "framesSinceBelowChunkActivation"),
             int(_at(sample, "queueDepth")),
             str(_at(sample, "belowBlock")),
+            optional_int(sample, "framesSinceBothChunksResident"),
         ))
 
     wakeup_count = int(_at(
@@ -664,6 +665,7 @@ def compare(
                         "framesSinceBelowChunkActivation": item[14],
                         "queueDepth": item[15],
                         "belowBlock": item[16],
+                        "framesSinceBothChunksResident": item[17],
                     }
                     for item in baseline_physics[5]
                 ],
