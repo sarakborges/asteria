@@ -7,6 +7,21 @@ using System.Diagnostics;
 
 namespace Asteria.Core.World;
 
+internal readonly record struct DirectionalFacePaletteReapplicationDiagnostic(
+    WorldVoxelCoord Position,
+    BlockRuntimeId RestoredBlock,
+    bool WasTerrainVoxel,
+    bool HadCandidates,
+    string? SolidOwnerBiome,
+    BiomeRegionOwnerKind? SolidOwnerKind,
+    string? AppliedOwnerBiome,
+    BiomeRegionOwnerKind? AppliedOwnerKind,
+    BiomePaletteFace? Face,
+    uint? Depth,
+    WorldVoxelCoord? EmptyNeighbor,
+    BlockRuntimeId? Replacement,
+    bool Applied);
+
 /// <summary>
 /// Only the materialization stage writes chunk voxels. It consumes immutable
 /// terrain/biome snapshots and material/decorator capabilities.
@@ -3099,17 +3114,28 @@ public sealed class SurfaceChunkMaterializer
         int worldY,
         int worldZ,
         Func<int, int, DirectionalPaletteColumnData> columnAt,
-        VoxelWorld? supportWorld = null)
+        VoxelWorld? supportWorld = null,
+        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic = null)
     {
         chunk.RestoreDirectionalFaceBaseBlockAtLinearIndex(index);
         var data = chunk.DirectionalFaceDataAtLinearIndex(index);
+        var restoredBlock = chunk.GetCellAtLinearIndexUnchecked(index).Block;
+        var position = new WorldVoxelCoord(worldX, worldY, worldZ);
         if (!data.IsTerrainVoxel ||
             worldY <= 0 ||
             (_floorY is { } floorY && worldY <= floorY) ||
             (_roofY is { } roofY && worldY >= roofY))
+        {
+            diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                null, null, null, null, null, null, null, null, false));
             return false;
+        }
         if (!data.HasCandidates)
         {
+            diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                position, restoredBlock, data.IsTerrainVoxel, false,
+                null, null, null, null, null, null, null, null, false));
             chunk.SetDirectionalFaceDataAtLinearIndex(index, default);
             return false;
         }
@@ -3131,7 +3157,13 @@ public sealed class SurfaceChunkMaterializer
 
         var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
         if (maximumDepth == 0)
+        {
+            diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                solidOwner.Biome.Primary, solidOwner.Kind,
+                null, null, null, null, null, null, false));
             return false;
+        }
 
         var up = data.Up;
         var negativeX = data.NegativeX;
@@ -3196,7 +3228,13 @@ public sealed class SurfaceChunkMaterializer
             }
 
             if (direction < 0)
+            {
+                diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                    position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                    solidOwner.Biome.Primary, solidOwner.Kind,
+                    null, null, null, null, null, null, false));
                 return false;
+            }
 
             var distance = nearestDistance;
             var candidateBit = 1UL << (distance - 1);
@@ -3282,19 +3320,32 @@ public sealed class SurfaceChunkMaterializer
 
             var replacement = _materials.VolumeBlockAt(
                 owner.Biome, worldX, worldY, worldZ, face, depth);
+            var emptyNeighbor = new WorldVoxelCoord(
+                checked(worldX + dx), neighborY, checked(worldZ + dz));
             if (supportWorld is not null &&
                 _gravityBlocks.Contains(replacement) &&
-                !HasStableGravitySupportBelow(
-                    supportWorld,
-                    new WorldVoxelCoord(worldX, worldY, worldZ)))
+                !HasStableGravitySupportBelow(supportWorld, position))
             {
                 // Arrival-time reconciliation runs after GravitySupport has
                 // validated the generated chunk. Do not introduce a new
                 // unsupported gravity block after that invariant pass.
                 // The restored base material remains the safe representation.
+                diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                    position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                    solidOwner.Biome.Primary, solidOwner.Kind,
+                    owner.Biome.Primary, owner.Kind, face, depth,
+                    emptyNeighbor, replacement, false));
                 return false;
             }
-            return chunk.SetDirectionalFacePaletteBlockAtLinearIndex(index, replacement);
+
+            var applied = chunk.SetDirectionalFacePaletteBlockAtLinearIndex(
+                index, replacement);
+            diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                solidOwner.Biome.Primary, solidOwner.Kind,
+                owner.Biome.Primary, owner.Kind, face, depth,
+                emptyNeighbor, replacement, applied));
+            return applied;
         }
     }
 
@@ -3452,7 +3503,22 @@ public sealed class SurfaceChunkMaterializer
     }
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
-        VoxelWorld world, ChunkCoord arriving)
+        VoxelWorld world, ChunkCoord arriving) =>
+        ReconcileChunkArrivalCore(world, arriving, diagnostic: null);
+
+    internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalWithDiagnostics(
+        VoxelWorld world,
+        ChunkCoord arriving,
+        Action<DirectionalFacePaletteReapplicationDiagnostic> diagnostic)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostic);
+        return ReconcileChunkArrivalCore(world, arriving, diagnostic);
+    }
+
+    private IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalCore(
+        VoxelWorld world,
+        ChunkCoord arriving,
+        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic)
     {
         ArgumentNullException.ThrowIfNull(world);
         var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
@@ -3473,7 +3539,7 @@ public sealed class SurfaceChunkMaterializer
                 world, sourceCoord, axis, sign, maximumDepth,
                 changedSources, dirtyChunks, ensured);
         }
-        return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks);
+        return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks, diagnostic);
     }
 
     private void ReconcileChunkOutward(
@@ -3575,7 +3641,8 @@ public sealed class SurfaceChunkMaterializer
     private IReadOnlyList<WorldVoxelCoord> ApplyDirectionalFaceChanges(
         VoxelWorld world,
         HashSet<(ChunkCoord Coord, int Index)> changedSources,
-        HashSet<ChunkCoord> dirtyChunks)
+        HashSet<ChunkCoord> dirtyChunks,
+        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic)
     {
         var visualChanges = new HashSet<WorldVoxelCoord>();
         foreach (var group in changedSources.GroupBy(entry => entry.Coord))
@@ -3628,7 +3695,8 @@ public sealed class SurfaceChunkMaterializer
                 ReapplyDirectionalFacePaletteAt(
                     chunk, densityVolume, index,
                     origin.X + x, origin.Y + y, origin.Z + z, ColumnAt,
-                    supportWorld: world);
+                    supportWorld: world,
+                    diagnostic: diagnostic);
                 var after = chunk.GetCellAtLinearIndexUnchecked(index);
                 if (before.Block != after.Block)
                 {
