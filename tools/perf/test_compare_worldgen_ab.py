@@ -213,6 +213,45 @@ class CompareWorldgenAbTests(unittest.TestCase):
         self.assertIn("Headless moving-route A/B", report)
         self.assertIn("Route content digest: identical", report)
 
+    def test_compares_static_benchmark_without_streaming_route_profile(self) -> None:
+        baseline = [sample_run() for _ in range(3)]
+        candidate = [sample_run() for _ in range(3)]
+        for run in baseline + candidate:
+            run.pop("streamingRouteDiagnostics")
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        self.assertIsNone(result["streamingRoute"])
+
+    def test_reports_route_coordinate_set_mismatch_without_fake_delta(self) -> None:
+        baseline = [sample_run() for _ in range(3)]
+        candidate = [
+            sample_run(streaming_route={
+                "routeDigest": 987654322,
+                "activatedChunkDigests": [
+                    {"x": 1, "y": 2, "z": 3, "digest": 111},
+                    {"x": 3, "y": 2, "z": 3, "digest": 333},
+                ],
+            })
+            for _ in range(3)
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+        differences = route["routeContentDifferences"]
+
+        self.assertFalse(route["digestsMatch"])
+        self.assertEqual(0, differences["changedContentChunkCount"])
+        self.assertEqual(1, differences["baselineOnlyChunkCount"])
+        self.assertEqual(1, differences["candidateOnlyChunkCount"])
+        self.assertEqual([[2, 2, 3]], differences["baselineOnlySamples"])
+        self.assertEqual([[3, 2, 3]], differences["candidateOnlySamples"])
+
+        elapsed = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Wall-clock route completion (ms)"
+        )
+        self.assertIsNone(elapsed["reductionPercent"])
+
     def test_reports_route_content_mismatch_without_fake_delta(self) -> None:
         baseline = [sample_run()] * 3
         candidate = [
