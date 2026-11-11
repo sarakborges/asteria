@@ -72,7 +72,9 @@ def _streaming_route_identity(run: dict[str, Any]) -> tuple[Any, ...] | None:
     return identity
 
 
-def _streaming_route_chunks(run: dict[str, Any]) -> dict[tuple[int, int, int], int] | None:
+def _streaming_route_chunks(
+    run: dict[str, Any],
+) -> dict[tuple[int, int, int], tuple[int, int, int, int]] | None:
     route = run.get("streamingRouteDiagnostics")
     if route is None:
         return None
@@ -80,14 +82,19 @@ def _streaming_route_chunks(run: dict[str, Any]) -> dict[tuple[int, int, int], i
     if not isinstance(entries, list):
         raise ValueError("Streaming route activatedChunkDigests must be an array.")
 
-    chunks: dict[tuple[int, int, int], int] = {}
+    chunks: dict[tuple[int, int, int], tuple[int, int, int, int]] = {}
     for entry in entries:
         if not isinstance(entry, dict):
             raise ValueError("Streaming route chunk digest entries must be objects.")
         coord = (int(_at(entry, "x")), int(_at(entry, "y")), int(_at(entry, "z")))
         if coord in chunks:
             raise ValueError(f"Streaming route contains duplicate chunk coordinate {coord}.")
-        chunks[coord] = int(_at(entry, "digest"))
+        chunks[coord] = (
+            int(_at(entry, "digest")),
+            int(_at(entry, "blockDigest")),
+            int(_at(entry, "fluidDigest")),
+            int(_at(entry, "objectDigest")),
+        )
 
     expected_count = int(_at(route, "uniqueActivatedChunkCount"))
     if len(chunks) != expected_count:
@@ -407,6 +414,18 @@ def compare(
             coord for coord in shared_route_coords
             if baseline_route_chunks[coord] != candidate_route_chunks[coord]
         )
+        changed_block_route_coords = sorted(
+            coord for coord in shared_route_coords
+            if baseline_route_chunks[coord][1] != candidate_route_chunks[coord][1]
+        )
+        changed_fluid_route_coords = sorted(
+            coord for coord in shared_route_coords
+            if baseline_route_chunks[coord][2] != candidate_route_chunks[coord][2]
+        )
+        changed_object_route_coords = sorted(
+            coord for coord in shared_route_coords
+            if baseline_route_chunks[coord][3] != candidate_route_chunks[coord][3]
+        )
         baseline_only_route_coords = sorted(
             set(baseline_route_chunks) - set(candidate_route_chunks)
         )
@@ -543,9 +562,15 @@ def compare(
             "digestsMatch": route_digests_match,
             "routeContentDifferences": {
                 "changedContentChunkCount": len(changed_route_coords),
+                "changedBlockContentChunkCount": len(changed_block_route_coords),
+                "changedFluidContentChunkCount": len(changed_fluid_route_coords),
+                "changedObjectContentChunkCount": len(changed_object_route_coords),
                 "baselineOnlyChunkCount": len(baseline_only_route_coords),
                 "candidateOnlyChunkCount": len(candidate_only_route_coords),
                 "changedContentSamples": [list(coord) for coord in changed_route_coords[:12]],
+                "changedBlockContentSamples": [list(coord) for coord in changed_block_route_coords[:12]],
+                "changedFluidContentSamples": [list(coord) for coord in changed_fluid_route_coords[:12]],
+                "changedObjectContentSamples": [list(coord) for coord in changed_object_route_coords[:12]],
                 "baselineOnlySamples": [list(coord) for coord in baseline_only_route_coords[:12]],
                 "candidateOnlySamples": [list(coord) for coord in candidate_only_route_coords[:12]],
             },
@@ -669,9 +694,15 @@ def render_report(result: dict[str, Any]) -> str:
         else:
             lines.extend([
                 "- Route content digest: DIFFERENT. Timing values are descriptive only; percentage deltas are withheld.",
-                f"- Changed content on shared coordinates: {differences['changedContentChunkCount']}",
+                f"- Chunks with changed blocks / fluids / Objects: "
+                f"{differences['changedBlockContentChunkCount']} / "
+                f"{differences['changedFluidContentChunkCount']} / "
+                f"{differences['changedObjectContentChunkCount']}",
                 f"- Coordinates only in baseline/candidate: {differences['baselineOnlyChunkCount']}/{differences['candidateOnlyChunkCount']}",
                 f"- Changed-coordinate samples: {differences['changedContentSamples']}",
+                f"- Block-changed samples: {differences['changedBlockContentSamples']}",
+                f"- Fluid-changed samples: {differences['changedFluidContentSamples']}",
+                f"- Object-changed samples: {differences['changedObjectContentSamples']}",
                 f"- Baseline-only samples: {differences['baselineOnlySamples']}",
                 f"- Candidate-only samples: {differences['candidateOnlySamples']}",
             ])
