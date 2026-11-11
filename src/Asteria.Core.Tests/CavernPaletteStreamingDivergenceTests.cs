@@ -78,9 +78,22 @@ public sealed class CavernPaletteStreamingDivergenceTests
         {
             var (_, local) = VoxelCoordinates.FromWorld(
                 position.X, position.Y, position.Z);
-            Assert.Equal(
-                blocks.GetId(baselineBlock),
-                sourceChunk.GetBlock(local.X, local.Y, local.Z));
+            var linearIndex = local.X +
+                Chunk.Size * (local.Z + Chunk.Size * local.Y);
+            var current = sourceChunk.GetBlock(local.X, local.Y, local.Z);
+            var faceData = sourceChunk.DirectionalFaceDataAtLinearIndex(linearIndex);
+            var storedBase = faceData.BaseBlock.IsAir
+                ? "<air>"
+                : blocks.GetDefinition(faceData.BaseBlock).Id;
+            var metadata =
+                $"voxel={position.X},{position.Y},{position.Z}; " +
+                $"current={blocks.GetDefinition(current).Id}; storedBase={storedBase}; " +
+                $"terrain={faceData.IsTerrainVoxel}; hasCandidates={faceData.HasCandidates}";
+            Assert.Equal(blocks.GetId(baselineBlock), current);
+            Assert.True(
+                faceData.BaseBlock.IsAir ||
+                faceData.BaseBlock == blocks.GetId(baselineBlock),
+                $"Directional base metadata already disagrees before neighbor arrival: {metadata}");
         }
 
         var arrivingNeighbor = new ChunkCoord(9, 3, -2);
