@@ -101,12 +101,33 @@ public sealed class CavernPaletteStreamingDivergenceTests
 
         var gravel = blocks.GetId("asteria:gravel");
         var transitions = new Dictionary<string, int>(StringComparer.Ordinal);
+        var metadataSummary = new List<string>(DivergentVoxels.Length);
         foreach (var (position, baselineBlock) in DivergentVoxels)
         {
             var (_, local) = VoxelCoordinates.FromWorld(
                 position.X, position.Y, position.Z);
+            var linearIndex = local.X +
+                Chunk.Size * (local.Z + Chunk.Size * local.Y);
             var current = sourceChunk.GetBlock(local.X, local.Y, local.Z);
+            var faceData = sourceChunk.DirectionalFaceDataAtLinearIndex(linearIndex);
+            var storedBase = faceData.BaseBlock.IsAir
+                ? "<air>"
+                : blocks.GetDefinition(faceData.BaseBlock).Id;
+            metadataSummary.Add(
+                $"{position.X},{position.Y},{position.Z}: base={storedBase}; " +
+                $"terrain={faceData.IsTerrainVoxel}; candidates=" +
+                $"U:{faceData.Up:X}/-X:{faceData.NegativeX:X}/+X:{faceData.PositiveX:X}/" +
+                $"-Z:{faceData.NegativeZ:X}/+Z:{faceData.PositiveZ:X}/D:{faceData.Down:X}");
             Assert.Equal(gravel, current);
+            Assert.True(
+                faceData.IsTerrainVoxel,
+                $"Changed voxel lost terrain provenance: {metadataSummary[^1]}");
+            Assert.Equal(
+                blocks.GetId(baselineBlock),
+                faceData.BaseBlock);
+            Assert.True(
+                faceData.HasCandidates,
+                $"Changed voxel has no directional candidates: {metadataSummary[^1]}");
             transitions[baselineBlock] =
                 transitions.TryGetValue(baselineBlock, out var count)
                     ? count + 1
