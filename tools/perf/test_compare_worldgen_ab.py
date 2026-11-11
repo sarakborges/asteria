@@ -44,6 +44,12 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
         "maximumPlayerLocalMissingChunks": 60,
         "maximumPendingChunks": 24,
         "maximumActiveWorkers": 6,
+        "totalFluidCellsActivated": 100,
+        "totalFluidFrontierCellsActivated": 200,
+        "totalFluidActivationSlices": 4,
+        "totalFluidActivationMilliseconds": 8.0,
+        "maximumFluidActivationSliceMilliseconds": 2.0,
+        "maximumPendingFluidActivationChunks": 3,
     }
     if streaming_route:
         route.update(streaming_route)
@@ -165,6 +171,9 @@ class CompareWorldgenAbTests(unittest.TestCase):
                 "totalWorkerMilliseconds": worker,
                 "framesWithPlayerLocalGaps": gaps,
                 "maximumPendingChunks": pending,
+                "totalFluidActivationMilliseconds": value / 10.0,
+                "maximumFluidActivationSliceMilliseconds": value / 100.0,
+                "totalFluidFrontierCellsActivated": int(value),
             })
             for value, worker, gaps, pending in zip(
                 (1000.0, 1100.0, 1200.0),
@@ -208,6 +217,21 @@ class CompareWorldgenAbTests(unittest.TestCase):
         )
         self.assertEqual(4.0, selection_latency["baselineMedian"])
         self.assertEqual(4.0, selection_latency["candidateMedian"])
+
+        fluid_time = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Fluid activation processing time (ms)"
+        )
+        self.assertEqual(110.0, fluid_time["baselineMedian"])
+        self.assertEqual(90.0, fluid_time["candidateMedian"])
+        self.assertAlmostEqual(18.1818, fluid_time["reductionPercent"], places=3)
+
+        fluid_frontier = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Fluid frontier cells processed"
+        )
+        self.assertEqual(1100.0, fluid_frontier["baselineMedian"])
+        self.assertEqual(900.0, fluid_frontier["candidateMedian"])
 
         report = render_report(result)
         self.assertIn("Headless moving-route A/B", report)
