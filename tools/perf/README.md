@@ -31,6 +31,40 @@ available to identify where the work is performed.
 This is a headless Core world-generation benchmark. It does not measure Godot
 mesh publication, collision creation, GPU work or frame pacing.
 
+## Headless movement-route profile
+
+Run the same benchmark with a deterministic route through adjacent chunk
+centers:
+
+```sh
+dotnet run -c Release --project tools/WorldgenBenchmark -- \
+  --seed 181960897289965 --dimension asteria:overworld \
+  --samples 2 --area-size 4 --chunks 1 \
+  --profile-streaming-route true \
+  --streaming-route-steps 8 --streaming-route-radius 4 \
+  --output streaming-route.json
+```
+
+The profile drives the real Core `ChunkStreamingSelectionRuntime` and
+`ChunkResidencyRuntime` with the production biome generator. It moves one
+chunk along +X every eight simulated 60 Hz frames, runs selection and
+materialization workers concurrently, reserves up to four ready presentations
+per frame, processes fluid activation and block-physics wakeups, and retires
+distant chunks. Output includes queue/worker peaks, local-neighborhood gaps,
+activation and queue-wait latency, per-stage worker time, and a digest of every
+unique activated chunk's block content. Repeated activations of the same
+coordinate must reproduce the same content.
+
+The A/B workflow runs this route four times on both revisions. It rejects
+different route geometry, activated chunk counts, or content digests, then
+compares median route drain time, worker time, queue waits and local gaps.
+These are diagnostic comparisons, not hard timing budgets.
+
+The route treats presentation reservations as immediate and cost-free. It
+does not execute Godot mesh construction, collision-shape creation, GPU upload,
+or actual frame pacing; the result isolates Core selection, residency,
+materialization, fluid activation and physics wakeup work.
+
 ## Gameplay-session comparison
 
 
