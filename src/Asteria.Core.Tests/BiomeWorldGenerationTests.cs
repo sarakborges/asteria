@@ -3303,6 +3303,102 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void StreamingBenchmarkSeedDirectionalFaceArrivalKeepsGravitySupported()
+    {
+        const ulong seed = 181960897289965UL;
+        var blocks = LoadDefaultBlocks();
+        var fluids = LoadDefaultFluids();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension,
+            blocks,
+            fluids,
+            LoadDefaultBiomes(),
+            LoadDefaultStructures(),
+            LoadDefaultStructureSets());
+        var spawn = generator.FindGeneratedSurfaceDestination(
+            dimension.Spawn.X,
+            dimension.Spawn.Z,
+            maxRadius: 64);
+        Assert.NotNull(spawn);
+
+        WorldVoxelCoord[] observedPositions =
+        [
+            new(71, 82, -3),
+            new(72, 82, -3),
+            new(73, 82, -2),
+            new(73, 82, -19),
+            new(74, 82, -19),
+            new(68, 82, -18),
+            new(72, 82, -18),
+            new(69, 82, -17),
+            new(70, 82, -17),
+            new(71, 82, -17),
+        ];
+        ChunkCoord[] upperChunks =
+        [
+            new(4, 5, -1),
+            new(4, 5, -2),
+        ];
+        ChunkCoord[] lowerChunks =
+        [
+            new(4, 4, -1),
+            new(4, 4, -2),
+        ];
+
+        var world = new VoxelWorld();
+        foreach (var coord in upperChunks)
+        {
+            world.InsertChunk(coord, generator.Materialize(coord));
+            generator.ReconcileChunkArrival(world, coord);
+        }
+
+        // The lower chunks arrive after their upper neighbors. This is the
+        // residency order that exposes late downward-face palette candidates.
+        foreach (var coord in lowerChunks)
+        {
+            world.InsertChunk(coord, generator.Materialize(coord));
+            generator.ReconcileChunkArrival(world, coord);
+        }
+
+        foreach (var position in observedPositions)
+        {
+            Assert.True(world.TryGetCell(position, out var cell));
+            if (cell.IsEmpty ||
+                !blocks.GetDefinition(cell.Block).HasTag(
+                    BlockPhysicsCapabilities.Gravity))
+                continue;
+
+            var below = position + (0, -1, 0);
+            Assert.True(
+                world.TryGetCell(below, out var support) && !support.IsEmpty,
+                $"Directional-face reconciliation introduced unsupported " +
+                $"{blocks.GetDefinition(cell.Block).Id} at " +
+                $"{position.X},{position.Y},{position.Z}.");
+        }
+
+        var physicsUpdates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(
+            world,
+            new WorldUpdateQueue(),
+            new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(),
+            physicsUpdates,
+            new MeshletContentRevisions(),
+            new MeshletContentRevisions());
+        var droppedBlocks = new DroppedBlockRuntime(world, blocks);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, physicsUpdates, droppedBlocks);
+
+        var queuedWakeups = upperChunks.Concat(lowerChunks)
+            .Sum(physics.EnqueueResidentChunk);
+        Assert.Equal(0, queuedWakeups);
+        Assert.Equal(0, physicsUpdates.Count);
+        Assert.Equal(0, physics.ProcessWakeups().FallingStarted);
+    }
+
+    [Fact]
     public void DefaultWorldGeneratorProducesGroundPlantsFromBiomeDecorators()
     {
         var blocks =

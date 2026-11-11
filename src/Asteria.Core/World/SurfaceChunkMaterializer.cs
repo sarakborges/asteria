@@ -3098,7 +3098,8 @@ public sealed class SurfaceChunkMaterializer
         int worldX,
         int worldY,
         int worldZ,
-        Func<int, int, DirectionalPaletteColumnData> columnAt)
+        Func<int, int, DirectionalPaletteColumnData> columnAt,
+        VoxelWorld? supportWorld = null)
     {
         chunk.RestoreDirectionalFaceBaseBlockAtLinearIndex(index);
         var data = chunk.DirectionalFaceDataAtLinearIndex(index);
@@ -3281,8 +3282,41 @@ public sealed class SurfaceChunkMaterializer
 
             var replacement = _materials.VolumeBlockAt(
                 owner.Biome, worldX, worldY, worldZ, face, depth);
+            if (supportWorld is not null &&
+                _gravityBlocks.Contains(replacement) &&
+                !HasStableGravitySupportBelow(
+                    supportWorld,
+                    new WorldVoxelCoord(worldX, worldY, worldZ)))
+            {
+                // Arrival-time reconciliation runs after GravitySupport has
+                // validated the generated chunk. Do not introduce a new
+                // unsupported gravity block after that invariant pass.
+                // The restored base material remains the safe representation.
+                return false;
+            }
             return chunk.SetDirectionalFacePaletteBlockAtLinearIndex(index, replacement);
         }
+    }
+
+    private bool HasStableGravitySupportBelow(
+        VoxelWorld world,
+        WorldVoxelCoord position)
+    {
+        var support = position + (0, -1, 0);
+        while (support.Y >= 0)
+        {
+            if (!world.TryGetSavedCell(support, out var cell) || cell.IsEmpty)
+                return false;
+            if (!_gravityBlocks.Contains(cell.Block))
+                return true;
+
+            // A lower gravity block is not terminal support. Follow the full
+            // stack, including archived chunks, until it reaches stable rock.
+            support += (0, -1, 0);
+        }
+
+        // The world floor is terminal support.
+        return true;
     }
 
     private void MaterializeDirectionalFacePalettes(MaterializationJob job)
@@ -3593,7 +3627,8 @@ public sealed class SurfaceChunkMaterializer
                 var before = chunk.GetCellAtLinearIndexUnchecked(index);
                 ReapplyDirectionalFacePaletteAt(
                     chunk, densityVolume, index,
-                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt);
+                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt,
+                    supportWorld: world);
                 var after = chunk.GetCellAtLinearIndexUnchecked(index);
                 if (before.Block != after.Block)
                 {
