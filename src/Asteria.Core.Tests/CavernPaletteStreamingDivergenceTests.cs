@@ -81,6 +81,27 @@ public sealed class CavernPaletteStreamingDivergenceTests
             origin.X, origin.Y, origin.Z,
             Chunk.Size, Chunk.Size, Chunk.Size);
         var chunk = generator.Materialize(chunkCoord);
+        var world = new VoxelWorld();
+        world.InsertChunk(chunkCoord, chunk);
+
+        // The baseline materials are present when this chunk first arrives.
+        // The divergence is introduced only when its +Z neighbor becomes
+        // resident and the arrival-time face reconciliation runs.
+        foreach (var (position, baselineBlock) in DivergentVoxels)
+        {
+            var (_, local) = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            Assert.Equal(
+                blocks.GetId(baselineBlock),
+                chunk.GetBlock(local.X, local.Y, local.Z));
+        }
+
+        var arrivingNeighbor = new ChunkCoord(9, 3, -2);
+        world.InsertChunk(
+            arrivingNeighbor,
+            generator.Materialize(arrivingNeighbor));
+        var changedPositions = generator.ReconcileChunkArrival(
+            world, arrivingNeighbor).ToHashSet();
         var gravel = blocks.GetId("asteria:gravel");
 
         var decisions = new List<PaletteDecision>(DivergentVoxels.Length);
@@ -90,6 +111,7 @@ public sealed class CavernPaletteStreamingDivergenceTests
                 position.X, position.Y, position.Z);
             var currentBlock = chunk.GetBlock(local.X, local.Y, local.Z);
             Assert.Equal(gravel, currentBlock);
+            Assert.Contains(position, changedPositions);
 
             var decision = FindAppliedPaletteDecision(
                 generator,
