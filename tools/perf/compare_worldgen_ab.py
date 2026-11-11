@@ -79,6 +79,18 @@ def _streaming_route_identity(run: dict[str, Any]) -> tuple[Any, ...] | None:
     return identity
 
 
+def _streaming_gravity_wakeup_samples(run: dict[str, Any]) -> list[dict[str, Any]]:
+    route = run.get("streamingRouteDiagnostics")
+    if route is None:
+        return []
+    samples = _at(route, "gravityWakeupSamples")
+    if not isinstance(samples, list):
+        raise ValueError("Streaming route gravityWakeupSamples must be an array.")
+    if any(not isinstance(sample, dict) for sample in samples):
+        raise ValueError("Gravity wakeup samples must be objects.")
+    return samples
+
+
 def _streaming_physics_signature(run: dict[str, Any]) -> tuple[Any, ...] | None:
     route = run.get("streamingRouteDiagnostics")
     if route is None:
@@ -644,45 +656,16 @@ def compare(
             })
         baseline_physics = _streaming_physics_signature(baseline_first)
         candidate_physics = _streaming_physics_signature(candidate_first)
+        baseline_wakeup_samples = _streaming_gravity_wakeup_samples(baseline_first)
+        candidate_wakeup_samples = _streaming_gravity_wakeup_samples(candidate_first)
         streaming_route_result = {
             "gravityWakeupDiagnostics": {
                 "baselineWakeupsWithAirBelow": baseline_physics[4],
                 "candidateWakeupsWithAirBelow": candidate_physics[4],
-                "baselineSamples": [
-                    {
-                        "block": item[0],
-                        "position": [item[1], item[2], item[3]],
-                        "sourceChunk": [item[4], item[5], item[6]],
-                        "wakeupFrame": item[7],
-                        "sourceChunkActivatedFrame": item[8],
-                        "framesSinceSourceChunkActivation": item[9],
-                        "belowChunk": [item[10], item[11], item[12]],
-                        "belowChunkActivatedFrame": item[13],
-                        "framesSinceBelowChunkActivation": item[14],
-                        "queueDepth": item[15],
-                        "belowBlock": item[16],
-                        "framesSinceBothChunksResident": item[17],
-                        "framesSinceBothChunksResident": item[17],
-                    }
-                    for item in baseline_physics[5]
-                ],
-                "candidateSamples": [
-                    {
-                        "block": item[0],
-                        "position": [item[1], item[2], item[3]],
-                        "sourceChunk": [item[4], item[5], item[6]],
-                        "wakeupFrame": item[7],
-                        "sourceChunkActivatedFrame": item[8],
-                        "framesSinceSourceChunkActivation": item[9],
-                        "belowChunk": [item[10], item[11], item[12]],
-                        "belowChunkActivatedFrame": item[13],
-                        "framesSinceBelowChunkActivation": item[14],
-                        "queueDepth": item[15],
-                        "belowBlock": item[16],
-                        "framesSinceBothChunksResident": item[17],
-                    }
-                    for item in candidate_physics[5]
-                ],
+                # Keep scheduler timing from the first repetition for diagnosis;
+                # repetition validation compares only deterministic world outcomes.
+                "baselineSamples": baseline_wakeup_samples,
+                "candidateSamples": candidate_wakeup_samples,
             },
             "physicsDifferences": {
                 "baselineFallingBlocksStarted": baseline_physics[0],
