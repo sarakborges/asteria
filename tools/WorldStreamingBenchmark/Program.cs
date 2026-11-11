@@ -85,7 +85,11 @@ var result = new
 };
 var json = JsonSerializer.Serialize(
     result,
-    new JsonSerializerOptions { WriteIndented = true });
+    new JsonSerializerOptions
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    });
 Console.WriteLine(json);
 if (options.Output is { } output)
 {
