@@ -244,7 +244,9 @@ internal static class ChunkStreamingRouteBenchmark
             AccumulateUpdate(
                 dispatched,
                 world,
+                blocks,
                 chunkDigests,
+                chunkBlockDiagnostics,
                 activatedChunkFrames,
                 frame,
                 ref providerActivations,
