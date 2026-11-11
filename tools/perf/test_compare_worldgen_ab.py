@@ -201,6 +201,7 @@ class CompareWorldgenAbTests(unittest.TestCase):
                     "belowChunkX": 4, "belowChunkY": 2, "belowChunkZ": 0,
                     "belowChunkActivatedFrame": 16,
                     "framesSinceBelowChunkActivation": 32,
+                    "framesSinceBothChunksResident": 32,
                     "queueDepth": 4,
                     "belowBlock": "asteria:air",
                 }],
@@ -221,6 +222,7 @@ class CompareWorldgenAbTests(unittest.TestCase):
         self.assertEqual(1, wakeups["candidateWakeupsWithAirBelow"])
         self.assertEqual(32, wakeups["candidateSamples"][0]["framesSinceSourceChunkActivation"])
         self.assertEqual(32, wakeups["candidateSamples"][0]["framesSinceBelowChunkActivation"])
+        self.assertEqual(32, wakeups["candidateSamples"][0]["framesSinceBothChunksResident"])
         self.assertEqual([4, 2, 0], physics["candidateFallingBlockSamples"][0]["chunk"])
 
         report = render_report(result)
@@ -232,6 +234,7 @@ class CompareWorldgenAbTests(unittest.TestCase):
         self.assertIn("Gravity wakeups with air below before processing: baseline 0; candidate 1", report)
         self.assertIn("'framesSinceSourceChunkActivation': 32", report)
         self.assertIn("'framesSinceBelowChunkActivation': 32", report)
+        self.assertIn("'framesSinceBothChunksResident': 32", report)
         self.assertIn("'x': 69, 'y': 42, 'z': 3", report)
 
     def test_rejects_nondeterministic_falling_block_samples_between_route_runs(self) -> None:
@@ -278,6 +281,7 @@ class CompareWorldgenAbTests(unittest.TestCase):
                             "belowChunkX": 4, "belowChunkY": 2, "belowChunkZ": 0,
                             "belowChunkActivatedFrame": 16,
                             "framesSinceBelowChunkActivation": wakeup_frame - 16,
+                            "framesSinceBothChunksResident": wakeup_frame - 16,
                             "queueDepth": 4,
                             "belowBlock": "asteria:air",
                         }],
