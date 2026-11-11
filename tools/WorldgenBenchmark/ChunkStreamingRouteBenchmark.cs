@@ -99,6 +99,8 @@ internal static class ChunkStreamingRouteBenchmark
         var totalFluidCellsProcessed = 0L;
         var totalFluidFrontierCellsProcessed = 0L;
         var totalPhysicsWakeupsProcessed = 0L;
+        var totalFallingBlocksStarted = 0L;
+        var totalUnsupportedBlocksRemoved = 0L;
         var totalWorkerMilliseconds = 0d;
         var totalTerrainMilliseconds = 0d;
         var totalLightingMilliseconds = 0d;
@@ -178,8 +180,11 @@ internal static class ChunkStreamingRouteBenchmark
                     if (completedSelection.Center == currentCenter)
                     {
                         currentSelectionApplied = true;
-                        selectionLatencyFrames.Add(Math.Max(
-                            0, frame - currentSelectionRequestedFrame));
+                        var selectionFrames = Math.Max(
+                            0, frame - currentSelectionRequestedFrame);
+                        selectionLatencyFrames.Add(selectionFrames);
+                        if (stepStates.Count > 0)
+                            stepStates[^1].SelectionReadyAfterFrames = selectionFrames;
                     }
                 }
             }
@@ -249,7 +254,10 @@ internal static class ChunkStreamingRouteBenchmark
             totalFluidFrontierCellsProcessed += fluidReport.FrontierCellsProcessed;
 
             var physicsReport = physics.ProcessWakeups();
-            totalPhysicsWakeupsProcessed += physicsReport.Processed;
+            totalFallingBlocksStarted += physicsReport.FallingStarted;
+            totalUnsupportedBlocksRemoved += physicsReport.UnsupportedRemoved;
+            totalPhysicsWakeupsProcessed += physicsReport.FallingStarted +
+                physicsReport.UnsupportedRemoved;
 
             var reservedPresentations = 0;
             while (reservedPresentations < MaximumPresentationReservationsPerFrame &&
@@ -420,6 +428,8 @@ internal static class ChunkStreamingRouteBenchmark
             TotalFluidCellsActivated = totalFluidCellsProcessed,
             TotalFluidFrontierCellsActivated = totalFluidFrontierCellsProcessed,
             TotalPhysicsWakeupsProcessed = totalPhysicsWakeupsProcessed,
+            TotalFallingBlocksStarted = totalFallingBlocksStarted,
+            TotalUnsupportedBlocksRemoved = totalUnsupportedBlocksRemoved,
             MaterializationStages = stageCounts.Select(pair => new
             {
                 Stage = pair.Key,
@@ -465,10 +475,13 @@ internal static class ChunkStreamingRouteBenchmark
         foreach (var timing in update.MaterializationStageTimings)
         {
             var name = timing.Stage.ToString();
-            stageCounts[name] = stageCounts.GetValueOrDefault(name) + 1;
-            stageMilliseconds[name] =
-                stageMilliseconds.GetValueOrDefault(name) +
-                timing.WorkerMilliseconds;
+            stageCounts[name] = stageCounts.TryGetValue(name, out var count)
+                ? count + 1
+                : 1;
+            stageMilliseconds[name] = (
+                stageMilliseconds.TryGetValue(name, out var milliseconds)
+                    ? milliseconds
+                    : 0d) + timing.WorkerMilliseconds;
         }
 
         foreach (var activation in update.Activations)
