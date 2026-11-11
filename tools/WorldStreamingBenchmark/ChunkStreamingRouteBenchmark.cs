@@ -520,6 +520,21 @@ internal static class ChunkStreamingRouteBenchmark
             digest = HashNumber(digest, (ulong)z);
             digest = HashNumber(digest, cell.Block.Value);
         });
+
+        // Keep fluid occupancy and simulation state in the same deterministic
+        // chunk digest. Sparse visitation avoids scanning every empty voxel.
+        digest = HashNumber(digest, 0xF10DUL);
+        digest = HashNumber(digest, (ulong)chunk.FluidCount);
+        chunk.VisitFluidCells((x, y, z, fluid) =>
+        {
+            digest = HashNumber(digest, (ulong)x);
+            digest = HashNumber(digest, (ulong)y);
+            digest = HashNumber(digest, (ulong)z);
+            digest = HashNumber(digest, fluid.Fluid.Value);
+            digest = HashNumber(digest, fluid.Level);
+            digest = HashNumber(digest, fluid.IsSource ? 1UL : 0UL);
+            digest = HashNumber(digest, fluid.SpreadDistance);
+        });
         return digest;
     }
 
