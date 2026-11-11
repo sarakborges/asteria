@@ -50,6 +50,10 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
         "totalFluidActivationMilliseconds": 8.0,
         "maximumFluidActivationSliceMilliseconds": 2.0,
         "maximumPendingFluidActivationChunks": 3,
+        "totalFallingBlocksStarted": 0,
+        "totalUnsupportedBlocksRemoved": 0,
+        "observedFallingEntityCount": 0,
+        "fallingBlockSamples": [],
     }
     if streaming_route:
         route.update(streaming_route)
@@ -163,6 +167,75 @@ class CompareWorldgenAbTests(unittest.TestCase):
         report = render_report(result)
         self.assertIn("TerrainLayer + directional-face combined allocations", report)
         self.assertIn("TerrainLayer + directional faces (warm)", report)
+
+    def test_reports_gravity_fall_starts_and_sample_coordinates(self) -> None:
+        baseline = [sample_run() for _ in range(3)]
+        falling_sample = {
+            "fallingId": 1,
+            "block": "asteria:gravel",
+            "isGravityTagged": True,
+            "x": 69,
+            "y": 42,
+            "z": 3,
+            "sourceChunkX": 4,
+            "sourceChunkY": 2,
+            "sourceChunkZ": 0,
+            "belowBlock": "asteria:air",
+            "belowChunkLoaded": True,
+        }
+        candidate = [
+            sample_run(streaming_route={
+                "totalFallingBlocksStarted": 10,
+                "observedFallingEntityCount": 10,
+                "fallingBlockSamples": [falling_sample],
+            })
+            for _ in range(3)
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+        physics = route["physicsDifferences"]
+
+        self.assertEqual(0, physics["baselineFallingBlocksStarted"])
+        self.assertEqual(10, physics["candidateFallingBlocksStarted"])
+        self.assertEqual([], physics["baselineFallingBlockSamples"])
+        self.assertEqual("asteria:gravel", physics["candidateFallingBlockSamples"][0]["block"])
+        self.assertEqual([4, 2, 0], physics["candidateFallingBlockSamples"][0]["chunk"])
+
+        report = render_report(result)
+        self.assertIn(
+            "Gravity blocks started falling: baseline 0; candidate 10",
+            report,
+        )
+        self.assertIn("asteria:gravel", report)
+        self.assertIn("[69, 42, 3]", report)
+
+    def test_rejects_nondeterministic_falling_block_samples_between_route_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, x in enumerate((69, 69, 70), start=1):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(streaming_route={
+                        "totalFallingBlocksStarted": 1,
+                        "observedFallingEntityCount": 1,
+                        "fallingBlockSamples": [{
+                            "fallingId": 1,
+                            "block": "asteria:gravel",
+                            "isGravityTagged": True,
+                            "x": x,
+                            "y": 42,
+                            "z": 3,
+                            "sourceChunkX": 4,
+                            "sourceChunkY": 2,
+                            "sourceChunkZ": 0,
+                            "belowBlock": "asteria:air",
+                            "belowChunkLoaded": True,
+                        }],
+                    })),
+                    encoding="utf-8",
+                )
+            with self.assertRaisesRegex(ValueError, "falling-block physics outcomes"):
+                load_repetitions(root, 3)
 
     def test_compares_streaming_route_metrics_when_route_content_matches(self) -> None:
         baseline = [
