@@ -442,7 +442,7 @@ jobs:
               return 1
             fi
 
-            local route_output="$root/results/$version/$repetition-route.json"
+            local route_output="$root/route-results/$version/$repetition.json"
             if ! env DOTNET_TieredCompilation=0 dotnet run \
               --project "$project_root/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
               --configuration Release --no-build -- \
