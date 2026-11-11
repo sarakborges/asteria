@@ -21,8 +21,7 @@ internal static class ChunkStreamingRouteBenchmark
         FluidRegistry fluids,
         ChunkCoord start,
         int routeSteps,
-        int horizontalRadius,
-        bool disableDirectionalFaceReconciliation = false)
+        int horizontalRadius)
     {
         ArgumentNullException.ThrowIfNull(generator);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -62,14 +61,11 @@ internal static class ChunkStreamingRouteBenchmark
             mutations,
             physicsUpdates,
             droppedBlocks);
-        IChunkProvider chunkProvider = disableDirectionalFaceReconciliation
-            ? new IncrementalChunkProviderWithoutDirectionalFaceReconciliation(generator)
-            : generator;
         var residency = new ChunkResidencyRuntime(
             world,
             blocks,
             fluids,
-            chunkProvider,
+            generator,
             worldUpdates,
             fluidUpdates,
             fluidMeshUpdates,
@@ -904,17 +900,4 @@ internal static class ChunkStreamingRouteBenchmark
         public int? SelectionReadyAfterFrames { get; set; }
         public int? LocalReadyAfterFrames { get; set; }
     }
-    // Preserve incremental worker materialization while deliberately omitting
-    // IChunkDirectionalFacePaletteUpdater. The runtime therefore cannot run
-    // arrival-time directional palette reconciliation in this diagnostic mode.
-    private sealed class IncrementalChunkProviderWithoutDirectionalFaceReconciliation(
-        BiomeWorldGenerator inner) : IIncrementalChunkProvider
-    {
-        public Chunk Materialize(ChunkCoord coord) =>
-            inner.Materialize(coord);
-
-        public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
-            inner.BeginMaterialization(coord);
-    }
-
 }

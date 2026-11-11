@@ -578,14 +578,12 @@ public sealed class Chunk
         if (distance is < 1 or > 64)
             throw new ArgumentOutOfRangeException(nameof(distance));
         var data = DirectionalFaceDataAtLinearIndex(index);
+        // Only the materializer may establish terrain provenance. Arrival-time
+        // exposure updates must not promote solid decorations (spikes, plants,
+        // crystals or mushrooms) into terrain voxels.
         if (!data.IsTerrainVoxel)
-        {
-            var source = _cells.Get(index);
-            if (source.IsEmpty || source.IsPlayerPlaced || !exposed)
-                return false;
-            data = new DirectionalFaceVoxelData(
-                true, 0, 0, 0, 0, 0, 0, BlockRuntimeId.Air);
-        }
+            return false;
+
         var bit = 1UL << (distance - 1);
         var oldMask = data.Candidates(direction);
         var nextMask = exposed ? oldMask | bit : oldMask & ~bit;

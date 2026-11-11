@@ -157,6 +157,52 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void DirectionalFaceArrivalDoesNotPromoteUntrackedSolidBlocksToTerrain()
+    {
+        var chunk = new Chunk();
+        const int index = 7 * Chunk.Area + 5 * Chunk.Size + 9;
+        var decoration = new BlockRuntimeId(23);
+        Assert.True(chunk.SetBlockAtLinearIndex(index, decoration));
+        var revision = chunk.Revision;
+
+        Assert.False(chunk.UpdateDirectionalFaceCandidateAtLinearIndex(
+            index,
+            DirectionalFaceDirection.PositiveX,
+            distance: 1,
+            exposed: true,
+            updateRevision: false));
+
+        Assert.Equal(default, chunk.DirectionalFaceDataAtLinearIndex(index));
+        Assert.Equal(decoration, chunk.GetCellAtLinearIndexUnchecked(index).Block);
+        Assert.Equal(revision, chunk.Revision);
+    }
+
+    [Fact]
+    public void DirectionalFaceArrivalStillUpdatesExplicitTerrainMetadata()
+    {
+        var chunk = new Chunk();
+        const int index = 7 * Chunk.Area + 5 * Chunk.Size + 9;
+        var terrainBlock = new BlockRuntimeId(24);
+        Assert.True(chunk.SetBlockAtLinearIndex(index, terrainBlock));
+        chunk.SetDirectionalFaceDataAtLinearIndex(
+            index,
+            new DirectionalFaceVoxelData(
+                true, 0, 0, 0, 0, 0, 0, BlockRuntimeId.Air),
+            updateRevision: false);
+
+        Assert.True(chunk.UpdateDirectionalFaceCandidateAtLinearIndex(
+            index,
+            DirectionalFaceDirection.PositiveX,
+            distance: 3,
+            exposed: true,
+            updateRevision: false));
+
+        Assert.True(chunk.DirectionalFaceDataAtLinearIndex(index).IsTerrainVoxel);
+        Assert.Equal(1UL << 2,
+            chunk.DirectionalFaceDataAtLinearIndex(index).PositiveX);
+    }
+
+    [Fact]
     public void DirectionalFaceMetadataCloneAndBaseBlockRestorePreserveOverflowMasks()
     {
         const int index = 2 + Chunk.Size * (4 + Chunk.Size * 3);
