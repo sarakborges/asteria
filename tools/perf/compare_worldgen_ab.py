@@ -78,6 +78,37 @@ def _streaming_route_identity(run: dict[str, Any]) -> tuple[Any, ...] | None:
     return identity
 
 
+def _streaming_physics_signature(run: dict[str, Any]) -> tuple[Any, ...] | None:
+    route = run.get("streamingRouteDiagnostics")
+    if route is None:
+        return None
+    samples = _at(route, "fallingBlockSamples")
+    if not isinstance(samples, list):
+        raise ValueError("Streaming route fallingBlockSamples must be an array.")
+    normalized = []
+    for sample in samples:
+        if not isinstance(sample, dict):
+            raise ValueError("Falling block samples must be objects.")
+        normalized.append((
+            str(_at(sample, "block")),
+            bool(_at(sample, "isGravityTagged")),
+            int(_at(sample, "x")),
+            int(_at(sample, "y")),
+            int(_at(sample, "z")),
+            int(_at(sample, "sourceChunkX")),
+            int(_at(sample, "sourceChunkY")),
+            int(_at(sample, "sourceChunkZ")),
+            str(_at(sample, "belowBlock")),
+            bool(_at(sample, "belowChunkLoaded")),
+        ))
+    return (
+        int(_at(route, "totalFallingBlocksStarted")),
+        int(_at(route, "totalUnsupportedBlocksRemoved")),
+        int(_at(route, "observedFallingEntityCount")),
+        tuple(normalized),
+    )
+
+
 def _streaming_route_chunks(
     run: dict[str, Any],
 ) -> dict[tuple[int, int, int], tuple[int, int, int, int]] | None:
@@ -116,6 +147,7 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
     expected_stage_names = None
     expected_streaming_identity = None
     expected_streaming_chunks = None
+    expected_physics_signature = None
     expected_streaming_presence = None
 
     for index, run in enumerate(runs, start=1):
@@ -171,11 +203,13 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
 
         streaming_identity = _streaming_route_identity(run)
         streaming_chunks = _streaming_route_chunks(run)
+        physics_signature = _streaming_physics_signature(run)
         streaming_presence = streaming_identity is not None
         if expected_streaming_presence is None:
             expected_streaming_presence = streaming_presence
             expected_streaming_identity = streaming_identity
             expected_streaming_chunks = streaming_chunks
+            expected_physics_signature = physics_signature
         elif streaming_presence != expected_streaming_presence:
             raise ValueError(
                 f"{directory} repetitions must all include the same streaming route profile."
@@ -187,6 +221,10 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
         elif streaming_chunks != expected_streaming_chunks:
             raise ValueError(
                 f"{directory} repetitions generated different per-coordinate streaming chunk digests."
+            )
+        elif physics_signature != expected_physics_signature:
+            raise ValueError(
+                f"{directory} repetitions observed different falling-block physics outcomes."
             )
 
         if identity is None:
@@ -546,6 +584,8 @@ def compare(
             ("Fluid cells activated", "totalFluidCellsActivated"),
             ("Fluid frontier cells processed", "totalFluidFrontierCellsActivated"),
             ("Maximum pending fluid-activation chunks", "maximumPendingFluidActivationChunks"),
+            ("Gravity blocks started falling", "totalFallingBlocksStarted"),
+            ("Unsupported blocks removed", "totalUnsupportedBlocksRemoved"),
         ]
         route_metrics = []
         for label, field in streaming_route_definitions:
@@ -561,7 +601,37 @@ def compare(
                     else None
                 ),
             })
+        baseline_physics = _streaming_physics_signature(baseline_first)
+        candidate_physics = _streaming_physics_signature(candidate_first)
         streaming_route_result = {
+            "physicsDifferences": {
+                "baselineFallingBlocksStarted": baseline_physics[0],
+                "candidateFallingBlocksStarted": candidate_physics[0],
+                "baselineUnsupportedBlocksRemoved": baseline_physics[1],
+                "candidateUnsupportedBlocksRemoved": candidate_physics[1],
+                "baselineFallingBlockSamples": [
+                    {
+                        "block": item[0],
+                        "isGravityTagged": item[1],
+                        "x": item[2], "y": item[3], "z": item[4],
+                        "chunk": [item[5], item[6], item[7]],
+                        "belowBlock": item[8],
+                        "belowChunkLoaded": item[9],
+                    }
+                    for item in baseline_physics[3]
+                ],
+                "candidateFallingBlockSamples": [
+                    {
+                        "block": item[0],
+                        "isGravityTagged": item[1],
+                        "x": item[2], "y": item[3], "z": item[4],
+                        "chunk": [item[5], item[6], item[7]],
+                        "belowBlock": item[8],
+                        "belowChunkLoaded": item[9],
+                    }
+                    for item in candidate_physics[3]
+                ],
+            },
             "routeSteps": baseline_route_identity[0],
             "movementChunks": baseline_route_identity[1],
             "framesPerChunk": baseline_route_identity[2],
@@ -701,6 +771,17 @@ def render_report(result: dict[str, Any]) -> str:
             f"- Unique activated chunks: baseline {streaming_route['baselineUniqueActivatedChunkCount']}; candidate {streaming_route['candidateUniqueActivatedChunkCount']}",
         ])
         differences = streaming_route["routeContentDifferences"]
+        physics = streaming_route["physicsDifferences"]
+        if physics["baselineFallingBlocksStarted"] != physics["candidateFallingBlocksStarted"] or physics["baselineUnsupportedBlocksRemoved"] != physics["candidateUnsupportedBlocksRemoved"]:
+            lines.extend([
+                f"- Gravity blocks started falling: baseline {physics['baselineFallingBlocksStarted']}; candidate {physics['candidateFallingBlocksStarted']}",
+                f"- Unsupported blocks removed: baseline {physics['baselineUnsupportedBlocksRemoved']}; candidate {physics['candidateUnsupportedBlocksRemoved']}",
+            ])
+        if physics["baselineFallingBlockSamples"] or physics["candidateFallingBlockSamples"]:
+            lines.extend([
+                f"- Baseline falling-block samples: {physics['baselineFallingBlockSamples']}",
+                f"- Candidate falling-block samples: {physics['candidateFallingBlockSamples']}",
+            ])
         if streaming_route["digestsMatch"]:
             lines.append(f"- Route content digest: identical ({streaming_route['baselineRouteDigest']})")
         else:
