@@ -3245,6 +3245,12 @@ public sealed class BiomeWorldGenerationTests
             LoadDefaultBiomes(),
             LoadDefaultStructures(),
             LoadDefaultStructureSets());
+        var spawn = generator.FindGeneratedSurfaceDestination(
+            dimension.Spawn.X,
+            dimension.Spawn.Z,
+            maxRadius: 64);
+        Assert.NotNull(spawn);
+
         WorldVoxelCoord[] observedPositions =
         [
             new(71, 82, -3),
