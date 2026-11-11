@@ -459,6 +459,7 @@ public sealed class SurfaceChunkMaterializer
 
             case ChunkMaterializationStage.PendingObjects:
                 MaterializePendingObjects(job);
+                ValidateGravitySupportBeforePublication(job);
                 job.Result = job.Chunk;
                 job.Stage = ChunkMaterializationStage.Complete;
                 break;
@@ -1341,6 +1342,62 @@ public sealed class SurfaceChunkMaterializer
         }
 
         return false;
+    }
+
+    private void ValidateGravitySupportBeforePublication(
+        MaterializationJob job)
+    {
+        List<string>? unsupported = null;
+        var gravityCells = 0;
+        var gravitySetMisses = 0;
+
+        job.Chunk.VisitBlockCells((x, y, z, cell) =>
+        {
+            var definition = _blocks.GetDefinition(cell.Block);
+            if (!definition.HasTag(BlockPhysicsCapabilities.Gravity))
+                return;
+
+            gravityCells++;
+            if (!_gravityBlocks.Contains(cell.Block))
+                gravitySetMisses++;
+
+            bool supported;
+            if (y > 0)
+            {
+                supported = !job.Chunk.GetCell(x, y - 1, z).IsEmpty;
+            }
+            else if (job.OriginY == 0)
+            {
+                supported = true;
+            }
+            else
+            {
+                var supportFace = job.SupportChunkTopOccupancy;
+                supported = supportFace is not null &&
+                    supportFace[x + Chunk.Size * z];
+            }
+
+            if (supported && _gravityBlocks.Contains(cell.Block))
+                return;
+
+            unsupported ??= new List<string>(8);
+            if (unsupported.Count < 16)
+            {
+                unsupported.Add(
+                    $"{definition.Id}@{job.OriginX + x},{job.OriginY + y},{job.OriginZ + z}" +
+                    $"(local={x},{y},{z},set={_gravityBlocks.Contains(cell.Block)}," +
+                    $"below={(y > 0 ? _blocks.GetDefinition(job.Chunk.GetBlock(x, y - 1, z)).Id : "chunk-seam")})");
+            }
+        });
+
+        if (unsupported is { Count: > 0 })
+        {
+            throw new InvalidOperationException(
+                $"Generated chunk {job.Coord} contains gravity blocks without stable support " +
+                $"after materialization ({unsupported.Count} sampled, gravityCells={gravityCells}, " +
+                $"gravitySetMisses={gravitySetMisses}, gravityPositions={job.GravityPositions?.Count ?? -1}): " +
+                string.Join("; ", unsupported));
+        }
     }
 
     private static void CompleteGravitySupportStage(MaterializationJob job)
