@@ -424,6 +424,18 @@ internal static class ChunkStreamingRouteBenchmark
                 WorkerMilliseconds = stageMilliseconds[pair.Key],
             }).ToArray(),
             RouteDigest = routeDigest,
+            ActivatedChunkDigests = chunkDigests
+                .OrderBy(entry => entry.Key.Y)
+                .ThenBy(entry => entry.Key.Z)
+                .ThenBy(entry => entry.Key.X)
+                .Select(entry => new
+                {
+                    X = entry.Key.X,
+                    Y = entry.Key.Y,
+                    Z = entry.Key.Z,
+                    Digest = entry.Value,
+                })
+                .ToArray(),
             GeneratedChunkDigestsMatchOnReactivation = true,
             Notes = new[]
             {
