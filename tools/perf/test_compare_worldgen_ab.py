@@ -30,8 +30,22 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
         "uniqueActivatedChunkCount": 2,
         "routeDigest": 987654321,
         "activatedChunkDigests": [
-            {"x": 1, "y": 2, "z": 3, "digest": 111, "blockDigest": 11, "fluidDigest": 12, "objectDigest": 13},
-            {"x": 2, "y": 2, "z": 3, "digest": 222, "blockDigest": 22, "fluidDigest": 23, "objectDigest": 24},
+            {
+                "x": 1, "y": 2, "z": 3, "digest": 111, "blockDigest": 11, "fluidDigest": 12, "objectDigest": 13,
+                "blockLayerDigests": [1000 + value for value in range(16)],
+                "blockColumnDigests": [2000 + value for value in range(256)],
+                "blockCounts": {"asteria:stone": 16},
+                "gravityBlockCountsByLayer": [0] * 16,
+                "gravityBlockCounts": {},
+            },
+            {
+                "x": 2, "y": 2, "z": 3, "digest": 222, "blockDigest": 22, "fluidDigest": 23, "objectDigest": 24,
+                "blockLayerDigests": [3000 + value for value in range(16)],
+                "blockColumnDigests": [4000 + value for value in range(256)],
+                "blockCounts": {"asteria:stone": 32, "asteria:gravel": 2},
+                "gravityBlockCountsByLayer": [0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                "gravityBlockCounts": {"asteria:gravel": 2},
+            },
         ],
         "generatedChunkDigestsMatchOnReactivation": True,
         "totalElapsedMilliseconds": 1000.0,
@@ -395,6 +409,41 @@ class CompareWorldgenAbTests(unittest.TestCase):
         report = render_report(result)
         self.assertIn("Headless moving-route A/B", report)
         self.assertIn("Route content digest: identical", report)
+
+    def test_reports_block_level_diagnostics_for_changed_streaming_chunks(self) -> None:
+        baseline = [sample_run() for _ in range(3)]
+        candidate = [sample_run() for _ in range(3)]
+        for run in candidate:
+            route = run["streamingRouteDiagnostics"]
+            route["routeDigest"] += 1
+            changed = route["activatedChunkDigests"][1]
+            changed["digest"] += 1
+            changed["blockDigest"] += 1
+            changed["blockLayerDigests"][5] += 1
+            changed["blockColumnDigests"][33] += 1
+            changed["blockCounts"] = {"asteria:stone": 33, "asteria:gravel": 1}
+            changed["gravityBlockCountsByLayer"][5] = 1
+            changed["gravityBlockCounts"] = {"asteria:gravel": 1}
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+        diagnostics = route["routeContentDifferences"]["blockChangeDiagnostics"]
+        self.assertEqual(1, len(diagnostics))
+        detail = diagnostics[0]
+        self.assertEqual([2, 2, 3], detail["chunk"])
+        self.assertEqual([5], detail["changedLocalYLayers"])
+        self.assertEqual(1, detail["changedLocalColumnCount"])
+        self.assertEqual([[1, 2]], detail["changedLocalColumnSamples"])
+        self.assertEqual(2, detail["baselineGravityBlockCount"])
+        self.assertEqual(1, detail["candidateGravityBlockCount"])
+        self.assertEqual(
+            [{"block": "asteria:gravel", "baseline": 2, "candidate": 1, "delta": -1}],
+            detail["gravityBlockTypeCountChanges"],
+        )
+        report = render_report(result)
+        self.assertIn("Block-level divergence by changed chunk", report)
+        self.assertIn("gravity blocks 2→1", report)
+        self.assertIn("asteria:gravel 2→1", report)
 
     def test_compares_static_benchmark_without_streaming_route_profile(self) -> None:
         baseline = [sample_run() for _ in range(3)]

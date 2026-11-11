@@ -82,6 +82,7 @@ internal static class ChunkStreamingRouteBenchmark
         var selection = new ChunkStreamingSelectionRuntime(generator);
         var presented = new HashSet<ChunkCoord>();
         var chunkDigests = new Dictionary<ChunkCoord, ChunkContentDigest>();
+        var chunkBlockDiagnostics = new Dictionary<ChunkCoord, ChunkBlockDiagnostics>();
         var stageCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var stageMilliseconds = new SortedDictionary<string, double>(StringComparer.Ordinal);
         var selectionLatencyFrames = new List<int>();
@@ -203,7 +204,9 @@ internal static class ChunkStreamingRouteBenchmark
             AccumulateUpdate(
                 collected,
                 world,
+                blocks,
                 chunkDigests,
+                chunkBlockDiagnostics,
                 activatedChunkFrames,
                 frame,
                 ref providerActivations,
@@ -619,6 +622,11 @@ internal static class ChunkStreamingRouteBenchmark
                     BlockDigest = entry.Value.Blocks,
                     FluidDigest = entry.Value.Fluids,
                     ObjectDigest = entry.Value.Objects,
+                    BlockLayerDigests = chunkBlockDiagnostics[entry.Key].BlockLayerDigests,
+                    BlockColumnDigests = chunkBlockDiagnostics[entry.Key].BlockColumnDigests,
+                    BlockCounts = chunkBlockDiagnostics[entry.Key].BlockCounts,
+                    GravityBlockCountsByLayer = chunkBlockDiagnostics[entry.Key].GravityBlockCountsByLayer,
+                    GravityBlockCounts = chunkBlockDiagnostics[entry.Key].GravityBlockCounts,
                 })
                 .ToArray(),
             GeneratedChunkDigestsMatchOnReactivation = true,
@@ -629,7 +637,7 @@ internal static class ChunkStreamingRouteBenchmark
                 "Materialization worker limits, dispatch/result limits, retention margin and presentation reservation throughput mirror Main.cs.",
                 "Presentation reservations are treated as immediate and cost-free; Godot mesh building, collision construction, GPU upload and actual frame pacing are excluded.",
                 "Admission pressure is normalized across revisions and uses only physics wakeups, which this route processes. Lighting and terrain-mesh queues are observed but their workers are excluded from this Core-only route.",
-                "Per-chunk digests cover block cells, fluid state and attached Objects; repeated activation must reproduce all three content digests.",
+                "Per-chunk content digests cover blocks, fluid state and attached Objects; block diagnostics add per-Y-layer and per-X/Z-column hashes plus authored block/gravity counts.",
                 "GravityWakeupSamples snapshots queued gravity positions before each wakeup batch mutates the world; frames since chunk activation distinguish initially unsupported generation from later cascades.",
                 "FallingBlockSamples records the first 64 gravity entities created by support wakeups, including the source coordinate, block ID, and the below-block state after the wakeup batch.",
             },
@@ -639,7 +647,9 @@ internal static class ChunkStreamingRouteBenchmark
     private static void AccumulateUpdate(
         ChunkResidencyUpdate update,
         VoxelWorld world,
+        BlockRegistry blocks,
         IDictionary<ChunkCoord, ChunkContentDigest> chunkDigests,
+        IDictionary<ChunkCoord, ChunkBlockDiagnostics> chunkBlockDiagnostics,
         IDictionary<ChunkCoord, int> activatedChunkFrames,
         int currentFrame,
         ref int providerActivations,
@@ -683,7 +693,8 @@ internal static class ChunkStreamingRouteBenchmark
                 throw new InvalidOperationException(
                     $"Activated chunk {activation.Coord} is not resident.");
 
-            var digest = ChunkDigest(activation.Coord, chunk);
+            var (digest, blockDiagnostics) = ChunkDigest(
+                activation.Coord, chunk, blocks);
             if (chunkDigests.TryGetValue(activation.Coord, out var prior) &&
                 prior != digest)
             {
@@ -691,13 +702,21 @@ internal static class ChunkStreamingRouteBenchmark
                     $"Chunk {activation.Coord} changed content after archive/restore.");
             }
             chunkDigests[activation.Coord] = digest;
+            chunkBlockDiagnostics[activation.Coord] = blockDiagnostics;
         }
     }
 
-    private static ChunkContentDigest ChunkDigest(
-        ChunkCoord coord,
-        Chunk chunk)
+    private static (ChunkContentDigest Content, ChunkBlockDiagnostics Diagnostics)
+        ChunkDigest(ChunkCoord coord, Chunk chunk, BlockRegistry blocks)
     {
+        var blockLayerDigests = new ulong[Chunk.Size];
+        var blockColumnDigests = new ulong[Chunk.Area];
+        Array.Fill(blockLayerDigests, FnvOffset);
+        Array.Fill(blockColumnDigests, FnvOffset);
+        var blockCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        var gravityBlockCountsByLayer = new int[Chunk.Size];
+        var gravityBlockCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+
         var blockDigest = FnvOffset;
         blockDigest = HashNumber(blockDigest, unchecked((ulong)coord.X));
         blockDigest = HashNumber(blockDigest, unchecked((ulong)coord.Y));
@@ -710,7 +729,37 @@ internal static class ChunkStreamingRouteBenchmark
             blockDigest = HashNumber(blockDigest, (ulong)y);
             blockDigest = HashNumber(blockDigest, (ulong)z);
             blockDigest = HashNumber(blockDigest, cell.Block.Value);
+
+            var definition = blocks.GetDefinition(cell.Block);
+            var blockId = definition.Id;
+            blockCounts[blockId] = blockCounts.TryGetValue(blockId, out var count)
+                ? count + 1
+                : 1;
+
+            var columnIndex = z * Chunk.Size + x;
+            blockColumnDigests[columnIndex] = HashNumber(
+                HashNumber(blockColumnDigests[columnIndex], (ulong)y),
+                cell.Block.Value);
+            blockLayerDigests[y] = HashNumber(
+                HashNumber(blockLayerDigests[y], (ulong)columnIndex),
+                cell.Block.Value);
+
+            if (definition.HasTag(BlockPhysicsCapabilities.Gravity))
+            {
+                gravityBlockCountsByLayer[y]++;
+                gravityBlockCounts[blockId] =
+                    gravityBlockCounts.TryGetValue(blockId, out var gravityCount)
+                        ? gravityCount + 1
+                        : 1;
+            }
         });
+
+        var blockDiagnostics = new ChunkBlockDiagnostics(
+            blockLayerDigests,
+            blockColumnDigests,
+            blockCounts,
+            gravityBlockCountsByLayer,
+            gravityBlockCounts);
 
         // Keep fluid occupancy and simulation state in its own digest.
         var fluidDigest = FnvOffset;
@@ -763,8 +812,10 @@ internal static class ChunkStreamingRouteBenchmark
         combined = HashNumber(combined, blockDigest);
         combined = HashNumber(combined, fluidDigest);
         combined = HashNumber(combined, objectDigest);
-        return new ChunkContentDigest(
-            combined, blockDigest, fluidDigest, objectDigest);
+        return (
+            new ChunkContentDigest(
+                combined, blockDigest, fluidDigest, objectDigest),
+            blockDiagnostics);
     }
 
     private static ulong HashNumber(ulong current, ulong value) =>
@@ -807,6 +858,13 @@ internal static class ChunkStreamingRouteBenchmark
         ulong Blocks,
         ulong Fluids,
         ulong Objects);
+
+    private readonly record struct ChunkBlockDiagnostics(
+        ulong[] BlockLayerDigests,
+        ulong[] BlockColumnDigests,
+        SortedDictionary<string, int> BlockCounts,
+        int[] GravityBlockCountsByLayer,
+        SortedDictionary<string, int> GravityBlockCounts);
 
     private sealed class RouteStepState(
         int step,

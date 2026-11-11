@@ -192,6 +192,136 @@ def _streaming_route_chunks(
         )
     return chunks
 
+
+def _streaming_route_block_diagnostics(
+    run: dict[str, Any],
+) -> dict[tuple[int, int, int], dict[str, Any]] | None:
+    route = run.get("streamingRouteDiagnostics")
+    if route is None:
+        return None
+    entries = _at(route, "activatedChunkDigests")
+    if not isinstance(entries, list):
+        raise ValueError("Streaming route activatedChunkDigests must be an array.")
+
+    diagnostics: dict[tuple[int, int, int], dict[str, Any]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError("Streaming route chunk diagnostic entries must be objects.")
+        coord = (int(_at(entry, "x")), int(_at(entry, "y")), int(_at(entry, "z")))
+
+        def digest_array(name: str, expected_length: int) -> tuple[int, ...]:
+            values = entry.get(name)
+            if values is None:
+                return ()
+            if not isinstance(values, list) or len(values) != expected_length:
+                raise ValueError(
+                    f"Streaming route {name} for chunk {coord} must contain {expected_length} values."
+                )
+            parsed = tuple(int(value) for value in values)
+            if any(value < 0 for value in parsed):
+                raise ValueError(f"Streaming route {name} for chunk {coord} cannot be negative.")
+            return parsed
+
+        def count_map(name: str) -> tuple[tuple[str, int], ...]:
+            values = entry.get(name)
+            if values is None:
+                return ()
+            if not isinstance(values, dict):
+                raise ValueError(f"Streaming route {name} for chunk {coord} must be an object.")
+            parsed = tuple(sorted((str(key), int(value)) for key, value in values.items()))
+            if any(value < 0 for _, value in parsed):
+                raise ValueError(f"Streaming route {name} for chunk {coord} cannot be negative.")
+            return parsed
+
+        diagnostics[coord] = {
+            "blockLayerDigests": digest_array("blockLayerDigests", 16),
+            "blockColumnDigests": digest_array("blockColumnDigests", 256),
+            "blockCounts": count_map("blockCounts"),
+            "gravityBlockCountsByLayer": digest_array("gravityBlockCountsByLayer", 16),
+            "gravityBlockCounts": count_map("gravityBlockCounts"),
+        }
+    return diagnostics
+
+
+def _block_change_diagnostics(
+    changed_coords: list[tuple[int, int, int]],
+    baseline: dict[tuple[int, int, int], dict[str, Any]],
+    candidate: dict[tuple[int, int, int], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    result = []
+    for coord in changed_coords:
+        before = baseline.get(coord, {})
+        after = candidate.get(coord, {})
+        before_layers = before.get("blockLayerDigests", ())
+        after_layers = after.get("blockLayerDigests", ())
+        before_columns = before.get("blockColumnDigests", ())
+        after_columns = after.get("blockColumnDigests", ())
+        changed_layers = (
+            [index for index, (left, right) in enumerate(zip(before_layers, after_layers)) if left != right]
+            if before_layers and after_layers else []
+        )
+        changed_columns = (
+            [index for index, (left, right) in enumerate(zip(before_columns, after_columns)) if left != right]
+            if before_columns and after_columns else []
+        )
+        before_counts = dict(before.get("blockCounts", ()))
+        after_counts = dict(after.get("blockCounts", ()))
+        block_count_changes = [
+            {
+                "block": block,
+                "baseline": before_counts.get(block, 0),
+                "candidate": after_counts.get(block, 0),
+                "delta": after_counts.get(block, 0) - before_counts.get(block, 0),
+            }
+            for block in sorted(set(before_counts) | set(after_counts))
+            if before_counts.get(block, 0) != after_counts.get(block, 0)
+        ]
+        before_gravity_layers = before.get("gravityBlockCountsByLayer", ())
+        after_gravity_layers = after.get("gravityBlockCountsByLayer", ())
+        gravity_layer_changes = [
+            {
+                "localY": index,
+                "baseline": left,
+                "candidate": right,
+                "delta": right - left,
+            }
+            for index, (left, right) in enumerate(zip(before_gravity_layers, after_gravity_layers))
+            if left != right
+        ]
+        before_gravity = dict(before.get("gravityBlockCounts", ()))
+        after_gravity = dict(after.get("gravityBlockCounts", ()))
+        gravity_type_changes = [
+            {
+                "block": block,
+                "baseline": before_gravity.get(block, 0),
+                "candidate": after_gravity.get(block, 0),
+                "delta": after_gravity.get(block, 0) - before_gravity.get(block, 0),
+            }
+            for block in sorted(set(before_gravity) | set(after_gravity))
+            if before_gravity.get(block, 0) != after_gravity.get(block, 0)
+        ]
+        if not (
+            changed_layers or changed_columns or block_count_changes
+            or gravity_layer_changes or gravity_type_changes
+        ):
+            continue
+
+        result.append({
+            "chunk": list(coord),
+            "changedLocalYLayers": changed_layers,
+            "changedLocalColumnCount": len(changed_columns),
+            "changedLocalColumnSamples": [
+                [index % 16, index // 16] for index in changed_columns[:16]
+            ],
+            "blockCountChanges": block_count_changes[:16],
+            "gravityBlockCountByLayerChanges": gravity_layer_changes[:16],
+            "gravityBlockTypeCountChanges": gravity_type_changes[:16],
+            "baselineGravityBlockCount": sum(before_gravity.values()),
+            "candidateGravityBlockCount": sum(after_gravity.values()),
+        })
+    return result
+
+
 def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
     runs = [_load_json(directory / f"{index}.json") for index in range(1, repetitions + 1)]
     identity = None
@@ -199,6 +329,7 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
     expected_stage_names = None
     expected_streaming_identity = None
     expected_streaming_chunks = None
+    expected_streaming_block_diagnostics = None
     expected_physics_signature = None
     expected_streaming_presence = None
 
@@ -255,12 +386,14 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
 
         streaming_identity = _streaming_route_identity(run)
         streaming_chunks = _streaming_route_chunks(run)
+        streaming_block_diagnostics = _streaming_route_block_diagnostics(run)
         physics_signature = _streaming_physics_signature(run)
         streaming_presence = streaming_identity is not None
         if expected_streaming_presence is None:
             expected_streaming_presence = streaming_presence
             expected_streaming_identity = streaming_identity
             expected_streaming_chunks = streaming_chunks
+            expected_streaming_block_diagnostics = streaming_block_diagnostics
             expected_physics_signature = physics_signature
         elif streaming_presence != expected_streaming_presence:
             raise ValueError(
@@ -273,6 +406,10 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
         elif streaming_chunks != expected_streaming_chunks:
             raise ValueError(
                 f"{directory} repetitions generated different per-coordinate streaming chunk digests."
+            )
+        elif streaming_block_diagnostics != expected_streaming_block_diagnostics:
+            raise ValueError(
+                f"{directory} repetitions produced different per-coordinate block diagnostics."
             )
         elif physics_signature != expected_physics_signature:
             raise ValueError(
@@ -534,6 +671,17 @@ def compare(
             and not baseline_only_route_coords
             and not candidate_only_route_coords
         )
+        baseline_block_diagnostics = (
+            _streaming_route_block_diagnostics(baseline_first) or {}
+        )
+        candidate_block_diagnostics = (
+            _streaming_route_block_diagnostics(candidate_first) or {}
+        )
+        block_change_diagnostics = _block_change_diagnostics(
+            changed_block_route_coords,
+            baseline_block_diagnostics,
+            candidate_block_diagnostics,
+        )
 
     definitions = [
         (
@@ -718,6 +866,7 @@ def compare(
                 "changedObjectContentSamples": [list(coord) for coord in changed_object_route_coords[:12]],
                 "baselineOnlySamples": [list(coord) for coord in baseline_only_route_coords[:12]],
                 "candidateOnlySamples": [list(coord) for coord in candidate_only_route_coords[:12]],
+                "blockChangeDiagnostics": block_change_diagnostics[:12],
             },
             "metrics": route_metrics,
             "baselineMaximumActiveWorkers": max(
@@ -874,6 +1023,22 @@ def render_report(result: dict[str, Any]) -> str:
                 f"- Baseline-only samples: {differences['baselineOnlySamples']}",
                 f"- Candidate-only samples: {differences['candidateOnlySamples']}",
             ])
+            block_details = differences.get("blockChangeDiagnostics", [])
+            if block_details:
+                lines.append("- Block-level divergence by changed chunk (local coordinates):")
+                for detail in block_details:
+                    columns = detail["changedLocalColumnSamples"]
+                    layers = detail["changedLocalYLayers"]
+                    block_changes = ", ".join(
+                        f"{item['block']} {item['baseline']}→{item['candidate']}"
+                        for item in detail["blockCountChanges"]
+                    ) or "no block-count delta"
+                    lines.append(
+                        f"  - {detail['chunk']}: {detail['changedLocalColumnCount']} changed X/Z columns "
+                        f"(samples {columns}); local Y layers {layers}; "
+                        f"gravity blocks {detail['baselineGravityBlockCount']}→"
+                        f"{detail['candidateGravityBlockCount']}; {block_changes}"
+                    )
         lines.extend([
             "",
             "| Metric | Baseline median | Candidate median | Reduction |",
