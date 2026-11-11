@@ -30,11 +30,55 @@ def _at(data: dict[str, Any], *keys: str) -> Any:
     return current
 
 
+def _streaming_route_identity(run: dict[str, Any]) -> tuple[Any, ...] | None:
+    route = run.get("streamingRouteDiagnostics")
+    if route is None:
+        return None
+    if not isinstance(route, dict):
+        raise ValueError("Streaming route diagnostics must contain an object.")
+
+    fields = (
+        "routeSteps",
+        "movementChunks",
+        "framesPerChunk",
+        "horizontalRadius",
+        "retentionRadius",
+        "uniqueActivatedChunkCount",
+        "routeDigest",
+    )
+    identity = tuple(_at(route, field) for field in fields)
+    if route.get("generatedChunkDigestsMatchOnReactivation") is not True:
+        raise ValueError(
+            "Streaming route repeated activation produced inconsistent chunk content."
+        )
+
+    for field in (
+        "totalElapsedMilliseconds",
+        "totalWorkerMilliseconds",
+        "averageWorkerMillisecondsPerProviderActivation",
+        "activationQueueWaitP95Milliseconds",
+        "workerQueueWaitP95Milliseconds",
+        "frameCount",
+        "framesWithPlayerLocalGaps",
+        "maximumPlayerLocalMissingChunks",
+        "maximumPendingChunks",
+        "maximumActiveWorkers",
+    ):
+        value = float(_at(route, field))
+        if not math.isfinite(value) or value < 0:
+            raise ValueError(
+                f"Streaming route metric {field} must be finite and non-negative."
+            )
+    return identity
+
+
 def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
     runs = [_load_json(directory / f"{index}.json") for index in range(1, repetitions + 1)]
     identity = None
     expected_digests = None
     expected_stage_names = None
+    expected_streaming_identity = None
+    expected_streaming_presence = None
 
     for index, run in enumerate(runs, start=1):
         run_identity = (
@@ -86,6 +130,20 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
             name: _at(metrics, name, "digest")
             for name in sorted(metrics)
         }
+
+        streaming_identity = _streaming_route_identity(run)
+        streaming_presence = streaming_identity is not None
+        if expected_streaming_presence is None:
+            expected_streaming_presence = streaming_presence
+            expected_streaming_identity = streaming_identity
+        elif streaming_presence != expected_streaming_presence:
+            raise ValueError(
+                f"{directory} repetitions must all include the same streaming route profile."
+            )
+        elif streaming_identity != expected_streaming_identity:
+            raise ValueError(
+                f"{directory} repetitions do not use the same streaming route or generated chunk digest."
+            )
 
         if identity is None:
             identity = run_identity
@@ -299,6 +357,17 @@ def compare(
             + ", ".join(differing)
         )
 
+    baseline_route_identity = _streaming_route_identity(baseline_first)
+    candidate_route_identity = _streaming_route_identity(candidate_first)
+    if (baseline_route_identity is None) != (candidate_route_identity is None):
+        raise ValueError(
+            "Baseline and candidate must both include the streaming route profile."
+        )
+    if baseline_route_identity != candidate_route_identity:
+        raise ValueError(
+            "Baseline and candidate streaming routes produced different activated chunks or content digests."
+        )
+
     definitions = [
         (
             "DirectionalFacePalettes (warm)",
@@ -385,7 +454,50 @@ def compare(
         ),
     }
 
+    streaming_route_result = None
+    if baseline_route_identity is not None:
+        streaming_route_definitions = [
+            ("Wall-clock route completion (ms)", "totalElapsedMilliseconds"),
+            ("Total chunk worker time (ms)", "totalWorkerMilliseconds"),
+            ("Activation queue wait p95 (ms)", "activationQueueWaitP95Milliseconds"),
+            ("Worker queue wait p95 (ms)", "workerQueueWaitP95Milliseconds"),
+            ("Frames until route drain", "frameCount"),
+            ("Frames with player-local gaps", "framesWithPlayerLocalGaps"),
+            ("Maximum missing player-local chunks", "maximumPlayerLocalMissingChunks"),
+            ("Maximum pending chunks", "maximumPendingChunks"),
+        ]
+        route_metrics = []
+        for label, field in streaming_route_definitions:
+            before = median_metric(baseline, "streamingRouteDiagnostics", field)
+            after = median_metric(candidate, "streamingRouteDiagnostics", field)
+            route_metrics.append({
+                "metric": label,
+                "baselineMedian": before,
+                "candidateMedian": after,
+                "reductionPercent": _reduction_percent(before, after),
+            })
+        streaming_route_result = {
+            "routeSteps": baseline_route_identity[0],
+            "movementChunks": baseline_route_identity[1],
+            "framesPerChunk": baseline_route_identity[2],
+            "horizontalRadius": baseline_route_identity[3],
+            "retentionRadius": baseline_route_identity[4],
+            "uniqueActivatedChunkCount": baseline_route_identity[5],
+            "routeDigest": baseline_route_identity[6],
+            "digestsMatch": True,
+            "metrics": route_metrics,
+            "baselineMaximumActiveWorkers": max(
+                int(_at(run, "streamingRouteDiagnostics", "maximumActiveWorkers"))
+                for run in baseline
+            ),
+            "candidateMaximumActiveWorkers": max(
+                int(_at(run, "streamingRouteDiagnostics", "maximumActiveWorkers"))
+                for run in candidate
+            ),
+        }
+
     return {
+        "streamingRoute": streaming_route_result,
         "materializationStages": materialization_stages,
         "terrainAndFaceAllocations": terrain_face_allocations,
         "surfaceDecorationAllocations": {
@@ -478,6 +590,32 @@ def render_report(result: dict[str, Any]) -> str:
             f"| {'n/a' if after_mib is None else f'{after_mib:.2f}'} "
             f"| {'n/a' if allocation_delta is None else f'{allocation_delta:+.1f}%'} |"
         )
+    streaming_route = result.get("streamingRoute")
+    if streaming_route is not None:
+        lines.extend([
+            "",
+            "## Headless moving-route A/B",
+            "",
+            f"- Route: {streaming_route['routeSteps']} positions, "
+            f"radius {streaming_route['horizontalRadius']} chunks, "
+            f"{streaming_route['uniqueActivatedChunkCount']} unique activated chunks",
+            f"- Route content digest: identical ({streaming_route['routeDigest']})",
+            "",
+            "| Metric | Baseline median | Candidate median | Reduction |",
+            "|---|---:|---:|---:|",
+        ])
+        for metric in streaming_route["metrics"]:
+            lines.append(
+                f"| {metric['metric']} | {metric['baselineMedian']:.2f} "
+                f"| {metric['candidateMedian']:.2f} "
+                f"| {metric['reductionPercent']:+.1f}% |"
+            )
+        lines.extend([
+            "",
+            f"Maximum active materialization workers: baseline "
+            f"{streaming_route['baselineMaximumActiveWorkers']}; candidate "
+            f"{streaming_route['candidateMaximumActiveWorkers']}.",
+        ])
     lines.extend([
         "",
         "Stage timings are medians across benchmark processes. Per-chunk values are also available in the JSON output.",
