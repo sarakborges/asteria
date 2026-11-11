@@ -291,16 +291,24 @@ internal static class ChunkStreamingRouteBenchmark
 
                 var sourceChunk = VoxelCoordinates.FromWorld(
                     position.X, position.Y, position.Z).Chunk;
+                var belowChunk = VoxelCoordinates.FromWorld(
+                    below.X, below.Y, below.Z).Chunk;
                 int? activatedFrame = activatedChunkFrames.TryGetValue(
                     sourceChunk, out var firstActivated)
                     ? firstActivated
+                    : null;
+                int? belowActivatedFrame = activatedChunkFrames.TryGetValue(
+                    belowChunk, out var belowFirstActivated)
+                    ? belowFirstActivated
                     : null;
                 var observation = new GravityWakeupObservation(
                     frame,
                     physicsUpdates.Count,
                     activatedFrame,
+                    belowActivatedFrame,
                     pendingDefinition.Id,
-                    position);
+                    position,
+                    below);
                 gravityWakeupObservations.Add(position, observation);
                 if (gravityWakeupSamples.Count < 64)
                 {
@@ -314,10 +322,18 @@ internal static class ChunkStreamingRouteBenchmark
                         SourceChunkY = sourceChunk.Y,
                         SourceChunkZ = sourceChunk.Z,
                         WakeupFrame = frame,
-                        ChunkActivatedFrame = activatedFrame,
-                        FramesSinceChunkActivation = activatedFrame is { } activated
+                        SourceChunkActivatedFrame = activatedFrame,
+                        FramesSinceSourceChunkActivation = activatedFrame is { } activated
                             ? frame - activated
                             : (int?)null,
+                        BelowChunkX = belowChunk.X,
+                        BelowChunkY = belowChunk.Y,
+                        BelowChunkZ = belowChunk.Z,
+                        BelowChunkActivatedFrame = belowActivatedFrame,
+                        FramesSinceBelowChunkActivation =
+                            belowActivatedFrame is { } belowActivated
+                                ? frame - belowActivated
+                                : (int?)null,
                         QueueDepth = physicsUpdates.Count,
                         BelowBlock = "asteria:air",
                     });
@@ -349,6 +365,9 @@ internal static class ChunkStreamingRouteBenchmark
                         ? "asteria:air"
                         : blocks.GetDefinition(belowCell.Block).Id;
 
+                var hasWakeup = gravityWakeupObservations.TryGetValue(
+                    source, out var wakeup);
+
                 if (fallingBlockSamples.Count < 64)
                 {
                     fallingBlockSamples.Add(new
@@ -365,23 +384,26 @@ internal static class ChunkStreamingRouteBenchmark
                         SourceChunkZ = sourceChunk.Z,
                         BelowBlock = belowBlock,
                         BelowChunkLoaded = belowLoaded,
-                        WakeupFrame = gravityWakeupObservations.TryGetValue(
-                            source, out var wakeup)
-                            ? wakeup.Frame
-                            : (int?)null,
-                        ChunkActivatedFrame = gravityWakeupObservations.TryGetValue(
-                            source, out wakeup)
+                        WakeupFrame = hasWakeup ? wakeup.Frame : (int?)null,
+                        SourceChunkActivatedFrame = hasWakeup
                             ? wakeup.ActivatedFrame
                             : null,
-                        FramesSinceChunkActivation =
-                            gravityWakeupObservations.TryGetValue(source, out wakeup) &&
-                            wakeup.ActivatedFrame is { } activatedAt
+                        FramesSinceSourceChunkActivation =
+                            hasWakeup && wakeup.ActivatedFrame is { } activatedAt
                                 ? wakeup.Frame - activatedAt
                                 : (int?)null,
-                        BelowBlockAtWakeup =
-                            gravityWakeupObservations.ContainsKey(source)
-                                ? "asteria:air"
-                                : "not-captured",
+                        BelowChunkX = hasWakeup ? wakeup.BelowChunk.X : (int?)null,
+                        BelowChunkY = hasWakeup ? wakeup.BelowChunk.Y : (int?)null,
+                        BelowChunkZ = hasWakeup ? wakeup.BelowChunk.Z : (int?)null,
+                        BelowChunkActivatedFrame = hasWakeup
+                            ? wakeup.BelowActivatedFrame
+                            : null,
+                        FramesSinceBelowChunkActivation =
+                            hasWakeup && wakeup.BelowActivatedFrame is { } belowActivatedAt
+                                ? wakeup.Frame - belowActivatedAt
+                                : (int?)null,
+                        QueueDepthAtWakeup = hasWakeup ? wakeup.QueueDepth : (int?)null,
+                        BelowBlockAtWakeup = hasWakeup ? "asteria:air" : "not-captured",
                     });
                 }
             }
@@ -760,8 +782,10 @@ internal static class ChunkStreamingRouteBenchmark
         int Frame,
         int QueueDepth,
         int? ActivatedFrame,
+        int? BelowActivatedFrame,
         string Block,
-        WorldVoxelCoord Position);
+        WorldVoxelCoord Position,
+        WorldVoxelCoord Below);
 
     private readonly record struct ChunkContentDigest(
         ulong Combined,
