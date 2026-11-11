@@ -101,6 +101,10 @@ internal static class ChunkStreamingRouteBenchmark
         var totalUnsupportedBlocksRemoved = 0L;
         var observedFallingBlockIds = new HashSet<ulong>();
         var fallingBlockSamples = new List<object>();
+        var gravityWakeupObservations =
+            new Dictionary<WorldVoxelCoord, GravityWakeupObservation>();
+        var gravityWakeupSamples = new List<object>();
+        var activatedChunkFrames = new Dictionary<ChunkCoord, int>();
         var totalWorkerMilliseconds = 0d;
         var totalTerrainMilliseconds = 0d;
         var totalLightingMilliseconds = 0d;
@@ -200,6 +204,8 @@ internal static class ChunkStreamingRouteBenchmark
                 collected,
                 world,
                 chunkDigests,
+                activatedChunkFrames,
+                frame,
                 ref providerActivations,
                 ref archiveRestores,
                 ref totalWorkerMilliseconds,
@@ -236,6 +242,8 @@ internal static class ChunkStreamingRouteBenchmark
                 dispatched,
                 world,
                 chunkDigests,
+                activatedChunkFrames,
+                frame,
                 ref providerActivations,
                 ref archiveRestores,
                 ref totalWorkerMilliseconds,
@@ -256,6 +264,66 @@ internal static class ChunkStreamingRouteBenchmark
 
             maximumPhysicsWakeups = Math.Max(
                 maximumPhysicsWakeups, physicsUpdates.Count);
+
+            // Snapshot queued gravity checks before ProcessWakeups mutates the
+            // voxel world. This separates blocks generated without a lower
+            // support from blocks exposed later by another falling block.
+            var pendingWakeups = physicsUpdates.Count > 0
+                ? physicsUpdates.CaptureState().Positions
+                : Array.Empty<WorldVoxelCoord>();
+            foreach (var position in pendingWakeups)
+            {
+                if (!world.TryGetCell(position, out var pendingCell) ||
+                    pendingCell.IsEmpty)
+                    continue;
+
+                var pendingDefinition = blocks.GetDefinition(pendingCell.Block);
+                if (!pendingDefinition.HasTag(BlockPhysicsCapabilities.Gravity))
+                    continue;
+
+                var below = position + (0, -1, 0);
+                if (BlockMaterializationRules.Evaluate(world, below) !=
+                    BlockMaterializationState.Available)
+                    continue;
+
+                if (gravityWakeupObservations.ContainsKey(position))
+                    continue;
+
+                var sourceChunk = VoxelCoordinates.FromWorld(
+                    position.X, position.Y, position.Z).Chunk;
+                int? activatedFrame = activatedChunkFrames.TryGetValue(
+                    sourceChunk, out var firstActivated)
+                    ? firstActivated
+                    : null;
+                var observation = new GravityWakeupObservation(
+                    frame,
+                    physicsUpdates.Count,
+                    activatedFrame,
+                    pendingDefinition.Id,
+                    position);
+                gravityWakeupObservations.Add(position, observation);
+                if (gravityWakeupSamples.Count < 64)
+                {
+                    gravityWakeupSamples.Add(new
+                    {
+                        Block = pendingDefinition.Id,
+                        X = position.X,
+                        Y = position.Y,
+                        Z = position.Z,
+                        SourceChunkX = sourceChunk.X,
+                        SourceChunkY = sourceChunk.Y,
+                        SourceChunkZ = sourceChunk.Z,
+                        WakeupFrame = frame,
+                        ChunkActivatedFrame = activatedFrame,
+                        FramesSinceChunkActivation = activatedFrame is { } activated
+                            ? frame - activated
+                            : (int?)null,
+                        QueueDepth = physicsUpdates.Count,
+                        BelowBlock = "asteria:air",
+                    });
+                }
+            }
+
             var physicsReport = physics.ProcessWakeups();
             totalFallingBlocksStarted += physicsReport.FallingStarted;
             totalUnsupportedBlocksRemoved += physicsReport.UnsupportedRemoved;
@@ -297,6 +365,23 @@ internal static class ChunkStreamingRouteBenchmark
                         SourceChunkZ = sourceChunk.Z,
                         BelowBlock = belowBlock,
                         BelowChunkLoaded = belowLoaded,
+                        WakeupFrame = gravityWakeupObservations.TryGetValue(
+                            source, out var wakeup)
+                            ? wakeup.Frame
+                            : (int?)null,
+                        ChunkActivatedFrame = gravityWakeupObservations.TryGetValue(
+                            source, out wakeup)
+                            ? wakeup.ActivatedFrame
+                            : null,
+                        FramesSinceChunkActivation =
+                            gravityWakeupObservations.TryGetValue(source, out wakeup) &&
+                            wakeup.ActivatedFrame is { } activatedAt
+                                ? wakeup.Frame - activatedAt
+                                : (int?)null,
+                        BelowBlockAtWakeup =
+                            gravityWakeupObservations.ContainsKey(source)
+                                ? "asteria:air"
+                                : "not-captured",
                     });
                 }
             }
@@ -473,6 +558,9 @@ internal static class ChunkStreamingRouteBenchmark
             TotalFallingBlocksStarted = totalFallingBlocksStarted,
             TotalUnsupportedBlocksRemoved = totalUnsupportedBlocksRemoved,
             ObservedFallingEntityCount = observedFallingBlockIds.Count,
+            GravityWakeupsWithAirBelowBeforeProcessing =
+                gravityWakeupObservations.Count,
+            GravityWakeupSamples = gravityWakeupSamples,
             FallingBlockSamples = fallingBlockSamples,
             MaterializationStages = stageCounts.Select(pair => new
             {
@@ -505,6 +593,7 @@ internal static class ChunkStreamingRouteBenchmark
                 "Presentation reservations are treated as immediate and cost-free; Godot mesh building, collision construction, GPU upload and actual frame pacing are excluded.",
                 "Admission pressure is normalized across revisions and uses only physics wakeups, which this route processes. Lighting and terrain-mesh queues are observed but their workers are excluded from this Core-only route.",
                 "Per-chunk digests cover block cells, fluid state and attached Objects; repeated activation must reproduce all three content digests.",
+                "GravityWakeupSamples snapshots queued gravity positions before each wakeup batch mutates the world; frames since chunk activation distinguish initially unsupported generation from later cascades.",
                 "FallingBlockSamples records the first 64 gravity entities created by support wakeups, including the source coordinate, block ID, and the below-block state after the wakeup batch.",
             },
         };
@@ -514,6 +603,8 @@ internal static class ChunkStreamingRouteBenchmark
         ChunkResidencyUpdate update,
         VoxelWorld world,
         IDictionary<ChunkCoord, ChunkContentDigest> chunkDigests,
+        IDictionary<ChunkCoord, int> activatedChunkFrames,
+        int currentFrame,
         ref int providerActivations,
         ref int archiveRestores,
         ref double totalWorkerMilliseconds,
@@ -541,6 +632,7 @@ internal static class ChunkStreamingRouteBenchmark
 
         foreach (var activation in update.Activations)
         {
+            activatedChunkFrames[activation.Coord] = currentFrame;
             if (activation.Source == ChunkActivationSource.Provider)
                 providerActivations++;
             else
@@ -663,6 +755,13 @@ internal static class ChunkStreamingRouteBenchmark
             ordered.Length - 1);
         return ordered[index];
     }
+
+    private readonly record struct GravityWakeupObservation(
+        int Frame,
+        int QueueDepth,
+        int? ActivatedFrame,
+        BlockRuntimeId Block,
+        WorldVoxelCoord Position);
 
     private readonly record struct ChunkContentDigest(
         ulong Combined,
