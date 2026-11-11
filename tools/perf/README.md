@@ -66,6 +66,13 @@ the route processes. Lighting and terrain-mesh queues are recorded but their
 workers are outside this Core-only comparison. These are diagnostic
 comparisons, not hard timing budgets.
 
+The route also snapshots queued gravity positions before each physics
+wakeup batch mutates the voxel world. Samples include the source chunk and the
+chunk containing the lower support, their activation frames, the first wakeup
+frame, and the queue depth. This distinguishes a wakeup on the first frame
+both chunks are resident from a later wakeup after residency was already
+established; it does not assume that every delayed wakeup is a gravity cascade.
+
 The route treats presentation reservations as immediate and cost-free. It
 does not execute Godot mesh construction, collision-shape creation, GPU upload,
 or actual frame pacing; the result isolates Core selection, residency,
