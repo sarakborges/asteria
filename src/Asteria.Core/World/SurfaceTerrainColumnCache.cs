@@ -424,22 +424,11 @@ public sealed class SurfaceTerrainColumnCache
         if (originY < 0 || originY % Chunk.Size != 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
 
-        var (coord, _) = VoxelCoordinates.FromWorld(originX, originY, originZ);
-        var occupancy = GetDensityChunk(coord.X, originY, coord.Z);
-        var cachedMasks = new ushort[Chunk.Area];
-        var cachedMaskAvailability = new ushort[Chunk.Area];
-        occupancy.Snapshot(cachedMasks, cachedMaskAvailability);
-
-        var volume = _terrain.SampleDensityVolume(
-            column,
-            originX,
-            originY,
-            originZ,
-            Chunk.Size,
-            cachedMasks,
-            cachedMaskAvailability);
-        occupancy.MergeFull(volume);
-        return volume;
+        // Diagnostic isolation path: materialize this chunk's density from
+        // the scalar terrain source without consuming occupancy bits that may
+        // have been sampled earlier by neighboring directional-face jobs.
+        return _terrain.SampleDensityVolume(
+            column, originX, originY, originZ);
     }
 
     /// <summary>
