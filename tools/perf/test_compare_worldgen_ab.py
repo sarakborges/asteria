@@ -8,7 +8,7 @@ from pathlib import Path
 from compare_worldgen_ab import compare, load_repetitions, render_report
 
 
-def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_ms: float = 0.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, terrain_layer_bytes: int = 512, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67, extra_stages: dict | None = None) -> dict:
+def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_ms: float = 0.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, terrain_layer_bytes: int = 512, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67, extra_stages: dict | None = None, streaming_route: dict | None = None) -> dict:
     stages = {
         "DirectionalFaceExposure": {"elapsedMs": exposure_ms, "allocatedBytes": 128},
         "DirectionalFacePalettes": {"elapsedMs": palette_ms, "allocatedBytes": palette_bytes},
@@ -21,7 +21,31 @@ def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_m
     if extra_stages:
         stages.update(extra_stages)
 
+    route = {
+        "routeSteps": 6,
+        "movementChunks": 5,
+        "framesPerChunk": 8,
+        "horizontalRadius": 3,
+        "retentionRadius": 7,
+        "uniqueActivatedChunkCount": 120,
+        "routeDigest": 987654321,
+        "generatedChunkDigestsMatchOnReactivation": True,
+        "totalElapsedMilliseconds": 1000.0,
+        "totalWorkerMilliseconds": 600.0,
+        "averageWorkerMillisecondsPerProviderActivation": 8.0,
+        "activationQueueWaitP95Milliseconds": 3.0,
+        "workerQueueWaitP95Milliseconds": 1.0,
+        "frameCount": 90,
+        "framesWithPlayerLocalGaps": 20,
+        "maximumPlayerLocalMissingChunks": 60,
+        "maximumPendingChunks": 24,
+        "maximumActiveWorkers": 6,
+    }
+    if streaming_route:
+        route.update(streaming_route)
+
     return {
+        "streamingRouteDiagnostics": route,
         "seed": 181960897289965,
         "dimension": "asteria:overworld",
         "dimensionSeed": 987654321,
@@ -129,6 +153,77 @@ class CompareWorldgenAbTests(unittest.TestCase):
         report = render_report(result)
         self.assertIn("TerrainLayer + directional-face combined allocations", report)
         self.assertIn("TerrainLayer + directional faces (warm)", report)
+
+    def test_compares_streaming_route_metrics_when_route_content_matches(self) -> None:
+        baseline = [
+            sample_run(streaming_route={
+                "totalElapsedMilliseconds": value,
+                "totalWorkerMilliseconds": worker,
+                "framesWithPlayerLocalGaps": gaps,
+                "maximumPendingChunks": pending,
+            })
+            for value, worker, gaps, pending in zip(
+                (1000.0, 1100.0, 1200.0),
+                (600.0, 650.0, 700.0),
+                (20, 24, 28),
+                (30, 32, 34),
+            )
+        ]
+        candidate = [
+            sample_run(streaming_route={
+                "totalElapsedMilliseconds": value,
+                "totalWorkerMilliseconds": worker,
+                "framesWithPlayerLocalGaps": gaps,
+                "maximumPendingChunks": pending,
+            })
+            for value, worker, gaps, pending in zip(
+                (800.0, 900.0, 1000.0),
+                (500.0, 550.0, 600.0),
+                (10, 12, 14),
+                (20, 22, 24),
+            )
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+        self.assertTrue(route["digestsMatch"])
+        self.assertEqual(120, route["uniqueActivatedChunkCount"])
+
+        elapsed = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Wall-clock route completion (ms)"
+        )
+        self.assertEqual(1100.0, elapsed["baselineMedian"])
+        self.assertEqual(900.0, elapsed["candidateMedian"])
+        self.assertAlmostEqual(18.1818, elapsed["reductionPercent"], places=3)
+
+        report = render_report(result)
+        self.assertIn("Headless moving-route A/B", report)
+        self.assertIn("Route content digest: identical", report)
+
+    def test_rejects_streaming_route_content_digest_mismatch(self) -> None:
+        baseline = [sample_run()] * 3
+        candidate = [
+            sample_run(streaming_route={"routeDigest": 987654322})
+        ] * 3
+        with self.assertRaisesRegex(ValueError, "streaming routes produced different"):
+            compare(baseline, candidate, expected_chunks=67)
+
+    def test_load_repetitions_rejects_inconsistent_streaming_route_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, route_digest in enumerate(
+                (987654321, 987654321, 987654322), start=1
+            ):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(
+                        streaming_route={"routeDigest": route_digest}
+                    )),
+                    encoding="utf-8",
+                )
+
+            with self.assertRaisesRegex(ValueError, "same streaming route"):
+                load_repetitions(root, 3)
 
     def test_reports_surface_decoration_time_and_allocations(self) -> None:
         baseline = [
