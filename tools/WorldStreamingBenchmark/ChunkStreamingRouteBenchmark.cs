@@ -760,7 +760,7 @@ internal static class ChunkStreamingRouteBenchmark
         int Frame,
         int QueueDepth,
         int? ActivatedFrame,
-        BlockRuntimeId Block,
+        string Block,
         WorldVoxelCoord Position);
 
     private readonly record struct ChunkContentDigest(
