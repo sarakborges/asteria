@@ -311,7 +311,8 @@ internal static class ChunkStreamingRouteBenchmark
             var residencyDrained =
                 residency.PendingCount == 0 &&
                 residency.MaterializationJobCount == 0 &&
-                residency.PresentationPendingCount == 0;
+                residency.PresentationPendingCount == 0 &&
+                physicsUpdates.Count == 0;
             if (routeAndSelectionComplete &&
                 residencyDrained &&
                 lastFluidPending == 0)
@@ -331,6 +332,7 @@ internal static class ChunkStreamingRouteBenchmark
             residency.PendingCount != 0 ||
             residency.MaterializationJobCount != 0 ||
             residency.PresentationPendingCount != 0 ||
+            physicsUpdates.Count != 0 ||
             lastFluidPending != 0)
         {
             selection.BeginRetirement();
@@ -338,7 +340,8 @@ internal static class ChunkStreamingRouteBenchmark
             throw new TimeoutException(
                 $"Headless streaming route did not drain after {frame} frames " +
                 $"(pending={residency.PendingCount}, jobs={residency.MaterializationJobCount}, " +
-                $"presentation={residency.PresentationPendingCount}, fluids={lastFluidPending}).");
+                $"presentation={residency.PresentationPendingCount}, " +
+                $"physics={physicsUpdates.Count}, fluids={lastFluidPending}).");
         }
 
         selection.BeginRetirement();
