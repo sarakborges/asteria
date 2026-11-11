@@ -372,6 +372,10 @@ internal static class ChunkStreamingRouteBenchmark
 
                 var hasWakeup = gravityWakeupObservations.TryGetValue(
                     source, out var wakeup);
+                ChunkCoord? wakeupBelowChunk = hasWakeup
+                    ? VoxelCoordinates.FromWorld(
+                        wakeup.Below.X, wakeup.Below.Y, wakeup.Below.Z).Chunk
+                    : null;
 
                 if (fallingBlockSamples.Count < 64)
                 {
@@ -397,9 +401,9 @@ internal static class ChunkStreamingRouteBenchmark
                             hasWakeup && wakeup.ActivatedFrame is { } activatedAt
                                 ? wakeup.Frame - activatedAt
                                 : (int?)null,
-                        BelowChunkX = hasWakeup ? wakeup.BelowChunk.X : (int?)null,
-                        BelowChunkY = hasWakeup ? wakeup.BelowChunk.Y : (int?)null,
-                        BelowChunkZ = hasWakeup ? wakeup.BelowChunk.Z : (int?)null,
+                        BelowChunkX = wakeupBelowChunk?.X,
+                        BelowChunkY = wakeupBelowChunk?.Y,
+                        BelowChunkZ = wakeupBelowChunk?.Z,
                         BelowChunkActivatedFrame = hasWakeup
                             ? wakeup.BelowActivatedFrame
                             : null,
