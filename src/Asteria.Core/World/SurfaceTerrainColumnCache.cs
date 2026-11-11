@@ -430,25 +430,14 @@ public sealed class SurfaceTerrainColumnCache
         int originZ)
     {
         ArgumentNullException.ThrowIfNull(column);
-        if (originY < 0 || originY % Chunk.Size != 0)
+        if (originY < 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
 
-        var (coord, _) = VoxelCoordinates.FromWorld(originX, originY, originZ);
-        var occupancy = GetDensityChunk(coord.X, originY, coord.Z);
-        var cachedMasks = new ushort[Chunk.Area];
-        var cachedMaskAvailability = new ushort[Chunk.Area];
-        occupancy.Snapshot(cachedMasks, cachedMaskAvailability);
-
-        var volume = _terrain.SampleDensityVolume(
-            column,
-            originX,
-            originY,
-            originZ,
-            Chunk.Size,
-            cachedMasks,
-            cachedMaskAvailability);
-        occupancy.MergeFull(volume);
-        return volume;
+        // Reference path: evaluate occupancy through the original scalar
+        // DensityAt implementation. No bit-packed occupancy shortcut or
+        // neighbor-published cache may affect the generated content.
+        return _terrain.CreateLazyDensityVolume(
+            column, originX, originY, originZ);
     }
 
     /// <summary>
@@ -464,47 +453,27 @@ public sealed class SurfaceTerrainColumnCache
         out int densityProbes)
     {
         ArgumentNullException.ThrowIfNull(column);
-        var verticalOffset = originY % Chunk.Size;
         if (originY < 0 ||
-            height is < 1 or > Chunk.Size ||
-            verticalOffset + height > Chunk.Size)
+            height is < 1 or > Chunk.Size)
             throw new ArgumentOutOfRangeException(nameof(height));
 
-        var bandOriginY = originY - verticalOffset;
-        var (coord, _) = VoxelCoordinates.FromWorld(
-            originX, bandOriginY, originZ);
-        var occupancy = GetDensityChunk(coord.X, bandOriginY, coord.Z);
-        var solidMasks = new ushort[Chunk.Area];
-        var sampledMasks = new ushort[Chunk.Area];
-        occupancy.ReadSlab(
-            verticalOffset, height, solidMasks, sampledMasks);
-
-        var requestedMask = HeightMask(height);
-        var cachedBitCount = 0;
-        for (var index = 0; index < Chunk.Area; index++)
-            cachedBitCount += System.Numerics.BitOperations.PopCount(
-                (uint)sampledMasks[index]);
-        densityProbes = checked(Chunk.Area * height - cachedBitCount);
-
-        if (densityProbes != 0)
+        var volume = _terrain.CreateLazyDensityVolume(
+            column, originX, originY, originZ);
+        var masks = new ushort[Chunk.Area];
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
         {
-            var volume = _terrain.SampleDensityVolume(
-                column,
-                originX,
-                originY,
-                originZ,
-                height,
-                solidMasks,
-                sampledMasks);
-            for (var z = 0; z < Chunk.Size; z++)
-            for (var x = 0; x < Chunk.Size; x++)
-                solidMasks[z * Chunk.Size + x] =
-                    volume.SolidColumnMaskAtUnchecked(x, z);
-
-            occupancy.MergeSlab(solidMasks, verticalOffset, height);
+            ushort mask = 0;
+            for (var y = 0; y < height; y++)
+            {
+                if (volume.IsSolidAtUnchecked(x, y, z))
+                    mask |= (ushort)(1u << y);
+            }
+            masks[z * Chunk.Size + x] = mask;
         }
 
-        return new DensityOccupancySlab(height, solidMasks);
+        densityProbes = checked(Chunk.Area * height);
+        return new DensityOccupancySlab(height, masks);
     }
 
     /// <summary>
@@ -567,7 +536,6 @@ public sealed class SurfaceTerrainColumnCache
             throw new ArgumentException(
                 "Density column batch must contain matching buffers of at most 256 columns.");
 
-        densityProbes = 0;
         columnBoundsMilliseconds = 0d;
         caveSamplerBuildMilliseconds = 0d;
         columnEvaluationMilliseconds = 0d;
@@ -576,111 +544,38 @@ public sealed class SurfaceTerrainColumnCache
         surfaceBiomeSamplingMilliseconds = 0d;
         baseHeightSamplingMilliseconds = 0d;
         volumeBiomeSamplingMilliseconds = 0d;
+        densityProbes = 0;
+        solidMasks.Clear();
         if (columnIndices.IsEmpty)
             return;
 
-        var hasRequestedBits = false;
-        for (var index = 0; index < requestedMasks.Length; index++)
-        {
-            hasRequestedBits |= requestedMasks[index] != 0;
-            if (requestedMasks[index] == 0)
-                solidMasks[index] = 0;
-        }
-        if (!hasRequestedBits)
-            return;
+        var chunk = Get(chunkX, chunkZ);
+        var originX = checked(chunkX * Chunk.Size);
+        var originZ = checked(chunkZ * Chunk.Size);
+        var volume = _terrain.CreateLazyDensityVolume(
+            chunk, originX, originY, originZ);
 
-        var occupancy = GetDensityChunk(chunkX, originY, chunkZ);
-        Span<ushort> sampledMasks = stackalloc ushort[columnIndices.Length];
-#if DEBUG
-        var occupancyReadStarted = Stopwatch.GetTimestamp();
-#endif
-        occupancy.ReadColumns(columnIndices, solidMasks, sampledMasks);
         for (var index = 0; index < columnIndices.Length; index++)
         {
-            solidMasks[index] &= requestedMasks[index];
-            sampledMasks[index] &= requestedMasks[index];
-        }
-#if DEBUG
-        occupancyCacheAccessMilliseconds +=
-            Stopwatch.GetElapsedTime(occupancyReadStarted).TotalMilliseconds;
-#endif
+            var columnIndex = columnIndices[index];
+            if ((uint)columnIndex >= Chunk.Area)
+                throw new ArgumentOutOfRangeException(nameof(columnIndices));
 
-        Span<int> missingColumnIndices = stackalloc int[columnIndices.Length];
-        Span<int> missingInputIndices = stackalloc int[columnIndices.Length];
-        Span<ushort> missingRequestedMasks = stackalloc ushort[columnIndices.Length];
-        Span<ushort> missingSolidMasks = stackalloc ushort[columnIndices.Length];
-        Span<ushort> missingSampledMasks = stackalloc ushort[columnIndices.Length];
-        var missingCount = 0;
-        for (var index = 0; index < columnIndices.Length; index++)
-        {
-            var missingMask = (ushort)(
-                requestedMasks[index] & (ushort)~sampledMasks[index]);
-            if (missingMask == 0)
-                continue;
-
-            missingColumnIndices[missingCount] = columnIndices[index];
-            missingInputIndices[missingCount] = index;
-            missingRequestedMasks[missingCount] = requestedMasks[index];
-            missingSolidMasks[missingCount] = solidMasks[index];
-            missingSampledMasks[missingCount] = sampledMasks[index];
-            missingCount++;
-        }
-
-        if (missingCount > 0)
-        {
-            var requestedColumns = missingColumnIndices[..missingCount];
-            var requestedMasksForColumns = missingRequestedMasks[..missingCount];
-            var solidMasksForColumns = missingSolidMasks[..missingCount];
-            var sampledMasksForColumns = missingSampledMasks[..missingCount];
-#if DEBUG
-            var densityColumnStarted = Stopwatch.GetTimestamp();
-#endif
-            var includeVolumeBiomes =
-                _terrain.RequiresVolumeBiomeForDensityBand(originY);
-            var column = GetDensityTerrainColumn(
-                chunkX,
-                chunkZ,
-                requestedColumns,
-                includeVolumeBiomes,
-                out var samplingMetrics);
-            surfaceBiomeSamplingMilliseconds =
-                samplingMetrics.SurfaceBiomeSamplingMilliseconds;
-            baseHeightSamplingMilliseconds =
-                samplingMetrics.BaseHeightSamplingMilliseconds;
-            volumeBiomeSamplingMilliseconds =
-                samplingMetrics.VolumeBiomeSamplingMilliseconds;
-#if DEBUG
-            densityTerrainColumnMilliseconds =
-                Stopwatch.GetElapsedTime(densityColumnStarted).TotalMilliseconds;
-#endif
-            var chunkOriginX = checked(chunkX * Chunk.Size);
-            var chunkOriginZ = checked(chunkZ * Chunk.Size);
-            _terrain.SampleDensityColumnMasks(
-                column,
-                chunkOriginX,
-                originY,
-                chunkOriginZ,
-                requestedColumns,
-                requestedMasksForColumns,
-                solidMasksForColumns,
-                sampledMasksForColumns,
-                out densityProbes,
-                out columnBoundsMilliseconds,
-                out caveSamplerBuildMilliseconds,
-                out columnEvaluationMilliseconds);
-#if DEBUG
-            var occupancyMergeStarted = Stopwatch.GetTimestamp();
-#endif
-            occupancy.MergeColumns(
-                requestedColumns,
-                solidMasksForColumns,
-                sampledMasksForColumns);
-#if DEBUG
-            occupancyCacheAccessMilliseconds +=
-                Stopwatch.GetElapsedTime(occupancyMergeStarted).TotalMilliseconds;
-#endif
-            for (var index = 0; index < missingCount; index++)
-                solidMasks[missingInputIndices[index]] = missingSolidMasks[index];
+            var requested = requestedMasks[index];
+            var localX = columnIndex % Chunk.Size;
+            var localZ = columnIndex / Chunk.Size;
+            var result = (ushort)0;
+            while (requested != 0)
+            {
+                var localY = System.Numerics.BitOperations.TrailingZeroCount(
+                    (uint)requested);
+                var bit = (ushort)(1u << localY);
+                requested = (ushort)(requested & (requested - 1));
+                densityProbes++;
+                if (volume.IsSolidAtUnchecked(localX, localY, localZ))
+                    result |= bit;
+            }
+            solidMasks[index] = result;
         }
     }
 
