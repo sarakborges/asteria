@@ -63,6 +63,12 @@ def _streaming_route_identity(run: dict[str, Any]) -> tuple[Any, ...] | None:
         "maximumPlayerLocalMissingChunks",
         "maximumPendingChunks",
         "maximumActiveWorkers",
+        "totalFluidCellsActivated",
+        "totalFluidFrontierCellsActivated",
+        "totalFluidActivationSlices",
+        "totalFluidActivationMilliseconds",
+        "maximumFluidActivationSliceMilliseconds",
+        "maximumPendingFluidActivationChunks",
     ):
         value = float(_at(route, field))
         if not math.isfinite(value) or value < 0:
@@ -534,6 +540,12 @@ def compare(
             ("Frames with player-local gaps", "framesWithPlayerLocalGaps"),
             ("Maximum missing player-local chunks", "maximumPlayerLocalMissingChunks"),
             ("Maximum pending chunks", "maximumPendingChunks"),
+            ("Fluid activation processing time (ms)", "totalFluidActivationMilliseconds"),
+            ("Maximum fluid activation slice (ms)", "maximumFluidActivationSliceMilliseconds"),
+            ("Fluid activation slices", "totalFluidActivationSlices"),
+            ("Fluid cells activated", "totalFluidCellsActivated"),
+            ("Fluid frontier cells processed", "totalFluidFrontierCellsActivated"),
+            ("Maximum pending fluid-activation chunks", "maximumPendingFluidActivationChunks"),
         ]
         route_metrics = []
         for label, field in streaming_route_definitions:
