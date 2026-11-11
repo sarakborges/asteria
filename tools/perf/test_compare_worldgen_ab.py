@@ -264,7 +264,7 @@ class CompareWorldgenAbTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "falling-block physics outcomes"):
                 load_repetitions(root, 3)
 
-    def test_rejects_nondeterministic_pre_wakeup_gravity_samples_between_route_runs(self) -> None:
+    def test_accepts_scheduler_timing_variation_for_same_pre_wakeup_gravity_outcome(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for index, wakeup_frame in enumerate((48, 48, 49), start=1):
@@ -282,6 +282,34 @@ class CompareWorldgenAbTests(unittest.TestCase):
                             "belowChunkActivatedFrame": 16,
                             "framesSinceBelowChunkActivation": wakeup_frame - 16,
                             "framesSinceBothChunksResident": wakeup_frame - 16,
+                            "queueDepth": 4 + index,
+                            "belowBlock": "asteria:air",
+                        }],
+                    })),
+                    encoding="utf-8",
+                )
+
+            runs = load_repetitions(root, 3)
+            self.assertEqual(3, len(runs))
+
+    def test_rejects_different_pre_wakeup_gravity_coordinates_between_route_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, x in enumerate((69, 69, 70), start=1):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(streaming_route={
+                        "gravityWakeupsWithAirBelowBeforeProcessing": 1,
+                        "gravityWakeupSamples": [{
+                            "block": "asteria:gravel",
+                            "x": x, "y": 42, "z": 3,
+                            "sourceChunkX": 4, "sourceChunkY": 2, "sourceChunkZ": 0,
+                            "wakeupFrame": 48,
+                            "sourceChunkActivatedFrame": 16,
+                            "framesSinceSourceChunkActivation": 32,
+                            "belowChunkX": 4, "belowChunkY": 2, "belowChunkZ": 0,
+                            "belowChunkActivatedFrame": 16,
+                            "framesSinceBelowChunkActivation": 32,
+                            "framesSinceBothChunksResident": 32,
                             "queueDepth": 4,
                             "belowBlock": "asteria:air",
                         }],
