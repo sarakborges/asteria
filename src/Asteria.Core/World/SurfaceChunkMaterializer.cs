@@ -368,7 +368,7 @@ public sealed class SurfaceChunkMaterializer
                 break;
 
             case ChunkMaterializationStage.SurfaceDecorations:
-                MaterializeSurfaceDecorations(job);
+                MaterializeSurfaceDecorations(job, job.SupportOutputColumns);
                 // A support-only job returns only the upper face's occupancy.
                 // Cave/exterior palettes normally recolor already-solid cells;
                 // when every loaded palette is occupancy-preserving, those
@@ -414,7 +414,7 @@ public sealed class SurfaceChunkMaterializer
                 MaterializeCaveSpikes(
                     job.Chunk, RequiredColumn(job), RequiredDensity(job),
                     job.OriginX, job.OriginY, job.OriginZ,
-                    job.SupportMaterializationColumns);
+                    job.SupportOutputColumns);
                 job.Stage = ChunkMaterializationStage.VerticalDecorations;
                 break;
 
@@ -426,7 +426,7 @@ public sealed class SurfaceChunkMaterializer
                     job.OriginX, job.OriginY, job.OriginZ,
                     ref pendingObjects,
                     includeObjects: !job.SupportOnly,
-                    columnMask: job.SupportMaterializationColumns);
+                    columnMask: job.SupportOutputColumns);
                 job.PendingObjects = pendingObjects;
                 job.Stage = ChunkMaterializationStage.Veins;
                 break;
@@ -847,7 +847,9 @@ public sealed class SurfaceChunkMaterializer
         job.NextTerrainLocalY++;
     }
 
-    private void MaterializeSurfaceDecorations(MaterializationJob job)
+    private void MaterializeSurfaceDecorations(
+        MaterializationJob job,
+        bool[]? columnMask)
     {
         var chunk = job.Chunk;
         var originX = job.OriginX;
@@ -878,8 +880,8 @@ public sealed class SurfaceChunkMaterializer
             for (var localX = 0; localX < Chunk.Size; localX++)
             {
                 var columnIndex = localX + Chunk.Size * localZ;
-                if (job.SupportMaterializationColumns is { } supportColumns &&
-                    !supportColumns[columnIndex])
+                if (columnMask is not null &&
+                    !columnMask[columnIndex])
                     continue;
 
                 ref var state = ref columnMaterializationCaches[columnIndex];
@@ -1654,6 +1656,11 @@ public sealed class SurfaceChunkMaterializer
         public bool IsSparseSupportFallback { get; }
 
         public bool[]? SupportMaterializationColumns { get; }
+
+        public bool[]? SupportOutputColumns =>
+            IsSparseSupportFallback
+                ? SupportFaceColumns
+                : SupportMaterializationColumns;
 
         public bool[]? SupportChunkFallbackColumns { get; set; }
 
