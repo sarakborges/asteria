@@ -1462,6 +1462,7 @@ public partial class Main : Node3D
 			new DimensionRuntimeSessionSettings(
 				RetentionMarginChunks,
 				MaxMaterializationTasksInFlight,
+				MaxConcurrentWorldJobs,
 				MaxMaterializationDispatchesPerFrame,
 				MaxMaterializationResultsPerFrame,
 				MaxPresentationPublicationsPerFrame,

@@ -65,6 +65,44 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void ReconciliationKeepsConfiguredTerrainWorkerCapacityAvailable()
+    {
+        using var provider = new BlockingDirectionalFacePaletteProvider();
+        var fixture = CreateFixture(provider, maxConcurrentWorkers: 3);
+        fixture.World.InsertChunk(new ChunkCoord(-1, 0, 0), new Chunk());
+        var desired = new HashSet<ChunkCoord>
+        {
+            new(1, 0, 0),
+            new(2, 0, 0),
+        };
+        fixture.Runtime.SyncSelection(
+            new ChunkCoord(1, 0, 0),
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired,
+            Array.Empty<ChunkCoord>());
+
+        var dispatched = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumNewTasks: 2);
+
+        Assert.Equal(2, dispatched.StartedTasks);
+        Assert.True(provider.TwoMaterializationWorkersStarted.Wait(
+            TimeSpan.FromSeconds(5)),
+            "The second terrain worker was held back by pending reconciliation.");
+        Assert.True(provider.ReconcileStarted.Wait(TimeSpan.FromSeconds(5)),
+            "Directional reconciliation did not use the third worker slot.");
+        Assert.Equal(3, fixture.Runtime.ActiveWorkerCount);
+
+        provider.ReleaseMaterialization.Set();
+        provider.ReleaseReconciliation.Set();
+        Assert.True(SpinWait.SpinUntil(
+            () => fixture.Runtime.ActiveWorkerCount == 0,
+            TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
     public void ChunkArrivalLightingSeedsAreCalculatedOnDetachedWorkerSnapshot()
     {
         var fixture = CreateFixture();
@@ -917,7 +955,9 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(0, report.PendingChunks);
     }
 
-    private static RuntimeFixture CreateFixture(IChunkProvider? chunkProvider = null)
+    private static RuntimeFixture CreateFixture(
+        IChunkProvider? chunkProvider = null,
+        int? maxConcurrentWorkers = null)
     {
         var blocks =
             new BlockRegistry(
@@ -995,7 +1035,8 @@ public sealed class ChunkResidencyRuntimeTests
                     maxDispatchesPerFrame: 2,
                     maxResultsPerFrame: 2,
                     maxEvictionsPerFrame: 2,
-                    gameRules: rules));
+                    gameRules: rules,
+                    maxConcurrentWorkers: maxConcurrentWorkers));
 
         return new RuntimeFixture(
             world,
@@ -1156,15 +1197,60 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     private sealed class BlockingDirectionalFacePaletteProvider :
-        IChunkProvider,
+        IIncrementalChunkProvider,
         IChunkDirectionalFacePaletteUpdater,
         IDisposable
     {
+        private int _materializationStartCount;
+
         public ManualResetEventSlim ReconcileStarted { get; } = new(false);
         public ManualResetEventSlim ReleaseReconciliation { get; } = new(false);
+        public ManualResetEventSlim TwoMaterializationWorkersStarted { get; } = new(false);
+        public ManualResetEventSlim ReleaseMaterialization { get; } = new(false);
         public int ApplyAttempts { get; private set; }
 
         public Chunk Materialize(ChunkCoord coord) => new();
+
+        public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+            new BlockingMaterializationJob(this, coord);
+
+        private void WaitForMaterializationRelease()
+        {
+            if (Interlocked.Increment(ref _materializationStartCount) == 2)
+                TwoMaterializationWorkersStarted.Set();
+            ReleaseMaterialization.Wait();
+        }
+
+        private sealed class BlockingMaterializationJob(
+            BlockingDirectionalFacePaletteProvider provider,
+            ChunkCoord coord) : IChunkMaterializationJob
+        {
+            private bool _waited;
+
+            public ChunkCoord Coord { get; } = coord;
+            public ChunkMaterializationStage Stage { get; private set; } =
+                ChunkMaterializationStage.TerrainSetup;
+            public bool IsComplete => Stage == ChunkMaterializationStage.Complete;
+            public Chunk? Result { get; private set; }
+
+            public void Advance()
+            {
+                if (IsComplete)
+                    throw new InvalidOperationException(
+                        "Completed blocked materialization cannot advance.");
+                if (!_waited)
+                {
+                    _waited = true;
+                    provider.WaitForMaterializationRelease();
+                }
+                Result = new Chunk();
+                Stage = ChunkMaterializationStage.Complete;
+            }
+
+            public void Dispose()
+            {
+            }
+        }
 
         public DirectionalFacePaletteReconciliationSnapshot CaptureChunkArrivalSnapshot(
             VoxelWorld world, ChunkCoord arriving)
@@ -1205,8 +1291,11 @@ public sealed class ChunkResidencyRuntimeTests
         public void Dispose()
         {
             ReleaseReconciliation.Set();
+            ReleaseMaterialization.Set();
             ReconcileStarted.Dispose();
             ReleaseReconciliation.Dispose();
+            TwoMaterializationWorkersStarted.Dispose();
+            ReleaseMaterialization.Dispose();
         }
     }
 

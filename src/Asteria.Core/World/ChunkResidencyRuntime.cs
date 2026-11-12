@@ -10,7 +10,8 @@ public sealed class ChunkResidencySettings
         int maxDispatchesPerFrame,
         int maxResultsPerFrame,
         int maxEvictionsPerFrame,
-        WorldGameRules gameRules)
+        WorldGameRules gameRules,
+        int? maxConcurrentWorkers = null)
     {
         if (maxMaterializationsInFlight <= 0)
         {
@@ -38,9 +39,11 @@ public sealed class ChunkResidencySettings
 
         GameRules = gameRules ??
             throw new ArgumentNullException(nameof(gameRules));
+        var concurrentWorkers = maxConcurrentWorkers ?? maxMaterializationsInFlight;
+        if (concurrentWorkers < maxMaterializationsInFlight)
+            throw new ArgumentOutOfRangeException(nameof(maxConcurrentWorkers));
 
-        MaxMaterializationsInFlight =
-            maxMaterializationsInFlight;
+        MaxMaterializationsInFlight = concurrentWorkers;
         MaxTerrainMaterializationsInFlight =
             maxMaterializationsInFlight;
         MaxDispatchesPerFrame =
@@ -51,7 +54,7 @@ public sealed class ChunkResidencySettings
             maxEvictionsPerFrame;
     }
 
-    // Shared hard cap across terrain-generation and initial-light tasks.
+    // Shared hard cap across terrain generation and arrival-reconciliation tasks.
     public int MaxMaterializationsInFlight { get; }
 
     public int MaxTerrainMaterializationsInFlight { get; }

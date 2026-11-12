@@ -78,7 +78,8 @@ internal static class ChunkStreamingRouteBenchmark
                 maxDispatchesPerFrame: materializationWorkers,
                 maxResultsPerFrame: 8,
                 maxEvictionsPerFrame: 2,
-                gameRules: rules));
+                gameRules: rules,
+                maxConcurrentWorkers: maximumWorldWorkers));
         var selection = new ChunkStreamingSelectionRuntime(generator);
         var presented = new HashSet<ChunkCoord>();
         var chunkDigests = new Dictionary<ChunkCoord, ChunkContentDigest>();
