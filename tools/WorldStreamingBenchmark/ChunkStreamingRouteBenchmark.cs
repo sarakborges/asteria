@@ -33,8 +33,8 @@ internal static class ChunkStreamingRouteBenchmark
 
         var materializationWorkers = Math.Clamp(
             Environment.ProcessorCount - 2, 1, 6);
-        var maximumWorldWorkers = Math.Clamp(
-            Environment.ProcessorCount - 1, 2, 8);
+        var maximumWorldWorkers = ReadMaximumWorldWorkers(
+            Math.Clamp(Environment.ProcessorCount - 1, 2, 8));
         var retentionRadius = horizontalRadius + RetentionMarginChunks;
         var rules = new WorldGameRules();
         var world = new VoxelWorld();
@@ -651,6 +651,22 @@ internal static class ChunkStreamingRouteBenchmark
     // The A/B workflow builds this same harness against an older baseline
     // Core assembly as well as the candidate. Use the expanded constructor
     // when available, while preserving source compatibility with that baseline.
+    private static int ReadMaximumWorldWorkers(int defaultValue)
+    {
+        var configured = Environment.GetEnvironmentVariable(
+            "ASTERIA_BENCH_MAX_WORLD_WORKERS");
+        if (string.IsNullOrWhiteSpace(configured))
+            return defaultValue;
+
+        if (!int.TryParse(configured, out var maximumWorkers) ||
+            maximumWorkers is < 2 or > 8)
+            throw new ArgumentOutOfRangeException(
+                "ASTERIA_BENCH_MAX_WORLD_WORKERS",
+                "The benchmark worker cap must be between 2 and 8.");
+
+        return maximumWorkers;
+    }
+
     private static ChunkResidencySettings CreateResidencySettings(
         int terrainWorkers,
         int totalWorkers,
