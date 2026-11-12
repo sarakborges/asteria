@@ -359,24 +359,6 @@
   "asteria:leaf_nacreveil": {
     "/name": "Folhas de Nacreveil"
   },
-  "asteria:log_coralith": {
-    "/name": "Tronco de Coralith"
-  },
-  "asteria:log_coralith_hollow": {
-    "/name": "Tronco Oco de Coralith"
-  },
-  "asteria:log_coralith_stripped": {
-    "/name": "Tronco Descascado de Coralith"
-  },
-  "asteria:log_coralith_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Coralith"
-  },
-  "asteria:planks_coralith": {
-    "/name": "Tábuas de Coralith"
-  },
-  "asteria:leaf_coralith": {
-    "/name": "Folhas de Coralith"
-  },
   "asteria:log_mirewake": {
     "/name": "Tronco de Mirewake"
   },
@@ -431,24 +413,6 @@
   "asteria:leaf_geodera": {
     "/name": "Folhas de Geodera"
   },
-  "asteria:log_cragbloom": {
-    "/name": "Tronco de Cragbloom"
-  },
-  "asteria:log_cragbloom_hollow": {
-    "/name": "Tronco Oco de Cragbloom"
-  },
-  "asteria:log_cragbloom_stripped": {
-    "/name": "Tronco Descascado de Cragbloom"
-  },
-  "asteria:log_cragbloom_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Cragbloom"
-  },
-  "asteria:planks_cragbloom": {
-    "/name": "Tábuas de Cragbloom"
-  },
-  "asteria:leaf_cragbloom": {
-    "/name": "Folhas de Cragbloom"
-  },
   "asteria:log_fulminara": {
     "/name": "Tronco de Fulminara"
   },
@@ -466,24 +430,6 @@
   },
   "asteria:leaf_fulminara": {
     "/name": "Folhas de Fulminara"
-  },
-  "asteria:log_coppercoil": {
-    "/name": "Tronco de Coppercoil"
-  },
-  "asteria:log_coppercoil_hollow": {
-    "/name": "Tronco Oco de Coppercoil"
-  },
-  "asteria:log_coppercoil_stripped": {
-    "/name": "Tronco Descascado de Coppercoil"
-  },
-  "asteria:log_coppercoil_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Coppercoil"
-  },
-  "asteria:planks_coppercoil": {
-    "/name": "Tábuas de Coppercoil"
-  },
-  "asteria:leaf_coppercoil": {
-    "/name": "Folhas de Coppercoil"
   },
   "asteria:log_stormglass": {
     "/name": "Tronco de Stormglass"
@@ -629,24 +575,6 @@
   "asteria:leaf_galeheart": {
     "/name": "Folhas de Galeheart"
   },
-  "asteria:log_cloudspindle": {
-    "/name": "Tronco de Cloudspindle"
-  },
-  "asteria:log_cloudspindle_hollow": {
-    "/name": "Tronco Oco de Cloudspindle"
-  },
-  "asteria:log_cloudspindle_stripped": {
-    "/name": "Tronco Descascado de Cloudspindle"
-  },
-  "asteria:log_cloudspindle_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Cloudspindle"
-  },
-  "asteria:planks_cloudspindle": {
-    "/name": "Tábuas de Cloudspindle"
-  },
-  "asteria:leaf_cloudspindle": {
-    "/name": "Folhas de Cloudspindle"
-  },
   "asteria:log_zephyra": {
     "/name": "Tronco de Zephyra"
   },
@@ -664,24 +592,6 @@
   },
   "asteria:leaf_zephyra": {
     "/name": "Folhas de Zephyra"
-  },
-  "asteria:log_dawnlace": {
-    "/name": "Tronco de Dawnlace"
-  },
-  "asteria:log_dawnlace_hollow": {
-    "/name": "Tronco Oco de Dawnlace"
-  },
-  "asteria:log_dawnlace_stripped": {
-    "/name": "Tronco Descascado de Dawnlace"
-  },
-  "asteria:log_dawnlace_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Dawnlace"
-  },
-  "asteria:planks_dawnlace": {
-    "/name": "Tábuas de Dawnlace"
-  },
-  "asteria:leaf_dawnlace": {
-    "/name": "Folhas de Dawnlace"
   },
   "asteria:log_prismara": {
     "/name": "Tronco de Prismara"
@@ -754,24 +664,6 @@
   },
   "asteria:leaf_mourningbriar": {
     "/name": "Folhas de Mourningbriar"
-  },
-  "asteria:log_eclipseveil": {
-    "/name": "Tronco de Eclipseveil"
-  },
-  "asteria:log_eclipseveil_hollow": {
-    "/name": "Tronco Oco de Eclipseveil"
-  },
-  "asteria:log_eclipseveil_stripped": {
-    "/name": "Tronco Descascado de Eclipseveil"
-  },
-  "asteria:log_eclipseveil_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Eclipseveil"
-  },
-  "asteria:planks_eclipseveil": {
-    "/name": "Tábuas de Eclipseveil"
-  },
-  "asteria:leaf_eclipseveil": {
-    "/name": "Folhas de Eclipseveil"
   },
   "asteria:log_gloamroot": {
     "/name": "Tronco de Gloamroot"

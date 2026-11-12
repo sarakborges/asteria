@@ -359,24 +359,6 @@
   "asteria:leaf_nacreveil": {
     "/name": "Nacreveil Leaves"
   },
-  "asteria:log_coralith": {
-    "/name": "Coralith Log"
-  },
-  "asteria:log_coralith_hollow": {
-    "/name": "Hollow Coralith Log"
-  },
-  "asteria:log_coralith_stripped": {
-    "/name": "Stripped Coralith Log"
-  },
-  "asteria:log_coralith_stripped_hollow": {
-    "/name": "Stripped Hollow Coralith Log"
-  },
-  "asteria:planks_coralith": {
-    "/name": "Coralith Planks"
-  },
-  "asteria:leaf_coralith": {
-    "/name": "Coralith Leaves"
-  },
   "asteria:log_mirewake": {
     "/name": "Mirewake Log"
   },
@@ -431,24 +413,6 @@
   "asteria:leaf_geodera": {
     "/name": "Geodera Leaves"
   },
-  "asteria:log_cragbloom": {
-    "/name": "Cragbloom Log"
-  },
-  "asteria:log_cragbloom_hollow": {
-    "/name": "Hollow Cragbloom Log"
-  },
-  "asteria:log_cragbloom_stripped": {
-    "/name": "Stripped Cragbloom Log"
-  },
-  "asteria:log_cragbloom_stripped_hollow": {
-    "/name": "Stripped Hollow Cragbloom Log"
-  },
-  "asteria:planks_cragbloom": {
-    "/name": "Cragbloom Planks"
-  },
-  "asteria:leaf_cragbloom": {
-    "/name": "Cragbloom Leaves"
-  },
   "asteria:log_fulminara": {
     "/name": "Fulminara Log"
   },
@@ -466,24 +430,6 @@
   },
   "asteria:leaf_fulminara": {
     "/name": "Fulminara Leaves"
-  },
-  "asteria:log_coppercoil": {
-    "/name": "Coppercoil Log"
-  },
-  "asteria:log_coppercoil_hollow": {
-    "/name": "Hollow Coppercoil Log"
-  },
-  "asteria:log_coppercoil_stripped": {
-    "/name": "Stripped Coppercoil Log"
-  },
-  "asteria:log_coppercoil_stripped_hollow": {
-    "/name": "Stripped Hollow Coppercoil Log"
-  },
-  "asteria:planks_coppercoil": {
-    "/name": "Coppercoil Planks"
-  },
-  "asteria:leaf_coppercoil": {
-    "/name": "Coppercoil Leaves"
   },
   "asteria:log_stormglass": {
     "/name": "Stormglass Log"
@@ -629,24 +575,6 @@
   "asteria:leaf_galeheart": {
     "/name": "Galeheart Leaves"
   },
-  "asteria:log_cloudspindle": {
-    "/name": "Cloudspindle Log"
-  },
-  "asteria:log_cloudspindle_hollow": {
-    "/name": "Hollow Cloudspindle Log"
-  },
-  "asteria:log_cloudspindle_stripped": {
-    "/name": "Stripped Cloudspindle Log"
-  },
-  "asteria:log_cloudspindle_stripped_hollow": {
-    "/name": "Stripped Hollow Cloudspindle Log"
-  },
-  "asteria:planks_cloudspindle": {
-    "/name": "Cloudspindle Planks"
-  },
-  "asteria:leaf_cloudspindle": {
-    "/name": "Cloudspindle Leaves"
-  },
   "asteria:log_zephyra": {
     "/name": "Zephyra Log"
   },
@@ -664,24 +592,6 @@
   },
   "asteria:leaf_zephyra": {
     "/name": "Zephyra Leaves"
-  },
-  "asteria:log_dawnlace": {
-    "/name": "Dawnlace Log"
-  },
-  "asteria:log_dawnlace_hollow": {
-    "/name": "Hollow Dawnlace Log"
-  },
-  "asteria:log_dawnlace_stripped": {
-    "/name": "Stripped Dawnlace Log"
-  },
-  "asteria:log_dawnlace_stripped_hollow": {
-    "/name": "Stripped Hollow Dawnlace Log"
-  },
-  "asteria:planks_dawnlace": {
-    "/name": "Dawnlace Planks"
-  },
-  "asteria:leaf_dawnlace": {
-    "/name": "Dawnlace Leaves"
   },
   "asteria:log_prismara": {
     "/name": "Prismara Log"
@@ -754,24 +664,6 @@
   },
   "asteria:leaf_mourningbriar": {
     "/name": "Mourningbriar Leaves"
-  },
-  "asteria:log_eclipseveil": {
-    "/name": "Eclipseveil Log"
-  },
-  "asteria:log_eclipseveil_hollow": {
-    "/name": "Hollow Eclipseveil Log"
-  },
-  "asteria:log_eclipseveil_stripped": {
-    "/name": "Stripped Eclipseveil Log"
-  },
-  "asteria:log_eclipseveil_stripped_hollow": {
-    "/name": "Stripped Hollow Eclipseveil Log"
-  },
-  "asteria:planks_eclipseveil": {
-    "/name": "Eclipseveil Planks"
-  },
-  "asteria:leaf_eclipseveil": {
-    "/name": "Eclipseveil Leaves"
   },
   "asteria:log_gloamroot": {
     "/name": "Gloamroot Log"
