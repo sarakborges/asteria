@@ -65,6 +65,52 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void ChunkArrivalLightingSeedsAreCalculatedOnDetachedWorkerSnapshot()
+    {
+        var fixture = CreateFixture();
+        var arrivingCoord = ChunkCoord.Zero;
+        var neighborCoord = new ChunkCoord(1, 0, 0);
+        var arriving = new Chunk();
+        var neighbor = new Chunk();
+        ChunkLightingSolver.Initialize(arriving, fixture.Blocks, fixture.Fluids);
+        ChunkLightingSolver.Initialize(neighbor, fixture.Blocks, fixture.Fluids);
+        neighbor.SetLight(0, 5, 5, new VoxelLight(0, 15, 0, 0));
+
+        fixture.World.InsertChunk(neighborCoord, neighbor);
+        fixture.World.InsertChunk(arrivingCoord, arriving);
+        Assert.NotEqual(
+            ChunkArchiveResult.NotResident,
+            fixture.World.ArchiveChunk(arrivingCoord));
+
+        fixture.Runtime.SyncSelection(
+            arrivingCoord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { arrivingCoord },
+            presented: Array.Empty<ChunkCoord>());
+
+        var restored = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>(), maximumNewTasks: 0);
+        Assert.Single(restored.Activations);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.False(fixture.WorldUpdates.HasLightingWork);
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>(), maximumNewTasks: 1);
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Chunk-arrival lighting reconciliation did not finish on its worker.");
+
+        fixture.Runtime.CollectMaterializationResults(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        Assert.Equal(0, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.True(fixture.WorldUpdates.HasLightingWork);
+    }
+
+    [Fact]
     public void DispatchRestoresArchivedChunkBeforeProviderWork()
     {
         var fixture = CreateFixture();
