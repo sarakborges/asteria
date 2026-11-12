@@ -48,7 +48,7 @@ public sealed class VolcanoLandscapeContentTests
     }
 
     [Fact]
-    public void DeletedVolcanicTreesAndVolcanoHaveNoRemainingSpawnRules()
+    public void DeletedVolcanicTreesAreAbsentButCalderaRemains()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var structures = StructureRegistry.FromJson(ReadPackJson("structures"));
@@ -59,14 +59,13 @@ public sealed class VolcanoLandscapeContentTests
             .Where(rule => rule.Biome == "asteria:overworld/scorched_wastes")
             .ToArray();
 
-        Assert.Equal(3, roots.Length);
+        Assert.Equal(4, roots.Length);
         Assert.Equal(
-            new[] { "asteria:boulder_basalt", "asteria:cluster_basalt", "asteria:outcrop_basalt" },
+            new[] { "asteria:boulder_basalt", "asteria:cluster_basalt", "asteria:outcrop_basalt", "asteria:volcano" },
             roots.Select(root => root.Structure).OrderBy(id => id, StringComparer.Ordinal));
         Assert.DoesNotContain(roots,
             root => root.Structure.StartsWith("asteria:tree_", StringComparison.Ordinal));
-        Assert.Throws<KeyNotFoundException>(() =>
-            structures.ResolveReference("asteria:volcano"));
+        Assert.True(structures.ResolvesReference("asteria:volcano"));
 
         foreach (var species in new[] { "cinderwood", "briarflame", "ashveil", "embercoil" })
         {
