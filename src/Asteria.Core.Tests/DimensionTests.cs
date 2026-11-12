@@ -87,17 +87,16 @@ public sealed class DimensionTests
         Assert.Null(
             umbral.GeneratedOcean);
         var umbralRoots = umbral.GeneratedSurfaceStructures;
-        Assert.Equal(14, umbralRoots.Count);
+        Assert.Equal(7, umbralRoots.Count);
         Assert.All(umbralRoots, root =>
         {
             Assert.Contains(root.Biome, umbral.SurfaceBiomes);
             Assert.NotNull(root.HabitatWeights);
         });
-        Assert.Equal(4, umbralRoots.Count(root => root.Biome == "asteria:umbral/wraith_grove"));
-        Assert.Equal(5, umbralRoots.Count(root => root.Biome == "asteria:umbral/umbral_reach"));
-        Assert.Equal(5, umbralRoots.Count(root => root.Biome == "asteria:umbral/withered_waste"));
-        Assert.Equal(4, umbralRoots.Where(root => root.Biome == "asteria:umbral/wraith_grove")
-            .Select(root => root.Structure).Distinct().Count());
+        Assert.Equal(0, umbralRoots.Count(root => root.Biome == "asteria:umbral/wraith_grove"));
+        Assert.Equal(3, umbralRoots.Count(root => root.Biome == "asteria:umbral/umbral_reach"));
+        Assert.Equal(4, umbralRoots.Count(root => root.Biome == "asteria:umbral/withered_waste"));
+        Assert.DoesNotContain(umbralRoots, root => root.Biome == "asteria:umbral/wraith_grove");
         Assert.Equal(
             3,
             umbral.SurfaceBiomes.Count);
