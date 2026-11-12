@@ -25,9 +25,9 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Theory]
-    [InlineData("arctic", "frozen_plain", "ice_fields", "rocky_ridges", 6)]
+    [InlineData("arctic", "frozen_plain", "ice_fields", "rocky_ridges", 4)]
     [InlineData("desert", "open_dunes", "sand_flats", "sandstone_outcrops", 4)]
-    [InlineData("wasteland", "barren_flats", "deadwood_pockets", "rocky_scrub", 9)]
+    [InlineData("wasteland", "barren_flats", "deadwood_pockets", "rocky_scrub", 8)]
     public void AuthoredBiomesHaveDeterministicHabitatRegionsAndWeightedRoots(
         string file, string first, string second, string third, int rootCount)
     {
@@ -398,9 +398,7 @@ public sealed class SparseOverworldBiomeContentTests
         var biome = LoadBiome("desert");
         var expectedDecorators = new[]
         {
-            "asteria:grass_dune",
             "asteria:thornbush",
-            "asteria:yucca",
             "asteria:spike_sandstone",
         };
         Assert.Equal(expectedDecorators,
