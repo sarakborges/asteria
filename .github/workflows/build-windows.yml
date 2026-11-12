@@ -23,6 +23,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Remove unintended automatic preview release
+        if: github.event_name == 'push' && github.event.head_commit.message == 'ci: remove accidental preview release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete windows-75cace4b2a08 --repo $env:GITHUB_REPOSITORY --yes --cleanup-tag
+          if ($LASTEXITCODE -ne 0) { throw "Failed to remove the unintended preview release." }
+
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
