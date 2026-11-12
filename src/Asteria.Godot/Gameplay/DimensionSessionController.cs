@@ -284,7 +284,7 @@ public sealed class DimensionSessionController
             if (_exactDestination)
                 Active.PrepareExactPortalDestination(destination);
             else
-                Active.PrepareGeneratedDestination(destination);
+                Active.BeginGeneratedDestinationResolution(destination);
         }
         else
         {
