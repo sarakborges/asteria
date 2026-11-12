@@ -52,55 +52,6 @@
       }
     },
     {
-      "block": "asteria:edelweiss_alpine",
-      "chance": 0.0143,
-      "surfaceBlocks": [
-        "asteria:snow",
-        "asteria:gravel",
-        "asteria:stone"
-      ],
-      "habitatWeights": {
-        "snowfields": 2.3,
-        "glacial_ice": 0.16,
-        "wind_scoured_rock": 0.62
-      },
-      "cluster": {
-        "scale": 35,
-        "threshold": -0.19,
-        "octaves": 4,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 108,
-        "maxSlope": 4
-      }
-    },
-    {
-      "block": "asteria:sedge_alpine",
-      "chance": 0.0247,
-      "surfaceBlocks": [
-        "asteria:snow",
-        "asteria:stone",
-        "asteria:gravel"
-      ],
-      "habitatWeights": {
-        "snowfields": 0.62,
-        "glacial_ice": 0.08,
-        "wind_scoured_rock": 2.2
-      },
-      "cluster": {
-        "scale": 27,
-        "threshold": -0.24,
-        "octaves": 4,
-        "transitionWidth": 0.18
-      },
-      "conditions": {
-        "minY": 99,
-        "maxY": 177,
-        "maxSlope": 5
-      }
-    },
-    {
       "block": "asteria:lichen_frost",
       "chance": 0.0156,
       "surfaceBlocks": [
