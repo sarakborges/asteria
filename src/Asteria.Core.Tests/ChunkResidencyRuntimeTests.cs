@@ -154,6 +154,66 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void GravityBoundaryReconciliationRunsOnWorkerAfterNeighborResidencyChanges()
+    {
+        var fixture = CreateFixture();
+        var sourceCoord = new ChunkCoord(0, 1, 0);
+        var lowerCoord = ChunkCoord.Zero;
+        var source = new Chunk();
+        var gravityPosition = new WorldVoxelCoord(3, Chunk.Size, 4);
+        source.SetBlock(
+            3, 0, 4,
+            fixture.Blocks.GetId("asteria:falling_sand"));
+        fixture.World.InsertChunk(sourceCoord, source);
+
+        // The source first waits for its missing lower chunk.
+        fixture.Physics.RequestChunkReconciliation(sourceCoord);
+        RunArrivalReconciliation(fixture);
+        Assert.Equal(1, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+
+        // Making the lower chunk resident queues a fresh worker request but
+        // does not synchronously scan the source boundary or enqueue a wakeup.
+        fixture.World.InsertChunk(lowerCoord, new Chunk());
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+
+        RunArrivalReconciliation(fixture);
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Contains(gravityPosition, fixture.PhysicsUpdates.DrainBatch());
+
+        // Archiving the lower chunk must re-park the same upper boundary block,
+        // again through the worker rather than the residency event callback.
+        Assert.NotEqual(
+            ChunkArchiveResult.NotResident,
+            fixture.World.ArchiveChunk(lowerCoord));
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+
+        RunArrivalReconciliation(fixture);
+        Assert.Equal(1, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+    }
+
+    private static void RunArrivalReconciliation(RuntimeFixture fixture)
+    {
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumNewTasks: 1);
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Chunk physics reconciliation did not finish on its worker.");
+
+        fixture.Runtime.CollectMaterializationResults(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+    }
+
+    [Fact]
     public void DispatchRestoresArchivedChunkBeforeProviderWork()
     {
         var fixture = CreateFixture();
