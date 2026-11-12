@@ -42,6 +42,8 @@ public sealed class DimensionRuntimeSession
 
     private readonly DimensionSessionState _state;
     private NVector3 _initialPlayerPosition;
+    private Task<NVector3>? _generatedSpawnResolution;
+    private bool _initialPlayerPositionReady;
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly CreaturePresentationController _creaturePresentation;
@@ -206,9 +208,18 @@ public sealed class DimensionRuntimeSession
         _naturalSpawns =
             new CreatureNaturalSpawnRuntime(
                 creatures, biomes, state.NaturalSpawnNextAttemptTick);
-        _initialPlayerPosition =
-            state.PlayerPosition ??
-            ResolveGeneratedSpawn();
+        if (state.PlayerPosition is { } savedPlayerPosition)
+        {
+            _initialPlayerPosition = savedPlayerPosition;
+            _initialPlayerPositionReady = true;
+        }
+        else
+        {
+            // Generated-world spawn search is pure and may inspect thousands
+            // of world-space samples. Keep it off the Godot thread and scoped
+            // to this session so a retired result can never affect its successor.
+            _generatedSpawnResolution = Task.Run(ResolveGeneratedSpawn);
+        }
         _droppedBlocks =
             new DroppedBlockRuntime(
                 World,
@@ -776,6 +787,7 @@ public sealed class DimensionRuntimeSession
         _retiring;
 
     public bool IsQuiescent =>
+        (_generatedSpawnResolution is null || _generatedSpawnResolution.IsCompleted) &&
         Residency.MaterializingCount == 0 &&
         Residency.DirectionalFaceReconciliationCount == 0 &&
         !Streaming.IsSelectionRunning &&
@@ -784,8 +796,43 @@ public sealed class DimensionRuntimeSession
         !TerrainMesh.IsRunning &&
         !FluidMesh.IsRunning;
 
+    public bool InitialPlayerPositionReady =>
+        _initialPlayerPositionReady;
+
     public NVector3 InitialPlayerPosition =>
-        _initialPlayerPosition;
+        _initialPlayerPositionReady
+            ? _initialPlayerPosition
+            : throw new InvalidOperationException(
+                "Generated spawn resolution has not completed for this dimension session.");
+
+    /// <summary>
+    /// Collects the session-owned generated-spawn result without blocking.
+    /// A destination explicitly selected while the query was running takes
+    /// precedence over its eventual result.
+    /// </summary>
+    public bool TryCompleteGeneratedSpawnResolution(out Exception? error)
+    {
+        error = null;
+        if (_generatedSpawnResolution is not { IsCompleted: true } task)
+            return _initialPlayerPositionReady;
+
+        _generatedSpawnResolution = null;
+        try
+        {
+            var generated = task.GetAwaiter().GetResult();
+            if (!_initialPlayerPositionReady)
+            {
+                _initialPlayerPosition = generated;
+                _initialPlayerPositionReady = true;
+            }
+        }
+        catch (Exception exception)
+        {
+            error = exception;
+        }
+
+        return _initialPlayerPositionReady || error is not null;
+    }
 
     private NVector3 ResolveGeneratedSpawn()
     {
@@ -816,6 +863,7 @@ public sealed class DimensionRuntimeSession
             preferred.Y < 1f)
             throw new ArgumentOutOfRangeException(nameof(preferred));
         _initialPlayerPosition = preferred;
+        _initialPlayerPositionReady = true;
     }
 
     public ExactArrivalStatus CheckResidentPortalEntry() =>
@@ -912,6 +960,7 @@ public sealed class DimensionRuntimeSession
                 destination.X + 0.5f,
                 destination.Y,
                 destination.Z + 0.5f);
+        _initialPlayerPositionReady = true;
     }
 
     /// <summary>Resolve the final entry from authoritative loaded voxels
@@ -928,8 +977,11 @@ public sealed class DimensionRuntimeSession
 
     /// <summary>Fallback for an obstructed generated warp entry.
     /// Starts the usual world loading pipeline around the authored spawn.</summary>
-    public void PrepareGeneratedSpawn() =>
+    public void PrepareGeneratedSpawn()
+    {
         _initialPlayerPosition = ResolveGeneratedSpawn();
+        _initialPlayerPositionReady = true;
+    }
 
     public ChunkCoord InitialStreamingCenter
     {
@@ -983,6 +1035,10 @@ public sealed class DimensionRuntimeSession
                 Array.Empty<ChunkCoord>());
         var errors =
             new List<Exception>();
+        if (_generatedSpawnResolution is { IsCompleted: true } &&
+            TryCompleteGeneratedSpawnResolution(out var spawnError) &&
+            spawnError is not null)
+            errors.Add(spawnError);
 
         DrainWorker(
             () =>
