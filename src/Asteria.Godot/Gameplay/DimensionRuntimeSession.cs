@@ -787,6 +787,7 @@ public sealed class DimensionRuntimeSession
         (_initialPositionResolution is null || _initialPositionResolution.IsCompleted) &&
         Residency.MaterializingCount == 0 &&
         Residency.DirectionalFaceReconciliationCount == 0 &&
+        Residency.ChunkLightingReconciliationCount == 0 &&
         !Streaming.IsSelectionRunning &&
         !FluidSimulation.IsRunning &&
         !Lighting.IsRunning &&
