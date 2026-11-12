@@ -81,6 +81,7 @@ public sealed class DimensionSessionController
             _factory(
                 _states.GetOrCreate(
                     dimension));
+        Active.BeginGeneratedSpawnResolution();
     }
 
     /// <summary>
