@@ -220,6 +220,8 @@ public sealed class DimensionSessionController
             // Success leaves the world. Failure restores the archived
             // session so gameplay and explicit retry remain possible.
             Active = leaving ? null! : _factory(_states.GetOrCreate(target));
+            if (!leaving)
+                Active.BeginGeneratedSpawnResolution();
             _target = null;
             _sourcePosition = null;
             _destinationPosition = null;
@@ -282,6 +284,10 @@ public sealed class DimensionSessionController
                 Active.PrepareExactPortalDestination(destination);
             else
                 Active.PrepareGeneratedDestination(destination);
+        }
+        else
+        {
+            Active.BeginGeneratedSpawnResolution();
         }
 
         _target = null;
