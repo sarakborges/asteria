@@ -61,6 +61,8 @@ internal static class ChunkStreamingRouteBenchmark
             mutations,
             physicsUpdates,
             droppedBlocks);
+        var residencySettings = CreateResidencySettings(
+            materializationWorkers, maximumWorldWorkers, rules);
         var residency = new ChunkResidencyRuntime(
             world,
             blocks,
@@ -73,13 +75,7 @@ internal static class ChunkStreamingRouteBenchmark
             terrainRevisions,
             fluidRevisions,
             ticks,
-            new ChunkResidencySettings(
-                maxMaterializationsInFlight: materializationWorkers,
-                maxDispatchesPerFrame: materializationWorkers,
-                maxResultsPerFrame: 8,
-                maxEvictionsPerFrame: 2,
-                gameRules: rules,
-                maxConcurrentWorkers: maximumWorldWorkers));
+            residencySettings);
         var selection = new ChunkStreamingSelectionRuntime(generator);
         var presented = new HashSet<ChunkCoord>();
         var chunkDigests = new Dictionary<ChunkCoord, ChunkContentDigest>();
@@ -646,6 +642,46 @@ internal static class ChunkStreamingRouteBenchmark
                 "FallingBlockSamples records the first 64 gravity entities created by support wakeups, including the source coordinate, block ID, and the below-block state after the wakeup batch.",
             },
         };
+    }
+
+    // The A/B workflow builds this same harness against an older baseline
+    // Core assembly as well as the candidate. Use the expanded constructor
+    // when available, while preserving source compatibility with that baseline.
+    private static ChunkResidencySettings CreateResidencySettings(
+        int terrainWorkers,
+        int totalWorkers,
+        WorldGameRules rules)
+    {
+        var sharedWorkerLimitConstructor =
+            typeof(ChunkResidencySettings).GetConstructor(
+            [
+                typeof(int),
+                typeof(int),
+                typeof(int),
+                typeof(int),
+                typeof(WorldGameRules),
+                typeof(int?),
+            ]);
+
+        if (sharedWorkerLimitConstructor is null)
+        {
+            return new ChunkResidencySettings(
+                maxMaterializationsInFlight: terrainWorkers,
+                maxDispatchesPerFrame: terrainWorkers,
+                maxResultsPerFrame: 8,
+                maxEvictionsPerFrame: 2,
+                gameRules: rules);
+        }
+
+        return (ChunkResidencySettings)sharedWorkerLimitConstructor.Invoke(
+        [
+            terrainWorkers,
+            terrainWorkers,
+            8,
+            2,
+            rules,
+            (int?)totalWorkers,
+        ]);
     }
 
     private static void AccumulateUpdate(
