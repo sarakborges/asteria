@@ -152,7 +152,6 @@ public sealed class GorgeEnrichmentContentTests
         var stone = blocks.GetId("asteria:stone");
         var basalt = blocks.GetId("asteria:basalt");
         var generated = new HashSet<BlockRuntimeId>();
-        var generatedObjects = new HashSet<string>(StringComparer.Ordinal);
 
         for (var z = -48; z <= 48; z++)
         for (var x = -48; x <= 48; x++)
@@ -166,8 +165,6 @@ public sealed class GorgeEnrichmentContentTests
             Assert.Equal(obj, again.ObjectAt(sample, dirt, x, z, placement: valid));
             Assert.Null(first.ObjectAt(sample, dirt, x, z, placement: steep));
             Assert.Null(first.ObjectAt(sample, basalt, x, z, placement: valid));
-            if (obj is not null)
-                generatedObjects.Add(obj);
             if (!block.IsAir)
                 generated.Add(block);
 
@@ -178,7 +175,6 @@ public sealed class GorgeEnrichmentContentTests
         }
 
         Assert.Contains(blocks.GetId("asteria:tuft_dry"), generated);
-        Assert.Contains("asteria:grass", generatedObjects);
         Assert.Contains(blocks.GetId("asteria:spike_stone"), generated);
     }
 

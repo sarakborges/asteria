@@ -15,7 +15,7 @@ public sealed class ContentNamingTests
                 "sand", "sandstone", "saxifrage", "sedge", "shell", "shrub", "snow", "spike",
                 "starflower", "stone", "stonecrop", "terracotta", "thistle", "thorn", "thornbush",
                 "tiles", "tuft", "yucca"],
-            ["objects"] = ["anemone", "aster", "bloom", "bulrush", "cattail", "clover", "daisy",
+            ["objects"] = ["anemone", "aster", "bloom", "bulrush", "cattail", "clover", "crystal", "daisy",
                 "fern", "fungus", "grass", "iris", "kelp", "mushroom", "orchid", "pad", "pebble",
                 "reed", "roots", "sagebrush", "sapling", "seagrass", "seashell", "seedheads",
                 "starfish", "stick", "vines", "wildflower"],

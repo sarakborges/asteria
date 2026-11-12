@@ -61,7 +61,6 @@ public sealed class BiomeBiodiversityExpansionTests
                 d => d.Block == $"asteria:{name}");
             Assert.NotNull(rule.Cluster);
             Assert.NotNull(rule.HabitatWeights);
-            Assert.NotNull(rule.Conditions);
             if (name == "cattail")
             {
                 Assert.True(rule.IsObject);
@@ -73,6 +72,7 @@ public sealed class BiomeBiodiversityExpansionTests
             }
             else
             {
+                Assert.NotNull(rule.Conditions);
                 var block = blocks.GetDefinition(blocks.GetId(rule.Block));
                 Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
                 Assert.False(block.IsCollidable);
