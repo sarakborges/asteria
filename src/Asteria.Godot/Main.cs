@@ -167,6 +167,7 @@ public partial class Main : Node3D
     private int _publishedOxygenSeconds = -1;
     private bool _publishedOxygenVisible;
     private bool _respawnArrival;
+    private bool _respawnAwaitingPosition;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
@@ -688,16 +689,29 @@ public partial class Main : Node3D
 
         if (_loading.Progress.Phase == WorldLoadingPhase.PreparingEntry)
         {
-            if (!_sessions.Active.TryCompleteInitialPositionResolution(out var spawnError))
+            if (!_sessions.Active.TryCompleteInitialPositionResolution(out var entryError))
             {
                 SendLoadingState();
                 return;
             }
 
-            if (spawnError is not null)
+            if (entryError is not null)
                 throw new InvalidOperationException(
-                    $"Generated spawn preparation failed for Sphere {_dimension.Id}.",
-                    spawnError);
+                    $"Generated world-entry position preparation failed for Sphere {_dimension.Id}.",
+                    entryError);
+
+            if (_respawnAwaitingPosition)
+            {
+                _respawnAwaitingPosition = false;
+                if (!BeginDimensionTransition(
+                        _dimension.Id,
+                        _sessions.Active.InitialPlayerPosition,
+                        exactDestination: true))
+                    throw new InvalidOperationException(
+                        "Failed to initiate respawn relocation after generated entry preparation.");
+                _respawnArrival = true;
+                return;
+            }
 
             BeginWorldLoading();
         }
@@ -1060,7 +1074,8 @@ public partial class Main : Node3D
     private bool BeginDimensionTransition(
         DimensionId target,
         NVector3 destination,
-        DimensionTravelPurpose purpose = DimensionTravelPurpose.Ordinary)
+        DimensionTravelPurpose purpose = DimensionTravelPurpose.Ordinary,
+        bool exactDestination = false)
     {
         if (_player is null)
         {
@@ -1076,11 +1091,14 @@ public partial class Main : Node3D
                 position.Z);
 
         var sameSphere = target == _dimension.Id;
+        var preserveExactDestination =
+            exactDestination || purpose == DimensionTravelPurpose.Portal;
         if (!(sameSphere
-                ? _sessions.RequestRelocation(source, destination)
+                ? _sessions.RequestRelocation(
+                    source, destination, exactDestination: preserveExactDestination)
                 : _sessions.RequestTransition(
                     target, source, destination,
-                    exactDestination: purpose == DimensionTravelPurpose.Portal)))
+                    exactDestination: preserveExactDestination)))
         {
             return false;
         }
@@ -2802,8 +2820,9 @@ public partial class Main : Node3D
             {
                 case WarpArrivalDisposition.RetryAtGeneratedSpawn:
                     _warpArrival = warp.RetryAtGeneratedSpawn();
-                    _sessions.Active.PrepareGeneratedSpawn();
-                    BeginWorldLoading();
+                    _sessions.Active.BeginGeneratedSpawnResolution(force: true);
+                    _loading.BeginEntryPreparation();
+                    SendLoadingState();
                     return;
                 case WarpArrivalDisposition.ReturnToOrigin:
                     BeginWarpRollback(warp);
@@ -3105,15 +3124,15 @@ public partial class Main : Node3D
     {
         if (_worldSeed is null || !_worldReadySent ||
             _sessions.IsTransitioning || _player is null ||
-            !_sessionStates.Player.Health.IsDead)
+            _respawnAwaitingPosition || !_sessionStates.Player.Health.IsDead)
             return;
 
-        // Request the generated safe spawn; re-enter the current Sphere
-        // through the same resident-chunk and loading lifecycle as travel.
-        _sessions.Active.PrepareGeneratedSpawn();
-        if (BeginDimensionTransition(
-            _dimension.Id, _sessions.Active.InitialPlayerPosition))
-            _respawnArrival = true;
+        // Resolve the generated safe spawn off-thread before beginning the
+        // normal same-Sphere retirement and bootstrap sequence.
+        _respawnAwaitingPosition = true;
+        _sessions.Active.BeginGeneratedSpawnResolution(force: true);
+        _loading.BeginEntryPreparation();
+        SendLoadingState();
     }
 
     private void SendWorldHudState(
