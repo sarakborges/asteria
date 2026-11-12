@@ -9,6 +9,7 @@ public sealed class SurfaceStructureTests
         var definitions = new List<BlockDefinition>
         {
             new("asteria:stone"),
+            new("asteria:portal_frame"),
             new("asteria:glass", tags: [
                 "is_portal_frame",
                 "accept_dimension:asteria:overworld",
