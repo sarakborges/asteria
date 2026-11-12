@@ -758,6 +758,10 @@ internal static class ChunkStreamingRouteBenchmark
             CreateBuckets();
         private readonly SortedDictionary<string, int> _materializedColumnBuckets =
             CreateBuckets();
+        private readonly SortedDictionary<string, int> _fastPathStageAdvances =
+            new(StringComparer.Ordinal);
+        private readonly SortedDictionary<string, double> _fastPathStageMilliseconds =
+            new(StringComparer.Ordinal);
         private readonly SortedDictionary<string, int> _sparseStageAdvances =
             new(StringComparer.Ordinal);
         private readonly SortedDictionary<string, double> _sparseStageMilliseconds =
@@ -804,6 +808,19 @@ internal static class ChunkStreamingRouteBenchmark
                 }
             }
 
+            if (ReadBoolean(boxed, "IsSupportFaceFastPath"))
+            {
+                var stage = timing.Stage.ToString();
+                _fastPathStageAdvances[stage] =
+                    _fastPathStageAdvances.TryGetValue(stage, out var count)
+                        ? count + 1
+                        : 1;
+                _fastPathStageMilliseconds[stage] =
+                    (_fastPathStageMilliseconds.TryGetValue(stage, out var elapsed)
+                        ? elapsed
+                        : 0d) + timing.WorkerMilliseconds;
+            }
+
             if (ReadBoolean(boxed, "IsSparseSupportFallback"))
             {
                 var stage = timing.Stage.ToString();
@@ -838,6 +855,8 @@ internal static class ChunkStreamingRouteBenchmark
                       (SparseFallbackJobs + FullFallbackJobs),
             RequestedColumnsByBucket = _requestedColumnBuckets,
             MaterializedColumnsByBucket = _materializedColumnBuckets,
+            SupportFaceFastPathStageAdvances = _fastPathStageAdvances,
+            SupportFaceFastPathStageMilliseconds = _fastPathStageMilliseconds,
             SparseFallbackStageAdvances = _sparseStageAdvances,
             SparseFallbackStageMilliseconds = _sparseStageMilliseconds,
         };

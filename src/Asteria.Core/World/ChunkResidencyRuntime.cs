@@ -1026,6 +1026,13 @@ public sealed class ChunkResidencyRuntime
         {
             var stage = work.Job.ActiveWorkStage;
             var coord = work.Job.ActiveWorkCoord;
+            var supportOnly = work.Job.ActiveSupportOnly;
+            var supportFaceFastPath = work.Job.ActiveSupportFaceFastPath;
+            var sparseSupportFallback = work.Job.ActiveSparseSupportFallback;
+            var supportRequestedColumns =
+                work.Job.ActiveSupportRequestedColumnCount;
+            var supportMaterializationColumns =
+                work.Job.ActiveSupportMaterializationColumnCount;
             var stageStarted = Stopwatch.GetTimestamp();
             work.Job.Advance();
             var stageMilliseconds = Stopwatch.GetElapsedTime(
@@ -1049,11 +1056,11 @@ public sealed class ChunkResidencyRuntime
                 stage == ChunkMaterializationStage.DirectionalFacePalettes
                     ? work.Job.DirectionalFaceBoundaryColumnEvaluationMilliseconds
                     : 0d,
-                work.Job.ActiveSupportOnly,
-                work.Job.ActiveSupportFaceFastPath,
-                work.Job.ActiveSparseSupportFallback,
-                work.Job.ActiveSupportRequestedColumnCount,
-                work.Job.ActiveSupportMaterializationColumnCount));
+                supportOnly,
+                supportFaceFastPath,
+                sparseSupportFallback,
+                supportRequestedColumns,
+                supportMaterializationColumns));
         }
 
         var chunk = work.Job.Result ??
