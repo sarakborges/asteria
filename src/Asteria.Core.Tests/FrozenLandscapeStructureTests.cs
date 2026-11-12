@@ -9,6 +9,7 @@ public sealed class FrozenLandscapeStructureTests
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
+        var structureSets = StructureSetRegistry.FromJson(ReadJson("structure_sets"));
         structures.ValidateBlocks(blocks);
         var dimension = DimensionRegistry.FromJson(ReadJson("dimensions"))
             .Get(DimensionId.Overworld);
@@ -25,7 +26,9 @@ public sealed class FrozenLandscapeStructureTests
             Assert.DoesNotContain(roots,
                 root => root.Structure.StartsWith("asteria:tree_", StringComparison.Ordinal));
             foreach (var root in roots)
-                Assert.NotEmpty(structures.ResolveReference(root.Structure));
+                Assert.True(structures.ResolvesReference(root.Structure) ||
+                            structureSets.ResolvesReference(root.Structure),
+                    $"Missing frozen-biome structure reference: {root.Structure}");
         }
 
         foreach (var species in new[]

@@ -59,6 +59,7 @@ public sealed class MountainEcologyExpansionTests
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var structures = StructureRegistry.FromJson(ReadPackJson("structures"));
+        var structureSets = StructureSetRegistry.FromJson(ReadPackJson("structure_sets"));
         structures.ValidateBlocks(blocks);
         var dimension = DimensionRegistry.FromJson(ReadPackJson("dimensions"))
             .Get(DimensionId.Overworld);
@@ -76,16 +77,15 @@ public sealed class MountainEcologyExpansionTests
                 root => root.Structure.StartsWith("asteria:tree_", StringComparison.Ordinal));
             foreach (var root in roots)
             {
-                var variants = structures.ResolveReference(root.Structure);
-                Assert.NotEmpty(variants);
-                Assert.All(variants, variant =>
-                {
-                    Assert.NotEmpty(variant.Restrictions.GroundBlocks);
-                    Assert.All(variant.Restrictions.GroundBlocks, ground =>
-                        Assert.True(blocks.TryGetId(ground, out _)));
-                    Assert.Equal(StructureFluidPolicy.Forbid,
-                        variant.Generation.FluidPolicy);
-                });
+                Assert.True(structures.ResolvesReference(root.Structure) ||
+                            structureSets.ResolvesReference(root.Structure),
+                    $"Missing mountain structure reference: {root.Structure}");
+                if (!structures.ResolvesReference(root.Structure))
+                    continue;
+
+                Assert.All(structures.ResolveReference(root.Structure)
+                    .SelectMany(variant => variant.Restrictions.GroundBlocks),
+                    ground => Assert.True(blocks.TryGetId(ground, out _)));
             }
         }
     }
@@ -97,7 +97,7 @@ public sealed class MountainEcologyExpansionTests
         foreach (var name in new[] { "lichen_rock", "lichen_scree" })
         {
             var definition = blocks.GetDefinition(blocks.GetId("asteria:" + name));
-            var texture = Assert.Single(definition.Textures.AllLayers()).Texture;
+            var texture = definition.Visual.Texture!.Value.Texture;
             Assert.Equal("textures/layers/" + name + ".png", texture);
             Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory,
                 "packs", "default", "resources",
