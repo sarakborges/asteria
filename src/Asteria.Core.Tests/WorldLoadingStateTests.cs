@@ -21,6 +21,13 @@ public sealed class WorldLoadingStateTests
         Assert.Equal(
             WorldLoadingPhase.MaterializingInitialArea,
             loading.Progress.Phase);
+        Assert.False(loading.AllowsLightingDispatch);
+
+        loading.UpdateResidency(
+            desired: 1, pending: 0, materializing: 0, selectionRunning: false);
+        Assert.Equal(
+            WorldLoadingPhase.PreparingPresentation,
+            loading.Progress.Phase);
         Assert.True(loading.AllowsLightingDispatch);
     }
 
