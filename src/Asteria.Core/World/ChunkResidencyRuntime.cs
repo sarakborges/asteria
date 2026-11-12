@@ -821,7 +821,7 @@ public sealed class ChunkResidencyRuntime
             if (archiveResult !=
                 ChunkArchiveResult.NotResident)
             {
-                EnqueueChunkLightingReconciliation(
+                _pendingChunkLightingReconciliations.Enqueue(
                     coord.Value);
             }
 
