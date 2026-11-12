@@ -6,7 +6,7 @@ namespace Asteria.Core.Tests;
 public sealed class FloatingIslandContentTests
 {
     private static readonly string[] NewObjects =
-        ["reed_cloud", "bloom_aether", "vines_aether"];
+        ["bloom_aether"];
 
     [Fact]
     public void DefaultIslandObjectsAreOnlyAuthoredOnAdditiveVolume()
@@ -37,11 +37,8 @@ public sealed class FloatingIslandContentTests
             var obj = objects.Get(rule.Block);
             Assert.Equal(ObjectVisualKind.CrossedSprite, obj.Visual.Kind);
             Assert.True(obj.WindSway);
-            Assert.True(obj.Supports(name == "vines_aether"
-                ? BlockFace.Bottom : BlockFace.Top));
-            Assert.Equal(name == "vines_aether"
-                    ? DecorationSupportSurface.Ceiling : DecorationSupportSurface.Floor,
-                rule.SupportSurface);
+            Assert.True(obj.Supports(BlockFace.Top));
+            Assert.Equal(DecorationSupportSurface.Floor, rule.SupportSurface);
         }
 
         var bloomObjects = PackContentRegistry<ObjectDefinition>.FromJson(
@@ -50,24 +47,24 @@ public sealed class FloatingIslandContentTests
     }
 
     [Fact]
-    public void CeilingOnlyVinesDoNotSpawnFromIslandFloor()
+    public void CeilingOnlyHangingRootsDoNotSpawnFromIslandFloor()
     {
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone")
         ]);
         var objects = PackContentRegistry<ObjectDefinition>.FromJson([
             """
-            {"id":"asteria:vines_aether","category":"foliage",
-             "icon":"textures/objects/vines_aether.png","placementFaces":["bottom"],
+            {"id":"asteria:roots_hanging","category":"foliage",
+             "icon":"textures/objects/hanging_roots.png","placementFaces":["bottom"],
              "visual":{"type":"crossedSprite",
-                "texture":"textures/objects/vines_aether.png",
+                "texture":"textures/objects/hanging_roots.png",
                 "width":0.72,"height":0.95,"planes":2}}
             """
         ], ObjectDefinition.Parse, obj => obj.Id);
         var islands = new BiomeDefinition(
             "asteria:test/islands", null, null,
             [new BiomeSurfaceLayerDefinition("asteria:stone")],
-            [new BiomeDecorationDefinition("asteria:vines_aether",
+            [new BiomeDecorationDefinition("asteria:roots_hanging",
                 chance: 1f, surfaceBlocks: ["asteria:stone"],
                 supportSurface: DecorationSupportSurface.Ceiling, isObject: true)],
             volumeLayout: new BiomeVolumeLayoutDefinition(
@@ -86,7 +83,7 @@ public sealed class FloatingIslandContentTests
         var stone = blocks.GetId("asteria:stone");
         Assert.True(field.BlockAt(sample, stone, 3, 7,
             verticalY: 240).IsAir);
-        Assert.Equal("asteria:vines_aether",
+        Assert.Equal("asteria:roots_hanging",
             field.ObjectAt(sample, stone, 3, 7,
                 verticalY: 240,
                 supportSurface: DecorationSupportSurface.Ceiling));
@@ -94,7 +91,7 @@ public sealed class FloatingIslandContentTests
     }
 
     [Fact]
-    public void VinesHangBelowActualIslandSolidsWithoutReplacingTerrain()
+    public void HangingRootsAttachBelowActualIslandSolidsWithoutReplacingTerrain()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
@@ -112,7 +109,7 @@ public sealed class FloatingIslandContentTests
             // occupancy, not of probabilistic decorating frequency.
             node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("""
                 [
-                  {"object":"asteria:vines_aether","chance":1,
+                  {"object":"asteria:roots_hanging","chance":1,
                    "surfaceBlocks":["asteria:block_grass","asteria:dirt","asteria:stone","asteria:gravel","asteria:cobble_stone"],
                    "supportSurface":"ceiling"}
                 ]
@@ -168,10 +165,10 @@ public sealed class FloatingIslandContentTests
         Assert.True(generated.GetBlock(local.X, local.Y, local.Z).IsAir);
         Assert.False(supported.GetBlock(
             supportLocal.X, supportLocal.Y, supportLocal.Z).IsAir);
-        var vine = Assert.Single(supported.ObjectsAt(
+        var roots = Assert.Single(supported.ObjectsAt(
             supportLocal.X, supportLocal.Y, supportLocal.Z),
-            obj => obj.Id == "asteria:vines_aether");
-        Assert.Equal(BlockFace.Bottom, vine.Face);
+            obj => obj.Id == "asteria:roots_hanging");
+        Assert.Equal(BlockFace.Bottom, roots.Face);
         Assert.True(generator.DensityAt(x0, y0, z0) < 0d);
         Assert.True(generator.DensityAt(x0, y0 + 1, z0) >= 0d);
         Assert.Equal(generated.GetCell(local.X, local.Y, local.Z),

@@ -6,7 +6,7 @@ namespace Asteria.Core.Tests;
 public sealed class BiomeBiodiversityExpansionTests
 {
     [Fact]
-    public void PlainsHasThreeFloweringAndTallGrassHabitats()
+    public void PlainsHasThreeFloweringHabitats()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
@@ -17,7 +17,7 @@ public sealed class BiomeBiodiversityExpansionTests
         var plains = biomes.Get("asteria:overworld/plains");
         var names = new[] {
             "wildflower_blue", "wildflower_yellow",
-            "grass_tall"
+            "daisy"
         };
         Assert.Equal(4, plains.SurfaceHabitats!.Bands.Count);
         Assert.Equal("asteria:block_grass", plains.SurfaceLayers[0].Block);
@@ -39,7 +39,7 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.Equal(ObjectVisualKind.CrossedSprite, flower.Visual.Kind);
         }
         var grass = Assert.Single(plains.Decorations,
-            d => d.Block == "asteria:grass_tall");
+            d => d.Block == "asteria:grass");
         Assert.True(grass.HabitatWeights!.For("thicket") >
                     grass.HabitatWeights.For("grove"));
     }

@@ -46,7 +46,7 @@ public sealed class CavernBiodiversityTests
         Assert.True(rootsObject.Supports(BlockFace.Bottom));
         Assert.Equal(ObjectVisualKind.CrossedSprite, rootsObject.Visual.Kind);
 
-        foreach (var id in new[] { "asteria:mushroom_glowcap", "asteria:fern_glow" })
+        foreach (var id in new[] { "asteria:mushroom_crimson", "asteria:mushroom_purple" })
         {
             var rule = Assert.Single(cavern.Decorations, d => d.Block == id);
             Assert.Equal(DecorationSupportSurface.Floor, rule.SupportSurface);
@@ -57,7 +57,6 @@ public sealed class CavernBiodiversityTests
             var decoration = objects.Get(id);
             Assert.Equal(ObjectVisualKind.CrossedSprite, decoration.Visual.Kind);
             Assert.True(decoration.Supports(BlockFace.Top));
-            Assert.False(decoration.LightEmission.IsDark);
         }
     }
 
@@ -101,7 +100,7 @@ public sealed class CavernBiodiversityTests
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone"),
             new BlockDefinition("asteria:roots_hanging"),
-            new BlockDefinition("asteria:mushroom_glowcap")
+            new BlockDefinition("asteria:mushroom_cap_glow")
         ]);
         var cavern = new BiomeDefinition("asteria:test/cavern", null, null,
             [new BiomeSurfaceLayerDefinition("asteria:stone")],
@@ -110,7 +109,7 @@ public sealed class CavernBiodiversityTests
                     "asteria:roots_hanging", 1f, ["asteria:stone"],
                     supportSurface: DecorationSupportSurface.Ceiling),
                 new BiomeDecorationDefinition(
-                    "asteria:mushroom_glowcap", 1f, ["asteria:stone"])
+                    "asteria:mushroom_cap_glow", 1f, ["asteria:stone"])
             ],
             volumeLayout: new BiomeVolumeLayoutDefinition(
                 placement: VolumeBiomePlacement.CarvedVoid));
@@ -118,7 +117,7 @@ public sealed class CavernBiodiversityTests
         var sample = new BiomeSample(cavern.Id,
             [new BiomeInfluence(cavern.Id, 1f)]);
         var stone = blocks.GetId("asteria:stone");
-        Assert.Equal(blocks.GetId("asteria:mushroom_glowcap"),
+        Assert.Equal(blocks.GetId("asteria:mushroom_cap_glow"),
             field.BlockAt(sample, stone, 17, 29, verticalY: 61));
         Assert.Equal(blocks.GetId("asteria:roots_hanging"),
             field.BlockAt(sample, stone, 17, 29, verticalY: 61,
