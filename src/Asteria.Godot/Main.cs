@@ -686,6 +686,22 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_loading.Progress.Phase == WorldLoadingPhase.PreparingSpawn)
+        {
+            if (!_sessions.Active.TryCompleteGeneratedSpawnResolution(out var spawnError))
+            {
+                SendLoadingState();
+                return;
+            }
+
+            if (spawnError is not null)
+                throw new InvalidOperationException(
+                    $"Generated spawn preparation failed for Sphere {_dimension.Id}.",
+                    spawnError);
+
+            BeginWorldLoading();
+        }
+
         _sessions.Active.AdvanceWorldTime(
             delta, _player?.GlobalPosition, _worldReadySent);
         UpdateDayNightPresentation(delta);
@@ -2643,7 +2659,15 @@ public partial class Main : Node3D
             $"retention_margin={RetentionMarginChunks} " +
             $"materialization_in_flight={MaxMaterializationTasksInFlight}");
 
-        BeginWorldLoading();
+        if (_sessions.Active.InitialPlayerPositionReady)
+        {
+            BeginWorldLoading();
+        }
+        else
+        {
+            _loading.BeginSpawnPreparation();
+            SendLoadingState(force: true);
+        }
     }
 
     private bool RequiresPortalSurfaceAccess =>
@@ -2863,6 +2887,8 @@ public partial class Main : Node3D
         var phase =
             progress.Phase switch
             {
+                WorldLoadingPhase.PreparingSpawn =>
+                    "preparing_spawn",
                 WorldLoadingPhase.RetiringCurrentDimension =>
                     "retiring_current_dimension",
                 WorldLoadingPhase.MaterializingInitialArea =>
