@@ -111,8 +111,8 @@ public sealed class ContentNamingTests
                     variant.GetProperty("family").GetString());
             checkedDefinitions++;
         }
-        Assert.True(checkedDefinitions >= 6 * 36,
-            "All 36 fantasy tree families must have their authored block variants.");
+        Assert.Equal(12, checkedDefinitions,
+            "Only the retained Oak and Willow families should have tree block variants.");
     }
 
     [Fact]

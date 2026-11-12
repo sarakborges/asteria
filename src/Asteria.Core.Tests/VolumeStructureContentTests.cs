@@ -20,7 +20,7 @@ public sealed class VolumeStructureContentTests
         Assert.Equal(VolumeBiomePlacement.Additive,
             islands.VolumeLayout!.Placement);
         Assert.Equal(3, cave.VolumeStructures.Count);
-        Assert.Equal(5, islands.VolumeStructures.Count);
+        Assert.Single(islands.VolumeStructures);
         Assert.Equal(6, cave.CaveSpikes.Count);
         Assert.Single(islands.Terrain3d!.Additive);
 
@@ -63,7 +63,6 @@ public sealed class VolumeStructureContentTests
             ("mushroom_glow_cavern", 3, "mushroom_cap_glow"),
             ("cluster_crystal_cavern", 2, "crystal_core_aether"),
             ("chandelier_cavern", 2, "crystal_core_aether"),
-            ("tree_skyweave", 2, "leaf_skyweave"),
             ("arch_crystal_sky", 2, "crystal_core_aether"),
         })
         {
@@ -83,10 +82,6 @@ public sealed class VolumeStructureContentTests
             Assert.True(definition.IsCollidable);
         }
 
-        var canopy = blocks.GetDefinition(
-            blocks.GetId("asteria:leaf_skyweave"));
-        Assert.True(canopy.WindSway);
-        Assert.Equal(BlockRenderMode.Cutout, canopy.RenderMode);
     }
 
     [Fact]

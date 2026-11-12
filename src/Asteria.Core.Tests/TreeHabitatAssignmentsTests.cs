@@ -29,9 +29,9 @@ public sealed class TreeHabitatAssignmentsTests
                 pack, "resources", "textures", "blocks", "trees"))
             .Select(Path.GetFileName)
             .ToHashSet(StringComparer.Ordinal);
-        Assert.Equal(37, texturedSpecies.Count);
+        Assert.Equal(new[] { "oak", "willow" }, texturedSpecies.OrderBy(species => species, StringComparer.Ordinal));
 
-        foreach (var species in texturedSpecies.Append("willow"))
+        foreach (var species in texturedSpecies)
         {
             var id = "asteria:tree_" + species;
             Assert.True(surface.Contains(id) || volume.Contains(id),
