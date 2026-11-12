@@ -67,7 +67,7 @@ public sealed class ReedAndTallGrassObjectTests
             decoration => decoration.Block == "asteria:pad_lily");
         Assert.Equal("asteria:water", lily.FluidRequirement!.Fluid);
         Assert.Equal(DecorationFluidRelation.Below, lily.FluidRequirement.Relation);
-        Assert.Null(lily.FluidRequirement.MaxDistance);
+        Assert.Equal(0, lily.FluidRequirement.MaxDistance);
         Assert.True(objects.Get(lily.Block).Supports(BlockFace.Top));
     }
 

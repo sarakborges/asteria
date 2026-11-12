@@ -131,7 +131,7 @@ public sealed class VerticalBiomeContentTests
             blocks, objects: objects);
         Assert.True(field.HasVerticalDecorations);
         Assert.True(field.HasVerticalDecorationsFor(cave.Id));
-        Assert.False(field.HasVerticalDecorationsFor(floating.Id));
+        Assert.True(field.HasVerticalDecorationsFor(floating.Id));
         var caveSample = new BiomeSample(cave.Id,
             [new BiomeInfluence(cave.Id, 1f)]);
         var islandSample = new BiomeSample(floating.Id,

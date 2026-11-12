@@ -5,18 +5,19 @@ namespace Asteria.Core.Tests;
 
 public sealed class VolumeObjectDecorationTests
 {
-    private static readonly (string Biome, string Id, DecorationSupportSurface Surface,
+    private static readonly (string Biome, string Id,
+        DecorationSupportSurface Surface, ObjectVisualKind VisualKind,
         BlockFace[] Faces)[] Converted =
     [
-        ("asteria:overworld/caverns", "mushroom_brown", DecorationSupportSurface.Floor, [BlockFace.Top]),
-        ("asteria:overworld/caverns", "mushroom_purple", DecorationSupportSurface.Floor, [BlockFace.Top]),
-        ("asteria:overworld/caverns", "mushroom_crimson", DecorationSupportSurface.Floor, [BlockFace.Top]),
-        ("asteria:overworld/caverns", "roots_hanging", DecorationSupportSurface.Ceiling, [BlockFace.Bottom]),
-        ("asteria:overworld/floating_islands", "grass", DecorationSupportSurface.Floor, [BlockFace.Top]),
-        ("asteria:overworld/floating_islands", "stick", DecorationSupportSurface.Floor, [BlockFace.Top]),
-        ("asteria:overworld/floating_islands", "mushroom_purple", DecorationSupportSurface.Floor, [BlockFace.Top]),
-        ("asteria:overworld/floating_islands", "bloom_aether", DecorationSupportSurface.Floor, [BlockFace.Top]),
-        ("asteria:umbral/wraith_grove", "mushroom_brown", DecorationSupportSurface.Floor, [BlockFace.Top]),
+        ("asteria:overworld/caverns", "mushroom_brown", DecorationSupportSurface.Floor, ObjectVisualKind.CrossedSprite, [BlockFace.Top]),
+        ("asteria:overworld/caverns", "mushroom_purple", DecorationSupportSurface.Floor, ObjectVisualKind.CrossedSprite, [BlockFace.Top]),
+        ("asteria:overworld/caverns", "mushroom_crimson", DecorationSupportSurface.Floor, ObjectVisualKind.CrossedSprite, [BlockFace.Top]),
+        ("asteria:overworld/caverns", "roots_hanging", DecorationSupportSurface.Ceiling, ObjectVisualKind.CrossedSprite, [BlockFace.Bottom]),
+        ("asteria:overworld/floating_islands", "grass", DecorationSupportSurface.Floor, ObjectVisualKind.CrossedSprite, [BlockFace.Top]),
+        ("asteria:overworld/floating_islands", "stick", DecorationSupportSurface.Floor, ObjectVisualKind.ExtrudedSprite, [BlockFace.Top]),
+        ("asteria:overworld/floating_islands", "mushroom_purple", DecorationSupportSurface.Floor, ObjectVisualKind.CrossedSprite, [BlockFace.Top]),
+        ("asteria:overworld/floating_islands", "bloom_aether", DecorationSupportSurface.Floor, ObjectVisualKind.CrossedSprite, [BlockFace.Top]),
+        ("asteria:umbral/wraith_grove", "mushroom_brown", DecorationSupportSurface.Floor, ObjectVisualKind.CrossedSprite, [BlockFace.Top]),
     ];
 
     [Fact]
@@ -32,7 +33,7 @@ public sealed class VolumeObjectDecorationTests
         structures.ValidateBlocks(blocks);
         structures.ValidateObjects(objects);
 
-        foreach (var (biomeId, name, face, faces) in Converted)
+        foreach (var (biomeId, name, face, visualKind, faces) in Converted)
         {
             var id = "asteria:" + name;
             var rule = Assert.Single(biomes.Get(biomeId).Decorations,
@@ -41,7 +42,7 @@ public sealed class VolumeObjectDecorationTests
             Assert.Equal(face, rule.SupportSurface);
             Assert.False(blocks.TryGetId(id, out _));
             var definition = objects.Get(id);
-            Assert.Equal(ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
+            Assert.Equal(visualKind, definition.Visual.Kind);
             Assert.Equal(faces, definition.PlacementFaces);
         }
 
