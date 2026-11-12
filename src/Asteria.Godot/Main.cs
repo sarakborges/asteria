@@ -1191,6 +1191,7 @@ public partial class Main : Node3D
 
     private void StartDimensionRetirement(DimensionId target, bool savingWorld = false)
     {
+        _respawnAwaitingPosition = false;
         RetirePlayerForDimensionTransition();
         _ambientParticleRuntime?.Clear();
         _ambientParticlePresentation?.Clear();
