@@ -5,13 +5,13 @@ namespace Asteria.Core.Tests;
 public sealed class WorldLoadingStateTests
 {
     [Fact]
-    public void SpawnPreparationBlocksStreamingAndWorkerDispatch()
+    public void EntryPreparationBlocksStreamingAndWorkerDispatch()
     {
         var loading = new WorldLoadingState();
-        loading.BeginSpawnPreparation();
+        loading.BeginEntryPreparation();
 
         Assert.True(loading.IsActive);
-        Assert.Equal(WorldLoadingPhase.PreparingSpawn, loading.Progress.Phase);
+        Assert.Equal(WorldLoadingPhase.PreparingEntry, loading.Progress.Phase);
         Assert.Equal(0, loading.Progress.Completed);
         Assert.Equal(0, loading.Progress.Total);
         Assert.False(loading.AllowsLightingDispatch);
