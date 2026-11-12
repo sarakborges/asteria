@@ -45,7 +45,7 @@ public sealed class BiomeBiodiversityExpansionTests
     }
 
     [Fact]
-    public void SwampHasNearWaterIrisesFernsAndGiantMushroomStructures()
+    public void SwampHasNearWaterCattailsFernsAndGiantMushroomStructures()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
@@ -55,21 +55,21 @@ public sealed class BiomeBiodiversityExpansionTests
         biomes.ValidateBlocks(blocks);
         var swamp = biomes.Get("asteria:overworld/swamp");
 
-        foreach (var name in new[] { "iris", "fern_marsh" })
+        foreach (var name in new[] { "cattail", "fern_marsh" })
         {
             var rule = Assert.Single(swamp.Decorations,
                 d => d.Block == $"asteria:{name}");
             Assert.NotNull(rule.Cluster);
             Assert.NotNull(rule.HabitatWeights);
             Assert.NotNull(rule.Conditions);
-            if (name == "iris")
+            if (name == "cattail")
             {
                 Assert.True(rule.IsObject);
                 var objects = PackContentRegistry<ObjectDefinition>.FromJson(
                     ReadJson("objects"), ObjectDefinition.Parse, d => d.Id);
-                var irisObject = objects.Get(rule.Block);
-                Assert.True(irisObject.Supports(BlockFace.Top));
-                Assert.Equal(ObjectVisualKind.CrossedSprite, irisObject.Visual.Kind);
+                var cattailObject = objects.Get(rule.Block);
+                Assert.True(cattailObject.Supports(BlockFace.Top));
+                Assert.Equal(ObjectVisualKind.CrossedSprite, cattailObject.Visual.Kind);
             }
             else
             {
@@ -78,14 +78,14 @@ public sealed class BiomeBiodiversityExpansionTests
                 Assert.False(block.IsCollidable);
             }
         }
-        var iris = Assert.Single(swamp.Decorations,
-            d => d.Block == "asteria:iris");
+        var cattail = Assert.Single(swamp.Decorations,
+            d => d.Block == "asteria:cattail");
         Assert.Equal(DecorationFluidRelation.Nearby,
-            iris.FluidRequirement!.Relation);
-        Assert.Equal("asteria:water", iris.FluidRequirement.Fluid);
-        Assert.Equal(3, iris.FluidRequirement.MaxDistance);
-        Assert.True(iris.HabitatWeights!.For("open_mire") >
-                    iris.HabitatWeights.For("fungal_ground"));
+            cattail.FluidRequirement!.Relation);
+        Assert.Equal("asteria:water", cattail.FluidRequirement.Fluid);
+        Assert.Equal(2, cattail.FluidRequirement.MaxDistance);
+        Assert.True(cattail.HabitatWeights!.For("open_mire") >
+                    cattail.HabitatWeights.For("fungal_ground"));
 
         var variants = structures.ResolveReference(
             "asteria:mushroom_swamp_giant");
@@ -114,7 +114,7 @@ public sealed class BiomeBiodiversityExpansionTests
     }
 
     [Fact]
-    public void SwampIrisRequiresNearbyWaterAndSelectionIsSeedDeterministic()
+    public void SwampCattailRequiresNearbyWaterAndSelectionIsSeedDeterministic()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
@@ -127,7 +127,7 @@ public sealed class BiomeBiodiversityExpansionTests
         var b = new SurfaceDecorationField(542, [swamp], blocks,
             fluids: fluids, objects: objects);
         var mud = blocks.GetId("asteria:mud");
-        const string iris = "asteria:iris";
+        const string cattail = "asteria:cattail";
         var sample = new BiomeSample(swamp.Id,
             [new BiomeInfluence(swamp.Id, 1f)]);
         var context = new SurfacePlacementContext(90, 0);
@@ -142,10 +142,10 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.Equal(wet, b.ObjectAt(sample, mud, x, z, context,
                 supportY: 89, nearbyFluid: (_, _, _, _, _) => true));
             // Other dry Objects (e.g. sticks) may still appear here.
-            Assert.NotEqual(iris, dry);
-            found |= wet == iris;
+            Assert.NotEqual(cattail, dry);
+            found |= wet == cattail;
         }
-        Assert.True(found, "Expected nearby-water iris patches.");
+        Assert.True(found, "Expected nearby-water cattail patches.");
     }
 
     private static IEnumerable<string> ReadJson(string dir)
