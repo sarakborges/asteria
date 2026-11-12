@@ -143,31 +143,6 @@
       }
     },
     {
-      "block": "asteria:roots_exposed",
-      "chance": 0.0112,
-      "surfaceBlocks": [
-        "asteria:block_grass",
-        "asteria:dirt",
-        "asteria:mud"
-      ],
-      "fluidRequirement": {
-        "fluid": "asteria:water",
-        "relation": "nearby",
-        "maxDistance": 3
-      },
-      "cluster": {
-        "scale": 30,
-        "threshold": -0.15,
-        "octaves": 3,
-        "transitionWidth": 0.14
-      },
-      "habitatWeights": {
-        "willow_grove": 2.3,
-        "open_mire": 0.65,
-        "fungal_ground": 0.5
-      }
-    },
-    {
       "block": "asteria:fern_marsh",
       "chance": 0.0224,
       "surfaceBlocks": [
@@ -190,96 +165,6 @@
         "minY": 85,
         "maxY": 95,
         "maxSlope": 3
-      }
-    },
-    {
-      "object": "asteria:iris",
-      "chance": 0.0152,
-      "surfaceBlocks": [
-        "asteria:block_grass",
-        "asteria:dirt",
-        "asteria:mud"
-      ],
-      "fluidRequirement": {
-        "fluid": "asteria:water",
-        "relation": "nearby",
-        "maxDistance": 3
-      },
-      "habitatWeights": {
-        "willow_grove": 0.45,
-        "open_mire": 2.55,
-        "fungal_ground": 0.4
-      },
-      "cluster": {
-        "scale": 27,
-        "threshold": -0.23,
-        "octaves": 4,
-        "transitionWidth": 0.16
-      },
-      "conditions": {
-        "minY": 86,
-        "maxY": 95,
-        "maxSlope": 2
-      }
-    },
-    {
-      "object": "asteria:orchid_marsh",
-      "chance": 0.0116,
-      "surfaceBlocks": [
-        "asteria:mud",
-        "asteria:dirt",
-        "asteria:block_grass"
-      ],
-      "cluster": {
-        "scale": 39,
-        "threshold": -0.23,
-        "octaves": 4,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 85,
-        "maxY": 95,
-        "maxSlope": 2
-      },
-      "habitatWeights": {
-        "willow_grove": 0.7,
-        "open_mire": 2.1,
-        "fungal_ground": 1.1
-      },
-      "fluidRequirement": {
-        "fluid": "asteria:water",
-        "relation": "nearby",
-        "maxDistance": 3
-      }
-    },
-    {
-      "object": "asteria:bulrush",
-      "chance": 0.0144,
-      "surfaceBlocks": [
-        "asteria:mud",
-        "asteria:dirt",
-        "asteria:block_grass"
-      ],
-      "cluster": {
-        "scale": 35,
-        "threshold": -0.22,
-        "octaves": 4,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 85,
-        "maxY": 95,
-        "maxSlope": 2
-      },
-      "habitatWeights": {
-        "willow_grove": 0.55,
-        "open_mire": 2.7,
-        "fungal_ground": 0.12
-      },
-      "fluidRequirement": {
-        "fluid": "asteria:water",
-        "relation": "nearby",
-        "maxDistance": 2
       }
     }
   ],

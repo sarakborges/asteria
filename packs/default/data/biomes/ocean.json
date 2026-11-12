@@ -141,31 +141,6 @@
       }
     },
     {
-      "object": "asteria:anemone_sea",
-      "chance": 0.025,
-      "surfaceBlocks": [
-        "asteria:sand",
-        "asteria:gravel",
-        "asteria:clay",
-        "asteria:cobble_stone"
-      ],
-      "fluidPlacement": "submerged",
-      "cluster": {
-        "scale": 28,
-        "threshold": -0.1,
-        "octaves": 4,
-        "transitionWidth": 0.14
-      },
-      "conditions": {
-        "maxY": 86
-      },
-      "habitatWeights": {
-        "sand_flats": 0.12,
-        "gravel_banks": 0.8,
-        "rocky_reefs": 2.45
-      }
-    },
-    {
       "object": "asteria:seashell",
       "chance": 0.03,
       "surfaceBlocks": [
