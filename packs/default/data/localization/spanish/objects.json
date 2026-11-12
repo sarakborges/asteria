@@ -116,23 +116,8 @@
   "asteria:wildflower_yellow": {
     "/name": "Flor Silvestre Amarilla"
   },
-  "asteria:sapling_embercoil": {
-    "/name": "Brote de Embercoil"
-  },
   "asteria:sapling_nacreveil": {
     "/name": "Brote de Nacreveil"
-  },
-  "asteria:sapling_mirewake": {
-    "/name": "Brote de Mirewake"
-  },
-  "asteria:sapling_ferrumbark": {
-    "/name": "Brote de Ferrumbark"
-  },
-  "asteria:sapling_geodera": {
-    "/name": "Brote de Geodera"
-  },
-  "asteria:sapling_fulminara": {
-    "/name": "Brote de Fulminara"
   },
   "asteria:sapling_stormglass": {
     "/name": "Brote de Stormglass"
@@ -140,23 +125,11 @@
   "asteria:sapling_voltress": {
     "/name": "Brote de Voltress"
   },
-  "asteria:sapling_frostveil": {
-    "/name": "Brote de Frostveil"
-  },
   "asteria:sapling_rimehollow": {
     "/name": "Brote de Rimehollow"
   },
-  "asteria:sapling_hoarfane": {
-    "/name": "Brote de Hoarfane"
-  },
-  "asteria:sapling_glassmorrow": {
-    "/name": "Brote de Glassmorrow"
-  },
   "asteria:sapling_skyweave": {
     "/name": "Brote de Skyweave"
-  },
-  "asteria:sapling_galeheart": {
-    "/name": "Brote de Galeheart"
   },
   "asteria:sapling_zephyra": {
     "/name": "Brote de Zephyra"
@@ -169,15 +142,6 @@
   },
   "asteria:sapling_nighthollow": {
     "/name": "Brote de Nighthollow"
-  },
-  "asteria:sapling_mourningbriar": {
-    "/name": "Brote de Mourningbriar"
-  },
-  "asteria:sapling_gloamroot": {
-    "/name": "Brote de Gloamroot"
-  },
-  "asteria:sapling_elderbloom": {
-    "/name": "Brote de Elderbloom"
   },
   "asteria:sapling_mycelora": {
     "/name": "Brote de Mycelora"

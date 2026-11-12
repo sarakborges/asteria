@@ -116,23 +116,8 @@
   "asteria:wildflower_yellow": {
     "/name": "Yellow Wildflower"
   },
-  "asteria:sapling_embercoil": {
-    "/name": "Embercoil Sapling"
-  },
   "asteria:sapling_nacreveil": {
     "/name": "Nacreveil Sapling"
-  },
-  "asteria:sapling_mirewake": {
-    "/name": "Mirewake Sapling"
-  },
-  "asteria:sapling_ferrumbark": {
-    "/name": "Ferrumbark Sapling"
-  },
-  "asteria:sapling_geodera": {
-    "/name": "Geodera Sapling"
-  },
-  "asteria:sapling_fulminara": {
-    "/name": "Fulminara Sapling"
   },
   "asteria:sapling_stormglass": {
     "/name": "Stormglass Sapling"
@@ -140,23 +125,11 @@
   "asteria:sapling_voltress": {
     "/name": "Voltress Sapling"
   },
-  "asteria:sapling_frostveil": {
-    "/name": "Frostveil Sapling"
-  },
   "asteria:sapling_rimehollow": {
     "/name": "Rimehollow Sapling"
   },
-  "asteria:sapling_hoarfane": {
-    "/name": "Hoarfane Sapling"
-  },
-  "asteria:sapling_glassmorrow": {
-    "/name": "Glassmorrow Sapling"
-  },
   "asteria:sapling_skyweave": {
     "/name": "Skyweave Sapling"
-  },
-  "asteria:sapling_galeheart": {
-    "/name": "Galeheart Sapling"
   },
   "asteria:sapling_zephyra": {
     "/name": "Zephyra Sapling"
@@ -169,15 +142,6 @@
   },
   "asteria:sapling_nighthollow": {
     "/name": "Nighthollow Sapling"
-  },
-  "asteria:sapling_mourningbriar": {
-    "/name": "Mourningbriar Sapling"
-  },
-  "asteria:sapling_gloamroot": {
-    "/name": "Gloamroot Sapling"
-  },
-  "asteria:sapling_elderbloom": {
-    "/name": "Elderbloom Sapling"
   },
   "asteria:sapling_mycelora": {
     "/name": "Mycelora Sapling"
