@@ -227,6 +227,8 @@ public sealed class ChunkResidencyRuntime
         _blockPhysics =
             blockPhysics ??
             throw new ArgumentNullException(nameof(blockPhysics));
+        _blockPhysics.ChunkReconciliationRequested +=
+            HandleBlockPhysicsReconciliationRequested;
         _terrainContentRevisions =
             terrainContentRevisions ??
             throw new ArgumentNullException(
@@ -314,6 +316,14 @@ public sealed class ChunkResidencyRuntime
         if (_acceptingMaterializationWork &&
             _directionalFacePaletteUpdater is not null)
             _pendingDirectionalFaceReconciliations.Enqueue(coord);
+    }
+
+    // Chunk-physics events are queue-only. Snapshot capture and voxel scans
+    // are deferred to the bounded arrival-reconciliation worker.
+    private void HandleBlockPhysicsReconciliationRequested(ChunkCoord coord)
+    {
+        if (_acceptingMaterializationWork)
+            _pendingChunkLightingReconciliations.Enqueue(coord);
     }
 
     private void EnqueueDirectionalFaceVisualChanges(
@@ -608,7 +618,7 @@ public sealed class ChunkResidencyRuntime
                     break;
                 }
 
-                var seeds = task.GetAwaiter().GetResult();
+                var result = task.GetAwaiter().GetResult();
                 if (!_acceptingMaterializationWork)
                     break;
 
@@ -620,8 +630,11 @@ public sealed class ChunkResidencyRuntime
                     break;
                 }
 
-                foreach (var position in seeds)
+                foreach (var position in result.LightingSeeds)
                     _worldUpdates.EnqueueLighting(position);
+
+                if (result.PhysicsPlan is { } physicsPlan)
+                    _blockPhysics.ApplyResidentChunkActivationPlan(physicsPlan);
                 break;
             }
         }
@@ -855,9 +868,8 @@ public sealed class ChunkResidencyRuntime
         double dispatchPreparationMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
-        _pendingChunkLightingReconciliations.Enqueue(coord);
+        _blockPhysics.RequestChunkReconciliation(coord);
         EnqueueResidentChunkFluidActivation(coord);
-        _blockPhysics.EnqueueResidentChunk(coord);
 
         return new ChunkResidencyActivation(
             coord,
@@ -918,8 +930,16 @@ public sealed class ChunkResidencyRuntime
                 _world.CaptureContentStamp(dependencies),
                 _world.CaptureLightingStamps(dependencies));
             work.WorkerTask = Task.Run(() =>
-                ChunkTopologyFrontier.ArrivalLightingSeeds(
-                    snapshotWorld, _blocks, _fluids, coord, _objects));
+            {
+                var lightingSeeds = ChunkTopologyFrontier.ArrivalLightingSeeds(
+                    snapshotWorld, _blocks, _fluids, coord, _objects);
+                var physicsPlan = snapshotWorld.ContainsChunk(coord)
+                    ? _blockPhysics.CalculateResidentChunkActivationPlan(
+                        snapshotWorld, coord)
+                    : (BlockPhysicsChunkActivationPlan?)null;
+                return new ChunkArrivalReconciliationResult(
+                    lightingSeeds, physicsPlan);
+            });
             _chunkLightingReconciliationTasks.Add(coord, work);
             return true;
         }
@@ -1059,6 +1079,10 @@ public sealed class ChunkResidencyRuntime
         public Task<DirectionalFacePaletteReconciliationResult> WorkerTask { get; set; } = null!;
     }
 
+    private sealed record ChunkArrivalReconciliationResult(
+        IReadOnlyList<WorldVoxelCoord> LightingSeeds,
+        BlockPhysicsChunkActivationPlan? PhysicsPlan);
+
     private sealed class ChunkLightingReconciliationWork
     {
         public ChunkLightingReconciliationWork(
@@ -1076,7 +1100,7 @@ public sealed class ChunkResidencyRuntime
         public ChunkCoord Coord { get; }
         public ChunkContentStamp ContentDependencies { get; }
         public IReadOnlyList<VoxelLightChunkStamp> LightingDependencies { get; }
-        public Task<IReadOnlyList<WorldVoxelCoord>> WorkerTask { get; set; } = null!;
+        public Task<ChunkArrivalReconciliationResult> WorkerTask { get; set; } = null!;
     }
 
     private sealed class MaterializationWork

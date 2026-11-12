@@ -111,6 +111,109 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void ChunkArrivalPhysicsSeedsAreCalculatedOnDetachedWorkerSnapshot()
+    {
+        var fixture = CreateFixture();
+        var coord = new ChunkCoord(0, 1, 0);
+        var chunk = new Chunk();
+        chunk.SetBlock(
+            3, 0, 4,
+            fixture.Blocks.GetId("asteria:falling_sand"));
+        chunk.SetBlock(
+            5, 5, 5,
+            fixture.Blocks.GetId("asteria:wall_plant"));
+
+        fixture.World.InsertChunk(coord, chunk);
+        fixture.Physics.RequestChunkReconciliation(coord);
+
+        // Arrival queues work only. The worker calculates from a detached
+        // snapshot; queues and gravity wait maps change after result collection.
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumNewTasks: 1);
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Chunk-arrival physics reconciliation did not finish on its worker.");
+
+        fixture.Runtime.CollectMaterializationResults(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        Assert.Equal(0, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.Equal(1, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(1, fixture.PhysicsUpdates.Count);
+        Assert.Contains(
+            new WorldVoxelCoord(5, Chunk.Size + 5, 5),
+            fixture.PhysicsUpdates.DrainBatch());
+    }
+
+    [Fact]
+    public void GravityBoundaryReconciliationRunsOnWorkerAfterNeighborResidencyChanges()
+    {
+        var fixture = CreateFixture();
+        var sourceCoord = new ChunkCoord(0, 1, 0);
+        var lowerCoord = ChunkCoord.Zero;
+        var source = new Chunk();
+        var gravityPosition = new WorldVoxelCoord(3, Chunk.Size, 4);
+        source.SetBlock(
+            3, 0, 4,
+            fixture.Blocks.GetId("asteria:falling_sand"));
+        fixture.World.InsertChunk(sourceCoord, source);
+
+        // The source first waits for its missing lower chunk.
+        fixture.Physics.RequestChunkReconciliation(sourceCoord);
+        RunArrivalReconciliation(fixture);
+        Assert.Equal(1, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+
+        // Making the lower chunk resident queues a fresh worker request but
+        // does not synchronously scan the source boundary or enqueue a wakeup.
+        fixture.World.InsertChunk(lowerCoord, new Chunk());
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+
+        RunArrivalReconciliation(fixture);
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Contains(gravityPosition, fixture.PhysicsUpdates.DrainBatch());
+
+        // Archiving the lower chunk must re-park the same upper boundary block,
+        // again through the worker rather than the residency event callback.
+        Assert.NotEqual(
+            ChunkArchiveResult.NotResident,
+            fixture.World.ArchiveChunk(lowerCoord));
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+
+        RunArrivalReconciliation(fixture);
+        Assert.Equal(1, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+    }
+
+    private static void RunArrivalReconciliation(RuntimeFixture fixture)
+    {
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumNewTasks: 1);
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Chunk physics reconciliation did not finish on its worker.");
+
+        fixture.Runtime.CollectMaterializationResults(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+    }
+
+    [Fact]
     public void DispatchRestoresArchivedChunkBeforeProviderWork()
     {
         var fixture = CreateFixture();
@@ -823,6 +926,11 @@ public sealed class ChunkResidencyRuntimeTests
                 new BlockDefinition("asteria:dirt"),
                 new BlockDefinition("asteria:stone"),
                 new BlockDefinition("asteria:sand"),
+                new BlockDefinition("asteria:falling_sand",
+                    tags: [BlockPhysicsCapabilities.Gravity]),
+                new BlockDefinition("asteria:wall_plant",
+                    tags: [BlockPhysicsCapabilities.SupportBelow],
+                    isCollidable: false),
                 new BlockDefinition("asteria:gravel"),
                 new BlockDefinition("asteria:clay"),
                 new BlockDefinition("asteria:mud"),
@@ -895,6 +1003,8 @@ public sealed class ChunkResidencyRuntimeTests
             fluids,
             worldUpdates,
             fluidUpdates,
+            physicsUpdates,
+            physics,
             runtime,
             rules);
     }
@@ -1127,6 +1237,8 @@ public sealed class ChunkResidencyRuntimeTests
         FluidRegistry Fluids,
         WorldUpdateQueue WorldUpdates,
         FluidUpdateQueue FluidUpdates,
+        BlockPhysicsUpdateQueue PhysicsUpdates,
+        BlockPhysicsRuntime Physics,
         ChunkResidencyRuntime Runtime,
         WorldGameRules Rules);
 }
