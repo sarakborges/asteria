@@ -2,17 +2,8 @@
   "asteria:bloom_aether": {
     "/name": "Flor Etérea"
   },
-  "asteria:vines_aether": {
-    "/name": "Trepadeiras Etéreas"
-  },
-  "asteria:bulrush": {
-    "/name": "Junco"
-  },
   "asteria:cattail": {
     "/name": "Taboa"
-  },
-  "asteria:reed_cloud": {
-    "/name": "Junco das Nuvens"
   },
   "asteria:clover": {
     "/name": "Trevo"
@@ -20,29 +11,17 @@
   "asteria:daisy": {
     "/name": "Margarida"
   },
-  "asteria:fern_glow": {
-    "/name": "Samambaia Luminescente"
-  },
-  "asteria:mushroom_glowcap": {
-    "/name": "Cogumelo Luminescente"
-  },
   "asteria:grass": {
     "/name": "Grama"
   },
   "asteria:roots_hanging": {
     "/name": "Raízes Pendentes"
   },
-  "asteria:iris": {
-    "/name": "Íris"
-  },
   "asteria:kelp": {
     "/name": "Alga kelp"
   },
   "asteria:pad_lily": {
     "/name": "Nenúfar"
-  },
-  "asteria:orchid_marsh": {
-    "/name": "Orquídea do Brejo"
   },
   "asteria:seedheads_meadow": {
     "/name": "Espigas de Pradaria"
@@ -68,26 +47,17 @@
   "asteria:mushroom_yellow": {
     "/name": "Cogumelo Amarelo"
   },
-  "asteria:grass_pass": {
-    "/name": "Capim de Passagem"
-  },
   "asteria:pebble": {
     "/name": "Pedregulho"
   },
   "asteria:aster_purple": {
     "/name": "Áster Roxo"
   },
-  "asteria:sagebrush": {
-    "/name": "Artemísia"
-  },
   "asteria:sapling_oak": {
     "/name": "Muda de Carvalho"
   },
   "asteria:sapling_willow": {
     "/name": "Muda de Salgueiro"
-  },
-  "asteria:anemone_sea": {
-    "/name": "Anêmona-do-mar"
   },
   "asteria:seagrass": {
     "/name": "Erva-marinha"
@@ -100,15 +70,6 @@
   },
   "asteria:stick": {
     "/name": "Graveto"
-  },
-  "asteria:grass_tall": {
-    "/name": "Capim Alto"
-  },
-  "asteria:fern_violet": {
-    "/name": "Samambaia Violeta"
-  },
-  "asteria:fungus_shelf_wall": {
-    "/name": "Fungo de Prateleira de Parede"
   },
   "asteria:wildflower_blue": {
     "/name": "Flor Silvestre Azul"

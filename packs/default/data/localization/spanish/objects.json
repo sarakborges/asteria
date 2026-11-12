@@ -2,17 +2,8 @@
   "asteria:bloom_aether": {
     "/name": "Flor Etérea"
   },
-  "asteria:vines_aether": {
-    "/name": "Enredaderas Etéreas"
-  },
-  "asteria:bulrush": {
-    "/name": "Junco"
-  },
   "asteria:cattail": {
     "/name": "Espadaña"
-  },
-  "asteria:reed_cloud": {
-    "/name": "Junco de las Nubes"
   },
   "asteria:clover": {
     "/name": "Trébol"
@@ -20,29 +11,17 @@
   "asteria:daisy": {
     "/name": "Margarita"
   },
-  "asteria:fern_glow": {
-    "/name": "Helecho Luminoso"
-  },
-  "asteria:mushroom_glowcap": {
-    "/name": "Seta Luminosa"
-  },
   "asteria:grass": {
     "/name": "Hierba"
   },
   "asteria:roots_hanging": {
     "/name": "Raíces Colgantes"
   },
-  "asteria:iris": {
-    "/name": "Iris"
-  },
   "asteria:kelp": {
     "/name": "Alga kelp"
   },
   "asteria:pad_lily": {
     "/name": "Nenúfar"
-  },
-  "asteria:orchid_marsh": {
-    "/name": "Orquídea de Marisma"
   },
   "asteria:seedheads_meadow": {
     "/name": "Espigas de Pradera"
@@ -68,26 +47,17 @@
   "asteria:mushroom_yellow": {
     "/name": "Hongo Amarillo"
   },
-  "asteria:grass_pass": {
-    "/name": "Hierba de Paso"
-  },
   "asteria:pebble": {
     "/name": "Guijarro"
   },
   "asteria:aster_purple": {
     "/name": "Áster Púrpura"
   },
-  "asteria:sagebrush": {
-    "/name": "Artemisa"
-  },
   "asteria:sapling_oak": {
     "/name": "Brote de Roble"
   },
   "asteria:sapling_willow": {
     "/name": "Brote de Sauce"
-  },
-  "asteria:anemone_sea": {
-    "/name": "Anémona Marina"
   },
   "asteria:seagrass": {
     "/name": "Hierba marina"
@@ -100,15 +70,6 @@
   },
   "asteria:stick": {
     "/name": "Palo"
-  },
-  "asteria:grass_tall": {
-    "/name": "Hierba Alta"
-  },
-  "asteria:fern_violet": {
-    "/name": "Helecho Violeta"
-  },
-  "asteria:fungus_shelf_wall": {
-    "/name": "Hongo de Repisa de Pared"
   },
   "asteria:wildflower_blue": {
     "/name": "Flor Silvestre Azul"
