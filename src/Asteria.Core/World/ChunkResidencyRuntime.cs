@@ -692,7 +692,8 @@ public sealed class ChunkResidencyRuntime
         if (restored > 0)
             SyncResidentState(presented);
 
-        StartDirectionalFaceReconciliationWorker(budget, failures);
+        StartDirectionalFaceReconciliationWorker(
+            budget, failures, hasWorkerAdmission: maximumNewTasks > 0);
 
         if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
             return ChunkResidencyUpdate.Empty;
@@ -806,10 +807,12 @@ public sealed class ChunkResidencyRuntime
 
     private void StartDirectionalFaceReconciliationWorker(
         WorldFrameWorkBudget budget,
-        List<ChunkMaterializationFailure> failures)
+        List<ChunkMaterializationFailure> failures,
+        bool hasWorkerAdmission)
     {
         var updater = _directionalFacePaletteUpdater;
-        if (updater is null ||
+        if (!hasWorkerAdmission ||
+            updater is null ||
             !_acceptingMaterializationWork ||
             _directionalFaceReconciliationTasks.Count > 0 ||
             _pendingDirectionalFaceReconciliations.Count == 0 ||
