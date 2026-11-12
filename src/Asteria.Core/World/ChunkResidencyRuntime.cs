@@ -634,7 +634,8 @@ public sealed class ChunkResidencyRuntime
     public ChunkResidencyUpdate DispatchMaterializationTasks(
         WorldFrameWorkBudget budget,
         IEnumerable<ChunkCoord> presented,
-        int maximumNewTasks = int.MaxValue)
+        int maximumNewTasks = int.MaxValue,
+        bool? hasWorkerAdmission = null)
     {
         ArgumentNullException.ThrowIfNull(presented);
         if (maximumNewTasks < 0)
@@ -759,7 +760,8 @@ public sealed class ChunkResidencyRuntime
             SyncResidentState(presented);
 
         StartArrivalReconciliationWorker(
-            budget, failures, hasWorkerAdmission: maximumNewTasks > 0);
+            budget, failures,
+            hasWorkerAdmission: hasWorkerAdmission ?? maximumNewTasks > 0);
 
         if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
             return ChunkResidencyUpdate.Empty;
