@@ -572,6 +572,44 @@ public sealed class VoxelWorld
         return true;
     }
 
+    /// <summary>
+    /// Captures the per-chunk light revision alongside residency for an
+    /// immutable worker snapshot. Content changes are tracked separately by
+    /// <see cref="CaptureContentStamp"/>.
+    /// </summary>
+    public IReadOnlyList<VoxelLightChunkStamp> CaptureLightingStamps(
+        IEnumerable<ChunkCoord> coordinates)
+    {
+        ArgumentNullException.ThrowIfNull(coordinates);
+
+        return coordinates
+            .Distinct()
+            .OrderBy(coord => coord.Y)
+            .ThenBy(coord => coord.Z)
+            .ThenBy(coord => coord.X)
+            .Select(coord => new VoxelLightChunkStamp(
+                coord,
+                _lightingRevisions.GetValueOrDefault(coord),
+                GetResidencyEpoch(coord)))
+            .ToArray();
+    }
+
+    public bool AreLightingStampsCurrent(
+        IReadOnlyList<VoxelLightChunkStamp> stamps)
+    {
+        ArgumentNullException.ThrowIfNull(stamps);
+
+        foreach (var stamp in stamps)
+        {
+            if (_lightingRevisions.GetValueOrDefault(stamp.Coord) !=
+                    stamp.LightingRevision ||
+                GetResidencyEpoch(stamp.Coord) != stamp.ResidencyEpoch)
+                return false;
+        }
+
+        return true;
+    }
+
     public ulong GetColumnResidencyRevision(ChunkColumnCoord column) =>
         _columnResidencyRevisions.TryGetValue(column, out var revision)
             ? revision
