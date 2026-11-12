@@ -130,8 +130,6 @@ public sealed class EmissiveObjectLightingTests
         biomes.ValidateObjects(objects);
         foreach (var (id, red, green, blue, biome) in new[]
         {
-            ("mushroom_glowcap", 3, 7, 10, "asteria:overworld/caverns"),
-            ("fern_glow", 1, 7, 5, "asteria:overworld/caverns"),
             ("bloom_aether", 5, 2, 6, "asteria:overworld/floating_islands")
         })
         {

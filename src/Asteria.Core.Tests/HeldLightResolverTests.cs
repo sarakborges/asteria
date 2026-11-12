@@ -44,13 +44,13 @@ public sealed class HeldLightResolverTests
     {
         var data = File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "packs", "default",
-                "data", "objects", "mushroom_glowcap.json"));
+                "data", "objects", "bloom_aether.json"));
         var definition = Asteria.Core.Content.ObjectDefinition.Parse(data);
         var blocks = new BlockRegistry([]);
         var objects = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>
             .FromJson([data], Asteria.Core.Content.ObjectDefinition.Parse,
                 obj => obj.Id);
-        Assert.Equal(new BlockLightEmission(3, 7, 10),
+        Assert.Equal(new BlockLightEmission(5, 2, 6),
             HeldLightResolver.Resolve(
                 new InventoryStack(InventoryEntry.FromObject(definition.Id)),
                 blocks, objects));
