@@ -1,20 +1,22 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
 
 public sealed class FrozenBiomeContentTests
 {
-    private static readonly string[] ArcticObjects =
-        ["shrub_frost", "lichen_frost", "spike_ice"];
-    private static readonly string[] AlpsObjects =
-        ["edelweiss_alpine", "sedge_alpine", "lichen_frost", "spike_ice"];
+    private static readonly string[] DecorationNames =
+        ["pebble", "lichen_frost", "spike_ice"];
 
     [Fact]
     public void ArcticAndAlpsDecorationsUseOnlyTheirAuthoredHabitatBands()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, item => item.Id);
         var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
         biomes.ValidateBlocks(blocks);
+        biomes.ValidateObjects(objects);
 
         var arctic = biomes.Get("asteria:overworld/arctic");
         var alps = biomes.Get("asteria:overworld/alps");
@@ -23,110 +25,110 @@ public sealed class FrozenBiomeContentTests
         Assert.NotNull(arctic.SurfaceTerrain);
         Assert.NotNull(alps.SurfaceTerrain);
 
-        foreach (var (biome, names) in new[]
+        foreach (var biome in new[] { arctic, alps })
         {
-            (arctic, ArcticObjects),
-            (alps, AlpsObjects),
-        })
-        {
-            foreach (var name in names)
+            Assert.Equal(DecorationNames.OrderBy(name => name, StringComparer.Ordinal),
+                biome.Decorations.Select(rule => rule.Block["asteria:".Length..])
+                    .OrderBy(name => name, StringComparer.Ordinal));
+
+            foreach (var name in DecorationNames)
             {
                 var rule = Assert.Single(biome.Decorations,
-                    d => d.Block == $"asteria:{name}");
+                    decoration => decoration.Block == "asteria:" + name);
                 Assert.NotNull(rule.HabitatWeights);
                 Assert.NotNull(rule.Cluster);
-                Assert.NotNull(rule.Conditions);
-                Assert.True(rule.Conditions!.MaxSlope.HasValue);
                 Assert.NotEmpty(rule.SurfaceBlocks);
-                Assert.All(rule.SurfaceBlocks,
-                    support => Assert.Contains(support, new[]
-                    {
-                        "asteria:snow", "asteria:ice",
-                        "asteria:gravel", "asteria:stone",
-                    }));
+                Assert.All(rule.SurfaceBlocks, support => Assert.Contains(support, new[]
+                {
+                    "asteria:snow", "asteria:ice", "asteria:gravel", "asteria:stone"
+                }));
+
+                if (name == "pebble")
+                {
+                    Assert.True(rule.IsObject);
+                    Assert.True(objects.Get(rule.Block).Supports(BlockFace.Top));
+                    Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
+                    continue;
+                }
+
+                Assert.False(rule.IsObject);
+                Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
                 var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-                if (name != "spike_ice")
-                    Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
                 Assert.Contains(BlockFace.Top, block.PlacementFaces);
                 Assert.True(block.LightDampening <= 1);
+                if (name == "lichen_frost")
+                    Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
+                else
+                {
+                    Assert.Equal(BlockShapeKind.Spike, block.Shape.Kind);
+                    Assert.True(block.IsCollidable);
+                }
             }
         }
 
-        Assert.DoesNotContain(alps.Decorations,
-            d => d.Block == "asteria:shrub_frost");
-        Assert.DoesNotContain(arctic.Decorations,
-            d => d.Block is "asteria:edelweiss_alpine" or "asteria:sedge_alpine");
-
         Assert.True(Assert.Single(arctic.Decorations,
-            d => d.Block == "asteria:shrub_frost")
-            .HabitatWeights!.For("frozen_plain") >
-            Assert.Single(arctic.Decorations,
-                d => d.Block == "asteria:shrub_frost")
-                .HabitatWeights!.For("ice_fields"));
-        Assert.True(Assert.Single(arctic.Decorations,
-            d => d.Block == "asteria:spike_ice")
+            rule => rule.Block == "asteria:lichen_frost")
             .HabitatWeights!.For("ice_fields") >
             Assert.Single(arctic.Decorations,
-                d => d.Block == "asteria:spike_ice")
+                rule => rule.Block == "asteria:lichen_frost")
                 .HabitatWeights!.For("frozen_plain"));
-
+        Assert.True(Assert.Single(arctic.Decorations,
+            rule => rule.Block == "asteria:spike_ice")
+            .HabitatWeights!.For("ice_fields") >
+            Assert.Single(arctic.Decorations,
+                rule => rule.Block == "asteria:spike_ice")
+                .HabitatWeights!.For("frozen_plain"));
         Assert.True(Assert.Single(alps.Decorations,
-            d => d.Block == "asteria:edelweiss_alpine")
-            .HabitatWeights!.For("snowfields") >
+            rule => rule.Block == "asteria:lichen_frost")
+            .HabitatWeights!.For("glacial_ice") >
             Assert.Single(alps.Decorations,
-                d => d.Block == "asteria:edelweiss_alpine")
+                rule => rule.Block == "asteria:lichen_frost")
                 .HabitatWeights!.For("wind_scoured_rock"));
         Assert.True(Assert.Single(alps.Decorations,
-            d => d.Block == "asteria:sedge_alpine")
-            .HabitatWeights!.For("wind_scoured_rock") >
+            rule => rule.Block == "asteria:spike_ice")
+            .HabitatWeights!.For("glacial_ice") >
             Assert.Single(alps.Decorations,
-                d => d.Block == "asteria:sedge_alpine")
-                .HabitatWeights!.For("snowfields"));
+                rule => rule.Block == "asteria:spike_ice")
+                .HabitatWeights!.For("wind_scoured_rock"));
     }
 
     [Fact]
-    public void NewFrozenObjectsUseCompatibleGeometryAndDistinctTextures()
+    public void FrozenDecorationsUseCompatibleGeometryAndDistinctTextures()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
-        var ids = ArcticObjects.Concat(AlpsObjects).Distinct().ToArray();
-        Assert.Equal(5, ids.Length);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, item => item.Id);
         var textures = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var name in ids)
-        {
-            var block = blocks.GetDefinition(blocks.GetId($"asteria:{name}"));
-            if (name != "spike_ice")
-                Assert.NotEqual(BlockRenderMode.Translucent, block.RenderMode);
-            if (name == "spike_ice")
-            {
-                Assert.Equal(BlockShapeKind.Spike, block.Shape.Kind);
-                Assert.True(block.IsCollidable);
-                var path = "textures/blocks/ice.png";
-                Assert.All(block.Textures.AllLayers(),
-                    layer => Assert.Equal(path, layer.Texture));
-                textures.Add(path);
-            }
-            else
-            {
-                Assert.Equal(name == "lichen_frost"
-                    ? BlockVisualKind.GroundSprite
-                    : BlockVisualKind.CrossedSprite,
-                    block.Visual.Kind);
-                Assert.False(block.IsCollidable);
-                Assert.False(block.CastsShadow);
-                Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
-                textures.Add(block.Visual.Texture!.Value.Texture);
-                Assert.Equal(
-                    $"textures/{(name == "lichen_frost" ? "layers" : "objects")}/{name}.png",
-                    block.Visual.Texture!.Value.Texture);
-            }
-        }
-        Assert.Equal(ids.Length, textures.Count);
+
+        var pebble = objects.Get("asteria:pebble");
+        Assert.Equal(ObjectVisualKind.ExtrudedSprite, pebble.Visual.Kind);
+        Assert.Equal("textures/items/pebble.png", pebble.Visual.Texture);
+        Assert.True(textures.Add(pebble.Visual.Texture!));
+
+        var lichen = blocks.GetDefinition(blocks.GetId("asteria:lichen_frost"));
+        Assert.Equal(BlockVisualKind.GroundSprite, lichen.Visual.Kind);
+        Assert.Equal("textures/layers/lichen_frost.png", lichen.Visual.Texture!.Value.Texture);
+        Assert.False(lichen.IsCollidable);
+        Assert.Equal(BlockRenderMode.Cutout, lichen.RenderMode);
+        Assert.True(textures.Add(lichen.Visual.Texture.Value.Texture));
+
+        var spike = blocks.GetDefinition(blocks.GetId("asteria:spike_ice"));
+        Assert.Equal(BlockShapeKind.Spike, spike.Shape.Kind);
+        Assert.True(spike.IsCollidable);
+        const string iceTexture = "textures/blocks/ice.png";
+        Assert.All(spike.Textures.AllLayers(),
+            layer => Assert.Equal(iceTexture, layer.Texture));
+        Assert.True(textures.Add(iceTexture));
+
+        Assert.Equal(3, textures.Count);
     }
 
     [Fact]
     public void DecorationSamplingIsDeterministicAndRespectsMaterialsAndSlope()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, item => item.Id);
         var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
         foreach (var (biome, height) in new[]
         {
@@ -134,30 +136,31 @@ public sealed class FrozenBiomeContentTests
             (biomes.Get("asteria:overworld/alps"), 145),
         })
         {
-            var first = new SurfaceDecorationField(548, [biome], blocks);
-            var again = new SurfaceDecorationField(548, [biome], blocks);
+            var first = new SurfaceDecorationField(548, [biome], blocks, objects: objects);
+            var again = new SurfaceDecorationField(548, [biome], blocks, objects: objects);
             var sample = new BiomeSample(biome.Id,
                 [new BiomeInfluence(biome.Id, 1f)]);
             var snow = blocks.GetId("asteria:snow");
             var stone = blocks.GetId("asteria:stone");
             var valid = new SurfacePlacementContext(height, 1);
             var tooSteep = new SurfacePlacementContext(height, 510);
-            var authoredIds = (biome.Id.EndsWith("arctic", StringComparison.Ordinal)
-                    ? ArcticObjects : AlpsObjects)
-                .Select(name => blocks.GetId($"asteria:{name}"))
-                .ToHashSet();
+            var authoredBlockIds = new[] { "lichen_frost", "spike_ice" }
+                .Select(name => blocks.GetId("asteria:" + name)).ToHashSet();
             var found = new HashSet<BlockRuntimeId>();
+
             for (var z = -32; z <= 32; z++)
             for (var x = -32; x <= 32; x++)
             {
                 var snowBlock = first.BlockAt(sample, snow, x, z, valid);
                 Assert.Equal(snowBlock, again.BlockAt(sample, snow, x, z, valid));
-                // Legacy pebble rules may be independent of slope;
-                // only the newly authored objects must be excluded.
-                Assert.DoesNotContain(
-                    first.BlockAt(sample, snow, x, z, tooSteep), authoredIds);
+                Assert.DoesNotContain(first.BlockAt(sample, snow, x, z, tooSteep),
+                    authoredBlockIds);
+
+                var objectId = first.ObjectAt(sample, snow, x, z, placement: valid);
+                Assert.Equal(objectId, again.ObjectAt(sample, snow, x, z, placement: valid));
                 if (!snowBlock.IsAir)
                     found.Add(snowBlock);
+
                 if (biome.Id.EndsWith("alps", StringComparison.Ordinal))
                 {
                     var rocky = first.BlockAt(sample, stone, x, z, valid);
@@ -166,9 +169,7 @@ public sealed class FrozenBiomeContentTests
                         found.Add(rocky);
                 }
                 else
-                {
                     Assert.True(first.BlockAt(sample, stone, x, z, valid).IsAir);
-                }
             }
             Assert.NotEmpty(found);
         }

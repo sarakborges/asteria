@@ -1,68 +1,74 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
 
 public sealed class WastelandContentExpansionTests
 {
-    private static readonly (string Name, BlockVisualKind Kind,
-        string[] Ground)[] Objects =
-    [
-        ("thistle_dead", BlockVisualKind.CrossedSprite,
-            ["asteria:dirt", "asteria:gravel"]),
-        ("tuft_brittle", BlockVisualKind.CrossedSprite,
-            ["asteria:dirt"]),
-        ("lichen_dry", BlockVisualKind.GroundSprite,
-            ["asteria:gravel", "asteria:stone"]),
-        ("roots_bleached", BlockVisualKind.GroundSprite,
-            ["asteria:dirt", "asteria:gravel"]),
-        ("bone_scatter", BlockVisualKind.GroundSprite,
-            ["asteria:dirt", "asteria:gravel", "asteria:stone"]),
-    ];
-
     [Fact]
-    public void NewDecorationsRespectActualTerrainMaterialsAndHabitatBands()
+    public void WastelandDecorationsUseRetainedMaterialsAndHabitatBands()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, item => item.Id);
         var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
         biomes.ValidateBlocks(blocks);
+        biomes.ValidateObjects(objects);
         var wasteland = biomes.Get("asteria:overworld/wasteland");
 
         Assert.Equal(["barren_flats", "deadwood_pockets", "rocky_scrub"],
             wasteland.SurfaceHabitats!.Bands.Select(band => band.Id).ToArray());
         Assert.Equal("asteria:dirt", wasteland.SurfaceLayers[0].Block);
-        Assert.Equal(7, wasteland.Decorations.Count);
+        Assert.Equal(
+            ["asteria:lichen_dry", "asteria:pebble", "asteria:stick"],
+            wasteland.Decorations.Select(rule => rule.Block)
+                .OrderBy(id => id, StringComparer.Ordinal));
 
-        foreach (var (name, kind, ground) in Objects)
+        foreach (var rule in wasteland.Decorations)
         {
-            var rule = Assert.Single(wasteland.Decorations,
-                d => d.Block == "asteria:" + name);
             Assert.NotNull(rule.Cluster);
-            Assert.NotNull(rule.Conditions);
             Assert.NotNull(rule.HabitatWeights);
-            Assert.InRange(rule.Chance, 0.005f, 0.025f);
-            Assert.Equal(ground, rule.SurfaceBlocks);
+            Assert.NotEmpty(rule.SurfaceBlocks);
+            Assert.All(rule.SurfaceBlocks, support => Assert.Contains(support,
+                new[] { "asteria:dirt", "asteria:gravel", "asteria:stone" }));
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
             Assert.Equal(DecorationSupportSurface.Floor, rule.SupportSurface);
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-            Assert.Equal(kind, block.Visual.Kind);
-            Assert.False(block.IsCollidable);
-            Assert.False(block.CastsShadow);
-            Assert.Equal(
-                (name == "lichen_dry"
-                    ? "textures/layers/" : "textures/objects/") +
-                name + ".png",
-                block.Visual.Texture!.Value.Texture);
+
+            if (rule.IsObject)
+            {
+                var obj = objects.Get(rule.Block);
+                Assert.True(obj.Supports(BlockFace.Top));
+                Assert.Equal(ObjectVisualKind.ExtrudedSprite, obj.Visual.Kind);
+                Assert.True(obj.DropSelf);
+                Assert.Contains(obj.Visual.Texture, new[]
+                {
+                    "textures/items/pebble.png", "textures/items/stick.png"
+                });
+            }
+            else
+            {
+                Assert.Equal("asteria:lichen_dry", rule.Block);
+                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
+                Assert.Equal(BlockVisualKind.GroundSprite, block.Visual.Kind);
+                Assert.False(block.IsCollidable);
+                Assert.Equal("textures/layers/lichen_dry.png",
+                    block.Visual.Texture!.Value.Texture);
+            }
         }
 
-        var thistle = Assert.Single(wasteland.Decorations,
-            rule => rule.Block == "asteria:thistle_dead");
-        Assert.True(thistle.HabitatWeights!.For("rocky_scrub") >
-            thistle.HabitatWeights.For("barren_flats"));
-        var roots = Assert.Single(wasteland.Decorations,
-            rule => rule.Block == "asteria:roots_bleached");
-        Assert.True(roots.HabitatWeights!.For("deadwood_pockets") >
-            roots.HabitatWeights.For("barren_flats"));
+        var pebble = Assert.Single(wasteland.Decorations,
+            rule => rule.Block == "asteria:pebble");
+        Assert.True(pebble.HabitatWeights!.For("rocky_scrub") >
+                    pebble.HabitatWeights.For("barren_flats"));
+        var stick = Assert.Single(wasteland.Decorations,
+            rule => rule.Block == "asteria:stick");
+        Assert.True(stick.HabitatWeights!.For("deadwood_pockets") >
+                    stick.HabitatWeights.For("barren_flats"));
+        var lichen = Assert.Single(wasteland.Decorations,
+            rule => rule.Block == "asteria:lichen_dry");
+        Assert.True(lichen.HabitatWeights!.For("rocky_scrub") >
+                    lichen.HabitatWeights.For("barren_flats"));
     }
 
     [Fact]
@@ -76,7 +82,7 @@ public sealed class WastelandContentExpansionTests
 
         foreach (var (name, variantsExpected, preferred) in new[]
         {
-                        ("rib_fossil_wasteland", 3, "rocky_scrub"),
+            ("rib_fossil_wasteland", 3, "rocky_scrub"),
         })
         {
             var root = Assert.Single(dimension.GeneratedSurfaceStructures,
@@ -86,7 +92,7 @@ public sealed class WastelandContentExpansionTests
                 root.HabitatWeights.For("barren_flats"));
             var members = structures.ResolveReference("asteria:" + name);
             Assert.Equal(variantsExpected, members.Count);
-            Assert.True(members.Select(m => m.MaximumY).Distinct().Count() >= 3);
+            Assert.True(members.Select(member => member.MaximumY).Distinct().Count() >= 3);
             Assert.All(members, structure =>
             {
                 Assert.Equal(0, structure.GroundAnchorY);
@@ -132,24 +138,15 @@ public sealed class WastelandContentExpansionTests
         Assert.NotEmpty(encountered);
     }
 
-
     [Fact]
-    public void NewWastelandDecoratorsHaveBoundedSteepSlopeRejection()
+    public void DryLichenHasBoundedSteepSlopeRejection()
     {
         var wasteland = BiomeRegistry.FromJson(ReadJson("biomes"))
             .Get("asteria:overworld/wasteland");
-        foreach (var id in new[]
-        {
-            "thistle_dead", "tuft_brittle",
-            "lichen_dry", "roots_bleached",
-            "bone_scatter",
-        })
-        {
-            var rule = Assert.Single(wasteland.Decorations,
-                d => d.Block == "asteria:" + id);
-            Assert.NotNull(rule.Conditions!.MaxSlope);
-            Assert.InRange(rule.Conditions.MaxSlope!.Value, 2f, 4f);
-        }
+        var lichen = Assert.Single(wasteland.Decorations,
+            rule => rule.Block == "asteria:lichen_dry");
+        Assert.NotNull(lichen.Conditions);
+        Assert.Equal(4f, lichen.Conditions!.MaxSlope);
     }
 
     private static IEnumerable<string> ReadJson(string dir)
@@ -157,7 +154,7 @@ public sealed class WastelandContentExpansionTests
         var root = Path.Combine(AppContext.BaseDirectory,
             "packs", "default", "data", dir);
         return Directory.EnumerateFiles(root, "*.json")
-            .OrderBy(path => path, StringComparer.Ordinal)
+            .OrderBy(file => file, StringComparer.Ordinal)
             .Select(File.ReadAllText);
     }
 }
