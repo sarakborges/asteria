@@ -10,7 +10,6 @@ public sealed class BiomeContentDeduplicationTests
         ("sandstone_spur", "spike_sandstone", "textures/blocks/sandstone_spur.png"),
         ("rock_spur", "spike_stone", "textures/blocks/rock_spur.png"),
         ("glacial_shard", "spike_ice", "textures/blocks/glacial_shard.png"),
-        ("dry_exposed_roots", "roots_exposed", "textures/objects/dry_exposed_roots.png"),
     ];
 
     [Fact]
@@ -40,6 +39,12 @@ public sealed class BiomeContentDeduplicationTests
             Assert.DoesNotContain(references,
                 json => json.Contains("asteria:" + oldId + "\"", StringComparison.Ordinal));
         }
+
+        Assert.False(File.Exists(Path.Combine(blocksDirectory, "roots_exposed.json")));
+        Assert.DoesNotContain(references,
+            json => json.Contains("asteria:roots_exposed\"", StringComparison.Ordinal));
+        Assert.False(File.Exists(Path.Combine(pack, "resources", "textures",
+            "objects", "dry_exposed_roots.png")));
     }
 
     private static IEnumerable<string> ReadJson(string directory) =>
