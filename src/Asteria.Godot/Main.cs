@@ -2625,7 +2625,6 @@ public partial class Main : Node3D
         _sessions = new DimensionSessionController(
             _sessionStates, CreateDimensionSession);
         _sessions.Start(startDimension);
-        _sessions.Active.BeginGeneratedSpawnResolution();
         ActivateCurrentDimensionPresentation();
 
         // Restoration retains the full authoritative inventory; starting a
