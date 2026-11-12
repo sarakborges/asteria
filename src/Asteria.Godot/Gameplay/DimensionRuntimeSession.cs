@@ -215,10 +215,7 @@ public sealed class DimensionRuntimeSession
         }
         else
         {
-            // Generated-world spawn search is pure and may inspect thousands
-            // of world-space samples. Keep it off the Godot thread and scoped
-            // to this session so a retired result can never affect its successor.
-            _generatedSpawnResolution = Task.Run(ResolveGeneratedSpawn);
+            _initialPlayerPositionReady = false;
         }
         _droppedBlocks =
             new DroppedBlockRuntime(
@@ -804,6 +801,24 @@ public sealed class DimensionRuntimeSession
             ? _initialPlayerPosition
             : throw new InvalidOperationException(
                 "Generated spawn resolution has not completed for this dimension session.");
+
+    /// <summary>
+    /// Starts the one bounded spawn query owned by this dimension session.
+    /// Call only when no explicit or saved entry position exists.
+    /// </summary>
+    public void BeginGeneratedSpawnResolution()
+    {
+        if (_retiring || _retired)
+            throw new InvalidOperationException(
+                "A retiring dimension session cannot start spawn preparation.");
+        if (_initialPlayerPositionReady || _generatedSpawnResolution is not null)
+            return;
+
+        // Generated-world spawn search is pure and may inspect thousands of
+        // world-space samples. Keep it off the Godot thread and scoped to this
+        // session so a retired result can never affect its successor.
+        _generatedSpawnResolution = Task.Run(ResolveGeneratedSpawn);
+    }
 
     /// <summary>
     /// Collects the session-owned generated-spawn result without blocking.
