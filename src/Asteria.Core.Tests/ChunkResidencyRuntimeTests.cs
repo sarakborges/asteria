@@ -413,6 +413,19 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(
             ChunkActivationSource.Archive,
             Assert.Single(update.Activations).Source);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.False(fixture.WorldUpdates.HasLightingWork);
+
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Restored chunk lighting frontier did not finish on its worker.");
+
+        fixture.Runtime.CollectMaterializationResults(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        Assert.Equal(0, fixture.Runtime.ChunkLightingReconciliationCount);
         Assert.True(fixture.WorldUpdates.HasLightingWork);
     }
 
