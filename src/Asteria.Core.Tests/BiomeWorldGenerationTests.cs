@@ -1251,12 +1251,17 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void MyceloraLeavesStayIntentionallyUntinted()
+    public void RemovedFantasyTreeLeavesAreAbsentFromTheDefaultPack()
     {
         var blocks = LoadDefaultBlocks();
-        var leaf = blocks.GetDefinition(blocks.GetId("asteria:leaf_mycelora"));
-        Assert.Equal(BlockTint.None, leaf.Tint);
-        Assert.All(leaf.Textures.AllLayers(), layer => Assert.False(layer.Dyable));
+        var directory = Path.Combine(AppContext.BaseDirectory, "packs",
+            "default", "data", "blocks");
+        foreach (var species in new[] { "mycelora", "gloamroot" })
+        {
+            var id = "asteria:leaf_" + species;
+            Assert.False(File.Exists(Path.Combine(directory, "leaf_" + species + ".json")));
+            Assert.False(blocks.TryGetId(id, out _));
+        }
     }
 
     [Fact]
