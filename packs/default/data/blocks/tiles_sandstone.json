@@ -5,12 +5,12 @@
     "fragmentable"
   ],
   "textures": {
-    "top": "textures/blocks/tiles_sandstone.png",
-    "bottom": "textures/blocks/tiles_sandstone.png",
-    "left": "textures/blocks/tiles_sandstone.png",
-    "right": "textures/blocks/tiles_sandstone.png",
-    "front": "textures/blocks/tiles_sandstone.png",
-    "back": "textures/blocks/tiles_sandstone.png"
+    "top": "textures/blocks/sandstone_tiles.png",
+    "bottom": "textures/blocks/sandstone_tiles.png",
+    "left": "textures/blocks/sandstone_tiles.png",
+    "right": "textures/blocks/sandstone_tiles.png",
+    "front": "textures/blocks/sandstone_tiles.png",
+    "back": "textures/blocks/sandstone_tiles.png"
   },
   "lightDampening": 15,
   "castsShadow": true,
