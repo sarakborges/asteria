@@ -18,7 +18,7 @@ public sealed class ContentNamingTests
             ["objects"] = ["anemone", "aster", "bloom", "bulrush", "cattail", "clover", "crystal", "daisy",
                 "fern", "fungus", "grass", "iris", "kelp", "mushroom", "orchid", "pad", "pebble",
                 "reed", "roots", "sagebrush", "sapling", "seagrass", "seashell", "seedheads",
-                "starfish", "stick", "vines", "wildflower"],
+                "starfish", "stick", "torchflower", "vines", "wildflower"],
             ["items"] = ["boots", "chestplate", "essence", "fiber", "helmet", "leggings", "ore",
                 "pebble", "slicer", "spores", "stick"],
             ["tools"] = ["axe", "brush", "bucket", "compass", "hatchet", "kit", "pickaxe",

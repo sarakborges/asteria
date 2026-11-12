@@ -73,7 +73,7 @@ public sealed class SurfaceStructureTests
         Assert.Equal(1, ledger.Count);
         Assert.Equal(ManualStructurePlacementResult.InvalidPlacement,
             runtime.TryPlaceExact(structure.Id, 8, 16, 8));
-        Assert.Equal(blocks.GetId("asteria:stone"),
+        Assert.Equal(blocks.GetId("asteria:portal_frame"),
             world.GetCellOrEmpty(new WorldVoxelCoord(8, 15, 8)).Block);
     }
 
@@ -586,47 +586,36 @@ public sealed class SurfaceStructureTests
     }
 
     [Fact]
-    public void EnchantedForestUsesRetainedTreeFamiliesAndAuthoredHabitats()
+    public void EnchantedForestHasNoSpawnRulesForRemovedFantasyTreeFamilies()
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
         var dimensions = DimensionRegistry.FromJson(ReadJsonDirectory("dimensions"));
         var overworld = dimensions.Get(DimensionId.Overworld);
         var roots = overworld.GeneratedSurfaceStructures
-            .Where(root =>
-                root.Biome == "asteria:overworld/enchanted_forest" &&
-                root.Structure.StartsWith("asteria:tree_", StringComparison.Ordinal))
+            .Where(root => root.Biome == "asteria:overworld/enchanted_forest")
             .ToArray();
-        var expectedFamilies = new[]
-        {
-            "asteria:tree_aurorasil",
-            "asteria:tree_dawnlace",
-            "asteria:tree_prismara",
-            "asteria:tree_solmire",
-            "asteria:tree_mycelora"
-        };
 
-        Assert.Equal(expectedFamilies.OrderBy(id => id, StringComparer.Ordinal),
-            roots.Select(root => root.Structure).OrderBy(id => id, StringComparer.Ordinal));
-        foreach (var root in roots)
+        Assert.DoesNotContain(roots,
+            root => root.Structure.StartsWith("asteria:tree_", StringComparison.Ordinal));
+        foreach (var name in new[]
         {
-            Assert.NotNull(root.HabitatWeights);
-            var variants = structures.ResolveReference(root.Structure);
-            Assert.NotEmpty(variants);
-            Assert.All(variants, tree =>
-            {
-                Assert.True(tree.Rotation);
-                Assert.Equal(0, tree.GroundAnchorYOffset);
-                Assert.NotEmpty(tree.Restrictions.GroundBlocks);
-                Assert.All(tree.Restrictions.GroundBlocks, ground =>
-                    Assert.True(blocks.TryGetId(ground, out _)));
-                Assert.True(tree.Restrictions.RequiresDryGround);
-                Assert.Equal(StructureReplacePolicy.Terrain, tree.Generation.ReplacePolicy);
-                Assert.Equal(StructureFluidPolicy.Forbid, tree.Generation.FluidPolicy);
-                Assert.Contains(tree.Voxels, voxel =>
-                    blocks.TryGetId(voxel.Block, out var blockId) &&
-                    blocks.GetDefinition(blockId).Category == "foliage");
-            });
+            "aurorasil", "dawnlace", "mycelora", "prismara", "solmire"
+        })
+        {
+            Assert.False(blocks.TryGetId("asteria:log_" + name, out _));
+            Assert.False(blocks.TryGetId("asteria:leaf_" + name, out _));
+            Assert.DoesNotContain(roots,
+                root => root.Structure == "asteria:tree_" + name);
+        }
+
+        foreach (var name in new[]
+        {
+            "ring_mushroom_enchanted", "canopy_fungal_enchanted"
+        })
+        {
+            Assert.Contains(roots, root => root.Structure == "asteria:" + name);
+            Assert.NotEmpty(structures.ResolveReference("asteria:" + name));
         }
     }
 
