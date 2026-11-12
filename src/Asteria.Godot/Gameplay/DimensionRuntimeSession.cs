@@ -806,14 +806,22 @@ public sealed class DimensionRuntimeSession
     /// Starts the one bounded spawn query owned by this dimension session.
     /// Call only when no explicit or saved entry position exists.
     /// </summary>
-    public void BeginGeneratedSpawnResolution()
+    public void BeginGeneratedSpawnResolution(bool force = false)
     {
         if (_retiring || _retired)
             throw new InvalidOperationException(
                 "A retiring dimension session cannot start spawn preparation.");
-        if (_initialPlayerPositionReady || _initialPositionResolution is not null)
+        if (_initialPositionResolution is not null)
+        {
+            if (force)
+                throw new InvalidOperationException(
+                    "A generated entry-position query is already running for this session.");
+            return;
+        }
+        if (_initialPlayerPositionReady && !force)
             return;
 
+        _initialPlayerPositionReady = false;
         // Generated-world spawn search is pure and may inspect thousands of
         // world-space samples. Keep it off the Godot thread and scoped to this
         // session so a retired result can never affect its successor.
@@ -991,14 +999,6 @@ public sealed class DimensionRuntimeSession
         if (safe is not { } position) return false;
         _initialPlayerPosition = position;
         return true;
-    }
-
-    /// <summary>Fallback for an obstructed generated warp entry.
-    /// Starts the usual world loading pipeline around the authored spawn.</summary>
-    public void PrepareGeneratedSpawn()
-    {
-        _initialPlayerPosition = ResolveGeneratedSpawn();
-        _initialPlayerPositionReady = true;
     }
 
     public ChunkCoord InitialStreamingCenter
