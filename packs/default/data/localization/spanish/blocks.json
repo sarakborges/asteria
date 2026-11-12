@@ -322,5 +322,29 @@
   },
   "asteria:yucca": {
     "/name": "Yuca"
+  },
+  "asteria:mushroom_cap_blue": {
+    "/name": "Sombrero de Champiñón Azul"
+  },
+  "asteria:mushroom_cap_brown": {
+    "/name": "Sombrero de Champiñón Marrón"
+  },
+  "asteria:mushroom_cap_green": {
+    "/name": "Sombrero de Champiñón Verde"
+  },
+  "asteria:mushroom_cap_pink": {
+    "/name": "Sombrero de Champiñón Rosa"
+  },
+  "asteria:mushroom_cap_purple": {
+    "/name": "Sombrero de Champiñón Morado"
+  },
+  "asteria:mushroom_cap_red": {
+    "/name": "Sombrero de Champiñón Rojo"
+  },
+  "asteria:mushroom_cap_yellow": {
+    "/name": "Sombrero de Champiñón Amarillo"
+  },
+  "asteria:portal_frame": {
+    "/name": "Marco del Portal"
   }
 }

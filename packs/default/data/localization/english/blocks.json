@@ -322,5 +322,29 @@
   },
   "asteria:yucca": {
     "/name": "Yucca"
+  },
+  "asteria:mushroom_cap_blue": {
+    "/name": "Blue Mushroom Cap"
+  },
+  "asteria:mushroom_cap_brown": {
+    "/name": "Brown Mushroom Cap"
+  },
+  "asteria:mushroom_cap_green": {
+    "/name": "Green Mushroom Cap"
+  },
+  "asteria:mushroom_cap_pink": {
+    "/name": "Pink Mushroom Cap"
+  },
+  "asteria:mushroom_cap_purple": {
+    "/name": "Purple Mushroom Cap"
+  },
+  "asteria:mushroom_cap_red": {
+    "/name": "Red Mushroom Cap"
+  },
+  "asteria:mushroom_cap_yellow": {
+    "/name": "Yellow Mushroom Cap"
+  },
+  "asteria:portal_frame": {
+    "/name": "Portal Frame"
   }
 }

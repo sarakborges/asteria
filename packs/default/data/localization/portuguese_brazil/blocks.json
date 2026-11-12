@@ -322,5 +322,29 @@
   },
   "asteria:yucca": {
     "/name": "Iúca"
+  },
+  "asteria:mushroom_cap_blue": {
+    "/name": "Chapéu de Cogumelo Azul"
+  },
+  "asteria:mushroom_cap_brown": {
+    "/name": "Chapéu de Cogumelo Marrom"
+  },
+  "asteria:mushroom_cap_green": {
+    "/name": "Chapéu de Cogumelo Verde"
+  },
+  "asteria:mushroom_cap_pink": {
+    "/name": "Chapéu de Cogumelo Rosa"
+  },
+  "asteria:mushroom_cap_purple": {
+    "/name": "Chapéu de Cogumelo Roxo"
+  },
+  "asteria:mushroom_cap_red": {
+    "/name": "Chapéu de Cogumelo Vermelho"
+  },
+  "asteria:mushroom_cap_yellow": {
+    "/name": "Chapéu de Cogumelo Amarelo"
+  },
+  "asteria:portal_frame": {
+    "/name": "Moldura do Portal"
   }
 }
