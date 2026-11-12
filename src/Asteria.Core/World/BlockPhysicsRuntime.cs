@@ -215,8 +215,12 @@ public sealed class BlockPhysicsRuntime : IDisposable
         // If the chunk directly below is archived while its upper neighbor is
         // still resident, re-park that upper chunk's boundary gravity blocks.
         if (coord.Y < int.MaxValue)
-            RequestChunkReconciliation(
-                new ChunkCoord(coord.X, coord.Y + 1, coord.Z));
+        {
+            var sourceChunk = new ChunkCoord(
+                coord.X, coord.Y + 1, coord.Z);
+            if (_world.ContainsChunk(sourceChunk))
+                RequestChunkReconciliation(sourceChunk);
+        }
     }
 
     private void WaitForGravityChunk(ChunkCoord sourceChunk, ChunkCoord targetChunk)
