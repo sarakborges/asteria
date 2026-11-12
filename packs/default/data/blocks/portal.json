@@ -15,12 +15,12 @@
     "z"
   ],
   "textures": {
-    "top": "textures/blocks/portals/umbral.png",
-    "bottom": "textures/blocks/portals/umbral.png",
-    "left": "textures/blocks/portals/umbral.png",
-    "right": "textures/blocks/portals/umbral.png",
-    "front": "textures/blocks/portals/umbral.png",
-    "back": "textures/blocks/portals/umbral.png"
+    "top": "textures/blocks/portal.png",
+    "bottom": "textures/blocks/portal.png",
+    "left": "textures/blocks/portal.png",
+    "right": "textures/blocks/portal.png",
+    "front": "textures/blocks/portal.png",
+    "back": "textures/blocks/portal.png"
   },
   "isCollidable": false,
   "castsShadow": false,
