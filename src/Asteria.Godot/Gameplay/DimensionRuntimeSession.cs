@@ -777,6 +777,7 @@ public sealed class DimensionRuntimeSession
 
     public bool IsQuiescent =>
         Residency.MaterializingCount == 0 &&
+        Residency.DirectionalFaceReconciliationCount == 0 &&
         !Streaming.IsSelectionRunning &&
         !FluidSimulation.IsRunning &&
         !Lighting.IsRunning &&

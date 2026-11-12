@@ -5,6 +5,66 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkResidencyRuntimeTests
 {
     [Fact]
+    public void ChunkArrivalOnlyQueuesDirectionalReconciliationUntilWorkerDispatch()
+    {
+        using var provider = new BlockingDirectionalFacePaletteProvider();
+        var fixture = CreateFixture(provider);
+        var coord = ChunkCoord.Zero;
+
+        fixture.World.InsertChunk(coord, new Chunk());
+
+        Assert.False(provider.ReconcileStarted.Wait(TimeSpan.FromMilliseconds(50)));
+        Assert.Equal(1, fixture.Runtime.DirectionalFaceReconciliationCount);
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(provider.ReconcileStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        provider.ReleaseReconciliation.Set();
+        for (var attempt = 0;
+             attempt < 2000 && fixture.Runtime.DirectionalFaceReconciliationCount > 0;
+             attempt++)
+        {
+            fixture.Runtime.CollectMaterializationResults(
+                GenerousBudget(), Array.Empty<ChunkCoord>());
+            Thread.Sleep(1);
+        }
+
+        Assert.Equal(0, fixture.Runtime.DirectionalFaceReconciliationCount);
+    }
+
+    [Fact]
+    public void StaleDirectionalReconciliationIsDiscardedAndRequeued()
+    {
+        using var provider = new BlockingDirectionalFacePaletteProvider();
+        var fixture = CreateFixture(provider);
+        var coord = ChunkCoord.Zero;
+        fixture.World.InsertChunk(coord, new Chunk());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(provider.ReconcileStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        Assert.True(fixture.World.SetBlockAt(
+            new WorldVoxelCoord(1, 1, 1),
+            fixture.Blocks.GetId("asteria:stone"),
+            out _));
+        provider.ReleaseReconciliation.Set();
+
+        for (var attempt = 0;
+             attempt < 2000 && provider.ApplyAttempts == 0;
+             attempt++)
+        {
+            fixture.Runtime.CollectMaterializationResults(
+                GenerousBudget(), Array.Empty<ChunkCoord>());
+            Thread.Sleep(1);
+        }
+
+        Assert.Equal(1, provider.ApplyAttempts);
+        Assert.Equal(1, fixture.Runtime.DirectionalFaceReconciliationCount);
+    }
+
+    [Fact]
     public void DispatchRestoresArchivedChunkBeforeProviderWork()
     {
         var fixture = CreateFixture();
@@ -923,6 +983,61 @@ public sealed class ChunkResidencyRuntimeTests
             public void Dispose()
             {
             }
+        }
+    }
+
+    private sealed class BlockingDirectionalFacePaletteProvider :
+        IChunkProvider,
+        IChunkDirectionalFacePaletteUpdater,
+        IDisposable
+    {
+        public ManualResetEventSlim ReconcileStarted { get; } = new(false);
+        public ManualResetEventSlim ReleaseReconciliation { get; } = new(false);
+        public int ApplyAttempts { get; private set; }
+
+        public Chunk Materialize(ChunkCoord coord) => new();
+
+        public DirectionalFacePaletteReconciliationSnapshot CaptureChunkArrivalSnapshot(
+            VoxelWorld world, ChunkCoord arriving)
+        {
+            var captured = world.CaptureDirectionalFaceWorkerSnapshot([arriving]);
+            return new DirectionalFacePaletteReconciliationSnapshot(
+                arriving, captured.World, captured.Dependencies);
+        }
+
+        public DirectionalFacePaletteReconciliationResult ReconcileChunkArrival(
+            DirectionalFacePaletteReconciliationSnapshot snapshot)
+        {
+            ReconcileStarted.Set();
+            ReleaseReconciliation.Wait();
+            return new DirectionalFacePaletteReconciliationResult(
+                snapshot.Arriving,
+                snapshot.WorkerWorld,
+                snapshot.Dependencies,
+                Array.Empty<ChunkCoord>(),
+                Array.Empty<WorldVoxelCoord>());
+        }
+
+        public IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
+            VoxelWorld world, ChunkCoord arriving) =>
+            throw new NotSupportedException(
+                "Runtime must schedule directional reconciliation asynchronously.");
+
+        public bool TryApplyChunkArrivalReconciliation(
+            VoxelWorld world,
+            DirectionalFacePaletteReconciliationResult result,
+            out IReadOnlyList<WorldVoxelCoord> visualChanges)
+        {
+            ApplyAttempts++;
+            visualChanges = result.VisualChanges;
+            return result.Dependencies.IsCurrent(world);
+        }
+
+        public void Dispose()
+        {
+            ReleaseReconciliation.Set();
+            ReconcileStarted.Dispose();
+            ReleaseReconciliation.Dispose();
         }
     }
 

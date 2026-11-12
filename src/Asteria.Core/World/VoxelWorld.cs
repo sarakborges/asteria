@@ -324,6 +324,69 @@ public sealed class VoxelWorld
         Revision++;
     }
 
+    /// <summary>
+    /// Captures only the materialized chunks in a bounded directional-palette
+    /// dependency envelope. Archived chunks are copied into the isolated worker
+    /// world as read/write copies; the authoritative archive is never exposed.
+    /// </summary>
+    internal (VoxelWorld World, MeshDependencyStamp Dependencies)
+        CaptureDirectionalFaceWorkerSnapshot(IEnumerable<ChunkCoord> coordinates)
+    {
+        ArgumentNullException.ThrowIfNull(coordinates);
+        var selected = coordinates
+            .Distinct()
+            .OrderBy(coord => coord.Y)
+            .ThenBy(coord => coord.Z)
+            .ThenBy(coord => coord.X)
+            .ToArray();
+        var dependencies = new MeshDependencyStamp(
+            CaptureMeshingContentStamp(selected),
+            CaptureResidencyStamp(selected));
+        var snapshot = new VoxelWorld
+        {
+            _fluidOccupancyBlocks = _fluidOccupancyBlocks,
+            Revision = Revision,
+        };
+
+        foreach (var coord in selected)
+        {
+            if (_chunks.TryGetValue(coord, out var resident))
+                snapshot._chunks.Add(coord, resident.CloneForWorker());
+            else if (_archive.TryPeek(coord, out var archived))
+                snapshot._chunks.Add(coord, archived.CloneForWorker());
+        }
+
+        return (snapshot, dependencies);
+    }
+
+    /// <summary>
+    /// Transfers one validated worker-owned chunk into live or archived
+    /// ownership. Callers must validate the complete dependency stamp first.
+    /// </summary>
+    internal bool ReplaceDerivedChunkFromWorker(
+        VoxelWorld workerWorld,
+        ChunkCoord coord)
+    {
+        ArgumentNullException.ThrowIfNull(workerWorld);
+        if (!workerWorld._chunks.TryGetValue(coord, out var replacement))
+            return false;
+
+        if (_chunks.ContainsKey(coord))
+        {
+            _chunks[coord] = replacement;
+            _archive.TrackMaterialized(coord, replacement.Revision);
+            _archive.MarkDirty(coord);
+            Revision++;
+            return true;
+        }
+
+        if (!_archive.ReplaceArchivedDerivedChunk(coord, replacement))
+            return false;
+
+        Revision++;
+        return true;
+    }
+
     internal bool TryGetSavedCell(WorldVoxelCoord position, out VoxelCell cell)
     {
         if (position.Y < 0)

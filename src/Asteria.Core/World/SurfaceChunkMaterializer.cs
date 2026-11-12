@@ -3504,7 +3504,7 @@ public sealed class SurfaceChunkMaterializer
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
         VoxelWorld world, ChunkCoord arriving) =>
-        ReconcileChunkArrivalCore(world, arriving, diagnostic: null);
+        ReconcileChunkArrivalCore(world, arriving, diagnostic: null, out _);
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalWithDiagnostics(
         VoxelWorld world,
@@ -3512,18 +3512,109 @@ public sealed class SurfaceChunkMaterializer
         Action<DirectionalFacePaletteReapplicationDiagnostic> diagnostic)
     {
         ArgumentNullException.ThrowIfNull(diagnostic);
-        return ReconcileChunkArrivalCore(world, arriving, diagnostic);
+        return ReconcileChunkArrivalCore(world, arriving, diagnostic, out _);
+    }
+
+    internal DirectionalFacePaletteReconciliationSnapshot
+        CaptureChunkArrivalSnapshot(VoxelWorld world, ChunkCoord arriving)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
+        var maximumChunkOffset = (maximumDepth + Chunk.Size - 1) / Chunk.Size;
+        var sourceChunks = new HashSet<ChunkCoord>();
+
+        // Every source ray and every sampled target lies on one of the three
+        // axis-aligned chunk lines crossing the arriving chunk.
+        for (var axis = 0; axis < 3; axis++)
+        for (var offset = -maximumChunkOffset; offset <= maximumChunkOffset; offset++)
+        {
+            var coord = OffsetChunk(arriving, axis, offset);
+            if (coord.Y >= 0)
+                sourceChunks.Add(coord);
+        }
+
+        var dependencies = new HashSet<ChunkCoord>(sourceChunks);
+        // Gravity-palette validation follows downward stacks until a stable
+        // support, air gap, or missing chunk. Capture each affected column down
+        // to its first missing chunk so a newly arriving support invalidates
+        // this worker instead of allowing a stale gravity decision to publish.
+        foreach (var column in sourceChunks
+                     .GroupBy(coord => new ChunkColumnCoord(coord.X, coord.Z)))
+        {
+            var minimumSourceY = column.Min(coord => coord.Y);
+            for (var y = minimumSourceY - 1; y >= 0; y--)
+            {
+                var supportCoord = new ChunkCoord(column.Key.X, y, column.Key.Z);
+                dependencies.Add(supportCoord);
+                if (!world.TryGetSavedChunk(supportCoord, out _))
+                    break;
+            }
+        }
+
+        var captured = world.CaptureDirectionalFaceWorkerSnapshot(dependencies);
+        return new DirectionalFacePaletteReconciliationSnapshot(
+            arriving, captured.World, captured.Dependencies);
+    }
+
+    internal DirectionalFacePaletteReconciliationResult
+        ReconcileChunkArrival(DirectionalFacePaletteReconciliationSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var visualChanges = ReconcileChunkArrivalCore(
+            snapshot.WorkerWorld, snapshot.Arriving, diagnostic: null,
+            out var changedChunks);
+        return new DirectionalFacePaletteReconciliationResult(
+            snapshot.Arriving,
+            snapshot.WorkerWorld,
+            snapshot.Dependencies,
+            changedChunks,
+            visualChanges);
+    }
+
+    internal bool TryApplyChunkArrivalReconciliation(
+        VoxelWorld world,
+        DirectionalFacePaletteReconciliationResult result,
+        out IReadOnlyList<WorldVoxelCoord> visualChanges)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(result);
+        visualChanges = Array.Empty<WorldVoxelCoord>();
+        if (!result.Dependencies.IsCurrent(world))
+            return false;
+
+        // Preflight every changed chunk before transferring any of them, so a
+        // rejected result can never partially publish its derived state.
+        foreach (var coord in result.ChangedChunks)
+        {
+            if (!world.TryGetSavedChunk(coord, out _) ||
+                !result.WorkerWorld.TryGetChunk(coord, out _))
+                return false;
+        }
+
+        foreach (var coord in result.ChangedChunks)
+        {
+            if (!world.ReplaceDerivedChunkFromWorker(result.WorkerWorld, coord))
+                throw new InvalidOperationException(
+                    $"Validated directional-face chunk disappeared during publication: {coord}.");
+        }
+
+        visualChanges = result.VisualChanges;
+        return true;
     }
 
     private IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalCore(
         VoxelWorld world,
         ChunkCoord arriving,
-        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic)
+        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic,
+        out IReadOnlyList<ChunkCoord> changedChunks)
     {
         ArgumentNullException.ThrowIfNull(world);
         var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
         if (maximumDepth <= 0)
+        {
+            changedChunks = Array.Empty<ChunkCoord>();
             return Array.Empty<WorldVoxelCoord>();
+        }
 
         var changedSources = new HashSet<(ChunkCoord Coord, int Index)>();
         var dirtyChunks = new HashSet<ChunkCoord>();
@@ -3539,7 +3630,15 @@ public sealed class SurfaceChunkMaterializer
                 world, sourceCoord, axis, sign, maximumDepth,
                 changedSources, dirtyChunks, ensured);
         }
-        return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks, diagnostic);
+
+        var visualChanges = ApplyDirectionalFaceChanges(
+            world, changedSources, dirtyChunks, diagnostic);
+        changedChunks = dirtyChunks
+            .OrderBy(coord => coord.Y)
+            .ThenBy(coord => coord.Z)
+            .ThenBy(coord => coord.X)
+            .ToArray();
+        return visualChanges;
     }
 
     private void ReconcileChunkOutward(

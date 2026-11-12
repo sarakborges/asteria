@@ -154,6 +154,9 @@ public sealed class ChunkResidencyRuntime
     private readonly IChunkProvider _chunkProvider;
     private readonly IChunkDirectionalFacePaletteUpdater? _directionalFacePaletteUpdater;
     private bool _directionalFaceChunkEventAttached;
+    private readonly DeduplicatedQueue<ChunkCoord> _pendingDirectionalFaceReconciliations = new();
+    private readonly Dictionary<ChunkCoord, DirectionalFaceReconciliationWork>
+        _directionalFaceReconciliationTasks = [];
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates;
@@ -266,10 +269,16 @@ public sealed class ChunkResidencyRuntime
     /// <summary>Background tasks currently owning terrain or initial-light stages.</summary>
     public int ActiveWorkerCount =>
         _materializationTasks.Values.Count(work =>
+            !work.WorkerTask.IsCompleted) +
+        _directionalFaceReconciliationTasks.Values.Count(work =>
             !work.WorkerTask.IsCompleted);
 
     public int MaterializationJobCount =>
         _materializationTasks.Count;
+
+    public int DirectionalFaceReconciliationCount =>
+        _pendingDirectionalFaceReconciliations.Count +
+        _directionalFaceReconciliationTasks.Count;
 
     public int SuspendedMaterializationCount => 0;
 
@@ -280,18 +289,20 @@ public sealed class ChunkResidencyRuntime
     public void BeginRetirement()
     {
         _acceptingMaterializationWork = false;
+        _pendingDirectionalFaceReconciliations.Clear();
         if (!_directionalFaceChunkEventAttached)
             return;
         _world.ChunkBecameResident -= HandleDirectionalFaceChunkArrival;
         _directionalFaceChunkEventAttached = false;
     }
 
+    // Chunk arrival is only an enqueue operation. Snapshot capture and all
+    // directional-face scanning run later in the bounded worker lane.
     private void HandleDirectionalFaceChunkArrival(ChunkCoord coord)
     {
-        if (_directionalFacePaletteUpdater is null)
-            return;
-        EnqueueDirectionalFaceVisualChanges(
-            _directionalFacePaletteUpdater.ReconcileChunkArrival(_world, coord));
+        if (_acceptingMaterializationWork &&
+            _directionalFacePaletteUpdater is not null)
+            _pendingDirectionalFaceReconciliations.Enqueue(coord);
     }
 
     private void EnqueueDirectionalFaceVisualChanges(
@@ -393,7 +404,9 @@ public sealed class ChunkResidencyRuntime
         IEnumerable<ChunkCoord> presented)
     {
         ArgumentNullException.ThrowIfNull(presented);
-        if (_materializationTasks.Count == 0)
+        if (_materializationTasks.Count == 0 &&
+            !_directionalFaceReconciliationTasks.Values.Any(work =>
+                work.WorkerTask.IsCompleted))
             return ChunkResidencyUpdate.Empty;
 
         var activations = new List<ChunkResidencyActivation>();
@@ -498,6 +511,57 @@ public sealed class ChunkResidencyRuntime
             });
         }
 
+        // Publish at most one reconciliation result per frame. The expensive
+        // scan ran on a private worker world; this phase only validates stamps,
+        // swaps the affected chunk owners and queues mesh invalidations.
+        if (processed < _settings.MaxResultsPerFrame &&
+            (processed == 0 || !budget.Exhausted(Stopwatch.GetTimestamp())))
+        {
+            var completedReconciliations = _directionalFaceReconciliationTasks
+                .Where(entry => entry.Value.WorkerTask.IsCompleted)
+                .OrderBy(entry => ChunkStreamingState.StreamingPriority(
+                    entry.Key, _center, _streaming.MovementDirection))
+                .Take(1)
+                .ToArray();
+
+            foreach (var (coord, work) in completedReconciliations)
+            {
+                _directionalFaceReconciliationTasks.Remove(coord);
+                var task = work.WorkerTask;
+                if (task.IsFaulted || task.IsCanceled)
+                {
+                    var error = task.IsFaulted
+                        ? task.Exception?.GetBaseException() ??
+                          new InvalidOperationException(
+                              $"Directional face reconciliation failed: {coord}")
+                        : new TaskCanceledException(task);
+                    failures.Add(new ChunkMaterializationFailure(coord, error));
+                    if (_acceptingMaterializationWork &&
+                        _world.TryGetSavedChunk(coord, out _))
+                        _pendingDirectionalFaceReconciliations.Enqueue(coord);
+                    break;
+                }
+
+                var result = task.GetAwaiter().GetResult();
+                if (!_acceptingMaterializationWork)
+                    break;
+
+                if (_directionalFacePaletteUpdater is not null &&
+                    _directionalFacePaletteUpdater.TryApplyChunkArrivalReconciliation(
+                        _world, result, out var visualChanges))
+                {
+                    EnqueueDirectionalFaceVisualChanges(visualChanges);
+                }
+                else if (_world.TryGetSavedChunk(result.Arriving, out _))
+                {
+                    // A dependency changed during the calculation. Recompute
+                    // against a fresh snapshot; never force stale writes live.
+                    _pendingDirectionalFaceReconciliations.Enqueue(result.Arriving);
+                }
+                break;
+            }
+        }
+
         if (processed > 0)
             SyncResidentState(presented);
         return new ChunkResidencyUpdate(activations, failures, stageTimings);
@@ -520,14 +584,21 @@ public sealed class ChunkResidencyRuntime
         var restored = 0;
         var maximumTaskStarts = Math.Min(
             _settings.MaxDispatchesPerFrame, maximumNewTasks);
+        // Keep one slot available for arrival reconciliation whenever it is
+        // queued or running. This prevents continuous generation dispatch from
+        // starving seam convergence on a saturated worker pool.
+        var materializationLimit =
+            _pendingDirectionalFaceReconciliations.Count > 0 ||
+            _directionalFaceReconciliationTasks.Count > 0
+                ? Math.Max(0, _settings.MaxMaterializationsInFlight - 1)
+                : _settings.MaxMaterializationsInFlight;
 
         // Archived restores do not consume a generation worker. The caller may
         // cap new materialization starts when downstream work is pressured;
         // spatial priority decides which chunk starts when admission opens.
         while (_materializationTasks.Count <
                    _settings.MaxTerrainMaterializationsInFlight &&
-               _materializationTasks.Count <
-                   _settings.MaxMaterializationsInFlight &&
+               _materializationTasks.Count < materializationLimit &&
                restored <
                    _settings.MaxResultsPerFrame)
         {
@@ -620,6 +691,8 @@ public sealed class ChunkResidencyRuntime
 
         if (restored > 0)
             SyncResidentState(presented);
+
+        StartDirectionalFaceReconciliationWorker(budget, failures);
 
         if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
             return ChunkResidencyUpdate.Empty;
@@ -731,6 +804,41 @@ public sealed class ChunkResidencyRuntime
             dispatchPreparationMilliseconds);
     }
 
+    private void StartDirectionalFaceReconciliationWorker(
+        WorldFrameWorkBudget budget,
+        List<ChunkMaterializationFailure> failures)
+    {
+        var updater = _directionalFacePaletteUpdater;
+        if (updater is null ||
+            !_acceptingMaterializationWork ||
+            _directionalFaceReconciliationTasks.Count > 0 ||
+            _pendingDirectionalFaceReconciliations.Count == 0 ||
+            _materializationTasks.Count +
+                _directionalFaceReconciliationTasks.Count >=
+                _settings.MaxMaterializationsInFlight ||
+            budget.Exhausted(Stopwatch.GetTimestamp()))
+            return;
+
+        if (!_pendingDirectionalFaceReconciliations.TryDequeue(out var coord))
+            return;
+        if (!_world.TryGetSavedChunk(coord, out _))
+            return;
+
+        try
+        {
+            var snapshot =
+                updater.CaptureChunkArrivalSnapshot(_world, coord);
+            var work = new DirectionalFaceReconciliationWork(snapshot);
+            work.WorkerTask = Task.Run(() => updater.ReconcileChunkArrival(snapshot));
+            _directionalFaceReconciliationTasks.Add(coord, work);
+        }
+        catch (Exception error)
+        {
+            failures.Add(new ChunkMaterializationFailure(coord, error));
+            _pendingDirectionalFaceReconciliations.Enqueue(coord);
+        }
+    }
+
     private MaterializationTaskResult ExecuteMaterialization(
         MaterializationWork work)
     {
@@ -790,6 +898,20 @@ public sealed class ChunkResidencyRuntime
             workerQueueWaitMilliseconds,
             workerWallMilliseconds,
             workerCompletedTimestamp);
+    }
+
+    private sealed class DirectionalFaceReconciliationWork
+    {
+        public DirectionalFaceReconciliationWork(
+            DirectionalFacePaletteReconciliationSnapshot snapshot)
+        {
+            Snapshot = snapshot ??
+                throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        public DirectionalFacePaletteReconciliationSnapshot Snapshot { get; }
+
+        public Task<DirectionalFacePaletteReconciliationResult> WorkerTask { get; set; } = null!;
     }
 
     private sealed class MaterializationWork
