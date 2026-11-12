@@ -111,7 +111,7 @@ public sealed class ContentNamingTests
                     variant.GetProperty("family").GetString());
             checkedDefinitions++;
         }
-        Assert.Equal(12, checkedDefinitions,
+        Assert.True(checkedDefinitions == 12,
             "Only the retained Oak and Willow families should have tree block variants.");
     }
 
