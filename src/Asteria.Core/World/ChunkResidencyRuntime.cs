@@ -602,7 +602,8 @@ public sealed class ChunkResidencyRuntime
                               $"Chunk lighting reconciliation failed: {coord}")
                         : new TaskCanceledException(task);
                     failures.Add(new ChunkMaterializationFailure(coord, error));
-                    if (_acceptingMaterializationWork && _world.ContainsChunk(coord))
+                    if (_acceptingMaterializationWork &&
+                        (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord)))
                         _pendingChunkLightingReconciliations.Enqueue(coord);
                     break;
                 }
@@ -614,7 +615,7 @@ public sealed class ChunkResidencyRuntime
                 if (!_world.IsContentStampCurrent(work.ContentDependencies) ||
                     !_world.AreLightingStampsCurrent(work.LightingDependencies))
                 {
-                    if (_world.ContainsChunk(coord))
+                    if (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord))
                         _pendingChunkLightingReconciliations.Enqueue(coord);
                     break;
                 }
@@ -903,7 +904,7 @@ public sealed class ChunkResidencyRuntime
 
         if (!_pendingChunkLightingReconciliations.TryDequeue(out var coord))
             return false;
-        if (!_world.ContainsChunk(coord))
+        if (!_world.ContainsChunk(coord) && !_world.HasArchivedChunk(coord))
             return false;
 
         try
