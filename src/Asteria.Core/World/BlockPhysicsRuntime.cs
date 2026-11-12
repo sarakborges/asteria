@@ -30,6 +30,11 @@ public readonly record struct BlockPhysicsWakeResult(
         UnsupportedRemoved > 0;
 }
 
+public readonly record struct BlockPhysicsChunkActivationPlan(
+    ChunkCoord SourceChunk,
+    IReadOnlyList<WorldVoxelCoord> WakePositions,
+    ChunkCoord? GravityWaitTargetChunk);
+
 public sealed class BlockPhysicsRuntime : IDisposable
 {
     private static readonly IComparer<FallingBlockId>
@@ -174,13 +179,25 @@ public sealed class BlockPhysicsRuntime : IDisposable
             _fallingBlockOccupancyQuery);
     }
 
+    public event Action<ChunkCoord>? ChunkReconciliationRequested;
+
+    // The residency runtime subscribes and schedules the scan through its
+    // bounded worker lane. Standalone callers retain the synchronous fallback.
+    public void RequestChunkReconciliation(ChunkCoord coord)
+    {
+        if (ChunkReconciliationRequested is { } handlers)
+            handlers.Invoke(coord);
+        else
+            ReconcileGravityBoundaryChunk(coord);
+    }
+
     private void OnChunkBecameResident(ChunkCoord coord)
     {
         _updates.WakeResidentChunk(coord);
         if (_gravityWaitSourceByTargetChunk.Remove(coord, out var sourceChunk))
         {
             _gravityWaitTargetBySourceChunk.Remove(sourceChunk);
-            ReconcileGravityBoundaryChunk(sourceChunk);
+            RequestChunkReconciliation(sourceChunk);
         }
 
         if (!_waitingFallingByChunk.Remove(coord, out var waiting))
@@ -198,7 +215,7 @@ public sealed class BlockPhysicsRuntime : IDisposable
         // If the chunk directly below is archived while its upper neighbor is
         // still resident, re-park that upper chunk's boundary gravity blocks.
         if (coord.Y < int.MaxValue)
-            ReconcileGravityBoundaryChunk(
+            RequestChunkReconciliation(
                 new ChunkCoord(coord.X, coord.Y + 1, coord.Z));
     }
 
@@ -364,23 +381,30 @@ public sealed class BlockPhysicsRuntime : IDisposable
             _nextId,
             _active.Values.ToArray());
 
-    public int EnqueueResidentChunk(ChunkCoord coord)
+    // Pure scan against an isolated world snapshot. No live queues, wait maps,
+    // or resident chunk state are mutated by the worker.
+    public BlockPhysicsChunkActivationPlan CalculateResidentChunkActivationPlan(
+        VoxelWorld snapshotWorld,
+        ChunkCoord coord)
     {
-        ForgetGravityWaitForSourceChunk(coord);
-        if (!_world.TryGetChunk(coord, out var chunk))
+        ArgumentNullException.ThrowIfNull(snapshotWorld);
+        if (!snapshotWorld.TryGetChunk(coord, out var chunk))
         {
-            return 0;
+            return new BlockPhysicsChunkActivationPlan(
+                coord,
+                Array.Empty<WorldVoxelCoord>(),
+                null);
         }
 
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
-        var queued = 0;
+        var wakePositions = new List<WorldVoxelCoord>();
+        ChunkCoord? gravityWaitTarget = null;
 
         chunk.VisitBlockCells(
             (x, y, z, cell) =>
             {
-                var definition =
-                    _blocks.GetDefinition(cell.Block);
+                var definition = _blocks.GetDefinition(cell.Block);
                 var position = new WorldVoxelCoord(
                     originX + x, originY + y, originZ + z);
                 var hasGravity = definition.HasTag(
@@ -393,46 +417,65 @@ public sealed class BlockPhysicsRuntime : IDisposable
                 if (!hasGravity && !hasSupportDependency)
                     return;
 
-                // Chunk arrival is not itself a reason to schedule a support
-                // check. Supported attached blocks are stable until a voxel
-                // edit changes their dependency. Keep unloaded and unsupported
-                // dependencies queued so they can be resolved after arrival.
+                // Supported attached blocks are stable until an edit changes
+                // their dependency. Unloaded and unsupported dependencies
+                // remain queued for the normal wakeup path to resolve.
                 if (hasSupportDependency &&
                     BlockSupportRules.Evaluate(
-                        _world, _blocks, definition, cell,
-                        _world.GetMicroblockMaskOrEmpty(position),
+                        snapshotWorld,
+                        _blocks,
+                        definition,
+                        cell,
+                        snapshotWorld.GetMicroblockMaskOrEmpty(position),
                         position) != BlockSupportState.Supported)
                 {
-                    _updates.Enqueue(position);
-                    queued++;
+                    wakePositions.Add(position);
                     return;
                 }
 
                 if (!hasGravity)
                     return;
 
-                // Gravity blocks with known solid support are already stable.
-                // A missing lower chunk sleeps as one source-chunk dependency,
-                // not one retained coordinate per gravity voxel.
                 var below = position + (0, -1, 0);
-                var belowState = BlockMaterializationRules.Evaluate(_world, below);
+                var belowState = BlockMaterializationRules.Evaluate(
+                    snapshotWorld, below);
                 if (belowState == BlockMaterializationState.Unloaded)
                 {
-                    WaitForGravityChunk(
-                        coord,
-                        VoxelCoordinates.FromWorld(below.X, below.Y, below.Z).Chunk);
+                    gravityWaitTarget = VoxelCoordinates.FromWorld(
+                        below.X, below.Y, below.Z).Chunk;
                     return;
                 }
 
-                if (belowState != BlockMaterializationState.Available)
-                    return;
-
-                _updates.Enqueue(position);
-                queued++;
+                if (belowState == BlockMaterializationState.Available)
+                    wakePositions.Add(position);
             });
 
-        return queued;
+        return new BlockPhysicsChunkActivationPlan(
+            coord,
+            wakePositions,
+            gravityWaitTarget);
     }
+
+    // Apply the detached plan only after the residency scheduler validates
+    // its content and residency stamps on the world-owning thread.
+    public int ApplyResidentChunkActivationPlan(
+        BlockPhysicsChunkActivationPlan plan)
+    {
+        ForgetGravityWaitForSourceChunk(plan.SourceChunk);
+        if (plan.GravityWaitTargetChunk is { } targetChunk)
+            WaitForGravityChunk(plan.SourceChunk, targetChunk);
+
+        foreach (var position in plan.WakePositions)
+            _updates.Enqueue(position);
+
+        return plan.WakePositions.Count;
+    }
+
+    // Compatibility entry point for isolated callers and unit tests. Live
+    // chunk activation uses the worker calculation and main-thread apply path.
+    public int EnqueueResidentChunk(ChunkCoord coord) =>
+        ApplyResidentChunkActivationPlan(
+            CalculateResidentChunkActivationPlan(_world, coord));
 
     public BlockPhysicsWakeResult ProcessWakeups()
     {
