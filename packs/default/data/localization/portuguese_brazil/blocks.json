@@ -2,15 +2,6 @@
   "asteria:crystal_core_aether": {
     "/name": "Núcleo de Cristal Etéreo"
   },
-  "asteria:edelweiss_alpine": {
-    "/name": "Edelvais Alpino"
-  },
-  "asteria:sedge_alpine": {
-    "/name": "Junça Alpina"
-  },
-  "asteria:thorn_ash": {
-    "/name": "Espinho de Cinzas"
-  },
   "asteria:crystal_azure": {
     "/name": "Cristal Azul"
   },
@@ -32,17 +23,8 @@
   "asteria:tiles_basalt": {
     "/name": "Ladrilhos de Basalto"
   },
-  "asteria:roots_bleached": {
-    "/name": "Raízes Esbranquiçadas"
-  },
-  "asteria:bone_scatter": {
-    "/name": "Ossos Espalhados"
-  },
   "asteria:bricks": {
     "/name": "Tijolos"
-  },
-  "asteria:tuft_brittle": {
-    "/name": "Tufo Quebradiço"
   },
   "asteria:cactus_barrel": {
     "/name": "Cacto Barril"
@@ -56,17 +38,11 @@
   "asteria:flower_cactus_yellow": {
     "/name": "Flor Amarela de Cacto"
   },
-  "asteria:bloom_cinder": {
-    "/name": "Flor de Cinzas"
-  },
   "asteria:clay": {
     "/name": "Argila"
   },
   "asteria:lichen_cliff": {
     "/name": "Líquen de Penhasco"
-  },
-  "asteria:rosette_cliff": {
-    "/name": "Roseta de Penhasco"
   },
   "asteria:coral_blue": {
     "/name": "Coral Azul"
@@ -89,9 +65,6 @@
   "asteria:coral_yellow": {
     "/name": "Coral Amarelo"
   },
-  "asteria:thistle_dead": {
-    "/name": "Cardo Morto"
-  },
   "asteria:dirt": {
     "/name": "Terra"
   },
@@ -101,20 +74,11 @@
   "asteria:tuft_dry": {
     "/name": "Tufo Seco"
   },
-  "asteria:grass_dune": {
-    "/name": "Capim das Dunas"
-  },
-  "asteria:roots_exposed": {
-    "/name": "Raízes Expostas"
-  },
   "asteria:bone_fossil": {
     "/name": "Osso Fóssil"
   },
   "asteria:lichen_frost": {
     "/name": "Líquen Gelado"
-  },
-  "asteria:shrub_frost": {
-    "/name": "Arbusto Gelado"
   },
   "asteria:glass": {
     "/name": "Vidro"
@@ -124,9 +88,6 @@
   },
   "asteria:mushroom_stem_glow": {
     "/name": "Caule de Cogumelo Luminoso"
-  },
-  "asteria:pod_glow": {
-    "/name": "Vagem Brilhante"
   },
   "asteria:block_grass": {
     "/name": "Bloco de Grama"
@@ -206,15 +167,6 @@
   "asteria:bricks_mud": {
     "/name": "Tijolos de Lama"
   },
-  "asteria:mud_dry": {
-    "/name": "Lama Seca"
-  },
-  "asteria:mud_polished": {
-    "/name": "Lama Polida"
-  },
-  "asteria:tiles_mud": {
-    "/name": "Ladrilhos de Lama"
-  },
   "asteria:bloom_pink": {
     "/name": "Flor Rosa"
   },
@@ -251,14 +203,8 @@
   "asteria:tiles_sandstone": {
     "/name": "Ladrilhos de Arenito"
   },
-  "asteria:saxifrage": {
-    "/name": "Saxífraga"
-  },
   "asteria:lichen_scree": {
     "/name": "Líquen de Pedregal"
-  },
-  "asteria:fungus_shelf": {
-    "/name": "Fungo de Tronco"
   },
   "asteria:snow": {
     "/name": "Neve"
@@ -268,9 +214,6 @@
   },
   "asteria:layer_snow": {
     "/name": "Camada de Neve"
-  },
-  "asteria:snow_polished": {
-    "/name": "Neve Polida"
   },
   "asteria:tiles_snow": {
     "/name": "Ladrilhos de Neve"
@@ -302,26 +245,17 @@
   "asteria:tiles_stone": {
     "/name": "Ladrilhos de Pedra"
   },
-  "asteria:stonecrop": {
-    "/name": "Sedum"
-  },
   "asteria:box_storage": {
     "/name": "Caixa de armazenamento"
   },
   "asteria:terracotta": {
     "/name": "Terracota"
   },
-  "asteria:rosette_thorn": {
-    "/name": "Roseta Espinhosa"
-  },
   "asteria:thornbush": {
     "/name": "Arbusto Espinhoso"
   },
   "asteria:moss_wall": {
     "/name": "Musgo de Parede"
-  },
-  "asteria:yucca": {
-    "/name": "Iúca"
   },
   "asteria:mushroom_cap_blue": {
     "/name": "Chapéu de Cogumelo Azul"

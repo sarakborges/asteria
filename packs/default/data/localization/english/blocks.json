@@ -2,15 +2,6 @@
   "asteria:crystal_core_aether": {
     "/name": "Aether Crystal Core"
   },
-  "asteria:edelweiss_alpine": {
-    "/name": "Alpine Edelweiss"
-  },
-  "asteria:sedge_alpine": {
-    "/name": "Alpine Sedge"
-  },
-  "asteria:thorn_ash": {
-    "/name": "Ash Thorn"
-  },
   "asteria:crystal_azure": {
     "/name": "Azure Crystal"
   },
@@ -32,17 +23,8 @@
   "asteria:tiles_basalt": {
     "/name": "Basalt Tiles"
   },
-  "asteria:roots_bleached": {
-    "/name": "Bleached Roots"
-  },
-  "asteria:bone_scatter": {
-    "/name": "Scattered Bones"
-  },
   "asteria:bricks": {
     "/name": "Bricks"
-  },
-  "asteria:tuft_brittle": {
-    "/name": "Brittle Tuft"
   },
   "asteria:cactus_barrel": {
     "/name": "Barrel Cactus"
@@ -56,17 +38,11 @@
   "asteria:flower_cactus_yellow": {
     "/name": "Yellow Cactus Flower"
   },
-  "asteria:bloom_cinder": {
-    "/name": "Cinder Bloom"
-  },
   "asteria:clay": {
     "/name": "Clay"
   },
   "asteria:lichen_cliff": {
     "/name": "Cliff Lichen"
-  },
-  "asteria:rosette_cliff": {
-    "/name": "Cliff Rosette"
   },
   "asteria:coral_blue": {
     "/name": "Blue Coral"
@@ -89,9 +65,6 @@
   "asteria:coral_yellow": {
     "/name": "Yellow Coral"
   },
-  "asteria:thistle_dead": {
-    "/name": "Dead Thistle"
-  },
   "asteria:dirt": {
     "/name": "Dirt"
   },
@@ -101,20 +74,11 @@
   "asteria:tuft_dry": {
     "/name": "Dry Tuft"
   },
-  "asteria:grass_dune": {
-    "/name": "Dune Grass"
-  },
-  "asteria:roots_exposed": {
-    "/name": "Exposed Roots"
-  },
   "asteria:bone_fossil": {
     "/name": "Fossil Bone"
   },
   "asteria:lichen_frost": {
     "/name": "Frost Lichen"
-  },
-  "asteria:shrub_frost": {
-    "/name": "Frost Shrub"
   },
   "asteria:glass": {
     "/name": "Glass"
@@ -124,9 +88,6 @@
   },
   "asteria:mushroom_stem_glow": {
     "/name": "Glowing Mushroom Stem"
-  },
-  "asteria:pod_glow": {
-    "/name": "Glow Pod"
   },
   "asteria:block_grass": {
     "/name": "Grass Block"
@@ -206,15 +167,6 @@
   "asteria:bricks_mud": {
     "/name": "Mud Bricks"
   },
-  "asteria:mud_dry": {
-    "/name": "Dry Mud"
-  },
-  "asteria:mud_polished": {
-    "/name": "Polished Mud"
-  },
-  "asteria:tiles_mud": {
-    "/name": "Mud Tiles"
-  },
   "asteria:bloom_pink": {
     "/name": "Pink Bloom"
   },
@@ -251,14 +203,8 @@
   "asteria:tiles_sandstone": {
     "/name": "Sandstone Tiles"
   },
-  "asteria:saxifrage": {
-    "/name": "Saxifrage"
-  },
   "asteria:lichen_scree": {
     "/name": "Scree Lichen"
-  },
-  "asteria:fungus_shelf": {
-    "/name": "Shelf Fungus"
   },
   "asteria:snow": {
     "/name": "Snow"
@@ -268,9 +214,6 @@
   },
   "asteria:layer_snow": {
     "/name": "Snow Layer"
-  },
-  "asteria:snow_polished": {
-    "/name": "Polished Snow"
   },
   "asteria:tiles_snow": {
     "/name": "Snow Tiles"
@@ -302,26 +245,17 @@
   "asteria:tiles_stone": {
     "/name": "Stone Tiles"
   },
-  "asteria:stonecrop": {
-    "/name": "Stonecrop"
-  },
   "asteria:box_storage": {
     "/name": "Storage Box"
   },
   "asteria:terracotta": {
     "/name": "Terracotta"
   },
-  "asteria:rosette_thorn": {
-    "/name": "Thorn Rosette"
-  },
   "asteria:thornbush": {
     "/name": "Thornbush"
   },
   "asteria:moss_wall": {
     "/name": "Wall Moss"
-  },
-  "asteria:yucca": {
-    "/name": "Yucca"
   },
   "asteria:mushroom_cap_blue": {
     "/name": "Blue Mushroom Cap"
