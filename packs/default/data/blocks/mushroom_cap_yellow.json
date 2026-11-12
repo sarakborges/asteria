@@ -1,0 +1,19 @@
+{
+  "id": "asteria:mushroom_cap_yellow",
+  "category": "blocks_natural",
+  "tint": "none",
+  "textures": {
+    "top": "textures/blocks/mushroom_cap_yellow.png",
+    "bottom": "textures/blocks/mushroom_cap_yellow.png",
+    "left": "textures/blocks/mushroom_cap_yellow.png",
+    "right": "textures/blocks/mushroom_cap_yellow.png",
+    "front": "textures/blocks/mushroom_cap_yellow.png",
+    "back": "textures/blocks/mushroom_cap_yellow.png"
+  },
+  "lightDampening": 14,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.3
+  },
+  "previewColor": "d8bd55"
+}

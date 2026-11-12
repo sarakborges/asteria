@@ -1,0 +1,19 @@
+{
+  "id": "asteria:mushroom_cap_pink",
+  "category": "blocks_natural",
+  "tint": "none",
+  "textures": {
+    "top": "textures/blocks/mushroom_cap_pink.png",
+    "bottom": "textures/blocks/mushroom_cap_pink.png",
+    "left": "textures/blocks/mushroom_cap_pink.png",
+    "right": "textures/blocks/mushroom_cap_pink.png",
+    "front": "textures/blocks/mushroom_cap_pink.png",
+    "back": "textures/blocks/mushroom_cap_pink.png"
+  },
+  "lightDampening": 14,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.3
+  },
+  "previewColor": "d987a8"
+}

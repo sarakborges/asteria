@@ -1,0 +1,19 @@
+{
+  "id": "asteria:mushroom_cap_purple",
+  "category": "blocks_natural",
+  "tint": "none",
+  "textures": {
+    "top": "textures/blocks/mushroom_cap_purple.png",
+    "bottom": "textures/blocks/mushroom_cap_purple.png",
+    "left": "textures/blocks/mushroom_cap_purple.png",
+    "right": "textures/blocks/mushroom_cap_purple.png",
+    "front": "textures/blocks/mushroom_cap_purple.png",
+    "back": "textures/blocks/mushroom_cap_purple.png"
+  },
+  "lightDampening": 14,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.3
+  },
+  "previewColor": "946cb4"
+}
