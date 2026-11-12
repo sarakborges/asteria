@@ -426,6 +426,7 @@ jobs:
           retention-days: 30
 
       - name: Publish public GitHub Release download
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
