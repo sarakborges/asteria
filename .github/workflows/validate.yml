@@ -465,7 +465,7 @@ jobs:
             # the candidate with the baseline's effective two-worker cap so
             # selection latency can be separated from third-worker contention.
             if [ "$version" = "candidate" ]; then
-              local controlled_dir="$root/route-results/candidate-worldworkers-2"
+              local controlled_dir="$root/results/candidate-worldworkers-2"
               local controlled_output="$controlled_dir/$repetition.json"
               mkdir -p "$controlled_dir"
               if ! env DOTNET_TieredCompilation=0 \
