@@ -1,7 +1,7 @@
 {
   "id": "asteria:roots_hanging",
   "category": "foliage",
-  "icon": "textures/objects/roots_hanging.png",
+  "icon": "textures/objects/hanging_roots.png",
   "placementFaces": [
     "bottom"
   ],
@@ -19,7 +19,7 @@
   },
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/roots_hanging.png",
+    "texture": "textures/objects/hanging_roots.png",
     "width": 0.68,
     "height": 0.95,
     "planes": 2,

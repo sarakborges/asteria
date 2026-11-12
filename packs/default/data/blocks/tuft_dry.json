@@ -7,7 +7,7 @@
   "windSway": true,
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/tuft_dry.png",
+    "texture": "textures/objects/tuft.png",
     "width": 0.74,
     "height": 0.8,
     "planes": 4
