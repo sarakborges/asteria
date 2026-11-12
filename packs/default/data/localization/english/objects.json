@@ -115,41 +115,5 @@
   },
   "asteria:wildflower_yellow": {
     "/name": "Yellow Wildflower"
-  },
-  "asteria:sapling_nacreveil": {
-    "/name": "Nacreveil Sapling"
-  },
-  "asteria:sapling_stormglass": {
-    "/name": "Stormglass Sapling"
-  },
-  "asteria:sapling_voltress": {
-    "/name": "Voltress Sapling"
-  },
-  "asteria:sapling_rimehollow": {
-    "/name": "Rimehollow Sapling"
-  },
-  "asteria:sapling_skyweave": {
-    "/name": "Skyweave Sapling"
-  },
-  "asteria:sapling_zephyra": {
-    "/name": "Zephyra Sapling"
-  },
-  "asteria:sapling_prismara": {
-    "/name": "Prismara Sapling"
-  },
-  "asteria:sapling_solmire": {
-    "/name": "Solmire Sapling"
-  },
-  "asteria:sapling_nighthollow": {
-    "/name": "Nighthollow Sapling"
-  },
-  "asteria:sapling_mycelora": {
-    "/name": "Mycelora Sapling"
-  },
-  "asteria:sapling_verdalune": {
-    "/name": "Verdalune Sapling"
-  },
-  "asteria:sapling_thornsong": {
-    "/name": "Thornsong Sapling"
   }
 }

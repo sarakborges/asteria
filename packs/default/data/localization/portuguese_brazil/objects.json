@@ -115,41 +115,5 @@
   },
   "asteria:wildflower_yellow": {
     "/name": "Flor Silvestre Amarela"
-  },
-  "asteria:sapling_nacreveil": {
-    "/name": "Muda de Nacreveil"
-  },
-  "asteria:sapling_stormglass": {
-    "/name": "Muda de Stormglass"
-  },
-  "asteria:sapling_voltress": {
-    "/name": "Muda de Voltress"
-  },
-  "asteria:sapling_rimehollow": {
-    "/name": "Muda de Rimehollow"
-  },
-  "asteria:sapling_skyweave": {
-    "/name": "Muda de Skyweave"
-  },
-  "asteria:sapling_zephyra": {
-    "/name": "Muda de Zephyra"
-  },
-  "asteria:sapling_prismara": {
-    "/name": "Muda de Prismara"
-  },
-  "asteria:sapling_solmire": {
-    "/name": "Muda de Solmire"
-  },
-  "asteria:sapling_nighthollow": {
-    "/name": "Muda de Nighthollow"
-  },
-  "asteria:sapling_mycelora": {
-    "/name": "Muda de Mycelora"
-  },
-  "asteria:sapling_verdalune": {
-    "/name": "Muda de Verdalune"
-  },
-  "asteria:sapling_thornsong": {
-    "/name": "Muda de Thornsong"
   }
 }
