@@ -323,24 +323,6 @@
   "asteria:yucca": {
     "/name": "Yucca"
   },
-  "asteria:log_embercoil": {
-    "/name": "Embercoil Log"
-  },
-  "asteria:log_embercoil_hollow": {
-    "/name": "Hollow Embercoil Log"
-  },
-  "asteria:log_embercoil_stripped": {
-    "/name": "Stripped Embercoil Log"
-  },
-  "asteria:log_embercoil_stripped_hollow": {
-    "/name": "Stripped Hollow Embercoil Log"
-  },
-  "asteria:planks_embercoil": {
-    "/name": "Embercoil Planks"
-  },
-  "asteria:leaf_embercoil": {
-    "/name": "Embercoil Leaves"
-  },
   "asteria:log_nacreveil": {
     "/name": "Nacreveil Log"
   },
@@ -377,24 +359,6 @@
   "asteria:leaf_mirewake": {
     "/name": "Mirewake Leaves"
   },
-  "asteria:log_ferrumbark": {
-    "/name": "Ferrumbark Log"
-  },
-  "asteria:log_ferrumbark_hollow": {
-    "/name": "Hollow Ferrumbark Log"
-  },
-  "asteria:log_ferrumbark_stripped": {
-    "/name": "Stripped Ferrumbark Log"
-  },
-  "asteria:log_ferrumbark_stripped_hollow": {
-    "/name": "Stripped Hollow Ferrumbark Log"
-  },
-  "asteria:planks_ferrumbark": {
-    "/name": "Ferrumbark Planks"
-  },
-  "asteria:leaf_ferrumbark": {
-    "/name": "Ferrumbark Leaves"
-  },
   "asteria:log_geodera": {
     "/name": "Geodera Log"
   },
@@ -412,24 +376,6 @@
   },
   "asteria:leaf_geodera": {
     "/name": "Geodera Leaves"
-  },
-  "asteria:log_fulminara": {
-    "/name": "Fulminara Log"
-  },
-  "asteria:log_fulminara_hollow": {
-    "/name": "Hollow Fulminara Log"
-  },
-  "asteria:log_fulminara_stripped": {
-    "/name": "Stripped Fulminara Log"
-  },
-  "asteria:log_fulminara_stripped_hollow": {
-    "/name": "Stripped Hollow Fulminara Log"
-  },
-  "asteria:planks_fulminara": {
-    "/name": "Fulminara Planks"
-  },
-  "asteria:leaf_fulminara": {
-    "/name": "Fulminara Leaves"
   },
   "asteria:log_stormglass": {
     "/name": "Stormglass Log"
@@ -466,24 +412,6 @@
   },
   "asteria:leaf_voltress": {
     "/name": "Voltress Leaves"
-  },
-  "asteria:log_frostveil": {
-    "/name": "Frostveil Log"
-  },
-  "asteria:log_frostveil_hollow": {
-    "/name": "Hollow Frostveil Log"
-  },
-  "asteria:log_frostveil_stripped": {
-    "/name": "Stripped Frostveil Log"
-  },
-  "asteria:log_frostveil_stripped_hollow": {
-    "/name": "Stripped Hollow Frostveil Log"
-  },
-  "asteria:planks_frostveil": {
-    "/name": "Frostveil Planks"
-  },
-  "asteria:leaf_frostveil": {
-    "/name": "Frostveil Leaves"
   },
   "asteria:log_rimehollow": {
     "/name": "Rimehollow Log"
@@ -556,24 +484,6 @@
   },
   "asteria:leaf_skyweave": {
     "/name": "Skyweave Leaves"
-  },
-  "asteria:log_galeheart": {
-    "/name": "Galeheart Log"
-  },
-  "asteria:log_galeheart_hollow": {
-    "/name": "Hollow Galeheart Log"
-  },
-  "asteria:log_galeheart_stripped": {
-    "/name": "Stripped Galeheart Log"
-  },
-  "asteria:log_galeheart_stripped_hollow": {
-    "/name": "Stripped Hollow Galeheart Log"
-  },
-  "asteria:planks_galeheart": {
-    "/name": "Galeheart Planks"
-  },
-  "asteria:leaf_galeheart": {
-    "/name": "Galeheart Leaves"
   },
   "asteria:log_zephyra": {
     "/name": "Zephyra Log"
@@ -682,24 +592,6 @@
   },
   "asteria:leaf_gloamroot": {
     "/name": "Gloamroot Leaves"
-  },
-  "asteria:log_elderbloom": {
-    "/name": "Elderbloom Log"
-  },
-  "asteria:log_elderbloom_hollow": {
-    "/name": "Hollow Elderbloom Log"
-  },
-  "asteria:log_elderbloom_stripped": {
-    "/name": "Stripped Elderbloom Log"
-  },
-  "asteria:log_elderbloom_stripped_hollow": {
-    "/name": "Stripped Hollow Elderbloom Log"
-  },
-  "asteria:planks_elderbloom": {
-    "/name": "Elderbloom Planks"
-  },
-  "asteria:leaf_elderbloom": {
-    "/name": "Elderbloom Leaves"
   },
   "asteria:log_mycelora": {
     "/name": "Mycelora Log"

@@ -323,24 +323,6 @@
   "asteria:yucca": {
     "/name": "Yuca"
   },
-  "asteria:log_embercoil": {
-    "/name": "Tronco de Embercoil"
-  },
-  "asteria:log_embercoil_hollow": {
-    "/name": "Tronco hueco de Embercoil"
-  },
-  "asteria:log_embercoil_stripped": {
-    "/name": "Tronco sin corteza de Embercoil"
-  },
-  "asteria:log_embercoil_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Embercoil"
-  },
-  "asteria:planks_embercoil": {
-    "/name": "Tablones de Embercoil"
-  },
-  "asteria:leaf_embercoil": {
-    "/name": "Hojas de Embercoil"
-  },
   "asteria:log_nacreveil": {
     "/name": "Tronco de Nacreveil"
   },
@@ -377,24 +359,6 @@
   "asteria:leaf_mirewake": {
     "/name": "Hojas de Mirewake"
   },
-  "asteria:log_ferrumbark": {
-    "/name": "Tronco de Ferrumbark"
-  },
-  "asteria:log_ferrumbark_hollow": {
-    "/name": "Tronco hueco de Ferrumbark"
-  },
-  "asteria:log_ferrumbark_stripped": {
-    "/name": "Tronco sin corteza de Ferrumbark"
-  },
-  "asteria:log_ferrumbark_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Ferrumbark"
-  },
-  "asteria:planks_ferrumbark": {
-    "/name": "Tablones de Ferrumbark"
-  },
-  "asteria:leaf_ferrumbark": {
-    "/name": "Hojas de Ferrumbark"
-  },
   "asteria:log_geodera": {
     "/name": "Tronco de Geodera"
   },
@@ -412,24 +376,6 @@
   },
   "asteria:leaf_geodera": {
     "/name": "Hojas de Geodera"
-  },
-  "asteria:log_fulminara": {
-    "/name": "Tronco de Fulminara"
-  },
-  "asteria:log_fulminara_hollow": {
-    "/name": "Tronco hueco de Fulminara"
-  },
-  "asteria:log_fulminara_stripped": {
-    "/name": "Tronco sin corteza de Fulminara"
-  },
-  "asteria:log_fulminara_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Fulminara"
-  },
-  "asteria:planks_fulminara": {
-    "/name": "Tablones de Fulminara"
-  },
-  "asteria:leaf_fulminara": {
-    "/name": "Hojas de Fulminara"
   },
   "asteria:log_stormglass": {
     "/name": "Tronco de Stormglass"
@@ -466,24 +412,6 @@
   },
   "asteria:leaf_voltress": {
     "/name": "Hojas de Voltress"
-  },
-  "asteria:log_frostveil": {
-    "/name": "Tronco de Frostveil"
-  },
-  "asteria:log_frostveil_hollow": {
-    "/name": "Tronco hueco de Frostveil"
-  },
-  "asteria:log_frostveil_stripped": {
-    "/name": "Tronco sin corteza de Frostveil"
-  },
-  "asteria:log_frostveil_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Frostveil"
-  },
-  "asteria:planks_frostveil": {
-    "/name": "Tablones de Frostveil"
-  },
-  "asteria:leaf_frostveil": {
-    "/name": "Hojas de Frostveil"
   },
   "asteria:log_rimehollow": {
     "/name": "Tronco de Rimehollow"
@@ -556,24 +484,6 @@
   },
   "asteria:leaf_skyweave": {
     "/name": "Hojas de Skyweave"
-  },
-  "asteria:log_galeheart": {
-    "/name": "Tronco de Galeheart"
-  },
-  "asteria:log_galeheart_hollow": {
-    "/name": "Tronco hueco de Galeheart"
-  },
-  "asteria:log_galeheart_stripped": {
-    "/name": "Tronco sin corteza de Galeheart"
-  },
-  "asteria:log_galeheart_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Galeheart"
-  },
-  "asteria:planks_galeheart": {
-    "/name": "Tablones de Galeheart"
-  },
-  "asteria:leaf_galeheart": {
-    "/name": "Hojas de Galeheart"
   },
   "asteria:log_zephyra": {
     "/name": "Tronco de Zephyra"
@@ -682,24 +592,6 @@
   },
   "asteria:leaf_gloamroot": {
     "/name": "Hojas de Gloamroot"
-  },
-  "asteria:log_elderbloom": {
-    "/name": "Tronco de Elderbloom"
-  },
-  "asteria:log_elderbloom_hollow": {
-    "/name": "Tronco hueco de Elderbloom"
-  },
-  "asteria:log_elderbloom_stripped": {
-    "/name": "Tronco sin corteza de Elderbloom"
-  },
-  "asteria:log_elderbloom_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Elderbloom"
-  },
-  "asteria:planks_elderbloom": {
-    "/name": "Tablones de Elderbloom"
-  },
-  "asteria:leaf_elderbloom": {
-    "/name": "Hojas de Elderbloom"
   },
   "asteria:log_mycelora": {
     "/name": "Tronco de Mycelora"
