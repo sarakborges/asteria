@@ -116,26 +116,11 @@
   "asteria:wildflower_yellow": {
     "/name": "Yellow Wildflower"
   },
-  "asteria:sapling_cinderwood": {
-    "/name": "Cinderwood Sapling"
-  },
-  "asteria:sapling_briarflame": {
-    "/name": "Briarflame Sapling"
-  },
-  "asteria:sapling_ashveil": {
-    "/name": "Ashveil Sapling"
-  },
   "asteria:sapling_embercoil": {
     "/name": "Embercoil Sapling"
   },
   "asteria:sapling_nacreveil": {
     "/name": "Nacreveil Sapling"
-  },
-  "asteria:sapling_brinesong": {
-    "/name": "Brinesong Sapling"
-  },
-  "asteria:sapling_coralith": {
-    "/name": "Coralith Sapling"
   },
   "asteria:sapling_mirewake": {
     "/name": "Mirewake Sapling"
@@ -146,17 +131,8 @@
   "asteria:sapling_geodera": {
     "/name": "Geodera Sapling"
   },
-  "asteria:sapling_ambermaw": {
-    "/name": "Ambermaw Sapling"
-  },
-  "asteria:sapling_cragbloom": {
-    "/name": "Cragbloom Sapling"
-  },
   "asteria:sapling_fulminara": {
     "/name": "Fulminara Sapling"
-  },
-  "asteria:sapling_coppercoil": {
-    "/name": "Coppercoil Sapling"
   },
   "asteria:sapling_stormglass": {
     "/name": "Stormglass Sapling"
@@ -182,17 +158,8 @@
   "asteria:sapling_galeheart": {
     "/name": "Galeheart Sapling"
   },
-  "asteria:sapling_cloudspindle": {
-    "/name": "Cloudspindle Sapling"
-  },
   "asteria:sapling_zephyra": {
     "/name": "Zephyra Sapling"
-  },
-  "asteria:sapling_aurorasil": {
-    "/name": "Aurorasil Sapling"
-  },
-  "asteria:sapling_dawnlace": {
-    "/name": "Dawnlace Sapling"
   },
   "asteria:sapling_prismara": {
     "/name": "Prismara Sapling"
@@ -205,9 +172,6 @@
   },
   "asteria:sapling_mourningbriar": {
     "/name": "Mourningbriar Sapling"
-  },
-  "asteria:sapling_eclipseveil": {
-    "/name": "Eclipseveil Sapling"
   },
   "asteria:sapling_gloamroot": {
     "/name": "Gloamroot Sapling"

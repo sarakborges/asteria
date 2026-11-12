@@ -116,26 +116,11 @@
   "asteria:wildflower_yellow": {
     "/name": "Flor Silvestre Amarilla"
   },
-  "asteria:sapling_cinderwood": {
-    "/name": "Brote de Cinderwood"
-  },
-  "asteria:sapling_briarflame": {
-    "/name": "Brote de Briarflame"
-  },
-  "asteria:sapling_ashveil": {
-    "/name": "Brote de Ashveil"
-  },
   "asteria:sapling_embercoil": {
     "/name": "Brote de Embercoil"
   },
   "asteria:sapling_nacreveil": {
     "/name": "Brote de Nacreveil"
-  },
-  "asteria:sapling_brinesong": {
-    "/name": "Brote de Brinesong"
-  },
-  "asteria:sapling_coralith": {
-    "/name": "Brote de Coralith"
   },
   "asteria:sapling_mirewake": {
     "/name": "Brote de Mirewake"
@@ -146,17 +131,8 @@
   "asteria:sapling_geodera": {
     "/name": "Brote de Geodera"
   },
-  "asteria:sapling_ambermaw": {
-    "/name": "Brote de Ambermaw"
-  },
-  "asteria:sapling_cragbloom": {
-    "/name": "Brote de Cragbloom"
-  },
   "asteria:sapling_fulminara": {
     "/name": "Brote de Fulminara"
-  },
-  "asteria:sapling_coppercoil": {
-    "/name": "Brote de Coppercoil"
   },
   "asteria:sapling_stormglass": {
     "/name": "Brote de Stormglass"
@@ -182,17 +158,8 @@
   "asteria:sapling_galeheart": {
     "/name": "Brote de Galeheart"
   },
-  "asteria:sapling_cloudspindle": {
-    "/name": "Brote de Cloudspindle"
-  },
   "asteria:sapling_zephyra": {
     "/name": "Brote de Zephyra"
-  },
-  "asteria:sapling_aurorasil": {
-    "/name": "Brote de Aurorasil"
-  },
-  "asteria:sapling_dawnlace": {
-    "/name": "Brote de Dawnlace"
   },
   "asteria:sapling_prismara": {
     "/name": "Brote de Prismara"
@@ -205,9 +172,6 @@
   },
   "asteria:sapling_mourningbriar": {
     "/name": "Brote de Mourningbriar"
-  },
-  "asteria:sapling_eclipseveil": {
-    "/name": "Brote de Eclipseveil"
   },
   "asteria:sapling_gloamroot": {
     "/name": "Brote de Gloamroot"
