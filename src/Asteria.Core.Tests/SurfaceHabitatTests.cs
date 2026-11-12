@@ -111,29 +111,25 @@ public sealed class SurfaceHabitatTests
     }
 
     [Fact]
-    public void SwampHabitatsDistributeWillowsFungiAndSurfaceObjects()
+    public void SwampHabitatsDistributeRetainedWillowsBouldersAndFungi()
     {
-        var biomePath = Path.Combine(AppContext.BaseDirectory, "packs", "default",
-            "data", "biomes", "swamp.json");
-        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(biomePath));
-        var rootPath = Path.Combine(AppContext.BaseDirectory, "packs", "default",
-            "data", "dimensions", "overworld.json");
-        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(rootPath));
+        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data",
+            "biomes", "swamp.json")));
+        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data",
+            "dimensions", "overworld.json")));
         var roots = dimension.GeneratedSurfaceStructures
             .Where(rule => rule.Biome == biome.Id).ToArray();
-        Assert.Equal(9, roots.Length);
-        var reeds = Assert.Single(roots,
-            root => root.Structure == "asteria:bed_reed_swamp");
-        Assert.True(reeds.HabitatWeights!.For("open_mire") >
-                    reeds.HabitatWeights.For("willow_grove"));
-        var stump = Assert.Single(roots,
-            root => root.Structure == "asteria:stump_swamp_moss");
-        Assert.True(stump.HabitatWeights!.For("fungal_ground") >
-                    stump.HabitatWeights.For("open_mire"));
-        var willows = Assert.Single(roots,
+
+        Assert.Equal(3, roots.Length);
+        Assert.DoesNotContain(roots,
+            root => root.Structure is "asteria:bed_reed_swamp" or
+                "asteria:stump_swamp_moss");
+        var willow = Assert.Single(roots,
             root => root.Structure == "asteria:tree_willow");
-        Assert.True(willows.HabitatWeights!.For("willow_grove") >
-                    willows.HabitatWeights.For("open_mire"));
+        Assert.True(willow.HabitatWeights!.For("willow_grove") >
+                    willow.HabitatWeights.For("open_mire"));
         var boulder = Assert.Single(roots,
             root => root.Structure == "asteria:boulder_small");
         Assert.True(boulder.HabitatWeights!.For("fungal_ground") >
@@ -143,6 +139,10 @@ public sealed class SurfaceHabitatTests
         Assert.True(mushroom.HabitatWeights!.For("fungal_ground") >
                     mushroom.HabitatWeights.For("willow_grove"));
         Assert.Equal(93, mushroom.Conditions!.MaxY);
+        var giantMushroom = Assert.Single(roots,
+            root => root.Structure == "asteria:mushroom_swamp_giant");
+        Assert.True(giantMushroom.HabitatWeights!.For("fungal_ground") >
+                    giantMushroom.HabitatWeights.For("willow_grove"));
     }
 
     [Fact]
@@ -185,47 +185,21 @@ public sealed class SurfaceHabitatTests
     }
 
     [Fact]
-    public void WraithTreeAndSnagRootsFollowTheirAuthoredHabitats()
+    public void WraithGroveHasNoRootsForRemovedFantasyTreeStructures()
     {
-        var biomePath = Path.Combine(AppContext.BaseDirectory, "packs",
-            "default", "data", "biomes", "wraith_grove.json");
-        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(biomePath));
-        var dimensionPath = Path.Combine(AppContext.BaseDirectory, "packs",
-            "default", "data", "dimensions", "umbral.json");
-        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(dimensionPath));
-        var roots = dimension.GeneratedSurfaceStructures
-            .Where(root => root.Biome == biome.Id).ToArray();
-        Assert.Equal(4, roots.Length);
-        Assert.All(roots, rule =>
-            biome.SurfaceHabitats!.ValidateWeights(rule.HabitatWeights));
-
-        var treeFamilies = new[]
-        {
-            "asteria:tree_nighthollow",
-            "asteria:tree_mourningbriar",
-            "asteria:tree_eclipseveil",
-            "asteria:tree_gloamroot"
-        };
-        foreach (var family in treeFamilies)
-        {
-            var root = Assert.Single(roots, rule => rule.Structure == family);
-            Assert.True(root.HabitatWeights!.For("dusky_underbrush") >
-                        root.HabitatWeights.For("pale_clearing"));
-            Assert.True(root.HabitatWeights.For("decay_pockets") >
-                        root.HabitatWeights.For("pale_clearing"));
-        }
-
-        var tree = Assert.Single(roots,
-            root => root.Structure == "asteria:tree_nighthollow");
-        var a = new SurfaceHabitatField(53UL, [biome]);
-        var b = new SurfaceHabitatField(53UL, [biome]);
-        foreach (var (x, z) in new[] { (-281, 71), (0, 0), (299, -112) })
-        {
-            Assert.Equal(a.Sample(biome.Id, x, z),
-                         b.Sample(biome.Id, x, z));
-            Assert.Equal(a.Weight(biome.Id, tree.HabitatWeights, x, z),
-                         b.Weight(biome.Id, tree.HabitatWeights, x, z));
-        }
+        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data",
+            "biomes", "wraith_grove.json")));
+        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data",
+            "dimensions", "umbral.json")));
+        Assert.Empty(dimension.GeneratedSurfaceStructures
+            .Where(rule => rule.Biome == biome.Id));
+        Assert.NotNull(biome.SurfaceHabitats);
+        var mushroom = Assert.Single(biome.Decorations,
+            rule => rule.Block == "asteria:mushroom_brown");
+        Assert.True(mushroom.HabitatWeights!.For("decay_pockets") >
+                    mushroom.HabitatWeights.For("pale_clearing"));
     }
 
     [Fact]
