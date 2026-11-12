@@ -1,0 +1,35 @@
+{
+  "id": "asteria:crystal",
+  "category": "foliage",
+  "icon": "textures/objects/crystal.png",
+  "placementFaces": [
+    "top"
+  ],
+  "target": {
+    "size": [
+      0.68,
+      0.94,
+      0.68
+    ],
+    "centerOffset": [
+      0,
+      0.47,
+      0
+    ]
+  },
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/crystal.png",
+    "width": 0.68,
+    "height": 0.94,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "positionJitter": [
+    0.12,
+    0.12
+  ],
+  "dropSelf": false,
+  "windSway": false,
+  "unlit": false
+}
