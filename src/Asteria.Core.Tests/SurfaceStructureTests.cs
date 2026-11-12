@@ -517,7 +517,7 @@ public sealed class SurfaceStructureTests
             structures.ResolvesReference(
                 "asteria:mouth_river_ocean"));
         // New habitats add roots without invalidating required originals.
-        Assert.Equal(73, overworld.GeneratedSurfaceStructures.Count);
+        Assert.Equal(74, overworld.GeneratedSurfaceStructures.Count);
         var plainsRoots = overworld.GeneratedSurfaceStructures
             .Where(root => root.Biome == "asteria:overworld/plains")
             .ToArray();
