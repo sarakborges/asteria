@@ -5,7 +5,7 @@ namespace Asteria.Core.Tests;
 public sealed class SwampRootsAndMossTests
 {
     [Fact]
-    public void SwampRootsRespectNearbyWaterAndFavorWillowGrove()
+    public void SwampCattailsRequireNearbyWaterAndRemovedRootsHaveNoBiomeReference()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
@@ -14,18 +14,17 @@ public sealed class SwampRootsAndMossTests
         biomes.ValidateFluids(fluids);
 
         var swamp = biomes.Get("asteria:overworld/swamp");
-        var roots = Assert.Single(swamp.Decorations,
-            d => d.Block == "asteria:roots_exposed");
-        Assert.Equal(DecorationFluidRelation.Nearby, roots.FluidRequirement!.Relation);
-        Assert.Equal("asteria:water", roots.FluidRequirement.Fluid);
-        Assert.Equal(3, roots.FluidRequirement.MaxDistance);
-        Assert.Contains("asteria:mud", roots.SurfaceBlocks);
-        Assert.True(roots.HabitatWeights!.For("willow_grove") >
-                    roots.HabitatWeights.For("open_mire"));
-
-        var visual = blocks.GetDefinition(blocks.GetId(roots.Block));
-        Assert.Equal(BlockVisualKind.GroundSprite, visual.Visual.Kind);
-        Assert.True(visual.HasTag(BlockPhysicsCapabilities.SupportBelow));
+        var cattail = Assert.Single(swamp.Decorations,
+            decoration => decoration.Block == "asteria:cattail");
+        Assert.True(cattail.IsObject);
+        Assert.Equal(DecorationFluidRelation.Nearby,
+            cattail.FluidRequirement!.Relation);
+        Assert.Equal("asteria:water", cattail.FluidRequirement.Fluid);
+        Assert.Equal(2, cattail.FluidRequirement.MaxDistance);
+        Assert.Contains("asteria:mud", cattail.SurfaceBlocks);
+        Assert.DoesNotContain(swamp.Decorations,
+            decoration => decoration.Block == "asteria:roots_exposed");
+        Assert.False(blocks.TryGetId("asteria:roots_exposed", out _));
     }
 
     [Fact]

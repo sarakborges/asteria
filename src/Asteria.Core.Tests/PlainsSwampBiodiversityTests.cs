@@ -64,7 +64,7 @@ public sealed class PlainsSwampBiodiversityTests
         foreach (var (name, relation, maxDistance) in new[]
         {
             ("cattail", DecorationFluidRelation.Nearby, (int?)2),
-            ("pad_lily", DecorationFluidRelation.Below, (int?)null)
+            ("pad_lily", DecorationFluidRelation.Below, (int?)0)
         })
         {
             var rule = Assert.Single(swamp.Decorations,
@@ -106,7 +106,7 @@ public sealed class PlainsSwampBiodiversityTests
                     willowRule.HabitatWeights.For("open_mire"));
 
         var trees = structures.ResolveReference("asteria:tree_willow");
-        Assert.Equal(2, trees.Count);
+        Assert.Equal(3, trees.Count);
         Assert.All(trees, tree =>
         {
             Assert.Contains(tree.Voxels,
@@ -137,7 +137,7 @@ public sealed class PlainsSwampBiodiversityTests
         }
 
         var marshFern = blocks.GetDefinition(blocks.GetId("asteria:fern_marsh"));
-        const string fernTexture = "textures/objects/fern_marsh.png";
+        const string fernTexture = "textures/objects/fern.png";
         Assert.Equal(fernTexture, marshFern.Visual.Texture!.Value.Texture);
         Assert.True(seen.Add(fernTexture));
 
