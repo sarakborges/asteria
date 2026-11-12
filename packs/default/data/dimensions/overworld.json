@@ -998,6 +998,13 @@
         "boulder_runs": 1.6,
         "bare_crests": 2.3
       }
+    },
+    {
+      "biome": "asteria:overworld/scorched_wastes",
+      "structure": "asteria:volcano",
+      "spacing": 128,
+      "chance": 1,
+      "jitter": 8
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",
