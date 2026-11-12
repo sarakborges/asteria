@@ -7,23 +7,26 @@ public sealed class PlainsSwampBiodiversityTests
 {
     private static readonly string[] PlainsFlowers =
     [
-        "daisy", "clover",
-        "aster_purple", "seedheads_meadow"
+        "daisy", "clover", "aster_purple", "seedheads_meadow"
     ];
 
     [Fact]
     public void PlainsMeadowObjectsStayInGrassAndPreserveOpenHabitats()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, definition => definition.Id);
         var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
         biomes.ValidateBlocks(blocks);
+        biomes.ValidateObjects(objects);
         var plains = biomes.Get("asteria:overworld/plains");
-        Assert.Equal(10, plains.Decorations.Count);
+
+        Assert.Equal(9, plains.Decorations.Count);
         Assert.Equal("asteria:block_grass", plains.SurfaceLayers[0].Block);
         foreach (var name in PlainsFlowers)
         {
             var rule = Assert.Single(plains.Decorations,
-                x => x.Block == "asteria:" + name);
+                decoration => decoration.Block == "asteria:" + name);
             Assert.Equal(["asteria:block_grass"], rule.SurfaceBlocks);
             Assert.NotNull(rule.Cluster);
             Assert.NotNull(rule.HabitatWeights);
@@ -31,181 +34,118 @@ public sealed class PlainsSwampBiodiversityTests
             Assert.True(rule.HabitatWeights!.For("open") >
                         rule.HabitatWeights.For("rocky"));
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
-            if (name is "clover" or "daisy" or "aster_purple" or "seedheads_meadow")
-            {
-                Assert.True(rule.IsObject);
-                Assert.False(blocks.TryGetId(rule.Block, out _));
-                var objects = PackContentRegistry<ObjectDefinition>.FromJson(
-                    ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
-                var visual = objects.Get(rule.Block).Visual;
-                Assert.Equal(name == "clover"
-                    ? ObjectVisualKind.ExtrudedSprite
-                    : ObjectVisualKind.CrossedSprite, visual.Kind);
-                Assert.Equal("textures/objects/" + name + ".png", visual.Texture);
-            }
-            else
-            {
-                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-                Assert.False(block.IsCollidable);
-                Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
-                Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
-                Assert.Equal("textures/objects/" + name + ".png",
-                    block.Visual.Texture!.Value.Texture);
-            }
-        }
-    }
-
-    [Fact]
-    public void SwampOrchidsAndBulrushesRequireWaterNearbyOnDryGround()
-    {
-        var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
-        var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
-        biomes.ValidateBlocks(blocks);
-        var swamp = biomes.Get("asteria:overworld/swamp");
-        Assert.Equal(11, swamp.Decorations.Count);
-        Assert.Equal("asteria:mud", swamp.SurfaceLayers[0].Block);
-        foreach (var name in new[] { "orchid_marsh", "bulrush" })
-        {
-            var rule = Assert.Single(swamp.Decorations,
-                x => x.Block == "asteria:" + name);
-            Assert.NotNull(rule.FluidRequirement);
-            Assert.Equal("asteria:water", rule.FluidRequirement!.Fluid);
-            Assert.Equal(DecorationFluidRelation.Nearby,
-                rule.FluidRequirement.Relation);
-            Assert.NotNull(rule.Cluster);
-            Assert.NotNull(rule.Conditions);
-            Assert.True(rule.HabitatWeights!.For("open_mire") >
-                        rule.HabitatWeights.For("fungal_ground"));
-            Assert.All(rule.SurfaceBlocks, b => Assert.Contains(b,
-                new[] {"asteria:mud", "asteria:dirt", "asteria:block_grass"}));
             Assert.True(rule.IsObject);
             Assert.False(blocks.TryGetId(rule.Block, out _));
-            var objects = PackContentRegistry<ObjectDefinition>.FromJson(
-                ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
-            var definition = objects.Get(rule.Block);
-            Assert.True(definition.Supports(BlockFace.Top));
-            Assert.Equal(ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
+            var flower = objects.Get(rule.Block);
+            Assert.True(flower.Supports(BlockFace.Top));
+            Assert.Equal(name == "clover"
+                    ? ObjectVisualKind.ExtrudedSprite
+                    : ObjectVisualKind.CrossedSprite,
+                flower.Visual.Kind);
+            Assert.Equal("textures/objects/" + name + ".png",
+                flower.Visual.Texture);
         }
     }
 
     [Fact]
-    public void MarshBedAndMossStumpVariantsAreGroundedAndRemainBiomelimited()
+    public void SwampCattailsAndLilyPadsKeepTheirWaterPlacementRules()
+    {
+        var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, definition => definition.Id);
+        var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
+        biomes.ValidateBlocks(blocks);
+        biomes.ValidateObjects(objects);
+        var swamp = biomes.Get("asteria:overworld/swamp");
+
+        Assert.Equal(7, swamp.Decorations.Count);
+        Assert.Equal("asteria:mud", swamp.SurfaceLayers[0].Block);
+
+        foreach (var (name, relation, maxDistance) in new[]
+        {
+            ("cattail", DecorationFluidRelation.Nearby, (int?)2),
+            ("pad_lily", DecorationFluidRelation.Below, (int?)null)
+        })
+        {
+            var rule = Assert.Single(swamp.Decorations,
+                decoration => decoration.Block == "asteria:" + name);
+            Assert.True(rule.IsObject);
+            Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
+            Assert.Equal("asteria:water", rule.FluidRequirement!.Fluid);
+            Assert.Equal(relation, rule.FluidRequirement.Relation);
+            Assert.Equal(maxDistance, rule.FluidRequirement.MaxDistance);
+            Assert.NotEmpty(rule.SurfaceBlocks);
+            var definition = objects.Get(rule.Block);
+            Assert.True(definition.Supports(BlockFace.Top));
+            Assert.Equal(name == "pad_lily"
+                    ? ObjectVisualKind.ExtrudedSprite
+                    : ObjectVisualKind.CrossedSprite,
+                definition.Visual.Kind);
+        }
+    }
+
+    [Fact]
+    public void WillowRemainsButRemovedReedBedsAndMossStumpsHaveNoReferences()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var structures = StructureRegistry.FromJson(ReadPackJson("structures"));
         structures.ValidateBlocks(blocks);
-        var dim = DimensionRegistry.FromJson(ReadPackJson("dimensions"))
-            .Get(DimensionId.Overworld);
-        foreach (var name in new[] { "bed_reed_swamp", "stump_swamp_moss" })
-        {
-            var rule = Assert.Single(dim.GeneratedSurfaceStructures,
-                x => x.Biome == "asteria:overworld/swamp" &&
-                     x.Structure == "asteria:" + name);
-            Assert.NotNull(rule.HabitatWeights);
-            var members = structures.ResolveReference("asteria:" + name);
-            Assert.Equal(3, members.Count);
-            Assert.All(members, s =>
-            {
-                Assert.Equal((int?)0, s.GroundAnchorY);
-                Assert.Equal(1f, s.Restrictions.RequiredBiomeCoverage);
-                Assert.True(s.Restrictions.RequiresDryGround);
-                Assert.Equal(StructureFluidPolicy.Forbid,
-                    s.Generation.FluidPolicy);
-                Assert.All(s.Restrictions.GroundBlocks, ground =>
-                    Assert.Contains(ground, new[]
-                    {
-                        "asteria:mud","asteria:dirt","asteria:block_grass"
-                    }));
-                if (name == "bed_reed_swamp")
-                {
-                    Assert.True(s.Objects.Count >= 8);
-                    Assert.Empty(s.Voxels);
-                    Assert.All(s.Objects, obj =>
-                    {
-                        Assert.Equal(1, obj.Y);
-                        Assert.Equal(BlockFace.Top, obj.Face);
-                        Assert.Contains(obj.Object,
-                            new[] { "asteria:bulrush", "asteria:cattail" });
-                    });
-                }
-                else
-                {
-                    Assert.True(s.Voxels.Count >= 8);
-                    Assert.All(s.Voxels, v => Assert.True(v.Y > 0));
-                }
-            });
-        }
+        var dimensions = DimensionRegistry.FromJson(ReadPackJson("dimensions"));
+        var swampRules = dimensions.Get(DimensionId.Overworld)
+            .GeneratedSurfaceStructures
+            .Where(rule => rule.Biome == "asteria:overworld/swamp")
+            .ToArray();
 
-        var reedBeds = structures.ResolveReference("asteria:bed_reed_swamp");
-        Assert.All(reedBeds, bed =>
+        Assert.DoesNotContain(swampRules,
+            rule => rule.Structure is "asteria:bed_reed_swamp" or
+                "asteria:stump_swamp_moss");
+        var willowRule = Assert.Single(swampRules,
+            rule => rule.Structure == "asteria:tree_willow");
+        Assert.NotNull(willowRule.HabitatWeights);
+        Assert.True(willowRule.HabitatWeights!.For("willow_grove") >
+                    willowRule.HabitatWeights.For("open_mire"));
+
+        var trees = structures.ResolveReference("asteria:tree_willow");
+        Assert.Equal(2, trees.Count);
+        Assert.All(trees, tree =>
         {
-            Assert.All(bed.Objects, obj => Assert.Equal(1, obj.Y));
-            Assert.Contains(bed.Restrictions.Proximity, p =>
-                p.Target.Fluid == "asteria:water" &&
-                p.Mode == StructureProximityMode.Required);
+            Assert.Contains(tree.Voxels,
+                voxel => voxel.Block == "asteria:log_willow");
+            Assert.Contains(tree.Voxels,
+                voxel => voxel.Block == "asteria:leaf_willow");
         });
-        var stumps = structures.ResolveReference("asteria:stump_swamp_moss");
-        Assert.True(stumps.Select(x => x.MaximumY).Distinct().Count() >= 2);
-        Assert.All(stumps, stump =>
-        {
-            Assert.Contains(stump.Voxels, v =>
-                v.Block == "asteria:log_willow");
-            Assert.Contains(stump.Voxels, v =>
-                v.Block == "asteria:fungus_shelf");
-            Assert.Contains(stump.Voxels, v =>
-                v.Block == "asteria:moss_hanging");
-        });
+        Assert.Throws<KeyNotFoundException>(() =>
+            structures.ResolveReference("asteria:bed_reed_swamp"));
+        Assert.Throws<KeyNotFoundException>(() =>
+            structures.ResolveReference("asteria:stump_swamp_moss"));
     }
 
     [Fact]
-    public void HangingMossOnStumpsIsActuallySupportedByWillowWood()
-    {
-        var structures = StructureRegistry.FromJson(ReadPackJson("structures"));
-        var moss = structures.ResolveReference("asteria:stump_swamp_moss");
-        Assert.Equal(3, moss.Count);
-        foreach (var stump in moss)
-        {
-            var hangers = stump.Voxels.Where(v =>
-                v.Block == "asteria:moss_hanging").ToArray();
-            Assert.NotEmpty(hangers);
-            foreach (var hanger in hangers)
-            {
-                Assert.Contains(stump.Voxels, support =>
-                    support.X == hanger.X &&
-                    support.Z == hanger.Z &&
-                    support.Y == hanger.Y + 1 &&
-                    (support.Block == "asteria:log_willow"));
-            }
-        }
-    }
-
-    [Fact]
-    public void AllNewArtAssetsHaveUniquePackPaths()
+    public void RetainedMeadowAndSwampAssetsUseDistinctTexturePaths()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
-        var names = PlainsFlowers.Concat(new[]
-        {
-            "orchid_marsh", "bulrush", "fungus_shelf"
-        });
         var objects = PackContentRegistry<ObjectDefinition>.FromJson(
-            ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
+            ReadPackJson("objects"), ObjectDefinition.Parse, definition => definition.Id);
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var name in names)
+
+        foreach (var name in PlainsFlowers.Concat(["cattail", "pad_lily"]))
         {
-            var path = name is "clover" or "daisy" or "aster_purple" or "seedheads_meadow" or "orchid_marsh" or "bulrush"
-                ? objects.Get("asteria:" + name).Visual.Texture
-                : blocks.GetDefinition(blocks.GetId("asteria:" + name))
-                    .Visual.Texture!.Value.Texture;
-            Assert.Equal("textures/objects/" + name + ".png", path);
-            Assert.True(seen.Add(path));
+            var texture = objects.Get("asteria:" + name).Visual.Texture!;
+            Assert.Equal("textures/objects/" +
+                (name == "pad_lily" ? "lily_pad" : name) + ".png", texture);
+            Assert.True(seen.Add(texture));
         }
-        var log = blocks.GetDefinition(
-            blocks.GetId("asteria:log_willow"));
-        Assert.Equal("textures/blocks/trees/oak/side.png",
-            Assert.Single(log.Textures.ForFace(BlockFace.Left)).Texture);
-        Assert.True(seen.Add(
-            Assert.Single(log.Textures.ForFace(BlockFace.Left)).Texture));
+
+        var marshFern = blocks.GetDefinition(blocks.GetId("asteria:fern_marsh"));
+        const string fernTexture = "textures/objects/fern_marsh.png";
+        Assert.Equal(fernTexture, marshFern.Visual.Texture!.Value.Texture);
+        Assert.True(seen.Add(fernTexture));
+
+        var willow = blocks.GetDefinition(blocks.GetId("asteria:log_willow"));
+        const string willowTexture = "textures/blocks/trees/willow/side.png";
+        Assert.Equal(willowTexture,
+            Assert.Single(willow.Textures.ForFace(BlockFace.Left)).Texture);
+        Assert.True(seen.Add(willowTexture));
         Assert.Equal(8, seen.Count);
     }
 
@@ -218,7 +158,7 @@ public sealed class PlainsSwampBiodiversityTests
         var sample = new BiomeSample(plains.Id,
             [new BiomeInfluence(plains.Id, 1f)]);
         var objects = PackContentRegistry<ObjectDefinition>.FromJson(
-            ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
+            ReadPackJson("objects"), ObjectDefinition.Parse, definition => definition.Id);
         var first = new SurfaceDecorationField(29801, [plains], blocks,
             objects: objects);
         var again = new SurfaceDecorationField(29801, [plains], blocks,
@@ -230,18 +170,18 @@ public sealed class PlainsSwampBiodiversityTests
         for (var x = -24; x <= 24; x++)
         {
             Assert.Equal(first.BlockAt(sample, grass, x, z, valid),
-                         again.BlockAt(sample, grass, x, z, valid));
+                again.BlockAt(sample, grass, x, z, valid));
             Assert.Equal(first.ObjectAt(sample, grass, x, z, valid),
-                         again.ObjectAt(sample, grass, x, z, valid));
+                again.ObjectAt(sample, grass, x, z, valid));
             Assert.True(first.BlockAt(sample, basalt, x, z, valid).IsAir);
             Assert.Null(first.ObjectAt(sample, basalt, x, z, valid));
         }
     }
 
-    private static IEnumerable<string> ReadPackJson(string dir)
+    private static IEnumerable<string> ReadPackJson(string directory)
     {
         var folder = Path.Combine(AppContext.BaseDirectory,
-            "packs", "default", "data", dir);
+            "packs", "default", "data", directory);
         return Directory.EnumerateFiles(folder, "*.json")
             .OrderBy(file => file, StringComparer.Ordinal)
             .Select(File.ReadAllText);
