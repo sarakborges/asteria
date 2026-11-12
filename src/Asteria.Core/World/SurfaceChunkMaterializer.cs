@@ -526,7 +526,11 @@ public sealed class SurfaceChunkMaterializer
 #if DEBUG
         var directionalPreparationStarted = Stopwatch.GetTimestamp();
 #endif
-        if (_materials.HasDirectionalFacePalettes && !job.SupportFaceFastPath)
+        // Occupancy-preserving palettes are skipped by support-only jobs, so
+        // those jobs must not build directional candidates they will never consume.
+        if (_materials.HasDirectionalFacePalettes &&
+            !job.SupportFaceFastPath &&
+            !(job.SupportOnly && _materials.FacePalettesPreserveOccupancy))
         {
             job.DirectionalFaceOccupancyMasks = BuildDirectionalFaceOccupancyMasks(
                 densityVolume, column, originX, originY, originZ,
