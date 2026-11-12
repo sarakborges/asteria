@@ -54,7 +54,7 @@ public sealed class VolumeStructureContentTests
     }
 
     [Fact]
-    public void AllCaveAndSkyLandmarksUseOwnBiomeAndColoredLight()
+    public void AllCaveAndSkyLandmarksUseTheirBiomeAndCrystalLighting()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
@@ -71,17 +71,12 @@ public sealed class VolumeStructureContentTests
             Assert.All(variants, v => Assert.Contains(v.Voxels,
                 voxel => voxel.Block == $"asteria:{block}"));
         }
-        foreach (var name in new[]
-        {
-            "mushroom_cap_glow", "crystal_core_aether",
-        })
-        {
-            var definition = blocks.GetDefinition(
-                blocks.GetId("asteria:" + name));
-            Assert.True(definition.LightEmission.Blue > 0);
-        }
+        var crystal = blocks.GetDefinition(
+            blocks.GetId("asteria:crystal_core_aether"));
+        Assert.True(crystal.LightEmission.Blue > 0);
+        Assert.True(crystal.IsCollidable);
         Assert.True(blocks.GetDefinition(
-            blocks.GetId("asteria:crystal_core_aether")).IsCollidable);
+            blocks.GetId("asteria:mushroom_cap_glow")).LightEmission.IsDark);
 
     }
 

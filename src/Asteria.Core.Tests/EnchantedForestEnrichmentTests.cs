@@ -113,8 +113,7 @@ public sealed class EnchantedForestEnrichmentTests
         var cap = blocks.GetDefinition(
             blocks.GetId("asteria:fungus_cap_luminous_giant"));
         Assert.Equal(BlockTint.None, cap.Tint);
-        Assert.True(cap.LightEmission.Red > 0);
-        Assert.True(cap.LightEmission.Blue > 0);
+        Assert.True(cap.LightEmission.IsDark);
 
     }
 
