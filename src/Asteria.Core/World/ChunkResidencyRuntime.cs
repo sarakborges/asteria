@@ -112,7 +112,12 @@ public readonly record struct ChunkMaterializationStageTiming(
     DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics = null,
     double BoundaryColumnBoundsMilliseconds = 0d,
     double CaveSamplerBuildMilliseconds = 0d,
-    double BoundaryColumnEvaluationMilliseconds = 0d);
+    double BoundaryColumnEvaluationMilliseconds = 0d,
+    bool IsSupportOnly = false,
+    bool IsSupportFaceFastPath = false,
+    bool IsSparseSupportFallback = false,
+    int SupportRequestedColumns = 0,
+    int SupportMaterializationColumns = 0);
 
 public sealed record ChunkResidencyUpdate(
     IReadOnlyList<ChunkResidencyActivation> Activations,
@@ -1043,7 +1048,12 @@ public sealed class ChunkResidencyRuntime
                     : 0d,
                 stage == ChunkMaterializationStage.DirectionalFacePalettes
                     ? work.Job.DirectionalFaceBoundaryColumnEvaluationMilliseconds
-                    : 0d));
+                    : 0d,
+                work.Job.ActiveSupportOnly,
+                work.Job.ActiveSupportFaceFastPath,
+                work.Job.ActiveSparseSupportFallback,
+                work.Job.ActiveSupportRequestedColumnCount,
+                work.Job.ActiveSupportMaterializationColumnCount));
         }
 
         var chunk = work.Job.Result ??

@@ -99,6 +99,21 @@ public interface IChunkMaterializationJob : IDisposable
     /// </summary>
     ChunkMaterializationStage ActiveWorkStage => Stage;
 
+    /// <summary>Whether the active leaf is a support-only query.</summary>
+    bool ActiveSupportOnly => false;
+
+    /// <summary>Whether the active leaf is the sparse top-face support probe.</summary>
+    bool ActiveSupportFaceFastPath => false;
+
+    /// <summary>Whether the active leaf is a sparse gravity fallback.</summary>
+    bool ActiveSparseSupportFallback => false;
+
+    /// <summary>Exact columns whose gravity chains are being validated.</summary>
+    int ActiveSupportRequestedColumnCount => 0;
+
+    /// <summary>Columns materialized to resolve the support query, including halo.</summary>
+    int ActiveSupportMaterializationColumnCount => 0;
+
     bool IsComplete { get; }
 
     Chunk? Result { get; }

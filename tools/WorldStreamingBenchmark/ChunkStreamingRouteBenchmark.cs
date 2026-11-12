@@ -82,6 +82,7 @@ internal static class ChunkStreamingRouteBenchmark
         var chunkBlockDiagnostics = new Dictionary<ChunkCoord, ChunkBlockDiagnostics>();
         var stageCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var stageMilliseconds = new SortedDictionary<string, double>(StringComparer.Ordinal);
+        var supportFallbackDiagnostics = new SupportFallbackDiagnostics();
         var selectionLatencyFrames = new List<int>();
         var stepStates = new List<RouteStepState>(routeSteps);
 
@@ -212,7 +213,8 @@ internal static class ChunkStreamingRouteBenchmark
                 ref totalTerrainMilliseconds,
                 ref totalLightingMilliseconds,
                 stageCounts,
-                stageMilliseconds);
+                stageMilliseconds,
+                supportFallbackDiagnostics);
 
             var availableSlots = Math.Max(
                 0, maximumWorldWorkers - residency.ActiveWorkerCount);
@@ -252,7 +254,8 @@ internal static class ChunkStreamingRouteBenchmark
                 ref totalTerrainMilliseconds,
                 ref totalLightingMilliseconds,
                 stageCounts,
-                stageMilliseconds);
+                stageMilliseconds,
+                supportFallbackDiagnostics);
 
             var fluidReport = residency.ProcessPendingFluidActivations(budget);
             lastFluidPending = fluidReport.PendingChunks;
@@ -607,6 +610,7 @@ internal static class ChunkStreamingRouteBenchmark
                 AdvanceCount = pair.Value,
                 WorkerMilliseconds = stageMilliseconds[pair.Key],
             }).ToArray(),
+            SupportFallbackDiagnostics = supportFallbackDiagnostics.Snapshot(),
             RouteDigest = routeDigest,
             ActivatedChunkDigests = chunkDigests
                 .OrderBy(entry => entry.Key.Y)
@@ -698,7 +702,8 @@ internal static class ChunkStreamingRouteBenchmark
         ref double totalTerrainMilliseconds,
         ref double totalLightingMilliseconds,
         IDictionary<string, int> stageCounts,
-        IDictionary<string, double> stageMilliseconds)
+        IDictionary<string, double> stageMilliseconds,
+        SupportFallbackDiagnostics supportFallbackDiagnostics)
     {
         foreach (var failure in update.Failures)
             throw new InvalidOperationException(
@@ -707,6 +712,7 @@ internal static class ChunkStreamingRouteBenchmark
 
         foreach (var timing in update.MaterializationStageTimings)
         {
+            supportFallbackDiagnostics.Observe(timing);
             var name = timing.Stage.ToString();
             stageCounts[name] = stageCounts.TryGetValue(name, out var count)
                 ? count + 1
@@ -743,6 +749,132 @@ internal static class ChunkStreamingRouteBenchmark
             }
             chunkDigests[activation.Coord] = digest;
             chunkBlockDiagnostics[activation.Coord] = blockDiagnostics;
+        }
+    }
+
+    private sealed class SupportFallbackDiagnostics
+    {
+        private readonly SortedDictionary<string, int> _requestedColumnBuckets =
+            CreateBuckets();
+        private readonly SortedDictionary<string, int> _materializedColumnBuckets =
+            CreateBuckets();
+        private readonly SortedDictionary<string, int> _sparseStageAdvances =
+            new(StringComparer.Ordinal);
+        private readonly SortedDictionary<string, double> _sparseStageMilliseconds =
+            new(StringComparer.Ordinal);
+
+        public int SupportOnlyJobs { get; private set; }
+        public int SupportFaceFastPathJobs { get; private set; }
+        public int SparseFallbackJobs { get; private set; }
+        public int FullFallbackJobs { get; private set; }
+        public long FallbackRequestedColumns { get; private set; }
+        public long FallbackMaterializedColumns { get; private set; }
+
+        public void Observe(ChunkMaterializationStageTiming timing)
+        {
+            var boxed = (object)timing;
+            if (!ReadBoolean(boxed, "IsSupportOnly"))
+                return;
+
+            if (timing.Stage == ChunkMaterializationStage.TerrainSetup)
+            {
+                SupportOnlyJobs++;
+                var isFastPath = ReadBoolean(boxed, "IsSupportFaceFastPath");
+                var isSparseFallback = ReadBoolean(
+                    boxed, "IsSparseSupportFallback");
+                var requested = ReadInteger(
+                    boxed, "SupportRequestedColumns");
+                var materialized = ReadInteger(
+                    boxed, "SupportMaterializationColumns");
+
+                if (isFastPath)
+                {
+                    SupportFaceFastPathJobs++;
+                }
+                else
+                {
+                    FallbackRequestedColumns += requested;
+                    FallbackMaterializedColumns += materialized;
+                    IncrementBucket(_requestedColumnBuckets, requested);
+                    IncrementBucket(_materializedColumnBuckets, materialized);
+                    if (isSparseFallback)
+                        SparseFallbackJobs++;
+                    else
+                        FullFallbackJobs++;
+                }
+            }
+
+            if (ReadBoolean(boxed, "IsSparseSupportFallback"))
+            {
+                var stage = timing.Stage.ToString();
+                _sparseStageAdvances[stage] =
+                    _sparseStageAdvances.TryGetValue(stage, out var count)
+                        ? count + 1
+                        : 1;
+                _sparseStageMilliseconds[stage] =
+                    (_sparseStageMilliseconds.TryGetValue(stage, out var elapsed)
+                        ? elapsed
+                        : 0d) + timing.WorkerMilliseconds;
+            }
+        }
+
+        public object Snapshot() => new
+        {
+            SupportOnlyJobs,
+            SupportFaceFastPathJobs,
+            SparseFallbackJobs,
+            FullFallbackJobs,
+            FallbackRequestedColumns,
+            FallbackMaterializedColumns,
+            AverageRequestedColumnsPerFallback =
+                SparseFallbackJobs + FullFallbackJobs == 0
+                    ? 0d
+                    : (double)FallbackRequestedColumns /
+                      (SparseFallbackJobs + FullFallbackJobs),
+            AverageMaterializedColumnsPerFallback =
+                SparseFallbackJobs + FullFallbackJobs == 0
+                    ? 0d
+                    : (double)FallbackMaterializedColumns /
+                      (SparseFallbackJobs + FullFallbackJobs),
+            RequestedColumnsByBucket = _requestedColumnBuckets,
+            MaterializedColumnsByBucket = _materializedColumnBuckets,
+            SparseFallbackStageAdvances = _sparseStageAdvances,
+            SparseFallbackStageMilliseconds = _sparseStageMilliseconds,
+        };
+
+        private static SortedDictionary<string, int> CreateBuckets() =>
+            new(StringComparer.Ordinal)
+            {
+                ["1-4"] = 0,
+                ["5-16"] = 0,
+                ["17-64"] = 0,
+                ["65-128"] = 0,
+                ["129-255"] = 0,
+                ["256"] = 0,
+            };
+
+        private static bool ReadBoolean(object source, string propertyName) =>
+            source.GetType().GetProperty(propertyName)?.GetValue(source) is true;
+
+        private static int ReadInteger(object source, string propertyName) =>
+            source.GetType().GetProperty(propertyName)?.GetValue(source) is int value
+                ? value
+                : 0;
+
+        private static void IncrementBucket(
+            IDictionary<string, int> buckets,
+            int value)
+        {
+            var key = value switch
+            {
+                <= 4 => "1-4",
+                <= 16 => "5-16",
+                <= 64 => "17-64",
+                <= 128 => "65-128",
+                <= 255 => "129-255",
+                _ => "256",
+            };
+            buckets[key]++;
         }
     }
 

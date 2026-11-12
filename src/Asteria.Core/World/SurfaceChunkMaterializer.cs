@@ -1547,6 +1547,8 @@ public sealed class SurfaceChunkMaterializer
     private sealed class MaterializationJob : IChunkMaterializationJob, IChunkMaterializationStorageDiagnostics
     {
         private readonly SurfaceChunkMaterializer _owner;
+        private readonly int _supportRequestedColumnCount;
+        private readonly int _supportMaterializationColumnCount;
         private WorldGenerationEntropy.ValueNoise3DLatticeCache? _geologyNoiseCache;
         private Chunk? _chunk;
 #if DEBUG
@@ -1594,6 +1596,11 @@ public sealed class SurfaceChunkMaterializer
                 : IsSparseSupportFallback
                     ? ExpandCardinalSupportColumns(supportFaceColumns!)
                     : null;
+            _supportRequestedColumnCount = CountColumns(supportFaceColumns);
+            _supportMaterializationColumnCount =
+                SupportMaterializationColumns is { } materializationColumns
+                    ? CountColumns(materializationColumns)
+                    : supportOnly ? Chunk.Area : 0;
             if (coord.Y < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(coord), "Sphere chunk Y cannot be negative.");
@@ -1612,6 +1619,31 @@ public sealed class SurfaceChunkMaterializer
             SupportChunkJob is { IsComplete: false } child
                 ? child.ActiveWorkStage
                 : Stage;
+
+        public bool ActiveSupportOnly =>
+            SupportChunkJob is { IsComplete: false } child
+                ? child.ActiveSupportOnly
+                : SupportOnly;
+
+        public bool ActiveSupportFaceFastPath =>
+            SupportChunkJob is { IsComplete: false } child
+                ? child.ActiveSupportFaceFastPath
+                : SupportFaceFastPath;
+
+        public bool ActiveSparseSupportFallback =>
+            SupportChunkJob is { IsComplete: false } child
+                ? child.ActiveSparseSupportFallback
+                : IsSparseSupportFallback;
+
+        public int ActiveSupportRequestedColumnCount =>
+            SupportChunkJob is { IsComplete: false } child
+                ? child.ActiveSupportRequestedColumnCount
+                : _supportRequestedColumnCount;
+
+        public int ActiveSupportMaterializationColumnCount =>
+            SupportChunkJob is { IsComplete: false } child
+                ? child.ActiveSupportMaterializationColumnCount
+                : _supportMaterializationColumnCount;
 
         public bool SupportOnly { get; }
 
@@ -1640,6 +1672,18 @@ public sealed class SurfaceChunkMaterializer
         public int OriginY { get; private set; }
 
         public int OriginZ { get; private set; }
+
+        private static int CountColumns(bool[]? columns)
+        {
+            if (columns is null)
+                return 0;
+
+            var count = 0;
+            foreach (var included in columns)
+                if (included)
+                    count++;
+            return count;
+        }
 
         private static bool[] ExpandCardinalSupportColumns(bool[] requestedColumns)
         {
