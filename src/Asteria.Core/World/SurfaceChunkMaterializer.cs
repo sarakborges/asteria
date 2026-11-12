@@ -387,7 +387,8 @@ public sealed class SurfaceChunkMaterializer
                 break;
 
             case ChunkMaterializationStage.VolumeStructures:
-                MaterializeVolumeStructures(job.Chunk, job.Coord);
+                MaterializeVolumeStructures(
+                    job.Chunk, job.Coord, job.SupportMaterializationColumns);
                 job.Stage = ChunkMaterializationStage.GeneratedFluids;
                 break;
 
@@ -397,20 +398,23 @@ public sealed class SurfaceChunkMaterializer
                     job.ColumnMaterializationCaches ??
                         throw new InvalidOperationException(
                             "Materialization column cache is missing."),
-                    job.OriginY, job.TopExclusive);
+                    job.OriginY, job.TopExclusive,
+                    job.SupportMaterializationColumns);
                 job.Stage = ChunkMaterializationStage.SurfaceStructures;
                 break;
 
             case ChunkMaterializationStage.SurfaceStructures:
                 MaterializeStructures(
-                    job.Chunk, job.Coord, job.OriginY, job.TopExclusive);
+                    job.Chunk, job.Coord, job.OriginY, job.TopExclusive,
+                    job.SupportMaterializationColumns);
                 job.Stage = ChunkMaterializationStage.CaveSpikes;
                 break;
 
             case ChunkMaterializationStage.CaveSpikes:
                 MaterializeCaveSpikes(
                     job.Chunk, RequiredColumn(job), RequiredDensity(job),
-                    job.OriginX, job.OriginY, job.OriginZ);
+                    job.OriginX, job.OriginY, job.OriginZ,
+                    job.SupportMaterializationColumns);
                 job.Stage = ChunkMaterializationStage.VerticalDecorations;
                 break;
 
@@ -421,7 +425,8 @@ public sealed class SurfaceChunkMaterializer
                     job.Chunk, RequiredColumn(job), RequiredDensity(job),
                     job.OriginX, job.OriginY, job.OriginZ,
                     ref pendingObjects,
-                    includeObjects: !job.SupportOnly);
+                    includeObjects: !job.SupportOnly,
+                    columnMask: job.SupportMaterializationColumns);
                 job.PendingObjects = pendingObjects;
                 job.Stage = ChunkMaterializationStage.Veins;
                 break;
@@ -453,13 +458,15 @@ public sealed class SurfaceChunkMaterializer
             case ChunkMaterializationStage.WallObjects:
                 MaterializeWallObjects(
                     job.Chunk, RequiredColumn(job), RequiredDensity(job),
-                    job.OriginX, job.OriginY, job.OriginZ);
+                    job.OriginX, job.OriginY, job.OriginZ,
+                    job.SupportMaterializationColumns);
                 job.Stage = ChunkMaterializationStage.ShellFinalization;
                 break;
 
             case ChunkMaterializationStage.ShellFinalization:
                 ConcealSphereShell(
-                    job.Chunk, RequiredColumn(job), job.OriginY, job.TopExclusive);
+                    job.Chunk, RequiredColumn(job), job.OriginY, job.TopExclusive,
+                    job.SupportMaterializationColumns);
                 job.Stage = ChunkMaterializationStage.GravitySupport;
                 break;
 
@@ -516,13 +523,15 @@ public sealed class SurfaceChunkMaterializer
             throw new InvalidOperationException("Terrain writes are already complete.");
 
         var column = job.Column = _columns.Get(coord.X, coord.Z);
-        var densityVolume = job.DensityVolume = job.SupportFaceFastPath
-            ? _terrain.CreateLazyDensityVolume(column, originX, originY, originZ)
-            : _columns.SampleDensityVolume(
-                column,
-                originX,
-                originY,
-                originZ);
+        var densityVolume = job.DensityVolume =
+            job.SupportFaceFastPath || job.IsSparseSupportFallback
+                ? _terrain.CreateLazyDensityVolume(
+                    column, originX, originY, originZ)
+                : _columns.SampleDensityVolume(
+                    column,
+                    originX,
+                    originY,
+                    originZ);
 #if DEBUG
         var directionalPreparationStarted = Stopwatch.GetTimestamp();
 #endif
@@ -562,9 +571,8 @@ public sealed class SurfaceChunkMaterializer
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
             var index = localX + Chunk.Size * localZ;
-            if (job.SupportFaceFastPath &&
-                !(job.SupportFaceColumns ?? throw new InvalidOperationException(
-                    "Support-face query has no requested-column mask."))[index])
+            if (job.SupportMaterializationColumns is { } supportColumns &&
+                !supportColumns[index])
                 continue;
 
             var surfaceY = column.HeightAt(localX, localZ);
@@ -644,9 +652,8 @@ public sealed class SurfaceChunkMaterializer
                 for (var localX = 0; localX < Chunk.Size; localX++)
                 {
                     var columnIndex = localX + Chunk.Size * localZ;
-                    if (job.SupportFaceFastPath &&
-                        !(job.SupportFaceColumns ?? throw new InvalidOperationException(
-                            "Support-face query has no requested-column mask."))[columnIndex])
+                    if (job.SupportMaterializationColumns is { } supportColumns &&
+                        !supportColumns[columnIndex])
                         continue;
 
                     ref var state = ref columnMaterializationCaches[columnIndex];
@@ -870,8 +877,12 @@ public sealed class SurfaceChunkMaterializer
         {
             for (var localX = 0; localX < Chunk.Size; localX++)
             {
-                ref var state = ref columnMaterializationCaches[
-                    localX + Chunk.Size * localZ];
+                var columnIndex = localX + Chunk.Size * localZ;
+                if (job.SupportMaterializationColumns is { } supportColumns &&
+                    !supportColumns[columnIndex])
+                    continue;
+
+                ref var state = ref columnMaterializationCaches[columnIndex];
                 var surfaceY = state.SurfaceY;
                 var baseY = state.BaseY;
                 var surfaceFluidCutDepth = state.SurfaceFluidCutDepth;
@@ -1573,6 +1584,16 @@ public sealed class SurfaceChunkMaterializer
                     nameof(supportFaceColumns));
             SupportFaceFastPath = supportFaceFastPath;
             SupportFaceColumns = supportFaceColumns;
+            IsSparseSupportFallback =
+                supportOnly &&
+                !supportFaceFastPath &&
+                owner._materials.FacePalettesPreserveOccupancy &&
+                supportFaceColumns is not null;
+            SupportMaterializationColumns = supportFaceFastPath
+                ? supportFaceColumns
+                : IsSparseSupportFallback
+                    ? ExpandCardinalSupportColumns(supportFaceColumns!)
+                    : null;
             if (coord.Y < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(coord), "Sphere chunk Y cannot be negative.");
@@ -1598,6 +1619,10 @@ public sealed class SurfaceChunkMaterializer
 
         public bool[]? SupportFaceColumns { get; }
 
+        public bool IsSparseSupportFallback { get; }
+
+        public bool[]? SupportMaterializationColumns { get; }
+
         public bool[]? SupportChunkFallbackColumns { get; set; }
 
         public List<(int X, int Y, int Z)>? GravityPositions { get; set; }
@@ -1615,6 +1640,33 @@ public sealed class SurfaceChunkMaterializer
         public int OriginY { get; private set; }
 
         public int OriginZ { get; private set; }
+
+        private static bool[] ExpandCardinalSupportColumns(bool[] requestedColumns)
+        {
+            if (requestedColumns.Length != Chunk.Area)
+                throw new ArgumentException(
+                    "Support column mask must match chunk area.",
+                    nameof(requestedColumns));
+
+            var expanded = (bool[])requestedColumns.Clone();
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                if (!requestedColumns[z * Chunk.Size + x])
+                    continue;
+
+                if (x > 0)
+                    expanded[z * Chunk.Size + x - 1] = true;
+                if (x + 1 < Chunk.Size)
+                    expanded[z * Chunk.Size + x + 1] = true;
+                if (z > 0)
+                    expanded[(z - 1) * Chunk.Size + x] = true;
+                if (z + 1 < Chunk.Size)
+                    expanded[(z + 1) * Chunk.Size + x] = true;
+            }
+
+            return expanded;
+        }
 
         public void InitializeChunk()
         {
@@ -1995,7 +2047,8 @@ public sealed class SurfaceChunkMaterializer
         Chunk chunk,
         ChunkCoord coord,
         int originY,
-        int topExclusive)
+        int topExclusive,
+        bool[]? columnMask)
     {
         if (!_structures.HasRules)
         {
@@ -2016,6 +2069,8 @@ public sealed class SurfaceChunkMaterializer
         bool IntersectsThisChunk(SurfaceStructurePlacement placement) =>
             placement.MinimumY < topExclusive &&
             placement.MaximumY >= originY;
+        bool IncludesColumn(int x, int z) =>
+            columnMask is null || columnMask[z * Chunk.Size + x];
 
         if (!placements.Any(IntersectsThisChunk))
         {
@@ -2036,18 +2091,16 @@ public sealed class SurfaceChunkMaterializer
         {
             chunk.VisitBlockCells(
                 (x, y, z, _) =>
-                    baseOccupied.Add(
-                        StructureCellKey(
-                            x,
-                            y,
-                            z)));
+                {
+                    if (IncludesColumn(x, z))
+                        baseOccupied.Add(StructureCellKey(x, y, z));
+                });
             chunk.VisitFluidCells(
                 (x, y, z, _) =>
-                    baseOccupied.Add(
-                        StructureCellKey(
-                            x,
-                            y,
-                            z)));
+                {
+                    if (IncludesColumn(x, z))
+                        baseOccupied.Add(StructureCellKey(x, y, z));
+                });
         }
 
         var claimed =
@@ -2073,7 +2126,8 @@ public sealed class SurfaceChunkMaterializer
                         topExclusive,
                         out var localX,
                         out var localY,
-                        out var localZ))
+                        out var localZ) ||
+                    !IncludesColumn(localX, localZ))
                 {
                     continue;
                 }
@@ -2118,7 +2172,8 @@ public sealed class SurfaceChunkMaterializer
                         topExclusive,
                         out var localX,
                         out var localY,
-                        out var localZ))
+                        out var localZ) ||
+                    !IncludesColumn(localX, localZ))
                 {
                     continue;
                 }
@@ -2167,7 +2222,8 @@ public sealed class SurfaceChunkMaterializer
                         topExclusive,
                         out var localX,
                         out var localY,
-                        out var localZ))
+                        out var localZ) ||
+                    !IncludesColumn(localX, localZ))
                 {
                     continue;
                 }
@@ -3860,7 +3916,10 @@ public sealed class SurfaceChunkMaterializer
             _ => throw new ArgumentOutOfRangeException(nameof(axis)),
         };
 
-    private void MaterializeVolumeStructures(Chunk chunk, ChunkCoord coord)
+    private void MaterializeVolumeStructures(
+        Chunk chunk,
+        ChunkCoord coord,
+        bool[]? columnMask)
     {
         if (_volumeStructures is not { HasRules: true } formations)
             return;
@@ -3874,6 +3933,8 @@ public sealed class SurfaceChunkMaterializer
             if ((uint)x >= Chunk.Size ||
                 (uint)y >= Chunk.Size ||
                 (uint)z >= Chunk.Size ||
+                (columnMask is not null &&
+                 !columnMask[z * Chunk.Size + x]) ||
                 !chunk.GetCell(x, y, z).IsEmpty ||
                 !chunk.GetFluid(x, y, z).IsEmpty)
                 continue;
@@ -3890,7 +3951,8 @@ public sealed class SurfaceChunkMaterializer
         int originY,
         int originZ,
         ref List<PendingGeneratedObject>? pendingObjects,
-        bool includeObjects)
+        bool includeObjects,
+        bool[]? columnMask)
     {
         if (!_decorations.HasVerticalDecorations)
             return;
@@ -3899,6 +3961,9 @@ public sealed class SurfaceChunkMaterializer
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
+            if (columnMask is not null &&
+                !columnMask[localZ * Chunk.Size + localX])
+                continue;
             var baseY = column.BaseHeightAt(localX, localZ);
             var surfaceBiome = column.BiomeAt(localX, localZ);
             var worldX = originX + localX;
@@ -4327,7 +4392,8 @@ public sealed class SurfaceChunkMaterializer
         TerrainDensityVolume densityVolume,
         int originX,
         int originY,
-        int originZ)
+        int originZ,
+        bool[]? columnMask)
     {
         if (!_decorations.HasWallBlocks)
             return;
@@ -4344,6 +4410,9 @@ public sealed class SurfaceChunkMaterializer
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
+            if (columnMask is not null &&
+                !columnMask[z * Chunk.Size + x])
+                continue;
             var worldX = originX + x;
             var worldZ = originZ + z;
             var surface = column.BiomeAt(x, z);
@@ -4446,7 +4515,8 @@ public sealed class SurfaceChunkMaterializer
         TerrainDensityVolume densityVolume,
         int originX,
         int originY,
-        int originZ)
+        int originZ,
+        bool[]? columnMask)
     {
         if (_caveSpikes is not { HasRules: true } spikes ||
             _volumeBiomes is not { HasBiomes: true } volumeBiomes)
@@ -4456,6 +4526,9 @@ public sealed class SurfaceChunkMaterializer
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
+            if (columnMask is not null &&
+                !columnMask[z * Chunk.Size + x])
+                continue;
             var baseY = column.BaseHeightAt(x, z);
             var first = Math.Max(1, originY - maximumHeight + 1);
             var last = Math.Min(baseY - 1,
@@ -4605,7 +4678,8 @@ public sealed class SurfaceChunkMaterializer
         TerrainDensityVolume densityVolume,
         ColumnMaterializationCache[] columnMaterializationCaches,
         int originY,
-        int topExclusive)
+        int topExclusive,
+        bool[]? columnMask)
     {
         if (!_generatedFluids.HasRules)
             return;
@@ -4625,6 +4699,8 @@ public sealed class SurfaceChunkMaterializer
             for (var localX = 0; localX < Chunk.Size; localX++)
             {
                 var columnIndex = localX + Chunk.Size * localZ;
+                if (columnMask is not null && !columnMask[columnIndex])
+                    continue;
                 ref var state = ref columnMaterializationCaches[columnIndex];
                 var sample = state.Sample ??
                     throw new InvalidOperationException(
@@ -4671,7 +4747,8 @@ public sealed class SurfaceChunkMaterializer
                 for (var localX = 0; localX < Chunk.Size; localX++)
                 {
                     var columnIndex = localX + Chunk.Size * localZ;
-                    if (worldY < firstFluidYByColumn[columnIndex] ||
+                    if ((columnMask is not null && !columnMask[columnIndex]) ||
+                        worldY < firstFluidYByColumn[columnIndex] ||
                         worldY > lastFluidYByColumn[columnIndex])
                         continue;
 
@@ -4711,7 +4788,8 @@ public sealed class SurfaceChunkMaterializer
         Chunk chunk,
         SurfaceTerrainColumn column,
         int originY,
-        int topExclusive)
+        int topExclusive,
+        bool[]? columnMask)
     {
         if (_shellBlock.IsAir)
             return;
@@ -4730,6 +4808,9 @@ public sealed class SurfaceChunkMaterializer
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
+            if (columnMask is not null &&
+                !columnMask[z * Chunk.Size + x])
+                continue;
             var coreBlock = _materials.CoreLayer(column.BiomeAt(x, z)).Block;
 
             // Seal the playable face with its biome's deep terrain material.
