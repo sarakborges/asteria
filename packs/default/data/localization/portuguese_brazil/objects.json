@@ -115,5 +115,17 @@
   },
   "asteria:wildflower_yellow": {
     "/name": "Flor Silvestre Amarela"
+  },
+  "asteria:crystal": {
+    "/name": "Cristal"
+  },
+  "asteria:mushroom_crimson": {
+    "/name": "Cogumelo Carmesim"
+  },
+  "asteria:mushroom_warped": {
+    "/name": "Cogumelo Distorcido"
+  },
+  "asteria:torchflower": {
+    "/name": "Flor-tocha"
   }
 }

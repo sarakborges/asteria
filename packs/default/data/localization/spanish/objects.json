@@ -115,5 +115,17 @@
   },
   "asteria:wildflower_yellow": {
     "/name": "Flor Silvestre Amarilla"
+  },
+  "asteria:crystal": {
+    "/name": "Cristal"
+  },
+  "asteria:mushroom_crimson": {
+    "/name": "Champiñón Carmesí"
+  },
+  "asteria:mushroom_warped": {
+    "/name": "Champiñón Distorsionado"
+  },
+  "asteria:torchflower": {
+    "/name": "Flor Antorcha"
   }
 }

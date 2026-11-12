@@ -115,5 +115,17 @@
   },
   "asteria:wildflower_yellow": {
     "/name": "Yellow Wildflower"
+  },
+  "asteria:crystal": {
+    "/name": "Crystal"
+  },
+  "asteria:mushroom_crimson": {
+    "/name": "Crimson Mushroom"
+  },
+  "asteria:mushroom_warped": {
+    "/name": "Warped Mushroom"
+  },
+  "asteria:torchflower": {
+    "/name": "Torchflower"
   }
 }
