@@ -323,60 +323,6 @@
   "asteria:yucca": {
     "/name": "Iúca"
   },
-  "asteria:log_cinderwood": {
-    "/name": "Tronco de Cinderwood"
-  },
-  "asteria:log_cinderwood_hollow": {
-    "/name": "Tronco Oco de Cinderwood"
-  },
-  "asteria:log_cinderwood_stripped": {
-    "/name": "Tronco Descascado de Cinderwood"
-  },
-  "asteria:log_cinderwood_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Cinderwood"
-  },
-  "asteria:planks_cinderwood": {
-    "/name": "Tábuas de Cinderwood"
-  },
-  "asteria:leaf_cinderwood": {
-    "/name": "Folhas de Cinderwood"
-  },
-  "asteria:log_briarflame": {
-    "/name": "Tronco de Briarflame"
-  },
-  "asteria:log_briarflame_hollow": {
-    "/name": "Tronco Oco de Briarflame"
-  },
-  "asteria:log_briarflame_stripped": {
-    "/name": "Tronco Descascado de Briarflame"
-  },
-  "asteria:log_briarflame_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Briarflame"
-  },
-  "asteria:planks_briarflame": {
-    "/name": "Tábuas de Briarflame"
-  },
-  "asteria:leaf_briarflame": {
-    "/name": "Folhas de Briarflame"
-  },
-  "asteria:log_ashveil": {
-    "/name": "Tronco de Ashveil"
-  },
-  "asteria:log_ashveil_hollow": {
-    "/name": "Tronco Oco de Ashveil"
-  },
-  "asteria:log_ashveil_stripped": {
-    "/name": "Tronco Descascado de Ashveil"
-  },
-  "asteria:log_ashveil_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Ashveil"
-  },
-  "asteria:planks_ashveil": {
-    "/name": "Tábuas de Ashveil"
-  },
-  "asteria:leaf_ashveil": {
-    "/name": "Folhas de Ashveil"
-  },
   "asteria:log_embercoil": {
     "/name": "Tronco de Embercoil"
   },
@@ -412,24 +358,6 @@
   },
   "asteria:leaf_nacreveil": {
     "/name": "Folhas de Nacreveil"
-  },
-  "asteria:log_brinesong": {
-    "/name": "Tronco de Brinesong"
-  },
-  "asteria:log_brinesong_hollow": {
-    "/name": "Tronco Oco de Brinesong"
-  },
-  "asteria:log_brinesong_stripped": {
-    "/name": "Tronco Descascado de Brinesong"
-  },
-  "asteria:log_brinesong_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Brinesong"
-  },
-  "asteria:planks_brinesong": {
-    "/name": "Tábuas de Brinesong"
-  },
-  "asteria:leaf_brinesong": {
-    "/name": "Folhas de Brinesong"
   },
   "asteria:log_coralith": {
     "/name": "Tronco de Coralith"
@@ -502,24 +430,6 @@
   },
   "asteria:leaf_geodera": {
     "/name": "Folhas de Geodera"
-  },
-  "asteria:log_ambermaw": {
-    "/name": "Tronco de Ambermaw"
-  },
-  "asteria:log_ambermaw_hollow": {
-    "/name": "Tronco Oco de Ambermaw"
-  },
-  "asteria:log_ambermaw_stripped": {
-    "/name": "Tronco Descascado de Ambermaw"
-  },
-  "asteria:log_ambermaw_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Ambermaw"
-  },
-  "asteria:planks_ambermaw": {
-    "/name": "Tábuas de Ambermaw"
-  },
-  "asteria:leaf_ambermaw": {
-    "/name": "Folhas de Ambermaw"
   },
   "asteria:log_cragbloom": {
     "/name": "Tronco de Cragbloom"
@@ -754,24 +664,6 @@
   },
   "asteria:leaf_zephyra": {
     "/name": "Folhas de Zephyra"
-  },
-  "asteria:log_aurorasil": {
-    "/name": "Tronco de Aurorasil"
-  },
-  "asteria:log_aurorasil_hollow": {
-    "/name": "Tronco Oco de Aurorasil"
-  },
-  "asteria:log_aurorasil_stripped": {
-    "/name": "Tronco Descascado de Aurorasil"
-  },
-  "asteria:log_aurorasil_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Aurorasil"
-  },
-  "asteria:planks_aurorasil": {
-    "/name": "Tábuas de Aurorasil"
-  },
-  "asteria:leaf_aurorasil": {
-    "/name": "Folhas de Aurorasil"
   },
   "asteria:log_dawnlace": {
     "/name": "Tronco de Dawnlace"

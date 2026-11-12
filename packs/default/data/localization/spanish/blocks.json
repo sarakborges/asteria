@@ -323,60 +323,6 @@
   "asteria:yucca": {
     "/name": "Yuca"
   },
-  "asteria:log_cinderwood": {
-    "/name": "Tronco de Cinderwood"
-  },
-  "asteria:log_cinderwood_hollow": {
-    "/name": "Tronco hueco de Cinderwood"
-  },
-  "asteria:log_cinderwood_stripped": {
-    "/name": "Tronco sin corteza de Cinderwood"
-  },
-  "asteria:log_cinderwood_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Cinderwood"
-  },
-  "asteria:planks_cinderwood": {
-    "/name": "Tablones de Cinderwood"
-  },
-  "asteria:leaf_cinderwood": {
-    "/name": "Hojas de Cinderwood"
-  },
-  "asteria:log_briarflame": {
-    "/name": "Tronco de Briarflame"
-  },
-  "asteria:log_briarflame_hollow": {
-    "/name": "Tronco hueco de Briarflame"
-  },
-  "asteria:log_briarflame_stripped": {
-    "/name": "Tronco sin corteza de Briarflame"
-  },
-  "asteria:log_briarflame_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Briarflame"
-  },
-  "asteria:planks_briarflame": {
-    "/name": "Tablones de Briarflame"
-  },
-  "asteria:leaf_briarflame": {
-    "/name": "Hojas de Briarflame"
-  },
-  "asteria:log_ashveil": {
-    "/name": "Tronco de Ashveil"
-  },
-  "asteria:log_ashveil_hollow": {
-    "/name": "Tronco hueco de Ashveil"
-  },
-  "asteria:log_ashveil_stripped": {
-    "/name": "Tronco sin corteza de Ashveil"
-  },
-  "asteria:log_ashveil_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Ashveil"
-  },
-  "asteria:planks_ashveil": {
-    "/name": "Tablones de Ashveil"
-  },
-  "asteria:leaf_ashveil": {
-    "/name": "Hojas de Ashveil"
-  },
   "asteria:log_embercoil": {
     "/name": "Tronco de Embercoil"
   },
@@ -412,24 +358,6 @@
   },
   "asteria:leaf_nacreveil": {
     "/name": "Hojas de Nacreveil"
-  },
-  "asteria:log_brinesong": {
-    "/name": "Tronco de Brinesong"
-  },
-  "asteria:log_brinesong_hollow": {
-    "/name": "Tronco hueco de Brinesong"
-  },
-  "asteria:log_brinesong_stripped": {
-    "/name": "Tronco sin corteza de Brinesong"
-  },
-  "asteria:log_brinesong_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Brinesong"
-  },
-  "asteria:planks_brinesong": {
-    "/name": "Tablones de Brinesong"
-  },
-  "asteria:leaf_brinesong": {
-    "/name": "Hojas de Brinesong"
   },
   "asteria:log_coralith": {
     "/name": "Tronco de Coralith"
@@ -502,24 +430,6 @@
   },
   "asteria:leaf_geodera": {
     "/name": "Hojas de Geodera"
-  },
-  "asteria:log_ambermaw": {
-    "/name": "Tronco de Ambermaw"
-  },
-  "asteria:log_ambermaw_hollow": {
-    "/name": "Tronco hueco de Ambermaw"
-  },
-  "asteria:log_ambermaw_stripped": {
-    "/name": "Tronco sin corteza de Ambermaw"
-  },
-  "asteria:log_ambermaw_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Ambermaw"
-  },
-  "asteria:planks_ambermaw": {
-    "/name": "Tablones de Ambermaw"
-  },
-  "asteria:leaf_ambermaw": {
-    "/name": "Hojas de Ambermaw"
   },
   "asteria:log_cragbloom": {
     "/name": "Tronco de Cragbloom"
@@ -754,24 +664,6 @@
   },
   "asteria:leaf_zephyra": {
     "/name": "Hojas de Zephyra"
-  },
-  "asteria:log_aurorasil": {
-    "/name": "Tronco de Aurorasil"
-  },
-  "asteria:log_aurorasil_hollow": {
-    "/name": "Tronco hueco de Aurorasil"
-  },
-  "asteria:log_aurorasil_stripped": {
-    "/name": "Tronco sin corteza de Aurorasil"
-  },
-  "asteria:log_aurorasil_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Aurorasil"
-  },
-  "asteria:planks_aurorasil": {
-    "/name": "Tablones de Aurorasil"
-  },
-  "asteria:leaf_aurorasil": {
-    "/name": "Hojas de Aurorasil"
   },
   "asteria:log_dawnlace": {
     "/name": "Tronco de Dawnlace"

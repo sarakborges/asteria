@@ -323,60 +323,6 @@
   "asteria:yucca": {
     "/name": "Yucca"
   },
-  "asteria:log_cinderwood": {
-    "/name": "Cinderwood Log"
-  },
-  "asteria:log_cinderwood_hollow": {
-    "/name": "Hollow Cinderwood Log"
-  },
-  "asteria:log_cinderwood_stripped": {
-    "/name": "Stripped Cinderwood Log"
-  },
-  "asteria:log_cinderwood_stripped_hollow": {
-    "/name": "Stripped Hollow Cinderwood Log"
-  },
-  "asteria:planks_cinderwood": {
-    "/name": "Cinderwood Planks"
-  },
-  "asteria:leaf_cinderwood": {
-    "/name": "Cinderwood Leaves"
-  },
-  "asteria:log_briarflame": {
-    "/name": "Briarflame Log"
-  },
-  "asteria:log_briarflame_hollow": {
-    "/name": "Hollow Briarflame Log"
-  },
-  "asteria:log_briarflame_stripped": {
-    "/name": "Stripped Briarflame Log"
-  },
-  "asteria:log_briarflame_stripped_hollow": {
-    "/name": "Stripped Hollow Briarflame Log"
-  },
-  "asteria:planks_briarflame": {
-    "/name": "Briarflame Planks"
-  },
-  "asteria:leaf_briarflame": {
-    "/name": "Briarflame Leaves"
-  },
-  "asteria:log_ashveil": {
-    "/name": "Ashveil Log"
-  },
-  "asteria:log_ashveil_hollow": {
-    "/name": "Hollow Ashveil Log"
-  },
-  "asteria:log_ashveil_stripped": {
-    "/name": "Stripped Ashveil Log"
-  },
-  "asteria:log_ashveil_stripped_hollow": {
-    "/name": "Stripped Hollow Ashveil Log"
-  },
-  "asteria:planks_ashveil": {
-    "/name": "Ashveil Planks"
-  },
-  "asteria:leaf_ashveil": {
-    "/name": "Ashveil Leaves"
-  },
   "asteria:log_embercoil": {
     "/name": "Embercoil Log"
   },
@@ -412,24 +358,6 @@
   },
   "asteria:leaf_nacreveil": {
     "/name": "Nacreveil Leaves"
-  },
-  "asteria:log_brinesong": {
-    "/name": "Brinesong Log"
-  },
-  "asteria:log_brinesong_hollow": {
-    "/name": "Hollow Brinesong Log"
-  },
-  "asteria:log_brinesong_stripped": {
-    "/name": "Stripped Brinesong Log"
-  },
-  "asteria:log_brinesong_stripped_hollow": {
-    "/name": "Stripped Hollow Brinesong Log"
-  },
-  "asteria:planks_brinesong": {
-    "/name": "Brinesong Planks"
-  },
-  "asteria:leaf_brinesong": {
-    "/name": "Brinesong Leaves"
   },
   "asteria:log_coralith": {
     "/name": "Coralith Log"
@@ -502,24 +430,6 @@
   },
   "asteria:leaf_geodera": {
     "/name": "Geodera Leaves"
-  },
-  "asteria:log_ambermaw": {
-    "/name": "Ambermaw Log"
-  },
-  "asteria:log_ambermaw_hollow": {
-    "/name": "Hollow Ambermaw Log"
-  },
-  "asteria:log_ambermaw_stripped": {
-    "/name": "Stripped Ambermaw Log"
-  },
-  "asteria:log_ambermaw_stripped_hollow": {
-    "/name": "Stripped Hollow Ambermaw Log"
-  },
-  "asteria:planks_ambermaw": {
-    "/name": "Ambermaw Planks"
-  },
-  "asteria:leaf_ambermaw": {
-    "/name": "Ambermaw Leaves"
   },
   "asteria:log_cragbloom": {
     "/name": "Cragbloom Log"
@@ -754,24 +664,6 @@
   },
   "asteria:leaf_zephyra": {
     "/name": "Zephyra Leaves"
-  },
-  "asteria:log_aurorasil": {
-    "/name": "Aurorasil Log"
-  },
-  "asteria:log_aurorasil_hollow": {
-    "/name": "Hollow Aurorasil Log"
-  },
-  "asteria:log_aurorasil_stripped": {
-    "/name": "Stripped Aurorasil Log"
-  },
-  "asteria:log_aurorasil_stripped_hollow": {
-    "/name": "Stripped Hollow Aurorasil Log"
-  },
-  "asteria:planks_aurorasil": {
-    "/name": "Aurorasil Planks"
-  },
-  "asteria:leaf_aurorasil": {
-    "/name": "Aurorasil Leaves"
   },
   "asteria:log_dawnlace": {
     "/name": "Dawnlace Log"
