@@ -114,6 +114,8 @@ public partial class Main : Node3D
         (!_fluidSimulationRuntime.IsRunning &&
          _fluidUpdates.HasReadyWork(_worldTicks.CurrentTick)) ||
         (!_lightingRuntime.IsRunning && _worldUpdates.HasLightingWork) ||
+        (_residency.DirectionalFaceReconciliationCount > 0 ||
+         _residency.ChunkLightingReconciliationCount > 0) ||
         (_terrainMeshPipeline.ActiveWorkerCount < 2 &&
          (_worldUpdates.HasPriorityMeshWork || _worldUpdates.HasBackgroundMeshWork)) ||
         (_fluidMeshPipeline.ActiveWorkerCount < MaxFluidMeshWorkers &&
@@ -760,7 +762,8 @@ public partial class Main : Node3D
                 _worldFrameBudget,
                 streamingRadius,
                 RequiresPortalSurfaceAccess,
-                materializationStarts);
+                materializationStarts,
+                allowArrivalReconciliation: availableWorkerSlots > 0);
         _worldDiagnostics?.ObserveStreamingAdmission(
             streamingPressure.IsPressured,
             availableWorkerSlots,
