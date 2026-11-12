@@ -686,9 +686,9 @@ public partial class Main : Node3D
             return;
         }
 
-        if (_loading.Progress.Phase == WorldLoadingPhase.PreparingSpawn)
+        if (_loading.Progress.Phase == WorldLoadingPhase.PreparingEntry)
         {
-            if (!_sessions.Active.TryCompleteGeneratedSpawnResolution(out var spawnError))
+            if (!_sessions.Active.TryCompleteInitialPositionResolution(out var spawnError))
             {
                 SendLoadingState();
                 return;
@@ -1241,7 +1241,7 @@ public partial class Main : Node3D
         }
         else
         {
-            _loading.BeginSpawnPreparation();
+            _loading.BeginEntryPreparation();
             SendLoadingState(force: true);
         }
 
@@ -2673,7 +2673,7 @@ public partial class Main : Node3D
         }
         else
         {
-            _loading.BeginSpawnPreparation();
+            _loading.BeginEntryPreparation();
             SendLoadingState(force: true);
         }
     }
@@ -2895,8 +2895,8 @@ public partial class Main : Node3D
         var phase =
             progress.Phase switch
             {
-                WorldLoadingPhase.PreparingSpawn =>
-                    "preparing_spawn",
+                WorldLoadingPhase.PreparingEntry =>
+                    "preparing_entry",
                 WorldLoadingPhase.RetiringCurrentDimension =>
                     "retiring_current_dimension",
                 WorldLoadingPhase.MaterializingInitialArea =>
