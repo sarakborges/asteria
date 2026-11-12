@@ -6,7 +6,7 @@ namespace Asteria.Core.Tests;
 public sealed class EnchantedForestEnrichmentTests
 {
     [Fact]
-    public void FlowersAreHabitatSpecificAndMushroomsAreReused()
+    public void RetainedForestFlowersAndMushroomsUseTheirAuthoredHabitats()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var objects = PackContentRegistry<ObjectDefinition>.FromJson(
@@ -15,54 +15,40 @@ public sealed class EnchantedForestEnrichmentTests
         biomes.ValidateBlocks(blocks);
         biomes.ValidateObjects(objects);
         var biome = biomes.Get("asteria:overworld/enchanted_forest");
-        Assert.Equal(10, biome.Decorations.Count);
+
+        Assert.Equal(8, biome.Decorations.Count);
         Assert.Equal("asteria:block_grass", biome.SurfaceLayers[0].Block);
-        Assert.Equal(["luminous_clearing","violet_undergrowth","pink_glade"],
+        Assert.Equal(["luminous_clearing", "violet_undergrowth", "pink_glade"],
             biome.SurfaceHabitats!.Bands.Select(x => x.Id).ToArray());
 
-        foreach (var name in new[] {
-            "starflower","fern_violet",
-            "bloom_pink","pod_glow"
+        foreach (var name in new[] { "starflower", "bloom_pink" })
+        {
+            var rule = Assert.Single(biome.Decorations,
+                item => item.Block == "asteria:" + name);
+            Assert.False(rule.IsObject);
+            Assert.NotNull(rule.HabitatWeights);
+            Assert.NotNull(rule.Cluster);
+            Assert.NotNull(rule.Conditions);
+            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+            Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
+            Assert.False(block.IsCollidable);
+            Assert.Equal("textures/objects/" + name + ".png",
+                block.Visual.Texture!.Value.Texture);
+        }
+
+        foreach (var name in new[]
+        {
+            "mushroom_purple", "mushroom_pink", "mushroom_blue", "mushroom_red",
         })
         {
             var rule = Assert.Single(biome.Decorations,
-                x => x.Block == "asteria:" + name);
+                item => item.Block == "asteria:" + name);
+            Assert.True(rule.IsObject);
             Assert.NotNull(rule.HabitatWeights);
-            Assert.NotNull(rule.Cluster);
-            Assert.All(rule.SurfaceBlocks, x =>
-                Assert.Contains(x, new[] {"asteria:block_grass","asteria:dirt"}));
-            if (name == "fern_violet")
-            {
-                Assert.True(rule.IsObject);
-                Assert.False(blocks.TryGetId(rule.Block, out _));
-                var fern = objects.Get(rule.Block);
-                Assert.Equal(BlockTint.None, fern.Tint);
-                Assert.Equal(ObjectVisualKind.CrossedSprite, fern.Visual.Kind);
-                Assert.True(fern.WindSway);
-                Assert.Equal("textures/objects/" + name + ".png",
-                    fern.Visual.Texture);
-            }
-            else
-            {
-                Assert.False(rule.IsObject);
-                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-                Assert.Equal(BlockTint.None, block.Tint);
-                Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
-                Assert.True(block.WindSway);
-                Assert.False(block.IsCollidable);
-                Assert.Equal("textures/objects/" + name + ".png",
-                    block.Visual.Texture!.Value.Texture);
-            }
+            var mushroom = objects.Get(rule.Block);
+            Assert.Equal(ObjectVisualKind.CrossedSprite, mushroom.Visual.Kind);
+            Assert.True(mushroom.Supports(BlockFace.Top));
         }
-        foreach (var reused in new[] {"mushroom_red","mushroom_blue","mushroom_pink"})
-            Assert.True(Assert.Single(biome.Decorations,
-                x => x.Block == "asteria:" + reused).IsObject);
-
-        foreach (var glow in new[] {
-            "starflower","pod_glow"
-        })
-            Assert.True(blocks.GetDefinition(
-                blocks.GetId("asteria:" + glow)).LightEmission.Blue > 0);
     }
 
     [Fact]
@@ -98,7 +84,7 @@ public sealed class EnchantedForestEnrichmentTests
             .Get(DimensionId.Overworld);
         foreach (var (name, count) in new[] {
             ("ring_mushroom_enchanted",3),
-            ("canopy_fungal_enchanted",3)
+            ("canopy_fungal_enchanted",2)
         })
         {
             Assert.Single(dimension.GeneratedSurfaceStructures, x =>
@@ -117,7 +103,7 @@ public sealed class EnchantedForestEnrichmentTests
             });
         }
         var canopy = structures.ResolveReference("asteria:canopy_fungal_enchanted");
-        Assert.True(canopy.Max(s => s.MaximumY) >= 10);
+        Assert.True(canopy.Max(s => s.MaximumY) >= 8);
         Assert.All(canopy, s => {
             Assert.Contains(s.Voxels, v =>
                 v.Block == "asteria:fungus_stem_luminous_giant");

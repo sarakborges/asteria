@@ -4,19 +4,21 @@ namespace Asteria.Core.Tests;
 
 public sealed class BlockTintOptOutTests
 {
-    [Theory]
-    [InlineData("leaf_mycelora")]
-    [InlineData("leaf_gloamroot")]
-    public void AuthoredUntintedLeavesKeepTheirOriginalColorsWithWindSway(string name)
+    [Fact]
+    public void RemovedFantasyTreeLeavesHaveNoRemainingBlockDefinitions()
     {
-        var path = Path.Combine(
-            AppContext.BaseDirectory, "packs", "default", "data", "blocks", name + ".json");
-        var definition = BlockDefinitionJson.Parse(File.ReadAllText(path));
+        var root = Path.Combine(AppContext.BaseDirectory,
+            "packs", "default", "data", "blocks");
+        var registry = BlockRegistry.FromJson(
+            Directory.EnumerateFiles(root, "*.json")
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(File.ReadAllText));
 
-        Assert.Equal(BlockTint.None, definition.Tint);
-        Assert.True(definition.WindSway);
-        Assert.All(definition.Textures.AllLayers(), layer => Assert.False(layer.Dyable));
-        AssertWhiteVertexColorsAndWindOnlyLayerCode(definition);
+        foreach (var name in new[] { "leaf_mycelora", "leaf_gloamroot" })
+        {
+            Assert.False(File.Exists(Path.Combine(root, name + ".json")));
+            Assert.False(registry.TryGetId("asteria:" + name, out _));
+        }
     }
 
     [Fact]
