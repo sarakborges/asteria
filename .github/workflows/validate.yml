@@ -391,6 +391,13 @@ jobs:
           git worktree add --detach "$baseline" "$baseline_sha"
           git worktree add --detach "$candidate" "$CANDIDATE_SHA"
 
+          # Use identical authored pack content in both revisions. Recent
+          # content removals intentionally change generated output; they must
+          # not be mistaken for worldgen implementation regressions in this A/B.
+          rm -rf "$baseline/packs/default"
+          mkdir -p "$baseline/packs"
+          cp -a "$candidate/packs/default" "$baseline/packs/default"
+
           # Overlay the identical route-harness sources on the baseline worktree.
           # Core and the ordinary worldgen benchmark remain at their own commits.
           mkdir -p "$baseline/tools/WorldStreamingBenchmark"
