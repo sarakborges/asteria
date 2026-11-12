@@ -5,6 +5,26 @@ namespace Asteria.Core.Tests;
 public sealed class WorldLoadingStateTests
 {
     [Fact]
+    public void SpawnPreparationBlocksStreamingAndWorkerDispatch()
+    {
+        var loading = new WorldLoadingState();
+        loading.BeginSpawnPreparation();
+
+        Assert.True(loading.IsActive);
+        Assert.Equal(WorldLoadingPhase.PreparingSpawn, loading.Progress.Phase);
+        Assert.Equal(0, loading.Progress.Completed);
+        Assert.Equal(0, loading.Progress.Total);
+        Assert.False(loading.AllowsLightingDispatch);
+        Assert.False(loading.AllowsMeshDispatch(lightingSettled: true));
+
+        loading.Begin(new ChunkCoord(2, 1, -3));
+        Assert.Equal(
+            WorldLoadingPhase.MaterializingInitialArea,
+            loading.Progress.Phase);
+        Assert.True(loading.AllowsLightingDispatch);
+    }
+
+    [Fact]
     public void CurrentSelectionAndSettledPresentationAreRequiredBeforeReady()
     {
         var loading = new WorldLoadingState();
