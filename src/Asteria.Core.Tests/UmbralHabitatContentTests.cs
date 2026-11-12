@@ -61,61 +61,45 @@ public sealed class UmbralHabitatContentTests
     }
 
     [Fact]
-    public void UmbralReachKeepsSparseShadowTreesWithinSpectralGroves()
+    public void UmbralReachRetainsRockStructuresAfterFantasyTreesAreRemoved()
     {
         var biome = LoadBiome("umbral_reach");
         var roots = LoadUmbralRoots(biome);
-        Assert.Equal(5, roots.Length);
-        foreach (var species in new[] { "gloamroot", "nighthollow" })
-        {
-            var tree = Assert.Single(roots,
-                r => r.Structure == "asteria:tree_" + species);
-            Assert.True(tree.HabitatWeights!.For("spectral_groves") >
-                        tree.HabitatWeights.For("shadow_meadows"));
-        }
-        var rocks = Assert.Single(roots,
+        Assert.Equal(3, roots.Length);
+        Assert.All(roots, root =>
+            Assert.DoesNotContain("asteria:tree_", root.Structure, StringComparison.Ordinal));
+        var cluster = Assert.Single(roots,
             root => root.Structure == "asteria:cluster_rock");
-        Assert.True(rocks.HabitatWeights!.For("stony_fields") >
-                    rocks.HabitatWeights.For("spectral_groves"));
+        Assert.True(cluster.HabitatWeights!.For("stony_fields") >
+                    cluster.HabitatWeights.For("spectral_groves"));
         ValidateHabitatRules(biome, roots);
     }
 
     [Fact]
-    public void WitheredWasteConcentratesMourningbriarInWitheredThickets()
+    public void WitheredWasteRetainsRockStructuresWithoutRemovedTreeFamilies()
     {
         var biome = LoadBiome("withered_waste");
         var roots = LoadUmbralRoots(biome);
-        Assert.Equal(5, roots.Length);
-        var tree = Assert.Single(roots,
-            root => root.Structure == "asteria:tree_mourningbriar");
-        var rock = Assert.Single(roots,
+        Assert.Equal(4, roots.Length);
+        Assert.All(roots, root =>
+            Assert.DoesNotContain("asteria:tree_", root.Structure, StringComparison.Ordinal));
+        var cluster = Assert.Single(roots,
             root => root.Structure == "asteria:cluster_rock");
-        Assert.True(tree.HabitatWeights!.For("withered_thickets") >
-                    tree.HabitatWeights.For("dead_expanse"));
-        Assert.True(rock.HabitatWeights!.For("rocky_barrens") >
-                    rock.HabitatWeights.For("dead_expanse"));
+        Assert.True(cluster.HabitatWeights!.For("rocky_barrens") >
+                    cluster.HabitatWeights.For("dead_expanse"));
         Assert.DoesNotContain(biome.Decorations,
             decoration => decoration.Block == "asteria:grass");
         ValidateHabitatRules(biome, roots);
     }
 
     [Fact]
-    public void EveryRetainedUmbralTreeUsesAvailableWoodAndFoliage()
+    public void UmbralDimensionDoesNotReferenceRemovedFantasyTreeFamilies()
     {
-        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        structures.ValidateBlocks(blocks);
-        foreach (var species in new[] { "gloamroot", "nighthollow", "mourningbriar" })
-        {
-            var members = structures.ResolveReference("asteria:tree_" + species);
-            Assert.Equal(2, members.Count);
-            Assert.All(members, tree =>
-            {
-                Assert.True(tree.Restrictions.RequiresDryGround);
-                Assert.Contains(tree.Voxels, v => v.Block == "asteria:log_" + species);
-                Assert.Contains(tree.Voxels, v => v.Block == "asteria:leaf_" + species);
-            });
-        }
+        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data",
+            "dimensions", "umbral.json")));
+        Assert.DoesNotContain(dimension.GeneratedSurfaceStructures,
+            rule => rule.Structure.StartsWith("asteria:tree_", StringComparison.Ordinal));
     }
 
     private static void ValidateHabitatRules(
