@@ -25,10 +25,13 @@ public sealed class VolcanoBiomeContentTests
             biome.SurfaceTerrain!.Shape);
         Assert.InRange(rolling.Amplitude, 0f, 4f);
         Assert.Equal("asteria:basalt", biome.SurfaceLayers[^1].Block);
+        Assert.Equal(2, biome.Decorations.Count);
         Assert.Contains(biome.Decorations,
-            item => item.Block == "asteria:thorn_ash");
+            item => item.Block == "asteria:pebble");
         Assert.Contains(biome.Decorations,
-            item => item.Block == "asteria:bloom_cinder");
+            item => item.Block == "asteria:lichen_soot");
+        Assert.DoesNotContain(biome.Decorations,
+            item => item.Block is "asteria:thorn_ash" or "asteria:bloom_cinder");
         Assert.NotNull(biome.SurfaceHabitats);
     }
 
