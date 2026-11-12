@@ -161,7 +161,8 @@ public sealed class DimensionSessionController
     /// </summary>
     public bool RequestRelocation(
         NVector3 sourcePosition,
-        NVector3 destinationPosition)
+        NVector3 destinationPosition,
+        bool exactDestination = false)
     {
         if (Active is null)
             throw new InvalidOperationException(
@@ -176,6 +177,7 @@ public sealed class DimensionSessionController
 
         _sourcePosition = sourcePosition;
         _destinationPosition = destinationPosition;
+        _exactDestination = exactDestination;
         _target = Active.Dimension.Id;
         Active.BeginRetirement();
         return true;
