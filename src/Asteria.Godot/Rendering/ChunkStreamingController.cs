@@ -170,7 +170,8 @@ public sealed class ChunkStreamingController
         WorldFrameWorkBudget budget,
         int horizontalRadius,
         bool includeVerticalAccess = false,
-        int maximumMaterializationStarts = int.MaxValue)
+        int maximumMaterializationStarts = int.MaxValue,
+        bool? allowArrivalReconciliation = null)
     {
         var selection =
             SyncSelection(
@@ -185,7 +186,8 @@ public sealed class ChunkStreamingController
             _residency.DispatchMaterializationTasks(
                 budget,
                 _presentations.Coordinates,
-                maximumNewTasks: maximumMaterializationStarts);
+                maximumNewTasks: maximumMaterializationStarts,
+                hasWorkerAdmission: allowArrivalReconciliation);
         var reserved =
             _presentations.ReservePending(
                 _residency,
