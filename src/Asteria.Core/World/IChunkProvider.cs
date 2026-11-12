@@ -144,12 +144,74 @@ public interface IIncrementalChunkProvider : IChunkProvider
 }
 
 /// <summary>
+/// Immutable dependency envelope plus isolated chunk copies for one arrival
+/// reconciliation. The live world is never read by the worker.
+/// </summary>
+public sealed class DirectionalFacePaletteReconciliationSnapshot
+{
+    internal DirectionalFacePaletteReconciliationSnapshot(
+        ChunkCoord arriving,
+        VoxelWorld workerWorld,
+        MeshDependencyStamp dependencies)
+    {
+        Arriving = arriving;
+        WorkerWorld = workerWorld ?? throw new ArgumentNullException(nameof(workerWorld));
+        Dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
+    }
+
+    public ChunkCoord Arriving { get; }
+
+    internal VoxelWorld WorkerWorld { get; }
+
+    public MeshDependencyStamp Dependencies { get; }
+}
+
+/// <summary>Worker-computed directional palette changes awaiting validated publication.</summary>
+public sealed class DirectionalFacePaletteReconciliationResult
+{
+    internal DirectionalFacePaletteReconciliationResult(
+        ChunkCoord arriving,
+        VoxelWorld workerWorld,
+        MeshDependencyStamp dependencies,
+        IReadOnlyList<ChunkCoord> changedChunks,
+        IReadOnlyList<WorldVoxelCoord> visualChanges)
+    {
+        Arriving = arriving;
+        WorkerWorld = workerWorld ?? throw new ArgumentNullException(nameof(workerWorld));
+        Dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
+        ChangedChunks = changedChunks ?? throw new ArgumentNullException(nameof(changedChunks));
+        VisualChanges = visualChanges ?? throw new ArgumentNullException(nameof(visualChanges));
+    }
+
+    public ChunkCoord Arriving { get; }
+
+    internal VoxelWorld WorkerWorld { get; }
+
+    public MeshDependencyStamp Dependencies { get; }
+
+    public IReadOnlyList<ChunkCoord> ChangedChunks { get; }
+
+    public IReadOnlyList<WorldVoxelCoord> VisualChanges { get; }
+}
+
+/// <summary>
 /// Maintains per-voxel directional exposure when chunks arrive or block
-/// occupancy changes. Implementations consume materialized occupancy only.
+/// occupancy changes. Calculation runs against isolated snapshots and is
+/// committed only while every captured dependency remains current.
 /// </summary>
 public interface IChunkDirectionalFacePaletteUpdater
 {
     IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
         VoxelWorld world, ChunkCoord arriving);
 
+    DirectionalFacePaletteReconciliationSnapshot CaptureChunkArrivalSnapshot(
+        VoxelWorld world, ChunkCoord arriving);
+
+    DirectionalFacePaletteReconciliationResult ReconcileChunkArrival(
+        DirectionalFacePaletteReconciliationSnapshot snapshot);
+
+    bool TryApplyChunkArrivalReconciliation(
+        VoxelWorld world,
+        DirectionalFacePaletteReconciliationResult result,
+        out IReadOnlyList<WorldVoxelCoord> visualChanges);
 }

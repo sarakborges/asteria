@@ -390,6 +390,17 @@ jobs:
           baseline_sha="$BASELINE_SHA"
           git worktree add --detach "$baseline" "$baseline_sha"
           git worktree add --detach "$candidate" "$CANDIDATE_SHA"
+
+          # Overlay the identical route-harness sources on the baseline worktree.
+          # Core and the ordinary worldgen benchmark remain at their own commits.
+          mkdir -p "$baseline/tools/WorldStreamingBenchmark"
+          cp -a "$candidate/tools/WorldStreamingBenchmark/." \
+            "$baseline/tools/WorldStreamingBenchmark/"
+
+          dotnet build "$baseline/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
+            --configuration Release --nologo
+          dotnet build "$candidate/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
+            --configuration Release --nologo
           dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
             --configuration Release --nologo
           dotnet build "$baseline/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
@@ -430,6 +441,34 @@ jobs:
               cat "$log"
               return 1
             fi
+
+            local route_output="$root/route-results/$version/$repetition.json"
+            if ! env DOTNET_TieredCompilation=0 dotnet run \
+              --project "$project_root/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
+              --configuration Release --no-build -- \
+              --project-root "$project_root" \
+              --seed 181960897289965 --dimension asteria:overworld \
+              --route-steps 8 --radius 4 \
+              --output "$route_output" > "$log.route" 2>&1; then
+              cat "$log.route"
+              return 1
+            fi
+
+            python3 - "$output" "$route_output" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          benchmark_path = pathlib.Path(sys.argv[1])
+          route_path = pathlib.Path(sys.argv[2])
+          benchmark = json.loads(benchmark_path.read_text(encoding="utf-8"))
+          route = json.loads(route_path.read_text(encoding="utf-8"))
+          benchmark["streamingRouteDiagnostics"] = route["streamingRouteDiagnostics"]
+          benchmark_path.write_text(
+              json.dumps(benchmark, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
           }
 
           baseline="$root/baseline"
@@ -508,15 +547,18 @@ jobs:
             "$root/results/candidate-tiered-quickjit-on" \
             "$root/results/candidate-no-pgo" \
             "$root/results/candidate-tiered-quickjit-off" <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import glob
           import json
+          import pathlib
           import statistics
           import sys
 
           def read(folder):
-              paths = sorted(glob.glob(f"{folder}/*.json"))
-              if len(paths) != 4:
-                  raise SystemExit(f"Expected four runs in {folder}, got {len(paths)}")
+              paths = [pathlib.Path(folder) / f"{index}.json" for index in range(1, 5)]
+              missing = [str(path) for path in paths if not path.is_file()]
+              if missing:
+                  raise SystemExit(
+                      f"Expected four production runs in {folder}; missing: {', '.join(missing)}"
+                  )
               documents = []
               for path in paths:
                   with open(path, encoding="utf-8") as stream:

@@ -7,6 +7,21 @@ using System.Diagnostics;
 
 namespace Asteria.Core.World;
 
+internal readonly record struct DirectionalFacePaletteReapplicationDiagnostic(
+    WorldVoxelCoord Position,
+    BlockRuntimeId RestoredBlock,
+    bool WasTerrainVoxel,
+    bool HadCandidates,
+    string? SolidOwnerBiome,
+    BiomeRegionOwnerKind? SolidOwnerKind,
+    string? AppliedOwnerBiome,
+    BiomeRegionOwnerKind? AppliedOwnerKind,
+    BiomePaletteFace? Face,
+    uint? Depth,
+    WorldVoxelCoord? EmptyNeighbor,
+    BlockRuntimeId? Replacement,
+    bool Applied);
+
 /// <summary>
 /// Only the materialization stage writes chunk voxels. It consumes immutable
 /// terrain/biome snapshots and material/decorator capabilities.
@@ -459,6 +474,7 @@ public sealed class SurfaceChunkMaterializer
 
             case ChunkMaterializationStage.PendingObjects:
                 MaterializePendingObjects(job);
+                ValidateGravitySupportBeforePublication(job);
                 job.Result = job.Chunk;
                 job.Stage = ChunkMaterializationStage.Complete;
                 break;
@@ -1061,16 +1077,25 @@ public sealed class SurfaceChunkMaterializer
             positions = new List<(int X, int Y, int Z)>();
             if (job.SupportOnly)
             {
-                // The parent reads only this chunk's upper face. Inspecting
-                // every voxel and sorting a full-chunk candidate list repeats
-                // work that cannot affect the answer.
-                var supportY = Chunk.Size - 1;
+                // A support-only query must validate the complete gravity
+                // stack in each requested X/Z column. Checking just the top
+                // face can accept a gravity block resting on another gravity
+                // block whose own support is deeper in an unloaded chunk.
+                var supportColumns = job.SupportFaceColumns;
                 for (var z = 0; z < Chunk.Size; z++)
                 for (var x = 0; x < Chunk.Size; x++)
                 {
-                    var cell = job.Chunk.GetCell(x, supportY, z);
-                    if (_gravityBlocks.Contains(cell.Block))
-                        positions.Add((x, supportY, z));
+                    var columnIndex = x + Chunk.Size * z;
+                    if (supportColumns is not null &&
+                        !supportColumns[columnIndex])
+                        continue;
+
+                    for (var y = 0; y < Chunk.Size; y++)
+                    {
+                        var cell = job.Chunk.GetCell(x, y, z);
+                        if (_gravityBlocks.Contains(cell.Block))
+                            positions.Add((x, y, z));
+                    }
                 }
             }
             else
@@ -1080,19 +1105,19 @@ public sealed class SurfaceChunkMaterializer
                     if (_gravityBlocks.Contains(cell.Block))
                         positions.Add((x, y, z));
                 });
-
-                positions.Sort(static (left, right) =>
-                {
-                    var result = left.Y.CompareTo(right.Y);
-                    if (result != 0) return result;
-                    result = left.Z.CompareTo(right.Z);
-                    return result != 0 ? result : left.X.CompareTo(right.X);
-                });
             }
+
+            positions.Sort(static (left, right) =>
+            {
+                var result = left.Y.CompareTo(right.Y);
+                if (result != 0) return result;
+                result = left.Z.CompareTo(right.Z);
+                return result != 0 ? result : left.X.CompareTo(right.X);
+            });
             job.GravityPositions = positions;
 
             // The child dependency must survive across multiple worker slices.
-            if (!job.SupportOnly && job.OriginY > 0 &&
+            if (job.OriginY > 0 &&
                 positions.Any(position => position.Y == 0))
             {
                 var supportColumns = new bool[Chunk.Area];
@@ -1153,7 +1178,8 @@ public sealed class SurfaceChunkMaterializer
                     job.SupportChunkJob = new MaterializationJob(
                         this,
                         new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
-                        supportOnly: true);
+                        supportOnly: true,
+                        supportFaceColumns: fallbackColumns);
                     return;
                 }
 
@@ -1245,9 +1271,16 @@ public sealed class SurfaceChunkMaterializer
             return false;
 
         var topLocalY = Chunk.Size - 1;
-        var belowLocalY = topLocalY - 1;
         var top = supportJob.Chunk.GetCell(localX, topLocalY, localZ);
         if (top.IsEmpty || !_materials.FacePalettesPreserveOccupancy)
+            return false;
+
+        // A gravity block may appear supported by another gravity block
+        // whose own support lies deeper in the chunk. This sparse query only
+        // materializes the top two rows, so it cannot prove that the entire
+        // gravity stack reaches stable terrain. Let the complete materializer
+        // resolve any gravity-owned support face before it is trusted.
+        if (_gravityBlocks.Contains(top.Block))
             return false;
 
         var topWorldY = supportJob.OriginY + topLocalY;
@@ -1262,14 +1295,6 @@ public sealed class SurfaceChunkMaterializer
                 supportJob.Coord, worldX, topWorldY, worldZ) ||
             HasSurfaceStructurePayloadAt(
                 supportJob.Coord, worldX, belowWorldY, worldZ))
-            return false;
-
-        // A gravity voxel on the requested face must itself be stable before
-        // it can be trusted as support. If its lower cell is empty, retain the
-        // complete materialization path so decorations/structures and the
-        // generated-gravity invariant are evaluated in their normal order.
-        if (_gravityBlocks.Contains(top.Block) &&
-            supportJob.Chunk.GetCell(localX, belowLocalY, localZ).IsEmpty)
             return false;
 
         return true;
@@ -1332,6 +1357,92 @@ public sealed class SurfaceChunkMaterializer
         }
 
         return false;
+    }
+
+    private void ValidateGravitySupportBeforePublication(
+        MaterializationJob job)
+    {
+        var visitedBlockCells = 0;
+        var visitedGravityCells = 0;
+        var directlyReadBlockCells = 0;
+        var directlyReadGravityCells = 0;
+        var gravitySetMisses = 0;
+        List<string>? discrepancies = null;
+        List<string>? unsupported = null;
+
+        // Compare sparse palette enumeration with authoritative indexed reads.
+        // This is deliberately a full-volume verification: it detects a stale
+        // occupancy bitmap that could hide a generated gravity voxel from the
+        // GravitySupport pass but expose it after later palette mutations.
+        job.Chunk.VisitBlockCells((x, y, z, cell) =>
+        {
+            visitedBlockCells++;
+            var definition = _blocks.GetDefinition(cell.Block);
+            if (!definition.HasTag(BlockPhysicsCapabilities.Gravity))
+                return;
+
+            visitedGravityCells++;
+            if (!_gravityBlocks.Contains(cell.Block))
+                gravitySetMisses++;
+        });
+
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var cell = job.Chunk.GetCell(x, y, z);
+            if (cell.IsEmpty)
+                continue;
+
+            directlyReadBlockCells++;
+            var definition = _blocks.GetDefinition(cell.Block);
+            if (!definition.HasTag(BlockPhysicsCapabilities.Gravity))
+                continue;
+
+            directlyReadGravityCells++;
+            var recognizedBySet = _gravityBlocks.Contains(cell.Block);
+            var supported = y > 0
+                ? !job.Chunk.GetCell(x, y - 1, z).IsEmpty
+                : job.OriginY == 0 ||
+                  (job.SupportChunkTopOccupancy is { } supportFace &&
+                   supportFace[x + Chunk.Size * z]);
+
+            if (recognizedBySet && supported)
+                continue;
+
+            unsupported ??= new List<string>(8);
+            if (unsupported.Count < 16)
+            {
+                var below = y > 0
+                    ? _blocks.GetDefinition(job.Chunk.GetBlock(x, y - 1, z)).Id
+                    : "chunk-seam";
+                unsupported.Add(
+                    $"{definition.Id}@{job.OriginX + x},{job.OriginY + y},{job.OriginZ + z}" +
+                    $"(local={x},{y},{z},set={recognizedBySet},below={below})");
+            }
+        }
+
+        if (visitedBlockCells != directlyReadBlockCells ||
+            visitedGravityCells != directlyReadGravityCells)
+        {
+            discrepancies = new List<string>(1)
+            {
+                $"sparseVisit={visitedBlockCells}/{visitedGravityCells} " +
+                $"directRead={directlyReadBlockCells}/{directlyReadGravityCells}"
+            };
+        }
+
+        if (unsupported is { Count: > 0 } ||
+            discrepancies is { Count: > 0 } ||
+            gravitySetMisses != 0)
+        {
+            throw new InvalidOperationException(
+                $"Generated chunk {job.Coord} failed the final gravity/occupancy invariant " +
+                $"(gravityCells={directlyReadGravityCells}, visitedGravityCells={visitedGravityCells}, " +
+                $"gravitySetMisses={gravitySetMisses}, gravityPositions={job.GravityPositions?.Count ?? -1}): " +
+                string.Join("; ", discrepancies ?? []) +
+                string.Join("; ", unsupported ?? []));
+        }
     }
 
     private static void CompleteGravitySupportStage(MaterializationJob job)
@@ -3002,17 +3113,29 @@ public sealed class SurfaceChunkMaterializer
         int worldX,
         int worldY,
         int worldZ,
-        Func<int, int, DirectionalPaletteColumnData> columnAt)
+        Func<int, int, DirectionalPaletteColumnData> columnAt,
+        VoxelWorld? supportWorld = null,
+        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic = null)
     {
         chunk.RestoreDirectionalFaceBaseBlockAtLinearIndex(index);
         var data = chunk.DirectionalFaceDataAtLinearIndex(index);
+        var restoredBlock = chunk.GetCellAtLinearIndexUnchecked(index).Block;
+        var position = new WorldVoxelCoord(worldX, worldY, worldZ);
         if (!data.IsTerrainVoxel ||
             worldY <= 0 ||
             (_floorY is { } floorY && worldY <= floorY) ||
             (_roofY is { } roofY && worldY >= roofY))
+        {
+            diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                null, null, null, null, null, null, null, null, false));
             return false;
+        }
         if (!data.HasCandidates)
         {
+            diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                position, restoredBlock, data.IsTerrainVoxel, false,
+                null, null, null, null, null, null, null, null, false));
             chunk.SetDirectionalFaceDataAtLinearIndex(index, default);
             return false;
         }
@@ -3034,7 +3157,13 @@ public sealed class SurfaceChunkMaterializer
 
         var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
         if (maximumDepth == 0)
+        {
+            diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                solidOwner.Biome.Primary, solidOwner.Kind,
+                null, null, null, null, null, null, false));
             return false;
+        }
 
         var up = data.Up;
         var negativeX = data.NegativeX;
@@ -3099,7 +3228,13 @@ public sealed class SurfaceChunkMaterializer
             }
 
             if (direction < 0)
+            {
+                diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                    position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                    solidOwner.Biome.Primary, solidOwner.Kind,
+                    null, null, null, null, null, null, false));
                 return false;
+            }
 
             var distance = nearestDistance;
             var candidateBit = 1UL << (distance - 1);
@@ -3185,8 +3320,54 @@ public sealed class SurfaceChunkMaterializer
 
             var replacement = _materials.VolumeBlockAt(
                 owner.Biome, worldX, worldY, worldZ, face, depth);
-            return chunk.SetDirectionalFacePaletteBlockAtLinearIndex(index, replacement);
+            var emptyNeighbor = new WorldVoxelCoord(
+                checked(worldX + dx), neighborY, checked(worldZ + dz));
+            if (supportWorld is not null &&
+                _gravityBlocks.Contains(replacement) &&
+                !HasStableGravitySupportBelow(supportWorld, position))
+            {
+                // Arrival-time reconciliation runs after GravitySupport has
+                // validated the generated chunk. Do not introduce a new
+                // unsupported gravity block after that invariant pass.
+                // The restored base material remains the safe representation.
+                diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                    position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                    solidOwner.Biome.Primary, solidOwner.Kind,
+                    owner.Biome.Primary, owner.Kind, face, depth,
+                    emptyNeighbor, replacement, false));
+                return false;
+            }
+
+            var applied = chunk.SetDirectionalFacePaletteBlockAtLinearIndex(
+                index, replacement);
+            diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
+                position, restoredBlock, data.IsTerrainVoxel, data.HasCandidates,
+                solidOwner.Biome.Primary, solidOwner.Kind,
+                owner.Biome.Primary, owner.Kind, face, depth,
+                emptyNeighbor, replacement, applied));
+            return applied;
         }
+    }
+
+    private bool HasStableGravitySupportBelow(
+        VoxelWorld world,
+        WorldVoxelCoord position)
+    {
+        var support = position + (0, -1, 0);
+        while (support.Y >= 0)
+        {
+            if (!world.TryGetSavedCell(support, out var cell) || cell.IsEmpty)
+                return false;
+            if (!_gravityBlocks.Contains(cell.Block))
+                return true;
+
+            // A lower gravity block is not terminal support. Follow the full
+            // stack, including archived chunks, until it reaches stable rock.
+            support += (0, -1, 0);
+        }
+
+        // The world floor is terminal support.
+        return true;
     }
 
     private void MaterializeDirectionalFacePalettes(MaterializationJob job)
@@ -3322,12 +3503,118 @@ public sealed class SurfaceChunkMaterializer
     }
 
     internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
-        VoxelWorld world, ChunkCoord arriving)
+        VoxelWorld world, ChunkCoord arriving) =>
+        ReconcileChunkArrivalCore(world, arriving, diagnostic: null, out _);
+
+    internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalWithDiagnostics(
+        VoxelWorld world,
+        ChunkCoord arriving,
+        Action<DirectionalFacePaletteReapplicationDiagnostic> diagnostic)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostic);
+        return ReconcileChunkArrivalCore(world, arriving, diagnostic, out _);
+    }
+
+    internal DirectionalFacePaletteReconciliationSnapshot
+        CaptureChunkArrivalSnapshot(VoxelWorld world, ChunkCoord arriving)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
+        var maximumChunkOffset = (maximumDepth + Chunk.Size - 1) / Chunk.Size;
+        var sourceChunks = new HashSet<ChunkCoord>();
+
+        // Every source ray and every sampled target lies on one of the three
+        // axis-aligned chunk lines crossing the arriving chunk.
+        for (var axis = 0; axis < 3; axis++)
+        for (var offset = -maximumChunkOffset; offset <= maximumChunkOffset; offset++)
+        {
+            var coord = OffsetChunk(arriving, axis, offset);
+            if (coord.Y >= 0)
+                sourceChunks.Add(coord);
+        }
+
+        var dependencies = new HashSet<ChunkCoord>(sourceChunks);
+        // Gravity-palette validation follows downward stacks until a stable
+        // support, air gap, or missing chunk. Capture each affected column down
+        // to its first missing chunk so a newly arriving support invalidates
+        // this worker instead of allowing a stale gravity decision to publish.
+        foreach (var column in sourceChunks
+                     .GroupBy(coord => new ChunkColumnCoord(coord.X, coord.Z)))
+        {
+            var minimumSourceY = column.Min(coord => coord.Y);
+            for (var y = minimumSourceY - 1; y >= 0; y--)
+            {
+                var supportCoord = new ChunkCoord(column.Key.X, y, column.Key.Z);
+                dependencies.Add(supportCoord);
+                if (!world.TryGetSavedChunk(supportCoord, out _))
+                    break;
+            }
+        }
+
+        var captured = world.CaptureDirectionalFaceWorkerSnapshot(dependencies);
+        return new DirectionalFacePaletteReconciliationSnapshot(
+            arriving, captured.World, captured.Dependencies);
+    }
+
+    internal DirectionalFacePaletteReconciliationResult
+        ReconcileChunkArrival(DirectionalFacePaletteReconciliationSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var visualChanges = ReconcileChunkArrivalCore(
+            snapshot.WorkerWorld, snapshot.Arriving, diagnostic: null,
+            out var changedChunks);
+        return new DirectionalFacePaletteReconciliationResult(
+            snapshot.Arriving,
+            snapshot.WorkerWorld,
+            snapshot.Dependencies,
+            changedChunks,
+            visualChanges);
+    }
+
+    internal bool TryApplyChunkArrivalReconciliation(
+        VoxelWorld world,
+        DirectionalFacePaletteReconciliationResult result,
+        out IReadOnlyList<WorldVoxelCoord> visualChanges)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(result);
+        visualChanges = Array.Empty<WorldVoxelCoord>();
+        if (!result.Dependencies.IsCurrent(world))
+            return false;
+
+        // Preflight every changed chunk before transferring any of them, so a
+        // rejected result can never partially publish its derived state.
+        foreach (var coord in result.ChangedChunks)
+        {
+            if (!world.TryGetSavedChunk(coord, out _) ||
+                !result.WorkerWorld.TryGetChunk(coord, out _))
+                return false;
+        }
+
+        foreach (var coord in result.ChangedChunks)
+        {
+            if (!world.ReplaceDerivedChunkFromWorker(result.WorkerWorld, coord))
+                throw new InvalidOperationException(
+                    $"Validated directional-face chunk disappeared during publication: {coord}.");
+        }
+
+        visualChanges = result.VisualChanges;
+        return true;
+    }
+
+    private IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalCore(
+        VoxelWorld world,
+        ChunkCoord arriving,
+        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic,
+        out IReadOnlyList<ChunkCoord> changedChunks)
     {
         ArgumentNullException.ThrowIfNull(world);
         var maximumDepth = checked((int)_materials.MaximumDirectionalPaintDepth);
         if (maximumDepth <= 0)
+        {
+            changedChunks = Array.Empty<ChunkCoord>();
             return Array.Empty<WorldVoxelCoord>();
+        }
 
         var changedSources = new HashSet<(ChunkCoord Coord, int Index)>();
         var dirtyChunks = new HashSet<ChunkCoord>();
@@ -3343,7 +3630,15 @@ public sealed class SurfaceChunkMaterializer
                 world, sourceCoord, axis, sign, maximumDepth,
                 changedSources, dirtyChunks, ensured);
         }
-        return ApplyDirectionalFaceChanges(world, changedSources, dirtyChunks);
+
+        var visualChanges = ApplyDirectionalFaceChanges(
+            world, changedSources, dirtyChunks, diagnostic);
+        changedChunks = dirtyChunks
+            .OrderBy(coord => coord.Y)
+            .ThenBy(coord => coord.Z)
+            .ThenBy(coord => coord.X)
+            .ToArray();
+        return visualChanges;
     }
 
     private void ReconcileChunkOutward(
@@ -3445,7 +3740,8 @@ public sealed class SurfaceChunkMaterializer
     private IReadOnlyList<WorldVoxelCoord> ApplyDirectionalFaceChanges(
         VoxelWorld world,
         HashSet<(ChunkCoord Coord, int Index)> changedSources,
-        HashSet<ChunkCoord> dirtyChunks)
+        HashSet<ChunkCoord> dirtyChunks,
+        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic)
     {
         var visualChanges = new HashSet<WorldVoxelCoord>();
         foreach (var group in changedSources.GroupBy(entry => entry.Coord))
@@ -3497,7 +3793,9 @@ public sealed class SurfaceChunkMaterializer
                 var before = chunk.GetCellAtLinearIndexUnchecked(index);
                 ReapplyDirectionalFacePaletteAt(
                     chunk, densityVolume, index,
-                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt);
+                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt,
+                    supportWorld: world,
+                    diagnostic: diagnostic);
                 var after = chunk.GetCellAtLinearIndexUnchecked(index);
                 if (before.Block != after.Block)
                 {

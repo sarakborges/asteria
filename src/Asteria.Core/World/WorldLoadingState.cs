@@ -3,11 +3,12 @@ namespace Asteria.Core.World;
 public enum WorldLoadingPhase : byte
 {
     Inactive = 0,
-    RetiringCurrentDimension = 1,
-    MaterializingInitialArea = 2,
-    PreparingPresentation = 3,
-    Ready = 4,
-    PreparingArrivalStructure = 5,
+    PreparingEntry = 1,
+    RetiringCurrentDimension = 2,
+    MaterializingInitialArea = 3,
+    PreparingPresentation = 4,
+    Ready = 5,
+    PreparingArrivalStructure = 6,
 }
 
 public readonly record struct WorldLoadingProgress(
@@ -61,6 +62,7 @@ public sealed class WorldLoadingState
 
     public bool IsActive =>
         _progress.Phase is
+            WorldLoadingPhase.PreparingEntry or
             WorldLoadingPhase.RetiringCurrentDimension or
             WorldLoadingPhase.MaterializingInitialArea or
             WorldLoadingPhase.PreparingPresentation or
@@ -71,13 +73,15 @@ public sealed class WorldLoadingState
     // that work so snapshots do not repeatedly go stale as neighbors arrive.
     public bool AllowsLightingDispatch =>
         _progress.Phase is not (
+            WorldLoadingPhase.PreparingEntry or
             WorldLoadingPhase.RetiringCurrentDimension or
             WorldLoadingPhase.MaterializingInitialArea);
 
     public bool AllowsMeshDispatch(bool lightingSettled) =>
         _progress.Phase switch
         {
-            WorldLoadingPhase.RetiringCurrentDimension => false,
+            WorldLoadingPhase.PreparingEntry or
+                WorldLoadingPhase.RetiringCurrentDimension => false,
             WorldLoadingPhase.MaterializingInitialArea or
                 WorldLoadingPhase.PreparingPresentation or
                 WorldLoadingPhase.PreparingArrivalStructure or
@@ -89,6 +93,13 @@ public sealed class WorldLoadingState
 
     public WorldLoadingProgress Progress =>
         _progress;
+
+    public void BeginEntryPreparation()
+    {
+        Center = default;
+        _progress = new WorldLoadingProgress(
+            WorldLoadingPhase.PreparingEntry, 0, 0);
+    }
 
     public void BeginRetirement()
     {

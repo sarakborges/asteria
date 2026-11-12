@@ -114,6 +114,8 @@ public partial class Main : Node3D
         (!_fluidSimulationRuntime.IsRunning &&
          _fluidUpdates.HasReadyWork(_worldTicks.CurrentTick)) ||
         (!_lightingRuntime.IsRunning && _worldUpdates.HasLightingWork) ||
+        (_residency.DirectionalFaceReconciliationCount > 0 ||
+         _residency.ChunkLightingReconciliationCount > 0) ||
         (_terrainMeshPipeline.ActiveWorkerCount < 2 &&
          (_worldUpdates.HasPriorityMeshWork || _worldUpdates.HasBackgroundMeshWork)) ||
         (_fluidMeshPipeline.ActiveWorkerCount < MaxFluidMeshWorkers &&
@@ -167,6 +169,7 @@ public partial class Main : Node3D
     private int _publishedOxygenSeconds = -1;
     private bool _publishedOxygenVisible;
     private bool _respawnArrival;
+    private bool _respawnAwaitingPosition;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
@@ -250,7 +253,7 @@ public partial class Main : Node3D
         GD.Print($"worlds directory: {WorldSaveDirectories.Root}");
         _keybindCapture = new KeybindCaptureController(
             _clientSettings);
-        _packSettings = new PackSelectionStore(OS.GetUserDataDir());
+        _packSettings = new PackSelectionStore(GameDirectories.Root);
         _packSelection = _packSettings.Current;
         _mods = new ModLoader(GameDirectories.Mods);
         GD.Print($"mods directory: {GameDirectories.Mods}");
@@ -686,6 +689,35 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_loading.Progress.Phase == WorldLoadingPhase.PreparingEntry)
+        {
+            if (!_sessions.Active.TryCompleteInitialPositionResolution(out var entryError))
+            {
+                SendLoadingState();
+                return;
+            }
+
+            if (entryError is not null)
+                throw new InvalidOperationException(
+                    $"Generated world-entry position preparation failed for Sphere {_dimension.Id}.",
+                    entryError);
+
+            if (_respawnAwaitingPosition)
+            {
+                _respawnAwaitingPosition = false;
+                if (!BeginDimensionTransition(
+                        _dimension.Id,
+                        _sessions.Active.InitialPlayerPosition,
+                        exactDestination: true))
+                    throw new InvalidOperationException(
+                        "Failed to initiate respawn relocation after generated entry preparation.");
+                _respawnArrival = true;
+                return;
+            }
+
+            BeginWorldLoading();
+        }
+
         _sessions.Active.AdvanceWorldTime(
             delta, _player?.GlobalPosition, _worldReadySent);
         UpdateDayNightPresentation(delta);
@@ -721,16 +753,23 @@ public partial class Main : Node3D
             : 0;
         var materializationSlots = Math.Max(
             0, availableWorkerSlots - reservedWorkerSlots);
-        var materializationStarts = streamingPressure.IsPressured
-            ? 0
-            : materializationSlots;
+        var materializationStarts =
+            streamingPressure.LimitMaterializationStarts(
+                materializationSlots);
         var streamingBegin =
             _chunkStreaming.BeginFrame(
                 streamingCenter,
                 _worldFrameBudget,
                 streamingRadius,
                 RequiresPortalSurfaceAccess,
-                materializationStarts);
+                materializationStarts,
+                allowArrivalReconciliation: availableWorkerSlots > 0);
+        _worldDiagnostics?.ObserveStreamingAdmission(
+            streamingPressure.IsPressured,
+            availableWorkerSlots,
+            materializationSlots,
+            materializationStarts,
+            streamingBegin.Dispatched.StartedTasks);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.StreamingBegin, stageStart);
         ReportStreamingSelection(
@@ -1038,7 +1077,8 @@ public partial class Main : Node3D
     private bool BeginDimensionTransition(
         DimensionId target,
         NVector3 destination,
-        DimensionTravelPurpose purpose = DimensionTravelPurpose.Ordinary)
+        DimensionTravelPurpose purpose = DimensionTravelPurpose.Ordinary,
+        bool exactDestination = false)
     {
         if (_player is null)
         {
@@ -1054,11 +1094,14 @@ public partial class Main : Node3D
                 position.Z);
 
         var sameSphere = target == _dimension.Id;
+        var preserveExactDestination =
+            exactDestination || purpose == DimensionTravelPurpose.Portal;
         if (!(sameSphere
-                ? _sessions.RequestRelocation(source, destination)
+                ? _sessions.RequestRelocation(
+                    source, destination, exactDestination: preserveExactDestination)
                 : _sessions.RequestTransition(
                     target, source, destination,
-                    exactDestination: purpose == DimensionTravelPurpose.Portal)))
+                    exactDestination: preserveExactDestination)))
         {
             return false;
         }
@@ -1151,6 +1194,7 @@ public partial class Main : Node3D
 
     private void StartDimensionRetirement(DimensionId target, bool savingWorld = false)
     {
+        _respawnAwaitingPosition = false;
         RetirePlayerForDimensionTransition();
         _ambientParticleRuntime?.Clear();
         _ambientParticlePresentation?.Clear();
@@ -1213,7 +1257,15 @@ public partial class Main : Node3D
             SendWebUi("game.world.saving", new { active = false });
 
         ActivateCurrentDimensionPresentation();
-        BeginWorldLoading();
+        if (_sessions.Active.InitialPlayerPositionReady)
+        {
+            BeginWorldLoading();
+        }
+        else
+        {
+            _loading.BeginEntryPreparation();
+            SendLoadingState(force: true);
+        }
 
         if (completion.IsCheckpoint)
         {
@@ -1505,6 +1557,32 @@ public partial class Main : Node3D
         _webUi.Connect(
             "webui_ready",
             Callable.From(OnWebUiReady));
+        _webUi.Connect(
+            "diagnostic_event",
+            Callable.From<string, string, string>(OnWebUiDiagnostic));
+    }
+
+    private void OnWebUiDiagnostic(
+        string level, string eventName, string details)
+    {
+        if (_worldDiagnostics is not { } diagnostics)
+            return;
+
+        switch (level)
+        {
+            case "ERROR":
+                diagnostics.Error(eventName, details);
+                break;
+            case "WARN":
+                diagnostics.Warn(eventName, details);
+                break;
+            default:
+                diagnostics.Write(
+                    string.IsNullOrWhiteSpace(details)
+                        ? eventName
+                        : $"{eventName} {details}");
+                break;
+        }
     }
 
     private void OnWebUiReady()
@@ -1535,6 +1613,31 @@ public partial class Main : Node3D
             }
 
             var type = typeElement.GetString();
+
+            if (type == "ui.ready")
+            {
+                var version = document.RootElement.TryGetProperty("payload", out var readyPayload) &&
+                              readyPayload.TryGetProperty("version", out var versionElement)
+                    ? versionElement.ToString()
+                    : "unknown";
+                _worldDiagnostics?.Write($"webui.bridge.ready version={version}");
+            }
+            else if (type == "ui.dom.ready")
+            {
+                _worldDiagnostics?.Write("webui.dom.ready");
+            }
+            else if (type == "ui.runtime.error" ||
+                     type == "ui.runtime.unhandled_rejection")
+            {
+                var details = document.RootElement.TryGetProperty("payload", out var errorPayload)
+                    ? errorPayload.ToString()
+                    : "payload=missing";
+                _worldDiagnostics?.Error(
+                    type == "ui.runtime.error"
+                        ? "webui.javascript.error"
+                        : "webui.javascript.unhandled_rejection",
+                    details);
+            }
 
             if (_debugHudVisible)
             {
@@ -2586,7 +2689,15 @@ public partial class Main : Node3D
             $"retention_margin={RetentionMarginChunks} " +
             $"materialization_in_flight={MaxMaterializationTasksInFlight}");
 
-        BeginWorldLoading();
+        if (_sessions.Active.InitialPlayerPositionReady)
+        {
+            BeginWorldLoading();
+        }
+        else
+        {
+            _loading.BeginEntryPreparation();
+            SendLoadingState(force: true);
+        }
     }
 
     private bool RequiresPortalSurfaceAccess =>
@@ -2616,6 +2727,8 @@ public partial class Main : Node3D
             ResidencySettled: !_residency.HasRenderableBacklog,
             SelectionSettled: !_chunkStreaming.IsSelectionRunning,
             LightingSettled:
+                _residency.DirectionalFaceReconciliationCount == 0 &&
+                _residency.ChunkLightingReconciliationCount == 0 &&
                 !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant),
             TerrainMeshWorkSettled:
                 !_terrainMeshPipeline.HasWorkAffecting(_residency.IsDesired),
@@ -2713,8 +2826,9 @@ public partial class Main : Node3D
             {
                 case WarpArrivalDisposition.RetryAtGeneratedSpawn:
                     _warpArrival = warp.RetryAtGeneratedSpawn();
-                    _sessions.Active.PrepareGeneratedSpawn();
-                    BeginWorldLoading();
+                    _sessions.Active.BeginGeneratedSpawnResolution(force: true);
+                    _loading.BeginEntryPreparation();
+                    SendLoadingState();
                     return;
                 case WarpArrivalDisposition.ReturnToOrigin:
                     BeginWarpRollback(warp);
@@ -2806,6 +2920,8 @@ public partial class Main : Node3D
         var phase =
             progress.Phase switch
             {
+                WorldLoadingPhase.PreparingEntry =>
+                    "preparing_entry",
                 WorldLoadingPhase.RetiringCurrentDimension =>
                     "retiring_current_dimension",
                 WorldLoadingPhase.MaterializingInitialArea =>
@@ -3014,15 +3130,15 @@ public partial class Main : Node3D
     {
         if (_worldSeed is null || !_worldReadySent ||
             _sessions.IsTransitioning || _player is null ||
-            !_sessionStates.Player.Health.IsDead)
+            _respawnAwaitingPosition || !_sessionStates.Player.Health.IsDead)
             return;
 
-        // Request the generated safe spawn; re-enter the current Sphere
-        // through the same resident-chunk and loading lifecycle as travel.
-        _sessions.Active.PrepareGeneratedSpawn();
-        if (BeginDimensionTransition(
-            _dimension.Id, _sessions.Active.InitialPlayerPosition))
-            _respawnArrival = true;
+        // Resolve the generated safe spawn off-thread before beginning the
+        // normal same-Sphere retirement and bootstrap sequence.
+        _respawnAwaitingPosition = true;
+        _sessions.Active.BeginGeneratedSpawnResolution(force: true);
+        _loading.BeginEntryPreparation();
+        SendLoadingState();
     }
 
     private void SendWorldHudState(

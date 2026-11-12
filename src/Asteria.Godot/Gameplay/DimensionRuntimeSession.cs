@@ -42,6 +42,8 @@ public sealed class DimensionRuntimeSession
 
     private readonly DimensionSessionState _state;
     private NVector3 _initialPlayerPosition;
+    private Task<NVector3>? _initialPositionResolution;
+    private bool _initialPlayerPositionReady;
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly CreaturePresentationController _creaturePresentation;
@@ -206,9 +208,15 @@ public sealed class DimensionRuntimeSession
         _naturalSpawns =
             new CreatureNaturalSpawnRuntime(
                 creatures, biomes, state.NaturalSpawnNextAttemptTick);
-        _initialPlayerPosition =
-            state.PlayerPosition ??
-            ResolveGeneratedSpawn();
+        if (state.PlayerPosition is { } savedPlayerPosition)
+        {
+            _initialPlayerPosition = savedPlayerPosition;
+            _initialPlayerPositionReady = true;
+        }
+        else
+        {
+            _initialPlayerPositionReady = false;
+        }
         _droppedBlocks =
             new DroppedBlockRuntime(
                 World,
@@ -776,15 +784,79 @@ public sealed class DimensionRuntimeSession
         _retiring;
 
     public bool IsQuiescent =>
+        (_initialPositionResolution is null || _initialPositionResolution.IsCompleted) &&
         Residency.MaterializingCount == 0 &&
+        Residency.DirectionalFaceReconciliationCount == 0 &&
+        Residency.ChunkLightingReconciliationCount == 0 &&
         !Streaming.IsSelectionRunning &&
         !FluidSimulation.IsRunning &&
         !Lighting.IsRunning &&
         !TerrainMesh.IsRunning &&
         !FluidMesh.IsRunning;
 
+    public bool InitialPlayerPositionReady =>
+        _initialPlayerPositionReady;
+
     public NVector3 InitialPlayerPosition =>
-        _initialPlayerPosition;
+        _initialPlayerPositionReady
+            ? _initialPlayerPosition
+            : throw new InvalidOperationException(
+                "Generated spawn resolution has not completed for this dimension session.");
+
+    /// <summary>
+    /// Starts the one bounded spawn query owned by this dimension session.
+    /// Call only when no explicit or saved entry position exists.
+    /// </summary>
+    public void BeginGeneratedSpawnResolution(bool force = false)
+    {
+        if (_retiring || _retired)
+            throw new InvalidOperationException(
+                "A retiring dimension session cannot start spawn preparation.");
+        if (_initialPositionResolution is not null)
+        {
+            if (force)
+                throw new InvalidOperationException(
+                    "A generated entry-position query is already running for this session.");
+            return;
+        }
+        if (_initialPlayerPositionReady && !force)
+            return;
+
+        _initialPlayerPositionReady = false;
+        // Generated-world spawn search is pure and may inspect thousands of
+        // world-space samples. Keep it off the Godot thread and scoped to this
+        // session so a retired result can never affect its successor.
+        _initialPositionResolution = Task.Run(ResolveGeneratedSpawn);
+    }
+
+    /// <summary>
+    /// Collects the session-owned generated-spawn result without blocking.
+    /// A destination explicitly selected while the query was running takes
+    /// precedence over its eventual result.
+    /// </summary>
+    public bool TryCompleteInitialPositionResolution(out Exception? error)
+    {
+        error = null;
+        if (_initialPositionResolution is not { IsCompleted: true } task)
+            return _initialPlayerPositionReady;
+
+        _initialPositionResolution = null;
+        try
+        {
+            var generated = task.GetAwaiter().GetResult();
+            if (!_initialPlayerPositionReady)
+            {
+                _initialPlayerPosition = generated;
+                _initialPlayerPositionReady = true;
+            }
+        }
+        catch (Exception exception)
+        {
+            error = exception;
+        }
+
+        return _initialPlayerPositionReady || error is not null;
+    }
 
     private NVector3 ResolveGeneratedSpawn()
     {
@@ -815,6 +887,7 @@ public sealed class DimensionRuntimeSession
             preferred.Y < 1f)
             throw new ArgumentOutOfRangeException(nameof(preferred));
         _initialPlayerPosition = preferred;
+        _initialPlayerPositionReady = true;
     }
 
     public ExactArrivalStatus CheckResidentPortalEntry() =>
@@ -882,21 +955,26 @@ public sealed class DimensionRuntimeSession
             returnDimension: origin);
     }
 
-    public void PrepareGeneratedDestination(
-        NVector3 preferred)
+    public void BeginGeneratedDestinationResolution(NVector3 preferred)
     {
-        var preferredX =
-            checked(
-                (int)MathF.Floor(
-                    preferred.X));
-        var preferredY =
-            checked(
-                (int)MathF.Floor(
-                    preferred.Y));
-        var preferredZ =
-            checked(
-                (int)MathF.Floor(
-                    preferred.Z));
+        if (_retiring || _retired)
+            throw new InvalidOperationException(
+                "A retiring dimension session cannot prepare a generated destination.");
+        if (_initialPositionResolution is not null)
+            throw new InvalidOperationException(
+                "This dimension session already has an entry-position query in flight.");
+
+        var preferredX = checked((int)MathF.Floor(preferred.X));
+        var preferredY = checked((int)MathF.Floor(preferred.Y));
+        var preferredZ = checked((int)MathF.Floor(preferred.Z));
+        _initialPlayerPositionReady = false;
+        _initialPositionResolution = Task.Run(
+            () => ResolveGeneratedDestination(preferredX, preferredY, preferredZ));
+    }
+
+    private NVector3 ResolveGeneratedDestination(
+        int preferredX, int preferredY, int preferredZ)
+    {
         var destination =
             Generator.FindGeneratedDestination(
                 preferredX,
@@ -906,11 +984,10 @@ public sealed class DimensionRuntimeSession
             throw new InvalidOperationException(
                 $"Dimension {Dimension.Id} has no safe generated destination within {SpawnSearchRadiusBlocks} blocks of ({preferredX}, {preferredY}, {preferredZ}).");
 
-        _initialPlayerPosition =
-            new NVector3(
-                destination.X + 0.5f,
-                destination.Y,
-                destination.Z + 0.5f);
+        return new NVector3(
+            destination.X + 0.5f,
+            destination.Y,
+            destination.Z + 0.5f);
     }
 
     /// <summary>Resolve the final entry from authoritative loaded voxels
@@ -924,11 +1001,6 @@ public sealed class DimensionRuntimeSession
         _initialPlayerPosition = position;
         return true;
     }
-
-    /// <summary>Fallback for an obstructed generated warp entry.
-    /// Starts the usual world loading pipeline around the authored spawn.</summary>
-    public void PrepareGeneratedSpawn() =>
-        _initialPlayerPosition = ResolveGeneratedSpawn();
 
     public ChunkCoord InitialStreamingCenter
     {
@@ -982,6 +1054,10 @@ public sealed class DimensionRuntimeSession
                 Array.Empty<ChunkCoord>());
         var errors =
             new List<Exception>();
+        if (_initialPositionResolution is { IsCompleted: true } &&
+            TryCompleteInitialPositionResolution(out var spawnError) &&
+            spawnError is not null)
+            errors.Add(spawnError);
 
         DrainWorker(
             () =>

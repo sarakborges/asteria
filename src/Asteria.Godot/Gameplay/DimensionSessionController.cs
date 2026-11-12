@@ -81,6 +81,7 @@ public sealed class DimensionSessionController
             _factory(
                 _states.GetOrCreate(
                     dimension));
+        Active.BeginGeneratedSpawnResolution();
     }
 
     /// <summary>
@@ -160,7 +161,8 @@ public sealed class DimensionSessionController
     /// </summary>
     public bool RequestRelocation(
         NVector3 sourcePosition,
-        NVector3 destinationPosition)
+        NVector3 destinationPosition,
+        bool exactDestination = false)
     {
         if (Active is null)
             throw new InvalidOperationException(
@@ -175,6 +177,7 @@ public sealed class DimensionSessionController
 
         _sourcePosition = sourcePosition;
         _destinationPosition = destinationPosition;
+        _exactDestination = exactDestination;
         _target = Active.Dimension.Id;
         Active.BeginRetirement();
         return true;
@@ -220,6 +223,8 @@ public sealed class DimensionSessionController
             // Success leaves the world. Failure restores the archived
             // session so gameplay and explicit retry remain possible.
             Active = leaving ? null! : _factory(_states.GetOrCreate(target));
+            if (!leaving)
+                Active.BeginGeneratedSpawnResolution();
             _target = null;
             _sourcePosition = null;
             _destinationPosition = null;
@@ -281,7 +286,11 @@ public sealed class DimensionSessionController
             if (_exactDestination)
                 Active.PrepareExactPortalDestination(destination);
             else
-                Active.PrepareGeneratedDestination(destination);
+                Active.BeginGeneratedDestinationResolution(destination);
+        }
+        else
+        {
+            Active.BeginGeneratedSpawnResolution();
         }
 
         _target = null;

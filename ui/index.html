@@ -4,9 +4,88 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Asteria WebUI</title>
+    <style>
+      html, body, #app {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        background: #0b0b0f;
+        color: #f5f3f0;
+      }
+      #ui-boot-fallback {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #0b0b0f;
+        color: #f5f3f0;
+        font: 16px system-ui, sans-serif;
+      }
+    </style>
+    <script>
+      (() => {
+        const report = (type, payload) => {
+          try {
+            window.ipc?.postMessage(JSON.stringify({ type, payload }));
+          } catch (_) {}
+        };
+
+        window.addEventListener("error", (event) => {
+          report("ui.runtime.error", {
+            message: event.message || "Unknown JavaScript error",
+            source: event.filename || "",
+            line: event.lineno || 0,
+            column: event.colno || 0,
+            stack: event.error?.stack || "",
+          });
+        });
+
+        window.addEventListener("unhandledrejection", (event) => {
+          const reason = event.reason;
+          report("ui.runtime.unhandled_rejection", {
+            message: String(reason?.message || reason || "Unhandled promise rejection"),
+            stack: reason?.stack || "",
+          });
+        });
+
+        window.addEventListener("DOMContentLoaded", () => {
+          report("ui.dom.ready", {
+            title: document.title,
+            url: window.location.href,
+          });
+        });
+
+        // The native host smoke test must verify real browser assets, not only
+        // that React mounted and the IPC bridge became available.
+        window.addEventListener("load", () => {
+          void (async () => {
+            let fontFaces = [];
+            try {
+              await document.fonts.ready;
+              fontFaces = await document.fonts.load('16px "Winky Rough Variable"');
+            } catch (_) {}
+
+            const logo = document.querySelector(".starting-screen__logo");
+            report("ui.assets.ready", {
+              font_loaded:
+                fontFaces.length > 0 &&
+                document.fonts.check('16px "Winky Rough Variable"'),
+              font_faces_loaded: fontFaces.length,
+              logo_loaded:
+                logo instanceof HTMLImageElement &&
+                logo.complete &&
+                logo.naturalWidth > 0,
+              logo_src: logo instanceof HTMLImageElement ? logo.currentSrc : "",
+            });
+          })();
+        });
+      })();
+    </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div id="ui-boot-fallback">Carregando interface do Asteria…</div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

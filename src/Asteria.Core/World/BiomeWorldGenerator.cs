@@ -441,6 +441,28 @@ public sealed class BiomeWorldGenerator :
         VoxelWorld world, ChunkCoord arriving) =>
         _materializer.ReconcileChunkArrival(world, arriving);
 
+    public DirectionalFacePaletteReconciliationSnapshot CaptureChunkArrivalSnapshot(
+        VoxelWorld world, ChunkCoord arriving) =>
+        _materializer.CaptureChunkArrivalSnapshot(world, arriving);
+
+    public DirectionalFacePaletteReconciliationResult ReconcileChunkArrival(
+        DirectionalFacePaletteReconciliationSnapshot snapshot) =>
+        _materializer.ReconcileChunkArrival(snapshot);
+
+    public bool TryApplyChunkArrivalReconciliation(
+        VoxelWorld world,
+        DirectionalFacePaletteReconciliationResult result,
+        out IReadOnlyList<WorldVoxelCoord> visualChanges) =>
+        _materializer.TryApplyChunkArrivalReconciliation(
+            world, result, out visualChanges);
+
+    internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalWithDiagnostics(
+        VoxelWorld world,
+        ChunkCoord arriving,
+        Action<DirectionalFacePaletteReapplicationDiagnostic> diagnostic) =>
+        _materializer.ReconcileChunkArrivalWithDiagnostics(
+            world, arriving, diagnostic);
+
     public int SurfaceHeight(int worldX, int worldZ) =>
         _voidSpawnPlatform?.SurfaceHeight(worldX, worldZ) ??
         _terrain.SurfaceHeight(worldX, worldZ);

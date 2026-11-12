@@ -126,6 +126,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _materializationWorkerWallMaxMs;
     private double _materializationResultCollectionWaitMs;
     private double _materializationResultCollectionWaitMaxMs;
+    private long _materializationTasksStarted;
+    private long _streamingPressureFrames;
+    private long _streamingPressureAvailableWorkerSlots;
+    private long _streamingPressureMaterializationSlots;
+    private long _streamingPressureStartLimit;
+    private long _streamingPressureTasksStarted;
     private ChunkCoord? _slowestChunk;
     private int _slowChunks;
     private int _restored;
@@ -254,22 +260,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public static WorldDiagnosticsLog Open()
     {
-        var preferred = ProjectSettings.GlobalizePath("res://logs");
-        DiagnosticSessionLog session;
-        try
-        {
-            session = DiagnosticSessionLog.Open(preferred);
-        }
-        catch (Exception exception) when (
-            exception is IOException or UnauthorizedAccessException)
-        {
-            var fallback = ProjectSettings.GlobalizePath("user://logs");
-            GD.PushWarning(
-                $"Project log directory unavailable ({exception.Message}); " +
-                $"using {fallback}");
-            session = DiagnosticSessionLog.Open(fallback);
-        }
-
+        // Keep diagnostics beside the portable launcher; never hide them in user://.
+        var session = DiagnosticSessionLog.Open(GameDirectories.Logs);
         var result = new WorldDiagnosticsLog(session);
         result.Write($"diagnostics.ready path={session.Path}");
 #if DEBUG
@@ -433,6 +425,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public void Observe(ChunkResidencyUpdate update)
     {
+        _materializationTasksStarted += update.StartedTasks;
         foreach (var sample in update.MaterializationStageTimings)
         {
             var index = (int)sample.Stage;
@@ -555,6 +548,36 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         foreach (var failure in update.Failures)
             Error("chunk.materialize.failed",
                 $"coord={failure.Coord} exception={failure.Error}");
+    }
+
+    public void ObserveStreamingAdmission(
+        bool pressured,
+        int availableWorkerSlots,
+        int materializationSlots,
+        int materializationStartLimit,
+        int startedTasks)
+    {
+        if (!pressured)
+            return;
+
+        if (availableWorkerSlots < 0 ||
+            materializationSlots < 0 ||
+            materializationSlots > availableWorkerSlots ||
+            materializationStartLimit < 0 ||
+            materializationStartLimit > materializationSlots ||
+            startedTasks < 0 ||
+            startedTasks > materializationStartLimit)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(startedTasks),
+                "Streaming admission diagnostics received inconsistent worker limits.");
+        }
+
+        _streamingPressureFrames++;
+        _streamingPressureAvailableWorkerSlots += availableWorkerSlots;
+        _streamingPressureMaterializationSlots += materializationSlots;
+        _streamingPressureStartLimit += materializationStartLimit;
+        _streamingPressureTasksStarted += startedTasks;
     }
 
     public void ObserveFluidActivation(FluidActivationWorkReport report)
@@ -848,6 +871,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"generation_latency_ms_max={Format1(_materializationElapsedMaxMs)} " +
             $"generation_pending_queue_wait_ms_total={Format1(_materializationPendingQueueWaitMs)} " +
             $"generation_pending_queue_wait_ms_max={Format1(_materializationPendingQueueWaitMaxMs)} " +
+            $"generation_tasks_started={_materializationTasksStarted} " +
+            $"streaming_pressure_frames={_streamingPressureFrames} " +
+            $"streaming_pressure_available_worker_slots_total={_streamingPressureAvailableWorkerSlots} " +
+            $"streaming_pressure_materialization_slots_total={_streamingPressureMaterializationSlots} " +
+            $"streaming_pressure_start_limit_total={_streamingPressureStartLimit} " +
+            $"streaming_pressure_tasks_started={_streamingPressureTasksStarted} " +
             $"generation_dispatch_preparation_ms_total={Format1(_materializationDispatchPreparationMs)} " +
             $"generation_dispatch_preparation_ms_max={Format1(_materializationDispatchPreparationMaxMs)} " +
             $"generation_worker_queue_wait_ms_total={Format1(_materializationWorkerQueueWaitMs)} " +

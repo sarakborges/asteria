@@ -1,3 +1,5 @@
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 public readonly record struct ChunkNeighborMeshInvalidation(
@@ -201,6 +203,80 @@ public static class ChunkTopologyFrontier
         // Conservatively keep anything that was not an actual horizontal
         // interface between two loaded chunks.
         return !hasResidentHorizontalNeighbor;
+    }
+
+    /// <summary>
+    /// Calculates all lighting work introduced by a newly resident chunk.
+    /// This method is safe to run against a detached <see cref="VoxelWorld"/>
+    /// snapshot: it reads only that snapshot and immutable content definitions.
+    /// </summary>
+    public static IReadOnlyList<WorldVoxelCoord> ArrivalLightingSeeds(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        ChunkCoord coord,
+        PackContentRegistry<ObjectDefinition>? objects)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(fluids);
+
+        var arriving = world.ContainsChunk(coord);
+        var positions = new List<WorldVoxelCoord>();
+        var unique = new HashSet<WorldVoxelCoord>();
+        foreach (var position in LightingSeeds(coord, world.ContainsChunk))
+        {
+            if (!world.IsLoadedAt(position))
+                continue;
+
+            var needsRelight = arriving
+                ? NeedsArrivalSeamLightSeed(
+                    world, blocks, fluids, coord, position)
+                : NeedsRetirementSeamLightSeed(world, coord, position);
+            if (needsRelight && unique.Add(position))
+                positions.Add(position);
+        }
+
+        if (objects is null)
+            return positions;
+
+        ReadOnlySpan<(int X, int Y, int Z)> neighbors =
+        [
+            (0, 0, 0), (1, 0, 0), (-1, 0, 0),
+            (0, 1, 0), (0, -1, 0),
+            (0, 0, 1), (0, 0, -1)
+        ];
+        foreach (var offset in neighbors)
+        {
+            var neighborCoord = new ChunkCoord(
+                coord.X + offset.X, coord.Y + offset.Y, coord.Z + offset.Z);
+            if (neighborCoord.Y < 0 ||
+                !world.TryGetChunk(neighborCoord, out var host) ||
+                host.ObjectCount == 0)
+                continue;
+
+            var origin = VoxelCoordinates.ChunkOrigin(neighborCoord);
+            host.VisitObjectCells((x, y, z, obj) =>
+            {
+                if (!objects.TryGet(obj.Id, out var definition) ||
+                    definition is null || definition.LightEmission.IsDark)
+                    return;
+
+                var support = new WorldVoxelCoord(
+                    origin.X + x, origin.Y + y, origin.Z + z);
+                var target = ObjectLightEmissionField.Target(support, obj.Face);
+                if (target.Y < 0 || !world.IsLoadedAt(target))
+                    return;
+
+                if ((neighborCoord == coord ||
+                     VoxelCoordinates.FromWorld(
+                         target.X, target.Y, target.Z).Chunk == coord) &&
+                    unique.Add(target))
+                    positions.Add(target);
+            });
+        }
+
+        return positions;
     }
 
     // Vertically adjacent chunks initialize their own light before residency.

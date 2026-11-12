@@ -8,8 +8,79 @@ from pathlib import Path
 from compare_worldgen_ab import compare, load_repetitions, render_report
 
 
-def sample_run(*, palette_ms: float = 50.0, exposure_ms: float = 0.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67) -> dict:
+def sample_run(*, palette_ms: float = 50.0, palette_bytes: int = 256, exposure_ms: float = 0.0, surface_decoration_ms: float = 100.0, surface_decoration_bytes: int = 1024 * 1024, stage_ms: float = 100.0, terrain_layer_bytes: int = 512, materialize_ms: float = 200.0, synthesis_ms: float = 220.0, digest: int = 123, chunks: int = 67, extra_stages: dict | None = None, streaming_route: dict | None = None) -> dict:
+    stages = {
+        "DirectionalFaceExposure": {"elapsedMs": exposure_ms, "allocatedBytes": 128},
+        "DirectionalFacePalettes": {"elapsedMs": palette_ms, "allocatedBytes": palette_bytes},
+        "SurfaceDecorations": {
+            "elapsedMs": surface_decoration_ms,
+            "allocatedBytes": surface_decoration_bytes,
+        },
+        "TerrainLayer": {"elapsedMs": stage_ms, "allocatedBytes": terrain_layer_bytes},
+    }
+    if extra_stages:
+        stages.update(extra_stages)
+
+    route = {
+        "routeSteps": 6,
+        "movementChunks": 5,
+        "framesPerChunk": 8,
+        "horizontalRadius": 3,
+        "retentionRadius": 7,
+        "uniqueActivatedChunkCount": 2,
+        "routeDigest": 987654321,
+        "activatedChunkDigests": [
+            {
+                "x": 1, "y": 2, "z": 3, "digest": 111, "blockDigest": 11, "fluidDigest": 12, "objectDigest": 13,
+                "blockLayerDigests": [1000 + value for value in range(16)],
+                "blockColumnDigests": [2000 + value for value in range(256)],
+                "blockCounts": {"asteria:stone": 16},
+                "gravityBlockCountsByLayer": [0] * 16,
+                "gravityBlockCounts": {},
+                "blockVoxelIndicesById": {"asteria:stone": list(range(16))},
+            },
+            {
+                "x": 2, "y": 2, "z": 3, "digest": 222, "blockDigest": 22, "fluidDigest": 23, "objectDigest": 24,
+                "blockLayerDigests": [3000 + value for value in range(16)],
+                "blockColumnDigests": [4000 + value for value in range(256)],
+                "blockCounts": {"asteria:stone": 32, "asteria:gravel": 2},
+                "gravityBlockCountsByLayer": [0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                "gravityBlockCounts": {"asteria:gravel": 2},
+                "blockVoxelIndicesById": {
+                    "asteria:gravel": [32, 33],
+                    "asteria:stone": list(range(32)),
+                },
+            },
+        ],
+        "generatedChunkDigestsMatchOnReactivation": True,
+        "totalElapsedMilliseconds": 1000.0,
+        "totalWorkerMilliseconds": 600.0,
+        "averageWorkerMillisecondsPerProviderActivation": 8.0,
+        "selectionResultLatencyMedianFrames": 2.0,
+        "selectionResultLatencyP95Frames": 4.0,
+        "frameCount": 90,
+        "framesWithPlayerLocalGaps": 20,
+        "maximumPlayerLocalMissingChunks": 60,
+        "maximumPendingChunks": 24,
+        "maximumActiveWorkers": 6,
+        "totalFluidCellsActivated": 100,
+        "totalFluidFrontierCellsActivated": 200,
+        "totalFluidActivationSlices": 4,
+        "totalFluidActivationMilliseconds": 8.0,
+        "maximumFluidActivationSliceMilliseconds": 2.0,
+        "maximumPendingFluidActivationChunks": 3,
+        "totalFallingBlocksStarted": 0,
+        "totalUnsupportedBlocksRemoved": 0,
+        "observedFallingEntityCount": 0,
+        "fallingBlockSamples": [],
+        "gravityWakeupsWithAirBelowBeforeProcessing": 0,
+        "gravityWakeupSamples": [],
+    }
+    if streaming_route:
+        route.update(streaming_route)
+
     return {
+        "streamingRouteDiagnostics": route,
         "seed": 181960897289965,
         "dimension": "asteria:overworld",
         "dimensionSeed": 987654321,
@@ -31,15 +102,7 @@ def sample_run(*, palette_ms: float = 50.0, exposure_ms: float = 0.0, surface_de
             "warm": {"totalMaterializeMs": materialize_ms},
         },
         "initialAreaStageTimingDiagnostics": {
-            "warm": {"byStage": {
-                "DirectionalFaceExposure": {"elapsedMs": exposure_ms},
-                "DirectionalFacePalettes": {"elapsedMs": palette_ms},
-                "SurfaceDecorations": {
-                    "elapsedMs": surface_decoration_ms,
-                    "allocatedBytes": surface_decoration_bytes,
-                },
-                "TerrainLayer": {"elapsedMs": stage_ms},
-            }},
+            "warm": {"byStage": stages},
         },
     }
 
@@ -74,6 +137,449 @@ class CompareWorldgenAbTests(unittest.TestCase):
         report = render_report(result)
         self.assertIn("DirectionalFacePalettes", report)
         self.assertIn("identical", report)
+
+    def test_combines_terrain_and_directional_face_work_before_median(self) -> None:
+        baseline = [
+            sample_run(
+                palette_ms=palette,
+                stage_ms=terrain,
+                palette_bytes=palette_bytes,
+                terrain_layer_bytes=terrain_bytes,
+            )
+            for palette, terrain, palette_bytes, terrain_bytes in zip(
+                (60.0, 80.0, 70.0),
+                (100.0, 120.0, 110.0),
+                (2, 4, 6),
+                (6, 8, 10),
+            )
+        ]
+        candidate = [
+            sample_run(
+                palette_ms=palette,
+                stage_ms=terrain,
+                palette_bytes=palette_bytes,
+                terrain_layer_bytes=terrain_bytes,
+            )
+            for palette, terrain, palette_bytes, terrain_bytes in zip(
+                (40.0, 50.0, 60.0),
+                (80.0, 90.0, 100.0),
+                (4, 6, 8),
+                (8, 10, 12),
+            )
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        combined = next(
+            metric for metric in result["metrics"]
+            if metric["metric"] == "TerrainLayer + directional faces (warm)"
+        )
+
+        # Sum within each process before taking the median; do not add
+        # independently calculated medians from different samples.
+        self.assertEqual(180.0, combined["baselineMedianMs"])
+        self.assertEqual(140.0, combined["candidateMedianMs"])
+        self.assertAlmostEqual(22.2222, combined["reductionPercent"], places=3)
+
+        allocations = result["terrainAndFaceAllocations"]
+        self.assertAlmostEqual(12.0 / (1024 * 1024), allocations["baselineMedianMiB"])
+        self.assertAlmostEqual(16.0 / (1024 * 1024), allocations["candidateMedianMiB"])
+        self.assertAlmostEqual(-33.3333, allocations["reductionPercent"], places=3)
+
+        report = render_report(result)
+        self.assertIn("TerrainLayer + directional-face combined allocations", report)
+        self.assertIn("TerrainLayer + directional faces (warm)", report)
+
+    def test_reports_gravity_fall_starts_and_sample_coordinates(self) -> None:
+        baseline = [sample_run() for _ in range(3)]
+        falling_sample = {
+            "fallingId": 1,
+            "block": "asteria:gravel",
+            "isGravityTagged": True,
+            "x": 69,
+            "y": 42,
+            "z": 3,
+            "sourceChunkX": 4,
+            "sourceChunkY": 2,
+            "sourceChunkZ": 0,
+            "belowBlock": "asteria:air",
+            "belowChunkLoaded": True,
+        }
+        candidate = [
+            sample_run(streaming_route={
+                "totalFallingBlocksStarted": 10,
+                "observedFallingEntityCount": 10,
+                "fallingBlockSamples": [falling_sample],
+                "gravityWakeupsWithAirBelowBeforeProcessing": 1,
+                "gravityWakeupSamples": [{
+                    "block": "asteria:gravel",
+                    "x": 69, "y": 42, "z": 3,
+                    "sourceChunkX": 4, "sourceChunkY": 2, "sourceChunkZ": 0,
+                    "wakeupFrame": 48,
+                    "sourceChunkActivatedFrame": 16,
+                    "framesSinceSourceChunkActivation": 32,
+                    "belowChunkX": 4, "belowChunkY": 2, "belowChunkZ": 0,
+                    "belowChunkActivatedFrame": 16,
+                    "framesSinceBelowChunkActivation": 32,
+                    "framesSinceBothChunksResident": 32,
+                    "queueDepth": 4,
+                    "belowBlock": "asteria:air",
+                }],
+            })
+            for _ in range(3)
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+        physics = route["physicsDifferences"]
+
+        self.assertEqual(0, physics["baselineFallingBlocksStarted"])
+        self.assertEqual(10, physics["candidateFallingBlocksStarted"])
+        self.assertEqual([], physics["baselineFallingBlockSamples"])
+        self.assertEqual("asteria:gravel", physics["candidateFallingBlockSamples"][0]["block"])
+        wakeups = route["gravityWakeupDiagnostics"]
+        self.assertEqual(0, wakeups["baselineWakeupsWithAirBelow"])
+        self.assertEqual(1, wakeups["candidateWakeupsWithAirBelow"])
+        self.assertEqual(32, wakeups["candidateSamples"][0]["framesSinceSourceChunkActivation"])
+        self.assertEqual(32, wakeups["candidateSamples"][0]["framesSinceBelowChunkActivation"])
+        self.assertEqual(32, wakeups["candidateSamples"][0]["framesSinceBothChunksResident"])
+        self.assertEqual([4, 2, 0], physics["candidateFallingBlockSamples"][0]["chunk"])
+
+        report = render_report(result)
+        self.assertIn(
+            "Gravity blocks started falling: baseline 0; candidate 10",
+            report,
+        )
+        self.assertIn("asteria:gravel", report)
+        self.assertIn("Gravity wakeups with air below before processing: baseline 0; candidate 1", report)
+        self.assertIn("'framesSinceSourceChunkActivation': 32", report)
+        self.assertIn("'framesSinceBelowChunkActivation': 32", report)
+        self.assertIn("'framesSinceBothChunksResident': 32", report)
+        self.assertIn("'x': 69, 'y': 42, 'z': 3", report)
+
+    def test_rejects_nondeterministic_falling_block_samples_between_route_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, x in enumerate((69, 69, 70), start=1):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(streaming_route={
+                        "totalFallingBlocksStarted": 1,
+                        "observedFallingEntityCount": 1,
+                        "fallingBlockSamples": [{
+                            "fallingId": 1,
+                            "block": "asteria:gravel",
+                            "isGravityTagged": True,
+                            "x": x,
+                            "y": 42,
+                            "z": 3,
+                            "sourceChunkX": 4,
+                            "sourceChunkY": 2,
+                            "sourceChunkZ": 0,
+                            "belowBlock": "asteria:air",
+                            "belowChunkLoaded": True,
+                        }],
+                    })),
+                    encoding="utf-8",
+                )
+            with self.assertRaisesRegex(ValueError, "falling-block physics outcomes"):
+                load_repetitions(root, 3)
+
+    def test_accepts_scheduler_timing_variation_for_same_pre_wakeup_gravity_outcome(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, wakeup_frame in enumerate((48, 48, 49), start=1):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(streaming_route={
+                        "gravityWakeupsWithAirBelowBeforeProcessing": 1,
+                        "gravityWakeupSamples": [{
+                            "block": "asteria:gravel",
+                            "x": 69, "y": 42, "z": 3,
+                            "sourceChunkX": 4, "sourceChunkY": 2, "sourceChunkZ": 0,
+                            "wakeupFrame": wakeup_frame,
+                            "sourceChunkActivatedFrame": 16,
+                            "framesSinceSourceChunkActivation": wakeup_frame - 16,
+                            "belowChunkX": 4, "belowChunkY": 2, "belowChunkZ": 0,
+                            "belowChunkActivatedFrame": 16,
+                            "framesSinceBelowChunkActivation": wakeup_frame - 16,
+                            "framesSinceBothChunksResident": wakeup_frame - 16,
+                            "queueDepth": 4 + index,
+                            "belowBlock": "asteria:air",
+                        }],
+                    })),
+                    encoding="utf-8",
+                )
+
+            runs = load_repetitions(root, 3)
+            self.assertEqual(3, len(runs))
+
+    def test_rejects_different_pre_wakeup_gravity_coordinates_between_route_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, x in enumerate((69, 69, 70), start=1):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(streaming_route={
+                        "gravityWakeupsWithAirBelowBeforeProcessing": 1,
+                        "gravityWakeupSamples": [{
+                            "block": "asteria:gravel",
+                            "x": x, "y": 42, "z": 3,
+                            "sourceChunkX": 4, "sourceChunkY": 2, "sourceChunkZ": 0,
+                            "wakeupFrame": 48,
+                            "sourceChunkActivatedFrame": 16,
+                            "framesSinceSourceChunkActivation": 32,
+                            "belowChunkX": 4, "belowChunkY": 2, "belowChunkZ": 0,
+                            "belowChunkActivatedFrame": 16,
+                            "framesSinceBelowChunkActivation": 32,
+                            "framesSinceBothChunksResident": 32,
+                            "queueDepth": 4,
+                            "belowBlock": "asteria:air",
+                        }],
+                    })),
+                    encoding="utf-8",
+                )
+
+            with self.assertRaisesRegex(ValueError, "falling-block physics outcomes"):
+                load_repetitions(root, 3)
+
+    def test_compares_streaming_route_metrics_when_route_content_matches(self) -> None:
+        baseline = [
+            sample_run(streaming_route={
+                "totalElapsedMilliseconds": value,
+                "totalWorkerMilliseconds": worker,
+                "framesWithPlayerLocalGaps": gaps,
+                "maximumPendingChunks": pending,
+                "totalFluidActivationMilliseconds": value / 10.0,
+                "maximumFluidActivationSliceMilliseconds": value / 100.0,
+                "totalFluidFrontierCellsActivated": int(value),
+            })
+            for value, worker, gaps, pending in zip(
+                (1000.0, 1100.0, 1200.0),
+                (600.0, 650.0, 700.0),
+                (20, 24, 28),
+                (30, 32, 34),
+            )
+        ]
+        candidate = [
+            sample_run(streaming_route={
+                "totalElapsedMilliseconds": value,
+                "totalWorkerMilliseconds": worker,
+                "framesWithPlayerLocalGaps": gaps,
+                "maximumPendingChunks": pending,
+                "totalFluidActivationMilliseconds": value / 10.0,
+                "maximumFluidActivationSliceMilliseconds": value / 100.0,
+                "totalFluidFrontierCellsActivated": int(value),
+            })
+            for value, worker, gaps, pending in zip(
+                (800.0, 900.0, 1000.0),
+                (500.0, 550.0, 600.0),
+                (10, 12, 14),
+                (20, 22, 24),
+            )
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+        self.assertTrue(route["digestsMatch"])
+        self.assertEqual(2, route["baselineUniqueActivatedChunkCount"])
+        self.assertEqual(2, route["candidateUniqueActivatedChunkCount"])
+
+        elapsed = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Wall-clock route completion (ms)"
+        )
+        self.assertEqual(1100.0, elapsed["baselineMedian"])
+        self.assertEqual(900.0, elapsed["candidateMedian"])
+        self.assertAlmostEqual(18.1818, elapsed["reductionPercent"], places=3)
+
+        selection_latency = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Selection result latency p95 (frames)"
+        )
+        self.assertEqual(4.0, selection_latency["baselineMedian"])
+        self.assertEqual(4.0, selection_latency["candidateMedian"])
+
+        fluid_time = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Fluid activation processing time (ms)"
+        )
+        self.assertEqual(110.0, fluid_time["baselineMedian"])
+        self.assertEqual(90.0, fluid_time["candidateMedian"])
+        self.assertAlmostEqual(18.1818, fluid_time["reductionPercent"], places=3)
+
+        fluid_frontier = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Fluid frontier cells processed"
+        )
+        self.assertEqual(1100.0, fluid_frontier["baselineMedian"])
+        self.assertEqual(900.0, fluid_frontier["candidateMedian"])
+
+        report = render_report(result)
+        self.assertIn("Headless moving-route A/B", report)
+        self.assertIn("Route content digest: identical", report)
+
+    def test_reports_block_level_diagnostics_for_changed_streaming_chunks(self) -> None:
+        baseline = [sample_run() for _ in range(3)]
+        candidate = [sample_run() for _ in range(3)]
+        for run in candidate:
+            route = run["streamingRouteDiagnostics"]
+            route["routeDigest"] += 1
+            changed = route["activatedChunkDigests"][1]
+            changed["digest"] += 1
+            changed["blockDigest"] += 1
+            changed["blockLayerDigests"][5] += 1
+            changed["blockColumnDigests"][33] += 1
+            changed["blockCounts"] = {"asteria:stone": 33, "asteria:gravel": 1}
+            changed["gravityBlockCountsByLayer"][5] = 1
+            changed["gravityBlockCounts"] = {"asteria:gravel": 1}
+            changed["blockVoxelIndicesById"] = {
+                "asteria:gravel": [33],
+                "asteria:stone": list(range(33)),
+            }
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+        diagnostics = route["routeContentDifferences"]["blockChangeDiagnostics"]
+        self.assertEqual(1, len(diagnostics))
+        detail = diagnostics[0]
+        self.assertEqual([2, 2, 3], detail["chunk"])
+        self.assertEqual([5], detail["changedLocalYLayers"])
+        self.assertEqual(1, detail["changedLocalColumnCount"])
+        self.assertEqual([[1, 2]], detail["changedLocalColumnSamples"])
+        self.assertEqual(2, detail["baselineGravityBlockCount"])
+        self.assertEqual(1, detail["candidateGravityBlockCount"])
+        self.assertEqual(
+            [{"block": "asteria:gravel", "baseline": 2, "candidate": 1, "delta": -1}],
+            detail["gravityBlockTypeCountChanges"],
+        )
+        self.assertEqual(1, detail["changedVoxelCount"])
+        self.assertEqual(
+            [{
+                "baselineBlock": "asteria:gravel",
+                "candidateBlock": "asteria:stone",
+                "voxelCount": 1,
+            }],
+            detail["blockTransitions"],
+        )
+        self.assertEqual(
+            [{
+                "x": 0, "y": 0, "z": 2,
+                "baselineBlock": "asteria:gravel",
+                "candidateBlock": "asteria:stone",
+            }],
+            detail["changedVoxelSamples"],
+        )
+        report = render_report(result)
+        self.assertIn("Block-level divergence by changed chunk", report)
+        self.assertIn("gravity blocks 2→1", report)
+        self.assertIn("asteria:gravel 2→1", report)
+        self.assertIn("asteria:gravel → asteria:stone: 1 voxels", report)
+
+    def test_compares_static_benchmark_without_streaming_route_profile(self) -> None:
+        baseline = [sample_run() for _ in range(3)]
+        candidate = [sample_run() for _ in range(3)]
+        for run in baseline + candidate:
+            run.pop("streamingRouteDiagnostics")
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        self.assertIsNone(result["streamingRoute"])
+
+    def test_reports_route_coordinate_set_mismatch_without_fake_delta(self) -> None:
+        baseline = [sample_run() for _ in range(3)]
+        candidate = [
+            sample_run(streaming_route={
+                "routeDigest": 987654322,
+                "activatedChunkDigests": [
+                    {"x": 1, "y": 2, "z": 3, "digest": 111, "blockDigest": 11, "fluidDigest": 12, "objectDigest": 13},
+                    {"x": 3, "y": 2, "z": 3, "digest": 333, "blockDigest": 33, "fluidDigest": 34, "objectDigest": 35},
+                ],
+            })
+            for _ in range(3)
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+        differences = route["routeContentDifferences"]
+
+        self.assertFalse(route["digestsMatch"])
+        self.assertEqual(0, differences["changedContentChunkCount"])
+        self.assertEqual(0, differences["changedBlockContentChunkCount"])
+        self.assertEqual(0, differences["changedFluidContentChunkCount"])
+        self.assertEqual(0, differences["changedObjectContentChunkCount"])
+        self.assertEqual(1, differences["baselineOnlyChunkCount"])
+        self.assertEqual(1, differences["candidateOnlyChunkCount"])
+        self.assertEqual([[2, 2, 3]], differences["baselineOnlySamples"])
+        self.assertEqual([[3, 2, 3]], differences["candidateOnlySamples"])
+
+        elapsed = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Wall-clock route completion (ms)"
+        )
+        self.assertIsNone(elapsed["reductionPercent"])
+
+    def test_reports_route_content_mismatch_without_fake_delta(self) -> None:
+        baseline = [sample_run()] * 3
+        candidate = [
+            sample_run(streaming_route={
+                "routeDigest": 987654322,
+                "activatedChunkDigests": [
+                    {"x": 1, "y": 2, "z": 3, "digest": 111, "blockDigest": 11, "fluidDigest": 12, "objectDigest": 13},
+                    {"x": 2, "y": 2, "z": 3, "digest": 333, "blockDigest": 22, "fluidDigest": 333, "objectDigest": 24},
+                ],
+            })
+        ] * 3
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        route = result["streamingRoute"]
+
+        self.assertFalse(route["digestsMatch"])
+        self.assertEqual(1, route["routeContentDifferences"]["changedContentChunkCount"])
+        self.assertEqual(0, route["routeContentDifferences"]["changedBlockContentChunkCount"])
+        self.assertEqual(1, route["routeContentDifferences"]["changedFluidContentChunkCount"])
+        self.assertEqual(0, route["routeContentDifferences"]["changedObjectContentChunkCount"])
+        self.assertEqual([[2, 2, 3]], route["routeContentDifferences"]["changedFluidContentSamples"])
+        elapsed = next(
+            metric for metric in route["metrics"]
+            if metric["metric"] == "Wall-clock route completion (ms)"
+        )
+        self.assertEqual(1000.0, elapsed["baselineMedian"])
+        self.assertEqual(1000.0, elapsed["candidateMedian"])
+        self.assertIsNone(elapsed["reductionPercent"])
+
+        report = render_report(result)
+        self.assertIn("Timing values are descriptive only", report)
+        self.assertIn("Chunks with changed blocks / fluids / Objects: 0 / 1 / 0", report)
+        self.assertIn("| Wall-clock route completion (ms) | 1000.00 | 1000.00 | n/a |", report)
+
+    def test_rejects_inconsistent_route_chunk_digest_between_repetitions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, digest in enumerate((111, 111, 333), start=1):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(streaming_route={
+                        "activatedChunkDigests": [
+                            {"x": 1, "y": 2, "z": 3, "digest": digest, "blockDigest": digest, "fluidDigest": 12, "objectDigest": 13},
+                            {"x": 2, "y": 2, "z": 3, "digest": 222, "blockDigest": 22, "fluidDigest": 23, "objectDigest": 24},
+                        ],
+                    })),
+                    encoding="utf-8",
+                )
+
+            with self.assertRaisesRegex(ValueError, "different per-coordinate"):
+                load_repetitions(root, 3)
+
+    def test_load_repetitions_rejects_inconsistent_streaming_route_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, route_digest in enumerate(
+                (987654321, 987654321, 987654322), start=1
+            ):
+                (root / f"{index}.json").write_text(
+                    json.dumps(sample_run(
+                        streaming_route={"routeDigest": route_digest}
+                    )),
+                    encoding="utf-8",
+                )
+
+            with self.assertRaisesRegex(ValueError, "same streaming route"):
+                load_repetitions(root, 3)
 
     def test_reports_surface_decoration_time_and_allocations(self) -> None:
         baseline = [
@@ -110,6 +616,83 @@ class CompareWorldgenAbTests(unittest.TestCase):
         report = render_report(result)
         self.assertIn("SurfaceDecorations allocations", report)
         self.assertIn("21.00", report)
+
+    def test_compares_all_materialization_stages_and_normalizes_per_chunk(self) -> None:
+        baseline = [
+            sample_run(extra_stages={
+                "GravitySupport": {
+                    "elapsedMs": value,
+                    "allocatedBytes": allocation * 1024 * 1024,
+                },
+            })
+            for value, allocation in zip((24.0, 28.0, 32.0), (6, 7, 8))
+        ]
+        candidate = [
+            sample_run(extra_stages={
+                "GravitySupport": {
+                    "elapsedMs": value,
+                    "allocatedBytes": allocation * 1024 * 1024,
+                },
+            })
+            for value, allocation in zip((12.0, 16.0, 20.0), (3, 4, 5))
+        ]
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        gravity = next(
+            stage for stage in result["materializationStages"]
+            if stage["stage"] == "GravitySupport"
+        )
+
+        self.assertEqual("both", gravity["availability"])
+        self.assertEqual(28.0, gravity["baselineMedianMs"])
+        self.assertEqual(16.0, gravity["candidateMedianMs"])
+        self.assertAlmostEqual(42.8571, gravity["timeReductionPercent"], places=3)
+        self.assertEqual(7.0, gravity["baselineMedianMiB"])
+        self.assertEqual(4.0, gravity["candidateMedianMiB"])
+        self.assertAlmostEqual(7.0 / 67.0, gravity["baselineMiBPerChunk"])
+        self.assertAlmostEqual(16.0 / 67.0, gravity["candidateMsPerChunk"])
+
+        report = render_report(result)
+        self.assertIn("Materialization stage breakdown", report)
+        self.assertIn("| GravitySupport | 28.00 | 16.00 | +42.9%", report)
+
+    def test_stage_added_in_candidate_is_reported_without_fake_baseline_zero(self) -> None:
+        baseline = [sample_run()] * 3
+        candidate = [
+            sample_run(extra_stages={
+                "NewStage": {"elapsedMs": 5.0, "allocatedBytes": 4096},
+            })
+        ] * 3
+
+        result = compare(baseline, candidate, expected_chunks=67)
+        stage = next(
+            value for value in result["materializationStages"]
+            if value["stage"] == "NewStage"
+        )
+
+        self.assertEqual("candidate-only", stage["availability"])
+        self.assertIsNone(stage["baselineMedianMs"])
+        self.assertEqual(5.0, stage["candidateMedianMs"])
+        self.assertIsNone(stage["timeReductionPercent"])
+        self.assertIn("| NewStage | n/a | 5.00 | n/a |", render_report(result))
+
+    def test_load_repetitions_rejects_inconsistent_stage_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "1.json").write_text(
+                json.dumps(sample_run()), encoding="utf-8"
+            )
+            (root / "2.json").write_text(
+                json.dumps(sample_run(extra_stages={
+                    "UnexpectedStage": {"elapsedMs": 1.0, "allocatedBytes": 1},
+                })), encoding="utf-8"
+            )
+            (root / "3.json").write_text(
+                json.dumps(sample_run()), encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(ValueError, "same materialization stages"):
+                load_repetitions(root, 3)
 
     def test_rejects_different_chunk_count(self) -> None:
         with self.assertRaisesRegex(ValueError, "Expected 67 initial-area chunks"):

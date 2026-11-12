@@ -400,23 +400,14 @@ public sealed class SurfaceTerrainColumnCache
         bool includeVolumeBiomes,
         out DensityTerrainColumnSamplingMetrics samplingMetrics)
     {
-        var key = (X: chunkX, Z: chunkZ);
-        if (_columns.TryGet(key, out var fullColumn))
-        {
-            samplingMetrics = default;
-            return new SurfaceTerrainDensityColumn(fullColumn);
-        }
-
-        var entry = _densityTerrainColumns.GetOrAdd(
-            key,
-            () => new DensityTerrainColumnEntry(_terrain));
-        return entry.GetOrSample(
-            _terrain,
-            chunkX,
-            chunkZ,
-            columnIndices,
-            includeVolumeBiomes,
-            out samplingMetrics);
+        // Diagnostic isolation path: resolve the immutable full terrain column
+        // before answering sparse directional-face density requests. This
+        // keeps the exact same biome/base-height snapshot as normal chunk
+        // materialization while retaining the occupancy-mask cache under test.
+        _ = columnIndices;
+        _ = includeVolumeBiomes;
+        samplingMetrics = default;
+        return new SurfaceTerrainDensityColumn(Get(chunkX, chunkZ));
     }
 
     /// <summary>
@@ -433,22 +424,11 @@ public sealed class SurfaceTerrainColumnCache
         if (originY < 0 || originY % Chunk.Size != 0)
             throw new ArgumentOutOfRangeException(nameof(originY));
 
-        var (coord, _) = VoxelCoordinates.FromWorld(originX, originY, originZ);
-        var occupancy = GetDensityChunk(coord.X, originY, coord.Z);
-        var cachedMasks = new ushort[Chunk.Area];
-        var cachedMaskAvailability = new ushort[Chunk.Area];
-        occupancy.Snapshot(cachedMasks, cachedMaskAvailability);
-
-        var volume = _terrain.SampleDensityVolume(
-            column,
-            originX,
-            originY,
-            originZ,
-            Chunk.Size,
-            cachedMasks,
-            cachedMaskAvailability);
-        occupancy.MergeFull(volume);
-        return volume;
+        // Diagnostic isolation path: materialize this chunk's density from
+        // the scalar terrain source without consuming occupancy bits that may
+        // have been sampled earlier by neighboring directional-face jobs.
+        return _terrain.SampleDensityVolume(
+            column, originX, originY, originZ, Chunk.Size);
     }
 
     /// <summary>

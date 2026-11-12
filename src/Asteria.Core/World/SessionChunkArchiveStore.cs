@@ -84,6 +84,18 @@ public sealed class SessionChunkArchiveStore
     internal bool TryPeek(ChunkCoord coord, out Chunk chunk) =>
         _archived.TryGetValue(coord, out chunk!);
 
+    internal bool ReplaceArchivedDerivedChunk(ChunkCoord coord, Chunk chunk)
+    {
+        ArgumentNullException.ThrowIfNull(chunk);
+        if (!_archived.ContainsKey(coord))
+            return false;
+
+        _archived[coord] = chunk;
+        _materializedBaselines[coord] = chunk.Revision;
+        _dirty.Add(coord);
+        return true;
+    }
+
     internal void RestoreArchived(ChunkCoord coord, Chunk chunk, bool dirty)
     {
         ArgumentNullException.ThrowIfNull(chunk);

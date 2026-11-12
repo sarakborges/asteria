@@ -2032,6 +2032,140 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void NestedGravitySupportFallbackRecursesAcrossMultipleVerticalChunks()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                34f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                // The gravity stack crosses chunk Y=2, Y=1 and Y=0.
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 20),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            seaLevel: 0,
+            gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f));
+        var generator = new BiomeWorldGenerator(
+            101UL,
+            dimension,
+            blocks,
+            new BiomeRegistry([biome]));
+
+        using var job = generator.BeginMaterialization(
+            new ChunkCoord(0, 2, 0));
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        // Start the sparse Y=1 support-face probe, then wait for the Y=1
+        // fallback to materialize the complete gravity stack in its columns.
+        var advanced = 0;
+        while (job.ActiveWorkCoord != new ChunkCoord(0, 0, 0) &&
+               advanced++ < 512)
+        {
+            job.Advance();
+        }
+
+        Assert.True(
+            advanced < 512,
+            $"Expected recursive support query to reach chunk Y=0; current work is {job.ActiveWorkCoord} at {job.ActiveWorkStage}.");
+        Assert.Equal(
+            new ChunkCoord(0, 0, 0),
+            job.ActiveWorkCoord);
+        Assert.Equal(
+            ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
+    }
+
+    [Fact]
+    public void NestedGravitySupportFallsBackWhenSupportFaceContainsGravityBlocks()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                19f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                // Both cells below the seam are gravity blocks. A two-row
+                // support probe cannot prove that the stack has a stable base.
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 6),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            seaLevel: 0,
+            gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f));
+        var generator = new BiomeWorldGenerator(
+            101UL,
+            dimension,
+            blocks,
+            new BiomeRegistry([biome]));
+
+        var lower = generator.Materialize(new ChunkCoord(0, 0, 0));
+        var gravel = blocks.GetId("asteria:gravel");
+        Assert.Equal(gravel, lower.GetBlock(0, Chunk.Size - 1, 0));
+        Assert.Equal(gravel, lower.GetBlock(0, Chunk.Size - 2, 0));
+
+        using var job = generator.BeginMaterialization(
+            new ChunkCoord(0, 1, 0));
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        job.Advance(); // Create the sparse face query.
+        job.Advance(); // Terrain setup.
+        job.Advance(); // Y=14.
+        job.Advance(); // Y=15, then complete the sparse query.
+        Assert.Equal(ChunkMaterializationStage.GravitySupport,
+            job.ActiveWorkStage);
+
+        // A gravity-owned support face must use the full lower-chunk path.
+        job.Advance();
+        Assert.Equal(new ChunkCoord(0, 0, 0), job.ActiveWorkCoord);
+        Assert.Equal(ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
+    }
+
+    [Fact]
     public void SphereShellMaterializesFloorAndRoofAndRejectsNegativeChunks()
     {
         var blocks =
@@ -3095,6 +3229,181 @@ public sealed class BiomeWorldGenerationTests
                 cave.X,
                 solidY,
                 cave.Z));
+    }
+
+    [Fact]
+    public void StreamingBenchmarkSeedKeepsObservedGravityCoordinatesSupported()
+    {
+        const ulong seed = 181960897289965UL;
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension,
+            blocks,
+            LoadDefaultFluids(),
+            LoadDefaultBiomes(),
+            LoadDefaultStructures(),
+            LoadDefaultStructureSets());
+        var spawn = generator.FindGeneratedSurfaceDestination(
+            dimension.Spawn.X,
+            dimension.Spawn.Z,
+            maxRadius: 64);
+        Assert.NotNull(spawn);
+
+        WorldVoxelCoord[] observedPositions =
+        [
+            new(71, 82, -3),
+            new(72, 82, -3),
+            new(73, 82, -2),
+            new(73, 82, -19),
+            new(74, 82, -19),
+            new(68, 82, -18),
+            new(72, 82, -18),
+            new(69, 82, -17),
+            new(70, 82, -17),
+            new(71, 82, -17),
+        ];
+        var chunks = new Dictionary<ChunkCoord, Chunk>();
+
+        Chunk GetChunk(ChunkCoord coord)
+        {
+            if (!chunks.TryGetValue(coord, out var chunk))
+            {
+                chunk = generator.Materialize(coord);
+                chunks.Add(coord, chunk);
+            }
+
+            return chunk;
+        }
+
+        foreach (var position in observedPositions)
+        {
+            var (coord, local) = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            var chunk = GetChunk(coord);
+            var cell = chunk.GetCell(local.X, local.Y, local.Z);
+            if (cell.IsEmpty ||
+                !blocks.GetDefinition(cell.Block).HasTag(
+                    BlockPhysicsCapabilities.Gravity))
+                continue;
+
+            var below = position.Y > coord.Y * Chunk.Size
+                ? chunk.GetCell(local.X, local.Y - 1, local.Z)
+                : GetChunk(new ChunkCoord(
+                    coord.X, coord.Y - 1, coord.Z))
+                    .GetCell(local.X, Chunk.Size - 1, local.Z);
+
+            Assert.False(
+                below.IsEmpty,
+                $"The streaming benchmark seed generated unsupported " +
+                $"gravity block {blocks.GetDefinition(cell.Block).Id} at " +
+                $"{position.X},{position.Y},{position.Z}.");
+        }
+    }
+
+    [Fact]
+    public void StreamingBenchmarkSeedDirectionalFaceArrivalKeepsGravitySupported()
+    {
+        const ulong seed = 181960897289965UL;
+        var blocks = LoadDefaultBlocks();
+        var fluids = LoadDefaultFluids();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension,
+            blocks,
+            fluids,
+            LoadDefaultBiomes(),
+            LoadDefaultStructures(),
+            LoadDefaultStructureSets());
+        var spawn = generator.FindGeneratedSurfaceDestination(
+            dimension.Spawn.X,
+            dimension.Spawn.Z,
+            maxRadius: 64);
+        Assert.NotNull(spawn);
+
+        WorldVoxelCoord[] observedPositions =
+        [
+            new(71, 82, -3),
+            new(72, 82, -3),
+            new(73, 82, -2),
+            new(73, 82, -19),
+            new(74, 82, -19),
+            new(68, 82, -18),
+            new(72, 82, -18),
+            new(69, 82, -17),
+            new(70, 82, -17),
+            new(71, 82, -17),
+        ];
+        ChunkCoord[] upperChunks =
+        [
+            new(4, 5, -1),
+            new(4, 5, -2),
+        ];
+        ChunkCoord[] lowerChunks =
+        [
+            new(4, 4, -1),
+            new(4, 4, -2),
+        ];
+
+        var world = new VoxelWorld();
+        foreach (var coord in upperChunks)
+        {
+            world.InsertChunk(coord, generator.Materialize(coord));
+            generator.ReconcileChunkArrival(world, coord);
+        }
+
+        // The lower chunks arrive after their upper neighbors. This is the
+        // residency order that exposes late downward-face palette candidates.
+        foreach (var coord in lowerChunks)
+        {
+            world.InsertChunk(coord, generator.Materialize(coord));
+            generator.ReconcileChunkArrival(world, coord);
+        }
+
+        foreach (var position in observedPositions)
+        {
+            Assert.True(world.TryGetCell(position, out var cell));
+            Assert.False(
+                cell.IsEmpty,
+                $"Directional-face reconciliation erased terrain at " +
+                $"{position.X},{position.Y},{position.Z}.");
+
+            var definition = blocks.GetDefinition(cell.Block);
+            Assert.False(
+                definition.HasTag(BlockPhysicsCapabilities.Gravity),
+                $"Directional-face reconciliation painted unsupported " +
+                $"{definition.Id} at {position.X},{position.Y},{position.Z}.");
+
+            // Stable terrain can be part of a cave wall or ceiling, so
+            // vertical occupancy below is not a valid support invariant.
+            // The generated-world guarantee is that directional reconciliation
+            // never paints a gravity-tagged block into the observed host.
+            Assert.True(
+                definition.IsCollidable,
+                $"Directional-face host at {position.X},{position.Y},{position.Z} " +
+                $"must remain collidable, got {definition.Id}.");
+        }
+
+        var physicsUpdates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(
+            world,
+            new WorldUpdateQueue(),
+            new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(),
+            physicsUpdates,
+            new MeshletContentRevisions(),
+            new MeshletContentRevisions());
+        var droppedBlocks = new DroppedBlockRuntime(world, blocks);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, physicsUpdates, droppedBlocks);
+
+        var queuedWakeups = upperChunks.Concat(lowerChunks)
+            .Sum(physics.EnqueueResidentChunk);
+        Assert.Equal(0, queuedWakeups);
+        Assert.Equal(0, physicsUpdates.Count);
+        Assert.Equal(0, physics.ProcessWakeups().FallingStarted);
     }
 
     [Fact]

@@ -114,7 +114,8 @@ public readonly record struct ChunkMaterializationStageTiming(
 public sealed record ChunkResidencyUpdate(
     IReadOnlyList<ChunkResidencyActivation> Activations,
     IReadOnlyList<ChunkMaterializationFailure> Failures,
-    IReadOnlyList<ChunkMaterializationStageTiming>? StageTimings = null)
+    IReadOnlyList<ChunkMaterializationStageTiming>? StageTimings = null,
+    int StartedTasks = 0)
 {
     public IReadOnlyList<ChunkMaterializationStageTiming> MaterializationStageTimings =>
         StageTimings ?? Array.Empty<ChunkMaterializationStageTiming>();
@@ -153,6 +154,13 @@ public sealed class ChunkResidencyRuntime
     private readonly IChunkProvider _chunkProvider;
     private readonly IChunkDirectionalFacePaletteUpdater? _directionalFacePaletteUpdater;
     private bool _directionalFaceChunkEventAttached;
+    private readonly DeduplicatedQueue<ChunkCoord> _pendingDirectionalFaceReconciliations = new();
+    private readonly Dictionary<ChunkCoord, DirectionalFaceReconciliationWork>
+        _directionalFaceReconciliationTasks = [];
+    private readonly DeduplicatedQueue<ChunkCoord> _pendingChunkLightingReconciliations = new();
+    private readonly Dictionary<ChunkCoord, ChunkLightingReconciliationWork>
+        _chunkLightingReconciliationTasks = [];
+    private bool _preferChunkLightingReconciliation = true;
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates;
@@ -265,10 +273,22 @@ public sealed class ChunkResidencyRuntime
     /// <summary>Background tasks currently owning terrain or initial-light stages.</summary>
     public int ActiveWorkerCount =>
         _materializationTasks.Values.Count(work =>
+            !work.WorkerTask.IsCompleted) +
+        _directionalFaceReconciliationTasks.Values.Count(work =>
+            !work.WorkerTask.IsCompleted) +
+        _chunkLightingReconciliationTasks.Values.Count(work =>
             !work.WorkerTask.IsCompleted);
 
     public int MaterializationJobCount =>
         _materializationTasks.Count;
+
+    public int DirectionalFaceReconciliationCount =>
+        _pendingDirectionalFaceReconciliations.Count +
+        _directionalFaceReconciliationTasks.Count;
+
+    public int ChunkLightingReconciliationCount =>
+        _pendingChunkLightingReconciliations.Count +
+        _chunkLightingReconciliationTasks.Count;
 
     public int SuspendedMaterializationCount => 0;
 
@@ -279,18 +299,21 @@ public sealed class ChunkResidencyRuntime
     public void BeginRetirement()
     {
         _acceptingMaterializationWork = false;
+        _pendingDirectionalFaceReconciliations.Clear();
+        _pendingChunkLightingReconciliations.Clear();
         if (!_directionalFaceChunkEventAttached)
             return;
         _world.ChunkBecameResident -= HandleDirectionalFaceChunkArrival;
         _directionalFaceChunkEventAttached = false;
     }
 
+    // Chunk arrival is only an enqueue operation. Snapshot capture and all
+    // directional-face scanning run later in the bounded worker lane.
     private void HandleDirectionalFaceChunkArrival(ChunkCoord coord)
     {
-        if (_directionalFacePaletteUpdater is null)
-            return;
-        EnqueueDirectionalFaceVisualChanges(
-            _directionalFacePaletteUpdater.ReconcileChunkArrival(_world, coord));
+        if (_acceptingMaterializationWork &&
+            _directionalFacePaletteUpdater is not null)
+            _pendingDirectionalFaceReconciliations.Enqueue(coord);
     }
 
     private void EnqueueDirectionalFaceVisualChanges(
@@ -392,7 +415,11 @@ public sealed class ChunkResidencyRuntime
         IEnumerable<ChunkCoord> presented)
     {
         ArgumentNullException.ThrowIfNull(presented);
-        if (_materializationTasks.Count == 0)
+        if (_materializationTasks.Count == 0 &&
+            !_directionalFaceReconciliationTasks.Values.Any(work =>
+                work.WorkerTask.IsCompleted) &&
+            !_chunkLightingReconciliationTasks.Values.Any(work =>
+                work.WorkerTask.IsCompleted))
             return ChunkResidencyUpdate.Empty;
 
         var activations = new List<ChunkResidencyActivation>();
@@ -497,6 +524,108 @@ public sealed class ChunkResidencyRuntime
             });
         }
 
+        // Publish at most one reconciliation result per frame. Worker scans
+        // read detached snapshots; only this thread publishes accepted results.
+        var reconciliationResultProcessed = false;
+        if (processed < _settings.MaxResultsPerFrame &&
+            (processed == 0 || !budget.Exhausted(Stopwatch.GetTimestamp())))
+        {
+            var completedReconciliations = _directionalFaceReconciliationTasks
+                .Where(entry => entry.Value.WorkerTask.IsCompleted)
+                .OrderBy(entry => ChunkStreamingState.StreamingPriority(
+                    entry.Key, _center, _streaming.MovementDirection))
+                .Take(1)
+                .ToArray();
+
+            foreach (var (coord, work) in completedReconciliations)
+            {
+                _directionalFaceReconciliationTasks.Remove(coord);
+                processed++;
+                reconciliationResultProcessed = true;
+                var task = work.WorkerTask;
+                if (task.IsFaulted || task.IsCanceled)
+                {
+                    var error = task.IsFaulted
+                        ? task.Exception?.GetBaseException() ??
+                          new InvalidOperationException(
+                              $"Directional face reconciliation failed: {coord}")
+                        : new TaskCanceledException(task);
+                    failures.Add(new ChunkMaterializationFailure(coord, error));
+                    if (_acceptingMaterializationWork &&
+                        _world.TryGetSavedChunk(coord, out _))
+                        _pendingDirectionalFaceReconciliations.Enqueue(coord);
+                    break;
+                }
+
+                var result = task.GetAwaiter().GetResult();
+                if (!_acceptingMaterializationWork)
+                    break;
+
+                if (_directionalFacePaletteUpdater is not null &&
+                    _directionalFacePaletteUpdater.TryApplyChunkArrivalReconciliation(
+                        _world, result, out var visualChanges))
+                {
+                    EnqueueDirectionalFaceVisualChanges(visualChanges);
+                }
+                else if (_world.TryGetSavedChunk(result.Arriving, out _))
+                {
+                    // A dependency changed during the calculation. Recompute
+                    // against a fresh snapshot; never force stale writes live.
+                    _pendingDirectionalFaceReconciliations.Enqueue(result.Arriving);
+                }
+                break;
+            }
+        }
+
+        if (!reconciliationResultProcessed &&
+            processed < _settings.MaxResultsPerFrame &&
+            (processed == 0 || !budget.Exhausted(Stopwatch.GetTimestamp())))
+        {
+            var completedLighting = _chunkLightingReconciliationTasks
+                .Where(entry => entry.Value.WorkerTask.IsCompleted)
+                .OrderBy(entry => ChunkStreamingState.StreamingPriority(
+                    entry.Key, _center, _streaming.MovementDirection))
+                .Take(1)
+                .ToArray();
+
+            foreach (var (coord, work) in completedLighting)
+            {
+                _chunkLightingReconciliationTasks.Remove(coord);
+                processed++;
+                reconciliationResultProcessed = true;
+                var task = work.WorkerTask;
+                if (task.IsFaulted || task.IsCanceled)
+                {
+                    var error = task.IsFaulted
+                        ? task.Exception?.GetBaseException() ??
+                          new InvalidOperationException(
+                              $"Chunk lighting reconciliation failed: {coord}")
+                        : new TaskCanceledException(task);
+                    failures.Add(new ChunkMaterializationFailure(coord, error));
+                    if (_acceptingMaterializationWork &&
+                        (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord)))
+                        _pendingChunkLightingReconciliations.Enqueue(coord);
+                    break;
+                }
+
+                var seeds = task.GetAwaiter().GetResult();
+                if (!_acceptingMaterializationWork)
+                    break;
+
+                if (!_world.IsContentStampCurrent(work.ContentDependencies) ||
+                    !_world.AreLightingStampsCurrent(work.LightingDependencies))
+                {
+                    if (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord))
+                        _pendingChunkLightingReconciliations.Enqueue(coord);
+                    break;
+                }
+
+                foreach (var position in seeds)
+                    _worldUpdates.EnqueueLighting(position);
+                break;
+            }
+        }
+
         if (processed > 0)
             SyncResidentState(presented);
         return new ChunkResidencyUpdate(activations, failures, stageTimings);
@@ -505,7 +634,8 @@ public sealed class ChunkResidencyRuntime
     public ChunkResidencyUpdate DispatchMaterializationTasks(
         WorldFrameWorkBudget budget,
         IEnumerable<ChunkCoord> presented,
-        int maximumNewTasks = int.MaxValue)
+        int maximumNewTasks = int.MaxValue,
+        bool? hasWorkerAdmission = null)
     {
         ArgumentNullException.ThrowIfNull(presented);
         if (maximumNewTasks < 0)
@@ -519,14 +649,23 @@ public sealed class ChunkResidencyRuntime
         var restored = 0;
         var maximumTaskStarts = Math.Min(
             _settings.MaxDispatchesPerFrame, maximumNewTasks);
+        // Keep one slot available for arrival reconciliation whenever it is
+        // queued or running. This prevents continuous generation dispatch from
+        // starving seam convergence on a saturated worker pool.
+        var materializationLimit =
+            _pendingDirectionalFaceReconciliations.Count > 0 ||
+            _directionalFaceReconciliationTasks.Count > 0 ||
+            _pendingChunkLightingReconciliations.Count > 0 ||
+            _chunkLightingReconciliationTasks.Count > 0
+                ? Math.Max(0, _settings.MaxMaterializationsInFlight - 1)
+                : _settings.MaxMaterializationsInFlight;
 
         // Archived restores do not consume a generation worker. The caller may
         // cap new materialization starts when downstream work is pressured;
         // spatial priority decides which chunk starts when admission opens.
         while (_materializationTasks.Count <
                    _settings.MaxTerrainMaterializationsInFlight &&
-               _materializationTasks.Count <
-                   _settings.MaxMaterializationsInFlight &&
+               _materializationTasks.Count < materializationLimit &&
                restored <
                    _settings.MaxResultsPerFrame)
         {
@@ -620,12 +759,17 @@ public sealed class ChunkResidencyRuntime
         if (restored > 0)
             SyncResidentState(presented);
 
-        if (activations.Count == 0 && failures.Count == 0)
+        StartArrivalReconciliationWorker(
+            budget, failures,
+            hasWorkerAdmission: hasWorkerAdmission ?? maximumNewTasks > 0);
+
+        if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
             return ChunkResidencyUpdate.Empty;
         return new ChunkResidencyUpdate(
             activations,
             failures,
-            Array.Empty<ChunkMaterializationStageTiming>());
+            Array.Empty<ChunkMaterializationStageTiming>(),
+            startedTasks);
     }
 
     public IReadOnlyList<ChunkResidencyRetirement>
@@ -680,7 +824,7 @@ public sealed class ChunkResidencyRuntime
             if (archiveResult !=
                 ChunkArchiveResult.NotResident)
             {
-                EnqueueChunkLightingReconciliation(
+                _pendingChunkLightingReconciliations.Enqueue(
                     coord.Value);
             }
 
@@ -711,7 +855,7 @@ public sealed class ChunkResidencyRuntime
         double dispatchPreparationMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
-        EnqueueChunkLightingReconciliation(coord);
+        _pendingChunkLightingReconciliations.Enqueue(coord);
         EnqueueResidentChunkFluidActivation(coord);
         _blockPhysics.EnqueueResidentChunk(coord);
 
@@ -727,6 +871,117 @@ public sealed class ChunkResidencyRuntime
             resultCollectionWaitMilliseconds,
             pendingQueueWaitMilliseconds,
             dispatchPreparationMilliseconds);
+    }
+
+    private void StartArrivalReconciliationWorker(
+        WorldFrameWorkBudget budget,
+        List<ChunkMaterializationFailure> failures,
+        bool hasWorkerAdmission)
+    {
+        if (!hasWorkerAdmission || !_acceptingMaterializationWork ||
+            budget.Exhausted(Stopwatch.GetTimestamp()))
+            return;
+
+        var started = _preferChunkLightingReconciliation
+            ? StartChunkLightingReconciliationWorker(failures)
+            : StartDirectionalFaceReconciliationWorker(failures);
+        if (!started)
+            started = _preferChunkLightingReconciliation
+                ? StartDirectionalFaceReconciliationWorker(failures)
+                : StartChunkLightingReconciliationWorker(failures);
+        if (started)
+            _preferChunkLightingReconciliation = !_preferChunkLightingReconciliation;
+    }
+
+    private bool StartChunkLightingReconciliationWorker(
+        List<ChunkMaterializationFailure> failures)
+    {
+        if (_chunkLightingReconciliationTasks.Count > 0 ||
+            _pendingChunkLightingReconciliations.Count == 0 ||
+            _materializationTasks.Count +
+                _directionalFaceReconciliationTasks.Count +
+                _chunkLightingReconciliationTasks.Count >=
+                _settings.MaxMaterializationsInFlight)
+            return false;
+
+        if (!_pendingChunkLightingReconciliations.TryDequeue(out var coord))
+            return false;
+        if (!_world.ContainsChunk(coord) && !_world.HasArchivedChunk(coord))
+            return false;
+
+        try
+        {
+            var dependencies = LightingReconciliationDependencies(coord);
+            var snapshotWorld = _world.CloneForWorker(dependencies);
+            var work = new ChunkLightingReconciliationWork(
+                coord,
+                _world.CaptureContentStamp(dependencies),
+                _world.CaptureLightingStamps(dependencies));
+            work.WorkerTask = Task.Run(() =>
+                ChunkTopologyFrontier.ArrivalLightingSeeds(
+                    snapshotWorld, _blocks, _fluids, coord, _objects));
+            _chunkLightingReconciliationTasks.Add(coord, work);
+            return true;
+        }
+        catch (Exception error)
+        {
+            failures.Add(new ChunkMaterializationFailure(coord, error));
+            _pendingChunkLightingReconciliations.Enqueue(coord);
+            return false;
+        }
+    }
+
+    private static ChunkCoord[] LightingReconciliationDependencies(ChunkCoord coord)
+    {
+        var dependencies = new List<ChunkCoord>(7) { coord };
+        if (coord.Y < int.MaxValue)
+            dependencies.Add(new ChunkCoord(coord.X, coord.Y + 1, coord.Z));
+        if (coord.Y > 0)
+            dependencies.Add(new ChunkCoord(coord.X, coord.Y - 1, coord.Z));
+        if (coord.X > int.MinValue)
+            dependencies.Add(new ChunkCoord(coord.X - 1, coord.Y, coord.Z));
+        if (coord.X < int.MaxValue)
+            dependencies.Add(new ChunkCoord(coord.X + 1, coord.Y, coord.Z));
+        if (coord.Z > int.MinValue)
+            dependencies.Add(new ChunkCoord(coord.X, coord.Y, coord.Z - 1));
+        if (coord.Z < int.MaxValue)
+            dependencies.Add(new ChunkCoord(coord.X, coord.Y, coord.Z + 1));
+        return dependencies.ToArray();
+    }
+
+    private bool StartDirectionalFaceReconciliationWorker(
+        List<ChunkMaterializationFailure> failures)
+    {
+        var updater = _directionalFacePaletteUpdater;
+        if (updater is null ||
+            _directionalFaceReconciliationTasks.Count > 0 ||
+            _pendingDirectionalFaceReconciliations.Count == 0 ||
+            _materializationTasks.Count +
+                _directionalFaceReconciliationTasks.Count +
+                _chunkLightingReconciliationTasks.Count >=
+                _settings.MaxMaterializationsInFlight)
+            return false;
+
+        if (!_pendingDirectionalFaceReconciliations.TryDequeue(out var coord))
+            return false;
+        if (!_world.TryGetSavedChunk(coord, out _))
+            return false;
+
+        try
+        {
+            var snapshot =
+                updater.CaptureChunkArrivalSnapshot(_world, coord);
+            var work = new DirectionalFaceReconciliationWork(snapshot);
+            work.WorkerTask = Task.Run(() => updater.ReconcileChunkArrival(snapshot));
+            _directionalFaceReconciliationTasks.Add(coord, work);
+            return true;
+        }
+        catch (Exception error)
+        {
+            failures.Add(new ChunkMaterializationFailure(coord, error));
+            _pendingDirectionalFaceReconciliations.Enqueue(coord);
+            return false;
+        }
     }
 
     private MaterializationTaskResult ExecuteMaterialization(
@@ -788,6 +1043,40 @@ public sealed class ChunkResidencyRuntime
             workerQueueWaitMilliseconds,
             workerWallMilliseconds,
             workerCompletedTimestamp);
+    }
+
+    private sealed class DirectionalFaceReconciliationWork
+    {
+        public DirectionalFaceReconciliationWork(
+            DirectionalFacePaletteReconciliationSnapshot snapshot)
+        {
+            Snapshot = snapshot ??
+                throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        public DirectionalFacePaletteReconciliationSnapshot Snapshot { get; }
+
+        public Task<DirectionalFacePaletteReconciliationResult> WorkerTask { get; set; } = null!;
+    }
+
+    private sealed class ChunkLightingReconciliationWork
+    {
+        public ChunkLightingReconciliationWork(
+            ChunkCoord coord,
+            ChunkContentStamp contentDependencies,
+            IReadOnlyList<VoxelLightChunkStamp> lightingDependencies)
+        {
+            Coord = coord;
+            ContentDependencies = contentDependencies ??
+                throw new ArgumentNullException(nameof(contentDependencies));
+            LightingDependencies = lightingDependencies ??
+                throw new ArgumentNullException(nameof(lightingDependencies));
+        }
+
+        public ChunkCoord Coord { get; }
+        public ChunkContentStamp ContentDependencies { get; }
+        public IReadOnlyList<VoxelLightChunkStamp> LightingDependencies { get; }
+        public Task<IReadOnlyList<WorldVoxelCoord>> WorkerTask { get; set; } = null!;
     }
 
     private sealed class MaterializationWork
@@ -856,65 +1145,6 @@ public sealed class ChunkResidencyRuntime
         {
         }
     }
-
-    private void EnqueueChunkLightingReconciliation(
-        ChunkCoord coord)
-    {
-        var arriving = _world.ContainsChunk(coord);
-        foreach (var position in
-                 ChunkTopologyFrontier.LightingSeeds(
-                     coord,
-                     _world.ContainsChunk))
-        {
-            if (!_world.IsLoadedAt(position))
-                continue;
-
-            var needsRelight = arriving
-                ? ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
-                    _world, _blocks, _fluids, coord, position)
-                : ChunkTopologyFrontier.NeedsRetirementSeamLightSeed(
-                    _world, coord, position);
-            if (needsRelight)
-                _worldUpdates.EnqueueLighting(position);
-        }
-
-        // When an emitter's support and target are in different chunks,
-        // initially lit individual chunks cannot see the other side.
-        // Reconcile the loaded adjacent support chunks at each arrival.
-        if (_objects is null) return;
-        ReadOnlySpan<(int X, int Y, int Z)> neighbors =
-        [
-            (0, 0, 0), (1, 0, 0), (-1, 0, 0),
-            (0, 1, 0), (0, -1, 0),
-            (0, 0, 1), (0, 0, -1)
-        ];
-        foreach (var offset in neighbors)
-        {
-            var neighborCoord = new ChunkCoord(
-                coord.X + offset.X, coord.Y + offset.Y, coord.Z + offset.Z);
-            if (neighborCoord.Y < 0 ||
-                !_world.TryGetChunk(neighborCoord, out var host) ||
-                host.ObjectCount == 0)
-                continue;
-            var origin = VoxelCoordinates.ChunkOrigin(neighborCoord);
-            host.VisitObjectCells((x, y, z, obj) =>
-            {
-                if (!_objects.TryGet(obj.Id, out var definition) ||
-                    definition is null || definition.LightEmission.IsDark)
-                    return;
-                var support = new WorldVoxelCoord(
-                    origin.X + x, origin.Y + y, origin.Z + z);
-                var target = ObjectLightEmissionField.Target(support, obj.Face);
-                if (target.Y < 0 || !_world.IsLoadedAt(target))
-                    return;
-                if (neighborCoord == coord ||
-                    VoxelCoordinates.FromWorld(
-                        target.X, target.Y, target.Z).Chunk == coord)
-                    _worldUpdates.EnqueueLighting(target);
-            });
-        }
-    }
-
 
     private void EnqueueResidentChunkFluidActivation(ChunkCoord coord)
     {
