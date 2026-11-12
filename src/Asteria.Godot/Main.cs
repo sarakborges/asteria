@@ -1235,7 +1235,15 @@ public partial class Main : Node3D
             SendWebUi("game.world.saving", new { active = false });
 
         ActivateCurrentDimensionPresentation();
-        BeginWorldLoading();
+        if (_sessions.Active.InitialPlayerPositionReady)
+        {
+            BeginWorldLoading();
+        }
+        else
+        {
+            _loading.BeginSpawnPreparation();
+            SendLoadingState(force: true);
+        }
 
         if (completion.IsCheckpoint)
         {
@@ -2617,6 +2625,7 @@ public partial class Main : Node3D
         _sessions = new DimensionSessionController(
             _sessionStates, CreateDimensionSession);
         _sessions.Start(startDimension);
+        _sessions.Active.BeginGeneratedSpawnResolution();
         ActivateCurrentDimensionPresentation();
 
         // Restoration retains the full authoritative inventory; starting a
