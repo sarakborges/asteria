@@ -2724,6 +2724,8 @@ public partial class Main : Node3D
             ResidencySettled: !_residency.HasRenderableBacklog,
             SelectionSettled: !_chunkStreaming.IsSelectionRunning,
             LightingSettled:
+                _residency.DirectionalFaceReconciliationCount == 0 &&
+                _residency.ChunkLightingReconciliationCount == 0 &&
                 !_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant),
             TerrainMeshWorkSettled:
                 !_terrainMeshPipeline.HasWorkAffecting(_residency.IsDesired),
