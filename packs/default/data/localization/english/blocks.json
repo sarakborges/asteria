@@ -341,42 +341,6 @@
   "asteria:leaf_nacreveil": {
     "/name": "Nacreveil Leaves"
   },
-  "asteria:log_mirewake": {
-    "/name": "Mirewake Log"
-  },
-  "asteria:log_mirewake_hollow": {
-    "/name": "Hollow Mirewake Log"
-  },
-  "asteria:log_mirewake_stripped": {
-    "/name": "Stripped Mirewake Log"
-  },
-  "asteria:log_mirewake_stripped_hollow": {
-    "/name": "Stripped Hollow Mirewake Log"
-  },
-  "asteria:planks_mirewake": {
-    "/name": "Mirewake Planks"
-  },
-  "asteria:leaf_mirewake": {
-    "/name": "Mirewake Leaves"
-  },
-  "asteria:log_geodera": {
-    "/name": "Geodera Log"
-  },
-  "asteria:log_geodera_hollow": {
-    "/name": "Hollow Geodera Log"
-  },
-  "asteria:log_geodera_stripped": {
-    "/name": "Stripped Geodera Log"
-  },
-  "asteria:log_geodera_stripped_hollow": {
-    "/name": "Stripped Hollow Geodera Log"
-  },
-  "asteria:planks_geodera": {
-    "/name": "Geodera Planks"
-  },
-  "asteria:leaf_geodera": {
-    "/name": "Geodera Leaves"
-  },
   "asteria:log_stormglass": {
     "/name": "Stormglass Log"
   },
@@ -430,42 +394,6 @@
   },
   "asteria:leaf_rimehollow": {
     "/name": "Rimehollow Leaves"
-  },
-  "asteria:log_hoarfane": {
-    "/name": "Hoarfane Log"
-  },
-  "asteria:log_hoarfane_hollow": {
-    "/name": "Hollow Hoarfane Log"
-  },
-  "asteria:log_hoarfane_stripped": {
-    "/name": "Stripped Hoarfane Log"
-  },
-  "asteria:log_hoarfane_stripped_hollow": {
-    "/name": "Stripped Hollow Hoarfane Log"
-  },
-  "asteria:planks_hoarfane": {
-    "/name": "Hoarfane Planks"
-  },
-  "asteria:leaf_hoarfane": {
-    "/name": "Hoarfane Leaves"
-  },
-  "asteria:log_glassmorrow": {
-    "/name": "Glassmorrow Log"
-  },
-  "asteria:log_glassmorrow_hollow": {
-    "/name": "Hollow Glassmorrow Log"
-  },
-  "asteria:log_glassmorrow_stripped": {
-    "/name": "Stripped Glassmorrow Log"
-  },
-  "asteria:log_glassmorrow_stripped_hollow": {
-    "/name": "Stripped Hollow Glassmorrow Log"
-  },
-  "asteria:planks_glassmorrow": {
-    "/name": "Glassmorrow Planks"
-  },
-  "asteria:leaf_glassmorrow": {
-    "/name": "Glassmorrow Leaves"
   },
   "asteria:log_skyweave": {
     "/name": "Skyweave Log"
@@ -556,42 +484,6 @@
   },
   "asteria:leaf_nighthollow": {
     "/name": "Nighthollow Leaves"
-  },
-  "asteria:log_mourningbriar": {
-    "/name": "Mourningbriar Log"
-  },
-  "asteria:log_mourningbriar_hollow": {
-    "/name": "Hollow Mourningbriar Log"
-  },
-  "asteria:log_mourningbriar_stripped": {
-    "/name": "Stripped Mourningbriar Log"
-  },
-  "asteria:log_mourningbriar_stripped_hollow": {
-    "/name": "Stripped Hollow Mourningbriar Log"
-  },
-  "asteria:planks_mourningbriar": {
-    "/name": "Mourningbriar Planks"
-  },
-  "asteria:leaf_mourningbriar": {
-    "/name": "Mourningbriar Leaves"
-  },
-  "asteria:log_gloamroot": {
-    "/name": "Gloamroot Log"
-  },
-  "asteria:log_gloamroot_hollow": {
-    "/name": "Hollow Gloamroot Log"
-  },
-  "asteria:log_gloamroot_stripped": {
-    "/name": "Stripped Gloamroot Log"
-  },
-  "asteria:log_gloamroot_stripped_hollow": {
-    "/name": "Stripped Hollow Gloamroot Log"
-  },
-  "asteria:planks_gloamroot": {
-    "/name": "Gloamroot Planks"
-  },
-  "asteria:leaf_gloamroot": {
-    "/name": "Gloamroot Leaves"
   },
   "asteria:log_mycelora": {
     "/name": "Mycelora Log"

@@ -341,42 +341,6 @@
   "asteria:leaf_nacreveil": {
     "/name": "Folhas de Nacreveil"
   },
-  "asteria:log_mirewake": {
-    "/name": "Tronco de Mirewake"
-  },
-  "asteria:log_mirewake_hollow": {
-    "/name": "Tronco Oco de Mirewake"
-  },
-  "asteria:log_mirewake_stripped": {
-    "/name": "Tronco Descascado de Mirewake"
-  },
-  "asteria:log_mirewake_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Mirewake"
-  },
-  "asteria:planks_mirewake": {
-    "/name": "Tábuas de Mirewake"
-  },
-  "asteria:leaf_mirewake": {
-    "/name": "Folhas de Mirewake"
-  },
-  "asteria:log_geodera": {
-    "/name": "Tronco de Geodera"
-  },
-  "asteria:log_geodera_hollow": {
-    "/name": "Tronco Oco de Geodera"
-  },
-  "asteria:log_geodera_stripped": {
-    "/name": "Tronco Descascado de Geodera"
-  },
-  "asteria:log_geodera_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Geodera"
-  },
-  "asteria:planks_geodera": {
-    "/name": "Tábuas de Geodera"
-  },
-  "asteria:leaf_geodera": {
-    "/name": "Folhas de Geodera"
-  },
   "asteria:log_stormglass": {
     "/name": "Tronco de Stormglass"
   },
@@ -430,42 +394,6 @@
   },
   "asteria:leaf_rimehollow": {
     "/name": "Folhas de Rimehollow"
-  },
-  "asteria:log_hoarfane": {
-    "/name": "Tronco de Hoarfane"
-  },
-  "asteria:log_hoarfane_hollow": {
-    "/name": "Tronco Oco de Hoarfane"
-  },
-  "asteria:log_hoarfane_stripped": {
-    "/name": "Tronco Descascado de Hoarfane"
-  },
-  "asteria:log_hoarfane_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Hoarfane"
-  },
-  "asteria:planks_hoarfane": {
-    "/name": "Tábuas de Hoarfane"
-  },
-  "asteria:leaf_hoarfane": {
-    "/name": "Folhas de Hoarfane"
-  },
-  "asteria:log_glassmorrow": {
-    "/name": "Tronco de Glassmorrow"
-  },
-  "asteria:log_glassmorrow_hollow": {
-    "/name": "Tronco Oco de Glassmorrow"
-  },
-  "asteria:log_glassmorrow_stripped": {
-    "/name": "Tronco Descascado de Glassmorrow"
-  },
-  "asteria:log_glassmorrow_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Glassmorrow"
-  },
-  "asteria:planks_glassmorrow": {
-    "/name": "Tábuas de Glassmorrow"
-  },
-  "asteria:leaf_glassmorrow": {
-    "/name": "Folhas de Glassmorrow"
   },
   "asteria:log_skyweave": {
     "/name": "Tronco de Skyweave"
@@ -556,42 +484,6 @@
   },
   "asteria:leaf_nighthollow": {
     "/name": "Folhas de Nighthollow"
-  },
-  "asteria:log_mourningbriar": {
-    "/name": "Tronco de Mourningbriar"
-  },
-  "asteria:log_mourningbriar_hollow": {
-    "/name": "Tronco Oco de Mourningbriar"
-  },
-  "asteria:log_mourningbriar_stripped": {
-    "/name": "Tronco Descascado de Mourningbriar"
-  },
-  "asteria:log_mourningbriar_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Mourningbriar"
-  },
-  "asteria:planks_mourningbriar": {
-    "/name": "Tábuas de Mourningbriar"
-  },
-  "asteria:leaf_mourningbriar": {
-    "/name": "Folhas de Mourningbriar"
-  },
-  "asteria:log_gloamroot": {
-    "/name": "Tronco de Gloamroot"
-  },
-  "asteria:log_gloamroot_hollow": {
-    "/name": "Tronco Oco de Gloamroot"
-  },
-  "asteria:log_gloamroot_stripped": {
-    "/name": "Tronco Descascado de Gloamroot"
-  },
-  "asteria:log_gloamroot_stripped_hollow": {
-    "/name": "Tronco Oco Descascado de Gloamroot"
-  },
-  "asteria:planks_gloamroot": {
-    "/name": "Tábuas de Gloamroot"
-  },
-  "asteria:leaf_gloamroot": {
-    "/name": "Folhas de Gloamroot"
   },
   "asteria:log_mycelora": {
     "/name": "Tronco de Mycelora"

@@ -341,42 +341,6 @@
   "asteria:leaf_nacreveil": {
     "/name": "Hojas de Nacreveil"
   },
-  "asteria:log_mirewake": {
-    "/name": "Tronco de Mirewake"
-  },
-  "asteria:log_mirewake_hollow": {
-    "/name": "Tronco hueco de Mirewake"
-  },
-  "asteria:log_mirewake_stripped": {
-    "/name": "Tronco sin corteza de Mirewake"
-  },
-  "asteria:log_mirewake_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Mirewake"
-  },
-  "asteria:planks_mirewake": {
-    "/name": "Tablones de Mirewake"
-  },
-  "asteria:leaf_mirewake": {
-    "/name": "Hojas de Mirewake"
-  },
-  "asteria:log_geodera": {
-    "/name": "Tronco de Geodera"
-  },
-  "asteria:log_geodera_hollow": {
-    "/name": "Tronco hueco de Geodera"
-  },
-  "asteria:log_geodera_stripped": {
-    "/name": "Tronco sin corteza de Geodera"
-  },
-  "asteria:log_geodera_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Geodera"
-  },
-  "asteria:planks_geodera": {
-    "/name": "Tablones de Geodera"
-  },
-  "asteria:leaf_geodera": {
-    "/name": "Hojas de Geodera"
-  },
   "asteria:log_stormglass": {
     "/name": "Tronco de Stormglass"
   },
@@ -430,42 +394,6 @@
   },
   "asteria:leaf_rimehollow": {
     "/name": "Hojas de Rimehollow"
-  },
-  "asteria:log_hoarfane": {
-    "/name": "Tronco de Hoarfane"
-  },
-  "asteria:log_hoarfane_hollow": {
-    "/name": "Tronco hueco de Hoarfane"
-  },
-  "asteria:log_hoarfane_stripped": {
-    "/name": "Tronco sin corteza de Hoarfane"
-  },
-  "asteria:log_hoarfane_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Hoarfane"
-  },
-  "asteria:planks_hoarfane": {
-    "/name": "Tablones de Hoarfane"
-  },
-  "asteria:leaf_hoarfane": {
-    "/name": "Hojas de Hoarfane"
-  },
-  "asteria:log_glassmorrow": {
-    "/name": "Tronco de Glassmorrow"
-  },
-  "asteria:log_glassmorrow_hollow": {
-    "/name": "Tronco hueco de Glassmorrow"
-  },
-  "asteria:log_glassmorrow_stripped": {
-    "/name": "Tronco sin corteza de Glassmorrow"
-  },
-  "asteria:log_glassmorrow_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Glassmorrow"
-  },
-  "asteria:planks_glassmorrow": {
-    "/name": "Tablones de Glassmorrow"
-  },
-  "asteria:leaf_glassmorrow": {
-    "/name": "Hojas de Glassmorrow"
   },
   "asteria:log_skyweave": {
     "/name": "Tronco de Skyweave"
@@ -556,42 +484,6 @@
   },
   "asteria:leaf_nighthollow": {
     "/name": "Hojas de Nighthollow"
-  },
-  "asteria:log_mourningbriar": {
-    "/name": "Tronco de Mourningbriar"
-  },
-  "asteria:log_mourningbriar_hollow": {
-    "/name": "Tronco hueco de Mourningbriar"
-  },
-  "asteria:log_mourningbriar_stripped": {
-    "/name": "Tronco sin corteza de Mourningbriar"
-  },
-  "asteria:log_mourningbriar_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Mourningbriar"
-  },
-  "asteria:planks_mourningbriar": {
-    "/name": "Tablones de Mourningbriar"
-  },
-  "asteria:leaf_mourningbriar": {
-    "/name": "Hojas de Mourningbriar"
-  },
-  "asteria:log_gloamroot": {
-    "/name": "Tronco de Gloamroot"
-  },
-  "asteria:log_gloamroot_hollow": {
-    "/name": "Tronco hueco de Gloamroot"
-  },
-  "asteria:log_gloamroot_stripped": {
-    "/name": "Tronco sin corteza de Gloamroot"
-  },
-  "asteria:log_gloamroot_stripped_hollow": {
-    "/name": "Tronco hueco sin corteza de Gloamroot"
-  },
-  "asteria:planks_gloamroot": {
-    "/name": "Tablones de Gloamroot"
-  },
-  "asteria:leaf_gloamroot": {
-    "/name": "Hojas de Gloamroot"
   },
   "asteria:log_mycelora": {
     "/name": "Tronco de Mycelora"
