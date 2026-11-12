@@ -42,7 +42,7 @@ public sealed class DimensionRuntimeSession
 
     private readonly DimensionSessionState _state;
     private NVector3 _initialPlayerPosition;
-    private Task<NVector3>? _generatedSpawnResolution;
+    private Task<NVector3>? _initialPositionResolution;
     private bool _initialPlayerPositionReady;
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
@@ -784,7 +784,7 @@ public sealed class DimensionRuntimeSession
         _retiring;
 
     public bool IsQuiescent =>
-        (_generatedSpawnResolution is null || _generatedSpawnResolution.IsCompleted) &&
+        (_initialPositionResolution is null || _initialPositionResolution.IsCompleted) &&
         Residency.MaterializingCount == 0 &&
         Residency.DirectionalFaceReconciliationCount == 0 &&
         !Streaming.IsSelectionRunning &&
@@ -811,13 +811,13 @@ public sealed class DimensionRuntimeSession
         if (_retiring || _retired)
             throw new InvalidOperationException(
                 "A retiring dimension session cannot start spawn preparation.");
-        if (_initialPlayerPositionReady || _generatedSpawnResolution is not null)
+        if (_initialPlayerPositionReady || _initialPositionResolution is not null)
             return;
 
         // Generated-world spawn search is pure and may inspect thousands of
         // world-space samples. Keep it off the Godot thread and scoped to this
         // session so a retired result can never affect its successor.
-        _generatedSpawnResolution = Task.Run(ResolveGeneratedSpawn);
+        _initialPositionResolution = Task.Run(ResolveGeneratedSpawn);
     }
 
     /// <summary>
@@ -825,13 +825,13 @@ public sealed class DimensionRuntimeSession
     /// A destination explicitly selected while the query was running takes
     /// precedence over its eventual result.
     /// </summary>
-    public bool TryCompleteGeneratedSpawnResolution(out Exception? error)
+    public bool TryCompleteInitialPositionResolution(out Exception? error)
     {
         error = null;
-        if (_generatedSpawnResolution is not { IsCompleted: true } task)
+        if (_initialPositionResolution is not { IsCompleted: true } task)
             return _initialPlayerPositionReady;
 
-        _generatedSpawnResolution = null;
+        _initialPositionResolution = null;
         try
         {
             var generated = task.GetAwaiter().GetResult();
@@ -946,21 +946,26 @@ public sealed class DimensionRuntimeSession
             returnDimension: origin);
     }
 
-    public void PrepareGeneratedDestination(
-        NVector3 preferred)
+    public void BeginGeneratedDestinationResolution(NVector3 preferred)
     {
-        var preferredX =
-            checked(
-                (int)MathF.Floor(
-                    preferred.X));
-        var preferredY =
-            checked(
-                (int)MathF.Floor(
-                    preferred.Y));
-        var preferredZ =
-            checked(
-                (int)MathF.Floor(
-                    preferred.Z));
+        if (_retiring || _retired)
+            throw new InvalidOperationException(
+                "A retiring dimension session cannot prepare a generated destination.");
+        if (_initialPositionResolution is not null)
+            throw new InvalidOperationException(
+                "This dimension session already has an entry-position query in flight.");
+
+        var preferredX = checked((int)MathF.Floor(preferred.X));
+        var preferredY = checked((int)MathF.Floor(preferred.Y));
+        var preferredZ = checked((int)MathF.Floor(preferred.Z));
+        _initialPlayerPositionReady = false;
+        _initialPositionResolution = Task.Run(
+            () => ResolveGeneratedDestination(preferredX, preferredY, preferredZ));
+    }
+
+    private NVector3 ResolveGeneratedDestination(
+        int preferredX, int preferredY, int preferredZ)
+    {
         var destination =
             Generator.FindGeneratedDestination(
                 preferredX,
@@ -970,12 +975,10 @@ public sealed class DimensionRuntimeSession
             throw new InvalidOperationException(
                 $"Dimension {Dimension.Id} has no safe generated destination within {SpawnSearchRadiusBlocks} blocks of ({preferredX}, {preferredY}, {preferredZ}).");
 
-        _initialPlayerPosition =
-            new NVector3(
-                destination.X + 0.5f,
-                destination.Y,
-                destination.Z + 0.5f);
-        _initialPlayerPositionReady = true;
+        return new NVector3(
+            destination.X + 0.5f,
+            destination.Y,
+            destination.Z + 0.5f);
     }
 
     /// <summary>Resolve the final entry from authoritative loaded voxels
@@ -1050,8 +1053,8 @@ public sealed class DimensionRuntimeSession
                 Array.Empty<ChunkCoord>());
         var errors =
             new List<Exception>();
-        if (_generatedSpawnResolution is { IsCompleted: true } &&
-            TryCompleteGeneratedSpawnResolution(out var spawnError) &&
+        if (_initialPositionResolution is { IsCompleted: true } &&
+            TryCompleteInitialPositionResolution(out var spawnError) &&
             spawnError is not null)
             errors.Add(spawnError);
 
