@@ -180,8 +180,9 @@ public sealed class ChunkResidencyRuntime
     private readonly ChunkResidencySettings _settings;
     private readonly ChunkStreamingState _streaming = new();
     private readonly ChunkPresentationSelection _presentationSelection = new();
-    // A bounded worker owns one chunk materialization from its first stage
-    // through initial lighting. Jobs are never paused and resumed by frame.
+    // Each section keeps one private incremental materialization job. The
+    // serial dispatcher resumes it between bounded worker slices; no worker
+    // and coordinator may touch the same job concurrently.
     private readonly Dictionary<ChunkCoord, MaterializationWork>
         _materializationTasks = [];
     private readonly ChunkGenerationCompletionMailbox _generationCompletionMailbox;
@@ -321,6 +322,15 @@ public sealed class ChunkResidencyRuntime
 
     public int SuspendedMaterializationCount =>
         _generationDispatcher.WaitingTaskCount;
+
+    public int ReadyGenerationTaskCount =>
+        _generationDispatcher.ReadyTaskCount;
+
+    public int PendingGenerationWorkerOperations =>
+        _generationDispatcher.PendingWorkerOperationCount;
+
+    public int PendingGenerationCompletions =>
+        _generationCompletionMailbox.PendingCount + _generationDispatcher.PendingOutcomeCount;
 
     public bool IsQuiescent =>
         _streaming.MaterializingCount == 0 &&
@@ -489,10 +499,14 @@ public sealed class ChunkResidencyRuntime
         var cancelledTasks = 0;
         var reconciliationResultProcessed = false;
 
-        while (processed < _settings.MaxResultsPerFrame &&
-               _generationDispatcher.TryDequeueOutcome(out var outcome))
+        while (processed < _settings.MaxResultsPerFrame)
         {
+            // Check the frame budget before removing an outcome. Once an
+            // outcome leaves the dispatcher queue, it must be applied or
+            // explicitly requeued; dropping it would strand MaterializingCount.
             if (processed > 0 && budget.Exhausted(Stopwatch.GetTimestamp()))
+                break;
+            if (!_generationDispatcher.TryDequeueOutcome(out var outcome))
                 break;
 
             processed++;

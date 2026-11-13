@@ -516,6 +516,11 @@ internal static class ChunkStreamingRouteBenchmark
             throw new TimeoutException(
                 $"Headless streaming route did not drain after {frame} frames " +
                 $"(pending={residency.PendingCount}, jobs={residency.MaterializationJobCount}, " +
+                $"ready={residency.ReadyGenerationTaskCount}, " +
+                $"waiting={residency.SuspendedMaterializationCount}, " +
+                $"workerOps={residency.PendingGenerationWorkerOperations}, " +
+                $"activeWorkers={residency.ActiveWorkerCount}, " +
+                $"completions={residency.PendingGenerationCompletions}, " +
                 $"presentation={residency.PresentationPendingCount}, " +
                 $"physics={physicsUpdates.Count}, fluids={lastFluidPending}).");
         }

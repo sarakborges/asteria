@@ -35,6 +35,26 @@ public sealed class ChunkGenerationDispatcherTests
     }
 
     [Fact]
+    public async Task RequeuedTerminalOutcomeRemainsAvailableExactlyOnce()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(1);
+        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var payload = new CompletedChunkPayload("deferred", 16);
+        Assert.True(dispatcher.TryEnqueue(
+            Key(11), 4, Priority(0), 11, new ResultTask(payload)));
+
+        dispatcher.Pump(0, 1, 0);
+
+        Assert.True(dispatcher.TryDequeueOutcome(out var first));
+        dispatcher.RequeueOutcome(first);
+        Assert.True(dispatcher.TryDequeueOutcome(out var second));
+        Assert.Equal(first, second);
+        Assert.Same(payload, second.Result);
+        Assert.False(dispatcher.TryDequeueOutcome(out _));
+    }
+
+    [Fact]
     public async Task CompletedTaskPublishesDetachedResultForWorldLoop()
     {
         var mailbox = new ChunkGenerationCompletionMailbox(1);
