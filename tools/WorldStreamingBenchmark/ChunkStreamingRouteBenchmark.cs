@@ -827,7 +827,7 @@ internal static class ChunkStreamingRouteBenchmark
         {
             return new ChunkResidencySettings(
                 maxMaterializationsInFlight: terrainWorkers,
-                maxDispatchesPerFrame: terrainWorkers,
+                maxDispatchesPerFrame: totalWorkers,
                 maxResultsPerFrame: 8,
                 maxEvictionsPerFrame: 2,
                 gameRules: rules);
@@ -836,7 +836,7 @@ internal static class ChunkStreamingRouteBenchmark
         return (ChunkResidencySettings)sharedWorkerLimitConstructor.Invoke(
         [
             terrainWorkers,
-            terrainWorkers,
+            totalWorkers,
             8,
             2,
             rules,
