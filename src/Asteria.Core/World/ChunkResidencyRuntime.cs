@@ -1270,8 +1270,7 @@ public sealed class ChunkResidencyRuntime
         get
         {
             var occupiedWorkerSlots =
-                _generationWorkerPool.ActiveWorkerCount +
-                _generationWorkerPool.PendingWorkCount +
+                _generationWorkerPool.InFlightWorkCount +
                 _directionalFaceReconciliationTasks.Values.Count(work =>
                     !work.WorkerTask.IsCompleted) +
                 _chunkLightingReconciliationTasks.Values.Count(work =>
@@ -1291,8 +1290,7 @@ public sealed class ChunkResidencyRuntime
             return;
 
         var occupiedWorkerSlots =
-            _generationWorkerPool.PendingWorkCount +
-            _generationWorkerPool.ActiveWorkerCount +
+            _generationWorkerPool.InFlightWorkCount +
             _generationDispatcher.PendingWorkerOperationCount +
             _directionalFaceReconciliationTasks.Values.Count(work =>
                 !work.WorkerTask.IsCompleted) +
