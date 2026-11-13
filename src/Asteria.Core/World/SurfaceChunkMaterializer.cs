@@ -542,9 +542,7 @@ public sealed partial class SurfaceChunkMaterializer
                 occupancyBuild.BoundaryDensityProbes;
 #if DEBUG
             job.DirectionalFacePalettePreparationMilliseconds =
-                Stopwatch.GetElapsedTime(
-                    job.DirectionalFacePalettePreparationStartedTimestamp)
-                .TotalMilliseconds;
+                occupancyBuild.ExecutionMilliseconds;
 #endif
             job.DirectionalFaceOccupancyBuildJob = null;
         }
@@ -576,10 +574,6 @@ public sealed partial class SurfaceChunkMaterializer
             !job.SupportFaceFastPath &&
             !(job.SupportOnly && _materials.FacePalettesPreserveOccupancy))
         {
-#if DEBUG
-            job.DirectionalFacePalettePreparationStartedTimestamp =
-                Stopwatch.GetTimestamp();
-#endif
             job.DirectionalFaceOccupancyBuildJob =
                 new DirectionalFaceOccupancyBuildJob(
                     this,
@@ -1827,10 +1821,6 @@ public sealed partial class SurfaceChunkMaterializer
         public DirectionalFaceOccupancyBuildJob? DirectionalFaceOccupancyBuildJob { get; set; }
 
         public bool TerrainSetupInitialized { get; set; }
-
-#if DEBUG
-        public long DirectionalFacePalettePreparationStartedTimestamp { get; set; }
-#endif
 
         public double DirectionalFacePalettePreparationMilliseconds { get; set; }
 

@@ -107,6 +107,10 @@ public sealed partial class SurfaceChunkMaterializer
 
         public int BoundaryDensityProbes => _boundaryDensityProbeCount;
 
+#if DEBUG
+        public double ExecutionMilliseconds { get; private set; }
+#endif
+
         public DirectionalFaceOccupancyPreparationProfile PreparationProfile { get; private set; }
 
         /// <summary>
@@ -117,7 +121,9 @@ public sealed partial class SurfaceChunkMaterializer
         {
             if (IsComplete)
                 return true;
-
+#if DEBUG
+            var started = Stopwatch.GetTimestamp();
+#endif
             switch (_phase)
             {
                 case 0:
@@ -146,6 +152,10 @@ public sealed partial class SurfaceChunkMaterializer
                         $"Directional occupancy builder entered invalid phase {_phase}.");
             }
 
+#if DEBUG
+            ExecutionMilliseconds +=
+                Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+#endif
             _phase++;
             return IsComplete;
         }
