@@ -650,25 +650,25 @@ public sealed class SurfaceChunkMaterializer
             return;
         }
 
-        // A single Z row is one cooperative terrain quantum. Column caches
-        // persist between calls, preserving the original Y/Z/X write order.
+        // One Z row is the cooperative terrain quantum. Column-local caches
+        // persist across resumes while preserving the original Y/Z/X write order.
         var localZ = job.NextTerrainLocalZ;
         for (var localX = 0; localX < Chunk.Size; localX++)
-{
-            var columnIndex = localX + Chunk.Size * localZ;
-            if (job.SupportMaterializationColumns is { } supportColumns &&
-                !supportColumns[columnIndex])
-                continue;
+        {
+                    var columnIndex = localX + Chunk.Size * localZ;
+                    if (job.SupportMaterializationColumns is { } supportColumns &&
+                        !supportColumns[columnIndex])
+                        continue;
 
-            ref var state = ref columnMaterializationCaches[columnIndex];
-            var surfaceY = state.SurfaceY;
-            if (worldY > surfaceY ||
-                (columnSolidMasks is null
-                    ? !densityVolume.IsSolidAtUnchecked(
-                        localX, localY, localZ)
-                    : (columnSolidMasks[columnIndex] & solidBit) == 0))
-            {
-                continue;
+                    ref var state = ref columnMaterializationCaches[columnIndex];
+                    var surfaceY = state.SurfaceY;
+                    if (worldY > surfaceY ||
+                        (columnSolidMasks is null
+                            ? !densityVolume.IsSolidAtUnchecked(
+                                localX, localY, localZ)
+                            : (columnSolidMasks[columnIndex] & solidBit) == 0))
+                    {
+                        continue;
                     }
 
                     // Only solid cells below their column surface need the
