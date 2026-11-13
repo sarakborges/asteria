@@ -665,6 +665,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         .ToArray();
     var stages = Enum.GetValues<ChunkMaterializationStage>();
     var elapsedMsByStage = new double[stages.Length];
+    var maximumElapsedMsByStage = new double[stages.Length];
     var allocatedBytesByStage = new long[stages.Length];
     var advanceCountByStage = new int[stages.Length];
     var paletteProfiles = new List<DirectionalFacePaletteMetrics>();
@@ -706,8 +707,11 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
             var startedAt = Stopwatch.GetTimestamp();
             job.Advance();
-            elapsedMsByStage[stageIndex] +=
-                Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
+            var advanceMilliseconds = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
+            elapsedMsByStage[stageIndex] += advanceMilliseconds;
+            maximumElapsedMsByStage[stageIndex] = Math.Max(
+                maximumElapsedMsByStage[stageIndex],
+                advanceMilliseconds);
             allocatedBytesByStage[stageIndex] +=
                 GC.GetAllocatedBytesForCurrentThread() - beforeBytes;
             advanceCountByStage[stageIndex]++;
@@ -797,6 +801,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
         {
             AdvanceCount = advanceCountByStage[index],
             ElapsedMs = elapsedMs,
+            MaximumAdvanceMs = maximumElapsedMsByStage[index],
             AllocatedBytes = allocatedBytesByStage[index],
         });
     }
@@ -1427,6 +1432,7 @@ var result = new
         "Elapsed times include immutable query/cache cost, not Godot meshing, physics or GPU publication.",
         "Allocation counters use the current benchmark thread and are comparative diagnostics, not retained-memory truth.",
         "Initial-area synthesis stage timings wrap each Advance call in the exact cold/warm benchmark pass; the measured materialization total includes this lightweight diagnostic overhead.",
+        "MaximumAdvanceMs reports the slowest single Advance call per stage, so stage slicing is based on worst observed work rather than averages.",
         "Separate repeated materialization-stage profiles are diagnostic only and are not regression thresholds.",
         "Directional face-palette profiles use operation counters and sampled Debug timings; cold and warm passes use the same fixed-seed chunk selection.",
         options.ProfileGeologySampling
