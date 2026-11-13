@@ -121,7 +121,7 @@ public readonly record struct ChunkResidencyActivation(
     double PendingQueueWaitMilliseconds = 0d,
     double DispatchPreparationMilliseconds = 0d,
     int WorkerSliceCount = 0,
-    double CoordinatorResumeWaitMilliseconds = 0d);
+    double InterSliceWaitMilliseconds = 0d);
 
 public readonly record struct FluidActivationWorkReport(
     int CompletedChunks,
@@ -790,7 +790,7 @@ public sealed class ChunkResidencyRuntime
                 work.DispatchTimestamp).TotalMilliseconds,
             dispatchPreparationMilliseconds: result.DispatchPreparationMilliseconds,
             workerSliceCount: result.WorkerSliceCount,
-            coordinatorResumeWaitMilliseconds: result.CoordinatorResumeWaitMilliseconds);
+            interSliceWaitMilliseconds: result.InterSliceWaitMilliseconds);
         var activatedTimestamp = Stopwatch.GetTimestamp();
         activations.Add(activation with
         {
@@ -1217,7 +1217,7 @@ public sealed class ChunkResidencyRuntime
         double pendingQueueWaitMilliseconds = 0d,
         double dispatchPreparationMilliseconds = 0d,
         int workerSliceCount = 0,
-        double coordinatorResumeWaitMilliseconds = 0d)
+        double interSliceWaitMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
         _blockPhysics.RequestChunkReconciliation(coord);
@@ -1236,7 +1236,7 @@ public sealed class ChunkResidencyRuntime
             pendingQueueWaitMilliseconds,
             dispatchPreparationMilliseconds,
             workerSliceCount,
-            coordinatorResumeWaitMilliseconds);
+            interSliceWaitMilliseconds);
     }
 
     private ChunkGenerationTaskPriority GenerationPriority(ChunkCoord coord)
