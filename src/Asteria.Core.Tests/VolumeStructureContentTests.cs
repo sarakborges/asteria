@@ -120,6 +120,8 @@ public sealed class VolumeStructureContentTests
         var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
         var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
+        var structureSets = StructureSetRegistry.FromJson(
+            ReadJson("structure_sets"));
         var dimension = DimensionRegistry.FromJson(ReadJson("dimensions"))
             .Get(DimensionId.Overworld);
         var generator = new BiomeWorldGenerator(
@@ -128,7 +130,8 @@ public sealed class VolumeStructureContentTests
             blocks,
             fluids,
             biomes,
-            structures);
+            structures,
+            structureSets);
         var field = generator.VolumeStructures;
         var coord = new ChunkCoord(0, 2, 0);
         var expected = field.VoxelsForChunk(coord);
