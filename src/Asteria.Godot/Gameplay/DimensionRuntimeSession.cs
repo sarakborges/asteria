@@ -10,9 +10,7 @@ namespace Asteria.Client.Gameplay;
 
 public sealed record DimensionRuntimeSessionSettings(
     int RetentionMarginChunks,
-    int MaxMaterializationTasksInFlight,
     int MaxConcurrentWorldJobs,
-    int MaxMaterializationDispatchesPerFrame,
     int MaxMaterializationResultsPerFrame,
     int MaxPresentationPublicationsPerFrame,
     int MaxInteractiveTerrainMeshletsPerWorker,
@@ -340,12 +338,10 @@ public sealed class DimensionRuntimeSession
                 FluidContentRevisions,
                 WorldTicks,
                 new ChunkResidencySettings(
-                    settings.MaxMaterializationTasksInFlight,
-                    settings.MaxMaterializationDispatchesPerFrame,
+                    settings.MaxConcurrentWorldJobs,
                     settings.MaxMaterializationResultsPerFrame,
                     settings.MaxChunkEvictionsPerFrame,
-                    state.GameRules,
-                    maxConcurrentWorkers: settings.MaxConcurrentWorldJobs),
+                    state.GameRules),
                 objects);
         Presentations =
             new ChunkPresentationController(
