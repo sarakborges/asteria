@@ -538,8 +538,7 @@ internal static class ChunkStreamingRouteBenchmark
                 maximumReadyGenerationTasks, readyGenerationTasks);
             if (hasDetailedSchedulerDiagnostics &&
                 residency.MaterializationJobCount >= terrainAdmissionCount &&
-                activeGenerationWorkers + pendingGenerationWorkerQueue <
-                    generationWorkerCount &&
+                residency.ActiveWorkerCount < generationWorkerCount &&
                 pendingGenerationWorkerOperations == 0 &&
                 readyGenerationTasks == 0 &&
                 pendingGenerationCompletions == 0)
