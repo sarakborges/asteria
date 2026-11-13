@@ -36,9 +36,8 @@ internal static class ChunkStreamingRouteBenchmark
         var hasControlledWorkerCap = !string.IsNullOrWhiteSpace(
             Environment.GetEnvironmentVariable("ASTERIA_BENCH_MAX_WORLD_WORKERS"));
         // Normal route runs retain the production terrain-admission cap.
-        // Controlled 2/4-worker comparisons scale terrain task admission with
-        // the requested cap; otherwise a 4-worker pool can never exceed the
-        // production two-section admission limit and the comparison is inert.
+        // A controlled worker cap defaults admission to the same value unless
+        // ASTERIA_BENCH_MAX_TERRAIN_ADMISSION independently overrides it.
         var defaultTerrainAdmissionLimit = hasControlledWorkerCap
             ? maximumWorldWorkers
             : Math.Clamp(Environment.ProcessorCount - 2, 1, 6);
