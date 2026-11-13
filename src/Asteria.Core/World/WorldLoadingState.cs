@@ -77,7 +77,16 @@ public sealed class WorldLoadingState
             WorldLoadingPhase.RetiringCurrentDimension or
             WorldLoadingPhase.MaterializingInitialArea);
 
-    public bool AllowsMeshDispatch(bool lightingSettled) =>
+    // Visible terrain may begin meshing as soon as its own chunk is resident.
+    // Meshlet dependency stamps reject/requeue any result invalidated by later
+    // lighting or neighbor changes; background work remains behind the global
+    // bootstrap-lighting barrier to avoid wasting CPU on distant geometry.
+    public bool AllowsPriorityMeshDispatch =>
+        _progress.Phase is not (
+            WorldLoadingPhase.PreparingEntry or
+            WorldLoadingPhase.RetiringCurrentDimension);
+
+    public bool AllowsBackgroundMeshDispatch(bool lightingSettled) =>
         _progress.Phase switch
         {
             WorldLoadingPhase.PreparingEntry or
