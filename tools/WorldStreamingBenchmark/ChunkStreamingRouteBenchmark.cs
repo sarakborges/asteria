@@ -39,9 +39,11 @@ internal static class ChunkStreamingRouteBenchmark
         // Controlled 2/4-worker comparisons scale terrain task admission with
         // the requested cap; otherwise a 4-worker pool can never exceed the
         // production two-section admission limit and the comparison is inert.
-        var materializationWorkers = hasControlledWorkerCap
+        var defaultTerrainAdmissionLimit = hasControlledWorkerCap
             ? maximumWorldWorkers
             : Math.Clamp(Environment.ProcessorCount - 2, 1, 6);
+        var terrainAdmissionLimit = ReadTerrainAdmissionLimit(
+            defaultTerrainAdmissionLimit);
         var retentionRadius = horizontalRadius + RetentionMarginChunks;
         var rules = new WorldGameRules();
         var world = new VoxelWorld();
@@ -69,7 +71,7 @@ internal static class ChunkStreamingRouteBenchmark
             physicsUpdates,
             droppedBlocks);
         var residencySettings = CreateResidencySettings(
-            materializationWorkers, maximumWorldWorkers, rules);
+            terrainAdmissionLimit, maximumWorldWorkers, rules);
         var residency = new ChunkResidencyRuntime(
             world,
             blocks,
@@ -116,9 +118,20 @@ internal static class ChunkStreamingRouteBenchmark
         var totalWorkerMilliseconds = 0d;
         var totalTerrainMilliseconds = 0d;
         var totalLightingMilliseconds = 0d;
+        long totalWorkerSlices = 0;
+        var totalCoordinatorResumeWaitMilliseconds = 0d;
+        var maximumCoordinatorResumeWaitMillisecondsPerChunk = 0d;
+        var maximumWorkerSlicesPerChunk = 0;
         var maximumPending = 0;
         var maximumMaterializationJobs = 0;
         var maximumActiveWorkers = 0;
+        var maximumActiveGenerationWorkers = 0;
+        var maximumPendingGenerationWorkerQueue = 0;
+        var maximumSuspendedMaterializations = 0;
+        var maximumReadyGenerationTasks = 0;
+        var maximumPendingGenerationWorkerOperations = 0;
+        var maximumPendingGenerationCompletions = 0;
+        var admissionSaturatedIdleWorkerFrames = 0;
         var maximumDesired = 0;
         var maximumRetained = 0;
         var maximumResident = 0;
@@ -226,6 +239,12 @@ internal static class ChunkStreamingRouteBenchmark
                 stageMaximumMilliseconds,
                 stageMaximumSamples,
                 supportFallbackDiagnostics);
+            AccumulateSchedulerDiagnostics(
+                collected.Activations,
+                ref totalWorkerSlices,
+                ref totalCoordinatorResumeWaitMilliseconds,
+                ref maximumCoordinatorResumeWaitMillisecondsPerChunk,
+                ref maximumWorkerSlicesPerChunk);
 
             var availableSlots = Math.Max(
                 0, maximumWorldWorkers - residency.ActiveWorkerCount);
@@ -269,6 +288,12 @@ internal static class ChunkStreamingRouteBenchmark
                 stageMaximumMilliseconds,
                 stageMaximumSamples,
                 supportFallbackDiagnostics);
+            AccumulateSchedulerDiagnostics(
+                dispatched.Activations,
+                ref totalWorkerSlices,
+                ref totalCoordinatorResumeWaitMilliseconds,
+                ref maximumCoordinatorResumeWaitMillisecondsPerChunk,
+                ref maximumWorkerSlicesPerChunk);
 
             var fluidReport = residency.ProcessPendingFluidActivations(budget);
             lastFluidPending = fluidReport.PendingChunks;
@@ -479,6 +504,35 @@ internal static class ChunkStreamingRouteBenchmark
                 maximumMaterializationJobs, residency.MaterializationJobCount);
             maximumActiveWorkers = Math.Max(
                 maximumActiveWorkers, residency.ActiveWorkerCount);
+            maximumActiveGenerationWorkers = Math.Max(
+                maximumActiveGenerationWorkers,
+                residency.ActiveGenerationWorkerCount);
+            maximumPendingGenerationWorkerQueue = Math.Max(
+                maximumPendingGenerationWorkerQueue,
+                residency.PendingGenerationWorkerQueueCount);
+            maximumSuspendedMaterializations = Math.Max(
+                maximumSuspendedMaterializations,
+                residency.SuspendedMaterializationCount);
+            maximumReadyGenerationTasks = Math.Max(
+                maximumReadyGenerationTasks,
+                residency.ReadyGenerationTaskCount);
+            maximumPendingGenerationWorkerOperations = Math.Max(
+                maximumPendingGenerationWorkerOperations,
+                residency.PendingGenerationWorkerOperations);
+            maximumPendingGenerationCompletions = Math.Max(
+                maximumPendingGenerationCompletions,
+                residency.PendingGenerationCompletions);
+            if (residency.MaterializationJobCount >=
+                    residency.MaxTerrainMaterializationsInFlight &&
+                residency.ActiveGenerationWorkerCount +
+                    residency.PendingGenerationWorkerQueueCount <
+                    residency.GenerationWorkerCount &&
+                residency.PendingGenerationWorkerOperations == 0 &&
+                residency.ReadyGenerationTaskCount == 0 &&
+                residency.PendingGenerationCompletions == 0)
+            {
+                admissionSaturatedIdleWorkerFrames++;
+            }
             maximumDesired = Math.Max(maximumDesired, residency.DesiredCount);
             maximumRetained = Math.Max(maximumRetained, residency.RetainedCount);
             maximumResident = Math.Max(maximumResident, world.ChunkCount);
@@ -565,8 +619,10 @@ internal static class ChunkStreamingRouteBenchmark
             FramesPerChunk,
             HorizontalRadius = horizontalRadius,
             RetentionRadius = retentionRadius,
-            MaterializationWorkers = materializationWorkers,
+            MaterializationWorkers = terrainAdmissionLimit,
+            TerrainAdmissionLimit = residency.MaxTerrainMaterializationsInFlight,
             MaximumWorldWorkers = maximumWorldWorkers,
+            GenerationWorkerPoolSize = residency.GenerationWorkerCount,
             FrameCount = frame,
             TotalElapsedMilliseconds = elapsedMilliseconds,
             SelectionResultLatencyMedianFrames = Median(
@@ -583,6 +639,20 @@ internal static class ChunkStreamingRouteBenchmark
             TotalWorkerMilliseconds = totalWorkerMilliseconds,
             TotalTerrainMilliseconds = totalTerrainMilliseconds,
             TotalInitialLightingMilliseconds = totalLightingMilliseconds,
+            TotalWorkerSlices = totalWorkerSlices,
+            AverageWorkerSlicesPerProviderActivation =
+                providerActivations == 0 ? 0d :
+                    (double)totalWorkerSlices / providerActivations,
+            MaximumWorkerSlicesPerChunk = maximumWorkerSlicesPerChunk,
+            TotalCoordinatorResumeWaitMilliseconds =
+                totalCoordinatorResumeWaitMilliseconds,
+            AverageCoordinatorResumeWaitMillisecondsPerProviderActivation =
+                providerActivations == 0 ? 0d :
+                    totalCoordinatorResumeWaitMilliseconds / providerActivations,
+            MaximumCoordinatorResumeWaitMillisecondsPerChunk =
+                maximumCoordinatorResumeWaitMillisecondsPerChunk,
+            FramesAdmissionSaturatedWithIdleWorkers =
+                admissionSaturatedIdleWorkerFrames,
             FramesWithPlayerLocalGaps = localGapFrames,
             PlayerLocalMissingChunkFrames = localMissingChunkFrames,
             MaximumPlayerLocalMissingChunks = maximumLocalMissingChunks,
@@ -598,6 +668,16 @@ internal static class ChunkStreamingRouteBenchmark
             MaximumPendingChunks = maximumPending,
             MaximumMaterializationJobs = maximumMaterializationJobs,
             MaximumActiveWorkers = maximumActiveWorkers,
+            MaximumActiveGenerationWorkers = maximumActiveGenerationWorkers,
+            MaximumPendingGenerationWorkerQueue =
+                maximumPendingGenerationWorkerQueue,
+            MaximumSuspendedMaterializations =
+                maximumSuspendedMaterializations,
+            MaximumReadyGenerationTasks = maximumReadyGenerationTasks,
+            MaximumPendingGenerationWorkerOperations =
+                maximumPendingGenerationWorkerOperations,
+            MaximumPendingGenerationCompletions =
+                maximumPendingGenerationCompletions,
             MaximumDesiredChunks = maximumDesired,
             MaximumRetainedChunks = maximumRetained,
             MaximumResidentChunks = maximumResident,
@@ -692,6 +772,24 @@ internal static class ChunkStreamingRouteBenchmark
         return maximumWorkers;
     }
 
+    private static int ReadTerrainAdmissionLimit(int defaultValue)
+    {
+        var configured = Environment.GetEnvironmentVariable(
+            "ASTERIA_BENCH_MAX_TERRAIN_ADMISSION");
+        if (string.IsNullOrWhiteSpace(configured))
+            return defaultValue;
+
+        if (!int.TryParse(configured, out var maximumTasks) ||
+            maximumTasks is < 1 or > 16)
+        {
+            throw new ArgumentOutOfRangeException(
+                "ASTERIA_BENCH_MAX_TERRAIN_ADMISSION",
+                "The benchmark terrain-admission cap must be between 1 and 16.");
+        }
+
+        return maximumTasks;
+    }
+
     private static ChunkResidencySettings CreateResidencySettings(
         int terrainWorkers,
         int totalWorkers,
@@ -727,6 +825,30 @@ internal static class ChunkStreamingRouteBenchmark
             rules,
             (int?)totalWorkers,
         ]);
+    }
+
+    private static void AccumulateSchedulerDiagnostics(
+        IReadOnlyList<ChunkResidencyActivation> activations,
+        ref long totalWorkerSlices,
+        ref double totalCoordinatorResumeWaitMilliseconds,
+        ref double maximumCoordinatorResumeWaitMillisecondsPerChunk,
+        ref int maximumWorkerSlicesPerChunk)
+    {
+        foreach (var activation in activations)
+        {
+            if (activation.Source != ChunkActivationSource.Provider)
+                continue;
+
+            totalWorkerSlices += activation.WorkerSliceCount;
+            totalCoordinatorResumeWaitMilliseconds +=
+                activation.CoordinatorResumeWaitMilliseconds;
+            maximumCoordinatorResumeWaitMillisecondsPerChunk = Math.Max(
+                maximumCoordinatorResumeWaitMillisecondsPerChunk,
+                activation.CoordinatorResumeWaitMilliseconds);
+            maximumWorkerSlicesPerChunk = Math.Max(
+                maximumWorkerSlicesPerChunk,
+                activation.WorkerSliceCount);
+        }
     }
 
     private static void AccumulateUpdate(
