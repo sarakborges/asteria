@@ -32,9 +32,9 @@ internal sealed record ChunkMaterializationWorkerSlice(
 
 /// <summary>
 /// Adapts the existing stateful materializer job to the cooperative generation
-/// scheduler. Exactly one Advance call is executed per worker operation; the
-/// job remains private and is never touched by the coordinator while a worker
-/// owns a slice. A completed chunk is returned as a detached task outcome.
+/// scheduler. Each worker operation executes a bounded batch of Advance calls;
+/// the job remains private and is never touched by the coordinator while a
+/// worker owns the slice. A completed chunk is returned as a detached outcome.
 /// </summary>
 public sealed class ChunkMaterializationGenerationTask :
     IChunkGenerationTask,
