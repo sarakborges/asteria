@@ -216,7 +216,7 @@ internal static class ChunkStreamingRouteBenchmark
                 Stopwatch.Frequency);
 
             var collected = residency.CollectMaterializationResults(
-                budget, presented);
+                budget, presented, maximumWorkerStarts: 0);
             AccumulateUpdate(
                 collected,
                 world,
