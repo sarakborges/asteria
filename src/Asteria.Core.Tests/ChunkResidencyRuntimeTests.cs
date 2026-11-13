@@ -596,7 +596,7 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-    public void ArchivedRestoresAreBoundedPerFrameAndRemainPendingForNextFrame()
+    public void ArchivedRestoresWaitForFrameBudgetInsteadOfFixedResultCount()
     {
         using var fixture = CreateFixture();
         var coords = new[]
@@ -621,23 +621,20 @@ public sealed class ChunkResidencyRuntimeTests
             desired: coords.ToHashSet(),
             presented: Array.Empty<ChunkCoord>());
 
-        var first = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.Equal(2, first.Activations.Count);
-        Assert.Equal(3, fixture.Runtime.PendingCount);
+        var expired = fixture.Runtime.DispatchMaterializationTasks(
+            new WorldFrameWorkBudget(0),
+            Array.Empty<ChunkCoord>());
+        Assert.Empty(expired.Activations);
+        Assert.Equal(5, fixture.Runtime.PendingCount);
+        Assert.Equal(0, fixture.World.ChunkCount);
 
-        var second = fixture.Runtime.DispatchMaterializationTasks(
+        var restored = fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.Equal(2, second.Activations.Count);
-        Assert.Equal(1, fixture.Runtime.PendingCount);
-
-        var third = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.Single(third.Activations);
+        Assert.Equal(5, restored.Activations.Count);
         Assert.Equal(0, fixture.Runtime.PendingCount);
         Assert.Equal(5, fixture.World.ChunkCount);
         Assert.All(
-            first.Activations.Concat(second.Activations).Concat(third.Activations),
+            restored.Activations,
             activation => Assert.Equal(ChunkActivationSource.Archive, activation.Source));
     }
 
@@ -1142,7 +1139,6 @@ public sealed class ChunkResidencyRuntimeTests
                 ticks,
                 new ChunkResidencySettings(
                     maxConcurrentWorkers,
-                    maxResultsPerFrame: 2,
                     maxEvictionsPerFrame: 2,
                     gameRules: rules));
 
