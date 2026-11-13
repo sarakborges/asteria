@@ -871,15 +871,16 @@ public partial class Main : Node3D
 			WorldFrameStage.LightingPoll, stageStart);
 
 		stageStart = Stopwatch.GetTimestamp();
-		// Initial lighting can revise mesh inputs while the seam queue drains.
-		// Let it settle before starting bootstrap mesh builds, avoiding work
-		// that will immediately be rejected and rebuilt against newer light.
-		var allowMeshDispatch = _loading.AllowsMeshDispatch(
-			lightingSettled:
-				!_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant));
+		var lightingSettled =
+			!_lightingRuntime.HasWorkAffecting(_residency.IsLightingRelevant);
+		var allowPriorityMeshDispatch =
+			_loading.AllowsPriorityMeshDispatch;
+		var allowBackgroundMeshDispatch =
+			_loading.AllowsBackgroundMeshDispatch(lightingSettled);
 		DispatchReadyWorldWorkers(
 			streamingPressure.IsPressured, streamingCenter,
-			_loading.AllowsLightingDispatch, allowMeshDispatch);
+			_loading.AllowsLightingDispatch,
+			allowPriorityMeshDispatch, allowBackgroundMeshDispatch);
 		_worldDiagnostics?.ObserveStage(
 			WorldFrameStage.WorkerDispatch, stageStart);
 
@@ -6038,7 +6039,8 @@ public partial class Main : Node3D
 
 	private void DispatchReadyWorldWorkers(
 		bool underStreamingPressure, ChunkCoord center,
-		bool allowLightingDispatch, bool allowMeshDispatch)
+		bool allowLightingDispatch, bool allowPriorityMeshDispatch,
+		bool allowBackgroundMeshDispatch)
 	{
 		// Each domain owns an independent async worker. Snapshot capture still
 		// runs against the authoritative world on this thread, so cap dispatch
@@ -6061,11 +6063,12 @@ public partial class Main : Node3D
 			var started = lane switch
 			{
 				0 => _fluidSimulationRuntime.TryStartReadyWork(),
-				1 => allowMeshDispatch && _terrainMeshPipeline.TryStartReadyWork(
-					underStreamingPressure, center, _residency.MovementDirection),
+				1 => allowPriorityMeshDispatch && _terrainMeshPipeline.TryStartReadyWork(
+					underStreamingPressure, center, _residency.MovementDirection,
+					allowBackgroundMeshDispatch),
 				2 => allowLightingDispatch && _lightingRuntime.TryStartReadyWork(
 					center, _residency.MovementDirection),
-				_ => allowMeshDispatch && _fluidMeshPipeline.TryStartReadyWork(
+				_ => allowBackgroundMeshDispatch && _fluidMeshPipeline.TryStartReadyWork(
 					center, _residency.MovementDirection),
 			};
 			if (!started)
