@@ -455,7 +455,15 @@ This is a long-running refactor. Preserve progress in Git after each coherent sl
 - [x] Correct Minecraft 26.3 execution model verified and recorded.
 - [x] Current Asteria pipeline and MineClone comparison inspected.
 - [x] Detailed work breakdown committed as handoff.
-- [ ] First implementation slice: ChunkColumnCoord(X,Z) and focused tests.
+- [x] Reused the existing `ChunkColumnCoord(X,Z)` in `ChunkContentRevision.cs`; added stable ordering and explicit `ToSection(Y)` conversion.
+- [x] Added tests for column identity across section Y, section conversion and deterministic ordering.
+- [x] Full CI run `43362338139` passed: Release build, ReadyToRun, Core tests, Debug diagnostics, native Godot smoke, worldgen profiles/renders, terrain A/B and WebUI.
+- [ ] Define immutable typed step IDs, execution policy, scope and dependency envelopes.
 - [ ] No production scheduling path has been switched to the new dispatcher yet.
 
-**Next action:** add ChunkColumnCoord in Core and its focused tests as one small commit. Then proceed to the immutable step/dependency model. Do not start a broad scheduler rewrite in the same commit.
+**Recent commits:**
+- Handoff: `c97184967023ec38c75d40f52a771fb7bd433a42`
+- Column identity first attempt: `39cc3646039e30d2110d68937989515ec8267358` (superseded by the corrective commit below; retained in history).
+- Reuse existing column identity + tests: `6b7a97415c1025d014cc3f805bd06b4901f34fc3`
+
+**Next action:** add only the immutable Core step/dependency primitives and focused tests. Do not yet add a runnable dispatcher, workers, task lifecycle or production integration.
