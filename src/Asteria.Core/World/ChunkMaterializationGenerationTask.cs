@@ -19,7 +19,7 @@ public sealed record ChunkMaterializationTaskOutput(
     double WorkerWallMilliseconds,
     long WorkerCompletedTimestamp,
     int WorkerSliceCount,
-    double CoordinatorResumeWaitMilliseconds);
+    double InterSliceWaitMilliseconds);
 
 /// <summary>Result of advancing one worker-owned materialization slice.</summary>
 internal sealed record ChunkMaterializationWorkerSlice(
@@ -60,7 +60,7 @@ public sealed class ChunkMaterializationGenerationTask :
     private double _workerMilliseconds;
     private double _initialLightingMilliseconds;
     private int _workerSliceCount;
-    private double _coordinatorResumeWaitMilliseconds;
+    private double _interSliceWaitMilliseconds;
 
     public ChunkMaterializationGenerationTask(
         IChunkMaterializationJob job,
@@ -203,7 +203,7 @@ public sealed class ChunkMaterializationGenerationTask :
                 workerWall,
                 _workerCompletedTimestamp,
                 _workerSliceCount,
-                _coordinatorResumeWaitMilliseconds));
+                _interSliceWaitMilliseconds));
     }
 
     private ChunkMaterializationWorkerSlice AdvanceOneSlice(
@@ -212,7 +212,7 @@ public sealed class ChunkMaterializationGenerationTask :
         var workerStartedTimestamp = Stopwatch.GetTimestamp();
         if (_workerCompletedTimestamp != 0)
         {
-            _coordinatorResumeWaitMilliseconds += Stopwatch.GetElapsedTime(
+            _interSliceWaitMilliseconds += Stopwatch.GetElapsedTime(
                 _workerCompletedTimestamp,
                 workerStartedTimestamp).TotalMilliseconds;
         }
