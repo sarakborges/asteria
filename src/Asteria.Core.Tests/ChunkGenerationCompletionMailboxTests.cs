@@ -28,6 +28,10 @@ public sealed class ChunkGenerationCompletionMailboxTests
         Assert.True(first!.TryPublish(Completion(1)));
         Assert.Equal(1, mailbox.PendingCount);
         Assert.Equal(2, mailbox.ReservedOrPendingCount);
+
+        // The published completion still occupies its slot. Releasing the
+        // unused second reservation makes exactly one slot available.
+        second!.Dispose();
         Assert.True(mailbox.TryReserve(out third));
         Assert.Equal(0, mailbox.AvailableCapacity);
 
@@ -35,7 +39,6 @@ public sealed class ChunkGenerationCompletionMailboxTests
         Assert.Equal(Completion(1), dequeued);
         Assert.Equal(1, mailbox.ReservedOrPendingCount);
 
-        second!.Dispose();
         third!.Dispose();
         Assert.Equal(0, mailbox.ReservedOrPendingCount);
         Assert.Equal(2, mailbox.AvailableCapacity);

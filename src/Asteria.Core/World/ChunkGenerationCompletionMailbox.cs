@@ -111,8 +111,10 @@ public sealed class ChunkGenerationCompletionMailbox
     internal void PublishReserved(
         ChunkGenerationDependencyCompletion completion)
     {
-        _queue.Enqueue(completion);
+        // Increment before enqueue so a concurrent consumer can never dequeue
+        // an item before its pending count has been published.
         Interlocked.Increment(ref _queuedCount);
+        _queue.Enqueue(completion);
     }
 
     internal void ReleaseReservation() =>
