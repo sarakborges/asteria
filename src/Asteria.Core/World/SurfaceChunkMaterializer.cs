@@ -607,10 +607,12 @@ public sealed class SurfaceChunkMaterializer
             job.FirstTerrainWorldY = checked(originY + Chunk.Size - 2);
             job.LastTerrainWorldY = checked(originY + Chunk.Size - 1);
             job.NextTerrainLocalY = Chunk.Size - 2;
+            job.NextTerrainLocalZ = 0;
             return;
         }
 
         job.NextTerrainLocalY = firstTerrainWorldY - originY;
+        job.NextTerrainLocalZ = 0;
 
     }
 
@@ -647,10 +649,11 @@ public sealed class SurfaceChunkMaterializer
             return;
         }
 
-        for (var localZ = 0; localZ < Chunk.Size; localZ++)
-            {
-                for (var localX = 0; localX < Chunk.Size; localX++)
-                {
+        // A single Z row is one cooperative terrain quantum. Column caches
+        // persist between calls, preserving the original Y/Z/X write order.
+        var localZ = job.NextTerrainLocalZ;
+        for (var localX = 0; localX < Chunk.Size; localX++)
+        {
                     var columnIndex = localX + Chunk.Size * localZ;
                     if (job.SupportMaterializationColumns is { } supportColumns &&
                         !supportColumns[columnIndex])
@@ -841,10 +844,14 @@ public sealed class SurfaceChunkMaterializer
                                 voxelIndex, faceData, updateRevision: false);
                         }
                     }
-                }
-            }
-        
-        job.NextTerrainLocalY++;
+        }
+
+        job.NextTerrainLocalZ++;
+        if (job.NextTerrainLocalZ >= Chunk.Size)
+        {
+            job.NextTerrainLocalZ = 0;
+            job.NextTerrainLocalY++;
+        }
     }
 
     private void MaterializeSurfaceDecorations(
@@ -1745,6 +1752,8 @@ public sealed class SurfaceChunkMaterializer
         public int LastTerrainWorldY { get; set; }
 
         public int NextTerrainLocalY { get; set; }
+
+        public int NextTerrainLocalZ { get; set; }
 
         public DirectionalFaceOccupancyMasks? DirectionalFaceOccupancyMasks { get; set; }
 
