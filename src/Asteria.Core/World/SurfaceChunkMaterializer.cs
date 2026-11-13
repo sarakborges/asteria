@@ -650,9 +650,17 @@ public sealed class SurfaceChunkMaterializer
             return;
         }
 
-        // One Z row is the cooperative terrain quantum. Column-local caches
-        // persist across resumes while preserving the original Y/Z/X write order.
-        var localZ = job.NextTerrainLocalZ;
+        // One Z row is the cooperative terrain quantum. The sparse support-face
+        // fast path is intentionally kept as one layer: it visits only the
+        // requested boundary columns and must finish its two-voxel query before
+        // the parent gravity-support continuation resumes.
+        var firstLocalZ = job.SupportFaceFastPath ? 0 : job.NextTerrainLocalZ;
+        var lastLocalZExclusive = job.SupportFaceFastPath
+            ? Chunk.Size
+            : firstLocalZ + 1;
+        for (var localZ = firstLocalZ;
+             localZ < lastLocalZExclusive;
+             localZ++)
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
             var columnIndex = localX + Chunk.Size * localZ;
@@ -847,11 +855,19 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        job.NextTerrainLocalZ++;
-        if (job.NextTerrainLocalZ >= Chunk.Size)
+        if (job.SupportFaceFastPath)
         {
             job.NextTerrainLocalZ = 0;
             job.NextTerrainLocalY++;
+        }
+        else
+        {
+            job.NextTerrainLocalZ++;
+            if (job.NextTerrainLocalZ >= Chunk.Size)
+            {
+                job.NextTerrainLocalZ = 0;
+                job.NextTerrainLocalY++;
+            }
         }
     }
 
