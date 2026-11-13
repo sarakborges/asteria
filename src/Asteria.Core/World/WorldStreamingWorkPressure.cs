@@ -15,22 +15,6 @@ public readonly record struct WorldStreamingWorkPressure(bool IsPressured)
     private const int BackloggedLightingSeeds = 8192;
     private const int BackloggedPhysicsWakeups = 8192;
     private const double SlowFrameSeconds = 1.0 / 55.0;
-    private const int MaximumMaterializationStartsUnderPressure = 2;
-
-    /// <summary>
-    /// Backpressure must reduce distant streaming without starving it. A hard
-    /// zero admission limit freezes terrain residency whenever downstream
-    /// queues cross their threshold, even after capacity becomes available.
-    /// </summary>
-    public int LimitMaterializationStarts(int availableSlots)
-    {
-        if (availableSlots < 0)
-            throw new ArgumentOutOfRangeException(nameof(availableSlots));
-
-        return IsPressured
-            ? Math.Min(availableSlots, MaximumMaterializationStartsUnderPressure)
-            : availableSlots;
-    }
 
     public static WorldStreamingWorkPressure Evaluate(
         double frameSeconds,
