@@ -341,7 +341,8 @@ public sealed partial class SurfaceChunkMaterializer
                     break;
                 }
 
-                PrepareTerrain(job);
+                if (!AdvanceTerrainSetup(job))
+                    break;
                 if (job.FirstTerrainWorldY <= job.LastTerrainWorldY)
                 {
                     job.Stage = ChunkMaterializationStage.TerrainLayer;
@@ -515,15 +516,49 @@ public sealed partial class SurfaceChunkMaterializer
         }
     }
 
-    private void PrepareTerrain(MaterializationJob job)
+    private bool AdvanceTerrainSetup(MaterializationJob job)
+    {
+        if (!job.TerrainSetupInitialized)
+        {
+            BeginTerrainSetup(job);
+            job.TerrainSetupInitialized = true;
+        }
+
+        if (job.DirectionalFaceOccupancyBuildJob is { } occupancyBuild)
+        {
+            if (!occupancyBuild.IsComplete)
+            {
+                occupancyBuild.Advance();
+                if (!occupancyBuild.IsComplete)
+                    return false;
+            }
+
+            job.DirectionalFaceOccupancyMasks = occupancyBuild.Result;
+            job.DirectionalFacePalettePreparationProfile =
+                occupancyBuild.PreparationProfile;
+            job.DirectionalFacePaletteDensityProbes =
+                occupancyBuild.DensityProbes;
+            job.DirectionalFacePaletteBoundaryDensityProbes =
+                occupancyBuild.BoundaryDensityProbes;
+#if DEBUG
+            job.DirectionalFacePalettePreparationMilliseconds =
+                Stopwatch.GetElapsedTime(
+                    job.DirectionalFacePalettePreparationStartedTimestamp)
+                .TotalMilliseconds;
+#endif
+            job.DirectionalFaceOccupancyBuildJob = null;
+        }
+
+        CompleteTerrainSetup(job);
+        return true;
+    }
+
+    private void BeginTerrainSetup(MaterializationJob job)
     {
         var coord = job.Coord;
         var originX = job.OriginX;
         var originY = job.OriginY;
         var originZ = job.OriginZ;
-        var initialBlocks = job.InitialBlocks ??
-            throw new InvalidOperationException("Terrain writes are already complete.");
-
         var column = job.Column = _columns.Get(coord.X, coord.Z);
         var densityVolume = job.DensityVolume =
             job.SupportFaceFastPath || job.IsSparseSupportFallback
@@ -534,28 +569,39 @@ public sealed partial class SurfaceChunkMaterializer
                     originX,
                     originY,
                     originZ);
-#if DEBUG
-        var directionalPreparationStarted = Stopwatch.GetTimestamp();
-#endif
+
         // Occupancy-preserving palettes are skipped by support-only jobs, so
         // those jobs must not build directional candidates they will never consume.
         if (_materials.HasDirectionalFacePalettes &&
             !job.SupportFaceFastPath &&
             !(job.SupportOnly && _materials.FacePalettesPreserveOccupancy))
         {
-            job.DirectionalFaceOccupancyMasks = BuildDirectionalFaceOccupancyMasks(
-                densityVolume, column, originX, originY, originZ,
-                out var densityProbes,
-                out var boundaryDensityProbes,
-                out var preparationProfile);
-            job.DirectionalFacePalettePreparationProfile = preparationProfile;
-            job.DirectionalFacePaletteDensityProbes = densityProbes;
-            job.DirectionalFacePaletteBoundaryDensityProbes = boundaryDensityProbes;
-        }
 #if DEBUG
-        job.DirectionalFacePalettePreparationMilliseconds =
-            Stopwatch.GetElapsedTime(directionalPreparationStarted).TotalMilliseconds;
+            job.DirectionalFacePalettePreparationStartedTimestamp =
+                Stopwatch.GetTimestamp();
 #endif
+            job.DirectionalFaceOccupancyBuildJob =
+                new DirectionalFaceOccupancyBuildJob(
+                    this,
+                    densityVolume.IsSolidAtUnchecked,
+                    column,
+                    originX,
+                    originY,
+                    originZ,
+                    densityVolume);
+        }
+    }
+
+    private void CompleteTerrainSetup(MaterializationJob job)
+    {
+        var originX = job.OriginX;
+        var originY = job.OriginY;
+        var originZ = job.OriginZ;
+        var initialBlocks = job.InitialBlocks ??
+            throw new InvalidOperationException("Terrain writes are already complete.");
+        var column = job.Column ??
+            throw new InvalidOperationException("Materialization column is missing.");
+
         var topExclusive = job.TopExclusive = checked(originY + Chunk.Size);
         job.PendingObjects = null;
         var columnMaterializationCaches =
@@ -615,7 +661,6 @@ public sealed partial class SurfaceChunkMaterializer
 
         job.NextTerrainLocalY = firstTerrainWorldY - originY;
         job.NextTerrainLocalZ = 0;
-
     }
 
     private void MaterializeTerrainLayer(MaterializationJob job)
@@ -1779,6 +1824,14 @@ public sealed partial class SurfaceChunkMaterializer
 
         public DirectionalFaceOccupancyMasks? DirectionalFaceOccupancyMasks { get; set; }
 
+        public DirectionalFaceOccupancyBuildJob? DirectionalFaceOccupancyBuildJob { get; set; }
+
+        public bool TerrainSetupInitialized { get; set; }
+
+#if DEBUG
+        public long DirectionalFacePalettePreparationStartedTimestamp { get; set; }
+#endif
+
         public double DirectionalFacePalettePreparationMilliseconds { get; set; }
 
         public DirectionalFaceOccupancyPreparationProfile
@@ -1958,6 +2011,7 @@ public sealed partial class SurfaceChunkMaterializer
             InitialBlocks?.Dispose();
             InitialBlocks = null;
             DirectionalFaceOccupancyMasks = null;
+            DirectionalFaceOccupancyBuildJob = null;
             var columnCaches = ColumnMaterializationCaches;
             ColumnMaterializationCaches = null;
             if (columnCaches is not null)
@@ -2446,26 +2500,6 @@ public sealed partial class SurfaceChunkMaterializer
         }
         return slabs.ToArray();
     }
-
-    private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
-        TerrainDensityVolume densityVolume,
-        SurfaceTerrainColumn column,
-        int originX,
-        int originY,
-        int originZ,
-        out int densityProbes,
-        out int boundaryDensityProbes,
-        out DirectionalFaceOccupancyPreparationProfile preparationProfile) =>
-        BuildDirectionalFaceOccupancyMasks(
-            densityVolume.IsSolidAtUnchecked,
-            column,
-            originX,
-            originY,
-            originZ,
-            out densityProbes,
-            out boundaryDensityProbes,
-            out preparationProfile,
-            densityVolume);
 
     private DirectionalFaceOccupancyMasks BuildDirectionalFaceOccupancyMasks(
         Chunk chunk,

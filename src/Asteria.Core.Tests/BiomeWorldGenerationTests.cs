@@ -2821,7 +2821,7 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void DirectionalPaletteVerticalHaloReuseIsIndependentOfChunkGenerationOrder()
+    public void DirectionalPalettePreparationYieldsBetweenPhasesAndPreservesVerticalHaloReuse()
     {
         const ulong seed = 0xA57E_2026UL;
 
@@ -2875,6 +2875,21 @@ public sealed class BiomeWorldGenerationTests
             caveChunk.X, Math.Max(0, caveChunk.Y - 1), caveChunk.Z);
         var upperCoord = new ChunkCoord(
             caveChunk.X, lowerCoord.Y + 1, caveChunk.Z);
+
+        using (var setupJob = probeGenerator.BeginMaterialization(lowerCoord))
+        {
+            var setupAdvances = 0;
+            while (setupJob.Stage == ChunkMaterializationStage.TerrainSetup)
+            {
+                setupJob.Advance();
+                setupAdvances++;
+            }
+
+            Assert.Equal(7, setupAdvances);
+            Assert.NotEqual(
+                ChunkMaterializationStage.TerrainSetup,
+                setupJob.Stage);
+        }
 
         var upperFirstGenerator = CreateGenerator(seed);
         var upperFirst = upperFirstGenerator.Materialize(upperCoord);
