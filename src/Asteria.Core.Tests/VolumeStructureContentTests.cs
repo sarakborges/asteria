@@ -113,6 +113,51 @@ public sealed class VolumeStructureContentTests
         Assert.NotNull(chunk);
     }
 
+    [Fact]
+    public void ResumableVolumeStructureCursorMatchesBulkQueryWithTinyBatches()
+    {
+        var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
+        var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
+        var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
+        var structures = StructureRegistry.FromJson(ReadJson("structures"));
+        var dimension = DimensionRegistry.FromJson(ReadJson("dimensions"))
+            .Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            181960897289965UL,
+            dimension,
+            blocks,
+            fluids,
+            biomes,
+            structures);
+        var field = generator.VolumeStructures;
+        var coord = new ChunkCoord(0, 2, 0);
+        var expected = field.VoxelsForChunk(coord);
+        var cursor = field.CreateChunkCursor(coord);
+        Span<VolumeStructureVoxel> batch =
+            stackalloc VolumeStructureVoxel[1];
+        var actual = new List<VolumeStructureVoxel>();
+        var advanceCount = 0;
+
+        while (!cursor.IsComplete)
+        {
+            _ = cursor.Advance(
+                batch,
+                maximumCandidateEvaluations: 1,
+                out var written);
+            Assert.InRange(written, 0, batch.Length);
+            for (var index = 0; index < written; index++)
+                actual.Add(batch[index]);
+
+            advanceCount++;
+            Assert.True(advanceCount < 10_000,
+                "The volume-structure cursor did not reach completion.");
+        }
+
+        Assert.True(advanceCount > 1,
+            "The selected cavern section should require multiple candidate steps.");
+        Assert.Equal(expected, actual);
+    }
+
     private static IEnumerable<string> ReadJson(string directory)
     {
         var path = Path.Combine(AppContext.BaseDirectory,
