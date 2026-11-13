@@ -62,6 +62,19 @@ public sealed class ChunkGenerationTaskLifecycle
     }
 
     /// <summary>
+    /// Yields after a bounded coordinator slice without registering an external
+    /// dependency. The task returns to the ready queue and may run again later.
+    /// </summary>
+    public bool TryYieldForMoreWork()
+    {
+        if (State != ChunkGenerationTaskState.Running)
+            return false;
+
+        State = ChunkGenerationTaskState.ReadyToResume;
+        return true;
+    }
+
+    /// <summary>
     /// Suspends a running task on a non-empty set of unique dependency IDs.
     /// The returned wait token distinguishes this wait from all later waits
     /// made by the same task.

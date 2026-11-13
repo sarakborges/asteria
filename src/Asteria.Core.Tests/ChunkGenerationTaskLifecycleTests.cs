@@ -5,6 +5,36 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkGenerationTaskLifecycleTests
 {
     [Fact]
+    public void RunningTaskCanYieldAfterABoundedSliceAndReturnToReadyQueue()
+    {
+        var lifecycle = new ChunkGenerationTaskLifecycle();
+
+        Assert.True(lifecycle.TryBeginExecution());
+        Assert.True(lifecycle.TryYieldForMoreWork());
+        Assert.Equal(ChunkGenerationTaskState.ReadyToResume, lifecycle.State);
+        Assert.Null(lifecycle.CurrentWaitToken);
+        Assert.Equal(0, lifecycle.PendingDependencyCount);
+
+        Assert.True(lifecycle.TryBeginExecution());
+        Assert.True(lifecycle.TryComplete());
+        Assert.Equal(ChunkGenerationTaskState.Completed, lifecycle.State);
+    }
+
+    [Fact]
+    public void TaskCannotYieldWhenItIsNotRunning()
+    {
+        var lifecycle = new ChunkGenerationTaskLifecycle();
+
+        Assert.False(lifecycle.TryYieldForMoreWork());
+        Assert.True(lifecycle.TryBeginExecution());
+        Assert.True(lifecycle.BeginWaitingForDependencies([99]) > 0);
+        Assert.False(lifecycle.TryYieldForMoreWork());
+        Assert.Equal(
+            ChunkGenerationTaskState.WaitingForDependencies,
+            lifecycle.State);
+    }
+
+    [Fact]
     public void TaskRunsThenWaitsAndResumesOnlyAfterEveryDependencyCompletes()
     {
         var lifecycle = new ChunkGenerationTaskLifecycle();
