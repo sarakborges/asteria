@@ -15,7 +15,8 @@ public sealed class WorldLoadingStateTests
         Assert.Equal(0, loading.Progress.Completed);
         Assert.Equal(0, loading.Progress.Total);
         Assert.False(loading.AllowsLightingDispatch);
-        Assert.False(loading.AllowsMeshDispatch(lightingSettled: true));
+        Assert.False(loading.AllowsPriorityMeshDispatch);
+        Assert.False(loading.AllowsBackgroundMeshDispatch(lightingSettled: true));
 
         loading.Begin(new ChunkCoord(2, 1, -3));
         Assert.Equal(
@@ -87,28 +88,33 @@ public sealed class WorldLoadingStateTests
     }
 
     [Fact]
-    public void MeshDispatchWaitsForLightingDuringBootstrapButNotAfterLoading()
+    public void PriorityMeshesCanRunBeforeBackgroundLightingSettles()
     {
         var loading = new WorldLoadingState();
-        Assert.True(loading.AllowsMeshDispatch(lightingSettled: false));
+        Assert.True(loading.AllowsPriorityMeshDispatch);
+        Assert.True(loading.AllowsBackgroundMeshDispatch(lightingSettled: false));
 
         loading.Begin(ChunkCoord.Zero);
-        Assert.False(loading.AllowsMeshDispatch(lightingSettled: false));
-        Assert.True(loading.AllowsMeshDispatch(lightingSettled: true));
+        Assert.True(loading.AllowsPriorityMeshDispatch);
+        Assert.False(loading.AllowsBackgroundMeshDispatch(lightingSettled: false));
+        Assert.True(loading.AllowsBackgroundMeshDispatch(lightingSettled: true));
 
         loading.UpdateResidency(
             desired: 4, pending: 0, materializing: 0, selectionRunning: false);
         Assert.Equal(
             WorldLoadingPhase.PreparingPresentation,
             loading.Progress.Phase);
-        Assert.False(loading.AllowsMeshDispatch(lightingSettled: false));
-        Assert.True(loading.AllowsMeshDispatch(lightingSettled: true));
+        Assert.True(loading.AllowsPriorityMeshDispatch);
+        Assert.False(loading.AllowsBackgroundMeshDispatch(lightingSettled: false));
+        Assert.True(loading.AllowsBackgroundMeshDispatch(lightingSettled: true));
 
         loading.BeginRetirement();
-        Assert.False(loading.AllowsMeshDispatch(lightingSettled: true));
+        Assert.False(loading.AllowsPriorityMeshDispatch);
+        Assert.False(loading.AllowsBackgroundMeshDispatch(lightingSettled: true));
 
         loading.Reset();
-        Assert.True(loading.AllowsMeshDispatch(lightingSettled: false));
+        Assert.True(loading.AllowsPriorityMeshDispatch);
+        Assert.True(loading.AllowsBackgroundMeshDispatch(lightingSettled: false));
     }
 
     [Fact]
