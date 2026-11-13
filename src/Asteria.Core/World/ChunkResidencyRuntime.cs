@@ -304,7 +304,7 @@ public sealed class ChunkResidencyRuntime
         _settings =
             settings ??
             throw new ArgumentNullException(nameof(settings));
-        var generationWorkerCount = _settings.MaxMaterializationsInFlight;
+        var generationWorkerCount = _settings.MaxConcurrentWorkers;
         var generationPendingCapacity = Math.Max(
             _settings.MaxDispatchesPerFrame,
             generationWorkerCount);
@@ -547,7 +547,7 @@ public sealed class ChunkResidencyRuntime
         var report = _generationDispatcher.Pump(
             maximumCompletions: _settings.MaxGenerationCompletionsPerFrame,
             maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
-            maximumWorkerStarts: _settings.MaxMaterializationsInFlight);
+            maximumWorkerStarts: _settings.MaxConcurrentWorkers);
 
         var activations = new List<ChunkResidencyActivation>();
         var failures = new List<ChunkMaterializationFailure>();
@@ -960,8 +960,8 @@ public sealed class ChunkResidencyRuntime
             _directionalFaceReconciliationTasks.Count > 0 ||
             _pendingChunkLightingReconciliations.Count > 0 ||
             _chunkLightingReconciliationTasks.Count > 0
-                ? Math.Max(0, _settings.MaxMaterializationsInFlight - 1)
-                : _settings.MaxMaterializationsInFlight;
+                ? Math.Max(0, _settings.MaxTerrainMaterializationsInFlight - 1)
+                : _settings.MaxTerrainMaterializationsInFlight;
 
         // Archived restores do not consume a generation worker. The caller may
         // cap new materialization starts when downstream work is pressured;
@@ -1294,7 +1294,7 @@ public sealed class ChunkResidencyRuntime
             _materializationTasks.Count +
                 _directionalFaceReconciliationTasks.Count +
                 _chunkLightingReconciliationTasks.Count >=
-                _settings.MaxMaterializationsInFlight)
+                _settings.MaxTerrainMaterializationsInFlight)
             return false;
 
         if (!_pendingChunkLightingReconciliations.TryDequeue(out var coord))
