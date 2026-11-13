@@ -20,7 +20,7 @@ public sealed class WorldStreamingWorkPressureTests
     [Theory]
     [InlineData(511, false)]
     [InlineData(512, true)]
-    public void TerrainPublicationBacklogDefersDistantStreaming(
+    public void TerrainPublicationBacklogDefersBackgroundMeshWork(
         int pendingPublications, bool expected)
     {
         Assert.Equal(expected, WorldStreamingWorkPressure.Evaluate(
@@ -31,7 +31,7 @@ public sealed class WorldStreamingWorkPressureTests
     [Theory]
     [InlineData(8191, false)]
     [InlineData(8192, true)]
-    public void LightingBacklogDefersDistantStreaming(
+    public void LightingBacklogSignalsFramePressure(
         int pendingSeeds, bool expected)
     {
         Assert.Equal(expected, WorldStreamingWorkPressure.Evaluate(
@@ -42,7 +42,7 @@ public sealed class WorldStreamingWorkPressureTests
     [Theory]
     [InlineData(8191, false)]
     [InlineData(8192, true)]
-    public void PhysicsBacklogDefersDistantStreaming(
+    public void PhysicsBacklogSignalsFramePressure(
         int pendingWakeups, bool expected)
     {
         Assert.Equal(expected, WorldStreamingWorkPressure.Evaluate(
@@ -50,35 +50,8 @@ public sealed class WorldStreamingWorkPressureTests
             pendingPhysicsWakeups: pendingWakeups).IsPressured);
     }
 
-    [Theory]
-    [InlineData(false, 6, 6)]
-    [InlineData(true, 6, 2)]
-    [InlineData(true, 1, 1)]
-    [InlineData(true, 0, 0)]
-    public void DownstreamPressureLimitsButDoesNotStarveMaterialization(
-        bool pressured, int availableSlots, int expectedStarts)
-    {
-        var pressure = WorldStreamingWorkPressure.Evaluate(
-            pressured ? 1.0 / 40.0 : 1.0 / 60.0,
-            dirtyTerrainChunks: pressured ? 16 : 0,
-            loadingWorld: false);
-
-        Assert.Equal(pressured, pressure.IsPressured);
-        Assert.Equal(expectedStarts,
-            pressure.LimitMaterializationStarts(availableSlots));
-    }
-
     [Fact]
-    public void MaterializationAdmissionRejectsNegativeCapacity()
-    {
-        var pressure = WorldStreamingWorkPressure.Evaluate(
-            1.0 / 60.0, 0, loadingWorld: false);
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            pressure.LimitMaterializationStarts(-1));
-    }
-
-    [Fact]
-    public void InitialLoadingNeverThrottlesWorldMaterialization()
+    public void InitialLoadingNeverSignalsStreamingPressure()
     {
         var pressure = WorldStreamingWorkPressure.Evaluate(
             0.1, 1000, loadingWorld: true,
@@ -87,7 +60,6 @@ public sealed class WorldStreamingWorkPressureTests
             pendingTerrainPublications: 100_000);
 
         Assert.False(pressure.IsPressured);
-        Assert.Equal(6, pressure.LimitMaterializationStarts(6));
     }
 
     [Fact]
