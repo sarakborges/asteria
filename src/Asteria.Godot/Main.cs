@@ -16,20 +16,26 @@ public partial class Main : Node3D
 {
 	private const float InteractionDistance = 6f;
 	private const int RetentionMarginChunks = 4;
-	private static readonly int MaxMaterializationTasksInFlight =
-		Math.Clamp(
-			System.Environment.ProcessorCount - 2,
-			1,
-			6);
-	// Terrain, lighting, fluids and streaming share the bounded CPU worker pool.
-	// Minecraft Java's chunk pipeline shares a bounded worker pool across
-	// worldgen and downstream work. Keep that shared admission model, but
-	// allow more of the available CPU to serve Asteria's smaller vertical
-	// chunks when streaming backlog is sustained.
 	private static readonly int MaxConcurrentWorldJobs =
-		Math.Clamp(System.Environment.ProcessorCount - 1, 2, 8);
-	private static readonly int MaxMaterializationDispatchesPerFrame =
-		MaxMaterializationTasksInFlight;
+		WorldWorkerCapacity.Resolve(
+			System.Environment.ProcessorCount,
+			ReadMaximumBackgroundThreads());
+
+	private static int ReadMaximumBackgroundThreads()
+	{
+		var configured = System.Environment.GetEnvironmentVariable(
+			"ASTERIA_MAX_BACKGROUND_THREADS");
+		if (string.IsNullOrWhiteSpace(configured))
+			return WorldWorkerCapacity.DefaultMaximumBackgroundThreads;
+
+		if (!int.TryParse(configured, out var maximumBackgroundThreads))
+		{
+			throw new InvalidOperationException(
+				"ASTERIA_MAX_BACKGROUND_THREADS must be an integer between 1 and 255.");
+		}
+
+		return maximumBackgroundThreads;
+	}
 	private const int MaxMaterializationResultsPerFrame = 8;
 	private const int MaxPresentationPublicationsPerFrame = 4;
 	private const int MaxMeshletPublishesPerFrame = 16;
@@ -751,25 +757,22 @@ public partial class Main : Node3D
 		var reservedWorkerSlots = HasReadyNonStreamingWorldWork
 			? Math.Min(1, availableWorkerSlots)
 			: 0;
-		var materializationSlots = Math.Max(
+		var materializationWorkerStarts = Math.Max(
 			0, availableWorkerSlots - reservedWorkerSlots);
-		var materializationStarts =
-			streamingPressure.LimitMaterializationStarts(
-				materializationSlots);
 		var streamingBegin =
 			_chunkStreaming.BeginFrame(
 				streamingCenter,
 				_worldFrameBudget,
 				streamingRadius,
 				RequiresPortalSurfaceAccess,
-				materializationStarts,
-				allowArrivalReconciliation: availableWorkerSlots > 0);
+				materializationWorkerStarts,
+				availableWorkerSlots);
 		_worldDiagnostics?.ObserveStreamingAdmission(
 			streamingPressure.IsPressured,
 			availableWorkerSlots,
-			materializationSlots,
-			materializationStarts,
-			streamingBegin.Dispatched.StartedTasks);
+			reservedWorkerSlots,
+			streamingBegin.Dispatched.StartedTasks,
+			streamingBegin.Dispatched.WorkerOperationsStarted);
 		_worldDiagnostics?.ObserveStage(
 			WorldFrameStage.StreamingBegin, stageStart);
 		ReportStreamingSelection(
@@ -1462,9 +1465,7 @@ public partial class Main : Node3D
 			_fluidMaterials,
 			new DimensionRuntimeSessionSettings(
 				RetentionMarginChunks,
-				MaxMaterializationTasksInFlight,
 				MaxConcurrentWorldJobs,
-				MaxMaterializationDispatchesPerFrame,
 				MaxMaterializationResultsPerFrame,
 				MaxPresentationPublicationsPerFrame,
 				MaxInteractiveTerrainMeshletsPerWorker,
@@ -2681,7 +2682,7 @@ public partial class Main : Node3D
 			$"retention_margin_chunks={RetentionMarginChunks} " +
 			$"processor_count={System.Environment.ProcessorCount} " +
 			$"max_world_jobs={MaxConcurrentWorldJobs} " +
-			$"max_materialization_workers={MaxMaterializationTasksInFlight}");
+			$"max_background_workers={MaxConcurrentWorldJobs}");
 		GD.Print(
 			$"world.start seed={_sessionStates.WorldSeed} " +
 			$"dimension={_dimension.Id} " +
@@ -2689,7 +2690,7 @@ public partial class Main : Node3D
 		GD.Print(
 			$"streaming: render_distance={_clientPreferences.RenderDistanceChunks} " +
 			$"retention_margin={RetentionMarginChunks} " +
-			$"materialization_in_flight={MaxMaterializationTasksInFlight}");
+			$"background_workers={MaxConcurrentWorldJobs}");
 
 		if (_sessions.Active.InitialPlayerPositionReady)
 		{
