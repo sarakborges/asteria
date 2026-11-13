@@ -73,3 +73,62 @@ public sealed class VoxelCoordinatesTests
         Assert.Equal(worldX, roundTrip.X);
     }
 }
+
+public sealed class ChunkColumnCoordTests
+{
+    [Theory]
+    [InlineData(0, 0, 0, 0)]
+    [InlineData(0, 12, 0, 0)]
+    [InlineData(-3, 0, 7, 8)]
+    [InlineData(-3, 31, 7, -16)]
+    public void SectionYDoesNotAffectColumnIdentity(
+        int chunkX,
+        int firstSectionY,
+        int chunkZ,
+        int secondSectionY)
+    {
+        var first = ChunkColumnCoord.FromSection(
+            new ChunkCoord(chunkX, firstSectionY, chunkZ));
+        var second = ChunkColumnCoord.FromSection(
+            new ChunkCoord(chunkX, secondSectionY, chunkZ));
+
+        Assert.Equal(first, second);
+    }
+
+    [Fact]
+    public void ColumnConvertsBackToTheRequestedVerticalSection()
+    {
+        var column = new ChunkColumnCoord(-8, 13);
+
+        Assert.Equal(
+            new ChunkCoord(-8, 0, 13),
+            column.ToSection(0));
+        Assert.Equal(
+            new ChunkCoord(-8, 27, 13),
+            column.ToSection(27));
+    }
+
+    [Fact]
+    public void ColumnOrderingIsDeterministicByXThenZ()
+    {
+        var columns = new[]
+        {
+            new ChunkColumnCoord(1, 2),
+            new ChunkColumnCoord(-1, 9),
+            new ChunkColumnCoord(0, 3),
+            new ChunkColumnCoord(0, -4),
+            new ChunkColumnCoord(1, -2),
+        };
+
+        Assert.Equal(
+            new[]
+            {
+                new ChunkColumnCoord(-1, 9),
+                new ChunkColumnCoord(0, -4),
+                new ChunkColumnCoord(0, 3),
+                new ChunkColumnCoord(1, -2),
+                new ChunkColumnCoord(1, 2),
+            },
+            columns.OrderBy(column => column).ToArray());
+    }
+}
