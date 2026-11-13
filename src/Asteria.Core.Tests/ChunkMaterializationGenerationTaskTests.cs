@@ -43,7 +43,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
             advance.CompletionPayload);
         Assert.Equal(100, output.StageTimings.Length);
         Assert.Equal(4, output.WorkerSliceCount);
-        Assert.True(output.CoordinatorResumeWaitMilliseconds >= 0d);
+        Assert.True(output.InterSliceWaitMilliseconds >= 0d);
     }
 
     [Fact]
