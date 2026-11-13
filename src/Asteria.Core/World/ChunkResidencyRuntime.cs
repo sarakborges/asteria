@@ -1134,7 +1134,7 @@ public sealed class ChunkResidencyRuntime
         _generationDispatcher.Pump(
             maximumCompletions: 0,
             maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
-            maximumWorkerStarts: _settings.MaxMaterializationsInFlight);
+            maximumWorkerStarts: _settings.MaxConcurrentWorkers);
 
         if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
             return ChunkResidencyUpdate.Empty;
@@ -1360,7 +1360,7 @@ public sealed class ChunkResidencyRuntime
             _materializationTasks.Count +
                 _directionalFaceReconciliationTasks.Count +
                 _chunkLightingReconciliationTasks.Count >=
-                _settings.MaxMaterializationsInFlight)
+                _settings.MaxTerrainMaterializationsInFlight)
             return false;
 
         if (!_pendingDirectionalFaceReconciliations.TryDequeue(out var coord))
