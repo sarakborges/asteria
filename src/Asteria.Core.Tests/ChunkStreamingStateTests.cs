@@ -182,6 +182,77 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void PendingColumnDispatchGroupsVerticalSectionsInPriorityOrder()
+    {
+        var state = new ChunkStreamingState();
+        var lower = new ChunkCoord(1, 0, 0);
+        var upper = new ChunkCoord(1, 1, 0);
+        var otherColumn = new ChunkCoord(0, 0, 1);
+        var desired = new HashSet<ChunkCoord>
+        {
+            upper,
+            otherColumn,
+            lower,
+        };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var first = state.PopPendingColumnEntryByPriority();
+
+        Assert.NotNull(first);
+        Assert.Equal(new ChunkColumnCoord(1, 0), first.Value.Column);
+        Assert.Equal(
+            new[] { lower, upper },
+            first.Value.Sections.Select(section => section.Coord));
+        Assert.Equal(1, state.PendingCount);
+        Assert.Equal(1, state.PendingColumnCount);
+
+        var second = state.PopPendingColumnEntryByPriority();
+
+        Assert.NotNull(second);
+        Assert.Equal(new ChunkColumnCoord(0, 1), second.Value.Column);
+        Assert.Equal(
+            new[] { otherColumn },
+            second.Value.Sections.Select(section => section.Coord));
+        Assert.Equal(0, state.PendingCount);
+        Assert.Equal(0, state.PendingColumnCount);
+    }
+
+    [Fact]
+    public void PendingColumnPriorityUpdatesWhenMovementDirectionChanges()
+    {
+        var state = new ChunkStreamingState();
+        var forward = new ChunkCoord(4, 0, 0);
+        var behind = new ChunkCoord(-2, 0, 0);
+        var desired = new HashSet<ChunkCoord> { forward, behind };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 5,
+            retentionRadius: 6,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        state.RebuildSelection(
+            new ChunkCoord(1, 0, 0),
+            horizontalRadius: 5,
+            retentionRadius: 6,
+            desired);
+
+        Assert.Equal(forward, state.PopPendingByPriority());
+        Assert.Equal(behind, state.PopPendingByPriority());
+    }
+
+    [Fact]
     public void PendingDispatchPreservesOriginalQueueTimestamp()
     {
         var state = new ChunkStreamingState();
