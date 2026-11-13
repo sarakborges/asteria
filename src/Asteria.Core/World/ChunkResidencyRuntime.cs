@@ -456,11 +456,21 @@ public sealed class ChunkResidencyRuntime
             return false;
         }
 
+        CancelMaterializationsOutsideResidency();
         _center = center;
         _retentionRadius =
             Math.Max(0, retentionRadius);
         SyncResidentState(presented);
         return true;
+    }
+
+    private void CancelMaterializationsOutsideResidency()
+    {
+        foreach (var (coord, work) in _materializationTasks.ToArray())
+        {
+            if (!_streaming.KeepsLoaded(coord))
+                _generationDispatcher.TryCancel(work.TaskKey);
+        }
     }
 
     public void SyncResidentState(
