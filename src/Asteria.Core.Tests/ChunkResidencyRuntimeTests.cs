@@ -103,6 +103,41 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void TerrainAdmissionCanExceedWorkerThreadCount()
+    {
+        using var provider = new BlockingChunkProvider();
+        using var fixture = CreateFixture(
+            provider,
+            maxConcurrentWorkers: 2,
+            maxMaterializationsInFlight: 4,
+            maxDispatchesPerFrame: 4);
+        var desired = new HashSet<ChunkCoord>
+        {
+            new(1, 0, 0),
+            new(2, 0, 0),
+            new(3, 0, 0),
+            new(4, 0, 0),
+        };
+        fixture.Runtime.SyncSelection(
+            new ChunkCoord(1, 0, 0),
+            horizontalRadius: 4,
+            retentionRadius: 5,
+            desired,
+            Array.Empty<ChunkCoord>());
+
+        var dispatched = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumNewTasks: 4);
+
+        Assert.Equal(4, dispatched.StartedTasks);
+        Assert.Equal(4, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
+        Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)));
+        provider.ReleaseAdvance.Set();
+    }
+
+    [Fact]
     public void ChunkArrivalLightingSeedsAreCalculatedOnDetachedWorkerSnapshot()
     {
         using var fixture = CreateFixture();
@@ -957,7 +992,9 @@ public sealed class ChunkResidencyRuntimeTests
 
     private static RuntimeFixture CreateFixture(
         IChunkProvider? chunkProvider = null,
-        int? maxConcurrentWorkers = null)
+        int? maxConcurrentWorkers = null,
+        int maxMaterializationsInFlight = 2,
+        int maxDispatchesPerFrame = 2)
     {
         var blocks =
             new BlockRegistry(
@@ -1031,8 +1068,8 @@ public sealed class ChunkResidencyRuntimeTests
                 fluidRevisions,
                 ticks,
                 new ChunkResidencySettings(
-                    maxMaterializationsInFlight: 2,
-                    maxDispatchesPerFrame: 2,
+                    maxMaterializationsInFlight,
+                    maxDispatchesPerFrame,
                     maxResultsPerFrame: 2,
                     maxEvictionsPerFrame: 2,
                     gameRules: rules,
