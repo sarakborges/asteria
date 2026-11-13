@@ -44,6 +44,7 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
     private int _disposed;
     private int _pendingWorkCount;
     private int _activeWorkerCount;
+    private int _inFlightWorkCount;
     private int _exitedWorkerCount;
     private long _completedWorkCount;
     private long _failedWorkCount;
@@ -88,6 +89,8 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 
     public int ActiveWorkerCount => Volatile.Read(ref _activeWorkerCount);
 
+    public int InFlightWorkCount => Volatile.Read(ref _inFlightWorkCount);
+
     public long CompletedWorkCount => Interlocked.Read(ref _completedWorkCount);
 
     public long FailedWorkCount => Interlocked.Read(ref _failedWorkCount);
@@ -115,7 +118,8 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
         }
 
         var item = new WorkItem(request, reservation!);
-        // Publish the count before TryAdd: a worker may consume immediately.
+        // Publish counts before TryAdd: a worker may consume immediately.
+        Interlocked.Increment(ref _inFlightWorkCount);
         Interlocked.Increment(ref _pendingWorkCount);
         try
         {
@@ -129,6 +133,7 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
         }
 
         Interlocked.Decrement(ref _pendingWorkCount);
+        Interlocked.Decrement(ref _inFlightWorkCount);
         reservation!.Dispose();
         Interlocked.Increment(ref _rejectedWorkCount);
         return false;
@@ -205,6 +210,7 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
             // unexpected publication failure left the lease unused.
             item.Reservation.Dispose();
             Interlocked.Decrement(ref _activeWorkerCount);
+            Interlocked.Decrement(ref _inFlightWorkCount);
         }
     }
 
