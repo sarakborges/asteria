@@ -116,7 +116,8 @@ public sealed class TerrainMeshPipeline
     public bool TryStartReadyWork(
         bool underStreamingPressure = false,
         ChunkCoord? center = null,
-        ChunkMovementDirection movement = default)
+        ChunkMovementDirection movement = default,
+        bool allowBackground = true)
     {
         if (!_acceptingWork)
         {
@@ -127,15 +128,18 @@ public sealed class TerrainMeshPipeline
             _interactiveWorker.IsRunning;
         var shouldDeferBackground = underStreamingPressure &&
             visibleWork && _updates.HasBackgroundMeshWork;
-        if (shouldDeferBackground)
+        if (!allowBackground)
+            _deferredBackgroundStarts = 0;
+        else if (shouldDeferBackground)
             _deferredBackgroundStarts = Math.Min(
                 MaximumDeferredBackgroundStarts,
                 _deferredBackgroundStarts + 1);
         else
             _deferredBackgroundStarts = 0;
 
-        var mayStartBackground = !shouldDeferBackground ||
-            _deferredBackgroundStarts >= MaximumDeferredBackgroundStarts;
+        var mayStartBackground = allowBackground &&
+            (!shouldDeferBackground ||
+             _deferredBackgroundStarts >= MaximumDeferredBackgroundStarts);
 
         // Worker startup captures neighboring chunks synchronously.
         // Limit each call to one lane and alternate to avoid starvation.
