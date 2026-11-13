@@ -349,8 +349,7 @@ public sealed class ChunkResidencyRuntime
 
     /// <summary>Background tasks currently owning terrain or initial-light stages.</summary>
     public int ActiveWorkerCount =>
-        _generationWorkerPool.PendingWorkCount +
-        _generationWorkerPool.ActiveWorkerCount +
+        _generationWorkerPool.InFlightWorkCount +
         _directionalFaceReconciliationTasks.Values.Count(work =>
             !work.WorkerTask.IsCompleted) +
         _chunkLightingReconciliationTasks.Values.Count(work =>
