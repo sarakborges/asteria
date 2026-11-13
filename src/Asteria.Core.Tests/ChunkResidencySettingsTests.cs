@@ -5,73 +5,41 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkResidencySettingsTests
 {
     [Fact]
-    public void GenerationContinuationBudgetsDefaultFromPhysicalWorkerCapacity()
+    public void SettingsExposePhysicalWorkerCapacityAndResultBudgets()
     {
-        var settings = CreateSettings(maxConcurrentWorkers: 3);
+        var settings = CreateSettings(
+            maxConcurrentWorkers: 3,
+            maxResultsPerFrame: 8,
+            maxEvictionsPerFrame: 2);
 
         Assert.Equal(3, settings.MaxConcurrentWorkers);
         Assert.Equal(8, settings.MaxResultsPerFrame);
-        Assert.Equal(24, settings.MaxGenerationCompletionsPerFrame);
-        Assert.Equal(24, settings.MaxGenerationTaskAdvancesPerFrame);
-    }
-
-    [Fact]
-    public void GenerationContinuationBudgetsCanBeConfiguredIndependently()
-    {
-        var settings = CreateSettings(
-            maxConcurrentWorkers: 4,
-            maxResultsPerFrame: 3,
-            maxGenerationCompletionsPerFrame: 19,
-            maxGenerationTaskAdvancesPerFrame: 27);
-
-        Assert.Equal(4, settings.MaxConcurrentWorkers);
-        Assert.Equal(3, settings.MaxResultsPerFrame);
-        Assert.Equal(19, settings.MaxGenerationCompletionsPerFrame);
-        Assert.Equal(27, settings.MaxGenerationTaskAdvancesPerFrame);
+        Assert.Equal(2, settings.MaxEvictionsPerFrame);
     }
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    public void NonPositiveWorkerCountsAreRejected(int workers)
+    [InlineData(0, 8, 2)]
+    [InlineData(-1, 8, 2)]
+    [InlineData(2, 0, 2)]
+    [InlineData(2, -1, 2)]
+    [InlineData(2, 8, 0)]
+    [InlineData(2, 8, -1)]
+    public void NonPositiveWorkerAndPublicationBudgetsAreRejected(
+        int workers,
+        int results,
+        int evictions)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            CreateSettings(maxConcurrentWorkers: workers));
-    }
-
-    [Fact]
-    public void GenerationContinuationBudgetsDefaultToAtLeastSixteen()
-    {
-        var settings = CreateSettings(maxConcurrentWorkers: 1);
-
-        Assert.Equal(16, settings.MaxGenerationCompletionsPerFrame);
-        Assert.Equal(16, settings.MaxGenerationTaskAdvancesPerFrame);
-    }
-
-    [Theory]
-    [InlineData(0, 1)]
-    [InlineData(-1, 1)]
-    [InlineData(1, 0)]
-    [InlineData(1, -1)]
-    public void NonPositiveGenerationContinuationBudgetsAreRejected(
-        int completions,
-        int advances)
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => CreateSettings(
-            maxGenerationCompletionsPerFrame: completions,
-            maxGenerationTaskAdvancesPerFrame: advances));
+            CreateSettings(workers, results, evictions));
     }
 
     private static ChunkResidencySettings CreateSettings(
         int maxConcurrentWorkers = 2,
         int maxResultsPerFrame = 8,
-        int? maxGenerationCompletionsPerFrame = null,
-        int? maxGenerationTaskAdvancesPerFrame = null) =>
+        int maxEvictionsPerFrame = 2) =>
         new(
             maxConcurrentWorkers,
             maxResultsPerFrame,
-            maxEvictionsPerFrame: 2,
-            new WorldGameRules(),
-            maxGenerationCompletionsPerFrame,
-            maxGenerationTaskAdvancesPerFrame);
+            maxEvictionsPerFrame,
+            new WorldGameRules());
 }
