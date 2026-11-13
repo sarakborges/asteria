@@ -6,8 +6,7 @@ namespace Asteria.Core.World;
 public sealed class ChunkResidencySettings
 {
     public ChunkResidencySettings(
-        int maxMaterializationsInFlight,
-        int maxDispatchesPerFrame,
+        int maxConcurrentWorkers,
         int maxResultsPerFrame,
         int maxEvictionsPerFrame,
         WorldGameRules gameRules,
@@ -15,17 +14,8 @@ public sealed class ChunkResidencySettings
         int? maxGenerationCompletionsPerFrame = null,
         int? maxGenerationTaskAdvancesPerFrame = null)
     {
-        if (maxMaterializationsInFlight <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxMaterializationsInFlight));
-        }
-
-        if (maxDispatchesPerFrame <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxDispatchesPerFrame));
-        }
+        if (maxConcurrentWorkers <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxConcurrentWorkers));
 
         if (maxResultsPerFrame <= 0)
         {
@@ -41,22 +31,13 @@ public sealed class ChunkResidencySettings
 
         GameRules = gameRules ??
             throw new ArgumentNullException(nameof(gameRules));
-        var concurrentWorkers = maxConcurrentWorkers ?? maxMaterializationsInFlight;
-        if (concurrentWorkers <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maxConcurrentWorkers));
-
-        MaxConcurrentWorkers = concurrentWorkers;
-        MaxMaterializationsInFlight = concurrentWorkers;
-        MaxTerrainMaterializationsInFlight =
-            maxMaterializationsInFlight;
-        MaxDispatchesPerFrame =
-            maxDispatchesPerFrame;
+        MaxConcurrentWorkers = maxConcurrentWorkers;
         MaxResultsPerFrame =
             maxResultsPerFrame;
         MaxEvictionsPerFrame =
             maxEvictionsPerFrame;
 
-        var defaultGenerationBudget = DefaultGenerationBudget(concurrentWorkers);
+        var defaultGenerationBudget = DefaultGenerationBudget(maxConcurrentWorkers);
         MaxGenerationCompletionsPerFrame =
             ValidateGenerationBudget(
                 maxGenerationCompletionsPerFrame ?? defaultGenerationBudget,
@@ -81,18 +62,6 @@ public sealed class ChunkResidencySettings
     /// Maximum number of physical worker threads in the shared generation pool.
     /// </summary>
     public int MaxConcurrentWorkers { get; }
-
-    // Kept as a compatibility alias for the physical worker count.
-    public int MaxMaterializationsInFlight { get; }
-
-    /// <summary>
-    /// Maximum number of admitted terrain chunk jobs, including suspended jobs.
-    /// A separate bounded slot allows one arrival-reconciliation task alongside
-    /// terrain work. This may exceed the physical worker count.
-    /// </summary>
-    public int MaxTerrainMaterializationsInFlight { get; }
-
-    public int MaxDispatchesPerFrame { get; }
 
     public int MaxResultsPerFrame { get; }
 
@@ -171,7 +140,8 @@ public sealed record ChunkResidencyUpdate(
     IReadOnlyList<ChunkMaterializationFailure> Failures,
     IReadOnlyList<ChunkMaterializationStageTiming>? StageTimings = null,
     int StartedTasks = 0,
-    int CancelledTasks = 0)
+    int CancelledTasks = 0,
+    int WorkerOperationsStarted = 0)
 {
     public IReadOnlyList<ChunkMaterializationStageTiming> MaterializationStageTimings =>
         StageTimings ?? Array.Empty<ChunkMaterializationStageTiming>();
@@ -363,10 +333,7 @@ public sealed class ChunkResidencyRuntime
     public int PendingGenerationWorkerQueueCount =>
         _generationWorkerPool.PendingWorkCount;
 
-    public int MaxTerrainMaterializationsInFlight =>
-        _settings.MaxTerrainMaterializationsInFlight;
-
-    public int MaterializationJobCount =>
+     public int MaterializationJobCount =>
         _materializationTasks.Count;
 
     public int DirectionalFaceReconciliationCount =>
@@ -532,9 +499,12 @@ public sealed class ChunkResidencyRuntime
 
     public ChunkResidencyUpdate CollectMaterializationResults(
         WorldFrameWorkBudget budget,
-        IEnumerable<ChunkCoord> presented)
+        IEnumerable<ChunkCoord> presented,
+        int maximumWorkerStarts = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(presented);
+        if (maximumWorkerStarts < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumWorkerStarts));
         if (_materializationTasks.Count == 0 &&
             _generationDispatcher.RetiringTaskCount == 0 &&
             _generationDispatcher.PendingOutcomeCount == 0 &&
@@ -547,7 +517,8 @@ public sealed class ChunkResidencyRuntime
         var report = _generationDispatcher.Pump(
             maximumCompletions: _settings.MaxGenerationCompletionsPerFrame,
             maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
-            maximumWorkerStarts: AvailableGenerationWorkerStarts);
+            maximumWorkerStarts: Math.Min(
+                maximumWorkerStarts, AvailableGenerationWorkerStarts));
 
         var activations = new List<ChunkResidencyActivation>();
         var failures = new List<ChunkMaterializationFailure>();
@@ -590,7 +561,7 @@ public sealed class ChunkResidencyRuntime
                         processed--;
                         return FinishMaterializationCollection(
                             activations, failures, stageTimings,
-                            processed, cancelledTasks, presented);
+                            processed, cancelledTasks, report.WorkerOperationsStarted, presented);
                     }
                     break;
 
@@ -607,7 +578,7 @@ public sealed class ChunkResidencyRuntime
                         processed--;
                         return FinishMaterializationCollection(
                             activations, failures, stageTimings,
-                            processed, cancelledTasks, presented);
+                            processed, cancelledTasks, report.WorkerOperationsStarted, presented);
                     }
                     break;
 
@@ -921,6 +892,7 @@ public sealed class ChunkResidencyRuntime
         List<ChunkMaterializationStageTiming> stageTimings,
         int processed,
         int cancelledTasks,
+        int workerOperationsStarted,
         IEnumerable<ChunkCoord> presented)
     {
         if (processed > 0 || activations.Count > 0)
@@ -931,18 +903,22 @@ public sealed class ChunkResidencyRuntime
 
         return new ChunkResidencyUpdate(
             activations, failures, stageTimings,
-            StartedTasks: 0, CancelledTasks: cancelledTasks);
+            StartedTasks: 0,
+            CancelledTasks: cancelledTasks,
+            WorkerOperationsStarted: workerOperationsStarted);
     }
 
     public ChunkResidencyUpdate DispatchMaterializationTasks(
         WorldFrameWorkBudget budget,
         IEnumerable<ChunkCoord> presented,
-        int maximumNewTasks = int.MaxValue,
-        bool? hasWorkerAdmission = null)
+        int maximumGenerationWorkerStarts = int.MaxValue,
+        int maximumWorldWorkerStarts = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(presented);
-        if (maximumNewTasks < 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumNewTasks));
+        if (maximumGenerationWorkerStarts < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumGenerationWorkerStarts));
+        if (maximumWorldWorkerStarts < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumWorldWorkerStarts));
         if (!_acceptingMaterializationWork)
             return ChunkResidencyUpdate.Empty;
 
@@ -950,21 +926,9 @@ public sealed class ChunkResidencyRuntime
         var failures = new List<ChunkMaterializationFailure>();
         var startedTasks = 0;
         var restored = 0;
-        var maximumTaskStarts = Math.Min(
-            _settings.MaxDispatchesPerFrame, maximumNewTasks);
-        // Terrain admission is independent of physical worker count. Keep one
-        // additional bounded task slot available for arrival reconciliation;
-        // worker threads remain capped by MaxConcurrentWorkers.
-        var materializationLimit = _settings.MaxTerrainMaterializationsInFlight;
-
-        // Archived restores do not consume a generation worker. The caller may
-        // cap new materialization starts when downstream work is pressured;
-        // spatial priority decides which chunk starts when admission opens.
-        while (_materializationTasks.Count <
-                    _settings.MaxTerrainMaterializationsInFlight &&
-                _materializationTasks.Count < materializationLimit &&
-                restored <
-                    _settings.MaxResultsPerFrame)
+        // Logical chunk tasks are created from the authoritative desired set.
+        // Only worker operations are constrained by physical worker capacity.
+        while (restored < _settings.MaxResultsPerFrame)
         {
             if ((startedTasks > 0 || restored > 0) &&
                 budget.Exhausted(Stopwatch.GetTimestamp()))
@@ -972,19 +936,9 @@ public sealed class ChunkResidencyRuntime
                 break;
             }
 
-            var remainingSlots = Math.Max(
-                1, materializationLimit - _materializationTasks.Count);
-            var remainingStarts = Math.Max(
-                0, maximumTaskStarts - startedTasks);
-            // Admit a bounded vertical batch from one X/Z column. The sections
-            // remain independent dispatcher tasks and can complete/publish
-            // separately; grouping only amortizes spatial queue admission.
-            var maximumSectionsInBatch = Math.Max(
-                1, Math.Min(
-                    remainingSlots,
-                    remainingStarts == 0 ? 1 : remainingStarts));
-            var pendingColumn = _streaming.PopPendingColumnEntryByPriority(
-                maximumSections: maximumSectionsInBatch);
+            // Keep each X/Z column together in the pending queue, but let the
+            // frame work budget decide how many section tasks can be admitted.
+            var pendingColumn = _streaming.PopPendingColumnEntryByPriority();
             if (pendingColumn is null)
                 break;
 
@@ -1033,14 +987,7 @@ public sealed class ChunkResidencyRuntime
                 if (restore == ChunkRestoreResult.AlreadyResident)
                     continue;
 
-                if (startedTasks >= maximumTaskStarts)
-                {
-                    RequeuePendingSections(sections, sectionIndex);
-                    stopAfterBatch = true;
-                    break;
-                }
-
-                IChunkMaterializationJob job;
+                 IChunkMaterializationJob job;
                 try
                 {
                     job = _chunkProvider is IIncrementalChunkProvider incremental
@@ -1121,18 +1068,21 @@ public sealed class ChunkResidencyRuntime
             SyncResidentState(presented);
 
         UpdateGenerationTaskPriorities();
-        _generationDispatcher.Pump(
+        var dispatchReport = _generationDispatcher.Pump(
             maximumCompletions: 0,
             maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
-            maximumWorkerStarts: AvailableGenerationWorkerStarts);
+            maximumWorkerStarts: Math.Min(
+                maximumGenerationWorkerStarts, AvailableGenerationWorkerStarts));
 
-        // Reconciliation uses Task.Run rather than the generation pool. Start
-        // it only after generation dispatch has claimed its available worker
-        // capacity, so the extra logical task slot never creates an extra CPU
-        // worker beyond the configured physical limit.
+        // Reconciliation remains on its detached-snapshot lane for now. It may
+        // use one genuinely unused world-worker slot, never a slot already
+        // consumed by a generation operation started in this frame.
+        var remainingWorldWorkerStarts =
+            Math.Max(0, maximumWorldWorkerStarts -
+                dispatchReport.WorkerOperationsStarted);
         StartArrivalReconciliationWorker(
             budget, failures,
-            hasWorkerAdmission: hasWorkerAdmission ?? maximumNewTasks > 0);
+            hasWorkerAdmission: remainingWorldWorkerStarts > 0);
 
         if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
             return ChunkResidencyUpdate.Empty;
@@ -1140,7 +1090,8 @@ public sealed class ChunkResidencyRuntime
             activations,
             failures,
             Array.Empty<ChunkMaterializationStageTiming>(),
-            startedTasks);
+            startedTasks,
+            WorkerOperationsStarted: dispatchReport.WorkerOperationsStarted);
     }
 
     public IReadOnlyList<ChunkResidencyRetirement>
