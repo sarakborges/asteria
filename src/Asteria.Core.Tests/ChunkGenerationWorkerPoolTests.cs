@@ -88,15 +88,17 @@ public sealed class ChunkGenerationWorkerPoolTests
 
         Assert.True(pool.TrySchedule(Request(
             1, _ => new WorkerResult(1, "complete"))));
-        ChunkGenerationDependencyCompletion completion = default;
         Assert.True(SpinWait.SpinUntil(
-            () => mailbox.TryDequeue(out completion),
+            () => pool.CompletedWorkCount == 1,
             TimeSpan.FromSeconds(5)));
 
         // The worker queue has room, but the undrained completion owns the only
         // mailbox slot. The second operation must remain with the coordinator.
+        Assert.Equal(1, mailbox.PendingCount);
         Assert.False(pool.TrySchedule(Request(
-            2, _ => new WorkerResult(2, "wait for mailbox")));
+            2, _ => new WorkerResult(2, "wait for mailbox"))));
+
+        Assert.True(mailbox.TryDequeue(out var completion));
         Assert.Equal(1UL, completion.DependencyId);
         Assert.True(pool.TrySchedule(Request(
             2, _ => new WorkerResult(2, "retry"))));
