@@ -29,6 +29,8 @@ internal readonly record struct DirectionalFacePaletteReapplicationDiagnostic(
 public sealed class SurfaceChunkMaterializer
 {
     private const int TerrainRowsPerWorkerSlice = 4;
+    private const int VolumeStructureCandidatesPerAdvance = 4;
+    private const int VolumeStructureVoxelsPerAdvance = 64;
     private readonly record struct DirectionalFaceOccupancyPreparationProfile(
         double DensitySlabReadMilliseconds,
         double HorizontalBoundaryReadMilliseconds,
@@ -388,9 +390,8 @@ public sealed class SurfaceChunkMaterializer
                 break;
 
             case ChunkMaterializationStage.VolumeStructures:
-                MaterializeVolumeStructures(
-                    job.Chunk, job.Coord, job.SupportMaterializationColumns);
-                job.Stage = ChunkMaterializationStage.GeneratedFluids;
+                if (MaterializeVolumeStructures(job))
+                    job.Stage = ChunkMaterializationStage.GeneratedFluids;
                 break;
 
             case ChunkMaterializationStage.GeneratedFluids:
@@ -1696,6 +1697,8 @@ public sealed class SurfaceChunkMaterializer
 
         public bool[]? SupportChunkTopOccupancy { get; set; }
 
+        public VolumeStructureField.ChunkCursor? VolumeStructureCursor { get; set; }
+
         public Chunk Chunk => _chunk ??
             throw new InvalidOperationException(
                 "Chunk materialization has not started.");
@@ -1951,6 +1954,7 @@ public sealed class SurfaceChunkMaterializer
             SupportChunkJob?.Dispose();
             SupportChunkJob = null;
             SupportChunkTopOccupancy = null;
+            VolumeStructureCursor = null;
             InitialBlocks?.Dispose();
             InitialBlocks = null;
             DirectionalFaceOccupancyMasks = null;
@@ -3995,20 +3999,28 @@ public sealed class SurfaceChunkMaterializer
             _ => throw new ArgumentOutOfRangeException(nameof(axis)),
         };
 
-    private void MaterializeVolumeStructures(
-        Chunk chunk,
-        ChunkCoord coord,
-        bool[]? columnMask)
+    private bool MaterializeVolumeStructures(MaterializationJob job)
     {
         if (_volumeStructures is not { HasRules: true } formations)
-            return;
+            return true;
 
-        var origin = VoxelCoordinates.ChunkOrigin(coord);
-        foreach (var voxel in formations.VoxelsForChunk(coord))
+        var cursor = job.VolumeStructureCursor ??=
+            formations.CreateChunkCursor(job.Coord);
+        Span<VolumeStructureVoxel> voxels =
+            stackalloc VolumeStructureVoxel[VolumeStructureVoxelsPerAdvance];
+        var complete = cursor.Advance(
+            voxels,
+            VolumeStructureCandidatesPerAdvance,
+            out var written);
+
+        var chunk = job.Chunk;
+        var columnMask = job.SupportMaterializationColumns;
+        for (var index = 0; index < written; index++)
         {
-            var x = voxel.X - origin.X;
-            var y = voxel.Y - origin.Y;
-            var z = voxel.Z - origin.Z;
+            var voxel = voxels[index];
+            var x = voxel.X - job.OriginX;
+            var y = voxel.Y - job.OriginY;
+            var z = voxel.Z - job.OriginZ;
             if ((uint)x >= Chunk.Size ||
                 (uint)y >= Chunk.Size ||
                 (uint)z >= Chunk.Size ||
@@ -4020,6 +4032,10 @@ public sealed class SurfaceChunkMaterializer
 
             chunk.SetBlock(x, y, z, voxel.Block);
         }
+
+        if (complete)
+            job.VolumeStructureCursor = null;
+        return complete;
     }
 
     private void MaterializeVerticalDecorations(
