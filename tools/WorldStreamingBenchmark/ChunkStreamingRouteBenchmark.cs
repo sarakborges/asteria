@@ -527,19 +527,27 @@ internal static class ChunkStreamingRouteBenchmark
             maximumReadyGenerationTasks = Math.Max(
                 maximumReadyGenerationTasks,
                 residency.ReadyGenerationTaskCount);
+            var pendingGenerationWorkerOperations = ReadOptionalRuntimeCounter(
+                residency, "PendingGenerationWorkerOperations");
+            var readyGenerationTasks = ReadOptionalRuntimeCounter(
+                residency, "ReadyGenerationTaskCount");
+            var pendingGenerationCompletions = ReadOptionalRuntimeCounter(
+                residency, "PendingGenerationCompletions");
             maximumPendingGenerationWorkerOperations = Math.Max(
                 maximumPendingGenerationWorkerOperations,
-                residency.PendingGenerationWorkerOperations);
+                pendingGenerationWorkerOperations);
             maximumPendingGenerationCompletions = Math.Max(
                 maximumPendingGenerationCompletions,
-                residency.PendingGenerationCompletions);
+                pendingGenerationCompletions);
+            maximumReadyGenerationTasks = Math.Max(
+                maximumReadyGenerationTasks, readyGenerationTasks);
             if (hasDetailedSchedulerDiagnostics &&
                 residency.MaterializationJobCount >= terrainAdmissionCount &&
                 activeGenerationWorkers + pendingGenerationWorkerQueue <
                     generationWorkerCount &&
-                residency.PendingGenerationWorkerOperations == 0 &&
-                residency.ReadyGenerationTaskCount == 0 &&
-                residency.PendingGenerationCompletions == 0)
+                pendingGenerationWorkerOperations == 0 &&
+                readyGenerationTasks == 0 &&
+                pendingGenerationCompletions == 0)
             {
                 admissionSaturatedIdleWorkerFrames++;
             }
