@@ -540,3 +540,51 @@ This is a long-running refactor. Preserve progress in Git after each coherent sl
 - Baseline-compatible scheduler diagnostics: 8d584f87f95af13e1fb8767c9ef75a50e36d76a5
 
 **Exact next action:** validate head 8d584f87f95af13e1fb8767c9ef75a50e36d76a5. If the terrain A/B route still stalls, inspect its new ready/waiting/workerOps/activeWorkers/completions counters and reproduce the exact state in a focused Core test. Do not advance to column orchestration or migrate other domain lanes until the production materialization path is stable and the benchmark reaches its drain condition.
+
+
+## Latest continuation state — 2026-11-13
+
+This section supersedes the older validation snapshot above. It records the state after the column-admission, cooperative slicing, and directional-occupancy work.
+
+- **Repository branch:** `worldgen-perf-fix`
+- **Code head at this documentation update:** `49e86b98521cf78f9db684b62b2199c549fa57fa`
+- **PR #157:** open; base `unknown`. Keep the PR open; do not merge.
+- **Validation for code head:** run 43480419355: in_progress
+- **Windows build for code head:** run 43480403306: in_progress
+
+### Implemented since the previous handoff snapshot
+
+- Pending section requests are indexed by X/Z column. Each Y section retains its own enqueue timestamp and deterministic tie-break order.
+- Runtime admission removes a bounded batch of sections from the best column, but each section still owns a separate `SectionReady` generation task, result, revision check, cancellation state and publication.
+- Normal `TerrainLayer` advances through four Z rows at a time while retaining the original Y/Z/X write order. The sparse gravity-support face path remains on its original layer-sized quantum.
+- One materialization worker operation executes up to 32 job advances or 6 ms, whichever is reached first. Individual stage timings are still retained inside the returned batch.
+- `VolumeStructureField` exposes a resumable chunk cursor. The materializer consumes at most four candidates and up to 64 emitted voxels per job advance; the bulk `VoxelsForChunk` API remains as a compatibility wrapper.
+- A parity test compares the cursor's one-candidate/one-voxel resumes with the bulk query on a fixed seed.
+- Directional-face occupancy mask construction has been extracted into a phased builder. Production `TerrainSetup` now persists that builder on the materialization job and yields between the vertical slab phase, the four horizontal boundary phases, occupancy-row assembly and candidate-mask construction. The synchronous path used by non-materialization callers drives the same builder to completion.
+
+### Performance findings (fixed-seed CI A/B)
+
+- Baseline median route: **1,400 ms**.
+- Cooperative candidate, two workers: **2,149 ms**.
+- Cooperative candidate, four workers: **1,630 ms**.
+- Fixed-seed chunk-synthesis digests remained equal to baseline. The four-worker route activated 237 unique chunks versus 235 in the baseline, so do not claim identical route activation sets.
+- Four workers improved local-gap frames versus the baseline, but total route time remained slower. More worker threads alone are not an adequate fix.
+- The directional occupancy profile identified approximately **103 ms** of horizontal boundary reads across 67 chunks, including approximately **89 ms** in density-column sampling. The next optimization should subdivide individual boundary strips only if the per-face phase still exceeds the worker-slice budget.
+- The volume-structure cursor improves resumability, but its profile still reports roughly **56.5 MB** of allocations. A single candidate's current `TryAnchor` search remains a possible long quantum and should be split by Y scan / template-voxel validation after TerrainSetup is stable.
+
+### Architecture still not complete
+
+- There is still no single logical `ChunkColumnGenerationTask` coordinating all vertical sections and target statuses. Column grouping currently applies to pending admission only.
+- The typed `ChunkGenerationPlan` dependency graph is not yet the executable production step graph.
+- Cross-section and neighbor-region status futures / read-write envelopes are not yet wired into materialization.
+- GravitySupport nested section work is not yet a first-class shared vertical continuation.
+- Arrival reconciliation, lighting, fluids, terrain meshes and fluid meshes are not yet all admitted through one shared world-generation worker scheduler.
+- Main.cs still owns separate fixed-lane start coordination for downstream domains; this must be retired only after those owners migrate to shared admission.
+
+### Exact next action
+
+1. Confirm the two CI runs listed above finish successfully for code head `49e86b98521cf78f9db684b62b2199c549fa57fa`.
+2. If they pass, inspect the terrain A/B artifact for digest parity, maximum per-phase duration, local-gap frames and allocations.
+3. If a single face phase still exceeds the worker budget, split that X/Z boundary reader into smaller contiguous strips while preserving its existing traversal and write order.
+4. Add a focused test comparing synchronous and phased directional-mask results, then run the fixed-seed render and A/B suite.
+5. Only after materialization remains stable, proceed to the logical column parent task and partial per-section completion publication. Keep PR #157 open.
