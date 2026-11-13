@@ -7,7 +7,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
     [Fact]
     public void WorkerOperationBatchesSeveralAdvancesWithinBound()
     {
-        var job = new FakeMaterializationJob(sliceCount: 10);
+        var job = new FakeMaterializationJob(sliceCount: 100);
         var lightingCalls = 0;
         using var task = new ChunkMaterializationGenerationTask(
             job, _ => lightingCalls++);
@@ -17,22 +17,31 @@ public sealed class ChunkMaterializationGenerationTaskTests
         Assert.Single(advance.WorkerOperations);
         Assert.Equal(0, job.AdvanceCount);
 
-        var completion = RunSlice(task, advance, job, 1);
+        ulong waitToken = 1;
+        while (true)
+        {
+            var previousAdvanceCount = job.AdvanceCount;
+            advance = RunSlice(task, advance, job, waitToken++);
+            var advancesInBatch = job.AdvanceCount - previousAdvanceCount;
 
-        Assert.True(job.AdvanceCount > 1);
-        Assert.True(job.AdvanceCount < 10);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, completion.Kind);
-        Assert.Single(completion.WorkerOperations);
-        Assert.Equal(0, lightingCalls);
+            Assert.InRange(
+                advancesInBatch,
+                1,
+                ChunkMaterializationGenerationTask.MaximumAdvancesPerWorkerOperation);
 
-        var final = RunSlice(task, completion, job, 2);
+            if (advance.Kind == ChunkGenerationTaskAdvanceKind.Completed)
+                break;
 
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
-        Assert.Equal(10, job.AdvanceCount);
+            Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, advance.Kind);
+            Assert.Single(advance.WorkerOperations);
+            Assert.Equal(0, lightingCalls);
+        }
+
+        Assert.Equal(100, job.AdvanceCount);
         Assert.Equal(1, lightingCalls);
         var output = Assert.IsType<ChunkMaterializationTaskOutput>(
-            final.CompletionPayload);
-        Assert.Equal(10, output.StageTimings.Length);
+            advance.CompletionPayload);
+        Assert.Equal(100, output.StageTimings.Length);
     }
 
     [Fact]
