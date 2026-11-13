@@ -14,6 +14,7 @@ public sealed record ChunkMaterializationTaskOutput(
     ImmutableArray<ChunkMaterializationStageTiming> StageTimings,
     double WorkerMilliseconds,
     double InitialLightingMilliseconds,
+    double DispatchPreparationMilliseconds,
     double WorkerQueueWaitMilliseconds,
     double WorkerWallMilliseconds,
     long WorkerCompletedTimestamp);
@@ -41,6 +42,7 @@ public sealed class ChunkMaterializationGenerationTask :
 {
     private readonly IChunkMaterializationJob _job;
     private readonly Action<Chunk> _initializeLighting;
+    private readonly long _dispatchTimestamp;
     private readonly long _createdTimestamp;
     private readonly List<ChunkMaterializationStageTiming> _stageTimings = [];
     private ulong _nextDependencyId = 1;
@@ -56,11 +58,15 @@ public sealed class ChunkMaterializationGenerationTask :
 
     public ChunkMaterializationGenerationTask(
         IChunkMaterializationJob job,
-        Action<Chunk> initializeLighting)
+        Action<Chunk> initializeLighting,
+        long dispatchTimestamp = 0)
     {
         _job = job ?? throw new ArgumentNullException(nameof(job));
         _initializeLighting = initializeLighting ??
             throw new ArgumentNullException(nameof(initializeLighting));
+        _dispatchTimestamp = dispatchTimestamp == 0
+            ? Stopwatch.GetTimestamp()
+            : dispatchTimestamp;
         _createdTimestamp = Stopwatch.GetTimestamp();
     }
 
@@ -165,6 +171,8 @@ public sealed class ChunkMaterializationGenerationTask :
         if (!_isCompleted)
             _isCompleted = true;
 
+        var dispatchPreparation = Stopwatch.GetElapsedTime(
+            _dispatchTimestamp, _createdTimestamp).TotalMilliseconds;
         var queueWait = _hasStartedWorker
             ? Stopwatch.GetElapsedTime(
                 _createdTimestamp, _firstWorkerStartedTimestamp).TotalMilliseconds
@@ -181,6 +189,7 @@ public sealed class ChunkMaterializationGenerationTask :
                 _stageTimings.ToImmutableArray(),
                 _workerMilliseconds,
                 _initialLightingMilliseconds,
+                dispatchPreparation,
                 queueWait,
                 workerWall,
                 _workerCompletedTimestamp));

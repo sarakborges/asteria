@@ -52,15 +52,20 @@ public readonly record struct ChunkGenerationTaskKey
 /// </summary>
 public readonly record struct ChunkGenerationTaskPriority(
     int TicketLevel,
-    long HorizontalDistanceSquared) : IComparable<ChunkGenerationTaskPriority>
+    long HorizontalDistanceSquared,
+    long TotalDistanceSquared = 0) : IComparable<ChunkGenerationTaskPriority>
 {
     public int CompareTo(ChunkGenerationTaskPriority other)
     {
         var result = TicketLevel.CompareTo(other.TicketLevel);
+        if (result != 0)
+            return result;
+
+        result = HorizontalDistanceSquared.CompareTo(
+            other.HorizontalDistanceSquared);
         return result != 0
             ? result
-            : HorizontalDistanceSquared.CompareTo(
-                other.HorizontalDistanceSquared);
+            : TotalDistanceSquared.CompareTo(other.TotalDistanceSquared);
     }
 }
 

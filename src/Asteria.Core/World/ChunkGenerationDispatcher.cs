@@ -78,6 +78,16 @@ public sealed class ChunkGenerationDispatcher
         return true;
     }
 
+    /// <summary>
+    /// Returns an already-collected terminal outcome when the caller's per-frame
+    /// publication budget is exhausted. The coordinator remains the sole owner.
+    /// </summary>
+    public void RequeueOutcome(ChunkGenerationTaskOutcome outcome)
+    {
+        EnsureCoordinatorThread();
+        _outcomes.Enqueue(outcome);
+    }
+
     public long CompletedTaskCount => Interlocked.Read(ref _completedTaskCount);
 
     public long FailedTaskCount => Interlocked.Read(ref _failedTaskCount);
