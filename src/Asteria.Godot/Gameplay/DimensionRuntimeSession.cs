@@ -11,7 +11,6 @@ namespace Asteria.Client.Gameplay;
 public sealed record DimensionRuntimeSessionSettings(
     int RetentionMarginChunks,
     int MaxConcurrentWorldJobs,
-    int MaxMaterializationResultsPerFrame,
     int MaxPresentationPublicationsPerFrame,
     int MaxInteractiveTerrainMeshletsPerWorker,
     int MaxTerrainMeshletsPerWorker,
@@ -339,7 +338,6 @@ public sealed class DimensionRuntimeSession
                 WorldTicks,
                 new ChunkResidencySettings(
                     settings.MaxConcurrentWorldJobs,
-                    settings.MaxMaterializationResultsPerFrame,
                     settings.MaxChunkEvictionsPerFrame,
                     state.GameRules),
                 objects);
