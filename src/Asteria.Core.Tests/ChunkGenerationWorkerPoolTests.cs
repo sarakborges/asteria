@@ -37,6 +37,7 @@ public sealed class ChunkGenerationWorkerPoolTests
             () => pool.CompletedWorkCount == 1,
             TimeSpan.FromSeconds(5)));
         Assert.Equal(0, pool.ActiveWorkerCount);
+        Assert.Equal(0, pool.InFlightWorkCount);
     }
 
     [Fact]
@@ -59,11 +60,13 @@ public sealed class ChunkGenerationWorkerPoolTests
             2, _ => new WorkerResult(2, "queued"))));
         Assert.Equal(1, pool.PendingWorkCount);
         Assert.Equal(1, pool.ActiveWorkerCount);
+        Assert.Equal(2, pool.InFlightWorkCount);
 
         Assert.False(pool.TrySchedule(Request(
             3, _ => new WorkerResult(3, "rejected"))));
         Assert.Equal(1, pool.PendingWorkCount);
         Assert.Equal(1, pool.ActiveWorkerCount);
+        Assert.Equal(2, pool.InFlightWorkCount);
         Assert.Equal(1, pool.RejectedWorkCount);
 
         releaseWorker.Set();
@@ -78,6 +81,7 @@ public sealed class ChunkGenerationWorkerPoolTests
             TimeSpan.FromSeconds(5)));
         Assert.Equal(1UL, completions[0].DependencyId);
         Assert.Equal(2UL, completions[1].DependencyId);
+        Assert.Equal(0, pool.InFlightWorkCount);
     }
 
     [Fact]
@@ -164,6 +168,7 @@ public sealed class ChunkGenerationWorkerPoolTests
         Assert.Equal(2, pool.CompletedWorkCount);
         Assert.Equal(0, pool.ActiveWorkerCount);
         Assert.Equal(0, pool.PendingWorkCount);
+        Assert.Equal(0, pool.InFlightWorkCount);
         Assert.False(pool.TrySchedule(Request(3, _ => new WorkerResult(3, "late"))));
         Assert.Equal(1, pool.RejectedWorkCount);
     }
