@@ -151,11 +151,6 @@ public sealed class ChunkGenerationDispatcher
         RemoveFromActiveQueues(entry);
         entry.PendingWorkerOperations.Clear();
         entry.Cancellation.Cancel();
-        _outcomes.Enqueue(new ChunkGenerationTaskOutcome(
-            entry.Instance,
-            ChunkGenerationTaskOutcomeKind.Cancelled,
-            null,
-            null));
         Interlocked.Increment(ref _cancelledTaskCount);
         if (entry.InFlightOperations == 0)
             RetireEntry(entry);
@@ -489,6 +484,7 @@ public sealed class ChunkGenerationDispatcher
             ChunkGenerationTaskOutcomeKind.Completed,
             completionPayload,
             null));
+        entry.OutcomePublished = true;
         Interlocked.Increment(ref _completedTaskCount);
         RetireEntry(entry);
     }
@@ -506,6 +502,7 @@ public sealed class ChunkGenerationDispatcher
             ChunkGenerationTaskOutcomeKind.Failed,
             null,
             error));
+        entry.OutcomePublished = true;
         Interlocked.Increment(ref _failedTaskCount);
     }
 
@@ -525,6 +522,17 @@ public sealed class ChunkGenerationDispatcher
         if (entry.InFlightOperations != 0)
             throw new InvalidOperationException(
                 $"Cannot release a task with in-flight workers: {entry.Instance}");
+
+        if (!entry.OutcomePublished &&
+            entry.Lifecycle.State == ChunkGenerationTaskState.Cancelled)
+        {
+            _outcomes.Enqueue(new ChunkGenerationTaskOutcome(
+                entry.Instance,
+                ChunkGenerationTaskOutcomeKind.Cancelled,
+                null,
+                null));
+            entry.OutcomePublished = true;
+        }
 
         _allTasks.Remove(entry.Instance);
         if (entry.Task is IDisposable disposableTask)
@@ -567,5 +575,7 @@ public sealed class ChunkGenerationDispatcher
         public Queue<ChunkGenerationWorkerOperation> PendingWorkerOperations { get; } = [];
 
         public int InFlightOperations { get; set; }
+
+        public bool OutcomePublished { get; set; }
     }
 }
