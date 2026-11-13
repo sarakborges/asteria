@@ -465,21 +465,23 @@ jobs:
             # the candidate with the baseline's effective two-worker cap so
             # selection latency can be separated from third-worker contention.
             if [ "$version" = "candidate" ]; then
-              local controlled_dir="$root/results/candidate-worldworkers-2"
-              local controlled_output="$controlled_dir/$repetition.json"
-              mkdir -p "$controlled_dir"
-              if ! env DOTNET_TieredCompilation=0 \
-                ASTERIA_BENCH_MAX_WORLD_WORKERS=2 dotnet run \
-                --project "$project_root/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
-                --configuration Release --no-build -- \
-                --project-root "$project_root" \
-                --seed 181960897289965 --dimension asteria:overworld \
-                --route-steps 8 --radius 4 \
-                --output "$controlled_output" \
-                > "$log.route-workers-2" 2>&1; then
-                cat "$log.route-workers-2"
-                return 1
-              fi
+              for worker_cap in 2 4; do
+                local controlled_dir="$root/results/candidate-worldworkers-$worker_cap"
+                local controlled_output="$controlled_dir/$repetition.json"
+                mkdir -p "$controlled_dir"
+                if ! env DOTNET_TieredCompilation=0 \
+                  ASTERIA_BENCH_MAX_WORLD_WORKERS="$worker_cap" dotnet run \
+                  --project "$project_root/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
+                  --configuration Release --no-build -- \
+                  --project-root "$project_root" \
+                  --seed 181960897289965 --dimension asteria:overworld \
+                  --route-steps 8 --radius 4 \
+                  --output "$controlled_output" \
+                  > "$log.route-workers-$worker_cap" 2>&1; then
+                  cat "$log.route-workers-$worker_cap"
+                  return 1
+                fi
+              done
             fi
 
             python3 - "$output" "$route_output" <<'PY'
