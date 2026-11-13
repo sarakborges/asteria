@@ -129,9 +129,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private long _materializationTasksStarted;
     private long _streamingPressureFrames;
     private long _streamingPressureAvailableWorkerSlots;
-    private long _streamingPressureMaterializationSlots;
-    private long _streamingPressureStartLimit;
-    private long _streamingPressureTasksStarted;
+    private long _streamingPressureReservedWorkerSlots;
+    private long _streamingPressureTasksAdmitted;
+    private long _streamingPressureWorkerOperationsStarted;
     private ChunkCoord? _slowestChunk;
     private int _slowChunks;
     private int _restored;
@@ -553,31 +553,31 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     public void ObserveStreamingAdmission(
         bool pressured,
         int availableWorkerSlots,
-        int materializationSlots,
-        int materializationStartLimit,
-        int startedTasks)
+        int reservedWorkerSlots,
+        int tasksAdmitted,
+        int workerOperationsStarted)
     {
         if (!pressured)
             return;
 
+        var availableGenerationSlots = availableWorkerSlots - reservedWorkerSlots;
         if (availableWorkerSlots < 0 ||
-            materializationSlots < 0 ||
-            materializationSlots > availableWorkerSlots ||
-            materializationStartLimit < 0 ||
-            materializationStartLimit > materializationSlots ||
-            startedTasks < 0 ||
-            startedTasks > materializationStartLimit)
+            reservedWorkerSlots < 0 ||
+            availableGenerationSlots < 0 ||
+            tasksAdmitted < 0 ||
+            workerOperationsStarted < 0 ||
+            workerOperationsStarted > availableGenerationSlots)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(startedTasks),
-                "Streaming admission diagnostics received inconsistent worker limits.");
+                nameof(workerOperationsStarted),
+                "Streaming admission diagnostics received inconsistent worker capacity.");
         }
 
         _streamingPressureFrames++;
         _streamingPressureAvailableWorkerSlots += availableWorkerSlots;
-        _streamingPressureMaterializationSlots += materializationSlots;
-        _streamingPressureStartLimit += materializationStartLimit;
-        _streamingPressureTasksStarted += startedTasks;
+        _streamingPressureReservedWorkerSlots += reservedWorkerSlots;
+        _streamingPressureTasksAdmitted += tasksAdmitted;
+        _streamingPressureWorkerOperationsStarted += workerOperationsStarted;
     }
 
     public void ObserveFluidActivation(FluidActivationWorkReport report)
@@ -874,9 +874,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"generation_tasks_started={_materializationTasksStarted} " +
             $"streaming_pressure_frames={_streamingPressureFrames} " +
             $"streaming_pressure_available_worker_slots_total={_streamingPressureAvailableWorkerSlots} " +
-            $"streaming_pressure_materialization_slots_total={_streamingPressureMaterializationSlots} " +
-            $"streaming_pressure_start_limit_total={_streamingPressureStartLimit} " +
-            $"streaming_pressure_tasks_started={_streamingPressureTasksStarted} " +
+            $"streaming_pressure_reserved_worker_slots_total={_streamingPressureReservedWorkerSlots} " +
+            $"streaming_pressure_chunk_tasks_admitted={_streamingPressureTasksAdmitted} " +
+            $"streaming_pressure_worker_operations_started={_streamingPressureWorkerOperationsStarted} " +
             $"generation_dispatch_preparation_ms_total={Format1(_materializationDispatchPreparationMs)} " +
             $"generation_dispatch_preparation_ms_max={Format1(_materializationDispatchPreparationMaxMs)} " +
             $"generation_worker_queue_wait_ms_total={Format1(_materializationWorkerQueueWaitMs)} " +
