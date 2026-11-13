@@ -119,7 +119,9 @@ public readonly record struct ChunkResidencyActivation(
     double WorkerWallMilliseconds = 0d,
     double ResultCollectionWaitMilliseconds = 0d,
     double PendingQueueWaitMilliseconds = 0d,
-    double DispatchPreparationMilliseconds = 0d);
+    double DispatchPreparationMilliseconds = 0d,
+    int WorkerSliceCount = 0,
+    double CoordinatorResumeWaitMilliseconds = 0d);
 
 public readonly record struct FluidActivationWorkReport(
     int CompletedChunks,
@@ -342,6 +344,17 @@ public sealed class ChunkResidencyRuntime
             !work.WorkerTask.IsCompleted) +
         _chunkLightingReconciliationTasks.Values.Count(work =>
             !work.WorkerTask.IsCompleted);
+
+    public int GenerationWorkerCount => _generationWorkerPool.WorkerCount;
+
+    public int ActiveGenerationWorkerCount =>
+        _generationWorkerPool.ActiveWorkerCount;
+
+    public int PendingGenerationWorkerQueueCount =>
+        _generationWorkerPool.PendingWorkCount;
+
+    public int MaxTerrainMaterializationsInFlight =>
+        _settings.MaxTerrainMaterializationsInFlight;
 
     public int MaterializationJobCount =>
         _materializationTasks.Count;
@@ -775,7 +788,9 @@ public sealed class ChunkResidencyRuntime
             pendingQueueWaitMilliseconds: Stopwatch.GetElapsedTime(
                 work.PendingSinceTimestamp,
                 work.DispatchTimestamp).TotalMilliseconds,
-            dispatchPreparationMilliseconds: result.DispatchPreparationMilliseconds);
+            dispatchPreparationMilliseconds: result.DispatchPreparationMilliseconds,
+            workerSliceCount: result.WorkerSliceCount,
+            coordinatorResumeWaitMilliseconds: result.CoordinatorResumeWaitMilliseconds);
         var activatedTimestamp = Stopwatch.GetTimestamp();
         activations.Add(activation with
         {
@@ -1200,7 +1215,9 @@ public sealed class ChunkResidencyRuntime
         double workerWallMilliseconds = 0d,
         double resultCollectionWaitMilliseconds = 0d,
         double pendingQueueWaitMilliseconds = 0d,
-        double dispatchPreparationMilliseconds = 0d)
+        double dispatchPreparationMilliseconds = 0d,
+        int workerSliceCount = 0,
+        double coordinatorResumeWaitMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
         _blockPhysics.RequestChunkReconciliation(coord);
@@ -1217,7 +1234,9 @@ public sealed class ChunkResidencyRuntime
             workerWallMilliseconds,
             resultCollectionWaitMilliseconds,
             pendingQueueWaitMilliseconds,
-            dispatchPreparationMilliseconds);
+            dispatchPreparationMilliseconds,
+            workerSliceCount,
+            coordinatorResumeWaitMilliseconds);
     }
 
     private ChunkGenerationTaskPriority GenerationPriority(ChunkCoord coord)
