@@ -953,16 +953,10 @@ public sealed class ChunkResidencyRuntime
         var restored = 0;
         var maximumTaskStarts = Math.Min(
             _settings.MaxDispatchesPerFrame, maximumNewTasks);
-        // Keep one slot available for arrival reconciliation whenever it is
-        // queued or running. This prevents continuous generation dispatch from
-        // starving seam convergence on a saturated worker pool.
-        var materializationLimit =
-            _pendingDirectionalFaceReconciliations.Count > 0 ||
-            _directionalFaceReconciliationTasks.Count > 0 ||
-            _pendingChunkLightingReconciliations.Count > 0 ||
-            _chunkLightingReconciliationTasks.Count > 0
-                ? Math.Max(0, _settings.MaxTerrainMaterializationsInFlight - 1)
-                : _settings.MaxTerrainMaterializationsInFlight;
+        // Terrain admission is independent of physical worker count. Keep one
+        // additional bounded task slot available for arrival reconciliation;
+        // worker threads remain capped by MaxConcurrentWorkers.
+        var materializationLimit = _settings.MaxTerrainMaterializationsInFlight;
 
         // Archived restores do not consume a generation worker. The caller may
         // cap new materialization starts when downstream work is pressured;
@@ -1295,7 +1289,7 @@ public sealed class ChunkResidencyRuntime
             _materializationTasks.Count +
                 _directionalFaceReconciliationTasks.Count +
                 _chunkLightingReconciliationTasks.Count >=
-                _settings.MaxTerrainMaterializationsInFlight)
+                _settings.MaxTerrainMaterializationsInFlight + 1)
             return false;
 
         if (!_pendingChunkLightingReconciliations.TryDequeue(out var coord))
@@ -1361,7 +1355,7 @@ public sealed class ChunkResidencyRuntime
             _materializationTasks.Count +
                 _directionalFaceReconciliationTasks.Count +
                 _chunkLightingReconciliationTasks.Count >=
-                _settings.MaxTerrainMaterializationsInFlight)
+                _settings.MaxTerrainMaterializationsInFlight + 1)
             return false;
 
         if (!_pendingDirectionalFaceReconciliations.TryDequeue(out var coord))
