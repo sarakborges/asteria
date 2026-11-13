@@ -9,52 +9,20 @@ public sealed class ChunkResidencySettings
         int maxConcurrentWorkers,
         int maxResultsPerFrame,
         int maxEvictionsPerFrame,
-        WorldGameRules gameRules,
-        int? maxGenerationCompletionsPerFrame = null,
-        int? maxGenerationTaskAdvancesPerFrame = null)
+        WorldGameRules gameRules)
     {
         if (maxConcurrentWorkers <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxConcurrentWorkers));
-
         if (maxResultsPerFrame <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxResultsPerFrame));
-        }
-
+            throw new ArgumentOutOfRangeException(nameof(maxResultsPerFrame));
         if (maxEvictionsPerFrame <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxEvictionsPerFrame));
-        }
+            throw new ArgumentOutOfRangeException(nameof(maxEvictionsPerFrame));
 
         GameRules = gameRules ??
             throw new ArgumentNullException(nameof(gameRules));
         MaxConcurrentWorkers = maxConcurrentWorkers;
-        MaxResultsPerFrame =
-            maxResultsPerFrame;
-        MaxEvictionsPerFrame =
-            maxEvictionsPerFrame;
-
-        var defaultGenerationBudget = DefaultGenerationBudget(maxConcurrentWorkers);
-        MaxGenerationCompletionsPerFrame =
-            ValidateGenerationBudget(
-                maxGenerationCompletionsPerFrame ?? defaultGenerationBudget,
-                nameof(maxGenerationCompletionsPerFrame));
-        MaxGenerationTaskAdvancesPerFrame =
-            ValidateGenerationBudget(
-                maxGenerationTaskAdvancesPerFrame ?? defaultGenerationBudget,
-                nameof(maxGenerationTaskAdvancesPerFrame));
-    }
-
-    private static int DefaultGenerationBudget(int workerCount) =>
-        (int)Math.Min(int.MaxValue, Math.Max(16L, (long)workerCount * 8L));
-
-    private static int ValidateGenerationBudget(int value, string parameterName)
-    {
-        if (value <= 0)
-            throw new ArgumentOutOfRangeException(parameterName);
-        return value;
+        MaxResultsPerFrame = maxResultsPerFrame;
+        MaxEvictionsPerFrame = maxEvictionsPerFrame;
     }
 
     /// <summary>
@@ -65,18 +33,6 @@ public sealed class ChunkResidencySettings
     public int MaxResultsPerFrame { get; }
 
     public int MaxEvictionsPerFrame { get; }
-
-    /// <summary>
-    /// Maximum worker completion messages consumed by one coordinator pump.
-    /// This is independent of the count of completed chunks published per frame.
-    /// </summary>
-    public int MaxGenerationCompletionsPerFrame { get; }
-
-    /// <summary>
-    /// Maximum short continuation/state-advance operations in one coordinator pump.
-    /// This is independent of new section admissions per frame.
-    /// </summary>
-    public int MaxGenerationTaskAdvancesPerFrame { get; }
 
     public WorldGameRules GameRules { get; }
 }
@@ -522,10 +478,8 @@ public sealed class ChunkResidencyRuntime
             return ChunkResidencyUpdate.Empty;
 
         var report = _generationDispatcher.Pump(
-            maximumCompletions: _settings.MaxGenerationCompletionsPerFrame,
-            maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
-            maximumWorkerStarts: Math.Min(
-                maximumWorkerStarts, AvailableGenerationWorkerStarts));
+            budget,
+            Math.Min(maximumWorkerStarts, AvailableGenerationWorkerStarts));
 
         var activations = new List<ChunkResidencyActivation>();
         var failures = new List<ChunkMaterializationFailure>();
@@ -1077,9 +1031,8 @@ public sealed class ChunkResidencyRuntime
 
         UpdateGenerationTaskPriorities();
         var dispatchReport = _generationDispatcher.Pump(
-            maximumCompletions: 0,
-            maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
-            maximumWorkerStarts: Math.Min(
+            budget,
+            Math.Min(
                 maximumGenerationWorkerStarts, AvailableGenerationWorkerStarts));
 
         // Reconciliation remains on its detached-snapshot lane for now. It may
