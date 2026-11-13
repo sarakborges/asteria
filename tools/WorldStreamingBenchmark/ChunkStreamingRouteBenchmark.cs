@@ -128,7 +128,7 @@ internal static class ChunkStreamingRouteBenchmark
         var maximumReadyGenerationTasks = 0;
         var maximumPendingGenerationWorkerOperations = 0;
         var maximumPendingGenerationCompletions = 0;
-        var admissionSaturatedIdleWorkerFrames = 0;
+        var framesWithGenerationBacklogAndIdleWorkers = 0;
         var maximumDesired = 0;
         var maximumRetained = 0;
         var maximumResident = 0;
@@ -257,14 +257,12 @@ internal static class ChunkStreamingRouteBenchmark
                 pendingTerrainPublications: 0);
             if (pressure.IsPressured)
                 pressuredFrames++;
-            var maximumNewTasks = pressure.IsPressured
-                ? Math.Min(availableSlots, 2)
-                : availableSlots;
             var jobsBeforeDispatch = residency.MaterializationJobCount;
             var dispatched = residency.DispatchMaterializationTasks(
                 budget,
                 presented,
-                maximumNewTasks);
+                maximumGenerationWorkerStarts: availableSlots,
+                maximumWorldWorkerStarts: availableSlots);
             totalStartedTasks += Math.Max(
                 0, residency.MaterializationJobCount - jobsBeforeDispatch);
             AccumulateUpdate(
@@ -534,7 +532,7 @@ internal static class ChunkStreamingRouteBenchmark
                 (pendingGenerationWorkerOperations > 0 ||
                  readyGenerationTasks > 0))
             {
-                admissionSaturatedIdleWorkerFrames++;
+                framesWithGenerationBacklogAndIdleWorkers++;
             }
             maximumDesired = Math.Max(maximumDesired, residency.DesiredCount);
             maximumRetained = Math.Max(maximumRetained, residency.RetainedCount);
@@ -654,7 +652,7 @@ internal static class ChunkStreamingRouteBenchmark
             MaximumInterSliceWaitMillisecondsPerChunk =
                 maximumInterSliceWaitMillisecondsPerChunk,
             FramesWithGenerationBacklogAndIdleWorkers =
-                admissionSaturatedIdleWorkerFrames,
+                framesWithGenerationBacklogAndIdleWorkers,
             FramesWithPlayerLocalGaps = localGapFrames,
             PlayerLocalMissingChunkFrames = localMissingChunkFrames,
             MaximumPlayerLocalMissingChunks = maximumLocalMissingChunks,
