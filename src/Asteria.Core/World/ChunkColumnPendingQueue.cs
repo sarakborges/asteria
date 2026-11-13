@@ -311,7 +311,10 @@ internal sealed class ChunkColumnPendingQueue
         return new ChunkGenerationTaskPriority(
             priority.StreamingBand,
             priority.HorizontalDistanceSquared,
-            priority.TotalDistanceSquared);
+            priority.TotalDistanceSquared,
+            priority.Y,
+            priority.Z,
+            priority.X);
     }
 
     private ChunkStreamingPriority StreamingPriority(ChunkCoord coord) =>
