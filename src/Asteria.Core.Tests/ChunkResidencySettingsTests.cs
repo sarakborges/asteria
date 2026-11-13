@@ -37,6 +37,32 @@ public sealed class ChunkResidencySettingsTests
     }
 
     [Fact]
+    public void TerrainAdmissionCanExceedThePhysicalWorkerPool()
+    {
+        var settings = CreateSettings(
+            maxMaterializationsInFlight: 6,
+            maxDispatchesPerFrame: 6,
+            maxResultsPerFrame: 8,
+            maxConcurrentWorkers: 3);
+
+        Assert.Equal(6, settings.MaxTerrainMaterializationsInFlight);
+        Assert.Equal(3, settings.MaxConcurrentWorkers);
+        Assert.Equal(3, settings.MaxMaterializationsInFlight);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void NonPositiveWorkerCountsAreRejected(int workers)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => CreateSettings(
+            maxMaterializationsInFlight: 1,
+            maxDispatchesPerFrame: 1,
+            maxResultsPerFrame: 1,
+            maxConcurrentWorkers: workers));
+    }
+
+    [Fact]
     public void GenerationContinuationBudgetsDefaultToAtLeastSixteen()
     {
         var settings = CreateSettings(
