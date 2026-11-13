@@ -24,9 +24,12 @@ public sealed class BiomeWorldGenerator :
     private readonly SurfaceChunkMaterializer _materializer;
     private readonly SurfaceStructureField _surfaceStructures;
     private readonly VolumeBiomeField _volumeBiomes;
+    private readonly VolumeStructureField _volumeStructures;
 
-    // Exposes the authoritative density field to engine-agnostic diagnostics.
+    // Exposes authoritative worldgen fields to engine-agnostic diagnostics/tests.
     internal SurfaceTerrainField Terrain => _terrain;
+
+    internal VolumeStructureField VolumeStructures => _volumeStructures;
 
     public BiomeWorldGenerator(
         ulong seed,
@@ -235,7 +238,7 @@ public sealed class BiomeWorldGenerator :
                 fluids: fluids,
                 layers: layers,
                 objects: objects);
-        var volumeStructures = new VolumeStructureField(
+        _volumeStructures = new VolumeStructureField(
             seed, volumeDefinitions, structures, blocks,
             _terrain, _volumeBiomes, materials,
             enabled: generation.SpawnStructures &&
@@ -263,7 +266,7 @@ public sealed class BiomeWorldGenerator :
                     ? _volumeBiomes : null,
                 _voidSpawnPlatform,
                 caveSpikes,
-                volumeStructures,
+                _volumeStructures,
                 veins);
         Tints =
             new BiomeTintField(
