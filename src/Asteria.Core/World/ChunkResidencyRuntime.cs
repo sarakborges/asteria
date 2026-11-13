@@ -10,7 +10,6 @@ public sealed class ChunkResidencySettings
         int maxResultsPerFrame,
         int maxEvictionsPerFrame,
         WorldGameRules gameRules,
-        int? maxConcurrentWorkers = null,
         int? maxGenerationCompletionsPerFrame = null,
         int? maxGenerationTaskAdvancesPerFrame = null)
     {
@@ -276,9 +275,7 @@ public sealed class ChunkResidencyRuntime
             settings ??
             throw new ArgumentNullException(nameof(settings));
         var generationWorkerCount = _settings.MaxConcurrentWorkers;
-        var generationPendingCapacity = Math.Max(
-            _settings.MaxDispatchesPerFrame,
-            generationWorkerCount);
+        var generationPendingCapacity = generationWorkerCount;
         _generationCompletionMailbox = new ChunkGenerationCompletionMailbox(
             checked(generationPendingCapacity + generationWorkerCount));
         _generationWorkerPool = new ChunkGenerationWorkerPool(
@@ -697,7 +694,7 @@ public sealed class ChunkResidencyRuntime
 
         return FinishMaterializationCollection(
             activations, failures, stageTimings, processed,
-            cancelledTasks, presented);
+            cancelledTasks, report.WorkerOperationsStarted, presented);
     }
 
     private void CollectMaterializationOutcome(
@@ -898,7 +895,8 @@ public sealed class ChunkResidencyRuntime
         if (processed > 0 || activations.Count > 0)
             SyncResidentState(presented);
         if (activations.Count == 0 && failures.Count == 0 &&
-            stageTimings.Count == 0 && cancelledTasks == 0)
+            stageTimings.Count == 0 && cancelledTasks == 0 &&
+            workerOperationsStarted == 0)
             return ChunkResidencyUpdate.Empty;
 
         return new ChunkResidencyUpdate(
@@ -1084,7 +1082,8 @@ public sealed class ChunkResidencyRuntime
             budget, failures,
             hasWorkerAdmission: remainingWorldWorkerStarts > 0);
 
-        if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
+        if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0 &&
+            dispatchReport.WorkerOperationsStarted == 0)
             return ChunkResidencyUpdate.Empty;
         return new ChunkResidencyUpdate(
             activations,
@@ -1264,11 +1263,7 @@ public sealed class ChunkResidencyRuntime
         List<ChunkMaterializationFailure> failures)
     {
         if (_chunkLightingReconciliationTasks.Count > 0 ||
-            _pendingChunkLightingReconciliations.Count == 0 ||
-            _materializationTasks.Count +
-                _directionalFaceReconciliationTasks.Count +
-                _chunkLightingReconciliationTasks.Count >=
-                _settings.MaxTerrainMaterializationsInFlight + 1)
+            _pendingChunkLightingReconciliations.Count == 0)
             return false;
 
         if (!_pendingChunkLightingReconciliations.TryDequeue(out var coord))
@@ -1330,11 +1325,7 @@ public sealed class ChunkResidencyRuntime
         var updater = _directionalFacePaletteUpdater;
         if (updater is null ||
             _directionalFaceReconciliationTasks.Count > 0 ||
-            _pendingDirectionalFaceReconciliations.Count == 0 ||
-            _materializationTasks.Count +
-                _directionalFaceReconciliationTasks.Count +
-                _chunkLightingReconciliationTasks.Count >=
-                _settings.MaxTerrainMaterializationsInFlight + 1)
+            _pendingDirectionalFaceReconciliations.Count == 0)
             return false;
 
         if (!_pendingDirectionalFaceReconciliations.TryDequeue(out var coord))
