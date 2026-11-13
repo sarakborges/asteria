@@ -516,11 +516,11 @@ internal static class ChunkStreamingRouteBenchmark
             throw new TimeoutException(
                 $"Headless streaming route did not drain after {frame} frames " +
                 $"(pending={residency.PendingCount}, jobs={residency.MaterializationJobCount}, " +
-                $"ready={residency.ReadyGenerationTaskCount}, " +
-                $"waiting={residency.SuspendedMaterializationCount}, " +
-                $"workerOps={residency.PendingGenerationWorkerOperations}, " +
+                $"ready={ReadOptionalRuntimeCounter(residency, "ReadyGenerationTaskCount")}, " +
+                $"waiting={ReadOptionalRuntimeCounter(residency, "SuspendedMaterializationCount")}, " +
+                $"workerOps={ReadOptionalRuntimeCounter(residency, "PendingGenerationWorkerOperations")}, " +
                 $"activeWorkers={residency.ActiveWorkerCount}, " +
-                $"completions={residency.PendingGenerationCompletions}, " +
+                $"completions={ReadOptionalRuntimeCounter(residency, "PendingGenerationCompletions")}, " +
                 $"presentation={residency.PresentationPendingCount}, " +
                 $"physics={physicsUpdates.Count}, fluids={lastFluidPending}).");
         }
@@ -1048,6 +1048,16 @@ internal static class ChunkStreamingRouteBenchmark
                 combined, blockDigest, fluidDigest, objectDigest),
             blockDiagnostics);
     }
+
+    // The terrain A/B workflow also compiles this benchmark against an older
+    // baseline revision. Read candidate-only diagnostics reflectively so the
+    // same benchmark source remains buildable against both revisions.
+    private static int ReadOptionalRuntimeCounter(
+        object source,
+        string propertyName) =>
+        source.GetType().GetProperty(propertyName)?.GetValue(source) is int value
+            ? value
+            : 0;
 
     private static ulong HashNumber(ulong current, ulong value) =>
         unchecked((current ^ value) * 1099511628211UL);
