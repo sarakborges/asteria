@@ -41,11 +41,12 @@ public sealed class ChunkResidencySettingsTests
     {
         var settings = CreateSettings(
             maxMaterializationsInFlight: 6,
-            maxDispatchesPerFrame: 6,
+            maxDispatchesPerFrame: 3,
             maxResultsPerFrame: 8,
             maxConcurrentWorkers: 3);
 
         Assert.Equal(6, settings.MaxTerrainMaterializationsInFlight);
+        Assert.Equal(3, settings.MaxDispatchesPerFrame);
         Assert.Equal(3, settings.MaxConcurrentWorkers);
         Assert.Equal(3, settings.MaxMaterializationsInFlight);
     }
