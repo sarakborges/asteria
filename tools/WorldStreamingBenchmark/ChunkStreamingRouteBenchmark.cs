@@ -33,16 +33,12 @@ internal static class ChunkStreamingRouteBenchmark
 
         var maximumWorldWorkers = ReadMaximumWorldWorkers(
             Math.Clamp(Environment.ProcessorCount - 1, 2, 8));
-        var hasControlledWorkerCap = !string.IsNullOrWhiteSpace(
-            Environment.GetEnvironmentVariable("ASTERIA_BENCH_MAX_WORLD_WORKERS"));
-        // Normal route runs retain the production terrain-admission cap.
-        // A controlled worker cap defaults admission to the same value unless
-        // ASTERIA_BENCH_MAX_TERRAIN_ADMISSION independently overrides it.
-        var defaultTerrainAdmissionLimit = hasControlledWorkerCap
-            ? maximumWorldWorkers
-            : Math.Clamp(Environment.ProcessorCount - 2, 1, 6);
+        // Keep the production dispatch budget fixed while independently
+        // varying logical terrain admission and the physical worker pool.
+        var productionTerrainDispatchLimit =
+            Math.Clamp(Environment.ProcessorCount - 2, 1, 6);
         var terrainAdmissionLimit = ReadTerrainAdmissionLimit(
-            defaultTerrainAdmissionLimit);
+            productionTerrainDispatchLimit);
         var retentionRadius = horizontalRadius + RetentionMarginChunks;
         var rules = new WorldGameRules();
         var world = new VoxelWorld();
@@ -70,7 +66,10 @@ internal static class ChunkStreamingRouteBenchmark
             physicsUpdates,
             droppedBlocks);
         var residencySettings = CreateResidencySettings(
-            terrainAdmissionLimit, maximumWorldWorkers, rules);
+            terrainAdmissionLimit,
+            productionTerrainDispatchLimit,
+            maximumWorldWorkers,
+            rules);
         var residency = new ChunkResidencyRuntime(
             world,
             blocks,
@@ -633,7 +632,8 @@ internal static class ChunkStreamingRouteBenchmark
             FramesPerChunk,
             HorizontalRadius = horizontalRadius,
             RetentionRadius = retentionRadius,
-            MaterializationWorkers = terrainAdmissionLimit,
+            MaterializationWorkers = ReadOptionalRuntimeCounter(
+                residency, "GenerationWorkerCount", maximumWorldWorkers),
             TerrainAdmissionLimit = ReadOptionalRuntimeCounter(
                 residency, "MaxTerrainMaterializationsInFlight",
                 terrainAdmissionLimit),
@@ -808,7 +808,8 @@ internal static class ChunkStreamingRouteBenchmark
     }
 
     private static ChunkResidencySettings CreateResidencySettings(
-        int terrainWorkers,
+        int terrainAdmissionLimit,
+        int dispatchLimit,
         int totalWorkers,
         WorldGameRules rules)
     {
@@ -826,8 +827,8 @@ internal static class ChunkStreamingRouteBenchmark
         if (sharedWorkerLimitConstructor is null)
         {
             return new ChunkResidencySettings(
-                maxMaterializationsInFlight: terrainWorkers,
-                maxDispatchesPerFrame: totalWorkers,
+                maxMaterializationsInFlight: terrainAdmissionLimit,
+                maxDispatchesPerFrame: dispatchLimit,
                 maxResultsPerFrame: 8,
                 maxEvictionsPerFrame: 2,
                 gameRules: rules);
@@ -835,8 +836,8 @@ internal static class ChunkStreamingRouteBenchmark
 
         return (ChunkResidencySettings)sharedWorkerLimitConstructor.Invoke(
         [
-            terrainWorkers,
-            totalWorkers,
+            terrainAdmissionLimit,
+            dispatchLimit,
             8,
             2,
             rules,
