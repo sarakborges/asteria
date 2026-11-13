@@ -457,13 +457,25 @@ This is a long-running refactor. Preserve progress in Git after each coherent sl
 - [x] Detailed work breakdown committed as handoff.
 - [x] Reused the existing `ChunkColumnCoord(X,Z)` in `ChunkContentRevision.cs`; added stable ordering and explicit `ToSection(Y)` conversion.
 - [x] Added tests for column identity across section Y, section conversion and deterministic ordering.
-- [x] Full CI run `43362338139` passed: Release build, ReadyToRun, Core tests, Debug diagnostics, native Godot smoke, worldgen profiles/renders, terrain A/B and WebUI.
-- [ ] Define immutable typed step IDs, execution policy, scope and dependency envelopes.
+- [x] Added immutable typed step IDs, execution policies, column/section work scopes and direct dependency envelopes.
+- [x] Added read/write envelopes and transitive dependency accumulation by composing/unioning spatial offsets.
+- [x] Added graph validation for duplicate IDs, missing prerequisites, cycles and stable topological ordering.
+- [x] Added deterministic `ChunkGenerationTaskQueue` keyed by (column, target step), ordered by ticket level and horizontal distance.
+- [x] Queue supports deduplication, removal, stable FIFO ties, dynamic priority update and preservation of original enqueue timestamp/sequence.
+- [x] CI run `43375875107` passed for the corrected graph model: Release build, ReadyToRun, Core tests, Debug diagnostics, native Godot smoke, worldgen profiles/renders, terrain A/B and WebUI.
+- [x] CI run `43376925023` passed for the queue: Release build, ReadyToRun, Core tests, Debug diagnostics, native Godot smoke, worldgen profiles/renders, terrain A/B and WebUI.
+- [ ] Add continuation-aware task state and wait registration.
+- [ ] Add serial per-session dispatcher and completion mailbox.
+- [ ] Add bounded shared worker pool and step execution.
 - [ ] No production scheduling path has been switched to the new dispatcher yet.
 
 **Recent commits:**
 - Handoff: `c97184967023ec38c75d40f52a771fb7bd433a42`
 - Column identity first attempt: `39cc3646039e30d2110d68937989515ec8267358` (superseded by the corrective commit below; retained in history).
 - Reuse existing column identity + tests: `6b7a97415c1025d014cc3f805bd06b4901f34fc3`
+- Handoff validation status: `0b09ad279942b6f3042720d6e12db2bc1482d7e7`
+- Immutable step/dependency graph: `b4f6f4cbcdb4ebd0ea760194131fbf324a32d83a`
+- Envelope boundary test correction: `03554f0093c01b28948abadb6d36e285414ed7e9`
+- Reprioritizable column task queue: `26f687037bde7179713dbcb75a7f096482c09a68`
 
-**Next action:** add only the immutable Core step/dependency primitives and focused tests. Do not yet add a runnable dispatcher, workers, task lifecycle or production integration.
+**Next action:** define the serial-coordinator-owned task lifecycle: ready/running/waiting/completed/cancelled/failed states, dependency wait tokens, exactly-once resume and stale continuation rejection. Do not yet wire it into `ChunkResidencyRuntime` or `Main.cs`.
