@@ -334,13 +334,6 @@ public sealed class ChunkResidencyRuntime
     /// Stops admitting new chunks. Bounded in-flight materializations are
     /// drained by the owning session and their private results are discarded.
     /// </summary>
-    /// <summary>
-    /// Starts retirement of the session-owned generation worker pool.
-    /// Completion is observed through IsQuiescent while the owning session
-    /// continues collecting task outcomes.
-    /// </summary>
-    public void Dispose() => BeginRetirement();
-
     public void BeginRetirement()
     {
         if (!_acceptingMaterializationWork)

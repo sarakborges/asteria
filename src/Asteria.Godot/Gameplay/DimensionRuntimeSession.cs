@@ -787,7 +787,7 @@ public sealed class DimensionRuntimeSession
 
     public bool IsQuiescent =>
         (_initialPositionResolution is null || _initialPositionResolution.IsCompleted) &&
-        Residency.MaterializingCount == 0 &&
+        Residency.IsQuiescent &&
         Residency.DirectionalFaceReconciliationCount == 0 &&
         Residency.ChunkLightingReconciliationCount == 0 &&
         !Streaming.IsSelectionRunning &&

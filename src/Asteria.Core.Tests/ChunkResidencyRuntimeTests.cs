@@ -1061,7 +1061,8 @@ public sealed class ChunkResidencyRuntimeTests
                     GenerousBudget(), Array.Empty<ChunkCoord>());
                 if (update.MaterializationStageTimings.Count == 0 &&
                     update.Activations.Count == 0 &&
-                    update.Failures.Count == 0)
+                    update.Failures.Count == 0 &&
+                    update.CancelledTasks == 0)
                     return false;
 
                 observed = update;
