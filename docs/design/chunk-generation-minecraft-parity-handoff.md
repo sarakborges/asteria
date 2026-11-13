@@ -1,6 +1,6 @@
 # Handoff: Minecraft-style chunk-column generation pipeline
 
-**Status:** implementation plan accepted; first implementation slice in progress  
+**Status:** foundational scheduler implemented; section-level materialization is being migrated and validated; full column orchestration is not implemented yet  
 **Repository:** sarakborges/asteria  
 **Working branch:** worldgen-perf-fix  
 **Pull request:** [#157 — perf(world): optimize worldgen and voxel rendering](https://github.com/sarakborges/asteria/pull/157)  
@@ -107,15 +107,25 @@ Asteria already has:
 - IChunkMaterializationJob.Advance();
 - a private SurfaceChunkMaterializer.MaterializationJob that retains state between advances.
 
-However, ChunkResidencyRuntime.ExecuteMaterialization currently loops over Advance() until the complete section is built, then initializes lighting, all inside one Task.Run. This makes each section's resumable state private to one occupied worker for its entire build. It does not give the dispatcher a chance to interleave other ready stages when a job yields.
+**Production-path change already committed:** the old ChunkResidencyRuntime.ExecuteMaterialization loop-to-completion was removed. A ChunkMaterializationGenerationTask now captures one IChunkMaterializationJob, submits exactly one Advance() call as a worker operation, waits through the completion mailbox, and resumes on the serial dispatcher. The private job is not accessed concurrently by the coordinator and worker. Stage timings are accumulated across slices; initial lighting is initialized on the final worker slice; the completed Chunk and metrics are returned as a terminal outcome. ChunkResidencyRuntime consumes that outcome on its owning thread, checks the streaming ticket/current residency, then performs InsertChunk and activation.
 
-Also, one Advance() is not guaranteed to be a small time slice. Some stages scan substantial parts of a section. The migration must make work units bounded enough for cooperative scheduling; merely moving the existing whole-stage call into a serial dispatcher would create a long single-thread bottleneck.
+This is **section-granular cooperative execution, not yet the final Minecraft column task**:
+
+- Each production task still targets one existing 3D ChunkCoord.
+- Its key is (X,Z,SectionY,TargetStep), so different Y sections in the same horizontal column no longer collide in the dispatcher.
+- There is not yet one column task that coordinates child sections, stages or their spatial futures.
+- ChunkGenerationPlan currently describes and validates stages/envelopes, but the runtime adapter still advances the existing materializer's internal stage machine rather than executing that plan directly.
+- A single IChunkMaterializationJob.Advance() may still be expensive. The adapter creates a scheduling boundary between existing stages; it does not yet subdivide every heavy stage into rows, candidate batches or other bounded micro-slices.
+
+The stage-size audit and further subdivision remain mandatory before claiming full cooperative parity.
 
 ### 3.3 Streaming priority is recomputed by scanning pending 3D chunks
 
-ChunkStreamingState currently stores _pending as a HashSet<ChunkCoord> and scans it to select the smallest current ChunkStreamingPriority. This gives deterministic tie-breaking, but it is not a priority queue that can efficiently reorder queued logical column tasks after ticket changes.
+ChunkStreamingState still stores incoming, not-yet-started residency requests in _pending as a HashSet<ChunkCoord> and scans it to select the smallest current ChunkStreamingPriority. That source queue is still 3D-section based and has not yet been replaced.
 
-The new column dispatcher must:
+Separately, the new ChunkGenerationTaskQueue / ChunkGenerationDispatcher own work **after a section has been admitted**. Their keys include X/Z, optional SectionY and target step; they support deterministic ordering, reprioritization and stable enqueue age. This is a real priority queue, but it is not yet the sole authoritative pending queue for all streaming requests. During migration there are two distinct admission layers, which must eventually be unified without losing streaming semantics.
+
+The final column dispatcher must:
 
 - deduplicate by logical task key;
 - use deterministic priority ordering and deterministic tie-breaks;
@@ -127,9 +137,9 @@ Do not simply wrap the existing HashSet scan in a new class and call it a priori
 
 ### 3.4 World jobs are started by independent pipeline owners
 
-src/Asteria.Godot/Main.cs currently coordinates several independently owned lanes (fluid simulation, terrain mesh, lighting and fluid mesh) and gates their starts with MaxConcurrentWorldJobs. Materialization starts are owned by ChunkResidencyRuntime. This is not the same abstraction as a single world-generation dispatcher plus a shared execution pool.
+src/Asteria.Godot/Main.cs still coordinates several independently owned lanes (fluid simulation, terrain mesh, lighting and fluid mesh) and gates their starts with MaxConcurrentWorldJobs. The new bounded dedicated worker pool is currently owned by each ChunkResidencyRuntime and is used by section materialization only. Arrival lighting/physics reconciliation still uses the old Task.Run compatibility lane; terrain/fluid mesh and simulation admission are not yet connected to this pool.
 
-The refactor should centralize **worker admission and continuation scheduling**, while allowing domain owners (lighting, fluid simulation, terrain meshing) to retain their authoritative state and narrow APIs. Do not turn Main into the scheduler implementation.
+This is an intermediate state, not the target shared world worker pool. The next migration must move eligible domain work to shared admission while preserving each domain's data ownership, dependency stamps, priority and integration boundary. Do not turn Main into the scheduler implementation.
 
 ### 3.5 Some horizontal data is already shared; preserve and extend it
 
@@ -346,7 +356,7 @@ Each item should normally be one small commit. If an item is too large, split it
 31. Move stage timing/diagnostic capture to the scheduler so each unit's queue wait, run duration and continuation wait can be measured.
 32. Keep a section private until all required materializer stages complete.
 33. Add equivalence tests comparing old and new materialization output for representative seeds and all stage boundaries.
-34. Retire the ExecuteMaterialization loop-to-completion design only after the new scheduler owns the lifecycle.
+34. [x] Retire the ExecuteMaterialization loop-to-completion design; the serial dispatcher now owns each production materialization task's lifecycle. Remaining work: subdivide expensive stages and finish column orchestration.
 
 ### Phase 7 — Column orchestration over vertical sections
 
@@ -452,30 +462,81 @@ This is a long-running refactor. Preserve progress in Git after each coherent sl
 
 ### Current execution status
 
-- [x] Correct Minecraft 26.3 execution model verified and recorded.
-- [x] Current Asteria pipeline and MineClone comparison inspected.
-- [x] Detailed work breakdown committed as handoff.
-- [x] Reused the existing `ChunkColumnCoord(X,Z)` in `ChunkContentRevision.cs`; added stable ordering and explicit `ToSection(Y)` conversion.
+**Implementation boundary:** the production materialization path now uses a serial continuation dispatcher and bounded shared worker pool. This is not yet a one-task-per-X/Z column pipeline. Production task identity remains one task per Asteria 16³ section, but the task key explicitly contains the horizontal column plus SectionY.
+
+#### Completed foundations and production migration
+
+- [x] Correct Minecraft 26.3 execution model verified: serial per-dimension coordination, parallel worker forks, ordered/main-thread integration; not one thread for all generation.
+- [x] Current Asteria pipeline and MineClone comparison inspected. MineClone's current work queue is not the Minecraft column/status model.
+- [x] Detailed work breakdown committed as this handoff.
+- [x] Reused the existing ChunkColumnCoord(X,Z) in ChunkContentRevision.cs; kept ChunkCoord(X,Y,Z) as authoritative section storage.
+- [x] Added stable ordering and explicit ToSection(Y) conversion.
 - [x] Added tests for column identity across section Y, section conversion and deterministic ordering.
 - [x] Added immutable typed step IDs, execution policies, column/section work scopes and direct dependency envelopes.
-- [x] Added read/write envelopes and transitive dependency accumulation by composing/unioning spatial offsets.
+- [x] Added read/write envelopes and transitive dependency accumulation.
 - [x] Added graph validation for duplicate IDs, missing prerequisites, cycles and stable topological ordering.
-- [x] Added deterministic `ChunkGenerationTaskQueue` keyed by (column, target step), ordered by ticket level and horizontal distance.
-- [x] Queue supports deduplication, removal, stable FIFO ties, dynamic priority update and preservation of original enqueue timestamp/sequence.
-- [x] CI run `43375875107` passed for the corrected graph model: Release build, ReadyToRun, Core tests, Debug diagnostics, native Godot smoke, worldgen profiles/renders, terrain A/B and WebUI.
-- [x] CI run `43376925023` passed for the queue: Release build, ReadyToRun, Core tests, Debug diagnostics, native Godot smoke, worldgen profiles/renders, terrain A/B and WebUI.
-- [ ] Add continuation-aware task state and wait registration.
-- [ ] Add serial per-session dispatcher and completion mailbox.
-- [ ] Add bounded shared worker pool and step execution.
-- [ ] No production scheduling path has been switched to the new dispatcher yet.
+- [x] Added deterministic ChunkGenerationTaskQueue with deduplication, removal, stable FIFO ties, dynamic priority update and preservation of enqueue age.
+- [x] Extended task identity to distinguish (X,Z,SectionY,Step) from column-scope (X,Z,Step).
+- [x] Added ChunkGenerationTaskLifecycle states, wait tokens, duplicate/stale dependency rejection, cooperative yield, cancellation and failure.
+- [x] Added bounded ChunkGenerationCompletionMailbox with reservation-before-dispatch, exactly-once publication and worker result/error payloads.
+- [x] Added a bounded per-session ChunkGenerationWorkerPool with dedicated worker threads, bounded pending queue, completion reservations, cancellation and draining shutdown.
+- [x] Added a serial ChunkGenerationDispatcher with bounded per-pump completion/advance/worker budgets, dynamic priority updates, Yield, wait/resume, cancellation, stale completion rejection, outcomes and deterministic task retirement.
+- [x] Added ChunkMaterializationGenerationTask adapter: exactly one existing IChunkMaterializationJob.Advance() per worker operation; accumulated stage timing and detached terminal Chunk output.
+- [x] Removed the old ExecuteMaterialization loop that advanced one job to completion inside one Task.Run.
+- [x] Wired production section materialization in ChunkResidencyRuntime through the dispatcher and worker pool; chunk insertion and activation still occur on the owning world thread after ticket validation.
+- [x] Added session retirement: cancel current generation tasks, close worker admission, collect late completions, discard cancelled results and include pool shutdown in DimensionRuntimeSession.IsQuiescent.
+- [x] Added terminal CancelledTasks reporting so a cancelled task is not mistaken for a successful chunk or silently lost.
+- [x] Added a regression fix so a result is never dequeued and discarded when the frame budget expires.
+- [x] Added diagnostic counters for ready tasks, waiting tasks, pending worker operations, active workers and pending completions.
+- [x] Updated residency test fixtures to retire and drain their worker pools at test completion.
 
-**Recent commits:**
-- Handoff: `c97184967023ec38c75d40f52a771fb7bd433a42`
-- Column identity first attempt: `39cc3646039e30d2110d68937989515ec8267358` (superseded by the corrective commit below; retained in history).
-- Reuse existing column identity + tests: `6b7a97415c1025d014cc3f805bd06b4901f34fc3`
-- Handoff validation status: `0b09ad279942b6f3042720d6e12db2bc1482d7e7`
-- Immutable step/dependency graph: `b4f6f4cbcdb4ebd0ea760194131fbf324a32d83a`
-- Envelope boundary test correction: `03554f0093c01b28948abadb6d36e285414ed7e9`
-- Reprioritizable column task queue: `26f687037bde7179713dbcb75a7f096482c09a68`
+#### Validation state (2026-11-13)
 
-**Next action:** define the serial-coordinator-owned task lifecycle: ready/running/waiting/completed/cancelled/failed states, dependency wait tokens, exactly-once resume and stale continuation rejection. Do not yet wire it into `ChunkResidencyRuntime` or `Main.cs`.
+- CI run 43315371273 passed before production runtime integration; it validated the column-key model and deterministic step queue.
+- CI run 43417536369 exposed five compile-time integration mismatches. These were corrected in commit cb8ca3241c96fe815cc15ae58f2bae106f787731.
+- CI run 43428753210 had Core tests pass at the f50dc78 revision, but its terrain A/B job timed out with one materialization job stranded. That run did not validate the later fixture cleanup or lost-outcome fix.
+- The terrain A/B source also compiles against a historical baseline commit. Candidate-only scheduler diagnostics initially broke baseline compilation; commit 8d584f87f95af13e1fb8767c9ef75a50e36d76a5 changes the benchmark to read these optional counters reflectively.
+- **Current head:** 8d584f87f95af13e1fb8767c9ef75a50e36d76a5.
+- **Current CI:** validate run 43429660331 and Windows build 43429653110 are in progress at the time of this handoff update. Do not treat the runtime migration as green until those jobs finish, the A/B benchmark completes, and its digest matches.
+
+#### Not yet implemented / still required
+
+- [ ] One logical ChunkColumnGenerationTask per X/Z and target status coordinating multiple SectionY child work items. Current SectionReady task remains section-scoped.
+- [ ] Connect ChunkGenerationPlan / step graph to production task progression. The typed plan is currently a validated model, not the runtime's executable step scheduler.
+- [ ] Audit every existing materializer stage's worst-case duration; subdivide expensive stages into deterministic bounded slices. One Advance() call can still be long.
+- [ ] Add explicit horizontal and vertical dependency futures/read-write envelopes to production tasks. Current adapter resumes its own incremental job; cross-section dependencies are not yet modeled as status futures.
+- [ ] Turn GravitySupport's nested support-section materialization into a first-class vertical continuation/dependency shared across in-flight section work.
+- [ ] Replace ChunkStreamingState's scanned HashSet<ChunkCoord> incoming pending queue with the unified reprioritizable column/task admission model.
+- [ ] Move arrival lighting/physics reconciliation off the compatibility Task.Run lane and into the shared worker admission mechanism.
+- [ ] Integrate LightingRuntime, FluidSimulationRuntime, TerrainMeshPipeline and FluidMeshPipeline with shared CPU admission without changing domain ownership or revision validation.
+- [ ] Remove or redesign Main.cs's fixed four-lane worker-start coordination only after all relevant owners use shared admission.
+- [ ] Add end-to-end equivalence tests across worker counts, section order, cold/warm caches and scheduling/completion order.
+- [ ] Rerun deterministic fixed-seed digests and compare the new cooperative runtime against the old baseline.
+- [ ] Complete cold/warm, bootstrap, route, high-elevation, cave/floating-volume and portal-arrival benchmarks with median/p95, local gap frames, allocations, active/waiting work and throughput.
+- [ ] Run full Core, Godot native smoke, Debug diagnostics, biome/worldgen rendering, terrain A/B and WebUI CI successfully on the same final head.
+- [ ] Keep PR #157 open; do not merge.
+
+**Recent implementation commits (chronological):**
+- Handoff and graph foundation: c97184967023ec38c75d40f52a771fb7bd433a42
+- Reused column identity and tests: 6b7a97415c1025d014cc3f805bd06b4901f34fc3
+- Typed step/dependency graph: b4f6f4cbcdb4ebd0ea760194131fbf324a32d83a
+- Deterministic reprioritizable task queue: 26f687037bde7179713dbcb75a7f096482c09a68
+- Bounded completion mailbox: 842c851ec77cd8d4a60f88269e3ec0489e4b9847
+- Completion result/error payload: 18236e3551c3c0db2d157e779fd618ddb8631df4
+- Bounded worker pool: 7c192f66ba9c75e8ab6f407f52217133d46a7494
+- Dedicated worker threads and pool tests: f40881ef1130084633d1744910e80cec410d358b
+- Cooperative task yield: 4ca3769de89db4f0f7362f8f3d65f47ff098fa5e
+- Cooperative task advance contract: 1b923eddd57b3e4dbbf68576da0790868efaaf36
+- Serial task dispatcher: b7bc78b07b1a421302c2aeb1431cf4d99e13de8d
+- Terminal task outcomes for world-loop publication: 2ee6d67318906117dfe810f2ef6685f719c60239
+- Materializer cooperative adapter: 4a48fa895788fe0a9c2eaffe87c254b753abc2ee
+- Adapter completion/child-coordinate correction: e0c924d5bf4f409b5667d346f7319e664544c1b2
+- SectionY task identity: 02754f31420bb7dcdb415eccb06f34924f73a8c6
+- Runtime materialization scheduler integration: 0ef73ee2bb21a3a8b2917610022df90eb2a9c6d0
+- Dispatcher/runtime contract and timing fixes: cb8ca3241c96fe815cc15ae58f2bae106f787731
+- Retirement, quiescence and cancellation test semantics: f50dc78db0c9930820a8be0f5cc48af5df9e2029
+- Fixture worker cleanup and reconciliation quiescence: 451a537245fbe65d7d74e9c390b7481c653206c9
+- Preserve outcomes when frame budget expires: f2612460a98a7349df0e05e1f5ef9f3630aa0128
+- Baseline-compatible scheduler diagnostics: 8d584f87f95af13e1fb8767c9ef75a50e36d76a5
+
+**Exact next action:** validate head 8d584f87f95af13e1fb8767c9ef75a50e36d76a5. If the terrain A/B route still stalls, inspect its new ready/waiting/workerOps/activeWorkers/completions counters and reproduce the exact state in a focused Core test. Do not advance to column orchestration or migrate other domain lanes until the production materialization path is stable and the benchmark reaches its drain condition.
