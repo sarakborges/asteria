@@ -25,10 +25,10 @@ public sealed class ChunkGenerationWorkerPoolTests
         Assert.True(pool.TrySchedule(Request(
             dependencyId: 1,
             _ => result)));
+        ChunkGenerationDependencyCompletion completion = default;
         Assert.True(SpinWait.SpinUntil(
-            () => mailbox.PendingCount == 1,
+            () => mailbox.TryDequeue(out completion),
             TimeSpan.FromSeconds(5)));
-        Assert.True(mailbox.TryDequeue(out var completion));
 
         Assert.Equal(1UL, completion.DependencyId);
         Assert.Same(result, completion.Result);
@@ -67,13 +67,17 @@ public sealed class ChunkGenerationWorkerPoolTests
         Assert.Equal(1, pool.RejectedWorkCount);
 
         releaseWorker.Set();
+        var completions = new List<ChunkGenerationDependencyCompletion>();
         Assert.True(SpinWait.SpinUntil(
-            () => mailbox.PendingCount == 2,
+            () =>
+            {
+                while (mailbox.TryDequeue(out var completion))
+                    completions.Add(completion);
+                return completions.Count == 2;
+            },
             TimeSpan.FromSeconds(5)));
-        Assert.True(mailbox.TryDequeue(out var first));
-        Assert.True(mailbox.TryDequeue(out var second));
-        Assert.Equal(1UL, first.DependencyId);
-        Assert.Equal(2UL, second.DependencyId);
+        Assert.Equal(1UL, completions[0].DependencyId);
+        Assert.Equal(2UL, completions[1].DependencyId);
     }
 
     [Fact]
@@ -84,16 +88,15 @@ public sealed class ChunkGenerationWorkerPoolTests
 
         Assert.True(pool.TrySchedule(Request(
             1, _ => new WorkerResult(1, "complete"))));
+        ChunkGenerationDependencyCompletion completion = default;
         Assert.True(SpinWait.SpinUntil(
-            () => mailbox.PendingCount == 1,
+            () => mailbox.TryDequeue(out completion),
             TimeSpan.FromSeconds(5)));
 
         // The worker queue has room, but the undrained completion owns the only
         // mailbox slot. The second operation must remain with the coordinator.
         Assert.False(pool.TrySchedule(Request(
-            2, _ => new WorkerResult(2, "wait for mailbox"))));
-
-        Assert.True(mailbox.TryDequeue(out var completion));
+            2, _ => new WorkerResult(2, "wait for mailbox")));
         Assert.Equal(1UL, completion.DependencyId);
         Assert.True(pool.TrySchedule(Request(
             2, _ => new WorkerResult(2, "retry"))));
@@ -108,10 +111,10 @@ public sealed class ChunkGenerationWorkerPoolTests
 
         Assert.True(pool.TrySchedule(Request(
             1, _ => throw error)));
+        ChunkGenerationDependencyCompletion completion = default;
         Assert.True(SpinWait.SpinUntil(
-            () => mailbox.PendingCount == 1,
+            () => mailbox.TryDequeue(out completion),
             TimeSpan.FromSeconds(5)));
-        Assert.True(mailbox.TryDequeue(out var completion));
 
         Assert.Same(error, completion.Error);
         Assert.Null(completion.Result);
@@ -135,10 +138,10 @@ public sealed class ChunkGenerationWorkerPoolTests
                 return new WorkerResult(1, "not reached");
             },
             cancellation.Token)));
+        ChunkGenerationDependencyCompletion completion = default;
         Assert.True(SpinWait.SpinUntil(
-            () => mailbox.PendingCount == 1,
+            () => mailbox.TryDequeue(out completion),
             TimeSpan.FromSeconds(5)));
-        Assert.True(mailbox.TryDequeue(out var completion));
 
         Assert.IsType<OperationCanceledException>(completion.Error);
         Assert.Null(completion.Result);

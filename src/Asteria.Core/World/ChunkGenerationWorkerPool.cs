@@ -1,4 +1,4 @@
-using System.Threading.Channels;
+using System.Collections.Concurrent;
 
 namespace Asteria.Core.World;
 
@@ -29,18 +29,22 @@ public readonly record struct ChunkGenerationWorkerRequest(
 
 /// <summary>
 /// Bounded shared CPU pool for independent world-generation work. A fixed
-/// number of asynchronous worker loops consume a bounded channel; each
-/// operation runs one CPU slice and returns instead of waiting on dependencies.
-/// Completion capacity is reserved before the operation is queued.
+/// number of dedicated workers consume a bounded queue; each operation runs
+/// one CPU slice and returns instead of waiting on dependencies. Workers block
+/// only while idle waiting for another ready item. Completion capacity is
+/// reserved before an operation is admitted.
 /// </summary>
 public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 {
-    private readonly Channel<WorkItem> _channel;
+    private readonly BlockingCollection<WorkItem> _queue;
     private readonly ChunkGenerationCompletionMailbox _completionMailbox;
-    private readonly Task[] _workers;
+    private readonly Thread[] _workers;
+    private readonly TaskCompletionSource _workersExited =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _disposed;
     private int _pendingWorkCount;
     private int _activeWorkerCount;
+    private int _exitedWorkerCount;
     private long _completedWorkCount;
     private long _failedWorkCount;
     private long _rejectedWorkCount;
@@ -59,18 +63,21 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
             throw new ArgumentNullException(nameof(completionMailbox));
         WorkerCount = workerCount;
         PendingCapacity = pendingCapacity;
-        _channel = Channel.CreateBounded<WorkItem>(
-            new BoundedChannelOptions(pendingCapacity)
-            {
-                FullMode = BoundedChannelFullMode.Wait,
-                SingleReader = workerCount == 1,
-                SingleWriter = false,
-                AllowSynchronousContinuations = false,
-            });
+        _queue = new BlockingCollection<WorkItem>(
+            new ConcurrentQueue<WorkItem>(),
+            pendingCapacity);
 
-        _workers = new Task[workerCount];
+        _workers = new Thread[workerCount];
         for (var index = 0; index < workerCount; index++)
-            _workers[index] = Task.Run(ConsumeAsync);
+        {
+            var worker = new Thread(Consume)
+            {
+                IsBackground = true,
+                Name = $"Asteria worldgen worker {index + 1}",
+            };
+            _workers[index] = worker;
+            worker.Start();
+        }
     }
 
     public int WorkerCount { get; }
@@ -108,10 +115,18 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
         }
 
         var item = new WorkItem(request, reservation!);
-        // Publish the count before TryWrite: a worker may consume immediately.
+        // Publish the count before TryAdd: a worker may consume immediately.
         Interlocked.Increment(ref _pendingWorkCount);
-        if (_channel.Writer.TryWrite(item))
-            return true;
+        try
+        {
+            if (_queue.TryAdd(item))
+                return true;
+        }
+        catch (InvalidOperationException) when (
+            Volatile.Read(ref _disposed) != 0)
+        {
+            // CompleteAdding raced admission. The reservation is returned below.
+        }
 
         Interlocked.Decrement(ref _pendingWorkCount);
         reservation!.Dispose();
@@ -123,62 +138,73 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
     /// Completes admission and asynchronously drains all queued/in-flight
     /// operations. No new operation is accepted after disposal starts.
     /// </summary>
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            return;
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            _queue.CompleteAdding();
 
-        _channel.Writer.TryComplete();
-        await Task.WhenAll(_workers).ConfigureAwait(false);
+        return new ValueTask(_workersExited.Task);
     }
 
-    private async Task ConsumeAsync()
+    private void Consume()
     {
-        await foreach (var item in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
+        try
         {
-            Interlocked.Decrement(ref _pendingWorkCount);
-            Interlocked.Increment(ref _activeWorkerCount);
+            foreach (var item in _queue.GetConsumingEnumerable())
+            {
+                Interlocked.Decrement(ref _pendingWorkCount);
+                Interlocked.Increment(ref _activeWorkerCount);
+                Execute(item);
+            }
+        }
+        finally
+        {
+            if (Interlocked.Increment(ref _exitedWorkerCount) == WorkerCount)
+                _workersExited.TrySetResult();
+        }
+    }
 
-            object? result = null;
-            Exception? error = null;
-            try
+    private void Execute(WorkItem item)
+    {
+        object? result = null;
+        Exception? error = null;
+        try
+        {
+            item.Request.CancellationToken.ThrowIfCancellationRequested();
+            result = item.Request.Execute(item.Request.CancellationToken);
+        }
+        catch (Exception exception)
+        {
+            error = exception;
+        }
+
+        try
+        {
+            var completion = new ChunkGenerationDependencyCompletion(
+                item.Request.Task,
+                item.Request.WaitToken,
+                item.Request.DependencyId,
+                Result: result,
+                Error: error);
+            if (!item.Reservation.TryPublish(completion))
             {
-                item.Request.CancellationToken.ThrowIfCancellationRequested();
-                result = item.Request.Execute(item.Request.CancellationToken);
-            }
-            catch (Exception exception)
-            {
-                error = exception;
+                // A scheduled item owns its reservation exclusively. Reaching
+                // this branch indicates an internal lifetime violation.
+                Interlocked.Increment(ref _failedWorkCount);
+                return;
             }
 
-            try
-            {
-                var completion = new ChunkGenerationDependencyCompletion(
-                    item.Request.Task,
-                    item.Request.WaitToken,
-                    item.Request.DependencyId,
-                    Result: result,
-                    Error: error);
-                if (!item.Reservation.TryPublish(completion))
-                {
-                    // A scheduled item owns its reservation exclusively. Reaching
-                    // this branch indicates an internal lifetime violation.
-                    Interlocked.Increment(ref _failedWorkCount);
-                    continue;
-                }
-
-                if (error is null)
-                    Interlocked.Increment(ref _completedWorkCount);
-                else
-                    Interlocked.Increment(ref _failedWorkCount);
-            }
-            finally
-            {
-                // No-op after successful publication; releases only if an
-                // unexpected publication failure left the lease unused.
-                item.Reservation.Dispose();
-                Interlocked.Decrement(ref _activeWorkerCount);
-            }
+            if (error is null)
+                Interlocked.Increment(ref _completedWorkCount);
+            else
+                Interlocked.Increment(ref _failedWorkCount);
+        }
+        finally
+        {
+            // No-op after successful publication; releases only if an
+            // unexpected publication failure left the lease unused.
+            item.Reservation.Dispose();
+            Interlocked.Decrement(ref _activeWorkerCount);
         }
     }
 
