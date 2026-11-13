@@ -17,7 +17,7 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.True(dispatcher.TryEnqueue(Key(1), 1, Priority(0), 1, first));
         Assert.True(dispatcher.TryEnqueue(Key(2), 1, Priority(0), 2, second));
 
-        var firstPump = dispatcher.Pump(0, 2, 0);
+        var firstPump = dispatcher.Pump(GenerousBudget(), 0);
 
         Assert.Equal(2, firstPump.TasksAdvanced);
         Assert.Equal(1, firstPump.TasksCompleted);
@@ -26,7 +26,7 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.True(dispatcher.TryGetTaskState(Key(1), out var state));
         Assert.Equal(ChunkGenerationTaskState.ReadyToResume, state);
 
-        var secondPump = dispatcher.Pump(0, 1, 0);
+        var secondPump = dispatcher.Pump(GenerousBudget(), 0);
 
         Assert.Equal(1, secondPump.TasksCompleted);
         Assert.Equal(new[] { "first", "second", "first" }, order);
@@ -44,7 +44,7 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.True(dispatcher.TryEnqueue(
             Key(11), 4, Priority(0), 11, new ResultTask(payload)));
 
-        dispatcher.Pump(0, 1, 0);
+        dispatcher.Pump(GenerousBudget(), 0);
 
         Assert.True(dispatcher.TryDequeueOutcome(out var first));
         dispatcher.RequeueOutcome(first);
@@ -64,7 +64,7 @@ public sealed class ChunkGenerationDispatcherTests
 
         Assert.True(dispatcher.TryEnqueue(
             Key(10), 3, Priority(0), 10, new ResultTask(payload)));
-        dispatcher.Pump(0, 1, 0);
+        dispatcher.Pump(GenerousBudget(), 0);
 
         Assert.Equal(1, dispatcher.PendingOutcomeCount);
         Assert.True(dispatcher.TryDequeueOutcome(out var outcome));
@@ -85,7 +85,7 @@ public sealed class ChunkGenerationDispatcherTests
         var task = new TwoWorkerTask();
         Assert.True(dispatcher.TryEnqueue(Key(3), 8, Priority(0), 10, task));
 
-        var initial = dispatcher.Pump(0, 1, 2);
+        var initial = dispatcher.Pump(GenerousBudget(), 2);
 
         Assert.Equal(1, initial.TasksAdvanced);
         Assert.Equal(2, initial.WorkerOperationsStarted);
@@ -97,7 +97,7 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.True(SpinWait.SpinUntil(
             () =>
             {
-                final = dispatcher.Pump(8, 1, 2);
+                final = dispatcher.Pump(GenerousBudget(), 2);
                 return dispatcher.ActiveTaskCount == 0;
             },
             TimeSpan.FromSeconds(5)));
@@ -124,7 +124,7 @@ public sealed class ChunkGenerationDispatcherTests
             Key(5), 1, Priority(2), 2, new CompleteImmediatelyTask("near", order)));
         Assert.True(dispatcher.UpdatePriority(Key(4), Priority(0)));
 
-        dispatcher.Pump(0, 1, 0);
+        dispatcher.Pump(GenerousBudget(), 0);
 
         Assert.Equal(new[] { "far" }, order);
         Assert.Equal(1, dispatcher.ActiveTaskCount);
@@ -140,12 +140,12 @@ public sealed class ChunkGenerationDispatcherTests
         var task = new FailingWorkerTask(error);
         Assert.True(dispatcher.TryEnqueue(Key(6), 1, Priority(0), 1, task));
 
-        dispatcher.Pump(0, 1, 1);
+        dispatcher.Pump(GenerousBudget(), 1);
 
         Assert.True(SpinWait.SpinUntil(
             () =>
             {
-                dispatcher.Pump(4, 1, 1);
+                dispatcher.Pump(GenerousBudget(), 1);
                 return dispatcher.ActiveTaskCount == 0;
             },
             TimeSpan.FromSeconds(5)));
@@ -169,7 +169,7 @@ public sealed class ChunkGenerationDispatcherTests
 
         var task = new BlockingWorkerTask(workerStarted);
         Assert.True(dispatcher.TryEnqueue(Key(7), 1, Priority(0), 1, task));
-        dispatcher.Pump(0, 1, 1);
+        dispatcher.Pump(GenerousBudget(), 1);
         Assert.True(workerStarted.Wait(TimeSpan.FromSeconds(5)));
 
         Assert.True(dispatcher.TryCancel(Key(7)));
@@ -180,7 +180,7 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.True(SpinWait.SpinUntil(
             () =>
             {
-                dispatcher.Pump(4, 1, 1);
+                dispatcher.Pump(GenerousBudget(), 1);
                 return dispatcher.RetiringTaskCount == 0;
             },
             TimeSpan.FromSeconds(5)));
@@ -216,13 +216,13 @@ public sealed class ChunkGenerationDispatcherTests
         var dispatcher = new ChunkGenerationDispatcher(mailbox, worker.Pool);
         var result = Task.Run(() =>
             Assert.Throws<InvalidOperationException>(
-                () => dispatcher.Pump(0, 0, 0)));
+                () => dispatcher.Pump(GenerousBudget(), 0)));
 
         Assert.True(result.Wait(TimeSpan.FromSeconds(5)));
     }
 
     [Fact]
-    public async Task InvalidTaskRegistrationAndPumpBudgetsAreRejected()
+    public async Task InvalidTaskRegistrationAndWorkerStartBudgetsAreRejected()
     {
         var mailbox = new ChunkGenerationCompletionMailbox(1);
         await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
@@ -232,12 +232,11 @@ public sealed class ChunkGenerationDispatcherTests
             () => dispatcher.TryEnqueue(
                 Key(8), 0, Priority(0), 0, new CompleteImmediatelyTask("x", [])));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => dispatcher.Pump(-1, 0, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => dispatcher.Pump(0, -1, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => dispatcher.Pump(0, 0, -1));
+            () => dispatcher.Pump(GenerousBudget(), -1));
     }
+
+    private static WorldFrameWorkBudget GenerousBudget() =>
+        new(long.MaxValue);
 
     private static ChunkGenerationTaskKey Key(int x) =>
         new(new ChunkColumnCoord(x, 0), ChunkGenerationStepId.SectionReady);
