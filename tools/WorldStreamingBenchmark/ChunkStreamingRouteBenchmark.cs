@@ -82,6 +82,7 @@ internal static class ChunkStreamingRouteBenchmark
         var chunkBlockDiagnostics = new Dictionary<ChunkCoord, ChunkBlockDiagnostics>();
         var stageCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var stageMilliseconds = new SortedDictionary<string, double>(StringComparer.Ordinal);
+        var stageMaximumMilliseconds = new SortedDictionary<string, double>(StringComparer.Ordinal);
         var supportFallbackDiagnostics = new SupportFallbackDiagnostics();
         var selectionLatencyFrames = new List<int>();
         var stepStates = new List<RouteStepState>(routeSteps);
@@ -214,6 +215,7 @@ internal static class ChunkStreamingRouteBenchmark
                 ref totalLightingMilliseconds,
                 stageCounts,
                 stageMilliseconds,
+                stageMaximumMilliseconds,
                 supportFallbackDiagnostics);
 
             var availableSlots = Math.Max(
@@ -255,6 +257,7 @@ internal static class ChunkStreamingRouteBenchmark
                 ref totalLightingMilliseconds,
                 stageCounts,
                 stageMilliseconds,
+                stageMaximumMilliseconds,
                 supportFallbackDiagnostics);
 
             var fluidReport = residency.ProcessPendingFluidActivations(budget);
@@ -614,6 +617,7 @@ internal static class ChunkStreamingRouteBenchmark
                 Stage = pair.Key,
                 AdvanceCount = pair.Value,
                 WorkerMilliseconds = stageMilliseconds[pair.Key],
+                MaximumWorkerMilliseconds = stageMaximumMilliseconds[pair.Key],
             }).ToArray(),
             SupportFallbackDiagnostics = supportFallbackDiagnostics.Snapshot(),
             RouteDigest = routeDigest,
@@ -724,6 +728,7 @@ internal static class ChunkStreamingRouteBenchmark
         ref double totalLightingMilliseconds,
         IDictionary<string, int> stageCounts,
         IDictionary<string, double> stageMilliseconds,
+        IDictionary<string, double> stageMaximumMilliseconds,
         SupportFallbackDiagnostics supportFallbackDiagnostics)
     {
         foreach (var failure in update.Failures)
@@ -742,6 +747,11 @@ internal static class ChunkStreamingRouteBenchmark
                 stageMilliseconds.TryGetValue(name, out var milliseconds)
                     ? milliseconds
                     : 0d) + timing.WorkerMilliseconds;
+            stageMaximumMilliseconds[name] = Math.Max(
+                stageMaximumMilliseconds.TryGetValue(name, out var maximum)
+                    ? maximum
+                    : 0d,
+                timing.WorkerMilliseconds);
         }
 
         foreach (var activation in update.Activations)
