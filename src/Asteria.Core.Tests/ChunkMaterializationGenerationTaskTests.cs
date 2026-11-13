@@ -5,9 +5,9 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMaterializationGenerationTaskTests
 {
     [Fact]
-    public void EachAdvanceSchedulesExactlyOneMaterializerSlice()
+    public void WorkerOperationBatchesSeveralAdvancesWithinBound()
     {
-        var job = new FakeMaterializationJob(sliceCount: 3);
+        var job = new FakeMaterializationJob(sliceCount: 10);
         var lightingCalls = 0;
         using var task = new ChunkMaterializationGenerationTask(
             job, _ => lightingCalls++);
@@ -18,15 +18,21 @@ public sealed class ChunkMaterializationGenerationTaskTests
         Assert.Equal(0, job.AdvanceCount);
 
         var completion = RunSlice(task, advance, job, 1);
+
+        Assert.True(job.AdvanceCount > 1);
+        Assert.True(job.AdvanceCount < 10);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, completion.Kind);
         Assert.Single(completion.WorkerOperations);
-        Assert.Equal(1, job.AdvanceCount);
         Assert.Equal(0, lightingCalls);
 
-        completion = RunSlice(task, completion, job, 2);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, completion.Kind);
-        Assert.Equal(2, job.AdvanceCount);
-        Assert.Equal(0, lightingCalls);
+        var final = RunSlice(task, completion, job, 2);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+        Assert.Equal(10, job.AdvanceCount);
+        Assert.Equal(1, lightingCalls);
+        var output = Assert.IsType<ChunkMaterializationTaskOutput>(
+            final.CompletionPayload);
+        Assert.Equal(10, output.StageTimings.Length);
     }
 
     [Fact]
