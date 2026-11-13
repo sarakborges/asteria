@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Asteria.Core.World;
 
 /// <summary>Metrics for one serial generation-dispatcher pump.</summary>
@@ -201,21 +203,16 @@ public sealed class ChunkGenerationDispatcher
     }
 
     /// <summary>
-    /// Advances the serial coordinator within explicit per-pump budgets.
-    /// Completion messages are drained first, then pending worker operations
-    /// are admitted, then ready tasks advance, followed by a second admission
-    /// pass for operations created by those tasks.
+    /// Runs serial continuation work within the caller's frame deadline.
+    /// Pending CPU operations are admitted only up to the currently available
+    /// physical worker slots, then newly-created operations are admitted in a
+    /// second pass. Chunk-task count itself is not an execution limit.
     /// </summary>
     public ChunkGenerationDispatchReport Pump(
-        int maximumCompletions,
-        int maximumTaskAdvances,
+        WorldFrameWorkBudget budget,
         int maximumWorkerStarts)
     {
         EnsureCoordinatorThread();
-        if (maximumCompletions < 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumCompletions));
-        if (maximumTaskAdvances < 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumTaskAdvances));
         if (maximumWorkerStarts < 0)
             throw new ArgumentOutOfRangeException(nameof(maximumWorkerStarts));
         if (_isPumping)
@@ -226,13 +223,12 @@ public sealed class ChunkGenerationDispatcher
         try
         {
             var completionsProcessed = CollectCompletions(
-                maximumCompletions, out var staleCompletions,
+                budget, out var staleCompletions,
                 out var tasksFailed, out var tasksCancelled);
             var workerStarts = DispatchPendingWorkerOperations(
                 maximumWorkerStarts);
             var tasksAdvanced = AdvanceReadyTasks(
-                maximumTaskAdvances, out var tasksCompleted,
-                ref tasksFailed);
+                budget, out var tasksCompleted, ref tasksFailed);
             workerStarts += DispatchPendingWorkerOperations(
                 maximumWorkerStarts - workerStarts);
 
@@ -256,7 +252,7 @@ public sealed class ChunkGenerationDispatcher
     }
 
     private int CollectCompletions(
-        int maximumCompletions,
+        WorldFrameWorkBudget budget,
         out int staleCompletions,
         out int tasksFailed,
         out int tasksCancelled)
@@ -266,7 +262,7 @@ public sealed class ChunkGenerationDispatcher
         tasksCancelled = 0;
         var processed = 0;
 
-        while (processed < maximumCompletions &&
+        while (!budget.Exhausted(Stopwatch.GetTimestamp()) &&
                _completionMailbox.TryDequeue(out var completion))
         {
             processed++;
@@ -377,14 +373,14 @@ public sealed class ChunkGenerationDispatcher
     }
 
     private int AdvanceReadyTasks(
-        int maximumAdvances,
+        WorldFrameWorkBudget budget,
         out int tasksCompleted,
         ref int tasksFailed)
     {
         tasksCompleted = 0;
         var advanced = 0;
 
-        while (advanced < maximumAdvances &&
+        while (!budget.Exhausted(Stopwatch.GetTimestamp()) &&
                _readyTasks.TryDequeue(out var queued))
         {
             if (!_currentTasks.TryGetValue(queued.Key, out var entry) ||
