@@ -1265,14 +1265,21 @@ public sealed class ChunkResidencyRuntime
                 work.TaskKey, GenerationPriority(coord));
     }
 
-    private int AvailableGenerationWorkerStarts =>
-        Math.Max(
-            0,
-            _settings.MaxConcurrentWorkers -
-            _directionalFaceReconciliationTasks.Values.Count(work =>
-                !work.WorkerTask.IsCompleted) -
-            _chunkLightingReconciliationTasks.Values.Count(work =>
-                !work.WorkerTask.IsCompleted));
+    private int AvailableGenerationWorkerStarts
+    {
+        get
+        {
+            var occupiedWorkerSlots =
+                _generationWorkerPool.ActiveWorkerCount +
+                _generationWorkerPool.PendingWorkCount +
+                _directionalFaceReconciliationTasks.Values.Count(work =>
+                    !work.WorkerTask.IsCompleted) +
+                _chunkLightingReconciliationTasks.Values.Count(work =>
+                    !work.WorkerTask.IsCompleted);
+            return Math.Max(
+                0, _settings.MaxConcurrentWorkers - occupiedWorkerSlots);
+        }
+    }
 
     private void StartArrivalReconciliationWorker(
         WorldFrameWorkBudget budget,
