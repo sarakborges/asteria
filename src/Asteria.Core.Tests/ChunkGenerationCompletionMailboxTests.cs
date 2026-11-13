@@ -78,14 +78,29 @@ public sealed class ChunkGenerationCompletionMailboxTests
     public void CompletionPreservesTaskGenerationWaitAndDependencyIdentity()
     {
         var mailbox = new ChunkGenerationCompletionMailbox(capacity: 1);
-        var error = new InvalidOperationException("worker failed");
+        var payload = new DetachedWorkerResult(42, "terrain-slice");
         Assert.True(mailbox.TryReserve(out var reservation));
-        var completion = Completion(4, error);
+        var completion = Completion(4, result: payload);
 
         Assert.True(reservation!.TryPublish(completion));
         Assert.True(mailbox.TryDequeue(out var dequeued));
         Assert.Equal(completion, dequeued);
+        Assert.Same(payload, dequeued.Result);
+        Assert.Null(dequeued.Error);
+    }
+
+    [Fact]
+    public void CompletionCanCarryWorkerFailureWithoutPayload()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(capacity: 1);
+        var error = new InvalidOperationException("worker failed");
+        Assert.True(mailbox.TryReserve(out var reservation));
+        var completion = Completion(5, error: error);
+
+        Assert.True(reservation!.TryPublish(completion));
+        Assert.True(mailbox.TryDequeue(out var dequeued));
         Assert.Same(error, dequeued.Error);
+        Assert.Null(dequeued.Result);
     }
 
     [Fact]
@@ -163,13 +178,17 @@ public sealed class ChunkGenerationCompletionMailboxTests
         Assert.Equal(0, mailbox.ReservedOrPendingCount);
     }
 
+    private sealed record DetachedWorkerResult(int CellsProcessed, string Stage);
+
     private static ChunkGenerationDependencyCompletion Completion(
         ulong dependencyId,
-        Exception? error = null) =>
+        Exception? error = null,
+        object? result = null) =>
         new(
             new ChunkGenerationTaskInstance(Key(), Generation: 9),
             WaitToken: 7,
             DependencyId: dependencyId,
+            Result: result,
             Error: error);
 
     private static ChunkGenerationTaskKey Key() =>

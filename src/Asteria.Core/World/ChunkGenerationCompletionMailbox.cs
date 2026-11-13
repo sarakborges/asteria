@@ -20,13 +20,15 @@ public readonly record struct ChunkGenerationTaskInstance(
 }
 
 /// <summary>
-/// Worker-to-coordinator message. Workers may publish this immutable value but
-/// must never mutate the task lifecycle or dispatcher collections directly.
+/// Worker-to-coordinator message. Result must be a detached immutable payload;
+/// Error is populated instead when the worker operation failed. Workers may
+/// publish this value but must never mutate task lifecycle or dispatcher state.
 /// </summary>
 public readonly record struct ChunkGenerationDependencyCompletion(
     ChunkGenerationTaskInstance Task,
     ulong WaitToken,
     ulong DependencyId,
+    object? Result = null,
     Exception? Error = null)
 {
     public void Validate()
