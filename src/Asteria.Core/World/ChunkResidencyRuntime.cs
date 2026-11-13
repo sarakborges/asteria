@@ -7,21 +7,17 @@ public sealed class ChunkResidencySettings
 {
     public ChunkResidencySettings(
         int maxConcurrentWorkers,
-        int maxResultsPerFrame,
         int maxEvictionsPerFrame,
         WorldGameRules gameRules)
     {
         if (maxConcurrentWorkers <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxConcurrentWorkers));
-        if (maxResultsPerFrame <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maxResultsPerFrame));
         if (maxEvictionsPerFrame <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxEvictionsPerFrame));
 
         GameRules = gameRules ??
             throw new ArgumentNullException(nameof(gameRules));
         MaxConcurrentWorkers = maxConcurrentWorkers;
-        MaxResultsPerFrame = maxResultsPerFrame;
         MaxEvictionsPerFrame = maxEvictionsPerFrame;
     }
 
@@ -29,8 +25,6 @@ public sealed class ChunkResidencySettings
     /// Maximum number of physical worker threads in the shared generation pool.
     /// </summary>
     public int MaxConcurrentWorkers { get; }
-
-    public int MaxResultsPerFrame { get; }
 
     public int MaxEvictionsPerFrame { get; }
 
@@ -486,15 +480,11 @@ public sealed class ChunkResidencyRuntime
         var stageTimings = new List<ChunkMaterializationStageTiming>();
         var processed = 0;
         var cancelledTasks = 0;
-        var reconciliationResultProcessed = false;
 
-        while (processed < _settings.MaxResultsPerFrame)
+        while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
-            // Check the frame budget before removing an outcome. Once an
-            // outcome leaves the dispatcher queue, it must be applied or
-            // explicitly requeued; dropping it would strand MaterializingCount.
-            if (processed > 0 && budget.Exhausted(Stopwatch.GetTimestamp()))
-                break;
+            // Do not remove a result from the dispatcher after the frame budget
+            // has expired. Every dequeued outcome must be applied or requeued.
             if (!_generationDispatcher.TryDequeueOutcome(out var outcome))
                 break;
 
@@ -508,39 +498,13 @@ public sealed class ChunkResidencyRuntime
                     break;
 
                 case ChunkGenerationStepId.DirectionalFacePalettes:
-                    if (!reconciliationResultProcessed)
-                    {
-                        CollectDirectionalFaceOutcome(
-                            outcome, failures, ref cancelledTasks);
-                        reconciliationResultProcessed = true;
-                    }
-                    else
-                    {
-                        // Keep at most one reconciliation publication per frame.
-                        // Put the outcome back in front of the dispatcher queue.
-                        _generationDispatcher.RequeueOutcome(outcome);
-                        processed--;
-                        return FinishMaterializationCollection(
-                            activations, failures, stageTimings,
-                            processed, cancelledTasks, report.WorkerOperationsStarted, presented);
-                    }
+                    CollectDirectionalFaceOutcome(
+                        outcome, failures, ref cancelledTasks);
                     break;
 
                 case ChunkGenerationStepId.InitialLighting:
-                    if (!reconciliationResultProcessed)
-                    {
-                        CollectChunkLightingOutcome(
-                            outcome, failures, ref cancelledTasks);
-                        reconciliationResultProcessed = true;
-                    }
-                    else
-                    {
-                        _generationDispatcher.RequeueOutcome(outcome);
-                        processed--;
-                        return FinishMaterializationCollection(
-                            activations, failures, stageTimings,
-                            processed, cancelledTasks, report.WorkerOperationsStarted, presented);
-                    }
+                    CollectChunkLightingOutcome(
+                        outcome, failures, ref cancelledTasks);
                     break;
 
                 default:
@@ -553,107 +517,95 @@ public sealed class ChunkResidencyRuntime
             }
         }
 
-        // Existing reconciliation tasks still use their detached-snapshot
-        // compatibility lane in this first runtime migration slice.
-        if (!reconciliationResultProcessed &&
-            processed < _settings.MaxResultsPerFrame &&
-            (processed == 0 || !budget.Exhausted(Stopwatch.GetTimestamp())))
+        var completedReconciliations = _directionalFaceReconciliationTasks
+            .Where(entry => entry.Value.WorkerTask.IsCompleted)
+            .OrderBy(entry => ChunkStreamingState.StreamingPriority(
+                entry.Key, _center, _streaming.MovementDirection))
+            .ToArray();
+
+        foreach (var (coord, work) in completedReconciliations)
         {
-            var completedReconciliations = _directionalFaceReconciliationTasks
-                .Where(entry => entry.Value.WorkerTask.IsCompleted)
-                .OrderBy(entry => ChunkStreamingState.StreamingPriority(
-                    entry.Key, _center, _streaming.MovementDirection))
-                .Take(1)
-                .ToArray();
-
-            foreach (var (coord, work) in completedReconciliations)
-            {
-                _directionalFaceReconciliationTasks.Remove(coord);
-                processed++;
-                reconciliationResultProcessed = true;
-                var task = work.WorkerTask;
-                if (task.IsFaulted || task.IsCanceled)
-                {
-                    var error = task.IsFaulted
-                        ? task.Exception?.GetBaseException() ??
-                          new InvalidOperationException(
-                              $"Directional face reconciliation failed: {coord}")
-                        : new TaskCanceledException(task);
-                    failures.Add(new ChunkMaterializationFailure(coord, error));
-                    if (_acceptingMaterializationWork &&
-                        _world.TryGetSavedChunk(coord, out _))
-                        _pendingDirectionalFaceReconciliations.Enqueue(coord);
-                    break;
-                }
-
-                var result = task.GetAwaiter().GetResult();
-                if (!_acceptingMaterializationWork)
-                    break;
-
-                if (_directionalFacePaletteUpdater is not null &&
-                    _directionalFacePaletteUpdater.TryApplyChunkArrivalReconciliation(
-                        _world, result, out var visualChanges))
-                {
-                    EnqueueDirectionalFaceVisualChanges(visualChanges);
-                }
-                else if (_world.TryGetSavedChunk(result.Arriving, out _))
-                {
-                    _pendingDirectionalFaceReconciliations.Enqueue(result.Arriving);
-                }
+            if (budget.Exhausted(Stopwatch.GetTimestamp()))
                 break;
+
+            _directionalFaceReconciliationTasks.Remove(coord);
+            processed++;
+            var task = work.WorkerTask;
+            if (task.IsFaulted || task.IsCanceled)
+            {
+                var error = task.IsFaulted
+                    ? task.Exception?.GetBaseException() ??
+                      new InvalidOperationException(
+                          $"Directional face reconciliation failed: {coord}")
+                    : new TaskCanceledException(task);
+                failures.Add(new ChunkMaterializationFailure(coord, error));
+                if (_acceptingMaterializationWork &&
+                    _world.TryGetSavedChunk(coord, out _))
+                    _pendingDirectionalFaceReconciliations.Enqueue(coord);
+                continue;
+            }
+
+            if (!_acceptingMaterializationWork)
+                continue;
+
+            var result = task.GetAwaiter().GetResult();
+            if (_directionalFacePaletteUpdater is not null &&
+                _directionalFacePaletteUpdater.TryApplyChunkArrivalReconciliation(
+                    _world, result, out var visualChanges))
+            {
+                EnqueueDirectionalFaceVisualChanges(visualChanges);
+            }
+            else if (_world.TryGetSavedChunk(result.Arriving, out _))
+            {
+                _pendingDirectionalFaceReconciliations.Enqueue(result.Arriving);
             }
         }
 
-        if (!reconciliationResultProcessed &&
-            processed < _settings.MaxResultsPerFrame &&
-            (processed == 0 || !budget.Exhausted(Stopwatch.GetTimestamp())))
+        var completedLighting = _chunkLightingReconciliationTasks
+            .Where(entry => entry.Value.WorkerTask.IsCompleted)
+            .OrderBy(entry => ChunkStreamingState.StreamingPriority(
+                entry.Key, _center, _streaming.MovementDirection))
+            .ToArray();
+
+        foreach (var (coord, work) in completedLighting)
         {
-            var completedLighting = _chunkLightingReconciliationTasks
-                .Where(entry => entry.Value.WorkerTask.IsCompleted)
-                .OrderBy(entry => ChunkStreamingState.StreamingPriority(
-                    entry.Key, _center, _streaming.MovementDirection))
-                .Take(1)
-                .ToArray();
-
-            foreach (var (coord, work) in completedLighting)
-            {
-                _chunkLightingReconciliationTasks.Remove(coord);
-                processed++;
-                reconciliationResultProcessed = true;
-                var task = work.WorkerTask;
-                if (task.IsFaulted || task.IsCanceled)
-                {
-                    var error = task.IsFaulted
-                        ? task.Exception?.GetBaseException() ??
-                          new InvalidOperationException(
-                              $"Chunk lighting reconciliation failed: {coord}")
-                        : new TaskCanceledException(task);
-                    failures.Add(new ChunkMaterializationFailure(coord, error));
-                    if (_acceptingMaterializationWork &&
-                        (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord)))
-                        _pendingChunkLightingReconciliations.Enqueue(coord);
-                    break;
-                }
-
-                var result = task.GetAwaiter().GetResult();
-                if (!_acceptingMaterializationWork)
-                    break;
-
-                if (!_world.IsContentStampCurrent(work.ContentDependencies) ||
-                    !_world.AreLightingStampsCurrent(work.LightingDependencies))
-                {
-                    if (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord))
-                        _pendingChunkLightingReconciliations.Enqueue(coord);
-                    break;
-                }
-
-                foreach (var position in result.LightingSeeds)
-                    _worldUpdates.EnqueueLighting(position);
-
-                if (result.PhysicsPlan is { } physicsPlan)
-                    _blockPhysics.ApplyResidentChunkActivationPlan(physicsPlan);
+            if (budget.Exhausted(Stopwatch.GetTimestamp()))
                 break;
+
+            _chunkLightingReconciliationTasks.Remove(coord);
+            processed++;
+            var task = work.WorkerTask;
+            if (task.IsFaulted || task.IsCanceled)
+            {
+                var error = task.IsFaulted
+                    ? task.Exception?.GetBaseException() ??
+                      new InvalidOperationException(
+                          $"Chunk lighting reconciliation failed: {coord}")
+                    : new TaskCanceledException(task);
+                failures.Add(new ChunkMaterializationFailure(coord, error));
+                if (_acceptingMaterializationWork &&
+                    (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord)))
+                    _pendingChunkLightingReconciliations.Enqueue(coord);
+                continue;
             }
+
+            if (!_acceptingMaterializationWork)
+                continue;
+
+            var result = task.GetAwaiter().GetResult();
+            if (!_world.IsContentStampCurrent(work.ContentDependencies) ||
+                !_world.AreLightingStampsCurrent(work.LightingDependencies))
+            {
+                if (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord))
+                    _pendingChunkLightingReconciliations.Enqueue(coord);
+                continue;
+            }
+
+            foreach (var position in result.LightingSeeds)
+                _worldUpdates.EnqueueLighting(position);
+
+            if (result.PhysicsPlan is { } physicsPlan)
+                _blockPhysics.ApplyResidentChunkActivationPlan(physicsPlan);
         }
 
         return FinishMaterializationCollection(
@@ -890,13 +842,8 @@ public sealed class ChunkResidencyRuntime
         var restored = 0;
         // Logical chunk tasks are created from the authoritative desired set.
         // Only worker operations are constrained by physical worker capacity.
-        while (restored < _settings.MaxResultsPerFrame)
+        while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
-            if ((startedTasks > 0 || restored > 0) &&
-                budget.Exhausted(Stopwatch.GetTimestamp()))
-            {
-                break;
-            }
 
             // Keep each X/Z column together in the pending queue, but let the
             // frame work budget decide how many section tasks can be admitted.
@@ -914,8 +861,7 @@ public sealed class ChunkResidencyRuntime
                 var selected = pendingEntry.Coord;
                 var dispatchTimestamp = Stopwatch.GetTimestamp();
 
-                if ((startedTasks > 0 || restored > 0) &&
-                    budget.Exhausted(Stopwatch.GetTimestamp()))
+                if (budget.Exhausted(Stopwatch.GetTimestamp()))
                 {
                     RequeuePendingSections(sections, sectionIndex);
                     stopAfterBatch = true;
@@ -937,12 +883,6 @@ public sealed class ChunkResidencyRuntime
                         ChunkActivationSource.Archive,
                         workerMilliseconds: 0.0));
                     restored++;
-                    if (restored >= _settings.MaxResultsPerFrame)
-                    {
-                        RequeuePendingSections(sections, sectionIndex + 1);
-                        stopAfterBatch = true;
-                        break;
-                    }
                     continue;
                 }
 
