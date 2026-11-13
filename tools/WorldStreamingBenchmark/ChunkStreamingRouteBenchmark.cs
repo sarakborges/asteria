@@ -62,7 +62,6 @@ internal static class ChunkStreamingRouteBenchmark
             droppedBlocks);
         var residencySettings = new ChunkResidencySettings(
             maximumWorldWorkers,
-            maxResultsPerFrame: 8,
             maxEvictionsPerFrame: 2,
             gameRules: rules);
         var residency = new ChunkResidencyRuntime(
