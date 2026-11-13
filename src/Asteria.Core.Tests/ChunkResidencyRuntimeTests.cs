@@ -157,6 +157,53 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void MaterializationIsCancelledWhenChunkLeavesDesiredAndRetentionSets()
+    {
+        using var provider = new BlockingChunkProvider();
+        using var fixture = CreateFixture(provider, maxConcurrentWorkers: 1);
+        var coord = new ChunkCoord(1, 0, 0);
+        fixture.Runtime.SyncSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        var started = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 1,
+            maximumWorldWorkerStarts: 1);
+        Assert.Equal(1, started.StartedTasks);
+        Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        fixture.Runtime.SyncSelection(
+            new ChunkCoord(20, 0, 0),
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord>(),
+            presented: Array.Empty<ChunkCoord>());
+        provider.ReleaseAdvance.Set();
+
+        var cancelled = 0;
+        var drained = SpinWait.SpinUntil(
+            () =>
+            {
+                var result = fixture.Runtime.CollectMaterializationResults(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                cancelled += result.CancelledTasks;
+                return fixture.Runtime.MaterializationJobCount == 0 &&
+                       fixture.Runtime.ActiveWorkerCount == 0;
+            },
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(drained, "Removed chunk materialization did not drain.");
+        Assert.Equal(1, cancelled);
+        Assert.False(fixture.World.ContainsChunk(coord));
+        Assert.Equal(0, fixture.Runtime.MaterializingCount);
+    }
+
+    [Fact]
     public void ChunkArrivalLightingSeedsAreCalculatedOnDetachedWorkerSnapshot()
     {
         using var fixture = CreateFixture();
