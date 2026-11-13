@@ -524,9 +524,6 @@ internal static class ChunkStreamingRouteBenchmark
             maximumSuspendedMaterializations = Math.Max(
                 maximumSuspendedMaterializations,
                 residency.SuspendedMaterializationCount);
-            maximumReadyGenerationTasks = Math.Max(
-                maximumReadyGenerationTasks,
-                residency.ReadyGenerationTaskCount);
             var pendingGenerationWorkerOperations = ReadOptionalRuntimeCounter(
                 residency, "PendingGenerationWorkerOperations");
             var readyGenerationTasks = ReadOptionalRuntimeCounter(
