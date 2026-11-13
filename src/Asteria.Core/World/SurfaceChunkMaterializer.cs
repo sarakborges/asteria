@@ -26,7 +26,7 @@ internal readonly record struct DirectionalFacePaletteReapplicationDiagnostic(
 /// Only the materialization stage writes chunk voxels. It consumes immutable
 /// terrain/biome snapshots and material/decorator capabilities.
 /// </summary>
-public sealed class SurfaceChunkMaterializer
+public sealed partial class SurfaceChunkMaterializer
 {
     private const int TerrainRowsPerWorkerSlice = 4;
     private const int VolumeStructureCandidatesPerAdvance = 4;
