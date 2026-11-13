@@ -28,6 +28,7 @@ internal readonly record struct DirectionalFacePaletteReapplicationDiagnostic(
 /// </summary>
 public sealed class SurfaceChunkMaterializer
 {
+    private const int TerrainRowsPerWorkerSlice = 4;
     private readonly record struct DirectionalFaceOccupancyPreparationProfile(
         double DensitySlabReadMilliseconds,
         double HorizontalBoundaryReadMilliseconds,
@@ -657,7 +658,8 @@ public sealed class SurfaceChunkMaterializer
         var firstLocalZ = job.SupportFaceFastPath ? 0 : job.NextTerrainLocalZ;
         var lastLocalZExclusive = job.SupportFaceFastPath
             ? Chunk.Size
-            : firstLocalZ + 1;
+            : Math.Min(
+                Chunk.Size, firstLocalZ + TerrainRowsPerWorkerSlice);
         for (var localZ = firstLocalZ;
              localZ < lastLocalZExclusive;
              localZ++)
@@ -862,7 +864,7 @@ public sealed class SurfaceChunkMaterializer
         }
         else
         {
-            job.NextTerrainLocalZ++;
+            job.NextTerrainLocalZ = lastLocalZExclusive;
             if (job.NextTerrainLocalZ >= Chunk.Size)
             {
                 job.NextTerrainLocalZ = 0;
