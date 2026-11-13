@@ -33,8 +33,8 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Theory]
-    [InlineData(2, -1, 3, true)]
-    [InlineData(-2, 0, -3, true)]
+    [InlineData(2, -1, 2, true)]
+    [InlineData(-2, 0, -2, true)]
     [InlineData(3, 0, 0, false)]
     [InlineData(0, -2, 0, false)]
     [InlineData(0, 2, 0, false)]
