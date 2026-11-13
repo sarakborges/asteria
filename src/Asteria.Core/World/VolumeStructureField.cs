@@ -198,16 +198,19 @@ public sealed class VolumeStructureField
                            written < voxels.Length)
                     {
                         var relative = activeVariant.Voxels[_activeVoxelIndex++];
-                        var worldX = (long)_activeWorldX + relative.X;
-                        var worldY = (long)_activeSupportY + relative.Y;
-                        var worldZ = (long)_activeWorldZ + relative.Z;
-                        if (worldX < _originX || worldX > _right ||
-                            worldY < _originY || worldY > _top ||
-                            worldZ < _originZ || worldZ > _back)
+                        var voxelWorldX = (long)_activeWorldX + relative.X;
+                        var voxelWorldY = (long)_activeSupportY + relative.Y;
+                        var voxelWorldZ = (long)_activeWorldZ + relative.Z;
+                        if (voxelWorldX < _originX || voxelWorldX > _right ||
+                            voxelWorldY < _originY || voxelWorldY > _top ||
+                            voxelWorldZ < _originZ || voxelWorldZ > _back)
                             continue;
 
                         voxels[written++] = new VolumeStructureVoxel(
-                            (int)worldX, (int)worldY, (int)worldZ, relative.Block);
+                            (int)voxelWorldX,
+                            (int)voxelWorldY,
+                            (int)voxelWorldZ,
+                            relative.Block);
                     }
 
                     if (_activeVoxelIndex >= activeVariant.Voxels.Count)
