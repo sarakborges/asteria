@@ -1,0 +1,300 @@
+using Asteria.Core.World;
+
+namespace Asteria.Core.Tests;
+
+public sealed class ChunkGenerationDispatcherTests
+{
+    [Fact]
+    public async Task YieldedTaskReturnsBehindPeersAtEqualPriority()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(2);
+        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var order = new List<string>();
+        var first = new YieldOnceTask("first", order);
+        var second = new CompleteImmediatelyTask("second", order);
+
+        Assert.True(dispatcher.TryEnqueue(Key(1), 1, Priority(0), 1, first));
+        Assert.True(dispatcher.TryEnqueue(Key(2), 1, Priority(0), 2, second));
+
+        var firstPump = dispatcher.Pump(0, 2, 0);
+
+        Assert.Equal(2, firstPump.TasksAdvanced);
+        Assert.Equal(1, firstPump.TasksCompleted);
+        Assert.Equal(new[] { "first", "second" }, order);
+        Assert.Equal(1, dispatcher.ActiveTaskCount);
+        Assert.True(dispatcher.TryGetTaskState(Key(1), out var state));
+        Assert.Equal(ChunkGenerationTaskState.ReadyToResume, state);
+
+        var secondPump = dispatcher.Pump(0, 1, 0);
+
+        Assert.Equal(1, secondPump.TasksCompleted);
+        Assert.Equal(new[] { "first", "second", "first" }, order);
+        Assert.Equal(0, dispatcher.ActiveTaskCount);
+        Assert.Equal(2, dispatcher.CompletedTaskCount);
+    }
+
+    [Fact]
+    public async Task WorkerDependenciesSuspendAndResumeTaskWithResults()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(4);
+        await using var pool = new ChunkGenerationWorkerPool(2, 4, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var task = new TwoWorkerTask();
+        Assert.True(dispatcher.TryEnqueue(Key(3), 8, Priority(0), 10, task));
+
+        var initial = dispatcher.Pump(0, 1, 2);
+
+        Assert.Equal(1, initial.TasksAdvanced);
+        Assert.Equal(2, initial.WorkerOperationsStarted);
+        Assert.Equal(1, dispatcher.WaitingTaskCount);
+        Assert.True(dispatcher.TryGetTaskState(Key(3), out var waitingState));
+        Assert.Equal(ChunkGenerationTaskState.WaitingForDependencies, waitingState);
+
+        ChunkGenerationDispatchReport final = default;
+        Assert.True(SpinWait.SpinUntil(
+            () =>
+            {
+                final = dispatcher.Pump(8, 1, 2);
+                return dispatcher.ActiveTaskCount == 0;
+            },
+            TimeSpan.FromSeconds(5)));
+
+        Assert.Equal(2, task.ObservedResults.Count);
+        Assert.Equal("terrain-a", task.ObservedResults[0]);
+        Assert.Equal("terrain-b", task.ObservedResults[1]);
+        Assert.Equal(1, dispatcher.CompletedTaskCount);
+        Assert.Equal(0, dispatcher.WaitingTaskCount);
+        Assert.Equal(0, dispatcher.RetiringTaskCount);
+    }
+
+    [Fact]
+    public async Task PriorityCanChangeAfterEnqueueBeforeTaskStarts()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(2);
+        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var order = new List<string>();
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(4), 1, Priority(3), 1, new CompleteImmediatelyTask("far", order)));
+        Assert.True(dispatcher.TryEnqueue(
+            Key(5), 1, Priority(2), 2, new CompleteImmediatelyTask("near", order)));
+        Assert.True(dispatcher.UpdatePriority(Key(4), Priority(0)));
+
+        dispatcher.Pump(0, 1, 0);
+
+        Assert.Equal(new[] { "far" }, order);
+        Assert.Equal(1, dispatcher.ActiveTaskCount);
+    }
+
+    [Fact]
+    public async Task WorkerFailureFailsTaskWithoutResumingIt()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(2);
+        await using var pool = new ChunkGenerationWorkerPool(1, 2, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var error = new InvalidOperationException("worker slice failed");
+        var task = new FailingWorkerTask(error);
+        Assert.True(dispatcher.TryEnqueue(Key(6), 1, Priority(0), 1, task));
+
+        dispatcher.Pump(0, 1, 1);
+
+        Assert.True(SpinWait.SpinUntil(
+            () =>
+            {
+                dispatcher.Pump(4, 1, 1);
+                return dispatcher.ActiveTaskCount == 0;
+            },
+            TimeSpan.FromSeconds(5)));
+
+        Assert.Equal(1, dispatcher.FailedTaskCount);
+        Assert.Equal(0, task.ResumeCount);
+        Assert.Equal(0, dispatcher.RetiringTaskCount);
+    }
+
+    [Fact]
+    public async Task CancellationRejectsLateWorkerCompletionAndAllowsNewGeneration()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(4);
+        await using var pool = new ChunkGenerationWorkerPool(1, 2, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        using var workerStarted = new ManualResetEventSlim(false);
+
+        var task = new BlockingWorkerTask(workerStarted);
+        Assert.True(dispatcher.TryEnqueue(Key(7), 1, Priority(0), 1, task));
+        dispatcher.Pump(0, 1, 1);
+        Assert.True(workerStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        Assert.True(dispatcher.TryCancel(Key(7)));
+        Assert.False(dispatcher.TryGetTaskState(Key(7), out _));
+        Assert.True(dispatcher.TryEnqueue(
+            Key(7), 2, Priority(0), 2, new CompleteImmediatelyTask("new", [])));
+
+        Assert.True(SpinWait.SpinUntil(
+            () =>
+            {
+                dispatcher.Pump(4, 1, 1);
+                return dispatcher.RetiringTaskCount == 0;
+            },
+            TimeSpan.FromSeconds(5)));
+        Assert.Equal(1, dispatcher.CancelledTaskCount);
+        Assert.Equal(1, dispatcher.CompletedTaskCount);
+        Assert.Equal(0, dispatcher.ActiveTaskCount);
+    }
+
+    [Fact]
+    public void DispatcherRejectsAccessFromNonOwningThread()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(1);
+        using var worker = new TestWorkerPoolScope(mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, worker.Pool);
+        var result = Task.Run(() =>
+            Assert.Throws<InvalidOperationException>(
+                () => dispatcher.Pump(0, 0, 0)));
+
+        Assert.True(result.Wait(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task InvalidTaskRegistrationAndPumpBudgetsAreRejected()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(1);
+        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => dispatcher.TryEnqueue(
+                Key(8), 0, Priority(0), 0, new CompleteImmediatelyTask("x", [])));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => dispatcher.Pump(-1, 0, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => dispatcher.Pump(0, -1, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => dispatcher.Pump(0, 0, -1));
+    }
+
+    private static ChunkGenerationTaskKey Key(int x) =>
+        new(new ChunkColumnCoord(x, 0), ChunkGenerationStepId.SectionReady);
+
+    private static ChunkGenerationTaskPriority Priority(int ticket) =>
+        new(ticket, ticket);
+
+    private sealed class YieldOnceTask(string label, List<string> order) :
+        IChunkGenerationTask
+    {
+        private int _calls;
+
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            order.Add(label);
+            return _calls++ == 0
+                ? ChunkGenerationTaskAdvanceResult.Yield
+                : ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class CompleteImmediatelyTask(string label, List<string> order) :
+        IChunkGenerationTask
+    {
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            order.Add(label);
+            return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class TwoWorkerTask : IChunkGenerationTask
+    {
+        private bool _waiting;
+        public List<string?> ObservedResults { get; } = [];
+
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            if (!_waiting)
+            {
+                _waiting = true;
+                return ChunkGenerationTaskAdvanceResult.WaitForWorkers(
+                [
+                    new ChunkGenerationWorkerOperation(
+                        101, _ => "terrain-a"),
+                    new ChunkGenerationWorkerOperation(
+                        102, _ => "terrain-b"),
+                ]);
+            }
+
+            ObservedResults.AddRange(
+                completedDependencies.Select(item => item.Result as string));
+            return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class FailingWorkerTask(Exception error) : IChunkGenerationTask
+    {
+        private bool _waiting;
+        public int ResumeCount { get; private set; }
+
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            if (!_waiting)
+            {
+                _waiting = true;
+                return ChunkGenerationTaskAdvanceResult.WaitForWorkers(
+                [
+                    new ChunkGenerationWorkerOperation(201, _ => throw error),
+                ]);
+            }
+
+            ResumeCount++;
+            return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class BlockingWorkerTask(ManualResetEventSlim started) :
+        IChunkGenerationTask
+    {
+        private bool _waiting;
+
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            if (!_waiting)
+            {
+                _waiting = true;
+                return ChunkGenerationTaskAdvanceResult.WaitForWorkers(
+                [
+                    new ChunkGenerationWorkerOperation(
+                        301,
+                        token =>
+                        {
+                            started.Set();
+                            token.WaitHandle.WaitOne();
+                            token.ThrowIfCancellationRequested();
+                            return "should be cancelled";
+                        }),
+                ]);
+            }
+
+            return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class TestWorkerPoolScope : IDisposable
+    {
+        public TestWorkerPoolScope(ChunkGenerationCompletionMailbox mailbox) =>
+            Pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+
+        public ChunkGenerationWorkerPool Pool { get; }
+
+        public void Dispose() => Pool.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
+}
