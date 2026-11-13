@@ -306,11 +306,16 @@ public sealed class ChunkStreamingState
     /// horizontal column. The runtime can admit this as one logical column task.
     /// </summary>
     internal ChunkColumnPendingDispatch? PopPendingColumnEntryByPriority(
-        long? maximumHorizontalDistanceSquared = null)
+        long? maximumHorizontalDistanceSquared = null,
+        int maximumSections = int.MaxValue)
     {
+        if (maximumSections <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumSections));
         if (Center is null ||
             !_pending.TryDequeueColumn(
-                maximumHorizontalDistanceSquared, out var dispatch))
+                maximumHorizontalDistanceSquared,
+                maximumSections,
+                out var dispatch))
             return null;
 
         return dispatch;
