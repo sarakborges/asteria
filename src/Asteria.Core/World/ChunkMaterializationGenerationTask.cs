@@ -22,7 +22,7 @@ public sealed record ChunkMaterializationTaskOutput(
 /// <summary>Result of advancing one worker-owned materialization slice.</summary>
 internal sealed record ChunkMaterializationWorkerSlice(
     ChunkCoord Coord,
-    ChunkMaterializationStageTiming StageTiming,
+    ImmutableArray<ChunkMaterializationStageTiming> StageTimings,
     double WorkerMilliseconds,
     bool IsComplete,
     Chunk? CompletedChunk,
@@ -40,6 +40,8 @@ public sealed class ChunkMaterializationGenerationTask :
     IChunkGenerationTask,
     IDisposable
 {
+    private const int MaximumAdvancesPerWorkerOperation = 8;
+    private const double MaximumWorkerSliceMilliseconds = 1.5d;
     private readonly IChunkMaterializationJob _job;
     private readonly Action<Chunk> _initializeLighting;
     private readonly long _dispatchTimestamp;
@@ -143,7 +145,10 @@ public sealed class ChunkMaterializationGenerationTask :
         // child and then return to its parent during this same slice. Preserve
         // the leaf coordinate captured before Advance rather than comparing it
         // against the now-advanced job cursor.
-        _stageTimings.Add(slice.StageTiming);
+        if (slice.StageTimings.IsDefaultOrEmpty)
+            throw new InvalidOperationException(
+                "Materialization worker returned an empty stage-timing batch.");
+        _stageTimings.AddRange(slice.StageTimings);
         _workerMilliseconds += slice.WorkerMilliseconds;
         if (!_hasStartedWorker)
         {
@@ -198,62 +203,77 @@ public sealed class ChunkMaterializationGenerationTask :
     private ChunkMaterializationWorkerSlice AdvanceOneSlice(
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         var workerStartedTimestamp = Stopwatch.GetTimestamp();
-        var stage = _job.ActiveWorkStage;
-        var coord = _job.ActiveWorkCoord;
-        var supportOnly = _job.ActiveSupportOnly;
-        var supportFaceFastPath = _job.ActiveSupportFaceFastPath;
-        var sparseSupportFallback = _job.ActiveSparseSupportFallback;
-        var supportRequestedColumns = _job.ActiveSupportRequestedColumnCount;
-        var supportMaterializationColumns = _job.ActiveSupportMaterializationColumnCount;
-
-        var stageStarted = Stopwatch.GetTimestamp();
-        _job.Advance();
-        var stageMilliseconds = Stopwatch.GetElapsedTime(stageStarted).TotalMilliseconds;
-        var workerMilliseconds = stageMilliseconds;
+        var stageTimings = ImmutableArray.CreateBuilder<ChunkMaterializationStageTiming>();
+        var workerMilliseconds = 0d;
         var initialLightingMilliseconds = 0d;
         Chunk? completedChunk = null;
+        var coord = _job.ActiveWorkCoord;
+        var advances = 0;
 
-        if (_job.IsComplete)
+        do
         {
-            completedChunk = _job.Result ??
-                throw new InvalidOperationException(
-                    $"Completed materialization job returned no chunk: {_job.Coord}");
-            var lightingStarted = Stopwatch.GetTimestamp();
-            _initializeLighting(completedChunk);
-            initialLightingMilliseconds = Stopwatch.GetElapsedTime(
-                lightingStarted).TotalMilliseconds;
-            workerMilliseconds += initialLightingMilliseconds;
-        }
+            cancellationToken.ThrowIfCancellationRequested();
+            var stage = _job.ActiveWorkStage;
+            coord = _job.ActiveWorkCoord;
+            var supportOnly = _job.ActiveSupportOnly;
+            var supportFaceFastPath = _job.ActiveSupportFaceFastPath;
+            var sparseSupportFallback = _job.ActiveSparseSupportFallback;
+            var supportRequestedColumns = _job.ActiveSupportRequestedColumnCount;
+            var supportMaterializationColumns = _job.ActiveSupportMaterializationColumnCount;
 
-        var paletteMetrics =
-            stage == ChunkMaterializationStage.DirectionalFacePalettes
-                ? _job.DirectionalFacePaletteMetrics
-                : null;
-        var stageTiming = new ChunkMaterializationStageTiming(
-            coord,
-            stage,
-            stageMilliseconds,
-            paletteMetrics,
-            stage == ChunkMaterializationStage.DirectionalFacePalettes
-                ? _job.DirectionalFaceBoundaryColumnBoundsMilliseconds
-                : 0d,
-            stage == ChunkMaterializationStage.DirectionalFacePalettes
-                ? _job.DirectionalFaceCaveSamplerBuildMilliseconds
-                : 0d,
-            stage == ChunkMaterializationStage.DirectionalFacePalettes
-                ? _job.DirectionalFaceBoundaryColumnEvaluationMilliseconds
-                : 0d,
-            supportOnly,
-            supportFaceFastPath,
-            sparseSupportFallback,
-            supportRequestedColumns,
-            supportMaterializationColumns);
+            var stageStarted = Stopwatch.GetTimestamp();
+            _job.Advance();
+            var stageMilliseconds = Stopwatch.GetElapsedTime(
+                stageStarted).TotalMilliseconds;
+            workerMilliseconds += stageMilliseconds;
+            advances++;
+
+            var paletteMetrics =
+                stage == ChunkMaterializationStage.DirectionalFacePalettes
+                    ? _job.DirectionalFacePaletteMetrics
+                    : null;
+            stageTimings.Add(new ChunkMaterializationStageTiming(
+                coord,
+                stage,
+                stageMilliseconds,
+                paletteMetrics,
+                stage == ChunkMaterializationStage.DirectionalFacePalettes
+                    ? _job.DirectionalFaceBoundaryColumnBoundsMilliseconds
+                    : 0d,
+                stage == ChunkMaterializationStage.DirectionalFacePalettes
+                    ? _job.DirectionalFaceCaveSamplerBuildMilliseconds
+                    : 0d,
+                stage == ChunkMaterializationStage.DirectionalFacePalettes
+                    ? _job.DirectionalFaceBoundaryColumnEvaluationMilliseconds
+                    : 0d,
+                supportOnly,
+                supportFaceFastPath,
+                sparseSupportFallback,
+                supportRequestedColumns,
+                supportMaterializationColumns));
+
+            if (_job.IsComplete)
+            {
+                completedChunk = _job.Result ??
+                    throw new InvalidOperationException(
+                        $"Completed materialization job returned no chunk: {_job.Coord}");
+                var lightingStarted = Stopwatch.GetTimestamp();
+                _initializeLighting(completedChunk);
+                initialLightingMilliseconds = Stopwatch.GetElapsedTime(
+                    lightingStarted).TotalMilliseconds;
+                workerMilliseconds += initialLightingMilliseconds;
+                break;
+            }
+        }
+        while (advances < MaximumAdvancesPerWorkerOperation &&
+               Stopwatch.GetElapsedTime(
+                   workerStartedTimestamp).TotalMilliseconds <
+               MaximumWorkerSliceMilliseconds);
 
         return new ChunkMaterializationWorkerSlice(
             coord,
-            stageTiming,
+            stageTimings.MoveToImmutable(),
             workerMilliseconds,
             _job.IsComplete,
             completedChunk,
