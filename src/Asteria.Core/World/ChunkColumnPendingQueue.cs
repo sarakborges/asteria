@@ -333,7 +333,7 @@ internal sealed class ChunkColumnPendingQueue
     }
 
     private static ChunkGenerationTaskKey Key(ChunkColumnCoord column) =>
-        new(column, ChunkGenerationStepId.SectionReady, sectionY: null);
+        new(column, ChunkGenerationStepId.SectionReady);
 
     private void EnsurePriorityContext()
     {
