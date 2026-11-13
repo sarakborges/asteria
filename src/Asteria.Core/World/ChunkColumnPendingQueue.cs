@@ -218,9 +218,25 @@ internal sealed class ChunkColumnPendingQueue
     /// </summary>
     public bool TryDequeueColumn(
         long? maximumHorizontalDistanceSquared,
+        out ChunkColumnPendingDispatch dispatch) =>
+        TryDequeueColumn(
+            maximumHorizontalDistanceSquared,
+            int.MaxValue,
+            out dispatch);
+
+    /// <summary>
+    /// Removes at most <paramref name="maximumSections"/> sections from the
+    /// best horizontal column. Any remaining vertical sections stay indexed
+    /// under the same column admission key and retain their individual ages.
+    /// </summary>
+    public bool TryDequeueColumn(
+        long? maximumHorizontalDistanceSquared,
+        int maximumSections,
         out ChunkColumnPendingDispatch dispatch)
     {
         ValidateMaximumDistance(maximumHorizontalDistanceSquared);
+        if (maximumSections <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumSections));
         if (!TryFindBestColumn(
                 maximumHorizontalDistanceSquared, out var queued))
         {
@@ -229,18 +245,39 @@ internal sealed class ChunkColumnPendingQueue
         }
 
         var column = queued.Key.Column;
-        if (!_columns.Remove(queued.Key) ||
-            !_sectionsByColumn.Remove(column, out var sections))
+        if (!_sectionsByColumn.TryGetValue(column, out var sections) ||
+            sections.Count == 0)
         {
             throw new InvalidOperationException(
-                $"Pending column indexes diverged for {column}");
+                $"Pending column has no section entries: {column}");
         }
 
-        Count -= sections.Count;
         var orderedSections = sections.Values
             .OrderBy(item => StreamingPriority(item.Coord))
             .ThenBy(item => item.EnqueuedTimestamp)
+            .Take(maximumSections)
             .ToArray();
+        foreach (var section in orderedSections)
+            sections.Remove(section.Coord.Y);
+
+        Count -= orderedSections.Length;
+        if (sections.Count == 0)
+        {
+            _sectionsByColumn.Remove(column);
+            if (!_columns.Remove(queued.Key))
+            {
+                throw new InvalidOperationException(
+                    $"Pending column is missing from its priority index: {column}");
+            }
+        }
+        else if (!_columns.UpdatePriority(
+                     queued.Key,
+                     CalculatePriority(column, sections.Values)))
+        {
+            throw new InvalidOperationException(
+                $"Pending column is missing from its priority index: {column}");
+        }
+
         dispatch = new ChunkColumnPendingDispatch(
             column,
             orderedSections,
