@@ -19,18 +19,15 @@ public sealed class ChunkGenerationDispatcherTests
 
         var firstPump = dispatcher.Pump(GenerousBudget(), 0);
 
-        Assert.Equal(2, firstPump.TasksAdvanced);
-        Assert.Equal(1, firstPump.TasksCompleted);
-        Assert.Equal(new[] { "first", "second" }, order);
-        Assert.Equal(1, dispatcher.ActiveTaskCount);
-        Assert.True(dispatcher.TryGetTaskState(Key(1), out var state));
-        Assert.Equal(ChunkGenerationTaskState.ReadyToResume, state);
+        Assert.Equal(3, firstPump.TasksAdvanced);
+        Assert.Equal(2, firstPump.TasksCompleted);
+        Assert.Equal(new[] { "first", "second", "first" }, order);
+        Assert.Equal(0, dispatcher.ActiveTaskCount);
+        Assert.Equal(2, dispatcher.CompletedTaskCount);
 
         var secondPump = dispatcher.Pump(GenerousBudget(), 0);
 
-        Assert.Equal(1, secondPump.TasksCompleted);
-        Assert.Equal(new[] { "first", "second", "first" }, order);
-        Assert.Equal(0, dispatcher.ActiveTaskCount);
+        Assert.Equal(0, secondPump.TasksAdvanced);
         Assert.Equal(2, dispatcher.CompletedTaskCount);
     }
 
@@ -124,10 +121,11 @@ public sealed class ChunkGenerationDispatcherTests
             Key(5), 1, Priority(2), 2, new CompleteImmediatelyTask("near", order)));
         Assert.True(dispatcher.UpdatePriority(Key(4), Priority(0)));
 
-        dispatcher.Pump(GenerousBudget(), 0);
+        var report = dispatcher.Pump(GenerousBudget(), 0);
 
-        Assert.Equal(new[] { "far" }, order);
-        Assert.Equal(1, dispatcher.ActiveTaskCount);
+        Assert.Equal(new[] { "far", "near" }, order);
+        Assert.Equal(2, report.TasksCompleted);
+        Assert.Equal(0, dispatcher.ActiveTaskCount);
     }
 
     [Fact]
