@@ -646,6 +646,7 @@ public sealed class SurfaceChunkMaterializer
             // Every column in this layer is outside the playable terrain
             // range or belongs to an already-written shell plane.
             job.NextTerrainLocalY++;
+            job.NextTerrainLocalZ = 0;
             return;
         }
 
@@ -653,21 +654,21 @@ public sealed class SurfaceChunkMaterializer
         // persist between calls, preserving the original Y/Z/X write order.
         var localZ = job.NextTerrainLocalZ;
         for (var localX = 0; localX < Chunk.Size; localX++)
-        {
-                    var columnIndex = localX + Chunk.Size * localZ;
-                    if (job.SupportMaterializationColumns is { } supportColumns &&
-                        !supportColumns[columnIndex])
-                        continue;
+{
+            var columnIndex = localX + Chunk.Size * localZ;
+            if (job.SupportMaterializationColumns is { } supportColumns &&
+                !supportColumns[columnIndex])
+                continue;
 
-                    ref var state = ref columnMaterializationCaches[columnIndex];
-                    var surfaceY = state.SurfaceY;
-                    if (worldY > surfaceY ||
-                        (columnSolidMasks is null
-                            ? !densityVolume.IsSolidAtUnchecked(
-                                localX, localY, localZ)
-                            : (columnSolidMasks[columnIndex] & solidBit) == 0))
-                    {
-                        continue;
+            ref var state = ref columnMaterializationCaches[columnIndex];
+            var surfaceY = state.SurfaceY;
+            if (worldY > surfaceY ||
+                (columnSolidMasks is null
+                    ? !densityVolume.IsSolidAtUnchecked(
+                        localX, localY, localZ)
+                    : (columnSolidMasks[columnIndex] & solidBit) == 0))
+            {
+                continue;
                     }
 
                     // Only solid cells below their column surface need the
