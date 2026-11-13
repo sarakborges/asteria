@@ -328,6 +328,8 @@ public sealed class ChunkResidencyRuntime
         _generationDispatcher.ActiveTaskCount == 0 &&
         _generationDispatcher.RetiringTaskCount == 0 &&
         _generationDispatcher.PendingOutcomeCount == 0 &&
+        DirectionalFaceReconciliationCount == 0 &&
+        ChunkLightingReconciliationCount == 0 &&
         (_generationWorkerShutdown is null || _generationWorkerShutdown.IsCompleted);
 
     /// <summary>

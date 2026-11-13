@@ -8,7 +8,7 @@ public sealed class ChunkResidencyRuntimeTests
     public void ChunkArrivalOnlyQueuesDirectionalReconciliationUntilWorkerDispatch()
     {
         using var provider = new BlockingDirectionalFacePaletteProvider();
-        var fixture = CreateFixture(provider);
+        using var fixture = CreateFixture(provider);
         var coord = ChunkCoord.Zero;
 
         fixture.World.InsertChunk(coord, new Chunk());
@@ -37,7 +37,7 @@ public sealed class ChunkResidencyRuntimeTests
     public void StaleDirectionalReconciliationIsDiscardedAndRequeued()
     {
         using var provider = new BlockingDirectionalFacePaletteProvider();
-        var fixture = CreateFixture(provider);
+        using var fixture = CreateFixture(provider);
         var coord = ChunkCoord.Zero;
         fixture.World.InsertChunk(coord, new Chunk());
 
@@ -68,7 +68,7 @@ public sealed class ChunkResidencyRuntimeTests
     public void ReconciliationKeepsConfiguredTerrainWorkerCapacityAvailable()
     {
         using var provider = new BlockingDirectionalFacePaletteProvider();
-        var fixture = CreateFixture(provider, maxConcurrentWorkers: 3);
+        using var fixture = CreateFixture(provider, maxConcurrentWorkers: 3);
         fixture.World.InsertChunk(new ChunkCoord(-1, 0, 0), new Chunk());
         var desired = new HashSet<ChunkCoord>
         {
@@ -105,7 +105,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void ChunkArrivalLightingSeedsAreCalculatedOnDetachedWorkerSnapshot()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var arrivingCoord = ChunkCoord.Zero;
         var neighborCoord = new ChunkCoord(1, 0, 0);
         var arriving = new Chunk();
@@ -151,7 +151,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void ChunkArrivalPhysicsSeedsAreCalculatedOnDetachedWorkerSnapshot()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = new ChunkCoord(0, 1, 0);
         var chunk = new Chunk();
         chunk.SetBlock(
@@ -194,7 +194,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void GravityBoundaryReconciliationRunsOnWorkerAfterNeighborResidencyChanges()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var sourceCoord = new ChunkCoord(0, 1, 0);
         var lowerCoord = ChunkCoord.Zero;
         var source = new Chunk();
@@ -254,7 +254,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void DispatchRestoresArchivedChunkBeforeProviderWork()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = ChunkCoord.Zero;
 
         fixture.World.InsertChunk(
@@ -302,7 +302,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void MaterializationWorkerCompletesAllStagesBeforePublishingChunk()
     {
-        var fixture = CreateFixture(new StagedChunkProvider());
+        using var fixture = CreateFixture(new StagedChunkProvider());
         var coord = ChunkCoord.Zero;
         fixture.Runtime.SyncSelection(
             coord,
@@ -352,7 +352,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void MaterializationDispatchReportsAndHonorsAdmissionLimit()
     {
-        var fixture = CreateFixture(new StagedChunkProvider());
+        using var fixture = CreateFixture(new StagedChunkProvider());
         var coords = new HashSet<ChunkCoord>
         {
             ChunkCoord.Zero,
@@ -404,7 +404,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void CompletedMaterializationReleasesWorkerSlotBeforeResultCollection()
     {
-        var fixture = CreateFixture(new StagedChunkProvider());
+        using var fixture = CreateFixture(new StagedChunkProvider());
         var coord = ChunkCoord.Zero;
         fixture.Runtime.SyncSelection(
             coord,
@@ -433,7 +433,7 @@ public sealed class ChunkResidencyRuntimeTests
     public void RetirementDiscardsInFlightMaterializationResult()
     {
         using var provider = new BlockingChunkProvider();
-        var fixture = CreateFixture(provider);
+        using var fixture = CreateFixture(provider);
         var coord = ChunkCoord.Zero;
         fixture.Runtime.SyncSelection(
             coord,
@@ -461,7 +461,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void DistantRestoresContinueUnderStreamingPressureAfterLocalChunks()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var near = new ChunkCoord(1, 0, 0);
         var far = new ChunkCoord(5, 0, 0);
         foreach (var coord in new[] { near, far })
@@ -488,7 +488,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void ArchivedRestoresAreBoundedPerFrameAndRemainPendingForNextFrame()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coords = new[]
         {
             new ChunkCoord(0, 0, 0),
@@ -534,7 +534,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void RestoringChunkWithResidentNeighborQueuesLightingFrontier()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = ChunkCoord.Zero;
         var neighbor = new ChunkCoord(1, 0, 0);
         fixture.World.InsertChunk(coord, new Chunk());
@@ -573,7 +573,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void ResidentFluidActivationWakesSourceWhenAnInChunkFlowTargetIsOpen()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = ChunkCoord.Zero;
         var chunk = new Chunk();
         chunk.SetFluid(8, 8, 8,
@@ -595,7 +595,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void ResidentFluidActivationLeavesFullyBlockedSourceDormant()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = ChunkCoord.Zero;
         var chunk = new Chunk();
         var stone = fixture.Blocks.GetId("asteria:stone");
@@ -623,7 +623,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void UnloadedSourceFluidFrontierWakesOnlyWhenTargetChunkArrives()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var source = ChunkCoord.Zero;
         var east = new ChunkCoord(1, 0, 0);
         var chunk = new Chunk();
@@ -664,7 +664,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void FluidActivationDelayCacheInvalidatesWhenTickRateChanges()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = ChunkCoord.Zero;
         var position = new WorldVoxelCoord(8, 8, 8);
         var chunk = new Chunk();
@@ -712,7 +712,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void FluidActivationIsBoundedPerFrameAndEventuallyCompletesEveryChunk()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var water = fixture.Fluids.GetId("asteria:water");
         var coords = new[]
         {
@@ -789,7 +789,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void DormantFluidTicksReactivateInBoundedBatches()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = ChunkCoord.Zero;
         var water = fixture.Fluids.GetId("asteria:water");
         for (var index = 0; index < 512; index++)
@@ -828,7 +828,7 @@ public sealed class ChunkResidencyRuntimeTests
     public void InitialLightingCompletesOnMaterializationWorkerBeforeChunkPublication()
     {
         using var provider = new SignalingChunkProvider();
-        var fixture = CreateFixture(provider);
+        using var fixture = CreateFixture(provider);
         var coord = ChunkCoord.Zero;
         fixture.Runtime.SyncSelection(
             coord,
@@ -871,7 +871,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void PresentationDoesNotWaitForUnmaterializedNeighbor()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var center = ChunkCoord.Zero;
         var neighbor = new ChunkCoord(1, 0, 0);
 
@@ -896,7 +896,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void RetirementArchivesDirtyChunkAndClearsResidency()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var origin = ChunkCoord.Zero;
 
         fixture.World.InsertChunk(
@@ -1330,5 +1330,22 @@ public sealed class ChunkResidencyRuntimeTests
         BlockPhysicsUpdateQueue PhysicsUpdates,
         BlockPhysicsRuntime Physics,
         ChunkResidencyRuntime Runtime,
-        WorldGameRules Rules);
+        WorldGameRules Rules) : IDisposable
+    {
+        public void Dispose()
+        {
+            Runtime.BeginRetirement();
+            var drained = SpinWait.SpinUntil(
+                () =>
+                {
+                    Runtime.CollectMaterializationResults(
+                        GenerousBudget(), Array.Empty<ChunkCoord>());
+                    return Runtime.IsQuiescent;
+                },
+                TimeSpan.FromSeconds(5));
+            if (!drained)
+                throw new InvalidOperationException(
+                    "Chunk residency fixture did not retire its workers.");
+        }
+    }
 }
