@@ -461,31 +461,6 @@ jobs:
               return 1
             fi
 
-            # Hold the shared generation pool at three threads and vary
-            # only the logical terrain admission cap. This isolates whether
-            # suspended, resumable chunk jobs pin admission slots while a
-            # worker is idle between bounded slices.
-            if [ "$version" = "candidate" ]; then
-              for admission_cap in 2 3 4 6; do
-                local controlled_dir="$root/results/candidate-admission-$admission_cap"
-                local controlled_output="$controlled_dir/$repetition.json"
-                mkdir -p "$controlled_dir"
-                if ! env DOTNET_TieredCompilation=0 \
-                  ASTERIA_BENCH_MAX_WORLD_WORKERS=3 \
-                  ASTERIA_BENCH_MAX_TERRAIN_ADMISSION="$admission_cap" dotnet run \
-                  --project "$project_root/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
-                  --configuration Release --no-build -- \
-                  --project-root "$project_root" \
-                  --seed 181960897289965 --dimension asteria:overworld \
-                  --route-steps 8 --radius 4 \
-                  --output "$controlled_output" \
-                  > "$log.route-admission-$admission_cap" 2>&1; then
-                  cat "$log.route-admission-$admission_cap"
-                  return 1
-                fi
-              done
-            fi
-
             python3 - "$output" "$route_output" <<'PY'
           import json
           import pathlib
