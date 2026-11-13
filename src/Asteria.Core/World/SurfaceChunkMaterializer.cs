@@ -655,196 +655,196 @@ public sealed class SurfaceChunkMaterializer
         var localZ = job.NextTerrainLocalZ;
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
-                    var columnIndex = localX + Chunk.Size * localZ;
-                    if (job.SupportMaterializationColumns is { } supportColumns &&
-                        !supportColumns[columnIndex])
-                        continue;
+            var columnIndex = localX + Chunk.Size * localZ;
+            if (job.SupportMaterializationColumns is { } supportColumns &&
+                !supportColumns[columnIndex])
+                continue;
 
-                    ref var state = ref columnMaterializationCaches[columnIndex];
-                    var surfaceY = state.SurfaceY;
-                    if (worldY > surfaceY ||
+            ref var state = ref columnMaterializationCaches[columnIndex];
+            var surfaceY = state.SurfaceY;
+            if (worldY > surfaceY ||
+                (columnSolidMasks is null
+                    ? !densityVolume.IsSolidAtUnchecked(
+                        localX, localY, localZ)
+                    : (columnSolidMasks[columnIndex] & solidBit) == 0))
+            {
+                continue;
+            }
+
+            // Only solid cells below their column surface need the
+            // heavier biome/material metadata from the column cache.
+            var sample = state.Sample ??
+                throw new InvalidOperationException(
+                    "Materialization column has no biome sample.");
+            var baseY = state.BaseY;
+            var surfaceFluidCutDepth = state.SurfaceFluidCutDepth;
+            var worldX = state.WorldX;
+            var worldZ = state.WorldZ;
+
+            if (!state.HasSurfaceMaterialMetadata)
+            {
+                state.SurfaceCore = _materials.CoreLayer(sample);
+                state.SurfaceGeology = _materials.ResolveGeology(sample);
+                state.HasSurfaceMaterialMetadata = true;
+            }
+
+            var isExposedTerrainTop = worldY == surfaceY;
+            if (!isExposedTerrainTop &&
+                worldY < surfaceY &&
+                (long)surfaceY - worldY <= 2L)
+            {
+                isExposedTerrainTop = true;
+                for (var aboveY = worldY + 1;
+                     aboveY <= surfaceY;
+                     aboveY++)
+                {
+                    var aboveLocalY = aboveY - originY;
+                    if (aboveLocalY < 0 ||
+                        aboveLocalY >= Chunk.Size ||
                         (columnSolidMasks is null
-                            ? !densityVolume.IsSolidAtUnchecked(
-                                localX, localY, localZ)
-                            : (columnSolidMasks[columnIndex] & solidBit) == 0))
+                            ? densityVolume.IsSolidAtUnchecked(
+                                localX, aboveLocalY, localZ)
+                            : (columnSolidMasks[columnIndex] &
+                               (1u << aboveLocalY)) != 0))
                     {
-                        continue;
+                        isExposedTerrainTop = false;
+                        break;
                     }
+                }
+            }
 
-                    // Only solid cells below their column surface need the
-                    // heavier biome/material metadata from the column cache.
-                    var sample = state.Sample ??
+            BlockRuntimeId exposedBlock = BlockRuntimeId.Air;
+            var hasExposedGeology = false;
+            if (isExposedTerrainTop)
+            {
+                var exposedGeology = state.SurfaceGeology;
+                BiomeSample surfaceOwner;
+                if (worldY > baseY)
+                {
+                    surfaceOwner = state.VolumeSample ??
+                        densityVolume.VolumeBiomeAt(
+                            localX, worldY, localZ) ??
                         throw new InvalidOperationException(
-                            "Materialization column has no biome sample.");
-                    var baseY = state.BaseY;
-                    var surfaceFluidCutDepth = state.SurfaceFluidCutDepth;
-                    var worldX = state.WorldX;
-                    var worldZ = state.WorldZ;
-
-                    if (!state.HasSurfaceMaterialMetadata)
+                            "Additive surface has no volume biome owner.");
+                    if (state.VolumeSample is null)
                     {
-                        state.SurfaceCore = _materials.CoreLayer(sample);
-                        state.SurfaceGeology = _materials.ResolveGeology(sample);
-                        state.HasSurfaceMaterialMetadata = true;
+                        state.VolumeSample = surfaceOwner;
+                        state.VolumeGeology =
+                            _materials.ResolveGeology(surfaceOwner);
                     }
+                    exposedGeology = state.VolumeGeology;
+                }
+                else
+                {
+                    surfaceOwner = sample;
+                }
 
-                    var isExposedTerrainTop = worldY == surfaceY;
-                    if (!isExposedTerrainTop &&
-                        worldY < surfaceY &&
-                        (long)surfaceY - worldY <= 2L)
-                    {
-                        isExposedTerrainTop = true;
-                        for (var aboveY = worldY + 1;
-                             aboveY <= surfaceY;
-                             aboveY++)
-                        {
-                            var aboveLocalY = aboveY - originY;
-                            if (aboveLocalY < 0 ||
-                                aboveLocalY >= Chunk.Size ||
-                                (columnSolidMasks is null
-                                    ? densityVolume.IsSolidAtUnchecked(
-                                        localX, aboveLocalY, localZ)
-                                    : (columnSolidMasks[columnIndex] &
-                                       (1u << aboveLocalY)) != 0))
-                            {
-                                isExposedTerrainTop = false;
-                                break;
-                            }
-                        }
-                    }
+                if (!exposedGeology.RequiresSubmergedSurface ||
+                    HasGeneratedFluidAboveSurface(
+                        surfaceOwner, sample, baseY,
+                        surfaceFluidCutDepth, worldX, worldY, worldZ,
+                        densityVolume.VolumePlacementAt(localX, localZ)))
+                {
+                    hasExposedGeology = exposedGeology.TrySurfaceBlockAtCached(
+                        worldX, worldY, worldZ,
+                        job.GetGeologyNoiseCache(),
+                        out exposedBlock);
+                }
+            }
 
-                    BlockRuntimeId exposedBlock = BlockRuntimeId.Air;
-                    var hasExposedGeology = false;
-                    if (isExposedTerrainTop)
-                    {
-                        var exposedGeology = state.SurfaceGeology;
-                        BiomeSample surfaceOwner;
-                        if (worldY > baseY)
-                        {
-                            surfaceOwner = state.VolumeSample ??
-                                densityVolume.VolumeBiomeAt(
-                                    localX, worldY, localZ) ??
-                                throw new InvalidOperationException(
-                                    "Additive surface has no volume biome owner.");
-                            if (state.VolumeSample is null)
-                            {
-                                state.VolumeSample = surfaceOwner;
-                                state.VolumeGeology =
-                                    _materials.ResolveGeology(surfaceOwner);
-                            }
-                            exposedGeology = state.VolumeGeology;
-                        }
-                        else
-                        {
-                            surfaceOwner = sample;
-                        }
+            BlockRuntimeId block;
+            if (hasExposedGeology)
+            {
+                block = exposedBlock;
+            }
+            else if (worldY <= baseY)
+            {
+                var depth = checked((uint)(baseY - worldY));
+                var surfaceMaterials = state.SurfaceMaterials ??=
+                    _materials.SampleColumn(sample, worldX, worldZ);
+                var useSurfaceCover =
+                    state.SurfaceGeology.SurfaceCoverDepth is { } authoredCoverDepth
+                        ? depth < authoredCoverDepth
+                        : depth == 0 || depth < surfaceMaterials.FiniteDepth;
+                if (useSurfaceCover)
+                {
+                    block = surfaceMaterials.BlockAt(depth);
+                }
+                else if (state.SurfaceGeology.SurfaceCoverDepth is not null &&
+                         state.SurfaceGeology.TryBlockAtCached(
+                             worldX, worldY, worldZ,
+                             job.GetGeologyNoiseCache(),
+                             out var geologyBlock))
+                {
+                    block = geologyBlock;
+                }
+                else
+                {
+                    // A null cover depth also means this biome has no
+                    // 3D geology rule; avoid a dictionary lookup per voxel.
+                    block = depth >= state.SurfaceCore.StartDepth
+                        ? state.SurfaceCore.Block
+                        : surfaceMaterials.BlockAt(depth);
+                }
+            }
+            else
+            {
+                var volumeSample = state.VolumeSample;
+                if (volumeSample is null)
+                {
+                    volumeSample = densityVolume.VolumeBiomeAt(
+                        localX, worldY, localZ) ??
+                        throw new InvalidOperationException(
+                            "Additive solid voxel has no volume biome owner.");
+                    state.VolumeSample = volumeSample;
+                    state.VolumeGeology =
+                        _materials.ResolveGeology(volumeSample);
+                }
 
-                        if (!exposedGeology.RequiresSubmergedSurface ||
-                            HasGeneratedFluidAboveSurface(
-                                surfaceOwner, sample, baseY,
-                                surfaceFluidCutDepth, worldX, worldY, worldZ,
-                                densityVolume.VolumePlacementAt(localX, localZ)))
-                        {
-                            hasExposedGeology = exposedGeology.TrySurfaceBlockAtCached(
-                                worldX, worldY, worldZ,
-                                job.GetGeologyNoiseCache(),
-                                out exposedBlock);
-                        }
-                    }
+                var volumeMaterials = state.VolumeMaterials ??=
+                    _materials.SampleColumn(volumeSample, worldX, worldZ);
+                var depth = AdditiveDepthAt(
+                    densityVolume, sample, baseY, localX, localY, localZ,
+                    worldX, worldY, worldZ, volumeMaterials.FiniteDepth);
+                var useSurfaceCover =
+                    state.VolumeGeology.SurfaceCoverDepth is { } authoredCoverDepth
+                        ? depth < authoredCoverDepth
+                        : depth == 0 || depth < volumeMaterials.FiniteDepth;
+                if (useSurfaceCover)
+                {
+                    block = volumeMaterials.BlockAt(depth);
+                }
+                else if (state.VolumeGeology.SurfaceCoverDepth is not null &&
+                         state.VolumeGeology.TryBlockAtCached(
+                             worldX, worldY, worldZ,
+                             job.GetGeologyNoiseCache(),
+                             out var volumeGeologyBlock))
+                {
+                    block = volumeGeologyBlock;
+                }
+                else
+                {
+                    // The cached nullable cover depth also identifies
+                    // whether this volume biome has volumetric geology.
+                    block = volumeMaterials.BlockAt(depth);
+                }
+            }
 
-                    BlockRuntimeId block;
-                    if (hasExposedGeology)
-                    {
-                        block = exposedBlock;
-                    }
-                    else if (worldY <= baseY)
-                    {
-                        var depth = checked((uint)(baseY - worldY));
-                        var surfaceMaterials = state.SurfaceMaterials ??=
-                            _materials.SampleColumn(sample, worldX, worldZ);
-                        var useSurfaceCover =
-                            state.SurfaceGeology.SurfaceCoverDepth is { } authoredCoverDepth
-                                ? depth < authoredCoverDepth
-                                : depth == 0 || depth < surfaceMaterials.FiniteDepth;
-                        if (useSurfaceCover)
-                        {
-                            block = surfaceMaterials.BlockAt(depth);
-                        }
-                        else if (state.SurfaceGeology.SurfaceCoverDepth is not null &&
-                                 state.SurfaceGeology.TryBlockAtCached(
-                                     worldX, worldY, worldZ,
-                                     job.GetGeologyNoiseCache(),
-                                     out var geologyBlock))
-                        {
-                            block = geologyBlock;
-                        }
-                        else
-                        {
-                            // A null cover depth also means this biome has no
-                            // 3D geology rule; avoid a dictionary lookup per voxel.
-                            block = depth >= state.SurfaceCore.StartDepth
-                                ? state.SurfaceCore.Block
-                                : surfaceMaterials.BlockAt(depth);
-                        }
-                    }
-                    else
-                    {
-                        var volumeSample = state.VolumeSample;
-                        if (volumeSample is null)
-                        {
-                            volumeSample = densityVolume.VolumeBiomeAt(
-                                localX, worldY, localZ) ??
-                                throw new InvalidOperationException(
-                                    "Additive solid voxel has no volume biome owner.");
-                            state.VolumeSample = volumeSample;
-                            state.VolumeGeology =
-                                _materials.ResolveGeology(volumeSample);
-                        }
-
-                        var volumeMaterials = state.VolumeMaterials ??=
-                            _materials.SampleColumn(volumeSample, worldX, worldZ);
-                        var depth = AdditiveDepthAt(
-                            densityVolume, sample, baseY, localX, localY, localZ,
-                            worldX, worldY, worldZ, volumeMaterials.FiniteDepth);
-                        var useSurfaceCover =
-                            state.VolumeGeology.SurfaceCoverDepth is { } authoredCoverDepth
-                                ? depth < authoredCoverDepth
-                                : depth == 0 || depth < volumeMaterials.FiniteDepth;
-                        if (useSurfaceCover)
-                        {
-                            block = volumeMaterials.BlockAt(depth);
-                        }
-                        else if (state.VolumeGeology.SurfaceCoverDepth is not null &&
-                                 state.VolumeGeology.TryBlockAtCached(
-                                     worldX, worldY, worldZ,
-                                     job.GetGeologyNoiseCache(),
-                                     out var volumeGeologyBlock))
-                        {
-                            block = volumeGeologyBlock;
-                        }
-                        else
-                        {
-                            // The cached nullable cover depth also identifies
-                            // whether this volume biome has volumetric geology.
-                            block = volumeMaterials.BlockAt(depth);
-                        }
-                    }
-
-                    var voxelIndex = columnIndex + Chunk.Area * localY;
-                    if (initialBlocks.SetBlockAtLinearIndexFreshUnchecked(voxelIndex, block) &&
-                        !block.IsAir &&
-                        directionalMasks is not null &&
-                        directionalCandidateColumns is { } candidateColumns &&
-                        (candidateColumns[columnIndex] & (1u << localY)) != 0)
-                    {
-                        var faceData = directionalMasks.AtCandidate(
-                            localX, localY, localZ);
-                        if (faceData.HasCandidates)
-                        {
-                            job.Chunk.SetInitialDirectionalFaceDataAtLinearIndex(
-                                voxelIndex, faceData, updateRevision: false);
-                        }
-                    }
+            var voxelIndex = columnIndex + Chunk.Area * localY;
+            if (initialBlocks.SetBlockAtLinearIndexFreshUnchecked(voxelIndex, block) &&
+                !block.IsAir &&
+                directionalMasks is not null &&
+                directionalCandidateColumns is { } candidateColumns &&
+                (candidateColumns[columnIndex] & (1u << localY)) != 0)
+            {
+                var faceData = directionalMasks.AtCandidate(
+                    localX, localY, localZ);
+                if (faceData.HasCandidates)
+                {
+                    job.Chunk.SetInitialDirectionalFaceDataAtLinearIndex(
+                        voxelIndex, faceData, updateRevision: false);
+                }
+            }
         }
 
         job.NextTerrainLocalZ++;
