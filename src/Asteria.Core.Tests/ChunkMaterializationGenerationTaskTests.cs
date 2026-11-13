@@ -53,8 +53,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
             job, _ => lightingCalls++);
 
         var first = task.Advance([], CancellationToken.None);
-        var second = RunSlice(task, first, job, 1);
-        var final = RunSlice(task, second, job, 2);
+        var final = RunSlice(task, first, job, 1);
 
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
         Assert.Empty(final.WorkerOperations);
