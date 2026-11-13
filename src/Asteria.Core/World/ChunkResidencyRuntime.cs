@@ -42,9 +42,10 @@ public sealed class ChunkResidencySettings
         GameRules = gameRules ??
             throw new ArgumentNullException(nameof(gameRules));
         var concurrentWorkers = maxConcurrentWorkers ?? maxMaterializationsInFlight;
-        if (concurrentWorkers < maxMaterializationsInFlight)
+        if (concurrentWorkers <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxConcurrentWorkers));
 
+        MaxConcurrentWorkers = concurrentWorkers;
         MaxMaterializationsInFlight = concurrentWorkers;
         MaxTerrainMaterializationsInFlight =
             maxMaterializationsInFlight;
@@ -76,9 +77,18 @@ public sealed class ChunkResidencySettings
         return value;
     }
 
-    // Shared hard cap across terrain generation and arrival-reconciliation tasks.
+    /// <summary>
+    /// Maximum number of physical worker threads in the shared generation pool.
+    /// </summary>
+    public int MaxConcurrentWorkers { get; }
+
+    // Kept as a compatibility alias for existing callers.
     public int MaxMaterializationsInFlight { get; }
 
+    /// <summary>
+    /// Maximum number of admitted terrain chunk jobs, including jobs suspended
+    /// between bounded worker slices. This may exceed the worker thread count.
+    /// </summary>
     public int MaxTerrainMaterializationsInFlight { get; }
 
     public int MaxDispatchesPerFrame { get; }
