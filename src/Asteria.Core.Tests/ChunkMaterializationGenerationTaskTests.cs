@@ -42,6 +42,8 @@ public sealed class ChunkMaterializationGenerationTaskTests
         var output = Assert.IsType<ChunkMaterializationTaskOutput>(
             advance.CompletionPayload);
         Assert.Equal(100, output.StageTimings.Length);
+        Assert.Equal(4, output.WorkerSliceCount);
+        Assert.True(output.CoordinatorResumeWaitMilliseconds >= 0d);
     }
 
     [Fact]
