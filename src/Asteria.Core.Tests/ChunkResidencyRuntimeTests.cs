@@ -85,9 +85,11 @@ public sealed class ChunkResidencyRuntimeTests
         var dispatched = fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(),
             Array.Empty<ChunkCoord>(),
-            maximumNewTasks: 2);
+            maximumGenerationWorkerStarts: 2,
+            maximumWorldWorkerStarts: 3);
 
         Assert.Equal(2, dispatched.StartedTasks);
+        Assert.Equal(2, dispatched.WorkerOperationsStarted);
         Assert.True(provider.TwoMaterializationWorkersStarted.Wait(
             TimeSpan.FromSeconds(5)),
             "The second terrain worker was held back by pending reconciliation.");
@@ -103,14 +105,12 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-    public void TerrainAdmissionCanExceedWorkerThreadCount()
+    public void AdmitsAllDesiredChunksWhileWorkerPoolRemainsBounded()
     {
         using var provider = new BlockingChunkProvider();
         using var fixture = CreateFixture(
             provider,
-            maxConcurrentWorkers: 2,
-            maxMaterializationsInFlight: 4,
-            maxDispatchesPerFrame: 4);
+            maxConcurrentWorkers: 2);
         var desired = new HashSet<ChunkCoord>
         {
             new(1, 0, 0),
@@ -125,16 +125,35 @@ public sealed class ChunkResidencyRuntimeTests
             desired,
             Array.Empty<ChunkCoord>());
 
-        var dispatched = fixture.Runtime.DispatchMaterializationTasks(
+        var admitted = fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(),
             Array.Empty<ChunkCoord>(),
-            maximumNewTasks: 4);
+            maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 0);
 
-        Assert.Equal(4, dispatched.StartedTasks);
+        Assert.Equal(4, admitted.StartedTasks);
+        Assert.Equal(0, admitted.WorkerOperationsStarted);
         Assert.Equal(4, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(4, fixture.Runtime.PendingCount);
         Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
+        Assert.Equal(4, fixture.Runtime.PendingGenerationWorkerOperations);
+        Assert.Equal(0, fixture.Runtime.ActiveWorkerCount);
+
+        var started = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 2,
+            maximumWorldWorkerStarts: 2);
+
+        Assert.Equal(2, started.WorkerOperationsStarted);
         Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)));
+        Assert.True(SpinWait.SpinUntil(
+            () => fixture.Runtime.ActiveWorkerCount == 2,
+            TimeSpan.FromSeconds(5)));
         provider.ReleaseAdvance.Set();
+        Assert.True(SpinWait.SpinUntil(
+            () => fixture.Runtime.ActiveWorkerCount == 0,
+            TimeSpan.FromSeconds(5)));
     }
 
     [Fact]
@@ -992,9 +1011,7 @@ public sealed class ChunkResidencyRuntimeTests
 
     private static RuntimeFixture CreateFixture(
         IChunkProvider? chunkProvider = null,
-        int? maxConcurrentWorkers = null,
-        int maxMaterializationsInFlight = 2,
-        int maxDispatchesPerFrame = 2)
+        int maxConcurrentWorkers = 2)
     {
         var blocks =
             new BlockRegistry(
@@ -1068,12 +1085,10 @@ public sealed class ChunkResidencyRuntimeTests
                 fluidRevisions,
                 ticks,
                 new ChunkResidencySettings(
-                    maxMaterializationsInFlight,
-                    maxDispatchesPerFrame,
+                    maxConcurrentWorkers,
                     maxResultsPerFrame: 2,
                     maxEvictionsPerFrame: 2,
-                    gameRules: rules,
-                    maxConcurrentWorkers: maxConcurrentWorkers));
+                    gameRules: rules));
 
         return new RuntimeFixture(
             world,
