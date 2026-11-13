@@ -1121,15 +1121,19 @@ public sealed class ChunkResidencyRuntime
         if (restored > 0)
             SyncResidentState(presented);
 
-        StartArrivalReconciliationWorker(
-            budget, failures,
-            hasWorkerAdmission: hasWorkerAdmission ?? maximumNewTasks > 0);
-
         UpdateGenerationTaskPriorities();
         _generationDispatcher.Pump(
             maximumCompletions: 0,
             maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
             maximumWorkerStarts: _settings.MaxConcurrentWorkers);
+
+        // Reconciliation uses Task.Run rather than the generation pool. Start
+        // it only after generation dispatch has claimed its available worker
+        // capacity, so the extra logical task slot never creates an extra CPU
+        // worker beyond the configured physical limit.
+        StartArrivalReconciliationWorker(
+            budget, failures,
+            hasWorkerAdmission: hasWorkerAdmission ?? maximumNewTasks > 0);
 
         if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
             return ChunkResidencyUpdate.Empty;
@@ -1268,6 +1272,17 @@ public sealed class ChunkResidencyRuntime
     {
         if (!hasWorkerAdmission || !_acceptingMaterializationWork ||
             budget.Exhausted(Stopwatch.GetTimestamp()))
+            return;
+
+        var occupiedWorkerSlots =
+            _generationWorkerPool.PendingWorkCount +
+            _generationWorkerPool.ActiveWorkerCount +
+            _generationDispatcher.PendingWorkerOperationCount +
+            _directionalFaceReconciliationTasks.Values.Count(work =>
+                !work.WorkerTask.IsCompleted) +
+            _chunkLightingReconciliationTasks.Values.Count(work =>
+                !work.WorkerTask.IsCompleted);
+        if (occupiedWorkerSlots >= _settings.MaxConcurrentWorkers)
             return;
 
         var started = _preferChunkLightingReconciliation
