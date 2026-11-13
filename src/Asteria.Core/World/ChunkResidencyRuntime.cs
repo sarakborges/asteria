@@ -11,7 +11,9 @@ public sealed class ChunkResidencySettings
         int maxResultsPerFrame,
         int maxEvictionsPerFrame,
         WorldGameRules gameRules,
-        int? maxConcurrentWorkers = null)
+        int? maxConcurrentWorkers = null,
+        int? maxGenerationCompletionsPerFrame = null,
+        int? maxGenerationTaskAdvancesPerFrame = null)
     {
         if (maxMaterializationsInFlight <= 0)
         {
@@ -52,6 +54,26 @@ public sealed class ChunkResidencySettings
             maxResultsPerFrame;
         MaxEvictionsPerFrame =
             maxEvictionsPerFrame;
+
+        var defaultGenerationBudget = DefaultGenerationBudget(concurrentWorkers);
+        MaxGenerationCompletionsPerFrame =
+            ValidateGenerationBudget(
+                maxGenerationCompletionsPerFrame ?? defaultGenerationBudget,
+                nameof(maxGenerationCompletionsPerFrame));
+        MaxGenerationTaskAdvancesPerFrame =
+            ValidateGenerationBudget(
+                maxGenerationTaskAdvancesPerFrame ?? defaultGenerationBudget,
+                nameof(maxGenerationTaskAdvancesPerFrame));
+    }
+
+    private static int DefaultGenerationBudget(int workerCount) =>
+        (int)Math.Min(int.MaxValue, Math.Max(16L, (long)workerCount * 8L));
+
+    private static int ValidateGenerationBudget(int value, string parameterName)
+    {
+        if (value <= 0)
+            throw new ArgumentOutOfRangeException(parameterName);
+        return value;
     }
 
     // Shared hard cap across terrain generation and arrival-reconciliation tasks.
@@ -64,6 +86,18 @@ public sealed class ChunkResidencySettings
     public int MaxResultsPerFrame { get; }
 
     public int MaxEvictionsPerFrame { get; }
+
+    /// <summary>
+    /// Maximum worker completion messages consumed by one coordinator pump.
+    /// This is independent of the count of completed chunks published per frame.
+    /// </summary>
+    public int MaxGenerationCompletionsPerFrame { get; }
+
+    /// <summary>
+    /// Maximum short continuation/state-advance operations in one coordinator pump.
+    /// This is independent of new section admissions per frame.
+    /// </summary>
+    public int MaxGenerationTaskAdvancesPerFrame { get; }
 
     public WorldGameRules GameRules { get; }
 }
@@ -488,8 +522,8 @@ public sealed class ChunkResidencyRuntime
             return ChunkResidencyUpdate.Empty;
 
         var report = _generationDispatcher.Pump(
-            maximumCompletions: _settings.MaxResultsPerFrame,
-            maximumTaskAdvances: _settings.MaxDispatchesPerFrame,
+            maximumCompletions: _settings.MaxGenerationCompletionsPerFrame,
+            maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
             maximumWorkerStarts: _settings.MaxMaterializationsInFlight);
 
         var activations = new List<ChunkResidencyActivation>();
@@ -1030,7 +1064,7 @@ public sealed class ChunkResidencyRuntime
         UpdateGenerationTaskPriorities();
         _generationDispatcher.Pump(
             maximumCompletions: 0,
-            maximumTaskAdvances: _settings.MaxDispatchesPerFrame,
+            maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
             maximumWorkerStarts: _settings.MaxMaterializationsInFlight);
 
         if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0)
