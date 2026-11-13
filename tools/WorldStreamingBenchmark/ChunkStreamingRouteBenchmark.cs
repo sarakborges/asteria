@@ -31,14 +31,9 @@ internal static class ChunkStreamingRouteBenchmark
         if (horizontalRadius <= 0)
             throw new ArgumentOutOfRangeException(nameof(horizontalRadius));
 
-        var maximumWorldWorkers = ReadMaximumWorldWorkers(
-            Math.Clamp(Environment.ProcessorCount - 1, 2, 8));
-        // Keep the production dispatch budget fixed while independently
-        // varying logical terrain admission and the physical worker pool.
-        var productionTerrainDispatchLimit =
-            Math.Clamp(Environment.ProcessorCount - 2, 1, 6);
-        var terrainAdmissionLimit = ReadTerrainAdmissionLimit(
-            productionTerrainDispatchLimit);
+        var maximumWorldWorkers = WorldWorkerCapacity.Resolve(
+            Environment.ProcessorCount,
+            ReadMaximumBackgroundThreads());
         var retentionRadius = horizontalRadius + RetentionMarginChunks;
         var rules = new WorldGameRules();
         var world = new VoxelWorld();
@@ -65,11 +60,11 @@ internal static class ChunkStreamingRouteBenchmark
             mutations,
             physicsUpdates,
             droppedBlocks);
-        var residencySettings = CreateResidencySettings(
-            terrainAdmissionLimit,
-            productionTerrainDispatchLimit,
+        var residencySettings = new ChunkResidencySettings(
             maximumWorldWorkers,
-            rules);
+            maxResultsPerFrame: 8,
+            maxEvictionsPerFrame: 2,
+            gameRules: rules);
         var residency = new ChunkResidencyRuntime(
             world,
             blocks,
@@ -512,9 +507,6 @@ internal static class ChunkStreamingRouteBenchmark
                 residency, "PendingGenerationWorkerQueueCount");
             var generationWorkerCount = ReadOptionalRuntimeCounter(
                 residency, "GenerationWorkerCount", maximumWorldWorkers);
-            var terrainAdmissionCount = ReadOptionalRuntimeCounter(
-                residency, "MaxTerrainMaterializationsInFlight",
-                terrainAdmissionLimit);
             maximumActiveGenerationWorkers = Math.Max(
                 maximumActiveGenerationWorkers, activeGenerationWorkers);
             maximumPendingGenerationWorkerQueue = Math.Max(
@@ -537,11 +529,10 @@ internal static class ChunkStreamingRouteBenchmark
             maximumReadyGenerationTasks = Math.Max(
                 maximumReadyGenerationTasks, readyGenerationTasks);
             if (hasDetailedSchedulerDiagnostics &&
-                residency.MaterializationJobCount >= terrainAdmissionCount &&
-                residency.ActiveWorkerCount < generationWorkerCount &&
-                pendingGenerationWorkerOperations == 0 &&
-                readyGenerationTasks == 0 &&
-                pendingGenerationCompletions == 0)
+                activeGenerationWorkers + pendingGenerationWorkerQueue <
+                    generationWorkerCount &&
+                (pendingGenerationWorkerOperations > 0 ||
+                 readyGenerationTasks > 0))
             {
                 admissionSaturatedIdleWorkerFrames++;
             }
@@ -631,11 +622,6 @@ internal static class ChunkStreamingRouteBenchmark
             FramesPerChunk,
             HorizontalRadius = horizontalRadius,
             RetentionRadius = retentionRadius,
-            MaterializationWorkers = ReadOptionalRuntimeCounter(
-                residency, "GenerationWorkerCount", maximumWorldWorkers),
-            TerrainAdmissionLimit = ReadOptionalRuntimeCounter(
-                residency, "MaxTerrainMaterializationsInFlight",
-                terrainAdmissionLimit),
             MaximumWorldWorkers = maximumWorldWorkers,
             GenerationWorkerPoolSize = ReadOptionalRuntimeCounter(
                 residency, "GenerationWorkerCount", maximumWorldWorkers),
@@ -667,7 +653,7 @@ internal static class ChunkStreamingRouteBenchmark
                     totalInterSliceWaitMilliseconds / providerActivations,
             MaximumInterSliceWaitMillisecondsPerChunk =
                 maximumInterSliceWaitMillisecondsPerChunk,
-            FramesAdmissionSaturatedWithIdleWorkers =
+            FramesWithGenerationBacklogAndIdleWorkers =
                 admissionSaturatedIdleWorkerFrames,
             FramesWithPlayerLocalGaps = localGapFrames,
             PlayerLocalMissingChunkFrames = localMissingChunkFrames,
@@ -769,79 +755,21 @@ internal static class ChunkStreamingRouteBenchmark
         };
     }
 
-    // The A/B workflow builds this same harness against an older baseline
-    // Core assembly as well as the candidate. Use the expanded constructor
-    // when available, while preserving source compatibility with that baseline.
-    private static int ReadMaximumWorldWorkers(int defaultValue)
+    private static int ReadMaximumBackgroundThreads()
     {
         var configured = Environment.GetEnvironmentVariable(
-            "ASTERIA_BENCH_MAX_WORLD_WORKERS");
+            "ASTERIA_MAX_BACKGROUND_THREADS");
         if (string.IsNullOrWhiteSpace(configured))
-            return defaultValue;
+            return WorldWorkerCapacity.DefaultMaximumBackgroundThreads;
 
-        if (!int.TryParse(configured, out var maximumWorkers) ||
-            maximumWorkers is < 2 or > 8)
-            throw new ArgumentOutOfRangeException(
-                "ASTERIA_BENCH_MAX_WORLD_WORKERS",
-                "The benchmark worker cap must be between 2 and 8.");
-
-        return maximumWorkers;
-    }
-
-    private static int ReadTerrainAdmissionLimit(int defaultValue)
-    {
-        var configured = Environment.GetEnvironmentVariable(
-            "ASTERIA_BENCH_MAX_TERRAIN_ADMISSION");
-        if (string.IsNullOrWhiteSpace(configured))
-            return defaultValue;
-
-        if (!int.TryParse(configured, out var maximumTasks) ||
-            maximumTasks is < 1 or > 16)
+        if (!int.TryParse(configured, out var maximumBackgroundThreads))
         {
             throw new ArgumentOutOfRangeException(
-                "ASTERIA_BENCH_MAX_TERRAIN_ADMISSION",
-                "The benchmark terrain-admission cap must be between 1 and 16.");
+                "ASTERIA_MAX_BACKGROUND_THREADS",
+                "The background worker maximum must be between 1 and 255.");
         }
 
-        return maximumTasks;
-    }
-
-    private static ChunkResidencySettings CreateResidencySettings(
-        int terrainAdmissionLimit,
-        int dispatchLimit,
-        int totalWorkers,
-        WorldGameRules rules)
-    {
-        var sharedWorkerLimitConstructor =
-            typeof(ChunkResidencySettings).GetConstructor(
-            [
-                typeof(int),
-                typeof(int),
-                typeof(int),
-                typeof(int),
-                typeof(WorldGameRules),
-                typeof(int?),
-            ]);
-
-        if (sharedWorkerLimitConstructor is null)
-        {
-            return new ChunkResidencySettings(
-                maxMaterializationsInFlight: terrainAdmissionLimit,
-                maxDispatchesPerFrame: dispatchLimit,
-                maxResultsPerFrame: 8,
-                maxEvictionsPerFrame: 2,
-                gameRules: rules);
-        }
-
-        return (ChunkResidencySettings)sharedWorkerLimitConstructor.Invoke(
-        [
-            terrainAdmissionLimit,
-            dispatchLimit,
-            8,
-            2,
-            rules,
-            (int?)totalWorkers,
-        ]);
+        return maximumBackgroundThreads;
     }
 
     private static void AccumulateSchedulerDiagnostics(
