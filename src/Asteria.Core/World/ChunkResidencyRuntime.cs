@@ -86,9 +86,9 @@ public sealed class ChunkResidencySettings
     public int MaxMaterializationsInFlight { get; }
 
     /// <summary>
-    /// Maximum logical materialization-task admission. Suspended chunks keep
-    /// their slots between bounded worker slices; arrival reconciliation may
-    /// reserve one of these slots. This may exceed the physical worker count.
+    /// Maximum number of admitted terrain chunk jobs, including suspended jobs.
+    /// A separate bounded slot allows one arrival-reconciliation task alongside
+    /// terrain work. This may exceed the physical worker count.
     /// </summary>
     public int MaxTerrainMaterializationsInFlight { get; }
 
