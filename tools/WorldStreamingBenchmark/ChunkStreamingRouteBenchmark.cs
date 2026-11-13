@@ -10,6 +10,7 @@ using Asteria.Core.World;
 internal static class ChunkStreamingRouteBenchmark
 {
     private const int FramesPerChunk = 8;
+    private const int DefaultMaximumBackgroundThreads = 255;
     private const int MaximumPresentationReservationsPerFrame = 4;
     private const int MaximumFramesAfterRoute = 30_000;
     private const int RetentionMarginChunks = 4;
@@ -31,7 +32,7 @@ internal static class ChunkStreamingRouteBenchmark
         if (horizontalRadius <= 0)
             throw new ArgumentOutOfRangeException(nameof(horizontalRadius));
 
-        var maximumWorldWorkers = WorldWorkerCapacity.Resolve(
+        var maximumWorldWorkers = ResolveMaximumWorldWorkers(
             Environment.ProcessorCount,
             ReadMaximumBackgroundThreads());
         var retentionRadius = horizontalRadius + RetentionMarginChunks;
@@ -60,10 +61,8 @@ internal static class ChunkStreamingRouteBenchmark
             mutations,
             physicsUpdates,
             droppedBlocks);
-        var residencySettings = new ChunkResidencySettings(
-            maximumWorldWorkers,
-            maxEvictionsPerFrame: 2,
-            gameRules: rules);
+        var residencySettings = CreateResidencySettings(
+            maximumWorldWorkers, rules);
         var residency = new ChunkResidencyRuntime(
             world,
             blocks,
@@ -215,8 +214,8 @@ internal static class ChunkStreamingRouteBenchmark
                 Stopwatch.GetTimestamp(),
                 Stopwatch.Frequency);
 
-            var collected = residency.CollectMaterializationResults(
-                budget, presented, maximumWorkerStarts: 0);
+            var collected = CollectMaterializationResults(
+                residency, budget, presented);
             AccumulateUpdate(
                 collected,
                 world,
@@ -257,11 +256,8 @@ internal static class ChunkStreamingRouteBenchmark
             if (pressure.IsPressured)
                 pressuredFrames++;
             var jobsBeforeDispatch = residency.MaterializationJobCount;
-            var dispatched = residency.DispatchMaterializationTasks(
-                budget,
-                presented,
-                maximumGenerationWorkerStarts: availableSlots,
-                maximumWorldWorkerStarts: availableSlots);
+            var dispatched = DispatchMaterializationTasks(
+                residency, budget, presented, availableSlots);
             totalStartedTasks += Math.Max(
                 0, residency.MaterializationJobCount - jobsBeforeDispatch);
             AccumulateUpdate(
@@ -752,12 +748,119 @@ internal static class ChunkStreamingRouteBenchmark
         };
     }
 
+    private static int ResolveMaximumWorldWorkers(
+        int processorCount,
+        int maximumBackgroundThreads)
+    {
+        // Newer Core revisions expose the exact same capacity policy as the
+        // game. The baseline assembly predates that helper, so retain a
+        // behaviorally equivalent fallback for the comparison build.
+        var capacityType = typeof(ChunkResidencyRuntime).Assembly.GetType(
+            "Asteria.Core.World.WorldWorkerCapacity");
+        var resolve = capacityType?.GetMethod(
+            "Resolve",
+            [typeof(int), typeof(int)]);
+        if (resolve is not null)
+        {
+            return (int)(resolve.Invoke(
+                null, [processorCount, maximumBackgroundThreads]) ??
+                throw new InvalidOperationException(
+                    "World worker capacity resolver returned null."));
+        }
+
+        if (processorCount <= 0 || maximumBackgroundThreads <= 0)
+            throw new ArgumentOutOfRangeException(nameof(processorCount));
+        return Math.Min(
+            Math.Max(1, processorCount - 1),
+            maximumBackgroundThreads);
+    }
+
+    private static ChunkResidencySettings CreateResidencySettings(
+        int maximumWorldWorkers,
+        WorldGameRules rules)
+    {
+        var settingsType = typeof(ChunkResidencySettings);
+        var currentConstructor = settingsType.GetConstructor(
+        [
+            typeof(int),
+            typeof(int),
+            typeof(WorldGameRules),
+        ]);
+        if (currentConstructor is not null)
+        {
+            return (ChunkResidencySettings)(currentConstructor.Invoke(
+                [maximumWorldWorkers, 2, rules]) ??
+                throw new InvalidOperationException(
+                    "Chunk residency settings constructor returned null."));
+        }
+
+        // The baseline predates ticket-driven admission and frame-deadline
+        // collection. Its legacy logical/dispatch caps are both set to the
+        // same hardware-derived pool capacity for a comparable worker budget.
+        var baselineConstructor = settingsType.GetConstructor(
+        [
+            typeof(int),
+            typeof(int),
+            typeof(int),
+            typeof(int),
+            typeof(WorldGameRules),
+        ]);
+        if (baselineConstructor is not null)
+        {
+            return (ChunkResidencySettings)(baselineConstructor.Invoke(
+                [maximumWorldWorkers, maximumWorldWorkers, 8, 2, rules]) ??
+                throw new InvalidOperationException(
+                    "Baseline chunk residency settings constructor returned null."));
+        }
+
+        throw new MissingMethodException(
+            settingsType.FullName,
+            ".ctor(ChunkResidencySettings)");
+    }
+
+    private static ChunkResidencyUpdate CollectMaterializationResults(
+        ChunkResidencyRuntime residency,
+        WorldFrameWorkBudget budget,
+        IReadOnlySet<ChunkCoord> presented)
+    {
+        var method = typeof(ChunkResidencyRuntime).GetMethods()
+            .Single(candidate =>
+                candidate.Name == nameof(ChunkResidencyRuntime.CollectMaterializationResults) &&
+                candidate.GetParameters().Length is 2 or 3);
+        var arguments = method.GetParameters().Length == 3
+            ? new object?[] { budget, presented, 0 }
+            : [budget, presented];
+        return (ChunkResidencyUpdate)(method.Invoke(
+            residency, arguments) ??
+            throw new InvalidOperationException(
+                "Chunk residency collection returned null."));
+    }
+
+    private static ChunkResidencyUpdate DispatchMaterializationTasks(
+        ChunkResidencyRuntime residency,
+        WorldFrameWorkBudget budget,
+        IReadOnlySet<ChunkCoord> presented,
+        int availableWorkerSlots)
+    {
+        var method = typeof(ChunkResidencyRuntime).GetMethods()
+            .Single(candidate =>
+                candidate.Name == nameof(ChunkResidencyRuntime.DispatchMaterializationTasks) &&
+                candidate.GetParameters().Length is 3 or 4);
+        var arguments = method.GetParameters().Length == 4
+            ? new object?[] { budget, presented, availableWorkerSlots, availableWorkerSlots }
+            : [budget, presented, availableWorkerSlots];
+        return (ChunkResidencyUpdate)(method.Invoke(
+            residency, arguments) ??
+            throw new InvalidOperationException(
+                "Chunk residency dispatch returned null."));
+    }
+
     private static int ReadMaximumBackgroundThreads()
     {
         var configured = Environment.GetEnvironmentVariable(
             "ASTERIA_MAX_BACKGROUND_THREADS");
         if (string.IsNullOrWhiteSpace(configured))
-            return WorldWorkerCapacity.DefaultMaximumBackgroundThreads;
+            return DefaultMaximumBackgroundThreads;
 
         if (!int.TryParse(configured, out var maximumBackgroundThreads))
         {
