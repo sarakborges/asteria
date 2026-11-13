@@ -36,7 +36,6 @@ public partial class Main : Node3D
 
 		return maximumBackgroundThreads;
 	}
-	private const int MaxMaterializationResultsPerFrame = 8;
 	private const int MaxPresentationPublicationsPerFrame = 4;
 	private const int MaxMeshletPublishesPerFrame = 16;
 	private const int MaxInteractiveTerrainMeshletsPerWorker = 8;
@@ -1466,7 +1465,6 @@ public partial class Main : Node3D
 			new DimensionRuntimeSessionSettings(
 				RetentionMarginChunks,
 				MaxConcurrentWorldJobs,
-				MaxMaterializationResultsPerFrame,
 				MaxPresentationPublicationsPerFrame,
 				MaxInteractiveTerrainMeshletsPerWorker,
 				MaxTerrainMeshletsPerWorker,
