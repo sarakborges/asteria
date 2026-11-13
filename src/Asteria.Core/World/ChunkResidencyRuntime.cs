@@ -82,12 +82,13 @@ public sealed class ChunkResidencySettings
     /// </summary>
     public int MaxConcurrentWorkers { get; }
 
-    // Kept as a compatibility alias for existing callers.
+    // Kept as a compatibility alias for the physical worker count.
     public int MaxMaterializationsInFlight { get; }
 
     /// <summary>
-    /// Maximum number of admitted terrain chunk jobs, including jobs suspended
-    /// between bounded worker slices. This may exceed the worker thread count.
+    /// Maximum logical materialization-task admission. Suspended chunks keep
+    /// their slots between bounded worker slices; arrival reconciliation may
+    /// reserve one of these slots. This may exceed the physical worker count.
     /// </summary>
     public int MaxTerrainMaterializationsInFlight { get; }
 
