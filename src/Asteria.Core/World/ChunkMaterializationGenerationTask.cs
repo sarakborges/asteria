@@ -40,8 +40,8 @@ public sealed class ChunkMaterializationGenerationTask :
     IChunkGenerationTask,
     IDisposable
 {
-    private const int MaximumAdvancesPerWorkerOperation = 8;
-    private const double MaximumWorkerSliceMilliseconds = 1.5d;
+    internal const int MaximumAdvancesPerWorkerOperation = 32;
+    internal const double MaximumWorkerSliceMilliseconds = 6d;
     private readonly IChunkMaterializationJob _job;
     private readonly Action<Chunk> _initializeLighting;
     private readonly long _dispatchTimestamp;
