@@ -548,7 +548,7 @@ public sealed class ChunkResidencyRuntime
         var report = _generationDispatcher.Pump(
             maximumCompletions: _settings.MaxGenerationCompletionsPerFrame,
             maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
-            maximumWorkerStarts: _settings.MaxConcurrentWorkers);
+            maximumWorkerStarts: AvailableGenerationWorkerStarts);
 
         var activations = new List<ChunkResidencyActivation>();
         var failures = new List<ChunkMaterializationFailure>();
@@ -1125,7 +1125,7 @@ public sealed class ChunkResidencyRuntime
         _generationDispatcher.Pump(
             maximumCompletions: 0,
             maximumTaskAdvances: _settings.MaxGenerationTaskAdvancesPerFrame,
-            maximumWorkerStarts: _settings.MaxConcurrentWorkers);
+            maximumWorkerStarts: AvailableGenerationWorkerStarts);
 
         // Reconciliation uses Task.Run rather than the generation pool. Start
         // it only after generation dispatch has claimed its available worker
@@ -1264,6 +1264,15 @@ public sealed class ChunkResidencyRuntime
             _generationDispatcher.UpdatePriority(
                 work.TaskKey, GenerationPriority(coord));
     }
+
+    private int AvailableGenerationWorkerStarts =>
+        Math.Max(
+            0,
+            _settings.MaxConcurrentWorkers -
+            _directionalFaceReconciliationTasks.Values.Count(work =>
+                !work.WorkerTask.IsCompleted) -
+            _chunkLightingReconciliationTasks.Values.Count(work =>
+                !work.WorkerTask.IsCompleted));
 
     private void StartArrivalReconciliationWorker(
         WorldFrameWorkBudget budget,
