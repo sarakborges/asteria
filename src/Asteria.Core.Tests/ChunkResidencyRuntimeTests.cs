@@ -134,7 +134,7 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(4, admitted.StartedTasks);
         Assert.Equal(0, admitted.WorkerOperationsStarted);
         Assert.Equal(4, fixture.Runtime.MaterializationJobCount);
-        Assert.Equal(4, fixture.Runtime.PendingCount);
+        Assert.Equal(0, fixture.Runtime.PendingCount);
         Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
         Assert.Equal(4, fixture.Runtime.PendingGenerationWorkerOperations);
         Assert.Equal(0, fixture.Runtime.ActiveWorkerCount);
@@ -229,13 +229,15 @@ public sealed class ChunkResidencyRuntimeTests
             presented: Array.Empty<ChunkCoord>());
 
         var restored = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(), maximumNewTasks: 0);
+            GenerousBudget(), Array.Empty<ChunkCoord>(), maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 0);
         Assert.Single(restored.Activations);
         Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
         Assert.False(fixture.WorldUpdates.HasLightingWork);
 
         fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(), maximumNewTasks: 1);
+            GenerousBudget(), Array.Empty<ChunkCoord>(), maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 1);
         Assert.True(
             SpinWait.SpinUntil(
                 () => fixture.Runtime.ActiveWorkerCount == 0,
@@ -274,7 +276,8 @@ public sealed class ChunkResidencyRuntimeTests
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(),
             Array.Empty<ChunkCoord>(),
-            maximumNewTasks: 1);
+            maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 1);
         Assert.True(
             SpinWait.SpinUntil(
                 () => fixture.Runtime.ActiveWorkerCount == 0,
@@ -341,7 +344,8 @@ public sealed class ChunkResidencyRuntimeTests
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(),
             Array.Empty<ChunkCoord>(),
-            maximumNewTasks: 1);
+            maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 1);
         Assert.True(
             SpinWait.SpinUntil(
                 () => fixture.Runtime.ActiveWorkerCount == 0,
@@ -451,9 +455,10 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-    public void MaterializationDispatchReportsAndHonorsAdmissionLimit()
+    public void MaterializationDispatchRegistersDesiredChunksAndQueuesWorkerSlices()
     {
-        using var fixture = CreateFixture(new StagedChunkProvider());
+        using var fixture = CreateFixture(
+            new StagedChunkProvider(), maxConcurrentWorkers: 2);
         var coords = new HashSet<ChunkCoord>
         {
             ChunkCoord.Zero,
@@ -467,21 +472,26 @@ public sealed class ChunkResidencyRuntimeTests
             desired: coords,
             presented: Array.Empty<ChunkCoord>());
 
-        var first = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(),
-            maximumNewTasks: 1);
+        var admitted = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 0);
 
-        Assert.Equal(1, first.StartedTasks);
-        Assert.Equal(1, fixture.Runtime.MaterializationJobCount);
-        Assert.Equal(2, fixture.Runtime.PendingCount);
+        Assert.Equal(3, admitted.StartedTasks);
+        Assert.Equal(0, admitted.WorkerOperationsStarted);
+        Assert.Equal(3, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(0, fixture.Runtime.PendingCount);
+        Assert.Equal(3, fixture.Runtime.PendingGenerationWorkerOperations);
+        Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
 
-        var second = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(),
-            maximumNewTasks: 1);
+        var firstWorkers = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 2,
+            maximumWorldWorkerStarts: 2);
 
-        Assert.Equal(1, second.StartedTasks);
-        Assert.Equal(2, fixture.Runtime.MaterializationJobCount);
-        Assert.Equal(1, fixture.Runtime.PendingCount);
+        Assert.Equal(2, firstWorkers.WorkerOperationsStarted);
 
         var completedActivations = 0;
         var failures = 0;
@@ -496,10 +506,9 @@ public sealed class ChunkResidencyRuntimeTests
             },
             TimeSpan.FromSeconds(5));
 
-        Assert.True(drained, "Admitted materialization tasks did not drain.");
-        Assert.Equal(2, completedActivations);
+        Assert.True(drained, "All desired materialization tasks did not drain.");
+        Assert.Equal(3, completedActivations);
         Assert.Equal(0, failures);
-        Assert.Equal(1, fixture.Runtime.PendingCount);
     }
 
     [Fact]
