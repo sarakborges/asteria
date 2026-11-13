@@ -133,13 +133,10 @@ public sealed class ChunkMaterializationGenerationTask :
             throw new InvalidOperationException(
                 "Materialization worker returned a mismatched or invalid slice result.");
         }
-        if (slice.Coord != _job.Coord &&
-            slice.Coord != _job.ActiveWorkCoord)
-        {
-            throw new InvalidOperationException(
-                $"Materialization slice coordinate {slice.Coord} does not match job {_job.Coord}.");
-        }
-
+        // A composite materialization job may advance a nested gravity-support
+        // child and then return to its parent during this same slice. Preserve
+        // the leaf coordinate captured before Advance rather than comparing it
+        // against the now-advanced job cursor.
         _stageTimings.Add(slice.StageTiming);
         _workerMilliseconds += slice.WorkerMilliseconds;
         if (!_hasStartedWorker)
@@ -155,7 +152,6 @@ public sealed class ChunkMaterializationGenerationTask :
             if (slice.CompletedChunk is null)
                 throw new InvalidOperationException(
                     "Completed materialization slice has no chunk.");
-            _isCompleted = true;
         }
         else if (slice.CompletedChunk is not null)
         {
