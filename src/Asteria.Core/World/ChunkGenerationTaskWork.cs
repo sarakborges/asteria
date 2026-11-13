@@ -45,23 +45,37 @@ public readonly record struct ChunkGenerationWorkerOperation
 public sealed class ChunkGenerationTaskAdvanceResult
 {
     private static readonly ChunkGenerationTaskAdvanceResult CompletedResult =
-        new(ChunkGenerationTaskAdvanceKind.Completed, ImmutableArray<ChunkGenerationWorkerOperation>.Empty);
+        new(ChunkGenerationTaskAdvanceKind.Completed, ImmutableArray<ChunkGenerationWorkerOperation>.Empty, null);
     private static readonly ChunkGenerationTaskAdvanceResult YieldResult =
-        new(ChunkGenerationTaskAdvanceKind.Yield, ImmutableArray<ChunkGenerationWorkerOperation>.Empty);
+        new(ChunkGenerationTaskAdvanceKind.Yield, ImmutableArray<ChunkGenerationWorkerOperation>.Empty, null);
 
     private ChunkGenerationTaskAdvanceResult(
         ChunkGenerationTaskAdvanceKind kind,
-        ImmutableArray<ChunkGenerationWorkerOperation> workerOperations)
+        ImmutableArray<ChunkGenerationWorkerOperation> workerOperations,
+        object? completionPayload)
     {
         Kind = kind;
         WorkerOperations = workerOperations;
+        CompletionPayload = completionPayload;
     }
 
     public ChunkGenerationTaskAdvanceKind Kind { get; }
 
     public ImmutableArray<ChunkGenerationWorkerOperation> WorkerOperations { get; }
 
+    /// <summary>Detached result published when the logical task completes.</summary>
+    public object? CompletionPayload { get; }
+
     public static ChunkGenerationTaskAdvanceResult Completed => CompletedResult;
+
+    public static ChunkGenerationTaskAdvanceResult CompletedWith(object payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        return new ChunkGenerationTaskAdvanceResult(
+            ChunkGenerationTaskAdvanceKind.Completed,
+            ImmutableArray<ChunkGenerationWorkerOperation>.Empty,
+            payload);
+    }
 
     public static ChunkGenerationTaskAdvanceResult Yield => YieldResult;
 
@@ -91,7 +105,8 @@ public sealed class ChunkGenerationTaskAdvanceResult
 
         return new ChunkGenerationTaskAdvanceResult(
             ChunkGenerationTaskAdvanceKind.WaitForWorkers,
-            operations);
+            operations,
+            null);
     }
 }
 
@@ -106,3 +121,22 @@ public interface IChunkGenerationTask
         IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
         CancellationToken cancellationToken);
 }
+
+/// <summary>Terminal disposition of a logical generation task.</summary>
+public enum ChunkGenerationTaskOutcomeKind : byte
+{
+    Completed,
+    Cancelled,
+    Failed,
+}
+
+/// <summary>
+/// Result returned from the serial dispatcher to the owning world loop.
+/// Completed payloads are detached from the live world and may be committed
+/// only after the caller revalidates that the target column is still desired.
+/// </summary>
+public readonly record struct ChunkGenerationTaskOutcome(
+    ChunkGenerationTaskInstance Task,
+    ChunkGenerationTaskOutcomeKind Kind,
+    object? Result,
+    Exception? Error);

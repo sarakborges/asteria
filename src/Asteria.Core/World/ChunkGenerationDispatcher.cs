@@ -26,6 +26,7 @@ public sealed class ChunkGenerationDispatcher
     private readonly ChunkGenerationTaskQueue _pendingWorkerTasks = new();
     private readonly Dictionary<ChunkGenerationTaskKey, TaskEntry> _currentTasks = [];
     private readonly Dictionary<ChunkGenerationTaskInstance, TaskEntry> _allTasks = [];
+    private readonly Queue<ChunkGenerationTaskOutcome> _outcomes = [];
     private readonly ChunkGenerationCompletionMailbox _completionMailbox;
     private readonly ChunkGenerationWorkerPool _workerPool;
     private bool _isPumping;
@@ -56,6 +57,26 @@ public sealed class ChunkGenerationDispatcher
 
     public int PendingWorkerOperationCount =>
         _currentTasks.Values.Sum(entry => entry.PendingWorkerOperations.Count);
+
+    public int PendingOutcomeCount => _outcomes.Count;
+
+    /// <summary>
+    /// Retrieves one terminal outcome for main-thread publication or cleanup.
+    /// The caller must validate the task generation and current streaming ticket
+    /// before inserting a completed Chunk into the live world.
+    /// </summary>
+    public bool TryDequeueOutcome(out ChunkGenerationTaskOutcome outcome)
+    {
+        EnsureCoordinatorThread();
+        if (_outcomes.Count == 0)
+        {
+            outcome = default;
+            return false;
+        }
+
+        outcome = _outcomes.Dequeue();
+        return true;
+    }
 
     public long CompletedTaskCount => Interlocked.Read(ref _completedTaskCount);
 
@@ -128,7 +149,13 @@ public sealed class ChunkGenerationDispatcher
             return false;
 
         RemoveFromActiveQueues(entry);
+        entry.PendingWorkerOperations.Clear();
         entry.Cancellation.Cancel();
+        _outcomes.Enqueue(new ChunkGenerationTaskOutcome(
+            entry.Instance,
+            ChunkGenerationTaskOutcomeKind.Cancelled,
+            null,
+            null));
         Interlocked.Increment(ref _cancelledTaskCount);
         if (entry.InFlightOperations == 0)
             RetireEntry(entry);
@@ -377,7 +404,7 @@ public sealed class ChunkGenerationDispatcher
                 switch (result.Kind)
                 {
                     case ChunkGenerationTaskAdvanceKind.Completed:
-                        CompleteEntry(entry);
+                        CompleteEntry(entry, result.CompletionPayload);
                         tasksCompleted++;
                         break;
 
@@ -443,7 +470,7 @@ public sealed class ChunkGenerationDispatcher
                 $"Ready queue already contains yielded task: {entry.Instance}");
     }
 
-    private void CompleteEntry(TaskEntry entry)
+    private void CompleteEntry(TaskEntry entry, object? completionPayload)
     {
         if (entry.InFlightOperations != 0 ||
             entry.PendingWorkerOperations.Count != 0)
@@ -457,6 +484,11 @@ public sealed class ChunkGenerationDispatcher
                 $"Generation task could not enter completed state: {entry.Instance}");
 
         RemoveFromActiveQueues(entry);
+        _outcomes.Enqueue(new ChunkGenerationTaskOutcome(
+            entry.Instance,
+            ChunkGenerationTaskOutcomeKind.Completed,
+            completionPayload,
+            null));
         Interlocked.Increment(ref _completedTaskCount);
         RetireEntry(entry);
     }
@@ -469,6 +501,11 @@ public sealed class ChunkGenerationDispatcher
         RemoveFromActiveQueues(entry);
         entry.PendingWorkerOperations.Clear();
         entry.Cancellation.Cancel();
+        _outcomes.Enqueue(new ChunkGenerationTaskOutcome(
+            entry.Instance,
+            ChunkGenerationTaskOutcomeKind.Failed,
+            null,
+            error));
         Interlocked.Increment(ref _failedTaskCount);
     }
 
@@ -490,6 +527,8 @@ public sealed class ChunkGenerationDispatcher
                 $"Cannot release a task with in-flight workers: {entry.Instance}");
 
         _allTasks.Remove(entry.Instance);
+        if (entry.Task is IDisposable disposableTask)
+            disposableTask.Dispose();
         entry.Cancellation.Dispose();
     }
 

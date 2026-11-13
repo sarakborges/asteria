@@ -35,6 +35,28 @@ public sealed class ChunkGenerationDispatcherTests
     }
 
     [Fact]
+    public async Task CompletedTaskPublishesDetachedResultForWorldLoop()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox(1);
+        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var payload = new CompletedChunkPayload("chunk-10", 4096);
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(10), 3, Priority(0), 10, new ResultTask(payload)));
+        dispatcher.Pump(0, 1, 0);
+
+        Assert.Equal(1, dispatcher.PendingOutcomeCount);
+        Assert.True(dispatcher.TryDequeueOutcome(out var outcome));
+        Assert.Equal(ChunkGenerationTaskOutcomeKind.Completed, outcome.Kind);
+        Assert.Equal(Key(10), outcome.Task.Key);
+        Assert.Equal(3UL, outcome.Task.Generation);
+        Assert.Same(payload, outcome.Result);
+        Assert.Null(outcome.Error);
+        Assert.False(dispatcher.TryDequeueOutcome(out _));
+    }
+
+    [Fact]
     public async Task WorkerDependenciesSuspendAndResumeTaskWithResults()
     {
         var mailbox = new ChunkGenerationCompletionMailbox(4);
@@ -111,6 +133,10 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.Equal(1, dispatcher.FailedTaskCount);
         Assert.Equal(0, task.ResumeCount);
         Assert.Equal(0, dispatcher.RetiringTaskCount);
+        Assert.True(dispatcher.TryDequeueOutcome(out var outcome));
+        Assert.Equal(ChunkGenerationTaskOutcomeKind.Failed, outcome.Kind);
+        Assert.Same(error, outcome.Error);
+        Assert.Null(outcome.Result);
     }
 
     [Fact]
@@ -141,6 +167,12 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.Equal(1, dispatcher.CancelledTaskCount);
         Assert.Equal(1, dispatcher.CompletedTaskCount);
         Assert.Equal(0, dispatcher.ActiveTaskCount);
+        Assert.True(dispatcher.TryDequeueOutcome(out var cancelled));
+        Assert.Equal(ChunkGenerationTaskOutcomeKind.Cancelled, cancelled.Kind);
+        Assert.Equal(1UL, cancelled.Task.Generation);
+        Assert.True(dispatcher.TryDequeueOutcome(out var completed));
+        Assert.Equal(ChunkGenerationTaskOutcomeKind.Completed, completed.Kind);
+        Assert.Equal(2UL, completed.Task.Generation);
     }
 
     [Fact]
@@ -179,6 +211,16 @@ public sealed class ChunkGenerationDispatcherTests
 
     private static ChunkGenerationTaskPriority Priority(int ticket) =>
         new(ticket, ticket);
+
+    private sealed record CompletedChunkPayload(string Id, int CellCount);
+
+    private sealed class ResultTask(object payload) : IChunkGenerationTask
+    {
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken) =>
+            ChunkGenerationTaskAdvanceResult.CompletedWith(payload);
+    }
 
     private sealed class YieldOnceTask(string label, List<string> order) :
         IChunkGenerationTask
