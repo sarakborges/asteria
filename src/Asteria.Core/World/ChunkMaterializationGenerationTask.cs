@@ -273,7 +273,7 @@ public sealed class ChunkMaterializationGenerationTask :
 
         return new ChunkMaterializationWorkerSlice(
             coord,
-            stageTimings.MoveToImmutable(),
+            stageTimings.ToImmutable(),
             workerMilliseconds,
             _job.IsComplete,
             completedChunk,
