@@ -7,20 +7,42 @@ namespace Asteria.Core.World;
 /// </summary>
 public readonly record struct ChunkGenerationTaskKey
 {
+    /// <summary>Creates a task coordinated at horizontal-column scope.</summary>
     public ChunkGenerationTaskKey(
         ChunkColumnCoord column,
         ChunkGenerationStepId targetStep)
+        : this(column, targetStep, sectionY: null)
+    {
+    }
+
+    /// <summary>Creates a task for one vertical section within a horizontal column.</summary>
+    public ChunkGenerationTaskKey(
+        ChunkColumnCoord column,
+        ChunkGenerationStepId targetStep,
+        int sectionY)
+        : this(column, targetStep, (int?)sectionY)
+    {
+    }
+
+    private ChunkGenerationTaskKey(
+        ChunkColumnCoord column,
+        ChunkGenerationStepId targetStep,
+        int? sectionY)
     {
         if (!Enum.IsDefined(targetStep))
             throw new ArgumentOutOfRangeException(nameof(targetStep));
 
         Column = column;
         TargetStep = targetStep;
+        SectionY = sectionY;
     }
 
     public ChunkColumnCoord Column { get; }
 
     public ChunkGenerationStepId TargetStep { get; }
+
+    /// <summary>Null for column-scoped work; set for one vertical section.</summary>
+    public int? SectionY { get; }
 }
 
 /// <summary>
@@ -202,6 +224,10 @@ public sealed class ChunkGenerationTaskQueue
                 return result;
 
             result = left.Key.Column.CompareTo(right.Key.Column);
+            if (result != 0)
+                return result;
+
+            result = Nullable.Compare(left.Key.SectionY, right.Key.SectionY);
             return result != 0
                 ? result
                 : left.Key.TargetStep.CompareTo(right.Key.TargetStep);

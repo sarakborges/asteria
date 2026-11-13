@@ -5,6 +5,56 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkGenerationTaskQueueTests
 {
     [Fact]
+    public void VerticalSectionsInSameColumnHaveDistinctTaskIdentity()
+    {
+        var queue = new ChunkGenerationTaskQueue();
+        var lowerSection = new ChunkGenerationTaskKey(
+            new ChunkColumnCoord(3, -2),
+            ChunkGenerationStepId.SectionReady,
+            sectionY: 4);
+        var upperSection = new ChunkGenerationTaskKey(
+            new ChunkColumnCoord(3, -2),
+            ChunkGenerationStepId.SectionReady,
+            sectionY: 5);
+        var columnTask = new ChunkGenerationTaskKey(
+            new ChunkColumnCoord(3, -2),
+            ChunkGenerationStepId.ColumnBiomeData);
+
+        Assert.NotEqual(lowerSection, upperSection);
+        Assert.NotEqual(lowerSection, columnTask);
+        Assert.True(queue.Enqueue(
+            lowerSection, new ChunkGenerationTaskPriority(0, 0), 1));
+        Assert.True(queue.Enqueue(
+            upperSection, new ChunkGenerationTaskPriority(0, 0), 2));
+        Assert.True(queue.Enqueue(
+            columnTask, new ChunkGenerationTaskPriority(0, 0), 3));
+        Assert.Equal(3, queue.Count);
+    }
+
+    [Fact]
+    public void VerticalSectionOrderingIsDeterministicWithinSameColumnAndPriority()
+    {
+        var queue = new ChunkGenerationTaskQueue();
+        var lower = new ChunkGenerationTaskKey(
+            new ChunkColumnCoord(1, 1),
+            ChunkGenerationStepId.SectionReady,
+            sectionY: -1);
+        var upper = new ChunkGenerationTaskKey(
+            new ChunkColumnCoord(1, 1),
+            ChunkGenerationStepId.SectionReady,
+            sectionY: 2);
+        var priority = new ChunkGenerationTaskPriority(0, 0);
+
+        queue.Enqueue(upper, priority, 1);
+        queue.Enqueue(lower, priority, 2);
+
+        Assert.True(queue.TryDequeue(out var first));
+        Assert.Equal(upper, first.Key);
+        Assert.True(queue.TryDequeue(out var second));
+        Assert.Equal(lower, second.Key);
+    }
+
+    [Fact]
     public void DequeueUsesTicketThenHorizontalDistance()
     {
         var queue = new ChunkGenerationTaskQueue();
