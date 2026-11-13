@@ -83,6 +83,7 @@ internal static class ChunkStreamingRouteBenchmark
         var stageCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var stageMilliseconds = new SortedDictionary<string, double>(StringComparer.Ordinal);
         var stageMaximumMilliseconds = new SortedDictionary<string, double>(StringComparer.Ordinal);
+        var stageMaximumSamples = new SortedDictionary<string, ChunkMaterializationStageTiming>(StringComparer.Ordinal);
         var supportFallbackDiagnostics = new SupportFallbackDiagnostics();
         var selectionLatencyFrames = new List<int>();
         var stepStates = new List<RouteStepState>(routeSteps);
@@ -216,6 +217,7 @@ internal static class ChunkStreamingRouteBenchmark
                 stageCounts,
                 stageMilliseconds,
                 stageMaximumMilliseconds,
+                stageMaximumSamples,
                 supportFallbackDiagnostics);
 
             var availableSlots = Math.Max(
@@ -258,6 +260,7 @@ internal static class ChunkStreamingRouteBenchmark
                 stageCounts,
                 stageMilliseconds,
                 stageMaximumMilliseconds,
+                stageMaximumSamples,
                 supportFallbackDiagnostics);
 
             var fluidReport = residency.ProcessPendingFluidActivations(budget);
@@ -618,6 +621,17 @@ internal static class ChunkStreamingRouteBenchmark
                 AdvanceCount = pair.Value,
                 WorkerMilliseconds = stageMilliseconds[pair.Key],
                 MaximumWorkerMilliseconds = stageMaximumMilliseconds[pair.Key],
+                MaximumCoord = new
+                {
+                    X = stageMaximumSamples[pair.Key].Coord.X,
+                    Y = stageMaximumSamples[pair.Key].Coord.Y,
+                    Z = stageMaximumSamples[pair.Key].Coord.Z,
+                },
+                MaximumIsSupportOnly = stageMaximumSamples[pair.Key].IsSupportOnly,
+                MaximumIsSupportFaceFastPath = stageMaximumSamples[pair.Key].IsSupportFaceFastPath,
+                MaximumIsSparseSupportFallback = stageMaximumSamples[pair.Key].IsSparseSupportFallback,
+                MaximumSupportRequestedColumns = stageMaximumSamples[pair.Key].SupportRequestedColumns,
+                MaximumSupportMaterializationColumns = stageMaximumSamples[pair.Key].SupportMaterializationColumns,
             }).ToArray(),
             SupportFallbackDiagnostics = supportFallbackDiagnostics.Snapshot(),
             RouteDigest = routeDigest,
@@ -729,6 +743,7 @@ internal static class ChunkStreamingRouteBenchmark
         IDictionary<string, int> stageCounts,
         IDictionary<string, double> stageMilliseconds,
         IDictionary<string, double> stageMaximumMilliseconds,
+        IDictionary<string, ChunkMaterializationStageTiming> stageMaximumSamples,
         SupportFallbackDiagnostics supportFallbackDiagnostics)
     {
         foreach (var failure in update.Failures)
@@ -752,6 +767,11 @@ internal static class ChunkStreamingRouteBenchmark
                     ? maximum
                     : 0d,
                 timing.WorkerMilliseconds);
+            if (!stageMaximumSamples.TryGetValue(name, out var maximumSample) ||
+                timing.WorkerMilliseconds > maximumSample.WorkerMilliseconds)
+            {
+                stageMaximumSamples[name] = timing;
+            }
         }
 
         foreach (var activation in update.Activations)
