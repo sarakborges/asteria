@@ -187,12 +187,25 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.Equal(1, dispatcher.CancelledTaskCount);
         Assert.Equal(1, dispatcher.CompletedTaskCount);
         Assert.Equal(0, dispatcher.ActiveTaskCount);
-        Assert.True(dispatcher.TryDequeueOutcome(out var cancelled));
-        Assert.Equal(ChunkGenerationTaskOutcomeKind.Cancelled, cancelled.Kind);
+
+        // The old generation's cancellation outcome is emitted only after its
+        // in-flight worker completion is collected. The replacement generation
+        // may therefore complete first; assert identities, not async arrival order.
+        var outcomes = new List<ChunkGenerationTaskOutcome>();
+        while (dispatcher.TryDequeueOutcome(out var outcome))
+            outcomes.Add(outcome);
+
+        var cancelled = Assert.Single(
+            outcomes,
+            item => item.Kind == ChunkGenerationTaskOutcomeKind.Cancelled);
+        var completed = Assert.Single(
+            outcomes,
+            item => item.Kind == ChunkGenerationTaskOutcomeKind.Completed);
         Assert.Equal(1UL, cancelled.Task.Generation);
-        Assert.True(dispatcher.TryDequeueOutcome(out var completed));
-        Assert.Equal(ChunkGenerationTaskOutcomeKind.Completed, completed.Kind);
         Assert.Equal(2UL, completed.Task.Generation);
+        Assert.Empty(outcomes.Where(item =>
+            item.Kind is not (ChunkGenerationTaskOutcomeKind.Cancelled or
+                ChunkGenerationTaskOutcomeKind.Completed)));
     }
 
     [Fact]
