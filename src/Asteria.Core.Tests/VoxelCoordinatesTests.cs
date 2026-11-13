@@ -87,9 +87,9 @@ public sealed class ChunkColumnCoordTests
         int chunkZ,
         int secondSectionY)
     {
-        var first = ChunkColumnCoord.FromSection(
+        var first = ChunkColumnCoord.FromChunk(
             new ChunkCoord(chunkX, firstSectionY, chunkZ));
-        var second = ChunkColumnCoord.FromSection(
+        var second = ChunkColumnCoord.FromChunk(
             new ChunkCoord(chunkX, secondSectionY, chunkZ));
 
         Assert.Equal(first, second);

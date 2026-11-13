@@ -5,27 +5,6 @@ public readonly record struct ChunkCoord(int X, int Y, int Z)
     public static ChunkCoord Zero => default;
 }
 
-/// <summary>
-/// Horizontal identity of a vertical column of 16x16x16 chunks.
-/// This is a scheduling/query coordinate only; section content remains owned
-/// by the corresponding three-dimensional ChunkCoord values.
-/// </summary>
-public readonly record struct ChunkColumnCoord(int X, int Z) :
-    IComparable<ChunkColumnCoord>
-{
-    public static ChunkColumnCoord FromSection(ChunkCoord section) =>
-        new(section.X, section.Z);
-
-    public ChunkCoord ToSection(int sectionY) =>
-        new(X, sectionY, Z);
-
-    public int CompareTo(ChunkColumnCoord other)
-    {
-        var result = X.CompareTo(other.X);
-        return result != 0 ? result : Z.CompareTo(other.Z);
-    }
-}
-
 public readonly record struct LocalVoxelCoord(int X, int Y, int Z);
 
 public readonly record struct ChunkVoxelAddress(ChunkCoord Chunk, LocalVoxelCoord Local);

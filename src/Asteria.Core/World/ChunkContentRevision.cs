@@ -54,10 +54,25 @@ public sealed class ChunkContentStamp
             revision == entry.Value);
 }
 
-public readonly record struct ChunkColumnCoord(int X, int Z)
+/// <summary>
+/// Horizontal identity of a vertical column of 16x16x16 chunks.
+/// This is a scheduling/query coordinate only; section content remains owned
+/// by the corresponding three-dimensional ChunkCoord values.
+/// </summary>
+public readonly record struct ChunkColumnCoord(int X, int Z) :
+    IComparable<ChunkColumnCoord>
 {
     public static ChunkColumnCoord FromChunk(ChunkCoord coord) =>
         new(coord.X, coord.Z);
+
+    public ChunkCoord ToSection(int sectionY) =>
+        new(X, sectionY, Z);
+
+    public int CompareTo(ChunkColumnCoord other)
+    {
+        var result = X.CompareTo(other.X);
+        return result != 0 ? result : Z.CompareTo(other.Z);
+    }
 }
 
 public sealed class ChunkColumnResidencyStamp
