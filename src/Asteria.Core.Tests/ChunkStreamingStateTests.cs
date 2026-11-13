@@ -226,6 +226,53 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void PendingColumnDispatchCanBeBoundedWithoutSplittingColumnIdentity()
+    {
+        var state = new ChunkStreamingState();
+        var lower = new ChunkCoord(1, 0, 0);
+        var upper = new ChunkCoord(1, 1, 0);
+        var column = new ChunkColumnCoord(1, 0);
+        var desired = new HashSet<ChunkCoord> { upper, lower };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var first = state.PopPendingColumnEntryByPriority(maximumSections: 1);
+
+        Assert.NotNull(first);
+        Assert.Equal(column, first.Value.Column);
+        Assert.Single(first.Value.Sections);
+        Assert.Equal(1, state.PendingCount);
+        Assert.Equal(1, state.PendingColumnCount);
+
+        var second = state.PopPendingColumnEntryByPriority(maximumSections: 1);
+
+        Assert.NotNull(second);
+        Assert.Equal(column, second.Value.Column);
+        Assert.Single(second.Value.Sections);
+        Assert.NotEqual(
+            first.Value.Sections[0].Coord,
+            second.Value.Sections[0].Coord);
+        Assert.Equal(0, state.PendingCount);
+        Assert.Equal(0, state.PendingColumnCount);
+    }
+
+    [Fact]
+    public void PendingColumnDispatchRejectsNonPositiveSectionBatchSize()
+    {
+        var state = new ChunkStreamingState();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => state.PopPendingColumnEntryByPriority(maximumSections: 0));
+    }
+
+    [Fact]
     public void PendingColumnPriorityUpdatesWhenMovementDirectionChanges()
     {
         var state = new ChunkStreamingState();
