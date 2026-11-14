@@ -19,7 +19,7 @@ public readonly record struct WorldWorkerPriority(
     public static WorldWorkerPriority FromStreaming(
         ChunkStreamingPriority priority) =>
         new(
-            PriorityBandForTicketLevel(priority.StreamingBand),
+            PriorityBandForTicketLevel(priority.TicketLevel),
             priority.HorizontalDistanceSquared,
             priority.TotalDistanceSquared,
             priority.Y,
@@ -36,15 +36,10 @@ public readonly record struct WorldWorkerPriority(
             priority.CoordinateZ,
             priority.CoordinateX);
 
+    // Chunk priorities are the actual ChunkLevel number line. Lower levels
+    // represent stronger ticket demand, exactly as in Minecraft's dispatcher.
     private static int PriorityBandForTicketLevel(int ticketLevel) =>
-        ticketLevel switch
-        {
-            0 => WorldWorkerPool.PlayerChunkPriority,
-            1 => WorldWorkerPool.ForwardPrefetchPriority,
-            2 => WorldWorkerPool.BackgroundChunkPriority,
-            3 => WorldWorkerPool.RearChunkPriority,
-            _ => WorldWorkerPool.BackgroundWorldPriority,
-        };
+        ticketLevel;
 
     public int CompareTo(WorldWorkerPriority other)
     {
