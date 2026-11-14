@@ -25,7 +25,7 @@ public sealed class WorldWorkerPoolTests
         var maximumActive = 0;
         var operations = new List<WorldWorkerOperation<int>>();
 
-        for (var index = 0; index < 4; index++)
+        for (var index = 0; index < 2; index++)
         {
             var value = index;
             Assert.True(pool.TrySchedule(
@@ -44,6 +44,23 @@ public sealed class WorldWorkerPoolTests
         }
 
         Assert.True(bothWorkersStarted.Wait(TimeSpan.FromSeconds(5)));
+        for (var index = 2; index < 4; index++)
+        {
+            var value = index;
+            Assert.True(pool.TrySchedule(
+                _ =>
+                {
+                    var current = Interlocked.Increment(ref active);
+                    UpdateMaximum(ref maximumActive, current);
+                    releaseWorkers.Wait();
+                    Interlocked.Decrement(ref active);
+                    return value;
+                },
+                CancellationToken.None,
+                out var operation));
+            operations.Add(operation!);
+        }
+
         Assert.Equal(2, pool.WorkerCount);
         Assert.Equal(2, pool.ActiveWorkerCount);
         Assert.Equal(2, pool.PendingWorkCount);
@@ -129,7 +146,7 @@ public sealed class WorldWorkerPoolTests
     [Fact]
     public void DisposeDrainsQueuedOperationsBeforeWorkerThreadsExit()
     {
-        var pool = new WorldWorkerPool(workerCount: 1, pendingCapacity: 2);
+        var pool = new WorldWorkerPool(workerCount: 1, pendingCapacity: 3);
         var completed = 0;
 
         for (var index = 0; index < 3; index++)
