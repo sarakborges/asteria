@@ -244,7 +244,9 @@ public sealed class ChunkMaterializationGenerationTask :
             var chunk = _job.Result ??
                 throw new InvalidOperationException(
                     $"Completed materialization job returned no chunk: {_job.Coord}");
-            return Complete(chunk);
+            return _initializeLighting is not null && !_lightingInitialized
+                ? ScheduleInitialLighting(chunk)
+                : Complete(chunk);
         }
 
         // One serial stage quantum per continuation. Yielding lets the
