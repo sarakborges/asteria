@@ -29,14 +29,20 @@ public sealed class ChunkGenerationSerialExecutorTests
             Request(TaskInstance(11, ChunkGenerationStepId.InitialLighting),
                 72, _ => "second-light")));
 
-        ChunkGenerationDependencyCompletion completion = default;
         Assert.True(SpinWait.SpinUntil(
-            () => externalMailbox.TryDequeue(out completion),
+            () => externalMailbox.PendingCount == 1,
             TimeSpan.FromSeconds(5)));
+        Assert.False(executor.TryCollectDependency(
+            dispatcherMailbox, out _));
+        Assert.True(executor.HasInFlightTask);
 
-        // The result was observed above without releasing the lane. The owner
-        // must collect through the executor so request identity is validated.
-        Assert.True(externalMailbox.TryScheduleProbe(out _));
+        Assert.True(executor.TryCollectDependency(
+            externalMailbox, out var completion));
+        Assert.Equal(externalTask, completion.Task);
+        Assert.Equal(71UL, completion.DependencyId);
+        Assert.Equal("dynamic-light", completion.Result);
+        Assert.Null(completion.Error);
+        Assert.False(executor.HasInFlightTask);
     }
 
     [Fact]
