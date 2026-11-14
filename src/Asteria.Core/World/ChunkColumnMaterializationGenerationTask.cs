@@ -134,17 +134,38 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         }
         else if (_readySections.Count > 0)
         {
-            // Feature/mutation steps are advanced one section at a time on the
-            // dimension's serial worldgen lane. A Yield never creates a fake
-            // worker dependency or a second in-flight section advance.
-            var sectionIndex = _readySections.Min;
-            _readySections.Remove(sectionIndex);
-            CollectChildAdvance(
-                sectionIndex,
-                _sectionTasks[sectionIndex].Advance(
-                    Array.Empty<ChunkGenerationDependencyCompletion>(),
-                    cancellationToken),
-                nextOperations);
+            // Start every ready independent CPU fork in this continuation,
+            // preserving vertical-section parallelism. Mutating/coordinator
+            // steps remain serialized: at most one such section advances per
+            // continuation, then the parent yields for fairness.
+            var readyBatch = _readySections.ToArray();
+            _readySections.Clear();
+            var orderedStageAdvanced = false;
+
+            foreach (var sectionIndex in readyBatch)
+            {
+                var sectionTask = _sectionTasks[sectionIndex];
+                var policy = sectionTask.NextExecutionPolicy;
+                var isFork = policy is
+                    ChunkGenerationExecutionPolicy.SharedWorkerPool or
+                    ChunkGenerationExecutionPolicy.LightExecutor;
+
+                if (!isFork && orderedStageAdvanced)
+                {
+                    _readySections.Add(sectionIndex);
+                    continue;
+                }
+
+                CollectChildAdvance(
+                    sectionIndex,
+                    sectionTask.Advance(
+                        Array.Empty<ChunkGenerationDependencyCompletion>(),
+                        cancellationToken),
+                    nextOperations);
+
+                if (!isFork)
+                    orderedStageAdvanced = true;
+            }
         }
         else if (_pendingOperations.Count > 0)
         {
