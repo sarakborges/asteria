@@ -39,7 +39,8 @@ public sealed class TerrainMeshWorker
         DyeRegistry dyes,
         WorldMeshBatch batch,
         MeshletContentRevisions revisions,
-        IReadOnlyDictionary<ChunkMeshletKey, ChunkMeshData>? relightable = null)
+        IReadOnlyDictionary<ChunkMeshletKey, ChunkMeshData>? relightable = null,
+        int workerPriority = WorldWorkerPool.DefaultPriority)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -90,7 +91,7 @@ public sealed class TerrainMeshWorker
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds,
                 captureMilliseconds);
-        });
+        }, priority: workerPriority);
     }
 
     public bool TryTakeCompleted(
