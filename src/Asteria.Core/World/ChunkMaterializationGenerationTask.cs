@@ -166,7 +166,6 @@ public sealed class ChunkMaterializationGenerationTask :
         }
         _workerCompletedTimestamp = slice.WorkerCompletedTimestamp;
         _initialLightingMilliseconds += slice.InitialLightingMilliseconds;
-        _workerSliceCount++;
     }
 
     private ChunkGenerationTaskAdvanceResult Complete(Chunk chunk)
