@@ -156,16 +156,6 @@ Candidate hotspots to profile explicitly:
 - per-section boundary and lighting reconciliation;
 - snapshot capture for terrain/fluid meshlets.
 
-### 3.6 The MineClone branch is not the Minecraft scheduling blueprint
-
-The required comparison against sarakborges/mineclone world-systems-rebuild was performed for:
-
-- src/world/streaming/generation.rs;
-- src/world/chunk_task_queue.rs;
-- src/world/chunk_async_work.rs.
-
-That branch currently schedules one async materialization task per 3D ChunkCoord, polls completed tasks, and uses a bounded async-work limiter. It is useful as a reference for bounded tasks, stale revisions, result collection and frame budgets, but it does **not** implement Minecraft's column-scoped ChunkGenerationTask / ChunkStep / runUntilWait architecture. Do not copy its one-task-per-3D-section orchestration as the final design.
-
 ---
 
 ## 4. Target Asteria architecture
@@ -301,7 +291,6 @@ Each item should normally be one small commit. If an item is too large, split it
 - [x] Record branch, PR, base and HEAD.
 - [x] Inspect AGENTS.md, ARCHITECTURE.md and ENGINEERING_PRACTICES.md.
 - [x] Inspect Asteria residency, materializer, selection, main-thread worker admission and mesh pipeline.
-- [x] Inspect MineClone world-systems-rebuild equivalents and record where they differ from Minecraft.
 - [x] Verify Minecraft 26.3 dispatcher, step, task, priority queue and section-storage contracts.
 - [ ] Preserve baseline benchmark artifacts and document their runner/seed/route details next to new measurements.
 - [x] Commit this handoff.
@@ -467,7 +456,7 @@ This is a long-running refactor. Preserve progress in Git after each coherent sl
 #### Completed foundations and production migration
 
 - [x] Correct Minecraft 26.3 execution model verified: serial per-dimension coordination, parallel worker forks, ordered/main-thread integration; not one thread for all generation.
-- [x] Current Asteria pipeline and MineClone comparison inspected. MineClone's current work queue is not the Minecraft column/status model.
+- [x] Current Asteria pipeline inspected against Minecraft Java 26.3 scheduling and status contracts.
 - [x] Detailed work breakdown committed as this handoff.
 - [x] Reused the existing ChunkColumnCoord(X,Z) in ChunkContentRevision.cs; kept ChunkCoord(X,Y,Z) as authoritative section storage.
 - [x] Added stable ordering and explicit ToSection(Y) conversion.
@@ -718,10 +707,6 @@ Reference: Minecraft Java 26.3 source analysis at [chunk generation pipeline](ht
 - Windows build run [43622617724](https://github.com/sarakborges/asteria/actions/runs/43622617724), same HEAD: was still in progress at the latest check.
 - The commit is not fully validated until the latest runs finish successfully. If any Core test fails, stop Phase B and fix that failure first.
 
-### Reference check: MineClone is not the scheduler to copy
-
-The required `mineclone/world-systems-rebuild` inspection covered `src/world/chunk_task_queue.rs` and `src/world/streaming/generation.rs`. Its current implementation keeps per-section `AsyncComputeTaskPool` tasks around a whole `generator.materialize_chunk(coord)` future and polls them from streaming. It does not implement Minecraft's ticket/status futures, accumulated generation pyramid, or serial continuation executor. Keep MineClone's useful ownership boundaries, but do not port this queue as the target architecture.
-
 ### Next implementation boundary
 
 After run 43622622606 is green:
@@ -731,3 +716,9 @@ After run 43622622606 is green:
 3. Add tests for single-lane serialization, different worker thread from the world/main owner, cooperative release on incomplete dependencies, reprioritization while queued, cancellation while an advance is in flight, and retirement after late completion.
 4. Only then split task progression by executable step policy. Do not put every stage on a worker automatically: the plan policy must control whether a stage runs inline on the serial worldgen lane, forks to the shared pool, uses the serial lighting lane, or requires main-thread integration.
 5. Preserve the current task's target status and generation identity while this lane is introduced; do not conflate one worker operation with one generation status.
+
+
+## Scope correction — 2026-11-14
+
+The architectural target for this work is **Minecraft Java 26.3 only**. Do not spend implementation or review time comparing Asteria with MineClone or using it as a design authority. All behavior, terminology, concurrency, ticket/status and generation-pyramid decisions in this handoff must be verified against Minecraft Java 26.3 and then adapted to Asteria's own storage and ownership contracts.
+
