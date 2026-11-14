@@ -607,9 +607,11 @@ public sealed class DimensionRuntimeSession
                 Blocks,
                 Dimension.GravityStrength,
                 playerTargetable,
-                playerBounds);
+                playerBounds,
+                Residency.IsEntityTicking);
         var fired = Creatures.FireRangedAttacks(
-            Projectiles, World, Blocks, playerBounds, playerTargetable) > 0;
+            Projectiles, World, Blocks, playerBounds, playerTargetable,
+            Residency.IsEntityTicking) > 0;
         var simulationMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         started = Stopwatch.GetTimestamp();
