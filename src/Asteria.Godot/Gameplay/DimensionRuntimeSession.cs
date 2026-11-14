@@ -16,7 +16,8 @@ public sealed record DimensionRuntimeSessionSettings(
     int MaxTerrainMeshletsPerWorker,
     int MaxFluidMeshletsPerWorker,
     int MaxFluidUpdatesPerWorker,
-    int MaxChunkEvictionsPerFrame);
+    int MaxChunkEvictionsPerFrame,
+    int SimulationDistanceChunks = ChunkStreamingSelection.DefaultSimulationDistanceChunks);
 
 public sealed record DimensionRetirementDrainReport(
     ChunkResidencyUpdate Materialization,
@@ -397,7 +398,8 @@ public sealed class DimensionRuntimeSession
                 Generator,
                 new ChunkStreamingControllerSettings(
                     settings.RetentionMarginChunks,
-                    settings.MaxPresentationPublicationsPerFrame),
+                    settings.MaxPresentationPublicationsPerFrame,
+                    settings.SimulationDistanceChunks),
                 workerPool);
     }
 
