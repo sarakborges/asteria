@@ -2,6 +2,70 @@ using Asteria.Core.Content;
 
 namespace Asteria.Core.World;
 
+/// <summary>
+/// Detached intermediate state after direct sky and local emissions are
+/// initialized. It remains private to one materialization task until LIGHT.
+/// </summary>
+public sealed class ChunkLightingInitializationState
+{
+    internal ChunkLightingInitializationState(
+        Chunk chunk,
+        byte[]? mediumDampening,
+        bool needsPropagation)
+    {
+        Chunk = chunk ?? throw new ArgumentNullException(nameof(chunk));
+        MediumDampening = mediumDampening;
+        NeedsPropagation = needsPropagation;
+    }
+
+    public Chunk Chunk { get; }
+
+    public bool NeedsPropagation { get; }
+
+    internal byte[]? MediumDampening { get; }
+}
+
+/// <summary>Initial-light pipeline with separate INITIALIZE_LIGHT and LIGHT work.</summary>
+public sealed class ChunkLightingPipeline
+{
+    private readonly Func<Chunk, ChunkLightingInitializationState> _initializeSources;
+    private readonly Func<ChunkLightingInitializationState, int> _propagate;
+
+    public ChunkLightingPipeline(
+        Func<Chunk, ChunkLightingInitializationState> initializeSources,
+        Func<ChunkLightingInitializationState, int> propagate)
+    {
+        _initializeSources = initializeSources ??
+            throw new ArgumentNullException(nameof(initializeSources));
+        _propagate = propagate ??
+            throw new ArgumentNullException(nameof(propagate));
+    }
+
+    public ChunkLightingInitializationState InitializeSources(Chunk chunk) =>
+        _initializeSources(chunk);
+
+    public int Propagate(ChunkLightingInitializationState state) =>
+        _propagate(state);
+
+    /// <summary>
+    /// Compatibility adapter for older combined lighting callbacks. Runtime
+    /// world generation should use ChunkLightingSolver.CreatePipeline.
+    /// </summary>
+    public static ChunkLightingPipeline FromCombinedInitializer(
+        Action<Chunk> initialize)
+    {
+        ArgumentNullException.ThrowIfNull(initialize);
+        return new ChunkLightingPipeline(
+            chunk =>
+            {
+                initialize(chunk);
+                return new ChunkLightingInitializationState(
+                    chunk, mediumDampening: null, needsPropagation: false);
+            },
+            _ => 0);
+    }
+}
+
 public static class ChunkLightingSolver
 {
     private static readonly (int X, int Y, int Z)[] Neighbors =
@@ -20,43 +84,33 @@ public static class ChunkLightingSolver
         FluidRegistry fluids,
         PackContentRegistry<ObjectDefinition>? objects = null)
     {
-        InitializeCore(chunk, blocks, fluids, objects);
+        var initialized = InitializeSources(chunk, blocks, fluids, objects);
+        Propagate(initialized);
     }
 
-    // Exposes real propagation work to core regression tests without making
-    // solver internals part of the runtime API.
-    internal static int InitializeAndCountProcessedVoxels(
+    /// <summary>Seeds direct sky and local emission without neighbor propagation.</summary>
+    internal static ChunkLightingInitializationState InitializeSources(
         Chunk chunk,
         BlockRegistry blocks,
         FluidRegistry fluids,
-        PackContentRegistry<ObjectDefinition>? objects = null) =>
-        InitializeCore(chunk, blocks, fluids, objects);
-
-    private static int InitializeCore(
-        Chunk chunk,
-        BlockRegistry blocks,
-        FluidRegistry fluids,
-        PackContentRegistry<ObjectDefinition>? objects)
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         ArgumentNullException.ThrowIfNull(chunk);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
 
-        // Air-only chunks need no ray march or local relaxation. An
-        // attached object can still be emissive, so exclude that case.
         if (chunk.IsEmpty && chunk.ObjectCount == 0)
         {
             chunk.FillLight(new VoxelLight(VoxelLight.MaxLevel, 0, 0, 0));
-            return 0;
+            return new ChunkLightingInitializationState(
+                chunk, mediumDampening: null, needsPropagation: false);
         }
 
-        // Ocean water often occupies complete horizontal layers above the
-        // seabed. When there are no blocks, attached objects or emitters and
-        // each Y layer is either all air or uniformly attenuating fluid, its
-        // direct-sky field can be computed once per layer instead of sampling
-        // all 4096 cells through the medium registry.
+        // Uniform fluid layers can solve direct sky without retaining a
+        // propagation snapshot.
         if (TryInitializeUniformFluidLayers(chunk, fluids))
-            return 0;
+            return new ChunkLightingInitializationState(
+                chunk, mediumDampening: null, needsPropagation: false);
 
         var objectEmissions = ObjectLightEmissionField.Capture(chunk, objects);
         // SeedDirectLight writes every cell's complete VoxelLight value.
@@ -66,9 +120,48 @@ public static class ChunkLightingSolver
             chunk, blocks, fluids, objectEmissions, mediumDampening);
 
         if (chunk.IsEmpty || !needsRelaxation)
+        {
+            return new ChunkLightingInitializationState(
+                chunk, mediumDampening: null, needsPropagation: false);
+        }
+
+        return new ChunkLightingInitializationState(
+            chunk, mediumDampening, needsPropagation: true);
+    }
+
+    /// <summary>Runs neighbor relaxation for the distinct LIGHT stage.</summary>
+    internal static int Propagate(ChunkLightingInitializationState initialized)
+    {
+        ArgumentNullException.ThrowIfNull(initialized);
+        if (!initialized.NeedsPropagation)
             return 0;
 
-        return Relax(chunk, mediumDampening);
+        var mediumDampening = initialized.MediumDampening ??
+            throw new InvalidOperationException(
+                "Lighting propagation state is missing its medium-dampening snapshot.");
+        return Relax(initialized.Chunk, mediumDampening);
+    }
+
+    internal static int InitializeAndCountProcessedVoxels(
+        Chunk chunk,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        PackContentRegistry<ObjectDefinition>? objects = null)
+    {
+        var initialized = InitializeSources(chunk, blocks, fluids, objects);
+        return Propagate(initialized);
+    }
+
+    public static ChunkLightingPipeline CreatePipeline(
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        PackContentRegistry<ObjectDefinition>? objects = null)
+    {
+        ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(fluids);
+        return new ChunkLightingPipeline(
+            chunk => InitializeSources(chunk, blocks, fluids, objects),
+            Propagate);
     }
 
     internal static bool TryInitializeUniformFluidLayers(
