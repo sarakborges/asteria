@@ -171,6 +171,10 @@ public sealed class ChunkResidencyRuntimeTests
                     maximumWorldWorkerStarts: 2);
                 totalStartedTasks += dispatch.StartedTasks;
                 failures += dispatch.Failures.Count;
+                Assert.True(
+                    fixture.Runtime.MaterializationJobCount <=
+                    fixture.Runtime.GenerationWorkerCount * 2,
+                    "Materialization jobs exceeded worker + pending-slot capacity.");
 
                 return fixture.Runtime.MaterializationJobCount == 0 &&
                        fixture.Runtime.PendingCount == 0 &&
