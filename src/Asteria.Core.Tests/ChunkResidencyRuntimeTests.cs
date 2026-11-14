@@ -478,11 +478,11 @@ public sealed class ChunkResidencyRuntimeTests
             maximumGenerationWorkerStarts: 0,
             maximumWorldWorkerStarts: 0);
 
-        Assert.Equal(3, admitted.StartedTasks);
+        Assert.Equal(0, admitted.StartedTasks);
         Assert.Equal(0, admitted.WorkerOperationsStarted);
-        Assert.Equal(3, fixture.Runtime.MaterializationJobCount);
-        Assert.Equal(0, fixture.Runtime.PendingCount);
-        Assert.Equal(3, fixture.Runtime.PendingGenerationWorkerOperations);
+        Assert.Equal(0, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(3, fixture.Runtime.PendingCount);
+        Assert.Equal(0, fixture.Runtime.PendingGenerationWorkerOperations);
         Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
 
         var firstWorkers = fixture.Runtime.DispatchMaterializationTasks(
@@ -491,7 +491,10 @@ public sealed class ChunkResidencyRuntimeTests
             maximumGenerationWorkerStarts: 2,
             maximumWorldWorkerStarts: 2);
 
+        Assert.Equal(2, firstWorkers.StartedTasks);
         Assert.Equal(2, firstWorkers.WorkerOperationsStarted);
+        Assert.Equal(2, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(1, fixture.Runtime.PendingCount);
 
         var completedActivations = 0;
         var failures = 0;
@@ -502,7 +505,16 @@ public sealed class ChunkResidencyRuntimeTests
                     GenerousBudget(), Array.Empty<ChunkCoord>());
                 completedActivations += update.Activations.Count;
                 failures += update.Failures.Count;
-                return fixture.Runtime.MaterializationJobCount == 0;
+
+                var dispatch = fixture.Runtime.DispatchMaterializationTasks(
+                    GenerousBudget(),
+                    Array.Empty<ChunkCoord>(),
+                    maximumGenerationWorkerStarts: 2,
+                    maximumWorldWorkerStarts: 2);
+                failures += dispatch.Failures.Count;
+
+                return fixture.Runtime.MaterializationJobCount == 0 &&
+                       fixture.Runtime.PendingCount == 0;
             },
             TimeSpan.FromSeconds(5));
 
