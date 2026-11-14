@@ -15,8 +15,12 @@ public sealed record LightingWorkerResult(
 
 public sealed class LightingWorker
 {
-    private readonly SingleFlightWorker<LightingWorkerResult>
-        _worker = new();
+    private readonly SingleFlightWorker<LightingWorkerResult> _worker;
+
+    public LightingWorker(WorldWorkerPool workerPool)
+    {
+        _worker = new SingleFlightWorker<LightingWorkerResult>(workerPool);
+    }
     private CancellationTokenSource? _cancellation;
     private VoxelLightingDependencies? _dependencies;
 
@@ -109,7 +113,7 @@ public sealed class LightingWorker
                     new VoxelLightingUpdateResult([], 0),
                     stopwatch.Elapsed.TotalMilliseconds, Cancelled: true);
             }
-        }))
+        }, cancellation.Token))
         {
             cancellation.Dispose();
             return false;
