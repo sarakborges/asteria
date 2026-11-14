@@ -84,6 +84,9 @@ public sealed class FluidMeshWorker
         }, priority: workerPriority);
     }
 
+    public bool TryUpdatePriority(int priority) =>
+        _worker.TryUpdatePriority(priority);
+
     public bool TryTakeCompleted(
         out FluidMeshWorkerResult? result,
         out Exception? error) =>
