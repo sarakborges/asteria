@@ -71,7 +71,7 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.DirectionalFacePalettes, NoHalo),
-                DependsOn(ChunkGenerationStepId.ColumnBiomeData),
+                Dependency(ChunkGenerationStepId.ColumnBiomeData, NoHalo),
             ]),
 
         Step(
@@ -85,8 +85,8 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
-                DependsOn(ChunkGenerationStepId.VolumeStructures),
-                DependsOn(ChunkGenerationStepId.ColumnBiomeData),
+                Dependency(ChunkGenerationStepId.VolumeStructures, NoHalo),
+                Dependency(ChunkGenerationStepId.ColumnBiomeData, NoHalo),
             ]),
 
         Step(
@@ -95,7 +95,7 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.SurfaceStructures, NoHalo),
-                DependsOn(ChunkGenerationStepId.SectionTerrainLayers),
+                Dependency(ChunkGenerationStepId.SectionTerrainLayers, NoHalo),
             ]),
 
         Step(
@@ -149,7 +149,7 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.GravitySupport, NoHalo),
-                DependsOn(ChunkGenerationStepId.SurfaceStructures),
+                Dependency(ChunkGenerationStepId.SurfaceStructures, NoHalo),
             ]),
 
         Step(
