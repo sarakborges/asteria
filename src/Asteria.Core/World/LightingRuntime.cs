@@ -46,6 +46,7 @@ public sealed class LightingRuntime
     private bool _acceptingWork = true;
 
     private WorldLightingBatch? _inFlightBatch;
+    private int? _inFlightWorkerPriority;
     private readonly ProximityDispatchFairness _dispatchFairness = new();
     private double _inFlightCaptureMilliseconds;
 
@@ -134,6 +135,16 @@ public sealed class LightingRuntime
         ChunkCoord? center = null,
         ChunkMovementDirection movement = default)
     {
+        if (_inFlightBatch is { } pendingBatch &&
+            center is { } currentCenter)
+        {
+            var updatedPriority = ResolveWorkerPriority(
+                pendingBatch, currentCenter, movement);
+            if (_inFlightWorkerPriority != updatedPriority &&
+                _worker.TryUpdatePriority(updatedPriority))
+                _inFlightWorkerPriority = updatedPriority;
+        }
+
         if (!_acceptingWork)
         {
             return false;
@@ -175,12 +186,14 @@ public sealed class LightingRuntime
             }
         }
 
+        var workerPriority = ResolveWorkerPriority(
+            batch, center, movement);
         var captureStart = Stopwatch.GetTimestamp();
         if (!_worker.TryStartScoped(
                 _world,
                 _blocks,
                 _fluids,
-                batch, _objects, workKind))
+                batch, _objects, workKind, workerPriority))
         {
             _updates.RequeueLighting(batch, _world);
             return false;
@@ -189,8 +202,36 @@ public sealed class LightingRuntime
         _inFlightCaptureMilliseconds =
             Stopwatch.GetElapsedTime(captureStart).TotalMilliseconds;
         _inFlightBatch = batch;
+        _inFlightWorkerPriority = workerPriority;
         _dispatchFairness.RecordStarted(nearest);
         return true;
+    }
+
+    private static int ResolveWorkerPriority(
+        WorldLightingBatch batch,
+        ChunkCoord? center,
+        ChunkMovementDirection movement)
+    {
+        if (batch.IsPriority)
+            return WorldWorkerPool.PlayerChunkPriority;
+        if (center is not { } focus)
+            return WorldWorkerPool.BackgroundWorldPriority;
+
+        var nearestBand = int.MaxValue;
+        foreach (var position in batch.EditedPositions)
+        {
+            var coord = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk;
+            var priority = ChunkStreamingState.StreamingPriority(
+                coord, focus, movement);
+            nearestBand = Math.Min(nearestBand, priority.StreamingBand);
+            if (nearestBand == 0)
+                break;
+        }
+
+        return nearestBand == int.MaxValue
+            ? WorldWorkerPool.BackgroundWorldPriority
+            : checked(nearestBand * 10);
     }
 
     public bool TryPollCompleted(
@@ -217,6 +258,7 @@ public sealed class LightingRuntime
         var sourceBatch = _inFlightBatch;
         var captureMilliseconds = _inFlightCaptureMilliseconds;
         _inFlightBatch = null;
+        _inFlightWorkerPriority = null;
         _inFlightCaptureMilliseconds = 0d;
 
         if (error is not null)
