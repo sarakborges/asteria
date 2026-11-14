@@ -1107,7 +1107,18 @@ public sealed class ChunkResidencyRuntime
         foreach (var (coord, work) in _materializationTasks)
             _generationDispatcher.UpdatePriority(
                 work.TaskKey, GenerationPriority(coord));
+
+        foreach (var (coord, work) in _chunkLightingReconciliationTasks)
+            _worldWorkerPool.TryUpdatePriority(
+                work.Operation, StreamingWorkerPriority(coord));
+
+        foreach (var (coord, work) in _directionalFaceReconciliationTasks)
+            _worldWorkerPool.TryUpdatePriority(
+                work.Operation, StreamingWorkerPriority(coord));
     }
+
+    private int StreamingWorkerPriority(ChunkCoord coord) =>
+        checked(GenerationPriority(coord).TicketLevel * 10);
 
     private void StartArrivalReconciliationWorker(
         WorldFrameWorkBudget budget,
@@ -1160,7 +1171,7 @@ public sealed class ChunkResidencyRuntime
                     },
                     CancellationToken.None,
                     out var operation,
-                    priority: WorldWorkerPool.InteractiveWorldPriority))
+                    priority: StreamingWorkerPriority(coord)))
             {
                 _pendingChunkLightingReconciliations.Enqueue(coord);
                 return false;
@@ -1219,7 +1230,7 @@ public sealed class ChunkResidencyRuntime
                     _ => updater.ReconcileChunkArrival(snapshot),
                     CancellationToken.None,
                     out var operation,
-                    priority: WorldWorkerPool.InteractiveWorldPriority))
+                    priority: StreamingWorkerPriority(coord)))
             {
                 _pendingDirectionalFaceReconciliations.Enqueue(coord);
                 return false;
