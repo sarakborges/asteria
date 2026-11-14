@@ -22,7 +22,8 @@ public sealed class FluidSimulationWorker
     public bool TryStart(
         VoxelWorld world,
         FluidRegistry fluids,
-        FluidWorkBatch batch)
+        FluidWorkBatch batch,
+        int workerPriority = WorldWorkerPool.InteractiveWorldPriority)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(fluids);
@@ -55,8 +56,11 @@ public sealed class FluidSimulationWorker
                 snapshot.Dependencies,
                 simulation,
                 stopwatch.Elapsed.TotalMilliseconds);
-        }, priority: WorldWorkerPool.InteractiveWorldPriority);
+        }, priority: workerPriority);
     }
+
+    public bool TryUpdatePriority(int priority) =>
+        _worker.TryUpdatePriority(priority);
 
     public bool TryTakeCompleted(
         out FluidSimulationWorkerResult? result,
