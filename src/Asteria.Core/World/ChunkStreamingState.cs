@@ -39,7 +39,7 @@ public readonly record struct ChunkLoadPriority(
 }
 
 public readonly record struct ChunkStreamingPriority(
-    int StreamingBand,
+    int TicketLevel,
     long HorizontalDistanceSquared,
     long TotalDistanceSquared,
     int Y,
@@ -48,7 +48,7 @@ public readonly record struct ChunkStreamingPriority(
 {
     public int CompareTo(ChunkStreamingPriority other)
     {
-        var result = StreamingBand.CompareTo(other.StreamingBand);
+        var result = TicketLevel.CompareTo(other.TicketLevel);
         if (result != 0) return result;
 
         result = HorizontalDistanceSquared.CompareTo(
@@ -69,11 +69,6 @@ public readonly record struct ChunkStreamingPriority(
 
 public sealed class ChunkStreamingState
 {
-    private const int ForwardPrefetchProjectionChunks =
-        ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks * 3;
-    private const int ForwardPrefetchLateralChunks =
-        ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
-
     private readonly HashSet<ChunkCoord> _desired = [];
     // Light snapshots span neighboring horizontal columns at resident Y levels.
     private readonly HashSet<(int X, int Z)> _lightingRelevantColumns = [];
@@ -82,6 +77,7 @@ public sealed class ChunkStreamingState
     private readonly HashSet<ChunkCoord> _materializing = [];
     private readonly HashSet<ChunkCoord> _presentationPending = [];
     private readonly RetiredChunkQueue _retired = new();
+    private readonly ChunkDistanceManager _distanceManager = new();
 
     public ChunkCoord? Center { get; private set; }
 
@@ -114,6 +110,20 @@ public sealed class ChunkStreamingState
     public bool IsLightingRelevant(ChunkCoord coord) =>
         _lightingRelevantColumns.Contains((coord.X, coord.Z));
 
+    public int GetLoadingLevel(ChunkCoord coord) =>
+        _distanceManager.GetLoadingLevel(ChunkColumnCoord.FromChunk(coord));
+
+    public int GetSimulationLevel(ChunkCoord coord) =>
+        _distanceManager.GetSimulationLevel(ChunkColumnCoord.FromChunk(coord));
+
+    public bool IsBlockTicking(ChunkCoord coord) =>
+        _distanceManager.IsBlockTicking(ChunkColumnCoord.FromChunk(coord));
+
+    public bool IsEntityTicking(ChunkCoord coord) =>
+        _distanceManager.IsEntityTicking(ChunkColumnCoord.FromChunk(coord));
+
+    public ChunkDistanceManager DistanceManager => _distanceManager;
+
     public bool IsMaterializing(ChunkCoord coord) =>
         _materializing.Contains(coord);
 
@@ -136,13 +146,12 @@ public sealed class ChunkStreamingState
         var desired = ChunkStreamingSelection.DesiredPlayerLocalChunks(
             center, horizontalRadius);
         var radius = Math.Max(1, horizontalRadius);
-        var radiusSquared = (long)radius * radius;
 
         foreach (var coord in _desired)
         {
-            var dx = (long)coord.X - center.X;
-            var dz = (long)coord.Z - center.Z;
-            if (dx * dx + dz * dz <= radiusSquared)
+            var dx = Math.Abs((long)coord.X - center.X);
+            var dz = Math.Abs((long)coord.Z - center.Z);
+            if (Math.Max(dx, dz) <= radius)
                 desired.Add(coord);
         }
 
@@ -173,6 +182,10 @@ public sealed class ChunkStreamingState
 
         _desired.Clear();
         _desired.UnionWith(desired);
+        _distanceManager.ReplacePlayerTickets(
+            _desired.Select(ChunkColumnCoord.FromChunk),
+            ChunkColumnCoord.FromChunk(center),
+            ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks);
         RebuildLightingRelevantColumns();
         _retained.Clear();
 
@@ -477,35 +490,13 @@ public sealed class ChunkStreamingState
         var dz = (long)coord.Z - center.Z;
         var horizontalDistance = dx * dx + dz * dz;
         var totalDistance = horizontalDistance + dy * dy;
-        var forward =
-            dx * movementDirection.X +
-            dz * movementDirection.Z;
-        var lateral =
-            Math.Abs(dx * movementDirection.Z -
-                     dz * movementDirection.X);
-        var localRadius = ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
-        var inPlayerLocalNeighborhood =
-            horizontalDistance <= (long)localRadius * localRadius;
-        var inForwardPrefetchCorridor =
-            movementDirection != ChunkMovementDirection.Zero &&
-            forward > 0 &&
-            forward <= ForwardPrefetchProjectionChunks &&
-            lateral <= ForwardPrefetchLateralChunks;
+        _ = movementDirection;
 
-        // Keep the immediate playable neighborhood complete first. Beyond it,
-        // materialize a bounded corridor ahead of movement before lateral or
-        // rear chunks so streaming work anticipates the player's direction.
-        var streamingBand = inPlayerLocalNeighborhood
-            ? 0
-            : inForwardPrefetchCorridor
-                ? 1
-                : movementDirection == ChunkMovementDirection.Zero ||
-                  forward >= 0
-                    ? 2
-                    : 3;
-
+        // PLAYER_LOADING tickets have level 31 in Minecraft. The queue then
+        // chooses the nearest waiting column, retaining the coordinate tuple
+        // as a deterministic tie-breaker instead of an authored forward band.
         return new ChunkStreamingPriority(
-            streamingBand,
+            ChunkLevel.EntityTicking,
             horizontalDistance,
             totalDistance,
             coord.Y,
@@ -589,11 +580,9 @@ public sealed class ChunkStreamingState
         ChunkCoord center,
         int radius)
     {
-        var squared = HorizontalDistanceSquared(
-            coord,
-            center);
-        var clamped = Math.Max(0, radius);
-        return squared <= (long)clamped * clamped;
+        var dx = Math.Abs((long)coord.X - center.X);
+        var dz = Math.Abs((long)coord.Z - center.Z);
+        return Math.Max(dx, dz) <= Math.Max(0, radius);
     }
 
     private static long HorizontalDistanceSquared(
