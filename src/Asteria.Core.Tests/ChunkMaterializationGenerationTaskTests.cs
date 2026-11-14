@@ -5,7 +5,7 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMaterializationGenerationTaskTests
 {
     [Fact]
-    public void WorkerOperationRunsUntilCompletionWhenNoDependencyExists()
+    public void WorkerForkAdvancesExactlyOneTerrainQuantum()
     {
         var job = new FakeMaterializationJob(sliceCount: 100);
         var lightingCalls = 0;
@@ -19,14 +19,53 @@ public sealed class ChunkMaterializationGenerationTaskTests
 
         advance = RunSlice(task, advance, job, waitToken: 1);
 
+        Assert.Equal(1, job.AdvanceCount);
+        Assert.Equal(1, advance.WorkerOperations.Length);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, advance.Kind);
+        Assert.Equal(0, lightingCalls);
+    }
+
+    [Fact]
+    public void MaterializationContinuesThroughOneWorkerForkPerTerrainQuantum()
+    {
+        var job = new FakeMaterializationJob(sliceCount: 100);
+        var lightingCalls = 0;
+        using var task = new ChunkMaterializationGenerationTask(
+            job, _ => lightingCalls++);
+
+        var advance = task.Advance([], CancellationToken.None);
+        ulong waitToken = 1;
+        while (advance.Kind == ChunkGenerationTaskAdvanceKind.WaitForWorkers)
+            advance = RunSlice(task, advance, job, waitToken++);
+
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, advance.Kind);
         Assert.Equal(100, job.AdvanceCount);
         Assert.Equal(1, lightingCalls);
         var output = Assert.IsType<ChunkMaterializationTaskOutput>(
             advance.CompletionPayload);
         Assert.Equal(100, output.StageTimings.Length);
-        Assert.Equal(1, output.WorkerSliceCount);
+        Assert.Equal(100, output.WorkerSliceCount);
         Assert.True(output.InterSliceWaitMilliseconds >= 0d);
+    }
+
+    [Fact]
+    public void OrderedMutationStageRunsInlineOnSerialContinuation()
+    {
+        var job = new FakeMaterializationJob(
+            sliceCount: 2,
+            stage: ChunkMaterializationStage.SurfaceDecorations);
+        using var task = new ChunkMaterializationGenerationTask(job, _ => { });
+
+        var first = task.Advance([], CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, first.Kind);
+        Assert.Empty(first.WorkerOperations);
+        Assert.Equal(1, job.AdvanceCount);
+
+        var final = task.Advance([], CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+        Assert.Equal(2, job.AdvanceCount);
     }
 
     [Fact]
@@ -105,9 +144,14 @@ public sealed class ChunkMaterializationGenerationTaskTests
     {
         private readonly int _sliceCount;
 
-        public FakeMaterializationJob(int sliceCount)
+        private readonly ChunkMaterializationStage _stage;
+
+        public FakeMaterializationJob(
+            int sliceCount,
+            ChunkMaterializationStage stage = ChunkMaterializationStage.TerrainLayer)
         {
             _sliceCount = sliceCount;
+            _stage = stage;
             Result = new Chunk();
         }
 
@@ -116,7 +160,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
         public ChunkMaterializationStage Stage =>
             IsComplete
                 ? ChunkMaterializationStage.Complete
-                : (ChunkMaterializationStage)((byte)ChunkMaterializationStage.TerrainSetup + AdvanceCount);
+                : _stage;
 
         public bool IsComplete => AdvanceCount >= _sliceCount;
 
