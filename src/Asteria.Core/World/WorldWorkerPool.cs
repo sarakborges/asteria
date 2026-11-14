@@ -109,8 +109,8 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     public int WorkerCount { get; }
 
     /// <summary>
-    /// Accepted operations that have not started executing yet, including
-    /// operations already handed to the CLR ThreadPool.
+    /// Accepted operations still in Asteria's priority queue. They stay here
+    /// until a CLR ThreadPool worker actually starts and takes the next item.
     /// </summary>
     public int PendingWorkCount => Volatile.Read(ref _pendingWorkCount);
 
@@ -194,9 +194,9 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
-    /// Changes the priority of an operation still waiting in Asteria's
-    /// priority queue. Once dispatched to the CLR ThreadPool, its queue
-    /// position is owned by the runtime and can no longer be changed here.
+    /// Changes an operation's priority for as long as it has not started.
+    /// Worker callbacks take the highest-priority item only after their CLR
+    /// ThreadPool callback begins, so queued priorities remain live.
     /// </summary>
     public bool TryUpdatePriority<TResult>(
         WorldWorkerOperation<TResult> operation,
@@ -249,9 +249,40 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 
     private void DispatchQueuedOperationsLocked()
     {
+        // Queue only a bounded number of generic worker callbacks into the CLR.
+        // Each callback selects the highest-priority operation after it starts,
+        // preserving live ticket reprioritization until the exact execution point.
         while (_reservedOperationCount < WorkerCount && _queue.Count > 0)
         {
-            var item = _queue.Min ??
+            _reservedOperationCount++;
+            if (ThreadPool.UnsafeQueueUserWorkItem(
+                    static owner => owner.ExecuteNext(),
+                    this,
+                    preferLocal: true))
+                continue;
+
+            _reservedOperationCount--;
+            Interlocked.Increment(ref _rejectedWorkCount);
+            throw new InvalidOperationException(
+                "The CLR ThreadPool rejected a world worker scheduler callback.");
+        }
+
+        CompleteDrainIfNeededLocked();
+    }
+
+    private void ExecuteNext()
+    {
+        IWorkItem? item;
+        lock (_queueSync)
+        {
+            if (_queue.Count == 0)
+            {
+                _reservedOperationCount--;
+                CompleteDrainIfNeededLocked();
+                return;
+            }
+
+            item = _queue.Min ??
                 throw new InvalidOperationException(
                     "World worker queue was nonempty without a minimum item.");
             if (!_queue.Remove(item) ||
@@ -261,36 +292,10 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
                     "World worker queue lost an admitted operation.");
             }
 
-            _reservedOperationCount++;
-            var dispatched = new DispatchedWork(this, item);
-            if (ThreadPool.UnsafeQueueUserWorkItem(
-                    static state => state.Owner.ExecuteDispatched(state.Item),
-                    dispatched,
-                    preferLocal: true))
-            {
-                continue;
-            }
-
-            _reservedOperationCount--;
-            if (!_queue.Add(item) ||
-                !_queuedItemsBySequence.TryAdd(item.EnqueueSequence, item))
-            {
-                throw new InvalidOperationException(
-                    "A rejected ThreadPool operation could not be restored to the world queue.");
-            }
-
-            Interlocked.Increment(ref _rejectedWorkCount);
-            throw new InvalidOperationException(
-                "The CLR ThreadPool rejected a world worker operation.");
+            Interlocked.Decrement(ref _pendingWorkCount);
+            Interlocked.Increment(ref _activeWorkerCount);
         }
 
-        CompleteDrainIfNeededLocked();
-    }
-
-    private void ExecuteDispatched(IWorkItem item)
-    {
-        Interlocked.Decrement(ref _pendingWorkCount);
-        Interlocked.Increment(ref _activeWorkerCount);
         try
         {
             item.Execute(this);
@@ -318,10 +323,6 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
             _drained.TrySetResult();
         }
     }
-
-    private readonly record struct DispatchedWork(
-        WorldWorkerPool Owner,
-        IWorkItem Item);
 
     private interface IWorkItem
     {
