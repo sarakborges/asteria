@@ -147,10 +147,9 @@ public sealed class ChunkResidencyRuntime
     private readonly ChunkStreamingState _streaming = new();
     private readonly ChunkTicketAdmissionController _playerTicketAdmissions;
     private readonly ChunkPresentationSelection _presentationSelection = new();
-    // Each section keeps one private incremental materialization job. The
-    // serial dispatcher resumes it between bounded worker slices; no worker
-    // and coordinator may touch the same job concurrently.
-    private readonly Dictionary<ChunkCoord, MaterializationWork>
+    // One logical generation task owns a horizontal column holder. Its
+    // vertical section jobs fork to the shared executor and publish together.
+    private readonly Dictionary<ChunkColumnCoord, MaterializationWork>
         _materializationTasks = [];
     private readonly ChunkGenerationCompletionMailbox _generationCompletionMailbox;
     private readonly ChunkGenerationWorkerPool _generationWorkerPool;
@@ -425,9 +424,9 @@ public sealed class ChunkResidencyRuntime
 
     private void CancelMaterializationsOutsideResidency()
     {
-        foreach (var (coord, work) in _materializationTasks.ToArray())
+        foreach (var (column, work) in _materializationTasks.ToArray())
         {
-            if (!_streaming.KeepsLoaded(coord))
+            if (!work.Sections.Any(_streaming.KeepsLoaded))
                 _generationDispatcher.TryCancel(work.TaskKey);
         }
     }
@@ -1140,9 +1139,12 @@ public sealed class ChunkResidencyRuntime
 
     private void UpdateGenerationTaskPriorities()
     {
-        foreach (var (coord, work) in _materializationTasks)
+        foreach (var (column, work) in _materializationTasks)
+        {
+            var coord = new ChunkCoord(column.X, _center.Y, column.Z);
             _generationDispatcher.UpdatePriority(
                 work.TaskKey, GenerationPriority(coord));
+        }
 
         foreach (var (coord, work) in _chunkLightingReconciliationTasks)
             _worldWorkerPool.TryUpdatePriority(
@@ -1333,7 +1335,8 @@ public sealed class ChunkResidencyRuntime
         ChunkGenerationTaskKey TaskKey,
         ulong Generation,
         long PendingSinceTimestamp,
-        long DispatchTimestamp);
+        long DispatchTimestamp,
+        IReadOnlyList<ChunkCoord> Sections);
 
     private sealed class ProviderMaterializationJob : IChunkMaterializationJob
     {
