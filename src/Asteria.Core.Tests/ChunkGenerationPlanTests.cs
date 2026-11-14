@@ -159,6 +159,63 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void ProceduralNeighborReadsAreDeclaredWithoutLoadingNeighborHolders()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        var expectedReads = new[]
+        {
+            (ChunkGenerationStepId.SurfaceDecorations, 0, 0),
+            (ChunkGenerationStepId.DirectionalFacePalettes, -1, 1),
+            (ChunkGenerationStepId.WallLayers, 0, 0),
+            (ChunkGenerationStepId.WallObjects, 0, 0),
+        };
+
+        foreach (var (stepId, minimumSectionOffset, maximumSectionOffset)
+                 in expectedReads)
+        {
+            var step = plan.GetStep(stepId);
+            Assert.Equal(1, step.ReadEnvelope.HorizontalRadius);
+            Assert.Equal(minimumSectionOffset, step.ReadEnvelope.MinimumSectionOffset);
+            Assert.Equal(maximumSectionOffset, step.ReadEnvelope.MaximumSectionOffset);
+
+            Assert.Contains(
+                plan.GetAccumulatedDependencies(stepId),
+                dependency =>
+                    dependency.PrerequisiteStep ==
+                        ChunkGenerationStepId.SurfaceTerrainColumn &&
+                    dependency.Kind ==
+                        ChunkGenerationDependencyKind.ImmutableWorldData &&
+                    dependency.Envelope.HorizontalRadius == 1);
+        }
+
+        Assert.Equal(
+            1,
+            AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
+        Assert.Equal(
+            -1,
+            AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MinimumSectionOffset);
+        Assert.Equal(
+            1,
+            AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MaximumSectionOffset);
+
+        Assert.Equal(
+            0,
+            AsteriaChunkGenerationPlan.FullSectionEnvelope.HorizontalRadius);
+        Assert.Equal(
+            -1,
+            AsteriaChunkGenerationPlan.FullSectionEnvelope.MinimumSectionOffset);
+        Assert.Equal(
+            0,
+            AsteriaChunkGenerationPlan.FullSectionEnvelope.MaximumSectionOffset);
+
+        Assert.DoesNotContain(
+            plan.GetAccumulatedDependencies(ChunkGenerationStepId.SectionReady),
+            dependency =>
+                dependency.Envelope.HorizontalRadius > 0 &&
+                dependency.Kind == ChunkGenerationDependencyKind.HolderStatus);
+    }
+
+    [Fact]
     public void AsteriaFullStepHasNoHorizontalHolderStatusPrerequisite()
     {
         Assert.Equal(
