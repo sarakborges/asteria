@@ -171,6 +171,79 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void MaterializationStagesMapToTheDeclaredExecutionLanes()
+    {
+        Assert.Equal(
+            ChunkGenerationStepId.SectionTerrainSetup,
+            AsteriaChunkGenerationPlan.GetStepId(
+                ChunkMaterializationStage.TerrainSetup));
+        Assert.Equal(
+            ChunkGenerationStepId.SectionTerrainLayers,
+            AsteriaChunkGenerationPlan.GetStepId(
+                ChunkMaterializationStage.TerrainLayer));
+
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            AsteriaChunkGenerationPlan.GetExecutionPolicy(
+                ChunkMaterializationStage.TerrainSetup));
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            AsteriaChunkGenerationPlan.GetExecutionPolicy(
+                ChunkMaterializationStage.TerrainLayer));
+
+        var orderedStages = new[]
+        {
+            ChunkMaterializationStage.SurfaceDecorations,
+            ChunkMaterializationStage.DirectionalFacePalettes,
+            ChunkMaterializationStage.VolumeStructures,
+            ChunkMaterializationStage.GeneratedFluids,
+            ChunkMaterializationStage.SurfaceStructures,
+            ChunkMaterializationStage.CaveSpikes,
+            ChunkMaterializationStage.VerticalDecorations,
+            ChunkMaterializationStage.Veins,
+            ChunkMaterializationStage.WallLayers,
+            ChunkMaterializationStage.WallObjects,
+            ChunkMaterializationStage.ShellFinalization,
+            ChunkMaterializationStage.GravitySupport,
+            ChunkMaterializationStage.StructureObjects,
+            ChunkMaterializationStage.PendingObjects,
+        };
+
+        foreach (var stage in orderedStages)
+        {
+            Assert.Equal(
+                ChunkGenerationExecutionPolicy.OrderedMutation,
+                AsteriaChunkGenerationPlan.GetExecutionPolicy(stage));
+        }
+
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.LightExecutor,
+            AsteriaChunkGenerationPlan.Default
+                .GetStep(ChunkGenerationStepId.InitialLighting)
+                .ExecutionPolicy);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.MainThreadIntegration,
+            AsteriaChunkGenerationPlan.Default
+                .GetStep(ChunkGenerationStepId.SectionReady)
+                .ExecutionPolicy);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            AsteriaChunkGenerationPlan.GetExecutionPolicy(
+                ChunkMaterializationStage.ProviderFallback));
+    }
+
+    [Fact]
+    public void NonStepMaterializationStatesDoNotResolveToPlanSteps()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => AsteriaChunkGenerationPlan.GetStepId(
+                ChunkMaterializationStage.ProviderFallback));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => AsteriaChunkGenerationPlan.GetExecutionPolicy(
+                ChunkMaterializationStage.Complete));
+    }
+
+    [Fact]
     public void PlanRejectsDependenciesThatAreNotDeclared()
     {
         var steps = new[]
