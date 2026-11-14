@@ -247,6 +247,7 @@ public sealed class ChunkTicketStorage
 public sealed class ChunkDistanceTracker
 {
     private readonly Dictionary<ChunkColumnCoord, int> _levels = [];
+    private readonly Dictionary<ChunkColumnCoord, int> _sources = [];
 
     public int Count => _levels.Count;
 
@@ -262,7 +263,28 @@ public sealed class ChunkDistanceTracker
     public bool TryGetLevel(ChunkColumnCoord column, out int level) =>
         _levels.TryGetValue(column, out level);
 
+    /// <summary>
+    /// Initializes a distance graph from the current ticket sources.
+    /// Subsequent ticket changes should use SynchronizeSources so only the
+    /// affected fixed-point region is propagated.
+    /// </summary>
     public void Rebuild(
+        ChunkTicketStorage tickets,
+        ChunkTicketFlags graphFlag,
+        int maximumLevel)
+    {
+        _levels.Clear();
+        _sources.Clear();
+        MaximumLevel = maximumLevel;
+        SynchronizeSources(tickets, graphFlag, maximumLevel);
+    }
+
+    /// <summary>
+    /// Diffs ticket source levels, then propagates increases or decreases
+    /// through the eight-neighbour graph until every changed node reaches its
+    /// minimum fixed point: min(source level, neighbour level + 1).
+    /// </summary>
+    public void SynchronizeSources(
         ChunkTicketStorage tickets,
         ChunkTicketFlags graphFlag,
         int maximumLevel)
@@ -273,30 +295,78 @@ public sealed class ChunkDistanceTracker
         if (maximumLevel < 0)
             throw new ArgumentOutOfRangeException(nameof(maximumLevel));
 
-        _levels.Clear();
-        MaximumLevel = maximumLevel;
-        var pending = new PriorityQueue<
-            ChunkColumnCoord, (int Level, int Z, int X)>();
+        if (MaximumLevel != maximumLevel)
+        {
+            _levels.Clear();
+            _sources.Clear();
+            MaximumLevel = maximumLevel;
+        }
 
+        var desiredSources = new Dictionary<ChunkColumnCoord, int>();
         foreach (var (column, ticket) in tickets.AllTickets)
         {
             if ((ticket.Flags & graphFlag) != graphFlag ||
                 ticket.Level > maximumLevel)
                 continue;
 
-            AddOrLower(column, ticket.Level, pending);
+            if (!desiredSources.TryGetValue(column, out var current) ||
+                ticket.Level < current)
+                desiredSources[column] = ticket.Level;
         }
 
-        while (pending.TryDequeue(out var column, out var priority))
+        var pending = new Queue<ChunkColumnCoord>();
+        var scheduled = new HashSet<ChunkColumnCoord>();
+
+        void Schedule(ChunkColumnCoord column)
         {
-            if (!_levels.TryGetValue(column, out var currentLevel) ||
-                currentLevel != priority.Level)
+            if (scheduled.Add(column))
+                pending.Enqueue(column);
+        }
+
+        void ScheduleNeighbors(ChunkColumnCoord column)
+        {
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dz == 0)
+                    continue;
+
+                var x = (long)column.X + dx;
+                var z = (long)column.Z + dz;
+                if (x < int.MinValue || x > int.MaxValue ||
+                    z < int.MinValue || z > int.MaxValue)
+                    continue;
+
+                Schedule(ChunkColumnCoord.FromChunk(
+                    new ChunkCoord((int)x, 0, (int)z)));
+            }
+        }
+
+        foreach (var column in _sources.Keys
+                     .Concat(desiredSources.Keys)
+                     .Distinct()
+                     .ToArray())
+        {
+            var hadSource = _sources.TryGetValue(column, out var oldLevel);
+            var hasSource = desiredSources.TryGetValue(column, out var newLevel);
+            if (hadSource == hasSource &&
+                (!hadSource || oldLevel == newLevel))
                 continue;
 
-            if (currentLevel >= maximumLevel)
-                continue;
+            if (hasSource)
+                _sources[column] = newLevel;
+            else
+                _sources.Remove(column);
+            Schedule(column);
+        }
 
-            var neighborLevel = currentLevel + 1;
+        while (pending.TryDequeue(out var column))
+        {
+            scheduled.Remove(column);
+            var nextLevel = _sources.TryGetValue(column, out var sourceLevel)
+                ? sourceLevel
+                : maximumLevel + 1;
+
             for (var dz = -1; dz <= 1; dz++)
             for (var dx = -1; dx <= 1; dx++)
             {
@@ -311,35 +381,27 @@ public sealed class ChunkDistanceTracker
 
                 var neighbor = ChunkColumnCoord.FromChunk(
                     new ChunkCoord((int)x, 0, (int)z));
-                AddOrLower(neighbor, neighborLevel, pending);
+                if (_levels.TryGetValue(neighbor, out var neighborLevel) &&
+                    neighborLevel < maximumLevel)
+                    nextLevel = Math.Min(nextLevel, neighborLevel + 1);
             }
+
+            var hadLevel = _levels.TryGetValue(column, out var currentLevel);
+            var boundedLevel = Math.Min(nextLevel, maximumLevel + 1);
+            if (hadLevel && currentLevel == boundedLevel ||
+                !hadLevel && boundedLevel > maximumLevel)
+                continue;
+
+            if (boundedLevel > maximumLevel)
+                _levels.Remove(column);
+            else
+                _levels[column] = boundedLevel;
+
+            // Both promotions and demotions can change a neighbour's best
+            // path. Re-evaluate the surrounding ring until the graph settles.
+            ScheduleNeighbors(column);
         }
     }
-
-    private void AddOrLower(
-        ChunkColumnCoord column,
-        int level,
-        PriorityQueue<ChunkColumnCoord, (int Level, int Z, int X)> pending)
-    {
-        if (_levels.TryGetValue(column, out var current) &&
-            current <= level)
-            return;
-
-        _levels[column] = level;
-        pending.Enqueue(column, (level, column.Z, column.X));
-    }
-}
-
-public readonly record struct ChunkHolderFutureResult(
-    bool Succeeded,
-    ChunkFullStatus Status,
-    string? FailureReason)
-{
-    public static ChunkHolderFutureResult Success(ChunkFullStatus status) =>
-        new(true, status, null);
-
-    public static ChunkHolderFutureResult Unloaded(string reason) =>
-        new(false, ChunkFullStatus.Inaccessible, reason);
 }
 
 /// <summary>
@@ -578,7 +640,7 @@ public sealed class ChunkDistanceManager
                     ChunkLevel.EntityTicking)))
             return false;
 
-        _loading.Rebuild(
+        _loading.SynchronizeSources(
             _tickets,
             ChunkTicketFlags.Loading,
             ChunkLevel.MaximumLoading);
@@ -595,7 +657,7 @@ public sealed class ChunkDistanceManager
                     ChunkLevel.EntityTicking)))
             return false;
 
-        _loading.Rebuild(
+        _loading.SynchronizeSources(
             _tickets,
             ChunkTicketFlags.Loading,
             ChunkLevel.MaximumLoading);
@@ -624,7 +686,7 @@ public sealed class ChunkDistanceManager
 
         if (simulationChanged)
         {
-            _simulation.Rebuild(
+            _simulation.SynchronizeSources(
                 _tickets,
                 ChunkTicketFlags.Simulation,
                 ChunkLevel.BlockTicking);
