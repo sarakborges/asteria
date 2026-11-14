@@ -117,7 +117,7 @@ public partial class Main : Node3D
 		 _residency.ChunkLightingReconciliationCount > 0) ||
 		(_terrainMeshPipeline.ActiveWorkerCount < 2 &&
 		 (_worldUpdates.HasPriorityMeshWork || _worldUpdates.HasBackgroundMeshWork)) ||
-		(_fluidMeshPipeline.ActiveWorkerCount < MaxFluidMeshWorkers &&
+		(_fluidMeshPipeline.HasAvailableWorkerSlot &&
 		 _fluidMeshUpdates.HasWork);
 
 	private BlockRegistry _blocks = null!;
@@ -920,7 +920,7 @@ public partial class Main : Node3D
 			priorityTerrainMeshPending: _worldUpdates.PriorityDirtyChunkCount,
 			backgroundTerrainMeshPending: _worldUpdates.BackgroundDirtyChunkCount,
 			terrainMeshWorkersActive: _terrainMeshPipeline.ActiveWorkerCount,
-			fluidMeshWorkersActive: _fluidMeshPipeline.ActiveWorkerCount,
+			fluidMeshBatchesInFlight: _fluidMeshPipeline.ActiveWorkerCount,
 			terrainPublicationsPending: _chunkPresentations.PendingTerrainPublications,
 			terrainMeshFlushPending: _chunkPresentations.PendingTerrainMeshFlushCount,
 			activeWorldWorkers: ActiveWorldWorkerCount,
