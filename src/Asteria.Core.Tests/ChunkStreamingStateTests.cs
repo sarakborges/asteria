@@ -369,9 +369,10 @@ public sealed class ChunkStreamingStateTests
     {
         var provider =
             new BlockingSurfaceRangeProvider();
+        using var workerPool = new WorldWorkerPool(workerCount: 1);
         var runtime =
             new ChunkStreamingSelectionRuntime(
-                provider);
+                provider, workerPool);
         var callerThread =
             Environment.CurrentManagedThreadId;
 
