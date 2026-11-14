@@ -178,6 +178,34 @@ public static class AsteriaChunkGenerationPlan
         FullSectionEnvelope.HorizontalRadius;
 
     /// <summary>
+    /// Returns the deepest generation status required at a horizontal
+    /// Chebyshev distance from a target step. Requirements come from the
+    /// target's transitive prerequisite envelopes, rather than from a copied
+    /// vanilla level-to-status table.
+    /// </summary>
+    public static ChunkGenerationStatus GetRequiredStatusAtHorizontalDistance(
+        ChunkGenerationStepId targetStep,
+        int horizontalDistance)
+    {
+        if (horizontalDistance < 0)
+            throw new ArgumentOutOfRangeException(nameof(horizontalDistance));
+
+        var requiredStatus = ChunkGenerationStatus.Unloaded;
+        foreach (var dependency in Default.GetAccumulatedDependencies(targetStep))
+        {
+            if (dependency.Envelope.HorizontalRadius < horizontalDistance)
+                continue;
+
+            var dependencyStatus = GetGenerationStatus(
+                dependency.PrerequisiteStep);
+            if (dependencyStatus > requiredStatus)
+                requiredStatus = dependencyStatus;
+        }
+
+        return requiredStatus;
+    }
+
+    /// <summary>
     /// Maps Asteria's concrete materialization DAG onto the holder status
     /// ladder. Ticket levels decide the highest status a holder may reach;
     /// a requested step maps to the future that represents its actual target.
