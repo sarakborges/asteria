@@ -10,8 +10,12 @@ public sealed record FluidSimulationWorkerResult(
 
 public sealed class FluidSimulationWorker
 {
-    private readonly SingleFlightWorker<FluidSimulationWorkerResult>
-        _worker = new();
+    private readonly SingleFlightWorker<FluidSimulationWorkerResult> _worker;
+
+    public FluidSimulationWorker(WorldWorkerPool workerPool)
+    {
+        _worker = new SingleFlightWorker<FluidSimulationWorkerResult>(workerPool);
+    }
 
     public bool IsRunning => _worker.IsRunning;
 
