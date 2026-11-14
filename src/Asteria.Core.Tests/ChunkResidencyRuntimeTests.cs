@@ -463,7 +463,7 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-    public void MaterializationDispatchRegistersDesiredChunksAndQueuesWorkerSlices()
+    public void MaterializationDispatchQueuesAllDesiredChunksOnSharedExecutor()
     {
         using var fixture = CreateFixture(
             new StagedChunkProvider(), maxConcurrentWorkers: 2);
@@ -485,20 +485,13 @@ public sealed class ChunkResidencyRuntimeTests
             Array.Empty<ChunkCoord>());
 
         Assert.Equal(3, admitted.StartedTasks);
-        Assert.Equal(0, admitted.WorkerOperationsStarted);
+        Assert.Equal(3, admitted.WorkerOperationsStarted);
         Assert.Equal(3, fixture.Runtime.MaterializationJobCount);
         Assert.Equal(0, fixture.Runtime.PendingCount);
-        Assert.Equal(3, fixture.Runtime.PendingGenerationWorkerOperations);
         Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
-
-        var firstWorkers = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(),
-            Array.Empty<ChunkCoord>());
-
-        Assert.Equal(0, firstWorkers.StartedTasks);
-        Assert.Equal(2, firstWorkers.WorkerOperationsStarted);
-        Assert.Equal(3, fixture.Runtime.MaterializationJobCount);
-        Assert.Equal(0, fixture.Runtime.PendingCount);
+        Assert.True(SpinWait.SpinUntil(
+            () => fixture.Runtime.PendingGenerationWorkerQueueCount > 0,
+            TimeSpan.FromSeconds(5)));
 
         var completedActivations = 0;
         var failures = 0;
@@ -515,10 +508,15 @@ public sealed class ChunkResidencyRuntimeTests
                     Array.Empty<ChunkCoord>());
                 failures += dispatch.Failures.Count;
 
+                Assert.True(
+                    fixture.Runtime.ActiveGenerationWorkerCount <=
+                    fixture.Runtime.GenerationWorkerCount,
+                    "Physical worldgen concurrency exceeded the shared pool.");
+
                 return fixture.Runtime.MaterializationJobCount == 0 &&
                        fixture.Runtime.PendingCount == 0;
             },
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(10));
 
         Assert.True(drained, "All desired materialization tasks did not drain.");
         Assert.Equal(3, completedActivations);
