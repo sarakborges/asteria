@@ -130,13 +130,39 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
-    public void AsteriaFullStepRequiresOnlyTerrainAtItsHorizontalHalo()
+    public void ImmutableGeneratorHaloDoesNotRequireNeighborChunkHolders()
     {
         Assert.Equal(
             1,
+            AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
+        Assert.Equal(
+            0,
             AsteriaChunkGenerationPlan.MaximumHorizontalDependencyRadius);
         Assert.Equal(
-            ChunkGenerationStatus.Terrain,
+            0,
+            AsteriaChunkGenerationPlan.FullSectionEnvelope.HorizontalRadius);
+
+        var accumulated = AsteriaChunkGenerationPlan.Default.GetAccumulatedDependencies(
+            ChunkGenerationStepId.SectionReady);
+        Assert.Contains(
+            accumulated,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.SurfaceTerrainColumn &&
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope.HorizontalRadius == 1);
+        Assert.DoesNotContain(
+            accumulated,
+            dependency =>
+                dependency.Envelope.HorizontalRadius > 0 &&
+                dependency.Kind == ChunkGenerationDependencyKind.HolderStatus);
+    }
+
+    [Fact]
+    public void AsteriaFullStepHasNoHorizontalHolderStatusPrerequisite()
+    {
+        Assert.Equal(
+            ChunkGenerationStatus.Unloaded,
             AsteriaChunkGenerationPlan.GetRequiredStatusAtHorizontalDistance(
                 ChunkGenerationStepId.SectionReady,
                 horizontalDistance: 1));
@@ -148,17 +174,80 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
-    public void ChunkTicketLevelsUseTheGenerationPlanForNeighborStatus()
+    public void ChunkTicketLevelsUseOnlyHolderStatusDependencies()
     {
         Assert.Equal(
-            ChunkLevel.Full + AsteriaChunkGenerationPlan.MaximumHorizontalDependencyRadius,
+            ChunkLevel.Full,
             ChunkLevel.MaximumLoading);
         Assert.Equal(
-            ChunkGenerationStatus.Terrain,
-            ChunkLevel.GetGenerationStatus(ChunkLevel.Full + 1));
-        Assert.Equal(
             ChunkGenerationStatus.Unloaded,
-            ChunkLevel.GetGenerationStatus(ChunkLevel.Full + 2));
+            ChunkLevel.GetGenerationStatus(ChunkLevel.Full + 1));
+    }
+
+    [Fact]
+    public void HolderEnvelopeDoesNotIncludeImmutableDataButKeepsHolderPrerequisites()
+    {
+        var readEnvelope = new ChunkGenerationDependencyEnvelope(2, -1, 1);
+        var holderEnvelope = new ChunkGenerationDependencyEnvelope(1, 0, 0);
+        var plan = new ChunkGenerationPlan(
+        [
+            new ChunkGenerationStepDefinition(
+                ChunkGenerationStepId.ColumnBiomeData,
+                ChunkGenerationWorkScope.Column,
+                ChunkGenerationExecutionPolicy.SharedWorkerPool,
+                Array.Empty<ChunkGenerationStepDependency>(),
+                ChunkGenerationDependencyEnvelope.None,
+                ChunkGenerationDependencyEnvelope.None),
+            new ChunkGenerationStepDefinition(
+                ChunkGenerationStepId.SurfaceTerrainColumn,
+                ChunkGenerationWorkScope.Column,
+                ChunkGenerationExecutionPolicy.SharedWorkerPool,
+                [new ChunkGenerationStepDependency(
+                    ChunkGenerationStepId.ColumnBiomeData,
+                    ChunkGenerationDependencyEnvelope.None,
+                    ChunkGenerationDependencyKind.ImmutableWorldData)],
+                ChunkGenerationDependencyEnvelope.None,
+                ChunkGenerationDependencyEnvelope.None),
+            new ChunkGenerationStepDefinition(
+                ChunkGenerationStepId.SectionTerrainSetup,
+                ChunkGenerationWorkScope.Section,
+                ChunkGenerationExecutionPolicy.SharedWorkerPool,
+                [
+                    new ChunkGenerationStepDependency(
+                        ChunkGenerationStepId.SurfaceTerrainColumn,
+                        readEnvelope,
+                        ChunkGenerationDependencyKind.ImmutableWorldData),
+                    new ChunkGenerationStepDependency(
+                        ChunkGenerationStepId.ColumnBiomeData,
+                        holderEnvelope,
+                        ChunkGenerationDependencyKind.HolderStatus),
+                ],
+                readEnvelope,
+                ChunkGenerationDependencyEnvelope.None),
+        ]);
+
+        var allDependencies = plan.GetAccumulatedDependencies(
+            ChunkGenerationStepId.SectionTerrainSetup);
+        var holderDependency = Assert.Single(
+            allDependencies.Where(item =>
+                item.Kind == ChunkGenerationDependencyKind.HolderStatus));
+        Assert.Equal(
+            ChunkGenerationStepId.ColumnBiomeData,
+            holderDependency.PrerequisiteStep);
+        Assert.Equal(holderEnvelope, holderDependency.Envelope);
+        Assert.Contains(
+            allDependencies,
+            item => item.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
+                item.Envelope.HorizontalRadius == 2);
+
+        Assert.Equal(
+            holderEnvelope,
+            plan.GetHolderDependencyEnvelope(
+                ChunkGenerationStepId.SectionTerrainSetup));
+        Assert.Equal(
+            2,
+            plan.GetDependencyEnvelope(
+                ChunkGenerationStepId.SectionTerrainSetup).HorizontalRadius);
     }
 
     [Fact]
