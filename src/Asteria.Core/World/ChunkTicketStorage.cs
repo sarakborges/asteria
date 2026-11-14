@@ -69,15 +69,14 @@ public static class ChunkLevel
     {
         if (level <= Full)
             return ChunkGenerationStatus.Full;
-        if (level == InitializeLight)
-            return ChunkGenerationStatus.InitializeLight;
-        if (level == Terrain)
-            return ChunkGenerationStatus.Terrain;
-        if (level == Biomes)
-            return ChunkGenerationStatus.Biomes;
-        if (level >= StructureStarts && level <= MaximumLoading)
-            return ChunkGenerationStatus.StructureStarts;
-        return ChunkGenerationStatus.Unloaded;
+
+        var horizontalDistance = level - Full;
+        if (horizontalDistance > AsteriaChunkGenerationPlan.MaximumHorizontalDependencyRadius)
+            return ChunkGenerationStatus.Unloaded;
+
+        return AsteriaChunkGenerationPlan.GetRequiredStatusAtHorizontalDistance(
+            ChunkGenerationStepId.SectionReady,
+            horizontalDistance);
     }
 }
 
