@@ -481,7 +481,12 @@ public sealed class BlockPhysicsRuntime : IDisposable
         ApplyResidentChunkActivationPlan(
             CalculateResidentChunkActivationPlan(_world, coord));
 
-    public BlockPhysicsWakeResult ProcessWakeups()
+    public int WakeSimulationChunks(
+        Func<ChunkCoord, bool> isBlockTicking) =>
+        _updates.WakeSimulationChunks(isBlockTicking);
+
+    public BlockPhysicsWakeResult ProcessWakeups(
+        Func<ChunkCoord, bool>? isBlockTicking = null)
     {
         var fallingStarted = 0;
         var unsupportedRemoved = 0;
@@ -492,6 +497,14 @@ public sealed class BlockPhysicsRuntime : IDisposable
             if (!_world.TryGetCell(position, out var cell) ||
                 cell.IsEmpty)
             {
+                continue;
+            }
+
+            var sourceChunk = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk;
+            if (isBlockTicking is not null && !isBlockTicking(sourceChunk))
+            {
+                _updates.WaitForSimulationChunk(position, sourceChunk);
                 continue;
             }
 
@@ -631,7 +644,8 @@ public sealed class BlockPhysicsRuntime : IDisposable
 
     public int Advance(
         double deltaSeconds,
-        double gravityStrength)
+        double gravityStrength,
+        Func<ChunkCoord, bool>? isBlockTicking = null)
     {
         if (!double.IsFinite(deltaSeconds) ||
             deltaSeconds < 0)
@@ -690,6 +704,19 @@ public sealed class BlockPhysicsRuntime : IDisposable
                 columnX = state.ColumnX;
                 columnZ = state.ColumnZ;
                 lowerBlock = null;
+            }
+
+            var currentChunk = VoxelCoordinates.FromWorld(
+                state.ColumnX,
+                (int)Math.Floor(state.CenterY),
+                state.ColumnZ).Chunk;
+            if (isBlockTicking is not null && !isBlockTicking(currentChunk))
+            {
+                // Keep the authoritative falling body in place while its
+                // holder is outside BLOCK_TICKING. It resumes from the same
+                // position when the simulation graph promotes the column.
+                lowerBlock = state;
+                continue;
             }
 
             if (_fallingWaitingForChunk.ContainsKey(id))
