@@ -21,8 +21,12 @@ public sealed record TerrainMeshWorkerResult(
 
 public sealed class TerrainMeshWorker
 {
-    private readonly SingleFlightWorker<TerrainMeshWorkerResult>
-        _worker = new();
+    private readonly SingleFlightWorker<TerrainMeshWorkerResult> _worker;
+
+    public TerrainMeshWorker(WorldWorkerPool workerPool)
+    {
+        _worker = new SingleFlightWorker<TerrainMeshWorkerResult>(workerPool);
+    }
 
     public bool IsRunning => _worker.IsRunning;
 
