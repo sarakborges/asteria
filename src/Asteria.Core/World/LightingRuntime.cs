@@ -41,7 +41,7 @@ public sealed class LightingRuntime
     private readonly PackContentRegistry<ObjectDefinition>? _objects;
     private readonly WorldUpdateQueue _updates;
     private readonly LightingResultIntegrator _integration;
-    private readonly LightingWorker _worker;
+    private LightingWorker _worker;
 
     private bool _acceptingWork = true;
 
@@ -92,6 +92,21 @@ public sealed class LightingRuntime
     }
 
     public bool IsRunning => _worker.IsRunning || _publication is not null;
+    /// <summary>
+    /// Rebinds dynamic lighting to the dimension's shared serial light lane.
+    /// Called during session construction before any lighting work is admitted.
+    /// </summary>
+    public void ConfigureSerialExecutor(ChunkGenerationSerialExecutor serialExecutor)
+    {
+        ArgumentNullException.ThrowIfNull(serialExecutor);
+        if (_worker.IsRunning || _publication is not null)
+            throw new InvalidOperationException(
+                "The lighting executor cannot change while lighting work is active.");
+
+        _worker = new LightingWorker(serialExecutor);
+    }
+
+
 
     public int ActiveWorkerCount => _worker.IsRunning ? 1 : 0;
 
