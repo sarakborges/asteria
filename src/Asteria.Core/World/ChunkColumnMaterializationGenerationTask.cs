@@ -23,9 +23,12 @@ public sealed class ChunkColumnMaterializationGenerationTask :
     private readonly ChunkColumnCoord _column;
     private readonly ChunkMaterializationGenerationTask[] _sectionTasks;
     private readonly ChunkMaterializationTaskOutput?[] _sectionResults;
+    private readonly ChunkGenerationStatus[] _sectionProgressStatuses;
     private readonly Dictionary<ulong, PendingSectionOperation> _pendingOperations = [];
     private readonly SortedSet<int> _readySections = [];
     private ulong _nextDependencyId = 1;
+    private ChunkGenerationStatus _lastPublishedProgressStatus =
+        ChunkGenerationStatus.Unloaded;
     private bool _started;
     private bool _completed;
     private bool _disposed;
@@ -64,6 +67,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 dispatchTimestamp))
             .ToArray();
         _sectionResults = new ChunkMaterializationTaskOutput?[jobs.Length];
+        _sectionProgressStatuses = new ChunkGenerationStatus[jobs.Length];
     }
 
     public ChunkColumnCoord Column => _column;
@@ -148,15 +152,21 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 $"Column {_column} was advanced while worker dependencies were still pending.");
         }
 
+        var progressStatus = AdvanceAggregateProgress();
+
         if (nextOperations.Count > 0)
-            return ChunkGenerationTaskAdvanceResult.WaitForWorkers(nextOperations);
+            return ChunkGenerationTaskAdvanceResult.WaitForWorkers(
+                nextOperations,
+                progressStatus);
 
         if (_pendingOperations.Count > 0)
             throw new InvalidOperationException(
                 $"Column {_column} has outstanding operations without a wait result.");
 
         if (_readySections.Count > 0)
-            return ChunkGenerationTaskAdvanceResult.Yield;
+            return progressStatus is { } yieldedStatus
+                ? ChunkGenerationTaskAdvanceResult.YieldWithStatus(yieldedStatus)
+                : ChunkGenerationTaskAdvanceResult.Yield;
 
         var sections = _sectionResults
             .Select((result, index) => result ??
@@ -167,7 +177,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
 
         _completed = true;
         return ChunkGenerationTaskAdvanceResult.CompletedWith(
-            new ChunkColumnMaterializationTaskOutput(_column, sections));
+            new ChunkColumnMaterializationTaskOutput(_column, sections),
+            ChunkGenerationStatus.Full);
     }
 
     public void Dispose()
@@ -182,11 +193,30 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         _readySections.Clear();
     }
 
+    private ChunkGenerationStatus? AdvanceAggregateProgress()
+    {
+        if (_sectionProgressStatuses.Length == 0)
+            return null;
+
+        var aggregate = _sectionProgressStatuses.Min();
+        if (aggregate <= _lastPublishedProgressStatus)
+            return null;
+
+        _lastPublishedProgressStatus = aggregate;
+        return aggregate;
+    }
+
     private void CollectChildAdvance(
         int sectionIndex,
         ChunkGenerationTaskAdvanceResult result,
         List<ChunkGenerationWorkerOperation> nextOperations)
     {
+        if (result.ProgressStatus is { } sectionStatus &&
+            sectionStatus > _sectionProgressStatuses[sectionIndex])
+        {
+            _sectionProgressStatuses[sectionIndex] = sectionStatus;
+        }
+
         switch (result.Kind)
         {
             case ChunkGenerationTaskAdvanceKind.Completed:
