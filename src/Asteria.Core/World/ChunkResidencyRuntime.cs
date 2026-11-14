@@ -708,6 +708,13 @@ public sealed class ChunkResidencyRuntime
             return;
 
         _materializationTasks.Remove(column);
+        if (outcome.Kind is ChunkGenerationTaskOutcomeKind.Cancelled or
+            ChunkGenerationTaskOutcomeKind.Failed)
+        {
+            _streaming.DistanceManager.ResetGenerationProgress(
+                column,
+                $"Generation attempt {outcome.Task.Generation} was {outcome.Kind}.");
+        }
         work.DependencyClaims.Dispose();
         foreach (var section in work.Sections)
             _streaming.FinishMaterializing(section);
@@ -745,6 +752,9 @@ public sealed class ChunkResidencyRuntime
                 failureCoord,
                 new InvalidOperationException(
                     $"Completed generation task returned an invalid column result: {column}")));
+            _streaming.DistanceManager.ResetGenerationProgress(
+                column,
+                $"Generation attempt {outcome.Task.Generation} returned an invalid column result.");
             _playerTicketAdmissions.Abandon(column);
             if (_acceptingMaterializationWork)
             {
