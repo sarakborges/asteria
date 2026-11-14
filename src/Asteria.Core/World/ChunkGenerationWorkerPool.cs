@@ -104,9 +104,21 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 
     public bool TrySchedule(
         ChunkGenerationWorkerRequest request,
+        out WorldWorkerOperation<object?>? operation) =>
+        TrySchedule(request, _completionMailbox, out operation);
+
+    /// <summary>
+    /// Schedules a dependency fork to a lane-specific completion mailbox while
+    /// retaining the same shared physical worker pool and admission accounting.
+    /// Used by the separate serial light executor.
+    /// </summary>
+    internal bool TrySchedule(
+        ChunkGenerationWorkerRequest request,
+        ChunkGenerationCompletionMailbox completionMailbox,
         out WorldWorkerOperation<object?>? operation)
     {
         request.Validate();
+        ArgumentNullException.ThrowIfNull(completionMailbox);
         var priority = request.Priority ??
             WorldWorkerPriority.FromPriorityClass(
                 WorldWorkerPool.DefaultPriority);
@@ -115,7 +127,7 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
             request.Execute,
             request.CancellationToken,
             priority,
-            result => _completionMailbox.Publish(
+            result => completionMailbox.Publish(
                 new ChunkGenerationDependencyCompletion(
                     request.Task,
                     request.WaitToken,
