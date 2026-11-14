@@ -852,21 +852,14 @@ public sealed class ChunkResidencyRuntime
         var failures = new List<ChunkMaterializationFailure>();
         var startedTasks = 0;
         var restored = 0;
-        // A materialization job can yield between several worker slices.
-        // Reserve one logical admission slot for its entire lifetime, otherwise
-        // every completed slice would release admission and an unbounded number
-        // of suspended jobs could accumulate behind the same bounded executor.
-        // The lifetime cap is derived from its physical workers plus bounded
-        // waiting slots; the per-frame start budget can only lower that cap.
-        var materializationTaskCapacity = checked(
-            _generationWorkerPool.WorkerCount +
-            _generationWorkerPool.PendingCapacity);
-        var availableMaterializationTaskSlots = Math.Max(
-            0, materializationTaskCapacity - _materializationTasks.Count);
-        // Archive restores remain synchronous and do not consume a worker slot.
-        var maximumNewMaterializationTasks = Math.Min(
-            maximumGenerationWorkerStarts,
-            availableMaterializationTaskSlots);
+        // Logical chunk tasks remain in the ticket-priority dispatcher while
+        // they wait for a forked worker operation. Do not cap their lifetime
+        // count by the physical pool size: vanilla Minecraft also keeps parked
+        // chunk tasks queued and only limits actual operations admitted to the
+        // shared worker executor. This per-frame budget is the number of new
+        // provider jobs the coordinator may register during this dispatch.
+        // Archive restores are synchronous and do not consume worker starts.
+        var maximumNewMaterializationTasks = maximumGenerationWorkerStarts;
 
         while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
