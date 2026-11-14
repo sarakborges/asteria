@@ -468,6 +468,24 @@ public readonly record struct ChunkHolderFutureResult(
 }
 
 /// <summary>
+/// Result delivered by a holder's status-specific generation future.
+/// </summary>
+public readonly record struct ChunkGenerationFutureResult(
+    bool Succeeded,
+    ChunkGenerationStatus Status,
+    string? FailureReason)
+{
+    public static ChunkGenerationFutureResult Success(
+        ChunkGenerationStatus status) =>
+        new(true, status, null);
+
+    public static ChunkGenerationFutureResult Unloaded(
+        ChunkGenerationStatus status,
+        string reason) =>
+        new(false, status, reason);
+}
+
+/// <summary>
 /// One horizontal holder created by the loading graph. Its ticket level is a
 /// ceiling on generation status, while its three futures represent actual
 /// promotion to FULL, BLOCK_TICKING and ENTITY_TICKING.
@@ -477,6 +495,9 @@ public sealed class ChunkHolder
     private TaskCompletionSource<ChunkHolderFutureResult> _fullChunkFuture = NewFuture();
     private TaskCompletionSource<ChunkHolderFutureResult> _blockTickingFuture = NewFuture();
     private TaskCompletionSource<ChunkHolderFutureResult> _entityTickingFuture = NewFuture();
+    private readonly Dictionary<ChunkGenerationStatus,
+        TaskCompletionSource<ChunkGenerationFutureResult>> _generationFutures =
+        CreateGenerationFutures();
     private int _dependencyClaimCount;
 
     internal ChunkHolder(ChunkColumnCoord position, int ticketLevel)
@@ -490,6 +511,8 @@ public sealed class ChunkHolder
     public int TicketLevel { get; private set; }
 
     public ChunkGenerationStatus HighestAllowedGenerationStatus { get; private set; }
+
+    public ChunkGenerationStatus CompletedGenerationStatus { get; private set; }
 
     /// <summary>Maximum full-chunk status permitted by the loading ticket level.</summary>
     public ChunkFullStatus FullStatus { get; private set; }
@@ -559,7 +582,56 @@ public sealed class ChunkHolder
             ref _entityTickingFuture,
             FullStatus >= ChunkFullStatus.EntityTicking,
             "Chunk is no longer allowed to tick entities.");
+        ReconcileGenerationFutures();
         return true;
+    }
+
+    /// <summary>
+    /// Returns the future for one requested generation status. The ticket level
+    /// is only a ceiling: a permitted status may still be incomplete.
+    /// </summary>
+    public Task<ChunkGenerationFutureResult> GetGenerationFuture(
+        ChunkGenerationStatus requestedStatus)
+    {
+        if (!Enum.IsDefined(requestedStatus) ||
+            requestedStatus == ChunkGenerationStatus.Unloaded)
+            throw new ArgumentOutOfRangeException(nameof(requestedStatus));
+
+        if (requestedStatus > HighestAllowedGenerationStatus)
+        {
+            return Task.FromResult(ChunkGenerationFutureResult.Unloaded(
+                requestedStatus,
+                $"Ticket level {TicketLevel} does not permit {requestedStatus}."));
+        }
+
+        return _generationFutures[requestedStatus].Task;
+    }
+
+    /// <summary>
+    /// Completes a generation status and every earlier status future. This
+    /// reports actual achieved progress; it does not change the ticket ceiling.
+    /// </summary>
+    public bool CompleteGenerationStatus(ChunkGenerationStatus completedStatus)
+    {
+        if (!Enum.IsDefined(completedStatus) ||
+            completedStatus == ChunkGenerationStatus.Unloaded)
+            throw new ArgumentOutOfRangeException(nameof(completedStatus));
+        if (completedStatus > HighestAllowedGenerationStatus ||
+            completedStatus <= CompletedGenerationStatus)
+            return false;
+
+        CompletedGenerationStatus = completedStatus;
+        var changed = false;
+        foreach (var (status, future) in _generationFutures)
+        {
+            if (status <= completedStatus)
+                changed |= future.TrySetResult(
+                    ChunkGenerationFutureResult.Success(status));
+        }
+
+        if (completedStatus >= ChunkGenerationStatus.Full)
+            changed |= CompleteFullStatus(ChunkFullStatus.Full);
+        return changed;
     }
 
     /// <summary>
@@ -604,6 +676,50 @@ public sealed class ChunkHolder
             changed |= _entityTickingFuture.TrySetResult(failure);
         return changed;
     }
+
+    private void ReconcileGenerationFutures()
+    {
+        if (CompletedGenerationStatus > HighestAllowedGenerationStatus)
+            CompletedGenerationStatus = HighestAllowedGenerationStatus;
+
+        foreach (var status in _generationFutures.Keys.ToArray())
+        {
+            var future = _generationFutures[status];
+            if (status > HighestAllowedGenerationStatus)
+            {
+                if (future.Task.IsCompletedSuccessfully &&
+                    future.Task.Result.Succeeded)
+                {
+                    var demoted = NewGenerationFuture();
+                    demoted.TrySetResult(ChunkGenerationFutureResult.Unloaded(
+                        status,
+                        $"Ticket level {TicketLevel} no longer permits {status}."));
+                    _generationFutures[status] = demoted;
+                }
+                else
+                {
+                    future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
+                        status,
+                        $"Ticket level {TicketLevel} does not permit {status}."));
+                }
+            }
+            else if (future.Task.IsCompletedSuccessfully &&
+                     !future.Task.Result.Succeeded)
+            {
+                _generationFutures[status] = NewGenerationFuture();
+            }
+        }
+    }
+
+    private static Dictionary<ChunkGenerationStatus,
+        TaskCompletionSource<ChunkGenerationFutureResult>> CreateGenerationFutures() =>
+        Enum.GetValues<ChunkGenerationStatus>()
+            .Where(status => status != ChunkGenerationStatus.Unloaded)
+            .ToDictionary(status => status, _ => NewGenerationFuture());
+
+    private static TaskCompletionSource<ChunkGenerationFutureResult>
+        NewGenerationFuture() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private static TaskCompletionSource<ChunkHolderFutureResult> NewFuture() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);
