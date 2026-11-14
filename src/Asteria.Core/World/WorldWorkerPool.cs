@@ -91,17 +91,12 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     private long _rejectedWorkCount;
     private long _completionCallbackFailures;
 
-    public WorldWorkerPool(int workerCount, int? pendingCapacity = null)
+    public WorldWorkerPool(int workerCount)
     {
         if (workerCount <= 0)
             throw new ArgumentOutOfRangeException(nameof(workerCount));
 
-        var queueCapacity = pendingCapacity ?? workerCount;
-        if (queueCapacity <= 0)
-            throw new ArgumentOutOfRangeException(nameof(pendingCapacity));
-
         WorkerCount = workerCount;
-        PendingCapacity = queueCapacity;
         _workers = new Thread[workerCount];
 
         for (var index = 0; index < workerCount; index++)
@@ -118,21 +113,15 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 
     public int WorkerCount { get; }
 
-    /// <summary>Maximum number of queued operations waiting behind active workers.</summary>
-    public int PendingCapacity { get; }
-
+    /// <summary>
+    /// Operations accepted by the executor but not yet started. This queue is
+    /// demand-driven and priority ordered; only physical execution is bounded.
+    /// </summary>
     public int PendingWorkCount => Volatile.Read(ref _pendingWorkCount);
 
     public int ActiveWorkerCount => Volatile.Read(ref _activeWorkerCount);
 
     public int InFlightWorkCount => Volatile.Read(ref _inFlightWorkCount);
-
-    /// <summary>
-    /// Total additional operations the executor can accept, counting idle
-    /// physical workers and the bounded queue behind them.
-    /// </summary>
-    public int AvailableSubmissionCount =>
-        Math.Max(0, WorkerCount + PendingCapacity - InFlightWorkCount);
 
     public long CompletedWorkCount => Interlocked.Read(ref _completedWorkCount);
 
@@ -147,8 +136,8 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 
     /// <summary>
     /// Enqueues one operation without blocking. Lower numeric priority is
-    /// dispatched first; equal priorities preserve submission order. A false
-    /// result means the bounded waiting queue is full or the pool is retiring.
+    /// dispatched first; equal priorities preserve submission order. Pending
+    /// operations remain in the shared priority queue until a worker is free.
     /// </summary>
     public bool TrySchedule<TResult>(
         Func<CancellationToken, TResult> execute,
@@ -166,8 +155,7 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 
         lock (_queueSync)
         {
-            if (Volatile.Read(ref _disposed) != 0 ||
-                _pendingWorkCount >= PendingCapacity)
+            if (Volatile.Read(ref _disposed) != 0)
             {
                 Interlocked.Increment(ref _rejectedWorkCount);
                 return false;
