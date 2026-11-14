@@ -10,6 +10,9 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope NoHalo =
         ChunkGenerationDependencyEnvelope.None;
 
+    private static readonly ChunkGenerationDependencyEnvelope HorizontalNeighborHalo =
+        new(horizontalRadius: 1, minimumSectionOffset: 0, maximumSectionOffset: 0);
+
     private static readonly ChunkGenerationDependencyEnvelope HorizontalPaletteHalo =
         new(horizontalRadius: 1, minimumSectionOffset: -1, maximumSectionOffset: 1);
 
@@ -55,7 +58,14 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationStepId.SurfaceDecorations,
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.OrderedMutation,
-            DependsOn(ChunkGenerationStepId.SectionTerrainLayers)),
+            [
+                Dependency(ChunkGenerationStepId.SectionTerrainLayers, NoHalo),
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    HorizontalNeighborHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ],
+            readEnvelope: HorizontalNeighborHalo),
 
         // Directional face palettes sample procedural surface/terrain data in
         // cardinal columns and across the vertical voxel halo. This is a data
@@ -125,13 +135,27 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationStepId.WallLayers,
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.OrderedMutation,
-            DependsOn(ChunkGenerationStepId.Veins)),
+            [
+                Dependency(ChunkGenerationStepId.Veins, NoHalo),
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    HorizontalNeighborHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ],
+            readEnvelope: HorizontalNeighborHalo),
 
         Step(
             ChunkGenerationStepId.WallObjects,
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.OrderedMutation,
-            DependsOn(ChunkGenerationStepId.WallLayers)),
+            [
+                Dependency(ChunkGenerationStepId.WallLayers, NoHalo),
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    HorizontalNeighborHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ],
+            readEnvelope: HorizontalNeighborHalo),
 
         Step(
             ChunkGenerationStepId.ShellFinalization,
