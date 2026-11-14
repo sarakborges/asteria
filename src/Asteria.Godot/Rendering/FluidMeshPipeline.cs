@@ -33,7 +33,6 @@ public sealed class FluidMeshPipeline
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
         int maximumMeshletsPerWorker,
-        int maximumConcurrentWorkers,
         WorldWorkerPool workerPool)
     {
         _world =
@@ -61,16 +60,14 @@ public sealed class FluidMeshPipeline
                 nameof(maximumMeshletsPerWorker));
         }
 
-        if (maximumConcurrentWorkers <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumConcurrentWorkers));
-        }
-
         _maximumMeshletsPerWorker =
             maximumMeshletsPerWorker;
         ArgumentNullException.ThrowIfNull(workerPool);
-        _workers = new WorkerSlot[maximumConcurrentWorkers];
+        // Slots represent bounded logical submissions, not physical threads.
+        // The shared executor controls how many can run simultaneously.
+        var maximumInFlightBatches = checked(
+            workerPool.WorkerCount + workerPool.PendingCapacity);
+        _workers = new WorkerSlot[maximumInFlightBatches];
         for (var index = 0; index < _workers.Length; index++)
             _workers[index] = new WorkerSlot(workerPool);
     }
