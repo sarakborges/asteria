@@ -845,13 +845,21 @@ public sealed class ChunkResidencyRuntime
         var failures = new List<ChunkMaterializationFailure>();
         var startedTasks = 0;
         var restored = 0;
-        // Admit at most as many new materialization jobs as the shared executor
-        // can accept right now. This is derived from actual free worker + queue
-        // slots, not a per-subsystem task multiplier. Archive restores remain
-        // synchronous and do not consume a worker-admission slot.
+        // A materialization job can yield between several worker slices.
+        // Reserve one logical admission slot for its entire lifetime, otherwise
+        // every completed slice would release admission and an unbounded number
+        // of suspended jobs could accumulate behind the same bounded executor.
+        // The lifetime cap is derived from its physical workers plus bounded
+        // waiting slots; the per-frame start budget can only lower that cap.
+        var materializationTaskCapacity = checked(
+            _generationWorkerPool.WorkerCount +
+            _generationWorkerPool.PendingCapacity);
+        var availableMaterializationTaskSlots = Math.Max(
+            0, materializationTaskCapacity - _materializationTasks.Count);
+        // Archive restores remain synchronous and do not consume a worker slot.
         var maximumNewMaterializationTasks = Math.Min(
             maximumGenerationWorkerStarts,
-            AvailableGenerationWorkerStarts);
+            availableMaterializationTaskSlots);
 
         while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
