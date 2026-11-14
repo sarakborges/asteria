@@ -84,6 +84,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         cancellationToken.ThrowIfCancellationRequested();
 
         var nextOperations = new List<ChunkGenerationWorkerOperation>();
+        var advanceReadySections = false;
         if (!_started)
         {
             if (completedDependencies.Count != 0)
@@ -92,12 +93,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
 
             _started = true;
             for (var index = 0; index < _sectionTasks.Length; index++)
-                CollectChildAdvance(
-                    index,
-                    _sectionTasks[index].Advance(
-                        Array.Empty<ChunkGenerationDependencyCompletion>(),
-                        cancellationToken),
-                    nextOperations);
+                _readySections.Add(index);
+            advanceReadySections = true;
         }
         else if (completedDependencies.Count > 0)
         {
@@ -132,7 +129,12 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     nextOperations);
             }
         }
-        else if (_readySections.Count > 0)
+        else
+        {
+            advanceReadySections = true;
+        }
+
+        if (advanceReadySections && _readySections.Count > 0)
         {
             // Start every ready independent CPU fork in this continuation,
             // preserving vertical-section parallelism. Mutating/coordinator
@@ -167,7 +169,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     orderedStageAdvanced = true;
             }
         }
-        else if (_pendingOperations.Count > 0)
+        else if (advanceReadySections && _pendingOperations.Count > 0)
         {
             throw new InvalidOperationException(
                 $"Column {_column} was advanced while worker dependencies were still pending.");
