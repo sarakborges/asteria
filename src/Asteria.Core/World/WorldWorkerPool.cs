@@ -93,13 +93,12 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     private long _rejectedWorkCount;
     private long _completionCallbackFailures;
 
-    public WorldWorkerPool(int maximumConcurrentOperations)
+    public WorldWorkerPool(int workerCount)
     {
-        if (maximumConcurrentOperations <= 0)
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumConcurrentOperations));
+        if (workerCount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(workerCount));
 
-        WorkerCount = maximumConcurrentOperations;
+        WorkerCount = workerCount;
     }
 
     /// <summary>
