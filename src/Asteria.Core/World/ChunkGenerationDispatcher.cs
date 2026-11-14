@@ -32,6 +32,7 @@ public sealed class ChunkGenerationDispatcher
     private readonly ChunkGenerationCompletionMailbox _completionMailbox;
     private readonly ChunkGenerationWorkerPool _workerPool;
     private readonly ChunkGenerationSerialExecutor _worldgenExecutor;
+    private readonly ChunkGenerationSerialExecutor _lightingExecutor;
     private bool _isPumping;
     private long _completedTaskCount;
     private long _failedTaskCount;
@@ -46,6 +47,7 @@ public sealed class ChunkGenerationDispatcher
         _workerPool = workerPool ??
             throw new ArgumentNullException(nameof(workerPool));
         _worldgenExecutor = new ChunkGenerationSerialExecutor(_workerPool);
+        _lightingExecutor = new ChunkGenerationSerialExecutor(_workerPool);
         _coordinatorThreadId = Environment.CurrentManagedThreadId;
     }
 
@@ -66,6 +68,8 @@ public sealed class ChunkGenerationDispatcher
 
     /// <summary>Whether this dimension currently owns its single serial task-advance slot.</summary>
     public bool HasTaskAdvanceInFlight => _worldgenExecutor.HasInFlightTask;
+
+    public bool HasLightingOperationInFlight => _lightingExecutor.HasInFlightTask;
 
     /// <summary>
     /// Retrieves one terminal outcome for main-thread publication or cleanup.
@@ -155,6 +159,7 @@ public sealed class ChunkGenerationDispatcher
         foreach (var operation in entry.InFlightWorkerOperations.Values)
             _workerPool.TryUpdatePriority(operation, workerPriority);
         _worldgenExecutor.TryUpdatePriority(entry.Instance, workerPriority);
+        _lightingExecutor.TryUpdatePriority(entry.Instance, workerPriority);
         return true;
     }
 
@@ -348,9 +353,13 @@ public sealed class ChunkGenerationDispatcher
         tasksCancelled = 0;
         var processed = 0;
 
-        while (!budget.Exhausted(Stopwatch.GetTimestamp()) &&
-               _completionMailbox.TryDequeue(out var completion))
+        while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
+            ChunkGenerationDependencyCompletion completion;
+            if (!_completionMailbox.TryDequeue(out completion) &&
+                !_lightingExecutor.TryCollectDependency(out completion))
+                break;
+
             processed++;
             if (!_allTasks.TryGetValue(completion.Task, out var entry) ||
                 entry.InFlightOperations <= 0)
@@ -416,7 +425,9 @@ public sealed class ChunkGenerationDispatcher
         int maximumStarts)
     {
         var started = 0;
+        var remainingScans = _pendingWorkerTasks.Count;
         while (started < maximumStarts &&
+               remainingScans > 0 &&
                !budget.Exhausted(Stopwatch.GetTimestamp()) &&
                _pendingWorkerTasks.TryPeek(out var queued))
         {
@@ -425,6 +436,7 @@ public sealed class ChunkGenerationDispatcher
                 entry.PendingWorkerOperations.Count == 0)
             {
                 _pendingWorkerTasks.TryDequeue(out _);
+                remainingScans = Math.Max(0, remainingScans - 1);
                 continue;
             }
 
@@ -441,23 +453,51 @@ public sealed class ChunkGenerationDispatcher
                 Priority: WorldWorkerPriority.FromGenerationTicket(
                     entry.Priority));
 
-            // Submit only while the coordinator still owns frame budget. The
-            // shared executor accepts demand without a worker-count-derived cap.
-            if (!_workerPool.TrySchedule(request, out var workerOperation))
+            WorldWorkerOperation<object?>? workerOperation = null;
+            var accepted = operation.ExecutionPolicy switch
+            {
+                ChunkGenerationExecutionPolicy.SharedWorkerPool =>
+                    _workerPool.TrySchedule(request, out workerOperation),
+                ChunkGenerationExecutionPolicy.LightExecutor =>
+                    _lightingExecutor.TryScheduleDependency(request),
+                _ => throw new InvalidOperationException(
+                    $"Worker dependency {operation.DependencyId} has unsupported execution policy {operation.ExecutionPolicy}."),
+            };
+
+            if (!accepted)
+            {
+                // A busy light lane must not prevent unrelated worldgen forks
+                // from using the shared pool. Rotate this task and inspect the
+                // other queued task heads once before returning.
+                if (operation.ExecutionPolicy == ChunkGenerationExecutionPolicy.LightExecutor)
+                {
+                    _pendingWorkerTasks.TryDequeue(out _);
+                    if (!_pendingWorkerTasks.Enqueue(
+                            queued.Key,
+                            entry.Priority,
+                            entry.EnqueuedTimestamp))
+                        throw new InvalidOperationException(
+                            $"Could not rotate a task waiting for the light executor: {entry.Instance}");
+                    remainingScans--;
+                    continue;
+                }
+
                 break;
+            }
 
             _pendingWorkerTasks.TryDequeue(out _);
             entry.PendingWorkerOperations.Dequeue();
             entry.InFlightOperations++;
-            entry.InFlightWorkerOperations.Add(
-                operation.DependencyId,
-                workerOperation ??
-                    throw new InvalidOperationException(
-                        "Generation worker admission returned no operation handle."));
+            if (workerOperation is not null)
+            {
+                entry.InFlightWorkerOperations.Add(
+                    operation.DependencyId,
+                    workerOperation);
+            }
             started++;
 
-            // Rotate a task with more forked work behind peers at the same
-            // priority so one large column cannot monopolize every worker slot.
+            // Rotate tasks with additional forked work behind peers at equal
+            // priority so one column cannot monopolize every available lane.
             if (entry.PendingWorkerOperations.Count > 0)
             {
                 _pendingWorkerTasks.Enqueue(
@@ -465,6 +505,8 @@ public sealed class ChunkGenerationDispatcher
                     entry.Priority,
                     entry.EnqueuedTimestamp);
             }
+
+            remainingScans = _pendingWorkerTasks.Count;
         }
 
         return started;
