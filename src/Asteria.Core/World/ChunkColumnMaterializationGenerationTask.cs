@@ -198,7 +198,13 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         if (_sectionProgressStatuses.Length == 0)
             return null;
 
-        var aggregate = _sectionProgressStatuses.Min();
+        var aggregate = _sectionProgressStatuses[0];
+        for (var index = 1; index < _sectionProgressStatuses.Length; index++)
+        {
+            if (_sectionProgressStatuses[index] < aggregate)
+                aggregate = _sectionProgressStatuses[index];
+        }
+
         if (aggregate <= _lastPublishedProgressStatus)
             return null;
 
