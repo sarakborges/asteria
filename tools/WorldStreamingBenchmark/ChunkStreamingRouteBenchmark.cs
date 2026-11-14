@@ -931,10 +931,16 @@ internal static class ChunkStreamingRouteBenchmark
         var method = typeof(ChunkResidencyRuntime).GetMethods()
             .Single(candidate =>
                 candidate.Name == nameof(ChunkResidencyRuntime.DispatchMaterializationTasks) &&
-                candidate.GetParameters().Length is 3 or 4);
-        var arguments = method.GetParameters().Length == 4
-            ? new object?[] { budget, presented, availableWorkerSlots, availableWorkerSlots }
-            : [budget, presented, availableWorkerSlots];
+                candidate.GetParameters().Length is 2 or 3 or 4);
+        var parameterCount = method.GetParameters().Length;
+        object?[] arguments = parameterCount switch
+        {
+            2 => [budget, presented],
+            3 => [budget, presented, availableWorkerSlots],
+            4 => [budget, presented, availableWorkerSlots, availableWorkerSlots],
+            _ => throw new MissingMethodException(
+                "Unsupported ChunkResidencyRuntime dispatch signature."),
+        };
         return (ChunkResidencyUpdate)(method.Invoke(
             residency, arguments) ??
             throw new InvalidOperationException(
