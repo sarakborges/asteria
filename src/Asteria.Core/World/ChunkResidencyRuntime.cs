@@ -268,6 +268,11 @@ public sealed class ChunkResidencyRuntime
         _world.ContainsChunk(coord) &&
         _streaming.IsEntityTicking(coord);
 
+    public bool IsNaturalSpawnCandidate(ChunkCoord coord) =>
+        _world.ContainsChunk(coord) &&
+        _streaming.IsEntityTicking(coord) &&
+        _streaming.IsNaturalSpawnCandidate(coord);
+
     public bool IsLightingRelevant(ChunkCoord coord) =>
         _streaming.IsLightingRelevant(coord);
 
