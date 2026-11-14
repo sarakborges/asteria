@@ -1224,11 +1224,11 @@ public sealed partial class SurfaceChunkMaterializer
         if (supportJobCreated)
             return;
 
-        if (job.SupportChunkJob is { IsComplete: false } pendingSupport)
+        if (job.SupportChunkJob is { IsComplete: false })
         {
-            // Advance the support query by one normal materialization slice.
-            // The lower chunk is never published to the world by this job.
-            pendingSupport.Advance();
+            // The lower section is an independent generation dependency. The
+            // parent job remains suspended until its ChunkGenerationTask has
+            // completed the dependency through the shared dispatcher.
             return;
         }
 
@@ -1733,6 +1733,9 @@ public sealed partial class SurfaceChunkMaterializer
         public List<(int X, int Y, int Z)>? GravityPositions { get; set; }
 
         public MaterializationJob? SupportChunkJob { get; set; }
+
+        public IChunkMaterializationJob? PendingDependency =>
+            SupportChunkJob is { IsComplete: false } child ? child : null;
 
         public bool[]? SupportChunkTopOccupancy { get; set; }
 
