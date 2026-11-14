@@ -10,8 +10,11 @@ public sealed class ChunkGenerationSerialExecutor
 {
     private readonly ChunkGenerationWorkerPool _workerPool;
     private readonly ChunkGenerationTaskAdvanceMailbox _completionMailbox = new();
+    private readonly ChunkGenerationCompletionMailbox _dependencyCompletionMailbox = new();
     private ChunkGenerationTaskInstance? _activeTask;
     private WorldWorkerOperation<ChunkGenerationTaskAdvanceResult>? _activeOperation;
+    private ChunkGenerationWorkerRequest? _activeDependency;
+    private WorldWorkerOperation<object?>? _activeDependencyOperation;
 
     public ChunkGenerationSerialExecutor(ChunkGenerationWorkerPool workerPool)
     {
@@ -24,9 +27,11 @@ public sealed class ChunkGenerationSerialExecutor
     /// A published completion does not free the lane until its task transition
     /// has been applied by the authoritative dispatcher.
     /// </summary>
-    public bool HasInFlightTask => _activeTask is not null;
+    public bool HasInFlightTask =>
+        _activeTask is not null || _activeDependency is not null;
 
-    public ChunkGenerationTaskInstance? ActiveTask => _activeTask;
+    public ChunkGenerationTaskInstance? ActiveTask =>
+        _activeTask ?? _activeDependency?.Task;
 
     /// <summary>
     /// Admits one bounded task advance if this dimension's serial lane is free.
@@ -40,7 +45,7 @@ public sealed class ChunkGenerationSerialExecutor
     {
         task.Validate();
         ArgumentNullException.ThrowIfNull(execute);
-        if (_activeTask is not null)
+        if (HasInFlightTask)
             return false;
 
         if (!_workerPool.TryScheduleTaskAdvance(
@@ -56,6 +61,56 @@ public sealed class ChunkGenerationSerialExecutor
         _activeOperation = operation ??
             throw new InvalidOperationException(
                 "Serial executor admission returned no worker operation handle.");
+        return true;
+    }
+
+    /// <summary>
+    /// Admits one dependency fork on this serial lane. The callback executes on
+    /// the shared physical pool, but the lane is not released until the owning
+    /// dispatcher consumes its result. This is used for INITIALIZE_LIGHT and
+    /// LIGHT dependencies, independently from the worldgen serial lane.
+    /// </summary>
+    public bool TryScheduleDependency(ChunkGenerationWorkerRequest request)
+    {
+        request.Validate();
+        if (HasInFlightTask)
+            return false;
+
+        if (!_workerPool.TrySchedule(
+                request,
+                _dependencyCompletionMailbox,
+                out var operation))
+            return false;
+
+        _activeDependency = request;
+        _activeDependencyOperation = operation ??
+            throw new InvalidOperationException(
+                "Serial dependency admission returned no worker operation handle.");
+        return true;
+    }
+
+    /// <summary>
+    /// Collects one dependency result and releases this lane. The dispatcher
+    /// still owns task-lifecycle and wait-token transitions.
+    /// </summary>
+    public bool TryCollectDependency(
+        out ChunkGenerationDependencyCompletion completion)
+    {
+        if (!_dependencyCompletionMailbox.TryDequeue(out completion))
+            return false;
+
+        if (_activeDependency is not { } active ||
+            active.Task != completion.Task ||
+            active.WaitToken != completion.WaitToken ||
+            active.DependencyId != completion.DependencyId ||
+            _activeDependencyOperation is null)
+        {
+            throw new InvalidOperationException(
+                $"Serial dependency completion does not match its active request: {completion.Task}");
+        }
+
+        _activeDependency = null;
+        _activeDependencyOperation = null;
         return true;
     }
 
@@ -87,9 +142,15 @@ public sealed class ChunkGenerationSerialExecutor
         ChunkGenerationTaskInstance task,
         WorldWorkerPriority priority)
     {
-        if (_activeTask != task || _activeOperation is null)
-            return false;
+        if (_activeTask == task && _activeOperation is not null)
+            return _workerPool.TryUpdatePriority(_activeOperation, priority);
 
-        return _workerPool.TryUpdatePriority(_activeOperation, priority);
+        if (_activeDependency is { } dependency &&
+            dependency.Task == task &&
+            _activeDependencyOperation is not null)
+            return _workerPool.TryUpdatePriority(
+                _activeDependencyOperation, priority);
+
+        return false;
     }
 }
