@@ -65,8 +65,11 @@ public sealed class SaplingGrowthRuntime
     /// <summary>At most one loaded Object chunk and one tree per logical
     /// check. No scan or physical edit occurs while the world is paused or
     /// has no active gameplay player.</summary>
-    public bool Advance(ulong worldTick, WorldAabb? playerBounds = null,
-        bool enabled = true)
+    public bool Advance(
+        ulong worldTick,
+        WorldAabb? playerBounds = null,
+        bool enabled = true,
+        Func<ChunkCoord, bool>? isBlockTicking = null)
     {
         var check = worldTick / CheckPeriodTicks;
         if (check <= _previousCheck || !enabled)
@@ -75,6 +78,7 @@ public sealed class SaplingGrowthRuntime
         if (_trees.Count == 0) return false;
 
         var chunks = _world.ResidentObjectChunkCoords
+            .Where(coord => isBlockTicking is null || isBlockTicking(coord))
             .OrderBy(c => c.X).ThenBy(c => c.Y).ThenBy(c => c.Z)
             .ToArray();
         if (chunks.Length == 0) return false;
