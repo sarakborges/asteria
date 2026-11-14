@@ -30,7 +30,9 @@ public sealed class ChunkGenerationDispatcher
     private readonly Dictionary<ChunkGenerationTaskInstance, TaskEntry> _allTasks = [];
     private readonly Queue<ChunkGenerationTaskOutcome> _outcomes = [];
     private readonly ChunkGenerationCompletionMailbox _completionMailbox;
+    private readonly ChunkGenerationTaskAdvanceMailbox _taskAdvanceMailbox = new();
     private readonly ChunkGenerationWorkerPool _workerPool;
+    private TaskEntry? _taskAdvanceInFlight;
     private bool _isPumping;
     private long _completedTaskCount;
     private long _failedTaskCount;
@@ -61,6 +63,9 @@ public sealed class ChunkGenerationDispatcher
         _currentTasks.Values.Sum(entry => entry.PendingWorkerOperations.Count);
 
     public int PendingOutcomeCount => _outcomes.Count;
+
+    /// <summary>Whether this dimension currently owns its single serial task-advance slot.</summary>
+    public bool HasTaskAdvanceInFlight => _taskAdvanceInFlight is not null;
 
     /// <summary>
     /// Retrieves one terminal outcome for main-thread publication or cleanup.
@@ -149,6 +154,8 @@ public sealed class ChunkGenerationDispatcher
             WorldWorkerPriority.FromGenerationTicket(priority);
         foreach (var operation in entry.InFlightWorkerOperations.Values)
             _workerPool.TryUpdatePriority(operation, workerPriority);
+        if (entry.InFlightAdvanceOperation is { } advanceOperation)
+            _workerPool.TryUpdatePriority(advanceOperation, workerPriority);
         return true;
     }
 
@@ -226,22 +233,30 @@ public sealed class ChunkGenerationDispatcher
         _isPumping = true;
         try
         {
+            var advanceCompletionsProcessed = CollectTaskAdvanceCompletion(
+                budget,
+                out var advanceCompletionsStale,
+                out var tasksCompleted,
+                out var advanceTasksFailed);
             var completionsProcessed = CollectCompletions(
                 budget, out var staleCompletions,
-                out var tasksFailed, out var tasksCancelled);
-            var workerStarts = DispatchPendingWorkerOperations(
+                out var dependencyTasksFailed, out var tasksCancelled);
+
+            // One logical task advance per dimension is admitted to the shared
+            // pool. Its callback is short and serial; dependency forks from
+            // earlier advances remain independently parallel.
+            var tasksAdvanced = ScheduleReadyTaskAdvance(
                 budget, maximumWorkerStarts);
-            var tasksAdvanced = AdvanceReadyTasks(
-                budget, out var tasksCompleted, ref tasksFailed);
+            var workerStarts = tasksAdvanced;
             workerStarts += DispatchPendingWorkerOperations(
                 budget, maximumWorkerStarts - workerStarts);
 
             return new ChunkGenerationDispatchReport(
-                completionsProcessed,
-                staleCompletions,
+                completionsProcessed + advanceCompletionsProcessed,
+                staleCompletions + advanceCompletionsStale,
                 tasksAdvanced,
                 tasksCompleted,
-                tasksFailed,
+                advanceTasksFailed + dependencyTasksFailed,
                 tasksCancelled,
                 workerStarts,
                 _readyTasks.Count,
@@ -253,6 +268,82 @@ public sealed class ChunkGenerationDispatcher
         {
             _isPumping = false;
         }
+    }
+
+    private int CollectTaskAdvanceCompletion(
+        WorldFrameWorkBudget budget,
+        out int staleCompletions,
+        out int tasksCompleted,
+        out int tasksFailed)
+    {
+        staleCompletions = 0;
+        tasksCompleted = 0;
+        tasksFailed = 0;
+
+        if (budget.Exhausted(Stopwatch.GetTimestamp()) ||
+            !_taskAdvanceMailbox.TryDequeue(out var completion))
+            return 0;
+
+        var entry = _taskAdvanceInFlight ??
+            throw new InvalidOperationException(
+                "A task-advance completion arrived without an occupied serial lane.");
+        _taskAdvanceInFlight = null;
+
+        if (entry.Instance != completion.Task ||
+            !_allTasks.TryGetValue(completion.Task, out var current) ||
+            !ReferenceEquals(entry, current) ||
+            entry.InFlightOperations <= 0)
+        {
+            throw new InvalidOperationException(
+                $"Task-advance completion did not match the active generation: {completion.Task}");
+        }
+
+        entry.InFlightOperations--;
+        entry.InFlightAdvanceOperation = null;
+
+        if (IsTerminal(entry.Lifecycle.State))
+        {
+            staleCompletions++;
+            if (entry.InFlightOperations == 0)
+                RetireEntry(entry);
+            return 1;
+        }
+
+        if (completion.Error is not null)
+        {
+            FailEntry(entry, completion.Error);
+            tasksFailed++;
+            if (entry.InFlightOperations == 0)
+                RetireEntry(entry);
+            return 1;
+        }
+
+        var result = completion.Result ??
+            throw new InvalidOperationException(
+                $"Task advance completed without a result: {entry.Instance}");
+        switch (result.Kind)
+        {
+            case ChunkGenerationTaskAdvanceKind.Completed:
+                CompleteEntry(entry, result.CompletionPayload);
+                tasksCompleted++;
+                break;
+
+            case ChunkGenerationTaskAdvanceKind.Yield:
+                if (!entry.Lifecycle.TryYieldForMoreWork())
+                    throw new InvalidOperationException(
+                        $"Generation task could not yield: {entry.Instance}");
+                EnqueueReadyAgain(entry);
+                break;
+
+            case ChunkGenerationTaskAdvanceKind.WaitForWorkers:
+                BeginWorkerWait(entry, result.WorkerOperations);
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(result));
+        }
+
+        return 1;
     }
 
     private int CollectCompletions(
@@ -388,68 +479,57 @@ public sealed class ChunkGenerationDispatcher
         return started;
     }
 
-    private int AdvanceReadyTasks(
+    private int ScheduleReadyTaskAdvance(
         WorldFrameWorkBudget budget,
-        out int tasksCompleted,
-        ref int tasksFailed)
+        int maximumStarts)
     {
-        tasksCompleted = 0;
-        var advanced = 0;
+        if (maximumStarts <= 0 ||
+            _taskAdvanceInFlight is not null ||
+            budget.Exhausted(Stopwatch.GetTimestamp()))
+            return 0;
 
-        while (!budget.Exhausted(Stopwatch.GetTimestamp()) &&
-               _readyTasks.TryDequeue(out var queued))
+        while (_readyTasks.TryDequeue(out var queued))
         {
             if (!_currentTasks.TryGetValue(queued.Key, out var entry) ||
                 !entry.Lifecycle.TryBeginExecution())
                 continue;
 
-            advanced++;
             var completedDependencies = entry.CompletedDependencies
                 .OrderBy(item => item.DependencyId)
                 .ToArray();
             entry.CompletedDependencies.Clear();
 
-            try
-            {
-                entry.Cancellation.Token.ThrowIfCancellationRequested();
-                var result = entry.Task.Advance(
-                    completedDependencies,
-                    entry.Cancellation.Token) ??
-                    throw new InvalidOperationException(
-                        $"Generation task returned a null advance result: {entry.Instance}");
-
-                switch (result.Kind)
-                {
-                    case ChunkGenerationTaskAdvanceKind.Completed:
-                        CompleteEntry(entry, result.CompletionPayload);
-                        tasksCompleted++;
-                        break;
-
-                    case ChunkGenerationTaskAdvanceKind.Yield:
-                        if (!entry.Lifecycle.TryYieldForMoreWork())
+            if (!_workerPool.TryScheduleTaskAdvance(
+                    entry.Instance,
+                    token =>
+                    {
+                        token.ThrowIfCancellationRequested();
+                        return entry.Task.Advance(completedDependencies, token) ??
                             throw new InvalidOperationException(
-                                $"Generation task could not yield: {entry.Instance}");
-                        EnqueueReadyAgain(entry);
-                        break;
-
-                    case ChunkGenerationTaskAdvanceKind.WaitForWorkers:
-                        BeginWorkerWait(entry, result.WorkerOperations);
-                        break;
-
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(result));
-                }
-            }
-            catch (Exception error)
+                                $"Generation task returned a null advance result: {entry.Instance}");
+                    },
+                    entry.Cancellation.Token,
+                    WorldWorkerPriority.FromGenerationTicket(entry.Priority),
+                    _taskAdvanceMailbox,
+                    out var advanceOperation))
             {
+                var error = new InvalidOperationException(
+                    $"The shared worker pool rejected a serial task advance: {entry.Instance}");
                 FailEntry(entry, error);
-                tasksFailed++;
                 if (entry.InFlightOperations == 0)
                     RetireEntry(entry);
+                return 0;
             }
+
+            entry.InFlightOperations++;
+            entry.InFlightAdvanceOperation = advanceOperation ??
+                throw new InvalidOperationException(
+                    "Task-advance admission returned no operation handle.");
+            _taskAdvanceInFlight = entry;
+            return 1;
         }
 
-        return advanced;
+        return 0;
     }
 
     private void BeginWorkerWait(
@@ -597,6 +677,8 @@ public sealed class ChunkGenerationDispatcher
         public Queue<ChunkGenerationWorkerOperation> PendingWorkerOperations { get; } = [];
 
         public Dictionary<ulong, WorldWorkerOperation<object?>> InFlightWorkerOperations { get; } = [];
+
+        public WorldWorkerOperation<ChunkGenerationTaskAdvanceResult>? InFlightAdvanceOperation { get; set; }
 
         public int InFlightOperations { get; set; }
 
