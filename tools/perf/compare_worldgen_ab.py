@@ -37,14 +37,15 @@ def _streaming_route_identity(run: dict[str, Any]) -> tuple[Any, ...] | None:
     if not isinstance(route, dict):
         raise ValueError("Streaming route diagnostics must contain an object.")
 
+    # Completion coverage is intentionally excluded. A deadline-driven
+    # scheduler may materialize a different subset of otherwise valid chunks
+    # before the route advances, while the requested route remains identical.
     fields = (
         "routeSteps",
         "movementChunks",
         "framesPerChunk",
         "horizontalRadius",
         "retentionRadius",
-        "uniqueActivatedChunkCount",
-        "routeDigest",
     )
     identity = tuple(_at(route, field) for field in fields)
     if route.get("generatedChunkDigestsMatchOnReactivation") is not True:
@@ -394,6 +395,45 @@ def _block_change_diagnostics(
     return result
 
 
+def _intersect_deterministic_profiles(
+    previous: dict[tuple[int, int, int], Any],
+    current: dict[tuple[int, int, int], Any],
+    directory: Path,
+    repetition: int,
+    profile_name: str,
+) -> dict[tuple[int, int, int], Any]:
+    shared_coordinates = previous.keys() & current.keys()
+    minimum_profile_size = min(len(previous), len(current))
+    overlap_ratio = (
+        len(shared_coordinates) / minimum_profile_size
+        if minimum_profile_size else 0.0
+    )
+    if overlap_ratio < 0.8:
+        raise ValueError(
+            f"{directory}/{repetition}.json shares only {len(shared_coordinates)} "
+            f"of {minimum_profile_size} {profile_name} coordinates with the "
+            "previous repetition; at least 80% overlap is required."
+        )
+
+    changed = [
+        coordinate for coordinate in shared_coordinates
+        if previous[coordinate] != current[coordinate]
+    ]
+    if changed:
+        raise ValueError(
+            f"{directory}/{repetition}.json generated different per-coordinate "
+            f"{profile_name} for shared chunks: {changed[:8]}."
+        )
+
+    # Only shared coordinates can establish deterministic world output.
+    # Chunks absent from a run were not necessarily requested long enough to
+    # finish before movement; absence is scheduler coverage, not a content hash.
+    return {
+        coordinate: previous[coordinate]
+        for coordinate in shared_coordinates
+    }
+
+
 def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
     runs = [_load_json(directory / f"{index}.json") for index in range(1, repetitions + 1)]
     identity = None
@@ -473,16 +513,31 @@ def load_repetitions(directory: Path, repetitions: int) -> list[dict[str, Any]]:
             )
         elif streaming_identity != expected_streaming_identity:
             raise ValueError(
-                f"{directory} repetitions do not use the same streaming route or generated chunk digest."
+                f"{directory} repetitions do not use the same streaming route configuration."
             )
-        elif streaming_chunks != expected_streaming_chunks:
-            raise ValueError(
-                f"{directory} repetitions generated different per-coordinate streaming chunk digests."
+        elif streaming_chunks is not None and expected_streaming_chunks is not None:
+            expected_streaming_chunks = _intersect_deterministic_profiles(
+                expected_streaming_chunks,
+                streaming_chunks,
+                directory,
+                index,
+                "streaming chunk digest",
             )
-        elif streaming_block_diagnostics != expected_streaming_block_diagnostics:
-            raise ValueError(
-                f"{directory} repetitions produced different per-coordinate block diagnostics."
-            )
+            if (
+                streaming_block_diagnostics is not None and
+                expected_streaming_block_diagnostics is not None
+            ):
+                expected_streaming_block_diagnostics = _intersect_deterministic_profiles(
+                    expected_streaming_block_diagnostics,
+                    streaming_block_diagnostics,
+                    directory,
+                    index,
+                    "streaming block diagnostics",
+                )
+            if physics_signature != expected_physics_signature:
+                raise ValueError(
+                    f"{directory} repetitions observed different falling-block physics outcomes."
+                )
         elif physics_signature != expected_physics_signature:
             raise ValueError(
                 f"{directory} repetitions observed different falling-block physics outcomes."
