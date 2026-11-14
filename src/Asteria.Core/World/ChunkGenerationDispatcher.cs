@@ -145,6 +145,9 @@ public sealed class ChunkGenerationDispatcher
         entry.Priority = priority;
         _readyTasks.UpdatePriority(key, priority);
         _pendingWorkerTasks.UpdatePriority(key, priority);
+        var workerPriority = checked(priority.TicketLevel * 10);
+        foreach (var operation in entry.InFlightWorkerOperations.Values)
+            _workerPool.TryUpdatePriority(operation, workerPriority);
         return true;
     }
 
@@ -274,6 +277,7 @@ public sealed class ChunkGenerationDispatcher
             }
 
             entry.InFlightOperations--;
+            entry.InFlightWorkerOperations.Remove(completion.DependencyId);
             if (IsTerminal(entry.Lifecycle.State))
             {
                 staleCompletions++;
@@ -351,12 +355,17 @@ public sealed class ChunkGenerationDispatcher
                 Priority: checked(entry.Priority.TicketLevel * 10));
 
             // Leave the admission queue untouched when either bounded queue is full.
-            if (!_workerPool.TrySchedule(request))
+            if (!_workerPool.TrySchedule(request, out var workerOperation))
                 break;
 
             _pendingWorkerTasks.TryDequeue(out _);
             entry.PendingWorkerOperations.Dequeue();
             entry.InFlightOperations++;
+            entry.InFlightWorkerOperations.Add(
+                operation.DependencyId,
+                workerOperation ??
+                    throw new InvalidOperationException(
+                        "Generation worker admission returned no operation handle."));
             started++;
 
             // Rotate a task with more forked work behind peers at the same
@@ -580,6 +589,8 @@ public sealed class ChunkGenerationDispatcher
         public List<ChunkGenerationDependencyCompletion> CompletedDependencies { get; } = [];
 
         public Queue<ChunkGenerationWorkerOperation> PendingWorkerOperations { get; } = [];
+
+        public Dictionary<ulong, WorldWorkerOperation<object?>> InFlightWorkerOperations { get; } = [];
 
         public int InFlightOperations { get; set; }
 
