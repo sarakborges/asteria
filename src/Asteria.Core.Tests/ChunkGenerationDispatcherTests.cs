@@ -320,6 +320,35 @@ public sealed class ChunkGenerationDispatcherTests
     }
 
     [Fact]
+    public async Task DispatcherPublishesMonotonicGenerationStatusOnOwnerThread()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var ownerThread = Environment.CurrentManagedThreadId;
+        var observed = new List<(ChunkGenerationStatus Status, int ThreadId)>();
+        dispatcher.GenerationStatusAdvanced += (_, status) =>
+            observed.Add((status, Environment.CurrentManagedThreadId));
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(32), 1, Priority(0), 32, new StatusProgressTask()));
+
+        PumpUntilIdle(dispatcher);
+
+        Assert.Equal(
+            new[]
+            {
+                ChunkGenerationStatus.Terrain,
+                ChunkGenerationStatus.Features,
+                ChunkGenerationStatus.InitializeLight,
+                ChunkGenerationStatus.Light,
+            },
+            observed.Select(item => item.Status));
+        Assert.All(observed, item => Assert.Equal(ownerThread, item.ThreadId));
+        Assert.Equal(1, dispatcher.CompletedTaskCount);
+    }
+
+    [Fact]
     public void DispatcherRejectsAccessFromNonOwningThread()
     {
         var mailbox = new ChunkGenerationCompletionMailbox();
@@ -530,6 +559,46 @@ public sealed class ChunkGenerationDispatcherTests
             ObservedResults.AddRange(
                 completedDependencies.Select(item => item.Result as string));
             return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class StatusProgressTask : IChunkGenerationTask
+    {
+        private int _advance;
+
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return _advance++ switch
+            {
+                0 => ChunkGenerationTaskAdvanceResult.YieldWithStatus(
+                    ChunkGenerationStatus.Terrain),
+                1 => ChunkGenerationTaskAdvanceResult.YieldWithStatus(
+                    ChunkGenerationStatus.Features),
+                2 => ChunkGenerationTaskAdvanceResult.WaitForWorkers(
+                    [
+                        new ChunkGenerationWorkerOperation(
+                            701,
+                            _ => "light",
+                            ChunkGenerationExecutionPolicy.LightExecutor),
+                    ],
+                    ChunkGenerationStatus.InitializeLight),
+                3 => CompleteLight(completedDependencies),
+                _ => throw new InvalidOperationException(
+                    "Status progress task advanced beyond completion."),
+            };
+        }
+
+        private static ChunkGenerationTaskAdvanceResult CompleteLight(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies)
+        {
+            Assert.Single(completedDependencies);
+            Assert.Equal("light", completedDependencies[0].Result);
+            return ChunkGenerationTaskAdvanceResult.CompletedWith(
+                new object(),
+                ChunkGenerationStatus.Light);
         }
     }
 
