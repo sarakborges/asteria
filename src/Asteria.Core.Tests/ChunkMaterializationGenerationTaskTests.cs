@@ -34,9 +34,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
             job, _ => lightingCalls++);
 
         var advance = task.Advance([], CancellationToken.None);
-        ulong waitToken = 1;
-        while (advance.Kind == ChunkGenerationTaskAdvanceKind.WaitForWorkers)
-            advance = RunSlice(task, advance, job, waitToken++);
+        advance = CompleteTask(task, advance, job);
 
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, advance.Kind);
         Assert.Equal(100, job.AdvanceCount);
@@ -62,13 +60,15 @@ public sealed class ChunkMaterializationGenerationTaskTests
         Assert.Empty(first.WorkerOperations);
         Assert.Equal(1, job.AdvanceCount);
 
-        var lighting = task.Advance([], CancellationToken.None);
+        var featureProgress = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, featureProgress.Kind);
+        Assert.Equal(2, job.AdvanceCount);
 
+        var lighting = task.Advance([], CancellationToken.None);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, lighting.Kind);
         Assert.Equal(
             ChunkGenerationExecutionPolicy.LightExecutor,
             Assert.Single(lighting.WorkerOperations).ExecutionPolicy);
-        Assert.Equal(2, job.AdvanceCount);
 
         var final = RunSlice(task, lighting, job, waitToken: 1);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
@@ -84,10 +84,9 @@ public sealed class ChunkMaterializationGenerationTaskTests
 
         var first = task.Advance([], CancellationToken.None);
         var second = RunSlice(task, first, job, 1);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, second.Kind);
-        var lighting = RunSlice(task, second, job, 2);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, lighting.Kind);
-        var final = RunSlice(task, lighting, job, 3);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, second.Kind);
+        Assert.Equal(ChunkGenerationStatus.Terrain, second.ProgressStatus);
+        var final = CompleteTask(task, second, job);
 
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
         Assert.Empty(final.WorkerOperations);
@@ -115,7 +114,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
             terrainOperation.ExecutionPolicy);
 
         var terrainResult = terrainOperation.Execute(CancellationToken.None);
-        var lightingAdvance = task.Advance(
+        var terrainProgress = task.Advance(
         [
             new ChunkGenerationDependencyCompletion(
                 TaskInstance(job),
@@ -123,7 +122,14 @@ public sealed class ChunkMaterializationGenerationTaskTests
                 terrainOperation.DependencyId,
                 terrainResult),
         ], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, terrainProgress.Kind);
+        Assert.Equal(ChunkGenerationStatus.Terrain, terrainProgress.ProgressStatus);
 
+        var featureProgress = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, featureProgress.Kind);
+        Assert.Equal(ChunkGenerationStatus.Features, featureProgress.ProgressStatus);
+
+        var lightingAdvance = task.Advance([], CancellationToken.None);
         var lightingOperation = Assert.Single(lightingAdvance.WorkerOperations);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, lightingAdvance.Kind);
         Assert.Equal(
@@ -155,8 +161,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
         using var task = new ChunkMaterializationGenerationTask(job, _ => { });
 
         var first = task.Advance([], CancellationToken.None);
-        var lighting = RunSlice(task, first, job, 1);
-        var final = RunSlice(task, lighting, job, 2);
+        var final = CompleteTask(task, first, job);
 
         Assert.Throws<InvalidOperationException>(
             () => task.Advance([], CancellationToken.None));
@@ -186,6 +191,30 @@ public sealed class ChunkMaterializationGenerationTaskTests
                 new ChunkColumnCoord(job.Coord.X, job.Coord.Z),
                 ChunkGenerationStepId.SectionReady),
             Generation: 1);
+
+    private static ChunkGenerationTaskAdvanceResult CompleteTask(
+        ChunkMaterializationGenerationTask task,
+        ChunkGenerationTaskAdvanceResult advance,
+        FakeMaterializationJob job)
+    {
+        ulong waitToken = 1;
+        while (advance.Kind != ChunkGenerationTaskAdvanceKind.Completed)
+        {
+            if (advance.Kind == ChunkGenerationTaskAdvanceKind.Yield)
+            {
+                advance = task.Advance([], CancellationToken.None);
+                continue;
+            }
+
+            if (advance.Kind != ChunkGenerationTaskAdvanceKind.WaitForWorkers)
+                throw new InvalidOperationException(
+                    $"Unexpected materialization advance kind: {advance.Kind}");
+
+            advance = RunSlice(task, advance, job, waitToken++);
+        }
+
+        return advance;
+    }
 
     private static ChunkGenerationTaskAdvanceResult RunSlice(
         ChunkMaterializationGenerationTask task,
