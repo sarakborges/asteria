@@ -399,7 +399,8 @@ public sealed class ChunkMaterializationGenerationTask :
 
             wrapped.Add(new ChunkGenerationWorkerOperation(
                 parentDependencyId,
-                operation.Execute));
+                operation.Execute,
+                operation.ExecutionPolicy));
         }
 
         return ChunkGenerationTaskAdvanceResult.WaitForWorkers(wrapped);
