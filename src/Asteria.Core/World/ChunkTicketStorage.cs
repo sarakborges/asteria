@@ -248,6 +248,47 @@ public sealed class ChunkTicketStorage
 /// columns. The priority queue is ordered by level then coordinates, so graph
 /// results are deterministic regardless of dictionary enumeration order.
 /// </summary>
+/// <summary>
+/// Minecraft's naturalSpawnChunkCounter is a third, fixed-radius tracker,
+/// independent of both ticket distance graphs. It selects candidate columns;
+/// the entity-ticking graph remains a separate gate before spawning.
+/// </summary>
+public sealed class NaturalSpawnChunkTracker
+{
+    public const int RadiusChunks = 8;
+
+    private readonly HashSet<ChunkColumnCoord> _columns = [];
+    public ChunkColumnCoord? Center { get; private set; }
+
+    public int Count => _columns.Count;
+
+    public bool Contains(ChunkColumnCoord column) =>
+        _columns.Contains(column);
+
+    public bool UpdateCenter(ChunkColumnCoord center)
+    {
+        if (Center == center)
+            return false;
+
+        _columns.Clear();
+        for (var dz = -RadiusChunks; dz <= RadiusChunks; dz++)
+        for (var dx = -RadiusChunks; dx <= RadiusChunks; dx++)
+        {
+            var x = (long)center.X + dx;
+            var z = (long)center.Z + dz;
+            if (x < int.MinValue || x > int.MaxValue ||
+                z < int.MinValue || z > int.MaxValue)
+                continue;
+
+            _columns.Add(ChunkColumnCoord.FromChunk(
+                new ChunkCoord((int)x, 0, (int)z)));
+        }
+
+        Center = center;
+        return true;
+    }
+}
+
 public sealed class ChunkDistanceTracker
 {
     private readonly Dictionary<ChunkColumnCoord, int> _levels = [];
@@ -795,6 +836,7 @@ public sealed class ChunkDistanceManager
     private readonly ChunkTicketStorage _tickets = new();
     private readonly ChunkDistanceTracker _loading = new();
     private readonly ChunkDistanceTracker _simulation = new();
+    private readonly NaturalSpawnChunkTracker _naturalSpawn = new();
     private readonly Dictionary<ChunkColumnCoord, ChunkHolder> _holders = [];
 
     public ChunkTicketStorage Tickets => _tickets;
@@ -802,6 +844,11 @@ public sealed class ChunkDistanceManager
     public ChunkDistanceTracker LoadingTracker => _loading;
 
     public ChunkDistanceTracker SimulationTracker => _simulation;
+
+    public NaturalSpawnChunkTracker NaturalSpawnTracker => _naturalSpawn;
+
+    public bool IsNaturalSpawnCandidate(ChunkColumnCoord column) =>
+        _naturalSpawn.Contains(column);
 
     public IReadOnlyCollection<ChunkHolder> Holders => _holders.Values;
 
@@ -831,6 +878,7 @@ public sealed class ChunkDistanceManager
             throw new ArgumentOutOfRangeException(nameof(simulationDistance));
 
         var desired = desiredColumns.ToHashSet();
+        var naturalSpawnChanged = _naturalSpawn.UpdateCenter(playerColumn);
         var loadingChanged = _tickets.RemoveTicketsWhere(
             ChunkTicketType.PlayerLoading,
             column => !desired.Contains(column));
@@ -843,11 +891,10 @@ public sealed class ChunkDistanceManager
                         ChunkTicketType.PlayerSimulation,
                         ChunkLevel.EntityTicking - simulationDistance)),
             ]);
-        if (!loadingChanged && !simulationChanged)
-            return false;
+        if (loadingChanged || simulationChanged)
+            RebuildDistanceGraphs(loadingChanged, simulationChanged);
 
-        RebuildDistanceGraphs(loadingChanged, simulationChanged);
-        return true;
+        return loadingChanged || simulationChanged || naturalSpawnChanged;
     }
 
     public bool AddPlayerLoadingTicket(ChunkColumnCoord column)
