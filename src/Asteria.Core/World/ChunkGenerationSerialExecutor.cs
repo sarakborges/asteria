@@ -14,6 +14,7 @@ public sealed class ChunkGenerationSerialExecutor
     private ChunkGenerationTaskInstance? _activeTask;
     private WorldWorkerOperation<ChunkGenerationTaskAdvanceResult>? _activeOperation;
     private ChunkGenerationWorkerRequest? _activeDependency;
+    private ChunkGenerationCompletionMailbox? _activeDependencyMailbox;
     private WorldWorkerOperation<object?>? _activeDependencyOperation;
 
     public ChunkGenerationSerialExecutor(ChunkGenerationWorkerPool workerPool)
@@ -70,19 +71,31 @@ public sealed class ChunkGenerationSerialExecutor
     /// dispatcher consumes its result. This is used for INITIALIZE_LIGHT and
     /// LIGHT dependencies, independently from the worldgen serial lane.
     /// </summary>
-    public bool TryScheduleDependency(ChunkGenerationWorkerRequest request)
+    public bool TryScheduleDependency(ChunkGenerationWorkerRequest request) =>
+        TryScheduleDependency(request, _dependencyCompletionMailbox);
+
+    /// <summary>
+    /// Admits a dependency whose result is consumed by another owner while
+    /// preserving the single serial lane. The mailbox identity is retained so
+    /// the wrong coordinator cannot consume and release another owner's work.
+    /// </summary>
+    public bool TryScheduleDependency(
+        ChunkGenerationWorkerRequest request,
+        ChunkGenerationCompletionMailbox completionMailbox)
     {
         request.Validate();
+        ArgumentNullException.ThrowIfNull(completionMailbox);
         if (HasInFlightTask)
             return false;
 
         if (!_workerPool.TrySchedule(
                 request,
-                _dependencyCompletionMailbox,
+                completionMailbox,
                 out var operation))
             return false;
 
         _activeDependency = request;
+        _activeDependencyMailbox = completionMailbox;
         _activeDependencyOperation = operation ??
             throw new InvalidOperationException(
                 "Serial dependency admission returned no worker operation handle.");
@@ -94,10 +107,20 @@ public sealed class ChunkGenerationSerialExecutor
     /// still owns task-lifecycle and wait-token transitions.
     /// </summary>
     public bool TryCollectDependency(
+        out ChunkGenerationDependencyCompletion completion) =>
+        TryCollectDependency(_dependencyCompletionMailbox, out completion);
+
+    public bool TryCollectDependency(
+        ChunkGenerationCompletionMailbox completionMailbox,
         out ChunkGenerationDependencyCompletion completion)
     {
-        if (!_dependencyCompletionMailbox.TryDequeue(out completion))
+        ArgumentNullException.ThrowIfNull(completionMailbox);
+        if (!ReferenceEquals(_activeDependencyMailbox, completionMailbox) ||
+            !completionMailbox.TryDequeue(out completion))
+        {
+            completion = default;
             return false;
+        }
 
         if (_activeDependency is not { } active ||
             active.Task != completion.Task ||
@@ -110,6 +133,7 @@ public sealed class ChunkGenerationSerialExecutor
         }
 
         _activeDependency = null;
+        _activeDependencyMailbox = null;
         _activeDependencyOperation = null;
         return true;
     }
