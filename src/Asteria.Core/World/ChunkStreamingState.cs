@@ -83,6 +83,9 @@ public sealed class ChunkStreamingState
 
     public int HorizontalRadius { get; private set; }
 
+    public int SimulationDistanceChunks { get; private set; } =
+        ChunkStreamingSelection.DefaultSimulationDistanceChunks;
+
     public ChunkMovementDirection MovementDirection { get; private set; }
 
     public int DesiredCount => _desired.Count;
@@ -142,8 +145,18 @@ public sealed class ChunkStreamingState
     public bool SelectionNeedsRebuild(
         ChunkCoord center,
         int horizontalRadius) =>
-        Center != center ||
-        HorizontalRadius != horizontalRadius;
+        SelectionNeedsRebuild(center, horizontalRadius, SimulationDistanceChunks);
+
+    public bool SelectionNeedsRebuild(
+        ChunkCoord center,
+        int horizontalRadius,
+        int simulationDistanceChunks)
+    {
+        ValidateSimulationDistance(simulationDistanceChunks);
+        return Center != center ||
+            HorizontalRadius != horizontalRadius ||
+            SimulationDistanceChunks != simulationDistanceChunks;
+    }
 
     /// <summary>
     /// Builds an immediate player-local selection while a full surface-range
@@ -174,12 +187,27 @@ public sealed class ChunkStreamingState
         ChunkCoord center,
         int horizontalRadius,
         int retentionRadius,
+        IReadOnlySet<ChunkCoord> desired) =>
+        RebuildSelection(
+            center,
+            horizontalRadius,
+            retentionRadius,
+            SimulationDistanceChunks,
+            desired);
+
+    public bool RebuildSelection(
+        ChunkCoord center,
+        int horizontalRadius,
+        int retentionRadius,
+        int simulationDistanceChunks,
         IReadOnlySet<ChunkCoord> desired)
     {
         ArgumentNullException.ThrowIfNull(desired);
+        ValidateSimulationDistance(simulationDistanceChunks);
 
         if (Center == center &&
             HorizontalRadius == horizontalRadius &&
+            SimulationDistanceChunks == simulationDistanceChunks &&
             _desired.SetEquals(desired))
         {
             return false;
@@ -197,7 +225,8 @@ public sealed class ChunkStreamingState
         _distanceManager.UpdatePlayerView(
             _desired.Select(ChunkColumnCoord.FromChunk),
             ChunkColumnCoord.FromChunk(center),
-            ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks);
+            simulationDistanceChunks);
+        SimulationDistanceChunks = simulationDistanceChunks;
         RebuildLightingRelevantColumns();
         _retained.Clear();
 
@@ -590,6 +619,15 @@ public sealed class ChunkStreamingState
                 new ChunkMovementDirection(
                     Math.Sign(dx),
                     Math.Sign(dz));
+        }
+    }
+
+    private static void ValidateSimulationDistance(int simulationDistanceChunks)
+    {
+        if (simulationDistanceChunks < 0 ||
+            simulationDistanceChunks > ChunkStreamingSelection.MaximumSimulationDistanceChunks)
+        {
+            throw new ArgumentOutOfRangeException(nameof(simulationDistanceChunks));
         }
     }
 
