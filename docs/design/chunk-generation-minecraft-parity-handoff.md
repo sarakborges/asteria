@@ -1,12 +1,12 @@
 # Handoff: Minecraft-style chunk-column generation pipeline
 
-**Status:** foundational scheduler implemented; section-level materialization is being migrated and validated; full column orchestration is not implemented yet  
+**Status:** column-level task aggregation and ticket/holder foundations implemented; executable per-status generation pipeline and Minecraft-style serial executors still incomplete  
 **Repository:** sarakborges/asteria  
 **Working branch:** worldgen-perf-fix  
 **Pull request:** [#157 — perf(world): optimize worldgen and voxel rendering](https://github.com/sarakborges/asteria/pull/157)  
 **PR base:** worldgen-remake  
-**Reference snapshot:** Asteria HEAD 76724eff03559adced92102ff3984ecfee19d5ea before this handoff commit  
-**Date:** 2026-11-13
+**Reference snapshot:** Asteria HEAD c8e735aac3131c3fb9902aa57ea398981f4845cd (2026-11-14)  
+**Date:** 2026-11-14
 
 This document is the durable restart point for the Minecraft-parity world-generation refactor. Work must proceed in small, independently reviewable commits. Do not merge the PR unless explicitly requested.
 
@@ -588,3 +588,108 @@ This section supersedes the older validation snapshot above. It records the stat
 3. If a single face phase still exceeds the worker budget, split that X/Z boundary reader into smaller contiguous strips while preserving its existing traversal and write order.
 4. Add a focused test comparing synchronous and phased directional-mask results, then run the fixed-seed render and A/B suite.
 5. Only after materialization remains stable, proceed to the logical column parent task and partial per-section completion publication. Keep PR #157 open.
+
+
+---
+
+## Latest continuation state — 2026-11-14 (authoritative; supersedes earlier status snapshots)
+
+**Repository:** `sarakborges/asteria`  
+**Branch:** `worldgen-perf-fix`  
+**PR:** #157, open, base `worldgen-remake`; do not merge  
+**Code HEAD before this update:** `c8e735aac3131c3fb9902aa57ea398981f4845cd`  
+**Current validation:** validate run [43619524465](https://github.com/sarakborges/asteria/actions/runs/43619524465) was still in progress when checked. WebUI succeeded; Godot C# build and ReadyToRun succeeded; Core tests and terrain A/B were still running. Windows x64 build/export run [43619521391](https://github.com/sarakborges/asteria/actions/runs/43619521391) succeeded. Do not claim final validation until run 43619524465 completes.
+
+### 2026-11-14 source audit: what is actually implemented
+
+- [x] A shared `ChunkTicketStorage` feeds independent loading and simulation distance graphs.
+- [x] `ChunkDistanceTracker.SynchronizeSources` recomputes bounded affected regions after source changes instead of rebuilding the entire graph.
+- [x] `ChunkHolder` stores a ticket-derived generation ceiling, attained generation status, three full-status futures and dependency-claim count.
+- [x] Player-loading admission is separately throttled to four columns awaiting FULL, releasing an admission slot when all required vertical sections in that column are materialized.
+- [x] A column-level `ChunkColumnMaterializationGenerationTask` now owns multiple vertical section tasks. Production task identity is `(X,Z,SectionReady)`; each section is a child.
+- [x] The generation worker pool is shared with downstream `WorldWorkerPool` work. Task priorities can be updated as player position/direction changes.
+- [x] Worker results return through a completion mailbox. The owner thread validates generations/tickets before publishing resident chunks. Cancellation, late-result rejection, retirement and holder leases exist.
+- [x] Simulation-distance checks are wired to major block/fluid/entity systems. The natural-spawn candidate tracker has its own fixed 8-chunk radius.
+- [x] Ticket expiration is driven by logical world ticks. The current timeout values (Portal 300, Ender Pearl 40, Player Spawn 20, Spawn Search 1, Unknown 1) match the 26.3 reference.
+
+### Critical corrections to previous status wording
+
+The column parent task is now implemented, so the older statement “there is no logical task per X/Z” is stale. However, it is **only a parent aggregating FULL section jobs**; it is not yet the Minecraft-style task that owns a target status and walks a generation pyramid.
+
+The remaining architecture gap is more specific:
+
+1. `AsteriaChunkGenerationPlan.Default` is still a declarative DAG. `ChunkGenerationDispatcher` does not consult it to decide which step is runnable, what status a neighboring holder must reach, or which execution lane to use.
+2. `ChunkMaterializationGenerationTask.AdvanceUntilWait` currently loops over `IChunkMaterializationJob.Advance()` until the job completes or reports `PendingDependency`. One worker operation can therefore run many materialization stages. This is not the required step-by-step continuation model.
+3. `ChunkGenerationExecutionPolicy` is metadata only. It is not yet used to choose between a serial worldgen executor, shared-pool fork, ordered mutation, serial lighting executor or main-thread integration.
+4. `ChunkHolder` generation futures and full-status futures exist, but production generation does not request neighboring holders' status futures. `AcquireDependencyClaims` only retains holders inside the target's horizontal dependency envelope; it does not ensure those holders reach the prerequisite status.
+5. Dependency claims currently retain horizontal holders and do not represent the full set of section-Y requirements as independent status requests. GravitySupport remains a special nested child-job dependency, not a general graph edge resolved through holder futures.
+6. Loading and generation are not yet represented by separate executable pyramids. Existing restore-from-archive behavior exists, but the task path does not first request the loading-pyramid status and then fall back to the generation pyramid when stored data is insufficient.
+7. The materializer has no `WorldGenRegion`-equivalent capability boundary enforcing the current step's allowed reads and write radius. Read/write envelopes are plan metadata; the provider still owns direct field access.
+8. Arrival lighting/physics reconciliation still uses compatibility scheduling directly against the shared pool. There is no separate serial per-dimension lighting executor yet. Fluid/mesh pipelines retain their own domain-owned admission paths.
+9. Natural spawn has the fixed radius-8 candidate tracker and entity-ticking gate, but must also filter candidates by a non-spectating player within 128 blocks.
+10. Ticket identity currently includes an optional `Key`, while vanilla identity is `(type, level)`. Persistence and dimension-active semantics are represented by flags but still need an end-to-end lifecycle audit.
+
+### Important reference nuance: do not copy vanilla's radius 11 blindly
+
+Minecraft 26.3's FULL generation pyramid accumulates a radius of 11: structure-start requirements reach radius 8, then terrain/features/light dependencies add three more rings. That is why vanilla's loading graph reaches level 44. This is derived from the accumulated requirements, not a tunable worker or render-distance constant.
+
+Asteria's current DAG has a maximum horizontal dependency radius of 1. Its world-space `SurfaceStructureField` and other generator-owned fields can answer queries without requiring distant chunks to become resident. The correct Asteria loading radius must be derived from actual chunk/section dependencies and permitted read/write regions. Do **not** change the radius to 11 or maximum level to 44 merely to copy Minecraft when the required data can be read from an immutable generator field without a chunk holder.
+
+A concrete inconsistency is already visible: the current plan's only horizontal halo is `DirectionalFacePalettes -> SurfaceTerrainColumn` at radius 1, but `ChunkLevel.GetGenerationStatus(34)` maps that ring to `InitializeLight`. In Asteria, that neighbor prerequisite is `Terrain`, not lighting. The level-to-status mapping must be derived from the target step's accumulated prerequisites, not copied from vanilla's status table.
+
+### Correct Minecraft 26.3 execution model to preserve
+
+- A per-dimension serial worldgen `ConsecutiveExecutor` advances one logical chunk task at a time over a shared worker pool.
+- A task runs until it completes or reaches an incomplete future. It returns immediately when blocked; it does not wait synchronously for a neighbor or worker.
+- Only explicitly parallelizable steps fork to the shared worker pool. The biome and terrain forks are key examples; feature application is serialized because it can write into neighboring chunks.
+- A separate serial lighting executor uses the same physical worker pool.
+- FULL integration/publication occurs on the server/main thread.
+- A task claims the holders inside the target status's **accumulated** dependency radius before starting, and those holders cannot unload/save away while the task still owns the claims.
+- The loading graph determines whether a holder exists and its highest allowed generation status. The requested status is a separate target. Dropping the ceiling fails pending futures above the new ceiling and reschedules the task at the highest status still requested.
+- The loading pyramid and generation pyramid are distinct. Existing archived chunks should follow the loading path; generation stages are run only when the requested status is not present in storage.
+- Simulation is a separate graph and separate gate. The natural-spawn radius-8 tracker is independent of both, with an additional non-spectator-player-within-128-blocks check.
+
+Reference: Minecraft Java 26.3 source analysis at [chunk generation pipeline](https://minecraftdocs.dev/systems/world/chunk-generation-pipeline) and [tickets and loading](https://minecraftdocs.dev/systems/world/tickets-and-loading).
+
+### Updated implementation phases
+
+**Phase A — finish the ticket/status contract**
+- [ ] Derive the required status for each distance ring from `ChunkGenerationPlan.GetAccumulatedDependencies(target)`; add tests proving the Asteria radius-1 palette neighbor needs Terrain rather than InitializeLight.
+- [ ] Model a column's vertical-section status requirements explicitly. A horizontal holder must know which section-Y children satisfy a target and which section offsets a dependent step requires.
+- [ ] Make the holder's generation futures authoritative for production scheduling. Requests are keyed by target status (and section set where required); duplicate requests share the same in-flight work.
+- [ ] Make ticket-ceiling demotion fail only disallowed pending futures and schedule the highest remaining requested status.
+- [ ] Remove `ChunkTicket.Key` unless a concrete Asteria requirement demonstrates why the vanilla `(type, level)` identity is insufficient.
+- [ ] Connect Persist and KeepDimensionActive flags to actual persistence and dimension idle lifecycle. Confirm ticket re-addition resets its timeout without duplicate identities.
+- [ ] Add the non-spectator 128-block natural-spawn player filter.
+
+**Phase B — make step policy executable**
+- [ ] Map each existing Asteria materialization stage to one plan step and one execution policy. Do not use the same policy for every step by default.
+- [ ] Replace `AdvanceUntilWait`'s multi-stage loop with a single-stage continuation. One advance must either complete one serial step, schedule one explicitly parallelizable worker fork, or yield on an incomplete dependency.
+- [ ] Introduce a per-dimension serial worldgen executor over the shared pool. The serial task-advance lane must not be the Godot/main thread; it must never block on worker or holder futures.
+- [ ] Ensure worker forks use detached inputs/results and revision validation. A fork may not access mutable live world/holder/dispatcher state.
+- [ ] Keep stages with cross-chunk writes behind a serialized/ordered lane and enforce their declared write radius.
+- [ ] Add a separate serial lighting executor over the same physical pool. Route initial lighting and arrival reconciliation through it.
+- [ ] Keep final chunk publication and engine-facing integration on the owner/main thread.
+
+**Phase C — generation/loading pyramids and region access**
+- [ ] Build a generation pyramid from transitive step dependencies, retaining exact required status by horizontal and vertical offset, not only one bounding radius.
+- [ ] Build a separate loading pyramid for disk/archive load, parse/upgrade and FULL integration.
+- [ ] Acquire and release generation holder claims from the exact accumulated envelope before task execution, including vertical sections. Save/unload must wait for claims.
+- [ ] Add an Asteria generation-region view that exposes only permitted neighbor reads and rejects writes outside the active step's write envelope. Adapt field-based generator inputs without forcing unnecessary chunk materialization.
+- [ ] Preserve Asteria's 16³ section storage and deterministic world-coordinate generation; one logical horizontal column task coordinates the set of relevant vertical sections.
+
+**Phase D — unify resource admission, validate and retire compatibility paths**
+- [ ] Move lighting/arrival reconciliation and other relevant CPU world work under shared priority admission while preserving FluidSimulationRuntime and mesh-pipeline ownership.
+- [ ] Remove obsolete fixed-lane worker-start coordination only after all owning subsystems use shared admission.
+- [ ] Validate identical voxel/fluid/biome/structure outputs across worker counts, task order, cache state and completion order.
+- [ ] Validate cancellation, stale completions, status demotion, holder claims, dimension retirement and save/eviction while generation is in flight.
+- [ ] Benchmark cold/warm generation, first playable bootstrap, fixed-seed routes, vertical movement, high terrain, caves/structures and portal arrival. Record median/p95, local readiness gaps, queue wait, worker utilization, allocations and active/waiting tasks.
+- [ ] Run Core, Godot native, terrain A/B and WebUI CI on the final same HEAD.
+
+### Exact next action
+
+1. Check validate run 43619524465 before any scheduler migration. If Core tests or terrain A/B fail, fix the regression in a small commit and rerun.
+2. Implement and test the derived ring-to-generation-status mapping. This is the smallest confirmed status-contract error and prevents the current vanilla status mapping from over-generating neighbor chunks.
+3. Then begin Phase B with one small slice: introduce the single-stage continuation contract and tests for a job that has multiple stages and a pending dependency. Do not route every stage to workers; the plan's execution policy must determine the lane.
+4. Keep PR #157 open. Do not merge.
+
