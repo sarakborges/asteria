@@ -1024,6 +1024,56 @@ public sealed class ChunkDistanceManager
                 ChunkLevel.EntityTicking));
 
     /// <summary>
+    /// Adds any authored ticket identity and propagates only the distance
+    /// graphs named by its flags. Time-limited ticket types receive their
+    /// expiry from the storage's per-ticket timeout policy.
+    /// </summary>
+    public bool AddTicket(
+        ChunkColumnCoord column,
+        ChunkTicket ticket,
+        ulong currentTick)
+    {
+        if (!_tickets.AddTicket(column, ticket, currentTick))
+            return false;
+
+        var flags = ticket.Flags;
+        RebuildDistanceGraphs(
+            (flags & ChunkTicketFlags.Loading) != 0,
+            (flags & ChunkTicketFlags.Simulation) != 0);
+        return true;
+    }
+
+    public bool RemoveTicket(
+        ChunkColumnCoord column,
+        ChunkTicket ticket)
+    {
+        if (!_tickets.RemoveTicket(column, ticket))
+            return false;
+
+        var flags = ticket.Flags;
+        RebuildDistanceGraphs(
+            (flags & ChunkTicketFlags.Loading) != 0,
+            (flags & ChunkTicketFlags.Simulation) != 0);
+        return true;
+    }
+
+    /// <summary>
+    /// Expires every timed ticket at the current world tick and updates only
+    /// the graph or graphs affected by the expired ticket flags.
+    /// </summary>
+    public ChunkTicketFlags AdvanceTick(ulong currentTick)
+    {
+        var changed = _tickets.ExpireTickets(currentTick);
+        if (changed == ChunkTicketFlags.None)
+            return changed;
+
+        RebuildDistanceGraphs(
+            (changed & ChunkTicketFlags.Loading) != 0,
+            (changed & ChunkTicketFlags.Simulation) != 0);
+        return changed;
+    }
+
+    /// <summary>
     /// Retains every horizontal holder intersecting the generation plan's
     /// spatial dependency envelope. The lease is released when its owning
     /// ChunkGenerationTask reaches a terminal state.
