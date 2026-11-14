@@ -81,6 +81,7 @@ public sealed class DimensionRuntimeSession
         VoxelTerrainMaterialSet terrainMaterials,
         FluidMaterialCatalog fluidMaterials,
         DimensionRuntimeSessionSettings settings,
+        WorldWorkerPool workerPool,
         Func<string, WorldVoxelCoord, bool>? allowBlockBreak = null)
     {
         ArgumentNullException.ThrowIfNull(
@@ -139,6 +140,7 @@ public sealed class DimensionRuntimeSession
             settings ??
             throw new ArgumentNullException(
                 nameof(settings));
+        ArgumentNullException.ThrowIfNull(workerPool);
 
         Root =
             new Node3D
@@ -257,7 +259,8 @@ public sealed class DimensionRuntimeSession
                 Mutations,
                 WorldTicks,
                 state.GameRules,
-                settings.MaxFluidUpdatesPerWorker);
+                settings.MaxFluidUpdatesPerWorker,
+                workerPool);
         Lighting =
             new LightingRuntime(
                 World,
@@ -265,6 +268,7 @@ public sealed class DimensionRuntimeSession
                 fluids,
                 WorldUpdates,
                 lightingIntegration,
+                workerPool,
                 objects);
         _blockPhysics =
             new BlockPhysicsRuntime(
@@ -340,7 +344,8 @@ public sealed class DimensionRuntimeSession
                     settings.MaxConcurrentWorldJobs,
                     settings.MaxChunkEvictionsPerFrame,
                     state.GameRules),
-                objects);
+                objects,
+                workerPool);
         Presentations =
             new ChunkPresentationController(
                 Root,
@@ -366,7 +371,8 @@ public sealed class DimensionRuntimeSession
                 ContentRevisions,
                 Presentations,
                 settings.MaxInteractiveTerrainMeshletsPerWorker,
-                settings.MaxTerrainMeshletsPerWorker);
+                settings.MaxTerrainMeshletsPerWorker,
+                workerPool);
         FluidMesh =
             new FluidMeshPipeline(
                 World,
@@ -376,7 +382,8 @@ public sealed class DimensionRuntimeSession
                 FluidContentRevisions,
                 Presentations,
                 settings.MaxFluidMeshletsPerWorker,
-                settings.MaxFluidMeshWorkers);
+                settings.MaxFluidMeshWorkers,
+                workerPool);
         Streaming =
             new ChunkStreamingController(
                 Residency,
