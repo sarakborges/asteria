@@ -392,7 +392,7 @@ public sealed class ChunkGenerationPlan
                     AddOrUnion(
                         envelopes,
                         ancestor.PrerequisiteStep,
-                        direct.Kind,
+                        ancestor.Kind,
                         direct.Envelope.Compose(ancestor.Envelope));
                 }
             }
