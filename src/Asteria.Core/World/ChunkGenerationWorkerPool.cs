@@ -105,9 +105,15 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
     /// worker queue or completion mailbox has no capacity; the coordinator
     /// retains the request and retries after capacity becomes available.
     /// </summary>
-    public bool TrySchedule(ChunkGenerationWorkerRequest request)
+    public bool TrySchedule(ChunkGenerationWorkerRequest request) =>
+        TrySchedule(request, out _);
+
+    public bool TrySchedule(
+        ChunkGenerationWorkerRequest request,
+        out WorldWorkerOperation<object?>? operation)
     {
         request.Validate();
+        operation = null;
         if (Volatile.Read(ref _disposed) != 0)
         {
             Interlocked.Increment(ref _rejectedWorkCount);
@@ -127,7 +133,7 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
         if (_workerPool.TrySchedule(
                 request.Execute,
                 request.CancellationToken,
-                out _,
+                out operation,
                 onStarted: () =>
                 {
                     Interlocked.Decrement(ref _pendingWorkCount);
@@ -174,6 +180,11 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
         CompleteDrainIfNeeded();
         return false;
     }
+
+    public bool TryUpdatePriority(
+        WorldWorkerOperation<object?> operation,
+        int priority) =>
+        _workerPool.TryUpdatePriority(operation, priority);
 
     /// <summary>
     /// Stops generation-specific admission. An injected shared executor remains
