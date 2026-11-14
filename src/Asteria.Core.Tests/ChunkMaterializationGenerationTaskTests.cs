@@ -5,7 +5,7 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMaterializationGenerationTaskTests
 {
     [Fact]
-    public void WorkerOperationBatchesSeveralAdvancesWithinBound()
+    public void WorkerOperationRunsUntilCompletionWhenNoDependencyExists()
     {
         var job = new FakeMaterializationJob(sliceCount: 100);
         var lightingCalls = 0;
@@ -17,32 +17,15 @@ public sealed class ChunkMaterializationGenerationTaskTests
         Assert.Single(advance.WorkerOperations);
         Assert.Equal(0, job.AdvanceCount);
 
-        ulong waitToken = 1;
-        while (true)
-        {
-            var previousAdvanceCount = job.AdvanceCount;
-            advance = RunSlice(task, advance, job, waitToken++);
-            var advancesInBatch = job.AdvanceCount - previousAdvanceCount;
+        advance = RunSlice(task, advance, job, waitToken: 1);
 
-            Assert.InRange(
-                advancesInBatch,
-                1,
-                ChunkMaterializationGenerationTask.MaximumAdvancesPerWorkerOperation);
-
-            if (advance.Kind == ChunkGenerationTaskAdvanceKind.Completed)
-                break;
-
-            Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, advance.Kind);
-            Assert.Single(advance.WorkerOperations);
-            Assert.Equal(0, lightingCalls);
-        }
-
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, advance.Kind);
         Assert.Equal(100, job.AdvanceCount);
         Assert.Equal(1, lightingCalls);
         var output = Assert.IsType<ChunkMaterializationTaskOutput>(
             advance.CompletionPayload);
         Assert.Equal(100, output.StageTimings.Length);
-        Assert.Equal(4, output.WorkerSliceCount);
+        Assert.Equal(1, output.WorkerSliceCount);
         Assert.True(output.InterSliceWaitMilliseconds >= 0d);
     }
 
