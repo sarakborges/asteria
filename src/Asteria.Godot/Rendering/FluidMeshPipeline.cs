@@ -86,6 +86,9 @@ public sealed class FluidMeshPipeline
         }
     }
 
+    public bool HasAvailableWorkerSlot =>
+        _workers.Any(worker => !worker.Worker.IsRunning);
+
     public bool HasWorkAffecting(Func<ChunkCoord, bool> isRelevantChunk)
     {
         ArgumentNullException.ThrowIfNull(isRelevantChunk);
