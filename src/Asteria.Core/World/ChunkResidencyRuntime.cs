@@ -243,6 +243,8 @@ public sealed class ChunkResidencyRuntime
         _generationDispatcher = new ChunkGenerationDispatcher(
             _generationCompletionMailbox,
             _generationWorkerPool);
+        _generationDispatcher.GenerationStatusAdvanced +=
+            HandleGenerationStatusAdvanced;
         _objects = objects;
         _directionalFacePaletteUpdater =
             chunkProvider as IChunkDirectionalFacePaletteUpdater;
@@ -293,6 +295,17 @@ public sealed class ChunkResidencyRuntime
         _world.ContainsChunk(coord) &&
         _streaming.IsEntityTicking(coord) &&
         _streaming.IsNaturalSpawnCandidate(coord);
+
+    private void HandleGenerationStatusAdvanced(
+        ChunkGenerationTaskInstance task,
+        ChunkGenerationStatus status)
+    {
+        // Dispatcher events are raised only while the owning world thread
+        // collects a detached task-advance result. This is the sole production
+        // path that advances ChunkHolder generation-status futures.
+        _streaming.DistanceManager.CompleteGenerationStatus(
+            task.Key.Column, status);
+    }
 
     public ChunkGenerationSerialExecutor LightingExecutor =>
         _generationDispatcher.LightingExecutor;
