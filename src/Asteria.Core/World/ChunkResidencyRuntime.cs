@@ -1097,7 +1097,7 @@ public sealed class ChunkResidencyRuntime
         var priority = ChunkStreamingState.StreamingPriority(
             coord, _center, _streaming.MovementDirection);
         return new ChunkGenerationTaskPriority(
-            priority.StreamingBand,
+            _streaming.GetLoadingLevel(coord),
             priority.HorizontalDistanceSquared,
             priority.TotalDistanceSquared,
             coord.Y,
