@@ -113,7 +113,7 @@ public sealed class LightingWorker
                     new VoxelLightingUpdateResult([], 0),
                     stopwatch.Elapsed.TotalMilliseconds, Cancelled: true);
             }
-        }, cancellation.Token))
+        }, cancellation.Token, WorldWorkerPool.InteractiveWorldPriority))
         {
             cancellation.Dispose();
             return false;
