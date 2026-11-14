@@ -449,9 +449,7 @@ public sealed class ChunkResidencyRuntime
             currentlyVisible);
 
     public bool ShouldPresentationHaveCollision(ChunkCoord coord) =>
-        _streaming.IsEntityTicking(coord) &&
-        Math.Abs((long)coord.Y - _center.Y) <=
-            ChunkStreamingSelection.PlayerLocalVerticalRadiusChunks;
+        _presentationSelection.ShouldEnablePhysics(coord);
 
     public bool ShouldPrewarmPresentationCollision(ChunkCoord coord) =>
         _presentationSelection.ShouldPrewarmPhysics(coord);
