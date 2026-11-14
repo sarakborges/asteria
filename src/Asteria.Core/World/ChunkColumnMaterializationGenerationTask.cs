@@ -176,9 +176,11 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             .ToImmutableArray();
 
         _completed = true;
+        // The FULL holder future is completed by ChunkResidencyRuntime
+        // only after the detached column has been validated and every accepted
+        // section has been inserted on the world-owning thread.
         return ChunkGenerationTaskAdvanceResult.CompletedWith(
-            new ChunkColumnMaterializationTaskOutput(_column, sections),
-            ChunkGenerationStatus.Full);
+            new ChunkColumnMaterializationTaskOutput(_column, sections));
     }
 
     public void Dispose()
