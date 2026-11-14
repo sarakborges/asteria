@@ -38,38 +38,21 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
 
         Assert.Equal(1, terrainSection.AdvanceCount);
         Assert.Equal(1, orderedSection.AdvanceCount);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, afterTerrain.Kind);
-        var terrainLighting = Assert.Single(afterTerrain.WorkerOperations);
-        Assert.Equal(
-            ChunkGenerationExecutionPolicy.LightExecutor,
-            terrainLighting.ExecutionPolicy);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, afterTerrain.Kind);
+        Assert.Empty(afterTerrain.WorkerOperations);
 
-        var afterTerrainLighting = task.Advance(
-        [
-            Completion(
-                column,
-                terrainLighting.DependencyId,
-                terrainLighting.Execute(CancellationToken.None)),
-        ], CancellationToken.None);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, afterTerrainLighting.Kind);
-        Assert.Empty(afterTerrainLighting.WorkerOperations);
+        var aggregateTerrain = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, aggregateTerrain.Kind);
+        Assert.Equal(ChunkGenerationStatus.Terrain, aggregateTerrain.ProgressStatus);
+        Assert.Empty(aggregateTerrain.WorkerOperations);
 
-        var orderedLighting = task.Advance([], CancellationToken.None);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, orderedLighting.Kind);
-        var orderedLightOperation = Assert.Single(orderedLighting.WorkerOperations);
-        Assert.Equal(
-            ChunkGenerationExecutionPolicy.LightExecutor,
-            orderedLightOperation.ExecutionPolicy);
-
-        var final = task.Advance(
-        [
-            Completion(
-                column,
-                orderedLightOperation.DependencyId,
-                orderedLightOperation.Execute(CancellationToken.None)),
-        ], CancellationToken.None);
+        var lightOperations = 0;
+        var final = CompleteColumn(
+            task, column, aggregateTerrain, ref lightOperations);
 
         Assert.Equal(2, orderedSection.AdvanceCount);
+        Assert.Equal(1, terrainSection.AdvanceCount);
+        Assert.Equal(2, lightOperations);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
         var output = Assert.IsType<ChunkColumnMaterializationTaskOutput>(
             final.CompletionPayload);
@@ -100,21 +83,49 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
         var terrain = task.Advance([], CancellationToken.None);
         Assert.Equal(2, terrain.WorkerOperations.Length);
 
-        var terrainCompletions = terrain.WorkerOperations
-            .Select(operation => Completion(
-                column,
-                operation.DependencyId,
-                operation.Execute(CancellationToken.None)))
-            .ToArray();
-        var lighting = task.Advance(terrainCompletions, CancellationToken.None);
+        var lightOperations = 0;
+        var final = CompleteColumn(task, column, terrain, ref lightOperations);
 
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, lighting.Kind);
-        Assert.Equal(2, lighting.WorkerOperations.Length);
-        Assert.All(
-            lighting.WorkerOperations,
-            operation => Assert.Equal(
-                ChunkGenerationExecutionPolicy.LightExecutor,
-                operation.ExecutionPolicy));
+        Assert.Equal(2, lightOperations);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+    }
+
+    private static ChunkGenerationTaskAdvanceResult CompleteColumn(
+        ChunkColumnMaterializationGenerationTask task,
+        ChunkColumnCoord column,
+        ChunkGenerationTaskAdvanceResult advance,
+        ref int lightOperations)
+    {
+        while (advance.Kind != ChunkGenerationTaskAdvanceKind.Completed)
+        {
+            if (advance.Kind == ChunkGenerationTaskAdvanceKind.Yield)
+            {
+                advance = task.Advance([], CancellationToken.None);
+                continue;
+            }
+
+            if (advance.Kind != ChunkGenerationTaskAdvanceKind.WaitForWorkers)
+                throw new InvalidOperationException(
+                    $"Unexpected column advance kind: {advance.Kind}");
+
+            var completions = new List<ChunkGenerationDependencyCompletion>(
+                advance.WorkerOperations.Length);
+            foreach (var operation in advance.WorkerOperations)
+            {
+                if (operation.ExecutionPolicy ==
+                    ChunkGenerationExecutionPolicy.LightExecutor)
+                    lightOperations++;
+
+                completions.Add(Completion(
+                    column,
+                    operation.DependencyId,
+                    operation.Execute(CancellationToken.None)));
+            }
+
+            advance = task.Advance(completions, CancellationToken.None);
+        }
+
+        return advance;
     }
 
     private static ChunkGenerationDependencyCompletion Completion(
