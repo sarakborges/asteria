@@ -109,14 +109,33 @@ public sealed class ChunkMaterializationGenerationTask :
         cancellationToken.ThrowIfCancellationRequested();
 
         if (_activeDependencyTask is not null)
-            return ResumeDependencyTask(completedDependencies, cancellationToken);
+        {
+            if (_activeDependencyOperationIds.Count == 0)
+            {
+                if (completedDependencies.Count != 0)
+                    throw new InvalidOperationException(
+                        "An inline dependency continuation cannot have worker completions.");
+                return AdvanceActiveDependencyTask(
+                    Array.Empty<ChunkGenerationDependencyCompletion>(),
+                    cancellationToken);
+            }
+
+            return ResumeDependencyTask(
+                completedDependencies, cancellationToken);
+        }
 
         if (_hasScheduledOperation)
-            CollectSlice(completedDependencies);
+            CollectWorkerSlice(completedDependencies);
         else if (completedDependencies.Count != 0)
             throw new InvalidOperationException(
                 "The first materialization operation cannot have worker completions.");
 
+        return AdvanceParent(cancellationToken);
+    }
+
+    private ChunkGenerationTaskAdvanceResult AdvanceParent(
+        CancellationToken cancellationToken)
+    {
         if (_pendingDependencyJob is not null)
             return BeginDependencyTask(cancellationToken);
 
@@ -128,7 +147,40 @@ public sealed class ChunkMaterializationGenerationTask :
             return Complete(chunk);
         }
 
-        return ScheduleParentOperation();
+        var policy = AsteriaChunkGenerationPlan.GetExecutionPolicy(
+            _job.ActiveWorkStage);
+        return policy switch
+        {
+            ChunkGenerationExecutionPolicy.SharedWorkerPool =>
+                ScheduleParentOperation(),
+            ChunkGenerationExecutionPolicy.Coordinator or
+            ChunkGenerationExecutionPolicy.OrderedMutation =>
+                AdvanceParentInline(cancellationToken),
+            ChunkGenerationExecutionPolicy.LightExecutor or
+            ChunkGenerationExecutionPolicy.MainThreadIntegration =>
+                throw new InvalidOperationException(
+                    $"Materialization stage {_job.ActiveWorkStage} cannot run in the section materializer."),
+            _ => throw new ArgumentOutOfRangeException(nameof(policy)),
+        };
+    }
+
+    private ChunkGenerationTaskAdvanceResult AdvanceParentInline(
+        CancellationToken cancellationToken)
+    {
+        ApplySlice(AdvanceSingleStage(cancellationToken));
+        if (_pendingDependencyJob is not null)
+            return BeginDependencyTask(cancellationToken);
+        if (_job.IsComplete)
+        {
+            var chunk = _job.Result ??
+                throw new InvalidOperationException(
+                    $"Completed materialization job returned no chunk: {_job.Coord}");
+            return Complete(chunk);
+        }
+
+        // One serial stage quantum per continuation. Yielding lets the
+        // dimension dispatcher advance other chunk columns before resuming.
+        return ChunkGenerationTaskAdvanceResult.Yield;
     }
 
     public void Dispose()
