@@ -301,8 +301,15 @@ public sealed class ChunkResidencyRuntime
         ChunkGenerationStatus status)
     {
         // Dispatcher events are raised only while the owning world thread
-        // collects a detached task-advance result. This is the sole production
-        // path that advances ChunkHolder generation-status futures.
+        // collects a detached task-advance result. Ignore progress from a
+        // materialization batch whose required vertical-section set changed
+        // after it was admitted.
+        if (!_materializationTasks.TryGetValue(task.Key.Column, out var work) ||
+            work.Generation != task.Generation ||
+            work.HolderProgressRevision !=
+                _streaming.DistanceManager.GetGenerationProgressRevision(task.Key.Column))
+            return;
+
         _streaming.DistanceManager.CompleteGenerationStatus(
             task.Key.Column, status);
     }
@@ -1102,7 +1109,8 @@ public sealed class ChunkResidencyRuntime
                     pendingColumn.Value.EnqueuedTimestamp,
                     dispatchTimestamp,
                     taskSections,
-                    dependencyClaims);
+                    dependencyClaims,
+                    _streaming.DistanceManager.GetGenerationProgressRevision(column));
 
                 foreach (var coord in taskSections)
                     _streaming.MarkMaterializing(coord);
@@ -1488,7 +1496,8 @@ public sealed class ChunkResidencyRuntime
         long PendingSinceTimestamp,
         long DispatchTimestamp,
         IReadOnlyList<ChunkCoord> Sections,
-        ChunkDependencyClaim DependencyClaims);
+        ChunkDependencyClaim DependencyClaims,
+        ulong HolderProgressRevision);
 
     private sealed class ProviderMaterializationJob : IChunkMaterializationJob
     {
