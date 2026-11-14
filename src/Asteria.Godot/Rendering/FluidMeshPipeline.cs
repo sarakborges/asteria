@@ -16,6 +16,9 @@ public sealed class FluidMeshPipeline
             new(workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
 
         public WorldMeshBatch? InFlightBatch { get; set; }
+
+        public int WorkerPriority { get; set; } =
+            WorldWorkerPool.BackgroundWorldPriority;
     }
 
     private readonly int _maximumMeshletsPerWorker;
@@ -114,6 +117,8 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
+        UpdateInFlightWorkerPriorities(center, movement);
+
         if (!_updates.HasWork)
             return false;
 
@@ -143,6 +148,13 @@ public sealed class FluidMeshPipeline
 
         var worker = new WorkerSlot(_workerPool);
         var relightable = _presentations.CaptureRelightableFluid(batch);
+        var workerPriority = ResolveWorkerPriority(
+            batch,
+            center,
+            movement,
+            nearest
+                ? WorldWorkerPool.InteractiveWorldPriority
+                : WorldWorkerPool.BackgroundWorldPriority);
         if (!worker.Worker.TryStart(
                 _world,
                 _blocks,
@@ -150,18 +162,52 @@ public sealed class FluidMeshPipeline
                 batch,
                 _revisions,
                 relightable,
-                workerPriority: nearest
-                    ? WorldWorkerPool.InteractiveWorldPriority
-                    : WorldWorkerPool.BackgroundWorldPriority))
+                workerPriority))
         {
             _updates.Requeue(batch);
             return false;
         }
 
         worker.InFlightBatch = batch;
+        worker.WorkerPriority = workerPriority;
         _workers.Add(worker);
         _dispatchFairness.RecordStarted(nearest);
         return true;
+    }
+
+    private void UpdateInFlightWorkerPriorities(
+        ChunkCoord? center,
+        ChunkMovementDirection movement)
+    {
+        if (center is null)
+            return;
+
+        foreach (var worker in _workers)
+        {
+            if (worker.InFlightBatch is not { } batch)
+                continue;
+
+            var priority = ResolveWorkerPriority(
+                batch, center, movement, worker.WorkerPriority);
+            if (priority != worker.WorkerPriority &&
+                worker.Worker.TryUpdatePriority(priority))
+                worker.WorkerPriority = priority;
+        }
+    }
+
+    private static int ResolveWorkerPriority(
+        WorldMeshBatch batch,
+        ChunkCoord? center,
+        ChunkMovementDirection movement,
+        int fallbackPriority)
+    {
+        if (center is not { } focus || batch.DirtyMeshlets.Count == 0)
+            return fallbackPriority;
+
+        var nearestBand = batch.DirtyMeshlets.Keys
+            .Min(coord => ChunkStreamingState.StreamingPriority(
+                coord, focus, movement).StreamingBand);
+        return checked(nearestBand * 10);
     }
 
     public bool TryPollCompleted(
