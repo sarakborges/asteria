@@ -10,7 +10,8 @@ public readonly record struct ChunkGenerationWorkerRequest(
     ulong WaitToken,
     ulong DependencyId,
     Func<CancellationToken, object?> Execute,
-    CancellationToken CancellationToken = default)
+    CancellationToken CancellationToken = default,
+    int Priority = WorldWorkerPool.DefaultPriority)
 {
     public void Validate()
     {
@@ -160,7 +161,8 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
                         Interlocked.Decrement(ref _inFlightWorkCount);
                         CompleteDrainIfNeeded();
                     }
-                }))
+                },
+                priority: request.Priority))
         {
             return true;
         }
