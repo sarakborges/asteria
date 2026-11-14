@@ -41,8 +41,6 @@ public partial class Main : Node3D
 	private const int MaxInteractiveTerrainMeshletsPerWorker = 8;
 	private const int MaxTerrainMeshletsPerWorker = 16;
 	private const int MaxFluidMeshletsPerWorker = 16;
-	private static readonly int MaxFluidMeshWorkers =
-		Math.Clamp(System.Environment.ProcessorCount / 4, 1, 2);
 	private const int MaxFluidMeshletPublishesPerFrame = 16;
 	private const int MaxFluidUpdatesPerWorker = 512;
 	private static readonly TimeSpan WorldWorkerDispatchBudget =
@@ -1470,7 +1468,6 @@ public partial class Main : Node3D
 				MaxInteractiveTerrainMeshletsPerWorker,
 				MaxTerrainMeshletsPerWorker,
 				MaxFluidMeshletsPerWorker,
-				MaxFluidMeshWorkers,
 				MaxFluidUpdatesPerWorker,
 				MaxChunkEvictionsPerFrame),
 			_worldWorkerPool ??
