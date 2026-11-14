@@ -10,9 +10,10 @@ public sealed class FluidMeshPipeline
     private readonly FluidMeshUpdateQueue _updates;
     private readonly MeshletContentRevisions _revisions;
     private readonly ChunkPresentationController _presentations;
-    private sealed class WorkerSlot
+    private sealed class WorkerSlot(WorldWorkerPool workerPool)
     {
-        public FluidMeshWorker Worker { get; } = new();
+        public FluidMeshWorker Worker { get; } =
+            new(workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
 
         public WorldMeshBatch? InFlightBatch { get; set; }
     }
@@ -32,7 +33,8 @@ public sealed class FluidMeshPipeline
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
         int maximumMeshletsPerWorker,
-        int maximumConcurrentWorkers)
+        int maximumConcurrentWorkers,
+        WorldWorkerPool workerPool)
     {
         _world =
             world ??
@@ -67,9 +69,10 @@ public sealed class FluidMeshPipeline
 
         _maximumMeshletsPerWorker =
             maximumMeshletsPerWorker;
+        ArgumentNullException.ThrowIfNull(workerPool);
         _workers = new WorkerSlot[maximumConcurrentWorkers];
         for (var index = 0; index < _workers.Length; index++)
-            _workers[index] = new WorkerSlot();
+            _workers[index] = new WorkerSlot(workerPool);
     }
 
     public bool IsRunning => ActiveWorkerCount > 0;
