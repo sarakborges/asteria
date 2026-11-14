@@ -125,6 +125,9 @@ public sealed class ChunkStreamingState
     public bool IsEntityTicking(ChunkCoord coord) =>
         _distanceManager.IsEntityTicking(ChunkColumnCoord.FromChunk(coord));
 
+    public bool IsNaturalSpawnCandidate(ChunkCoord coord) =>
+        _distanceManager.IsNaturalSpawnCandidate(ChunkColumnCoord.FromChunk(coord));
+
     public ChunkDistanceManager DistanceManager => _distanceManager;
 
     public IReadOnlySet<ChunkCoord> DesiredSections => _desired;
