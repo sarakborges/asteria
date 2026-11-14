@@ -63,6 +63,8 @@ public sealed class ChunkMaterializationGenerationTask :
     private ulong _nextDependencyId = 1;
     private ulong _lastDependencyId;
     private bool _hasScheduledOperation;
+    private bool _biomesStatusPublished;
+    private bool _biomesStatusPending;
     private bool _terrainStatusPublished;
     private bool _terrainStatusPending;
     private bool _featuresStatusPublished;
@@ -140,6 +142,12 @@ public sealed class ChunkMaterializationGenerationTask :
             throw new InvalidOperationException(
                 "The first materialization operation cannot have worker completions.");
 
+        if (_biomesStatusPending)
+        {
+            _biomesStatusPending = false;
+            return ChunkGenerationTaskAdvanceResult.YieldWithStatus(
+                ChunkGenerationStatus.Biomes);
+        }
         if (_terrainStatusPending)
         {
             _terrainStatusPending = false;
@@ -257,6 +265,16 @@ public sealed class ChunkMaterializationGenerationTask :
         ApplySlice(slice);
         if (_pendingDependencyJob is not null)
             return BeginDependencyTask(cancellationToken);
+
+        if (!_biomesStatusPublished &&
+            slice.StageTimings.Any(timing =>
+                timing.Stage == ChunkMaterializationStage.TerrainSetup) &&
+            _job.ActiveWorkStage != ChunkMaterializationStage.TerrainSetup)
+        {
+            _biomesStatusPublished = true;
+            return ChunkGenerationTaskAdvanceResult.YieldWithStatus(
+                ChunkGenerationStatus.Biomes);
+        }
 
         // Publish TERRAIN only after the last terrain row has been written.
         if (!_terrainStatusPublished &&
@@ -469,6 +487,14 @@ public sealed class ChunkMaterializationGenerationTask :
 
         _hasScheduledOperation = false;
         ApplySlice(slice);
+        if (!_biomesStatusPublished &&
+            slice.StageTimings.Any(timing =>
+                timing.Stage == ChunkMaterializationStage.TerrainSetup) &&
+            _job.ActiveWorkStage != ChunkMaterializationStage.TerrainSetup)
+        {
+            _biomesStatusPublished = true;
+            _biomesStatusPending = true;
+        }
         if (!_terrainStatusPublished &&
             _job.ActiveWorkStage != ChunkMaterializationStage.TerrainLayer &&
             (slice.StageTimings.Any(timing =>
