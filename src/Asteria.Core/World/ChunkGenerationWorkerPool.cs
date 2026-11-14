@@ -11,7 +11,7 @@ public readonly record struct ChunkGenerationWorkerRequest(
     ulong DependencyId,
     Func<CancellationToken, object?> Execute,
     CancellationToken CancellationToken = default,
-    int Priority = WorldWorkerPool.DefaultPriority)
+    WorldWorkerPriority? Priority = null)
 {
     public void Validate()
     {
@@ -116,10 +116,14 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 
         Interlocked.Increment(ref _inFlightWorkCount);
         Interlocked.Increment(ref _pendingWorkCount);
+        var priority = request.Priority ??
+            WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.DefaultPriority);
         if (_workerPool.TrySchedule(
                 request.Execute,
                 request.CancellationToken,
                 out operation,
+                priority,
                 onStarted: () =>
                 {
                     Interlocked.Decrement(ref _pendingWorkCount);
@@ -163,7 +167,7 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 
     public bool TryUpdatePriority(
         WorldWorkerOperation<object?> operation,
-        int priority) =>
+        WorldWorkerPriority priority) =>
         _workerPool.TryUpdatePriority(operation, priority);
 
     /// <summary>
