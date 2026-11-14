@@ -107,11 +107,7 @@ public partial class Main : Node3D
 		_sessions.Active.Lighting;
 
 	private int ActiveWorldWorkerCount =>
-		_residency.ActiveWorkerCount +
-		_fluidSimulationRuntime.ActiveWorkerCount +
-		_lightingRuntime.ActiveWorkerCount +
-		_terrainMeshPipeline.ActiveWorkerCount +
-		_fluidMeshPipeline.ActiveWorkerCount;
+		_worldWorkerPool?.ActiveWorkerCount ?? 0;
 
 	// If downstream world work is already queued and its owner has a free
 	// worker, reserve admission for it before streaming fills the entire pool.
@@ -754,8 +750,8 @@ public partial class Main : Node3D
 			pendingPhysicsWakeups: _blockPhysicsUpdates.Count,
 			pendingTerrainPublications: _chunkPresentations.PendingTerrainPublications);
 		var stageStart = Stopwatch.GetTimestamp();
-		var availableWorkerSlots = Math.Max(
-			0, MaxConcurrentWorldJobs - ActiveWorldWorkerCount);
+		var availableWorkerSlots =
+			_worldWorkerPool?.AvailableSubmissionCount ?? 0;
 		var reservedWorkerSlots = HasReadyNonStreamingWorldWork
 			? Math.Min(1, availableWorkerSlots)
 			: 0;
