@@ -3,6 +3,8 @@ namespace Asteria.Core.World;
 public static class ChunkStreamingSelection
 {
     public const int InitialLoadingRadiusChunks = 2;
+    public const int DefaultSimulationDistanceChunks = 2;
+    public const int MaximumSimulationDistanceChunks = ChunkLevel.EntityTicking - 1;
 
     private const int SurfacePaddingBelowChunks = 2;
     private const int SurfacePaddingAboveChunks = 1;
