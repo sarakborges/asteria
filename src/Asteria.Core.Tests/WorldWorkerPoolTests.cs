@@ -132,6 +132,142 @@ public sealed class WorldWorkerPoolTests
     }
 
     [Fact]
+    public void StreamingQueueUsesDistanceAndCoordinatesAfterTicketBand()
+    {
+        using var pool = new WorldWorkerPool(workerCount: 1);
+        using var workerStarted = new ManualResetEventSlim(false);
+        using var releaseWorker = new ManualResetEventSlim(false);
+        var executionOrder = new System.Collections.Concurrent.ConcurrentQueue<string>();
+
+        Assert.True(pool.TrySchedule(
+            _ =>
+            {
+                workerStarted.Set();
+                releaseWorker.Wait();
+                executionOrder.Enqueue("blocker");
+                return "blocker";
+            },
+            CancellationToken.None,
+            out var blocker,
+            priority: WorldWorkerPool.BackgroundWorldPriority));
+        Assert.True(workerStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        var far = Schedule(
+            "far",
+            new ChunkStreamingPriority(1, 4, 4, 0, 0, 0));
+        var nearHigherTotal = Schedule(
+            "near-higher-total",
+            new ChunkStreamingPriority(1, 1, 3, 0, 0, 5));
+        var nearCoordinateHigh = Schedule(
+            "near-coordinate-high",
+            new ChunkStreamingPriority(1, 1, 2, 0, 0, 5));
+        var nearCoordinateLow = Schedule(
+            "near-coordinate-low",
+            new ChunkStreamingPriority(1, 1, 2, 0, 0, 1));
+        var exactTieFifo = Schedule(
+            "near-coordinate-low-fifo",
+            new ChunkStreamingPriority(1, 1, 2, 0, 0, 1));
+
+        releaseWorker.Set();
+        var all = new[]
+        {
+            blocker!, far, nearHigherTotal, nearCoordinateHigh,
+            nearCoordinateLow, exactTieFifo,
+        };
+        Assert.True(SpinWait.SpinUntil(
+            () => all.All(operation => operation.IsCompleted) &&
+                  pool.InFlightWorkCount == 0,
+            TimeSpan.FromSeconds(5)));
+
+        Assert.Equal(
+            new[]
+            {
+                "blocker",
+                "near-coordinate-low",
+                "near-coordinate-low-fifo",
+                "near-coordinate-high",
+                "near-higher-total",
+                "far",
+            },
+            executionOrder.ToArray());
+
+        WorldWorkerOperation<string> Schedule(
+            string label,
+            ChunkStreamingPriority ticket)
+        {
+            Assert.True(pool.TrySchedule(
+                _ =>
+                {
+                    executionOrder.Enqueue(label);
+                    return label;
+                },
+                CancellationToken.None,
+                out var operation,
+                WorldWorkerPriority.FromStreaming(ticket)));
+            return operation!;
+        }
+    }
+
+    [Fact]
+    public void ReprioritizationReplacesTheEntireStreamingTicketTuple()
+    {
+        using var pool = new WorldWorkerPool(workerCount: 1);
+        using var workerStarted = new ManualResetEventSlim(false);
+        using var releaseWorker = new ManualResetEventSlim(false);
+        var executionOrder = new System.Collections.Concurrent.ConcurrentQueue<string>();
+
+        Assert.True(pool.TrySchedule(
+            _ =>
+            {
+                workerStarted.Set();
+                releaseWorker.Wait();
+                executionOrder.Enqueue("blocker");
+                return "blocker";
+            },
+            CancellationToken.None,
+            out var blocker,
+            priority: WorldWorkerPool.BackgroundWorldPriority));
+        Assert.True(workerStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        var movingChunk = Schedule(
+            "moving", new ChunkStreamingPriority(3, 100, 100, 0, 0, 0));
+        var nearChunk = Schedule(
+            "near", new ChunkStreamingPriority(1, 2, 2, 0, 0, 0));
+
+        Assert.True(pool.TryUpdatePriority(
+            movingChunk,
+            WorldWorkerPriority.FromStreaming(
+                new ChunkStreamingPriority(1, 1, 1, 0, 0, 0))));
+
+        releaseWorker.Set();
+        var all = new[] { blocker!, movingChunk, nearChunk };
+        Assert.True(SpinWait.SpinUntil(
+            () => all.All(operation => operation.IsCompleted) &&
+                  pool.InFlightWorkCount == 0,
+            TimeSpan.FromSeconds(5)));
+
+        Assert.Equal(
+            new[] { "blocker", "moving", "near" },
+            executionOrder.ToArray());
+
+        WorldWorkerOperation<string> Schedule(
+            string label,
+            ChunkStreamingPriority ticket)
+        {
+            Assert.True(pool.TrySchedule(
+                _ =>
+                {
+                    executionOrder.Enqueue(label);
+                    return label;
+                },
+                CancellationToken.None,
+                out var operation,
+                WorldWorkerPriority.FromStreaming(ticket)));
+            return operation!;
+        }
+    }
+
+    [Fact]
     public void QueuedOperationCanBeResortedWhenItsOwnerPriorityChanges()
     {
         using var pool = new WorldWorkerPool(workerCount: 1);
