@@ -17,15 +17,15 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.True(dispatcher.TryEnqueue(Key(1), 1, Priority(0), 1, first));
         Assert.True(dispatcher.TryEnqueue(Key(2), 1, Priority(0), 2, second));
 
-        var firstPump = dispatcher.Pump(GenerousBudget(), 0);
+        var report = PumpUntilIdle(dispatcher);
 
-        Assert.Equal(3, firstPump.TasksAdvanced);
-        Assert.Equal(2, firstPump.TasksCompleted);
+        Assert.Equal(3, report.TasksAdvanced);
+        Assert.Equal(2, report.TasksCompleted);
         Assert.Equal(new[] { "first", "second", "first" }, order);
         Assert.Equal(0, dispatcher.ActiveTaskCount);
         Assert.Equal(2, dispatcher.CompletedTaskCount);
 
-        var secondPump = dispatcher.Pump(GenerousBudget(), 0);
+        var secondPump = dispatcher.Pump(GenerousBudget(), 8);
 
         Assert.Equal(0, secondPump.TasksAdvanced);
         Assert.Equal(2, dispatcher.CompletedTaskCount);
@@ -41,7 +41,7 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.True(dispatcher.TryEnqueue(
             Key(11), 4, Priority(0), 11, new ResultTask(payload)));
 
-        dispatcher.Pump(GenerousBudget(), 0);
+        PumpUntilIdle(dispatcher);
 
         Assert.True(dispatcher.TryDequeueOutcome(out var first));
         dispatcher.RequeueOutcome(first);
@@ -61,7 +61,7 @@ public sealed class ChunkGenerationDispatcherTests
 
         Assert.True(dispatcher.TryEnqueue(
             Key(10), 3, Priority(0), 10, new ResultTask(payload)));
-        dispatcher.Pump(GenerousBudget(), 0);
+        PumpUntilIdle(dispatcher);
 
         Assert.Equal(1, dispatcher.PendingOutcomeCount);
         Assert.True(dispatcher.TryDequeueOutcome(out var outcome));
@@ -82,22 +82,18 @@ public sealed class ChunkGenerationDispatcherTests
         var task = new TwoWorkerTask();
         Assert.True(dispatcher.TryEnqueue(Key(3), 8, Priority(0), 10, task));
 
-        var initial = dispatcher.Pump(GenerousBudget(), 2);
+        var initial = dispatcher.Pump(GenerousBudget(), 4);
 
         Assert.Equal(1, initial.TasksAdvanced);
-        Assert.Equal(2, initial.WorkerOperationsStarted);
-        Assert.Equal(1, dispatcher.WaitingTaskCount);
+        Assert.Equal(1, initial.WorkerOperationsStarted);
+        Assert.True(PumpUntilCondition(
+            dispatcher,
+            () => dispatcher.WaitingTaskCount == 1,
+            maximumWorkerStarts: 4));
         Assert.True(dispatcher.TryGetTaskState(Key(3), out var waitingState));
         Assert.Equal(ChunkGenerationTaskState.WaitingForDependencies, waitingState);
 
-        ChunkGenerationDispatchReport final = default;
-        Assert.True(SpinWait.SpinUntil(
-            () =>
-            {
-                final = dispatcher.Pump(GenerousBudget(), 2);
-                return dispatcher.ActiveTaskCount == 0;
-            },
-            TimeSpan.FromSeconds(5)));
+        var final = PumpUntilIdle(dispatcher, maximumWorkerStarts: 4);
 
         Assert.Equal(2, task.ObservedResults.Count);
         Assert.Equal("terrain-a", task.ObservedResults[0]);
@@ -121,7 +117,7 @@ public sealed class ChunkGenerationDispatcherTests
             Key(5), 1, Priority(2), 2, new CompleteImmediatelyTask("near", order)));
         Assert.True(dispatcher.UpdatePriority(Key(4), Priority(0)));
 
-        var report = dispatcher.Pump(GenerousBudget(), 0);
+        var report = PumpUntilIdle(dispatcher);
 
         Assert.Equal(new[] { "far", "near" }, order);
         Assert.Equal(2, report.TasksCompleted);
@@ -157,18 +153,12 @@ public sealed class ChunkGenerationDispatcherTests
             new OrderedWorkerTask("near-when-enqueued", executionOrder)));
 
         var admitted = dispatcher.Pump(GenerousBudget(), 2);
-        Assert.Equal(2, admitted.WorkerOperationsStarted);
-        Assert.Equal(2, pool.PendingWorkCount);
+        Assert.Equal(1, admitted.WorkerOperationsStarted);
+        Assert.Equal(1, pool.PendingWorkCount);
         Assert.True(dispatcher.UpdatePriority(Key(14), Priority(0)));
 
         releaseBlocker.Set();
-        Assert.True(SpinWait.SpinUntil(
-            () =>
-            {
-                dispatcher.Pump(GenerousBudget(), 2);
-                return dispatcher.ActiveTaskCount == 0;
-            },
-            TimeSpan.FromSeconds(5)));
+        PumpUntilIdle(dispatcher, maximumWorkerStarts: 4);
 
         Assert.Equal(
             new[] { "far-when-enqueued", "near-when-enqueued" },
@@ -186,15 +176,7 @@ public sealed class ChunkGenerationDispatcherTests
         var task = new FailingWorkerTask(error);
         Assert.True(dispatcher.TryEnqueue(Key(6), 1, Priority(0), 1, task));
 
-        dispatcher.Pump(GenerousBudget(), 1);
-
-        Assert.True(SpinWait.SpinUntil(
-            () =>
-            {
-                dispatcher.Pump(GenerousBudget(), 1);
-                return dispatcher.ActiveTaskCount == 0;
-            },
-            TimeSpan.FromSeconds(5)));
+        PumpUntilIdle(dispatcher, maximumWorkerStarts: 2);
 
         Assert.Equal(1, dispatcher.FailedTaskCount);
         Assert.Equal(0, task.ResumeCount);
@@ -215,21 +197,17 @@ public sealed class ChunkGenerationDispatcherTests
 
         var task = new BlockingWorkerTask(workerStarted);
         Assert.True(dispatcher.TryEnqueue(Key(7), 1, Priority(0), 1, task));
-        dispatcher.Pump(GenerousBudget(), 1);
-        Assert.True(workerStarted.Wait(TimeSpan.FromSeconds(5)));
+        Assert.True(PumpUntilCondition(
+            dispatcher,
+            () => workerStarted.IsSet,
+            maximumWorkerStarts: 2));
 
         Assert.True(dispatcher.TryCancel(Key(7)));
         Assert.False(dispatcher.TryGetTaskState(Key(7), out _));
         Assert.True(dispatcher.TryEnqueue(
             Key(7), 2, Priority(0), 2, new CompleteImmediatelyTask("new", [])));
 
-        Assert.True(SpinWait.SpinUntil(
-            () =>
-            {
-                dispatcher.Pump(GenerousBudget(), 1);
-                return dispatcher.RetiringTaskCount == 0;
-            },
-            TimeSpan.FromSeconds(5)));
+        PumpUntilIdle(dispatcher, maximumWorkerStarts: 2);
         Assert.Equal(1, dispatcher.CancelledTaskCount);
         Assert.Equal(1, dispatcher.CompletedTaskCount);
         Assert.Equal(0, dispatcher.ActiveTaskCount);
@@ -252,6 +230,44 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.Empty(outcomes.Where(item =>
             item.Kind is not (ChunkGenerationTaskOutcomeKind.Cancelled or
                 ChunkGenerationTaskOutcomeKind.Completed)));
+    }
+
+    [Fact]
+    public async Task TaskAdvancesUseOneSerialLaneOnTheSharedWorkerPool()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(2, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var ownerThread = Environment.CurrentManagedThreadId;
+        using var firstStarted = new ManualResetEventSlim(false);
+        using var releaseFirst = new ManualResetEventSlim(false);
+        var probe = new SerialLaneProbe();
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(20), 1, Priority(0), 20,
+            new SerialLaneTask(probe, firstStarted, releaseFirst)));
+        Assert.True(dispatcher.TryEnqueue(
+            Key(21), 1, Priority(0), 21,
+            new SerialLaneTask(probe, null, null)));
+
+        var initial = dispatcher.Pump(GenerousBudget(), 2);
+        Assert.Equal(1, initial.TasksAdvanced);
+        Assert.True(firstStarted.Wait(TimeSpan.FromSeconds(5)));
+        Assert.True(dispatcher.HasTaskAdvanceInFlight);
+
+        // A spare physical worker must not allow a second advance for this
+        // dimension while the first continuation still owns the serial lane.
+        var whileBlocked = dispatcher.Pump(GenerousBudget(), 2);
+        Assert.Equal(0, whileBlocked.TasksAdvanced);
+        Assert.Equal(1, probe.AdvanceCount);
+
+        releaseFirst.Set();
+        PumpUntilIdle(dispatcher, maximumWorkerStarts: 4);
+
+        Assert.Equal(2, probe.AdvanceCount);
+        Assert.Equal(1, probe.MaximumConcurrentAdvances);
+        Assert.All(probe.ThreadIds, threadId => Assert.NotEqual(ownerThread, threadId));
+        Assert.False(dispatcher.HasTaskAdvanceInFlight);
     }
 
     [Fact]
@@ -281,6 +297,60 @@ public sealed class ChunkGenerationDispatcherTests
             () => dispatcher.Pump(GenerousBudget(), -1));
     }
 
+    private static ChunkGenerationDispatchReport PumpUntilIdle(
+        ChunkGenerationDispatcher dispatcher,
+        int maximumWorkerStarts = 8)
+    {
+        var completions = 0;
+        var stale = 0;
+        var advanced = 0;
+        var completed = 0;
+        var failed = 0;
+        var cancelled = 0;
+        var starts = 0;
+
+        var idle = SpinWait.SpinUntil(
+            () =>
+            {
+                var report = dispatcher.Pump(
+                    GenerousBudget(), maximumWorkerStarts);
+                completions += report.CompletionsProcessed;
+                stale += report.StaleCompletionsIgnored;
+                advanced += report.TasksAdvanced;
+                completed += report.TasksCompleted;
+                failed += report.TasksFailed;
+                cancelled += report.TasksCancelled;
+                starts += report.WorkerOperationsStarted;
+
+                return dispatcher.ActiveTaskCount == 0 &&
+                    dispatcher.RetiringTaskCount == 0 &&
+                    dispatcher.PendingWorkerOperationCount == 0 &&
+                    !dispatcher.HasTaskAdvanceInFlight;
+            },
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(idle, "Generation dispatcher did not reach an idle state.");
+        return new ChunkGenerationDispatchReport(
+            completions, stale, advanced, completed, failed,
+            cancelled, starts,
+            dispatcher.ReadyTaskCount,
+            dispatcher.WaitingTaskCount,
+            dispatcher.PendingWorkerOperationCount,
+            dispatcher.RetiringTaskCount);
+    }
+
+    private static bool PumpUntilCondition(
+        ChunkGenerationDispatcher dispatcher,
+        Func<bool> condition,
+        int maximumWorkerStarts = 8) =>
+        SpinWait.SpinUntil(
+            () =>
+            {
+                dispatcher.Pump(GenerousBudget(), maximumWorkerStarts);
+                return condition();
+            },
+            TimeSpan.FromSeconds(5));
+
     private static WorldFrameWorkBudget GenerousBudget() =>
         new(long.MaxValue);
 
@@ -289,6 +359,61 @@ public sealed class ChunkGenerationDispatcherTests
 
     private static ChunkGenerationTaskPriority Priority(int ticket) =>
         new(ticket, ticket);
+
+    private sealed class SerialLaneProbe
+    {
+        private int _activeAdvances;
+        private int _maximumConcurrentAdvances;
+
+        public int AdvanceCount { get; private set; }
+
+        public int MaximumConcurrentAdvances =>
+            Volatile.Read(ref _maximumConcurrentAdvances);
+
+        public System.Collections.Concurrent.ConcurrentQueue<int> ThreadIds { get; } = new();
+
+        public void Advance(
+            CancellationToken cancellationToken,
+            ManualResetEventSlim? started,
+            ManualResetEventSlim? release)
+        {
+            var active = Interlocked.Increment(ref _activeAdvances);
+            while (true)
+            {
+                var maximum = Volatile.Read(ref _maximumConcurrentAdvances);
+                if (maximum >= active ||
+                    Interlocked.CompareExchange(
+                        ref _maximumConcurrentAdvances, active, maximum) == maximum)
+                    break;
+            }
+
+            Interlocked.Increment(ref AdvanceCount);
+            ThreadIds.Enqueue(Environment.CurrentManagedThreadId);
+            started?.Set();
+            try
+            {
+                release?.Wait(cancellationToken);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _activeAdvances);
+            }
+        }
+    }
+
+    private sealed class SerialLaneTask(
+        SerialLaneProbe probe,
+        ManualResetEventSlim? started,
+        ManualResetEventSlim? release) : IChunkGenerationTask
+    {
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            probe.Advance(cancellationToken, started, release);
+            return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
 
     private sealed record CompletedChunkPayload(string Id, int CellCount);
 
