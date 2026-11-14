@@ -696,8 +696,13 @@ public sealed class ChunkResidencyRuntime
             if (!_streaming.KeepsLoaded(coord))
                 continue;
 
-            if (!_world.ContainsChunk(coord))
-                _world.InsertChunk(coord, sectionResult.Chunk);
+            if (_world.ContainsChunk(coord))
+            {
+                _playerTicketAdmissions.MarkSectionFull(coord);
+                continue;
+            }
+
+            _world.InsertChunk(coord, sectionResult.Chunk);
             sectionsToActivate.Add(sectionResult);
         }
 
@@ -706,13 +711,6 @@ public sealed class ChunkResidencyRuntime
         {
             var coord = sectionResult.Coord;
             _playerTicketAdmissions.MarkSectionFull(coord);
-            if (_world.ContainsChunk(coord) &&
-                !_world.TryGetSavedChunk(coord, out _))
-            {
-                // A pre-existing resident chunk won the publication race.
-                // Its section has still reached the holder's FULL status.
-            }
-
             var activation = ActivateResidentChunk(
                 coord,
                 ChunkActivationSource.Provider,
