@@ -93,7 +93,7 @@ public sealed class WorldWorkerPoolTests
         cancellation.Cancel();
         var expectedError = new InvalidOperationException("worker failed");
 
-        Assert.True(pool.TrySchedule(
+        Assert.True(pool.TrySchedule<int>(
             _ => throw expectedError,
             CancellationToken.None,
             out var failed));
@@ -108,10 +108,8 @@ public sealed class WorldWorkerPoolTests
 
         Assert.True(failed!.TryGetCompletion(out var failedResult));
         Assert.Same(expectedError, failedResult.Error);
-        Assert.Null(failedResult.Result);
         Assert.True(cancelled!.TryGetCompletion(out var cancelledResult));
         Assert.IsType<OperationCanceledException>(cancelledResult.Error);
-        Assert.Null(cancelledResult.Result);
         Assert.Equal(1, pool.FailedWorkCount);
         Assert.Equal(1, pool.CancelledWorkCount);
     }
@@ -124,7 +122,7 @@ public sealed class WorldWorkerPoolTests
             _ => 1,
             CancellationToken.None,
             out var first,
-            _ => throw new InvalidOperationException("callback failed")));
+            onCompleted: _ => throw new InvalidOperationException("callback failed")));
         Assert.True(SpinWait.SpinUntil(
             () => first!.IsCompleted && pool.InFlightWorkCount == 0,
             TimeSpan.FromSeconds(5)));
