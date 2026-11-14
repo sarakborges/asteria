@@ -977,8 +977,12 @@ def compare(
             "retentionRadius": baseline_route_identity[4],
             "baselineUniqueActivatedChunkCount": len(baseline_route_chunks),
             "candidateUniqueActivatedChunkCount": len(candidate_route_chunks),
-            "baselineRouteDigest": baseline_route_identity[6],
-            "candidateRouteDigest": candidate_route_identity[6],
+            "baselineRouteDigest": _at(
+                baseline_first, "streamingRouteDiagnostics", "routeDigest"
+            ),
+            "candidateRouteDigest": _at(
+                candidate_first, "streamingRouteDiagnostics", "routeDigest"
+            ),
             "digestsMatch": route_digests_match,
             "routeContentDifferences": {
                 "changedContentChunkCount": len(changed_route_coords),
