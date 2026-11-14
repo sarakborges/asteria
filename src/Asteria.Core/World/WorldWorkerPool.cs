@@ -58,10 +58,11 @@ public sealed class WorldWorkerOperation<TResult>
 }
 
 /// <summary>
-/// One physical executor shared by terrain generation, lighting, fluids and
-/// mesh preparation. Runtime owners retain their logical priority queues and
-/// submit bounded operations here; this executor applies a stable priority
-/// order across domains and never touches live world state.
+/// Priority admission layer over the CLR's shared work-stealing ThreadPool.
+/// It does not create or own worker threads: the runtime manages worker
+/// activation and local queues, and idle workers can steal queued operations.
+/// Asteria orders work before dispatch and caps the number of its own world
+/// operations admitted to concurrent execution.
 /// </summary>
 public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 {
@@ -76,15 +77,13 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     private readonly object _queueSync = new();
     private readonly SortedSet<IWorkItem> _queue = new(WorkItemComparer.Instance);
     private readonly Dictionary<long, IWorkItem> _queuedItemsBySequence = [];
-    private readonly object _disposeSync = new();
-    private readonly Thread[] _workers;
-    private readonly TaskCompletionSource _workersExited =
+    private readonly TaskCompletionSource _drained =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private bool _addingCompleted;
     private bool _disposeCompleted;
     private long _nextEnqueueSequence = 1;
     private int _disposed;
-    private int _exitedWorkerCount;
+    private int _reservedOperationCount;
     private int _pendingWorkCount;
     private int _activeWorkerCount;
     private int _inFlightWorkCount;
@@ -94,36 +93,31 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     private long _rejectedWorkCount;
     private long _completionCallbackFailures;
 
-    public WorldWorkerPool(int workerCount)
+    public WorldWorkerPool(int maximumConcurrentOperations)
     {
-        if (workerCount <= 0)
-            throw new ArgumentOutOfRangeException(nameof(workerCount));
+        if (maximumConcurrentOperations <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumConcurrentOperations));
 
-        WorkerCount = workerCount;
-        _workers = new Thread[workerCount];
-
-        for (var index = 0; index < workerCount; index++)
-        {
-            var worker = new Thread(Consume)
-            {
-                IsBackground = true,
-                Name = $"Asteria world worker {index + 1}",
-            };
-            _workers[index] = worker;
-            worker.Start();
-        }
+        WorkerCount = maximumConcurrentOperations;
     }
 
+    /// <summary>
+    /// Maximum number of Asteria world operations dispatched concurrently.
+    /// This is an admission limit, not a count of threads owned by Asteria.
+    /// </summary>
     public int WorkerCount { get; }
 
     /// <summary>
-    /// Operations accepted by the executor but not yet started. This queue is
-    /// demand-driven and priority ordered; only physical execution is bounded.
+    /// Accepted operations that have not started executing yet, including
+    /// operations already handed to the CLR ThreadPool.
     /// </summary>
     public int PendingWorkCount => Volatile.Read(ref _pendingWorkCount);
 
+    /// <summary>World operations currently executing on CLR ThreadPool workers.</summary>
     public int ActiveWorkerCount => Volatile.Read(ref _activeWorkerCount);
 
+    /// <summary>Accepted world operations that have not published completion.</summary>
     public int InFlightWorkCount => Volatile.Read(ref _inFlightWorkCount);
 
     public long CompletedWorkCount => Interlocked.Read(ref _completedWorkCount);
@@ -139,8 +133,8 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 
     /// <summary>
     /// Enqueues one operation without blocking. Lower numeric priority is
-    /// dispatched first; equal priorities preserve submission order. Pending
-    /// operations remain in the shared priority queue until a worker is free.
+    /// dispatched first; equal priorities preserve submission order. The
+    /// priority queue feeds the shared CLR pool only as concurrency slots open.
     /// </summary>
     public bool TrySchedule<TResult>(
         Func<CancellationToken, TResult> execute,
@@ -186,17 +180,23 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
             Interlocked.Increment(ref _inFlightWorkCount);
             if (!_queue.Add(item) ||
                 !_queuedItemsBySequence.TryAdd(enqueueSequence, item))
+            {
+                Interlocked.Decrement(ref _pendingWorkCount);
+                Interlocked.Decrement(ref _inFlightWorkCount);
                 throw new InvalidOperationException(
                     "World worker queue rejected a unique operation.");
+            }
+
             operation = item.Operation;
-            Monitor.Pulse(_queueSync);
+            DispatchQueuedOperationsLocked();
             return true;
         }
     }
 
     /// <summary>
-    /// Changes the priority of an operation that is still waiting in the shared
-    /// executor. Running or completed operations are left untouched.
+    /// Changes the priority of an operation still waiting in Asteria's
+    /// priority queue. Once dispatched to the CLR ThreadPool, its queue
+    /// position is owned by the runtime and can no longer be changed here.
     /// </summary>
     public bool TryUpdatePriority<TResult>(
         WorldWorkerOperation<TResult> operation,
@@ -226,81 +226,102 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
             if (!_queue.Add(item))
                 throw new InvalidOperationException(
                     "A reprioritized world worker operation could not be reinserted.");
-            Monitor.Pulse(_queueSync);
             return true;
         }
     }
 
     public ValueTask DisposeAsync()
     {
-        lock (_disposeSync)
+        lock (_queueSync)
         {
-            if (_disposeCompleted)
-                return ValueTask.CompletedTask;
-
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            {
-                lock (_queueSync)
-                {
-                    _addingCompleted = true;
-                    Monitor.PulseAll(_queueSync);
-                }
-            }
+                _addingCompleted = true;
 
-            return new ValueTask(_workersExited.Task);
+            DispatchQueuedOperationsLocked();
+            return _disposeCompleted
+                ? ValueTask.CompletedTask
+                : new ValueTask(_drained.Task);
         }
     }
 
     public void Dispose() =>
         DisposeAsync().AsTask().GetAwaiter().GetResult();
 
-    private void Consume()
+    private void DispatchQueuedOperationsLocked()
     {
+        while (_reservedOperationCount < WorkerCount && _queue.Count > 0)
+        {
+            var item = _queue.Min ??
+                throw new InvalidOperationException(
+                    "World worker queue was nonempty without a minimum item.");
+            if (!_queue.Remove(item) ||
+                !_queuedItemsBySequence.Remove(item.EnqueueSequence))
+            {
+                throw new InvalidOperationException(
+                    "World worker queue lost an admitted operation.");
+            }
+
+            _reservedOperationCount++;
+            var dispatched = new DispatchedWork(this, item);
+            if (ThreadPool.UnsafeQueueUserWorkItem(
+                    static state => state.Owner.ExecuteDispatched(state.Item),
+                    dispatched,
+                    preferLocal: true))
+            {
+                continue;
+            }
+
+            _reservedOperationCount--;
+            if (!_queue.Add(item) ||
+                !_queuedItemsBySequence.TryAdd(item.EnqueueSequence, item))
+            {
+                throw new InvalidOperationException(
+                    "A rejected ThreadPool operation could not be restored to the world queue.");
+            }
+
+            Interlocked.Increment(ref _rejectedWorkCount);
+            throw new InvalidOperationException(
+                "The CLR ThreadPool rejected a world worker operation.");
+        }
+
+        CompleteDrainIfNeededLocked();
+    }
+
+    private void ExecuteDispatched(IWorkItem item)
+    {
+        Interlocked.Decrement(ref _pendingWorkCount);
+        Interlocked.Increment(ref _activeWorkerCount);
         try
         {
-            while (true)
-            {
-                IWorkItem item;
-                lock (_queueSync)
-                {
-                    while (_queue.Count == 0 && !_addingCompleted)
-                        Monitor.Wait(_queueSync);
-
-                    if (_queue.Count == 0 && _addingCompleted)
-                        break;
-
-                    item = _queue.Min ??
-                        throw new InvalidOperationException(
-                            "World worker queue was nonempty without a minimum item.");
-                    if (!_queue.Remove(item) ||
-                        !_queuedItemsBySequence.Remove(item.EnqueueSequence))
-                        throw new InvalidOperationException(
-                            "World worker queue lost an admitted operation.");
-                    Interlocked.Decrement(ref _pendingWorkCount);
-                    Interlocked.Increment(ref _activeWorkerCount);
-                }
-
-                try
-                {
-                    item.Execute(this);
-                }
-                finally
-                {
-                    Interlocked.Decrement(ref _activeWorkerCount);
-                    Interlocked.Decrement(ref _inFlightWorkCount);
-                }
-            }
+            item.Execute(this);
         }
         finally
         {
-            if (Interlocked.Increment(ref _exitedWorkerCount) == WorkerCount)
+            Interlocked.Decrement(ref _activeWorkerCount);
+            Interlocked.Decrement(ref _inFlightWorkCount);
+            lock (_queueSync)
             {
-                lock (_disposeSync)
-                    _disposeCompleted = true;
-                _workersExited.TrySetResult();
+                _reservedOperationCount--;
+                DispatchQueuedOperationsLocked();
             }
         }
     }
+
+    private void CompleteDrainIfNeededLocked()
+    {
+        if (_addingCompleted &&
+            Volatile.Read(ref _inFlightWorkCount) == 0 &&
+            _queue.Count == 0 &&
+            _reservedOperationCount == 0)
+        {
+            _disposeCompleted = true;
+            _drained.TrySetResult();
+        }
+    }
+
+    private readonly record struct DispatchedWork(
+        WorldWorkerPool Owner,
+        IWorkItem Item);
 
     private interface IWorkItem
     {
@@ -397,7 +418,7 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
             }
             catch
             {
-                // A publication callback must never terminate a physical worker.
+                // Publication failures must not escape onto the CLR worker pool.
                 Interlocked.Increment(ref owner._completionCallbackFailures);
             }
         }
