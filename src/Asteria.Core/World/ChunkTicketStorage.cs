@@ -250,6 +250,8 @@ public sealed class ChunkDistanceTracker
 
     public int Count => _levels.Count;
 
+    public IReadOnlyDictionary<ChunkColumnCoord, int> Levels => _levels;
+
     public int MaximumLevel { get; private set; }
 
     public int GetLevel(ChunkColumnCoord column, int absentLevel) =>
@@ -329,21 +331,76 @@ public sealed class ChunkDistanceTracker
 }
 
 /// <summary>
-/// Owns the ticket store and its independent loading and simulation distance
-/// graphs. Player view tickets decide which columns may generate; the player
-/// simulation ticket decides which loaded columns are allowed to tick.
+/// One horizontal holder created by the loading graph. The ticket level is a
+/// ceiling on generation status, not a request to run all steps up to it.
+/// Generation and full-chunk futures are owned by the holder lifecycle.
+/// </summary>
+public sealed class ChunkHolder
+{
+    internal ChunkHolder(ChunkColumnCoord position, int ticketLevel)
+    {
+        Position = position;
+        UpdateTicketLevel(ticketLevel);
+    }
+
+    public ChunkColumnCoord Position { get; }
+
+    public int TicketLevel { get; private set; }
+
+    public ChunkGenerationStatus HighestAllowedGenerationStatus { get; private set; }
+
+    public ChunkFullStatus FullStatus { get; private set; }
+
+    public bool IsLoading => TicketLevel < ChunkLevel.Unloaded;
+
+    public ulong TicketLevelRevision { get; private set; }
+
+    internal bool UpdateTicketLevel(int ticketLevel)
+    {
+        if (ticketLevel < 0 || ticketLevel > ChunkLevel.Unloaded)
+            throw new ArgumentOutOfRangeException(nameof(ticketLevel));
+        if (TicketLevel == ticketLevel && TicketLevelRevision != 0)
+            return false;
+
+        TicketLevel = ticketLevel;
+        HighestAllowedGenerationStatus =
+            ChunkLevel.GetGenerationStatus(ticketLevel);
+        FullStatus = ChunkLevel.GetFullStatus(ticketLevel);
+        TicketLevelRevision++;
+        return true;
+    }
+}
+
+/// <summary>
+/// Owns the ticket store, independent loading and simulation distance graphs,
+/// and the holder map produced by the loading graph. Player view tickets decide
+/// which holders exist and their generation ceiling; simulation tickets decide
+/// which loaded holders are allowed to tick.
 /// </summary>
 public sealed class ChunkDistanceManager
 {
     private readonly ChunkTicketStorage _tickets = new();
     private readonly ChunkDistanceTracker _loading = new();
     private readonly ChunkDistanceTracker _simulation = new();
+    private readonly Dictionary<ChunkColumnCoord, ChunkHolder> _holders = [];
 
     public ChunkTicketStorage Tickets => _tickets;
 
     public ChunkDistanceTracker LoadingTracker => _loading;
 
     public ChunkDistanceTracker SimulationTracker => _simulation;
+
+    public IReadOnlyCollection<ChunkHolder> Holders => _holders.Values;
+
+    public int HolderCount => _holders.Count;
+
+    public ChunkHolder? GetHolder(ChunkColumnCoord column) =>
+        _holders.TryGetValue(column, out var holder) ? holder : null;
+
+    public bool TryGetHolder(
+        ChunkColumnCoord column,
+        out ChunkHolder holder) =>
+        _holders.TryGetValue(column, out holder!);
 
     /// <summary>
     /// Synchronizes the desired player view and simulation source. Existing
@@ -393,6 +450,7 @@ public sealed class ChunkDistanceManager
             _tickets,
             ChunkTicketFlags.Loading,
             ChunkLevel.MaximumLoading);
+        SynchronizeHolders();
         return true;
     }
 
@@ -409,6 +467,7 @@ public sealed class ChunkDistanceManager
             _tickets,
             ChunkTicketFlags.Loading,
             ChunkLevel.MaximumLoading);
+        SynchronizeHolders();
         return true;
     }
 
@@ -428,6 +487,7 @@ public sealed class ChunkDistanceManager
                 _tickets,
                 ChunkTicketFlags.Loading,
                 ChunkLevel.MaximumLoading);
+            SynchronizeHolders();
         }
 
         if (simulationChanged)
@@ -436,6 +496,24 @@ public sealed class ChunkDistanceManager
                 _tickets,
                 ChunkTicketFlags.Simulation,
                 ChunkLevel.BlockTicking);
+        }
+    }
+
+    private void SynchronizeHolders()
+    {
+        foreach (var (column, level) in _loading.Levels)
+        {
+            if (_holders.TryGetValue(column, out var holder))
+                holder.UpdateTicketLevel(level);
+            else
+                _holders.Add(column, new ChunkHolder(column, level));
+        }
+
+        foreach (var column in _holders.Keys
+                     .Where(column => !_loading.Levels.ContainsKey(column))
+                     .ToArray())
+        {
+            _holders.Remove(column);
         }
     }
 
