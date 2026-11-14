@@ -71,6 +71,8 @@ public sealed class ChunkGenerationDispatcher
 
     public bool HasLightingOperationInFlight => _lightingExecutor.HasInFlightTask;
 
+    internal ChunkGenerationSerialExecutor LightingExecutor => _lightingExecutor;
+
     /// <summary>
     /// Retrieves one terminal outcome for main-thread publication or cleanup.
     /// The caller must validate the task generation and current streaming ticket
