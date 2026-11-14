@@ -2,8 +2,8 @@ namespace Asteria.Core.World;
 
 /// <summary>
 /// The authoritative stage DAG for Asteria's chunk materialization pipeline.
-/// Spatial dependency envelopes describe the source data a stage may read;
-/// they are also used to derive the ticket graph's loading radius.
+/// Read envelopes constrain procedural/immutable data access; only dependencies
+/// explicitly marked HolderStatus contribute to ticket loading and holder claims.
 /// </summary>
 public static class AsteriaChunkGenerationPlan
 {
