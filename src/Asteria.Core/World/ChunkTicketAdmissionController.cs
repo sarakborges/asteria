@@ -65,6 +65,8 @@ public sealed class ChunkTicketAdmissionController
         }
         else
         {
+            _distanceManager.CompleteGenerationStatus(
+                column, ChunkGenerationStatus.Full);
             _distanceManager.CompleteFullStatus(
                 column, ChunkFullStatus.EntityTicking);
         }
@@ -87,6 +89,8 @@ public sealed class ChunkTicketAdmissionController
         if (pending.Count == 0)
         {
             _sectionsAwaitingFullStatus.Remove(column);
+            _distanceManager.CompleteGenerationStatus(
+                column, ChunkGenerationStatus.Full);
             _distanceManager.CompleteFullStatus(
                 column, ChunkFullStatus.EntityTicking);
         }
@@ -126,6 +130,8 @@ public sealed class ChunkTicketAdmissionController
                 continue;
 
             _sectionsAwaitingFullStatus.Remove(column);
+            _distanceManager.CompleteGenerationStatus(
+                column, ChunkGenerationStatus.Full);
             _distanceManager.CompleteFullStatus(
                 column, ChunkFullStatus.EntityTicking);
             released++;
