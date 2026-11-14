@@ -720,5 +720,45 @@ After run 43622622606 is green:
 
 ## Scope correction — 2026-11-14
 
-The architectural target for this work is **Minecraft Java 26.3 only**. Do not spend implementation or review time comparing Asteria with MineClone or using it as a design authority. All behavior, terminology, concurrency, ticket/status and generation-pyramid decisions in this handoff must be verified against Minecraft Java 26.3 and then adapted to Asteria's own storage and ownership contracts.
+The architectural target for this work is **exclusively Minecraft Java 26.3**. All behavior, terminology, concurrency, ticket/status and generation-pyramid decisions in this handoff must be verified against Minecraft Java 26.3 and then adapted to Asteria's own storage and ownership contracts.
+
+
+
+---
+
+## Latest continuation state — 2026-11-14 (serial worldgen lane)
+
+**Branch:** `worldgen-perf-fix`  
+**PR:** #157, open, base `worldgen-remake`; do not merge  
+**Code HEAD:** `6dbd9ef305693a53636375acc85cf2b7bb2def65`  
+**Validation:** run [43624226523](https://github.com/sarakborges/asteria/actions/runs/43624226523) is running against this HEAD. C# build, ReadyToRun and WebUI build/Storybook passed; Core tests and terrain A/B were still running at the latest check. Windows export run [43624220194](https://github.com/sarakborges/asteria/actions/runs/43624220194) is also running. Do not treat this lane as validated until the Core tests pass.
+
+### Implemented in this continuation
+
+- [x] Removed all out-of-scope project comparisons from this handoff. Minecraft Java 26.3 is the sole architecture reference.
+- [x] Added `ChunkGenerationTaskAdvanceMailbox`, a one-slot worker-to-owner mailbox. One in-flight advance per dimension makes the one-result bound explicit.
+- [x] Extended `ChunkGenerationWorkerPool` to schedule task-advance continuations and ordinary dependency forks through the same existing `WorldWorkerPool`.
+- [x] Changed `ChunkGenerationDispatcher` so `IChunkGenerationTask.Advance` executes asynchronously on the shared worker pool, with only one advance in flight per dimension.
+- [x] Kept lifecycle transitions, priority queues, cancellation, task identity, holder/ticket interactions and final result publication under the dispatcher's existing owner thread.
+- [x] Kept dependency forks independently parallel. When an advance returns `WaitForWorkers`, the serial lane becomes available immediately; the task is resumed only after all dependencies return through the completion mailbox.
+- [x] Priority changes now update a queued/in-flight task advance as well as its queued/running dependency work.
+- [x] Added a regression test proving that two available physical workers still cannot execute two task advances concurrently for one dimension, and that advances run off the world/owner thread.
+
+### Exact relationship with Minecraft 26.3
+
+This change reproduces the central `ConsecutiveExecutor` contract: a logical serial lane schedules one continuation at a time onto the shared backing executor. Consecutive advances may run on different physical pool threads. It does **not** create one dedicated generation thread per dimension and does not serialize independent worker forks.
+
+The dispatcher is still pumped by the owner thread to admit work and consume result messages. This owner-thread coordination is deliberate for Asteria's current state ownership. Only the bounded `IChunkGenerationTask.Advance` callback has moved onto the serial lane. The next refactor will make the plan's execution policy decide which individual step is a serial-lane transition and which is a worker fork; until then, the materialization adapter still hides multiple provider-stage advances behind its worker operation.
+
+### Remaining work after validation
+
+1. Confirm Core tests, A/B and Windows export for HEAD `6dbd9ef`.
+2. Update `IChunkGenerationTask` and executor documentation to distinguish the serial logical lane from the owner thread precisely.
+3. Make `ChunkGenerationPlan.ExecutionPolicy` executable: one stage transition per serial-lane advance, only declared CPU steps forked, write-sensitive steps use an ordered lane, lighting receives its own serial executor over the same pool, and final integration remains on the world/main owner.
+4. Convert neighbor generation prerequisites into real holder-status future requests. A spatial holder claim must also request the required status for the exact horizontal/vertical offset.
+5. Build distinct executable generation and loading pyramids and connect archive restoration to the loading path.
+6. Replace the special gravity-support child-task path with the same reusable status-future dependency mechanism.
+7. Validate serial-lane cancellation, demotion, priority changes, late completions, worker-count determinism and dimension retirement.
+
+**Next code task:** after the current Core test suite passes, map the existing `ChunkMaterializationStage` transitions to the plan's step IDs and execution policies. Start with a single-stage serial transition contract; do not move every provider stage to workers by default.
 
