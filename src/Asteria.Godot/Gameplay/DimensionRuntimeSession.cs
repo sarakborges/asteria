@@ -442,7 +442,8 @@ public sealed class DimensionRuntimeSession
 
         var impacts = Projectiles.Advance(
             elapsedSeconds, World, Blocks, Creatures.ActiveCreatures,
-            playerBounds, playerTargetable, Dimension.GravityStrength);
+            playerBounds, playerTargetable, Dimension.GravityStrength,
+            Residency.IsEntityTicking);
         foreach (var impact in impacts)
         {
             if (impact.Target != ProjectileHitTarget.Creature ||
