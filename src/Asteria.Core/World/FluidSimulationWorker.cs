@@ -56,7 +56,7 @@ public sealed class FluidSimulationWorker
                 snapshot.Dependencies,
                 simulation,
                 stopwatch.Elapsed.TotalMilliseconds);
-        }, priority: workerPriority ??
+        }, CancellationToken.None, workerPriority ??
             WorldWorkerPriority.FromPriorityClass(
                 WorldWorkerPool.InteractiveWorldPriority));
     }
