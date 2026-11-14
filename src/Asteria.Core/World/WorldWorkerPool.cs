@@ -145,7 +145,19 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
         out WorldWorkerOperation<TResult>? operation,
         Action? onStarted = null,
         Action<WorldWorkerCompletion<TResult>>? onCompleted = null,
-        int priority = DefaultPriority)
+        int priority = DefaultPriority) =>
+        TrySchedule(
+            execute, cancellationToken, out operation,
+            WorldWorkerPriority.FromPriorityClass(priority),
+            onStarted, onCompleted);
+
+    public bool TrySchedule<TResult>(
+        Func<CancellationToken, TResult> execute,
+        CancellationToken cancellationToken,
+        out WorldWorkerOperation<TResult>? operation,
+        WorldWorkerPriority priority,
+        Action? onStarted = null,
+        Action<WorldWorkerCompletion<TResult>>? onCompleted = null)
     {
         ArgumentNullException.ThrowIfNull(execute);
         operation = null;
@@ -185,7 +197,13 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     /// </summary>
     public bool TryUpdatePriority<TResult>(
         WorldWorkerOperation<TResult> operation,
-        int priority)
+        int priority) =>
+        TryUpdatePriority(
+            operation, WorldWorkerPriority.FromPriorityClass(priority));
+
+    public bool TryUpdatePriority<TResult>(
+        WorldWorkerOperation<TResult> operation,
+        WorldWorkerPriority priority)
     {
         ArgumentNullException.ThrowIfNull(operation);
         lock (_queueSync)
@@ -284,9 +302,10 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     private interface IWorkItem
     {
         long EnqueueSequence { get; }
-        int Priority { get; }
-        void InitializeQueuePosition(long enqueueSequence, int priority);
-        void UpdatePriority(int priority);
+        WorldWorkerPriority Priority { get; }
+        void InitializeQueuePosition(
+            long enqueueSequence, WorldWorkerPriority priority);
+        void UpdatePriority(WorldWorkerPriority priority);
         void Execute(WorldWorkerPool owner);
     }
 
@@ -317,23 +336,24 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
         Action<WorldWorkerCompletion<TResult>>? onCompleted)
         : IWorkItem
     {
-        private int _priority;
+        private WorldWorkerPriority _priority;
         private long _enqueueSequence;
 
         public WorldWorkerOperation<TResult> Operation { get; private set; } = null!;
 
         public long EnqueueSequence => _enqueueSequence;
 
-        public int Priority => _priority;
+        public WorldWorkerPriority Priority => _priority;
 
-        public void InitializeQueuePosition(long enqueueSequence, int priority)
+        public void InitializeQueuePosition(
+            long enqueueSequence, WorldWorkerPriority priority)
         {
             _enqueueSequence = enqueueSequence;
             _priority = priority;
             Operation = new WorldWorkerOperation<TResult>(enqueueSequence);
         }
 
-        public void UpdatePriority(int priority) =>
+        public void UpdatePriority(WorldWorkerPriority priority) =>
             _priority = priority;
 
         public void Execute(WorldWorkerPool owner)
