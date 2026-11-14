@@ -153,6 +153,7 @@ public sealed class ChunkResidencyRuntime
         _materializationTasks = [];
     private readonly ChunkGenerationCompletionMailbox _generationCompletionMailbox;
     private readonly ChunkGenerationWorkerPool _generationWorkerPool;
+    private readonly WorldWorkerPool _worldWorkerPool;
     private readonly ChunkGenerationDispatcher _generationDispatcher;
     private Task? _generationWorkerShutdown;
     private ulong _nextMaterializationGeneration = 1;
@@ -237,6 +238,7 @@ public sealed class ChunkResidencyRuntime
             : new ChunkGenerationWorkerPool(
                 worldWorkerPool,
                 _generationCompletionMailbox);
+        _worldWorkerPool = _generationWorkerPool.WorkerPool;
         _generationDispatcher = new ChunkGenerationDispatcher(
             _generationCompletionMailbox,
             _generationWorkerPool);
@@ -273,9 +275,9 @@ public sealed class ChunkResidencyRuntime
     public int ActiveWorkerCount =>
         _generationWorkerPool.InFlightWorkCount +
         _directionalFaceReconciliationTasks.Values.Count(work =>
-            !work.WorkerTask.IsCompleted) +
+            !work.Operation.IsCompleted) +
         _chunkLightingReconciliationTasks.Values.Count(work =>
-            !work.WorkerTask.IsCompleted);
+            !work.Operation.IsCompleted);
 
     public int GenerationWorkerCount => _generationWorkerPool.WorkerCount;
 
@@ -471,9 +473,9 @@ public sealed class ChunkResidencyRuntime
             _generationDispatcher.RetiringTaskCount == 0 &&
             _generationDispatcher.PendingOutcomeCount == 0 &&
             !_directionalFaceReconciliationTasks.Values.Any(work =>
-                work.WorkerTask.IsCompleted) &&
+                work.Operation.IsCompleted) &&
             !_chunkLightingReconciliationTasks.Values.Any(work =>
-                work.WorkerTask.IsCompleted))
+                work.Operation.IsCompleted))
             return ChunkResidencyUpdate.Empty;
 
         var report = _generationDispatcher.Pump(
@@ -523,7 +525,7 @@ public sealed class ChunkResidencyRuntime
         }
 
         var completedReconciliations = _directionalFaceReconciliationTasks
-            .Where(entry => entry.Value.WorkerTask.IsCompleted)
+            .Where(entry => entry.Value.Operation.IsCompleted)
             .OrderBy(entry => ChunkStreamingState.StreamingPriority(
                 entry.Key, _center, _streaming.MovementDirection))
             .ToArray();
@@ -535,15 +537,12 @@ public sealed class ChunkResidencyRuntime
 
             _directionalFaceReconciliationTasks.Remove(coord);
             processed++;
-            var task = work.WorkerTask;
-            if (task.IsFaulted || task.IsCanceled)
+            if (!work.Operation.TryGetCompletion(out var completion))
+                continue;
+            if (completion.Error is not null)
             {
-                var error = task.IsFaulted
-                    ? task.Exception?.GetBaseException() ??
-                      new InvalidOperationException(
-                          $"Directional face reconciliation failed: {coord}")
-                    : new TaskCanceledException(task);
-                failures.Add(new ChunkMaterializationFailure(coord, error));
+                failures.Add(new ChunkMaterializationFailure(
+                    coord, completion.Error));
                 if (_acceptingMaterializationWork &&
                     _world.TryGetSavedChunk(coord, out _))
                     _pendingDirectionalFaceReconciliations.Enqueue(coord);
@@ -553,7 +552,9 @@ public sealed class ChunkResidencyRuntime
             if (!_acceptingMaterializationWork)
                 continue;
 
-            var result = task.GetAwaiter().GetResult();
+            var result = completion.Result ??
+                throw new InvalidOperationException(
+                    $"Directional face reconciliation returned no result: {coord}");
             if (_directionalFacePaletteUpdater is not null &&
                 _directionalFacePaletteUpdater.TryApplyChunkArrivalReconciliation(
                     _world, result, out var visualChanges))
@@ -567,7 +568,7 @@ public sealed class ChunkResidencyRuntime
         }
 
         var completedLighting = _chunkLightingReconciliationTasks
-            .Where(entry => entry.Value.WorkerTask.IsCompleted)
+            .Where(entry => entry.Value.Operation.IsCompleted)
             .OrderBy(entry => ChunkStreamingState.StreamingPriority(
                 entry.Key, _center, _streaming.MovementDirection))
             .ToArray();
@@ -579,15 +580,12 @@ public sealed class ChunkResidencyRuntime
 
             _chunkLightingReconciliationTasks.Remove(coord);
             processed++;
-            var task = work.WorkerTask;
-            if (task.IsFaulted || task.IsCanceled)
+            if (!work.Operation.TryGetCompletion(out var completion))
+                continue;
+            if (completion.Error is not null)
             {
-                var error = task.IsFaulted
-                    ? task.Exception?.GetBaseException() ??
-                      new InvalidOperationException(
-                          $"Chunk lighting reconciliation failed: {coord}")
-                    : new TaskCanceledException(task);
-                failures.Add(new ChunkMaterializationFailure(coord, error));
+                failures.Add(new ChunkMaterializationFailure(
+                    coord, completion.Error));
                 if (_acceptingMaterializationWork &&
                     (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord)))
                     _pendingChunkLightingReconciliations.Enqueue(coord);
@@ -597,7 +595,9 @@ public sealed class ChunkResidencyRuntime
             if (!_acceptingMaterializationWork)
                 continue;
 
-            var result = task.GetAwaiter().GetResult();
+            var result = completion.Result ??
+                throw new InvalidOperationException(
+                    $"Chunk lighting reconciliation returned no result: {coord}");
             if (!_world.IsContentStampCurrent(work.ContentDependencies) ||
                 !_world.AreLightingStampsCurrent(work.LightingDependencies))
             {
@@ -1134,14 +1134,7 @@ public sealed class ChunkResidencyRuntime
             budget.Exhausted(Stopwatch.GetTimestamp()))
             return;
 
-        var occupiedWorkerSlots =
-            _generationWorkerPool.InFlightWorkCount +
-            _generationDispatcher.PendingWorkerOperationCount +
-            _directionalFaceReconciliationTasks.Values.Count(work =>
-                !work.WorkerTask.IsCompleted) +
-            _chunkLightingReconciliationTasks.Values.Count(work =>
-                !work.WorkerTask.IsCompleted);
-        if (occupiedWorkerSlots >= _settings.MaxConcurrentWorkers)
+        if (_worldWorkerPool.AvailableSubmissionCount == 0)
             return;
 
         var started = _preferChunkLightingReconciliation
@@ -1171,21 +1164,29 @@ public sealed class ChunkResidencyRuntime
         {
             var dependencies = LightingReconciliationDependencies(coord);
             var snapshotWorld = _world.CloneForWorker(dependencies);
-            var work = new ChunkLightingReconciliationWork(
-                coord,
-                _world.CaptureContentStamp(dependencies),
-                _world.CaptureLightingStamps(dependencies));
-            work.WorkerTask = Task.Run(() =>
+            var contentDependencies = _world.CaptureContentStamp(dependencies);
+            var lightingDependencies = _world.CaptureLightingStamps(dependencies);
+            if (!_worldWorkerPool.TrySchedule(
+                    _ =>
+                    {
+                        var lightingSeeds = ChunkTopologyFrontier.ArrivalLightingSeeds(
+                            snapshotWorld, _blocks, _fluids, coord, _objects);
+                        var physicsPlan = snapshotWorld.ContainsChunk(coord)
+                            ? _blockPhysics.CalculateResidentChunkActivationPlan(
+                                snapshotWorld, coord)
+                            : (BlockPhysicsChunkActivationPlan?)null;
+                        return new ChunkArrivalReconciliationResult(
+                            lightingSeeds, physicsPlan);
+                    },
+                    CancellationToken.None,
+                    out var operation))
             {
-                var lightingSeeds = ChunkTopologyFrontier.ArrivalLightingSeeds(
-                    snapshotWorld, _blocks, _fluids, coord, _objects);
-                var physicsPlan = snapshotWorld.ContainsChunk(coord)
-                    ? _blockPhysics.CalculateResidentChunkActivationPlan(
-                        snapshotWorld, coord)
-                    : (BlockPhysicsChunkActivationPlan?)null;
-                return new ChunkArrivalReconciliationResult(
-                    lightingSeeds, physicsPlan);
-            });
+                _pendingChunkLightingReconciliations.Enqueue(coord);
+                return false;
+            }
+
+            var work = new ChunkLightingReconciliationWork(
+                coord, contentDependencies, lightingDependencies, operation!);
             _chunkLightingReconciliationTasks.Add(coord, work);
             return true;
         }
@@ -1233,8 +1234,17 @@ public sealed class ChunkResidencyRuntime
         {
             var snapshot =
                 updater.CaptureChunkArrivalSnapshot(_world, coord);
-            var work = new DirectionalFaceReconciliationWork(snapshot);
-            work.WorkerTask = Task.Run(() => updater.ReconcileChunkArrival(snapshot));
+            if (!_worldWorkerPool.TrySchedule(
+                    _ => updater.ReconcileChunkArrival(snapshot),
+                    CancellationToken.None,
+                    out var operation))
+            {
+                _pendingDirectionalFaceReconciliations.Enqueue(coord);
+                return false;
+            }
+
+            var work = new DirectionalFaceReconciliationWork(
+                snapshot, operation!);
             _directionalFaceReconciliationTasks.Add(coord, work);
             return true;
         }
@@ -1249,15 +1259,18 @@ public sealed class ChunkResidencyRuntime
     private sealed class DirectionalFaceReconciliationWork
     {
         public DirectionalFaceReconciliationWork(
-            DirectionalFacePaletteReconciliationSnapshot snapshot)
+            DirectionalFacePaletteReconciliationSnapshot snapshot,
+            WorldWorkerOperation<DirectionalFacePaletteReconciliationResult> operation)
         {
             Snapshot = snapshot ??
                 throw new ArgumentNullException(nameof(snapshot));
+            Operation = operation ??
+                throw new ArgumentNullException(nameof(operation));
         }
 
         public DirectionalFacePaletteReconciliationSnapshot Snapshot { get; }
 
-        public Task<DirectionalFacePaletteReconciliationResult> WorkerTask { get; set; } = null!;
+        public WorldWorkerOperation<DirectionalFacePaletteReconciliationResult> Operation { get; }
     }
 
     private sealed record ChunkArrivalReconciliationResult(
@@ -1269,19 +1282,22 @@ public sealed class ChunkResidencyRuntime
         public ChunkLightingReconciliationWork(
             ChunkCoord coord,
             ChunkContentStamp contentDependencies,
-            IReadOnlyList<VoxelLightChunkStamp> lightingDependencies)
+            IReadOnlyList<VoxelLightChunkStamp> lightingDependencies,
+            WorldWorkerOperation<ChunkArrivalReconciliationResult> operation)
         {
             Coord = coord;
             ContentDependencies = contentDependencies ??
                 throw new ArgumentNullException(nameof(contentDependencies));
             LightingDependencies = lightingDependencies ??
                 throw new ArgumentNullException(nameof(lightingDependencies));
+            Operation = operation ??
+                throw new ArgumentNullException(nameof(operation));
         }
 
         public ChunkCoord Coord { get; }
         public ChunkContentStamp ContentDependencies { get; }
         public IReadOnlyList<VoxelLightChunkStamp> LightingDependencies { get; }
-        public Task<ChunkArrivalReconciliationResult> WorkerTask { get; set; } = null!;
+        public WorldWorkerOperation<ChunkArrivalReconciliationResult> Operation { get; }
     }
 
     private sealed record MaterializationWork(
