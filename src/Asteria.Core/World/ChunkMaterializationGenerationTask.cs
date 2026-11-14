@@ -412,6 +412,17 @@ public sealed class ChunkMaterializationGenerationTask :
         if (!_isCompleted)
             _isCompleted = true;
 
+        // Lighting is still supplied through the existing callback boundary.
+        // A dedicated serial light executor is the next migration slice; keep
+        // the current initialization behavior until that executor owns it.
+        if (_initializeLighting is not null)
+        {
+            var lightingStarted = Stopwatch.GetTimestamp();
+            _initializeLighting(chunk);
+            _initialLightingMilliseconds += Stopwatch.GetElapsedTime(
+                lightingStarted).TotalMilliseconds;
+        }
+
         var dispatchPreparation = Stopwatch.GetElapsedTime(
             _dispatchTimestamp, _createdTimestamp).TotalMilliseconds;
         var queueWait = _hasStartedWorker
