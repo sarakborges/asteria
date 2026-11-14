@@ -44,7 +44,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.SurfaceDecorations,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             DependsOn(ChunkGenerationStepId.SectionTerrainLayers)),
 
         // Directional face palettes sample procedural surface/terrain data in
@@ -54,7 +54,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.DirectionalFacePalettes,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             [
                 Dependency(
                     ChunkGenerationStepId.SurfaceDecorations,
@@ -68,7 +68,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.VolumeStructures,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             [
                 Dependency(ChunkGenerationStepId.DirectionalFacePalettes, NoHalo),
                 Dependency(ChunkGenerationStepId.ColumnBiomeData, NoHalo),
@@ -77,13 +77,13 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.GeneratedFluids,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             DependsOn(ChunkGenerationStepId.VolumeStructures)),
 
         Step(
             ChunkGenerationStepId.SurfaceStructures,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             [
                 Dependency(ChunkGenerationStepId.VolumeStructures, NoHalo),
                 Dependency(ChunkGenerationStepId.ColumnBiomeData, NoHalo),
@@ -92,7 +92,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.CaveSpikes,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             [
                 Dependency(ChunkGenerationStepId.SurfaceStructures, NoHalo),
                 Dependency(ChunkGenerationStepId.SectionTerrainLayers, NoHalo),
@@ -101,31 +101,31 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.VerticalDecorations,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             DependsOn(ChunkGenerationStepId.CaveSpikes)),
 
         Step(
             ChunkGenerationStepId.Veins,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             DependsOn(ChunkGenerationStepId.VerticalDecorations)),
 
         Step(
             ChunkGenerationStepId.WallLayers,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             DependsOn(ChunkGenerationStepId.Veins)),
 
         Step(
             ChunkGenerationStepId.WallObjects,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             DependsOn(ChunkGenerationStepId.WallLayers)),
 
         Step(
             ChunkGenerationStepId.ShellFinalization,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             DependsOn(ChunkGenerationStepId.WallObjects)),
 
         // Gravity support can cross the lower section boundary. Deeper
@@ -134,7 +134,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.GravitySupport,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             [
                 Dependency(ChunkGenerationStepId.ShellFinalization, NoHalo),
                 Dependency(
@@ -146,7 +146,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.StructureObjects,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             [
                 Dependency(ChunkGenerationStepId.GravitySupport, NoHalo),
                 Dependency(ChunkGenerationStepId.SurfaceStructures, NoHalo),
@@ -155,13 +155,13 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.PendingObjects,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.OrderedMutation,
             DependsOn(ChunkGenerationStepId.StructureObjects)),
 
         Step(
             ChunkGenerationStepId.InitialLighting,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkGenerationExecutionPolicy.LightExecutor,
             DependsOn(ChunkGenerationStepId.PendingObjects)),
 
         Step(
@@ -170,6 +170,71 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationExecutionPolicy.MainThreadIntegration,
             DependsOn(ChunkGenerationStepId.InitialLighting)),
     ]);
+
+    /// <summary>
+    /// Resolves the materializer's concrete state to the authoritative
+    /// generation-plan step. The fallback provider path has no decomposed
+    /// stage graph and is treated as one detached worker operation.
+    /// </summary>
+    public static ChunkGenerationStepId GetStepId(
+        ChunkMaterializationStage stage) =>
+        stage switch
+        {
+            ChunkMaterializationStage.TerrainSetup =>
+                ChunkGenerationStepId.SectionTerrainSetup,
+            ChunkMaterializationStage.TerrainLayer =>
+                ChunkGenerationStepId.SectionTerrainLayers,
+            ChunkMaterializationStage.SurfaceDecorations =>
+                ChunkGenerationStepId.SurfaceDecorations,
+            ChunkMaterializationStage.DirectionalFacePalettes =>
+                ChunkGenerationStepId.DirectionalFacePalettes,
+            ChunkMaterializationStage.VolumeStructures =>
+                ChunkGenerationStepId.VolumeStructures,
+            ChunkMaterializationStage.GeneratedFluids =>
+                ChunkGenerationStepId.GeneratedFluids,
+            ChunkMaterializationStage.SurfaceStructures =>
+                ChunkGenerationStepId.SurfaceStructures,
+            ChunkMaterializationStage.CaveSpikes =>
+                ChunkGenerationStepId.CaveSpikes,
+            ChunkMaterializationStage.VerticalDecorations =>
+                ChunkGenerationStepId.VerticalDecorations,
+            ChunkMaterializationStage.Veins =>
+                ChunkGenerationStepId.Veins,
+            ChunkMaterializationStage.WallLayers =>
+                ChunkGenerationStepId.WallLayers,
+            ChunkMaterializationStage.WallObjects =>
+                ChunkGenerationStepId.WallObjects,
+            ChunkMaterializationStage.ShellFinalization =>
+                ChunkGenerationStepId.ShellFinalization,
+            ChunkMaterializationStage.GravitySupport =>
+                ChunkGenerationStepId.GravitySupport,
+            ChunkMaterializationStage.StructureObjects =>
+                ChunkGenerationStepId.StructureObjects,
+            ChunkMaterializationStage.PendingObjects =>
+                ChunkGenerationStepId.PendingObjects,
+            ChunkMaterializationStage.ProviderFallback or
+            ChunkMaterializationStage.Complete =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(stage),
+                    stage,
+                    "This materialization state does not identify a generation-plan step."),
+            _ => throw new ArgumentOutOfRangeException(nameof(stage)),
+        };
+
+    /// <summary>
+    /// Returns the runtime execution lane declared by the authoritative
+    /// generation plan for one concrete materialization state.
+    /// </summary>
+    public static ChunkGenerationExecutionPolicy GetExecutionPolicy(
+        ChunkMaterializationStage stage) =>
+        stage switch
+        {
+            ChunkMaterializationStage.ProviderFallback =>
+                ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            ChunkMaterializationStage.Complete =>
+                throw new ArgumentOutOfRangeException(nameof(stage)),
+            _ => Default.GetStep(GetStepId(stage)).ExecutionPolicy,
+        };
 
     public static ChunkGenerationDependencyEnvelope FullSectionEnvelope =>
         Default.GetDependencyEnvelope(ChunkGenerationStepId.SectionReady);
