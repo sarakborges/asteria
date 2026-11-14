@@ -1099,7 +1099,10 @@ public sealed class ChunkResidencyRuntime
         return new ChunkGenerationTaskPriority(
             priority.StreamingBand,
             priority.HorizontalDistanceSquared,
-            priority.TotalDistanceSquared);
+            priority.TotalDistanceSquared,
+            coord.Y,
+            coord.Z,
+            coord.X);
     }
 
     private void UpdateGenerationTaskPriorities()
