@@ -38,8 +38,11 @@ public sealed class DimensionRuntimeSession
     private const int SelectedSpawnBiomeSearchRadiusBlocks = 4096;
 
     private readonly DimensionSessionState _state;
+    private readonly WorldWorkerPool _worldWorkerPool;
     private NVector3 _initialPlayerPosition;
-    private Task<NVector3>? _initialPositionResolution;
+    private WorldWorkerOperation<NVector3>? _initialPositionResolution;
+    private Func<NVector3>? _pendingInitialPositionResolver;
+    private CancellationTokenSource? _initialPositionCancellation;
     private bool _initialPlayerPositionReady;
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
@@ -139,7 +142,8 @@ public sealed class DimensionRuntimeSession
             settings ??
             throw new ArgumentNullException(
                 nameof(settings));
-        ArgumentNullException.ThrowIfNull(workerPool);
+        _worldWorkerPool = workerPool ??
+            throw new ArgumentNullException(nameof(workerPool));
 
         Root =
             new Node3D
@@ -785,7 +789,8 @@ public sealed class DimensionRuntimeSession
         _retiring;
 
     public bool IsQuiescent =>
-        (_initialPositionResolution is null || _initialPositionResolution.IsCompleted) &&
+        _initialPositionResolution is null &&
+        _pendingInitialPositionResolver is null &&
         Residency.IsQuiescent &&
         Residency.DirectionalFaceReconciliationCount == 0 &&
         Residency.ChunkLightingReconciliationCount == 0 &&
@@ -813,7 +818,8 @@ public sealed class DimensionRuntimeSession
         if (_retiring || _retired)
             throw new InvalidOperationException(
                 "A retiring dimension session cannot start spawn preparation.");
-        if (_initialPositionResolution is not null)
+        if (_initialPositionResolution is not null ||
+            _pendingInitialPositionResolver is not null)
         {
             if (force)
                 throw new InvalidOperationException(
@@ -824,10 +830,9 @@ public sealed class DimensionRuntimeSession
             return;
 
         _initialPlayerPositionReady = false;
-        // Generated-world spawn search is pure and may inspect thousands of
-        // world-space samples. Keep it off the Godot thread and scoped to this
-        // session so a retired result can never affect its successor.
-        _initialPositionResolution = Task.Run(ResolveGeneratedSpawn);
+        // The generated-world query runs on the shared world executor. If its
+        // bounded queue is full, retain the request and retry on a later frame.
+        QueueInitialPositionResolution(ResolveGeneratedSpawn);
     }
 
     /// <summary>
@@ -838,25 +843,56 @@ public sealed class DimensionRuntimeSession
     public bool TryCompleteInitialPositionResolution(out Exception? error)
     {
         error = null;
-        if (_initialPositionResolution is not { IsCompleted: true } task)
+        TryStartPendingInitialPositionResolution();
+        var operation = _initialPositionResolution;
+        if (operation is null ||
+            !operation.TryGetCompletion(out var completion))
             return _initialPlayerPositionReady;
 
         _initialPositionResolution = null;
-        try
+        _initialPositionCancellation?.Dispose();
+        _initialPositionCancellation = null;
+        if (completion.Error is not null)
         {
-            var generated = task.GetAwaiter().GetResult();
-            if (!_initialPlayerPositionReady)
-            {
-                _initialPlayerPosition = generated;
-                _initialPlayerPositionReady = true;
-            }
-        }
-        catch (Exception exception)
-        {
-            error = exception;
+            error = completion.Error;
+            return _initialPlayerPositionReady || error is not null;
         }
 
-        return _initialPlayerPositionReady || error is not null;
+        if (!_initialPlayerPositionReady)
+        {
+            _initialPlayerPosition = completion.Result;
+            _initialPlayerPositionReady = true;
+        }
+
+        return _initialPlayerPositionReady;
+    }
+
+    private void QueueInitialPositionResolution(Func<NVector3> resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+        _pendingInitialPositionResolver = resolver;
+        TryStartPendingInitialPositionResolution();
+    }
+
+    private void TryStartPendingInitialPositionResolution()
+    {
+        if (_retiring || _retired || _initialPositionResolution is not null ||
+            _pendingInitialPositionResolver is not { } resolver)
+            return;
+
+        var cancellation = new CancellationTokenSource();
+        if (!_worldWorkerPool.TrySchedule(
+                _ => resolver(),
+                cancellation.Token,
+                out var operation))
+        {
+            cancellation.Dispose();
+            return;
+        }
+
+        _pendingInitialPositionResolver = null;
+        _initialPositionCancellation = cancellation;
+        _initialPositionResolution = operation;
     }
 
     private NVector3 ResolveGeneratedSpawn()
@@ -961,7 +997,8 @@ public sealed class DimensionRuntimeSession
         if (_retiring || _retired)
             throw new InvalidOperationException(
                 "A retiring dimension session cannot prepare a generated destination.");
-        if (_initialPositionResolution is not null)
+        if (_initialPositionResolution is not null ||
+            _pendingInitialPositionResolver is not null)
             throw new InvalidOperationException(
                 "This dimension session already has an entry-position query in flight.");
 
@@ -969,7 +1006,7 @@ public sealed class DimensionRuntimeSession
         var preferredY = checked((int)MathF.Floor(preferred.Y));
         var preferredZ = checked((int)MathF.Floor(preferred.Z));
         _initialPlayerPositionReady = false;
-        _initialPositionResolution = Task.Run(
+        QueueInitialPositionResolution(
             () => ResolveGeneratedDestination(preferredX, preferredY, preferredZ));
     }
 
@@ -1031,6 +1068,8 @@ public sealed class DimensionRuntimeSession
         }
 
         _retiring = true;
+        _pendingInitialPositionResolver = null;
+        _initialPositionCancellation?.Cancel();
         Residency.BeginRetirement();
         Streaming.BeginRetirement();
         FluidSimulation.BeginRetirement();
@@ -1055,7 +1094,7 @@ public sealed class DimensionRuntimeSession
                 Array.Empty<ChunkCoord>());
         var errors =
             new List<Exception>();
-        if (_initialPositionResolution is { IsCompleted: true } &&
+        if (_initialPositionResolution?.IsCompleted == true &&
             TryCompleteInitialPositionResolution(out var spawnError) &&
             spawnError is not null)
             errors.Add(spawnError);
