@@ -920,7 +920,7 @@ public partial class Main : Node3D
 			priorityTerrainMeshPending: _worldUpdates.PriorityDirtyChunkCount,
 			backgroundTerrainMeshPending: _worldUpdates.BackgroundDirtyChunkCount,
 			terrainMeshWorkersActive: _terrainMeshPipeline.ActiveWorkerCount,
-			fluidMeshBatchesInFlight: _fluidMeshPipeline.ActiveWorkerCount,
+			fluidMeshWorkersActive: _fluidMeshPipeline.ActiveWorkerCount,
 			terrainPublicationsPending: _chunkPresentations.PendingTerrainPublications,
 			terrainMeshFlushPending: _chunkPresentations.PendingTerrainMeshFlushCount,
 			activeWorldWorkers: ActiveWorldWorkerCount,
