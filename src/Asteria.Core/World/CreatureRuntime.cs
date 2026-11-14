@@ -674,7 +674,7 @@ public sealed class CreatureRuntime
         var changed = Advance(
             deltaSeconds, observerPosition, isEntityTicking) > 0 ||
             hadEndingReactions;
-        changed |= ResolveOverlaps(world, blocks);
+        changed |= ResolveOverlaps(world, blocks, isEntityTicking);
         foreach (var id in _active.Keys.ToArray())
         {
             var creature = _active[id];
@@ -724,7 +724,7 @@ public sealed class CreatureRuntime
             _active[id] = next;
         }
 
-        changed |= ResolveOverlaps(world, blocks);
+        changed |= ResolveOverlaps(world, blocks, isEntityTicking);
         return changed;
     }
 
@@ -749,13 +749,26 @@ public sealed class CreatureRuntime
     /// Separate overlapping summons/restores deterministically. All attempted
     /// displacement is swept against loaded terrain; no-AI creatures stay put.
     /// </summary>
-    private bool ResolveOverlaps(VoxelWorld world, BlockRegistry blocks)
+    private bool ResolveOverlaps(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        Func<ChunkCoord, bool>? isEntityTicking)
     {
         if (_active.Count < 2)
             return false;
 
         var changed = false;
         var ids = _active.Keys.ToArray();
+        var ticking = new bool[ids.Length];
+        for (var index = 0; index < ids.Length; index++)
+        {
+            var creature = _active[ids[index]];
+            var chunk = VoxelCoordinates.FromWorld(
+                (int)MathF.Floor(creature.Position.X),
+                (int)MathF.Floor(creature.Position.Y),
+                (int)MathF.Floor(creature.Position.Z)).Chunk;
+            ticking[index] = isEntityTicking is null || isEntityTicking(chunk);
+        }
         // Build each collider once instead of repeatedly resolving its
         // definition for every O(n²) pair. Update the cache immediately after
         // separation so subsequent pairs still see authoritative positions.
@@ -772,24 +785,49 @@ public sealed class CreatureRuntime
                 var first = _active[ids[i]];
                 var second = _active[ids[j]];
                 if (first.IsDying || second.IsDying ||
+                    (!ticking[i] && !ticking[j]) ||
                     (first.NoAi && second.NoAi))
                     continue;
                 if (!bounds[i].Intersects(bounds[j]))
                     continue;
 
-                if (!second.NoAi && TrySeparate(second, first, world, blocks,
+                // A non-ticking holder contributes a frozen obstacle. Only
+                // the entity in ENTITY_TICKING may be displaced while the
+                // other entity waits for its simulation ticket.
+                var moveSecond = ticking[j] && !second.NoAi &&
+                    (!ticking[i] || first.NoAi);
+                var moveFirst = ticking[i] && !first.NoAi &&
+                    (!ticking[j] || second.NoAi);
+                if (moveSecond && TrySeparate(second, first, world, blocks,
                         out var newSecond))
                 {
                     _active[second.Id.Value] = newSecond;
                     bounds[j] = CreatureBounds(newSecond);
                     changed = movedThisPass = true;
                 }
-                else if (!first.NoAi && TrySeparate(first, second, world, blocks,
+                else if (moveFirst && TrySeparate(first, second, world, blocks,
                              out var newFirst))
                 {
                     _active[first.Id.Value] = newFirst;
                     bounds[i] = CreatureBounds(newFirst);
                     changed = movedThisPass = true;
+                }
+                else if (ticking[i] && ticking[j])
+                {
+                    if (!second.NoAi && TrySeparate(second, first, world, blocks,
+                            out var bothSecond))
+                    {
+                        _active[second.Id.Value] = bothSecond;
+                        bounds[j] = CreatureBounds(bothSecond);
+                        changed = movedThisPass = true;
+                    }
+                    else if (!first.NoAi && TrySeparate(first, second, world, blocks,
+                                 out var bothFirst))
+                    {
+                        _active[first.Id.Value] = bothFirst;
+                        bounds[i] = CreatureBounds(bothFirst);
+                        changed = movedThisPass = true;
+                    }
                 }
             }
             if (!movedThisPass) break;
