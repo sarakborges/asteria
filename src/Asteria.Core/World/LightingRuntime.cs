@@ -41,7 +41,7 @@ public sealed class LightingRuntime
     private readonly PackContentRegistry<ObjectDefinition>? _objects;
     private readonly WorldUpdateQueue _updates;
     private readonly LightingResultIntegrator _integration;
-    private readonly LightingWorker _worker = new();
+    private readonly LightingWorker _worker;
 
     private bool _acceptingWork = true;
 
@@ -67,6 +67,7 @@ public sealed class LightingRuntime
         FluidRegistry fluids,
         WorldUpdateQueue updates,
         LightingResultIntegrator integration,
+        WorldWorkerPool workerPool,
         PackContentRegistry<ObjectDefinition>? objects = null)
     {
         _world =
@@ -84,6 +85,8 @@ public sealed class LightingRuntime
         _integration =
             integration ??
             throw new ArgumentNullException(nameof(integration));
+        _worker = new LightingWorker(
+            workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
         _objects = objects;
     }
 
