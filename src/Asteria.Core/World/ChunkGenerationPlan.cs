@@ -260,6 +260,25 @@ public sealed class ChunkGenerationPlan
             ? dependencies
             : throw new KeyNotFoundException($"Generation step is not in this plan: {id}");
 
+    /// <summary>
+    /// Returns the complete spatial envelope required to reach one target step,
+    /// including the target's own reads/writes and every accumulated prerequisite.
+    /// This is the source of truth for the ticket distance graph's maximum radius.
+    /// </summary>
+    public ChunkGenerationDependencyEnvelope GetDependencyEnvelope(
+        ChunkGenerationStepId id)
+    {
+        var target = GetStep(id);
+        var envelope = target.ReadEnvelope.Union(target.WriteEnvelope);
+        foreach (var dependency in GetAccumulatedDependencies(id))
+            envelope = envelope.Union(dependency.Envelope);
+        return envelope;
+    }
+
+    public int GetMaximumHorizontalDependencyRadius(
+        ChunkGenerationStepId id) =>
+        GetDependencyEnvelope(id).HorizontalRadius;
+
     private static ImmutableArray<ChunkGenerationStepDefinition> TopologicallyOrder(
         ImmutableArray<ChunkGenerationStepDefinition> declared,
         IReadOnlyDictionary<ChunkGenerationStepId, int> declaredIndex,
