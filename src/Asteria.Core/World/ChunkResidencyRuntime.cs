@@ -845,13 +845,19 @@ public sealed class ChunkResidencyRuntime
         var failures = new List<ChunkMaterializationFailure>();
         var startedTasks = 0;
         var restored = 0;
-        // Logical chunk tasks are created from the authoritative desired set.
-        // Only worker operations are constrained by physical worker capacity.
+        // Admit at most as many new materialization jobs as the shared executor
+        // can accept right now. This is derived from actual free worker + queue
+        // slots, not a per-subsystem task multiplier. Archive restores remain
+        // synchronous and do not consume a worker-admission slot.
+        var maximumNewMaterializationTasks = Math.Min(
+            maximumGenerationWorkerStarts,
+            AvailableGenerationWorkerStarts);
+
         while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
-
-            // Keep each X/Z column together in the pending queue, but let the
-            // frame work budget decide how many section tasks can be admitted.
+            // Keep each X/Z column together in the pending queue. Continue
+            // restoring archived chunks, but defer new provider jobs once the
+            // shared executor has no remaining submission capacity.
             var pendingColumn = _streaming.PopPendingColumnEntryByPriority();
             if (pendingColumn is null)
                 break;
@@ -894,7 +900,14 @@ public sealed class ChunkResidencyRuntime
                 if (restore == ChunkRestoreResult.AlreadyResident)
                     continue;
 
-                 IChunkMaterializationJob job;
+                if (startedTasks >= maximumNewMaterializationTasks)
+                {
+                    RequeuePendingSections(sections, sectionIndex);
+                    stopAfterBatch = true;
+                    break;
+                }
+
+                IChunkMaterializationJob job;
                 try
                 {
                     job = _chunkProvider is IIncrementalChunkProvider incremental
