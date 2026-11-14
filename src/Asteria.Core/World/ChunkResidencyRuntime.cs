@@ -292,7 +292,7 @@ public sealed class ChunkResidencyRuntime
         _streaming.IsEntityTicking(coord) &&
         _streaming.IsNaturalSpawnCandidate(coord);
 
-    internal ChunkGenerationSerialExecutor LightingExecutor =>
+    public ChunkGenerationSerialExecutor LightingExecutor =>
         _generationDispatcher.LightingExecutor;
 
     public bool IsLightingRelevant(ChunkCoord coord) =>
