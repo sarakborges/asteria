@@ -145,8 +145,7 @@ public sealed class ChunkResidencyRuntime
     private readonly WorldTickClock _worldTicks;
     private readonly ChunkResidencySettings _settings;
     private readonly ChunkStreamingState _streaming = new();
-    private readonly ChunkTicketAdmissionController _playerTicketAdmissions =
-        new(_streaming.DistanceManager);
+    private readonly ChunkTicketAdmissionController _playerTicketAdmissions;
     private readonly ChunkPresentationSelection _presentationSelection = new();
     // Each section keeps one private incremental materialization job. The
     // serial dispatcher resumes it between bounded worker slices; no worker
@@ -228,6 +227,8 @@ public sealed class ChunkResidencyRuntime
         _settings =
             settings ??
             throw new ArgumentNullException(nameof(settings));
+        _playerTicketAdmissions =
+            new ChunkTicketAdmissionController(_streaming.DistanceManager);
         var generationWorkerCount = _settings.MaxConcurrentWorkers;
         _generationCompletionMailbox = new ChunkGenerationCompletionMailbox();
         _generationWorkerPool = worldWorkerPool is null
