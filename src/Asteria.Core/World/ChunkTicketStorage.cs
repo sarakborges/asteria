@@ -793,6 +793,13 @@ public sealed class ChunkHolder
             _generationFutures[status] = NewGenerationFuture();
         }
 
+        ResetPromotionFuture(
+            ref _fullChunkFuture, ChunkFullStatus.Full, reason);
+        ResetPromotionFuture(
+            ref _blockTickingFuture, ChunkFullStatus.BlockTicking, reason);
+        ResetPromotionFuture(
+            ref _entityTickingFuture, ChunkFullStatus.EntityTicking, reason);
+
         return true;
     }
 
@@ -903,6 +910,15 @@ public sealed class ChunkHolder
         TaskCompletionSource<ChunkHolderFutureResult> future) =>
         future.Task.IsCompletedSuccessfully &&
         future.Task.Result.Succeeded;
+
+    private static void ResetPromotionFuture(
+        ref TaskCompletionSource<ChunkHolderFutureResult> future,
+        ChunkFullStatus status,
+        string reason)
+    {
+        future.TrySetResult(ChunkHolderFutureResult.Unloaded(reason));
+        future = NewFuture();
+    }
 
     private static void ReconcileFuture(
         ref TaskCompletionSource<ChunkHolderFutureResult> future,
