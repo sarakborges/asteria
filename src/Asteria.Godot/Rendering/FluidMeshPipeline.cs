@@ -171,8 +171,9 @@ public sealed class FluidMeshPipeline
         report = null;
         error = null;
 
-        foreach (var worker in _workers)
+        for (var workerIndex = 0; workerIndex < _workers.Count; workerIndex++)
         {
+            var worker = _workers[workerIndex];
             if (!worker.Worker.TryTakeCompleted(
                     out var result,
                     out error))
@@ -182,7 +183,7 @@ public sealed class FluidMeshPipeline
 
             var sourceBatch = worker.InFlightBatch;
             worker.InFlightBatch = null;
-            _workers.RemoveAt(Array.IndexOf(_workers.ToArray(), worker));
+            _workers.RemoveAt(workerIndex);
 
             if (error is not null)
             {
