@@ -64,6 +64,7 @@ public sealed class ChunkMaterializationGenerationTask :
     private ulong _lastDependencyId;
     private bool _hasScheduledOperation;
     private bool _terrainStatusPublished;
+    private bool _terrainStatusPending;
     private bool _featuresStatusPublished;
     private bool _waitingForLighting;
     private bool _lightingInitialized;
@@ -138,6 +139,13 @@ public sealed class ChunkMaterializationGenerationTask :
         else if (completedDependencies.Count != 0)
             throw new InvalidOperationException(
                 "The first materialization operation cannot have worker completions.");
+
+        if (_terrainStatusPending)
+        {
+            _terrainStatusPending = false;
+            return ChunkGenerationTaskAdvanceResult.YieldWithStatus(
+                ChunkGenerationStatus.Terrain);
+        }
 
         return AdvanceParent(cancellationToken);
     }
@@ -461,6 +469,17 @@ public sealed class ChunkMaterializationGenerationTask :
 
         _hasScheduledOperation = false;
         ApplySlice(slice);
+        if (!_terrainStatusPublished &&
+            _job.ActiveWorkStage != ChunkMaterializationStage.TerrainLayer &&
+            (slice.StageTimings.Any(timing =>
+                 timing.Stage == ChunkMaterializationStage.TerrainLayer) ||
+             slice.StageTimings.Any(timing =>
+                 timing.Stage == ChunkMaterializationStage.TerrainSetup) &&
+             _job.ActiveWorkStage != ChunkMaterializationStage.TerrainLayer))
+        {
+            _terrainStatusPublished = true;
+            _terrainStatusPending = true;
+        }
     }
 
     private void ApplySlice(ChunkMaterializationWorkerSlice slice)
