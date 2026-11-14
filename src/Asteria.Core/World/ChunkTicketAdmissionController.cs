@@ -103,8 +103,10 @@ public sealed class ChunkTicketAdmissionController
         if (!_sectionsAwaitingFullStatus.Remove(column))
             return false;
 
-        _distanceManager.FailPendingPromotions(
-            column, "The player chunk ticket could not reach ENTITY_TICKING.");
+        // Remove the source ticket as well: ChunkHolder demotion fails every
+        // outstanding promotion future and a later retry gets a fresh holder
+        // and fresh futures instead of inheriting a completed failure.
+        _distanceManager.RemovePlayerLoadingTicket(column);
         return true;
     }
 
