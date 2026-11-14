@@ -2647,7 +2647,10 @@ public partial class Main : Node3D
 		_sessionStates = states;
 		_worldWorkerPool = new WorldWorkerPool(MaxConcurrentWorldJobs);
 		_sessions = new DimensionSessionController(
-			_sessionStates, CreateDimensionSession);
+			_sessionStates,
+			CreateDimensionSession,
+			_worldWorkerPool ??
+				throw new InvalidOperationException("World worker pool is not initialized."));
 		_sessions.Start(startDimension);
 		ActivateCurrentDimensionPresentation();
 
