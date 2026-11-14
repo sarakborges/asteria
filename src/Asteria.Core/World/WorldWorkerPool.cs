@@ -140,6 +140,7 @@ public sealed class WorldWorkerPool : IDisposable
         Func<CancellationToken, TResult> execute,
         CancellationToken cancellationToken,
         out WorldWorkerOperation<TResult>? operation,
+        Action? onStarted = null,
         Action<WorldWorkerCompletion<TResult>>? onCompleted = null)
     {
         ArgumentNullException.ThrowIfNull(execute);
@@ -152,7 +153,7 @@ public sealed class WorldWorkerPool : IDisposable
         }
 
         var item = new WorkItem<TResult>(
-            execute, cancellationToken, onCompleted);
+            execute, cancellationToken, onStarted, onCompleted);
         // Counts are visible before queue admission: a worker may consume an
         // item immediately after TryAdd succeeds.
         Interlocked.Increment(ref _pendingWorkCount);
@@ -224,6 +225,7 @@ public sealed class WorldWorkerPool : IDisposable
     private sealed class WorkItem<TResult>(
         Func<CancellationToken, TResult> execute,
         CancellationToken cancellationToken,
+        Action? onStarted,
         Action<WorldWorkerCompletion<TResult>>? onCompleted)
         : IWorkItem
     {
@@ -232,6 +234,17 @@ public sealed class WorldWorkerPool : IDisposable
         public void Execute(WorldWorkerPool owner)
         {
             Operation.MarkRunning();
+            try
+            {
+                onStarted?.Invoke();
+            }
+            catch
+            {
+                // Start hooks only maintain owner-side counters. They cannot
+                // prevent the actual operation from running.
+                Interlocked.Increment(ref owner._completionCallbackFailures);
+            }
+
             WorldWorkerCompletion<TResult> completion;
             try
             {
