@@ -45,33 +45,70 @@ public sealed class ChunkTicketAdmissionController
         ArgumentNullException.ThrowIfNull(requiredSections);
         ArgumentNullException.ThrowIfNull(residentSections);
 
-        if (_distanceManager.HasPlayerLoadingTicket(column) ||
-            _sectionsAwaitingFullStatus.ContainsKey(column))
+        var resident = residentSections.ToHashSet();
+        var missing = requiredSections
+            .Where(coord => ChunkColumnCoord.FromChunk(coord) == column)
+            .Where(coord => !resident.Contains(coord))
+            .ToHashSet();
+
+        if (_sectionsAwaitingFullStatus.TryGetValue(column, out var pending))
+        {
+            var newSections = missing.Where(section => !pending.Contains(section))
+                .ToArray();
+            if (newSections.Length > 0)
+            {
+                pending.UnionWith(newSections);
+                // A previously achieved status described the old vertical set.
+                // Invalidate it and let the current/new column task report
+                // aggregate progress for the expanded requirement set.
+                _distanceManager.ResetGenerationProgress(
+                    column,
+                    "New vertical sections were added to the holder's FULL requirement.");
+            }
+
+            pending.RemoveWhere(section => resident.Contains(section));
+            if (pending.Count == 0)
+                CompleteFullAdmission(column);
             return true;
+        }
+
+        if (_distanceManager.HasPlayerLoadingTicket(column))
+        {
+            if (missing.Count == 0)
+            {
+                CompleteFullAdmission(column);
+                return true;
+            }
+
+            if (_sectionsAwaitingFullStatus.Count >= MaximumConcurrentPlayerTicketAdds)
+                return false;
+
+            _sectionsAwaitingFullStatus.Add(column, missing);
+            _distanceManager.ResetGenerationProgress(
+                column,
+                "Additional vertical sections are now required by the holder.");
+            return true;
+        }
 
         if (_sectionsAwaitingFullStatus.Count >= MaximumConcurrentPlayerTicketAdds)
             return false;
 
         _distanceManager.AddPlayerLoadingTicket(column);
-        var resident = residentSections.ToHashSet();
-        var pending = requiredSections
-            .Where(coord => ChunkColumnCoord.FromChunk(coord) == column)
-            .Where(coord => !resident.Contains(coord))
-            .ToHashSet();
-
-        if (pending.Count > 0)
-        {
-            _sectionsAwaitingFullStatus.Add(column, pending);
-        }
+        if (missing.Count > 0)
+            _sectionsAwaitingFullStatus.Add(column, missing);
         else
-        {
-            _distanceManager.CompleteGenerationStatus(
-                column, ChunkGenerationStatus.Full);
-            _distanceManager.CompleteFullStatus(
-                column, ChunkFullStatus.EntityTicking);
-        }
+            CompleteFullAdmission(column);
 
         return true;
+    }
+
+    private void CompleteFullAdmission(ChunkColumnCoord column)
+    {
+        _sectionsAwaitingFullStatus.Remove(column);
+        _distanceManager.CompleteGenerationStatus(
+            column, ChunkGenerationStatus.Full);
+        _distanceManager.CompleteFullStatus(
+            column, ChunkFullStatus.EntityTicking);
     }
 
     /// <summary>
