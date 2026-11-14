@@ -599,7 +599,8 @@ public sealed class DimensionRuntimeSession
             World,
             Blocks,
             Creatures,
-            Residency.IsEntityTicking);
+            Residency.IsEntityTicking,
+            Residency.IsNaturalSpawnCandidate);
         var spawnMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         started = Stopwatch.GetTimestamp();
