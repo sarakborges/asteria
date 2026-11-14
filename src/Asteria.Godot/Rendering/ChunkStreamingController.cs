@@ -60,7 +60,8 @@ public sealed class ChunkStreamingController
         ChunkResidencyRuntime residency,
         ChunkPresentationController presentations,
         IChunkSurfaceRangeProvider surfaceRanges,
-        ChunkStreamingControllerSettings settings)
+        ChunkStreamingControllerSettings settings,
+        WorldWorkerPool workerPool)
     {
         _residency =
             residency ??
@@ -72,7 +73,8 @@ public sealed class ChunkStreamingController
             new ChunkStreamingSelectionRuntime(
                 surfaceRanges ??
                 throw new ArgumentNullException(
-                    nameof(surfaceRanges)));
+                    nameof(surfaceRanges)),
+                workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
         _settings =
             settings ??
             throw new ArgumentNullException(nameof(settings));
