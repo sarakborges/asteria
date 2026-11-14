@@ -393,7 +393,8 @@ public sealed class DimensionRuntimeSession
                 Generator,
                 new ChunkStreamingControllerSettings(
                     settings.RetentionMarginChunks,
-                    settings.MaxPresentationPublicationsPerFrame));
+                    settings.MaxPresentationPublicationsPerFrame),
+                workerPool);
     }
 
     public DimensionRuntimeSessionSettings Settings { get; }
