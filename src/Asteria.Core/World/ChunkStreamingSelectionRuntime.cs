@@ -142,7 +142,8 @@ public sealed class ChunkStreamingSelectionRuntime
         if (!_worker.TryStart(
                 () =>
                     BuildSelection(
-                        request)))
+                        request),
+                priority: WorldWorkerPool.PlayerChunkPriority))
         {
             _inFlight = null;
             _pending =
