@@ -34,6 +34,8 @@ public sealed class BlockEntityFrameController
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly BlockPhysicsUpdateQueue _updates;
     private readonly BlockEntityPresentationController _presentations;
+    private Func<ChunkCoord, bool>? _isBlockTicking;
+    private Func<ChunkCoord, bool>? _isEntityTicking;
 
     public BlockEntityFrameController(
         WorldTickClock worldTicks,
@@ -57,6 +59,16 @@ public sealed class BlockEntityFrameController
         _presentations =
             presentations ??
             throw new ArgumentNullException(nameof(presentations));
+    }
+
+    public void ConfigureSimulationEligibility(
+        Func<ChunkCoord, bool> isBlockTicking,
+        Func<ChunkCoord, bool> isEntityTicking)
+    {
+        _isBlockTicking = isBlockTicking ??
+            throw new ArgumentNullException(nameof(isBlockTicking));
+        _isEntityTicking = isEntityTicking ??
+            throw new ArgumentNullException(nameof(isEntityTicking));
     }
 
     public int FallingCount =>
@@ -99,9 +111,11 @@ public sealed class BlockEntityFrameController
         double gravityStrength)
     {
         var started = Stopwatch.GetTimestamp();
+        if (_isBlockTicking is { } isBlockTicking)
+            _blockPhysics.WakeSimulationChunks(isBlockTicking);
         var wake =
             _worldTicks.TicksThisFrame > 0
-                ? _blockPhysics.ProcessWakeups()
+                ? _blockPhysics.ProcessWakeups(_isBlockTicking)
                 : BlockPhysicsWakeResult.Empty;
         var wakeMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
@@ -109,14 +123,16 @@ public sealed class BlockEntityFrameController
         var landed =
             _blockPhysics.Advance(
                 deltaSeconds,
-                gravityStrength);
+                gravityStrength,
+                _isBlockTicking);
         var fallingMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         started = Stopwatch.GetTimestamp();
         var dropped =
             _droppedBlocks.Advance(
                 deltaSeconds,
-                gravityStrength);
+                gravityStrength,
+                _isEntityTicking);
         var droppedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         started = Stopwatch.GetTimestamp();
