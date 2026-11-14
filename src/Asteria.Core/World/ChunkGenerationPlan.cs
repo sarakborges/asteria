@@ -109,6 +109,15 @@ public readonly record struct ChunkGenerationDependencyEnvelope
         sectionYOffset <= MaximumSectionOffset;
 }
 
+/// <summary>How a generation prerequisite is supplied to a dependent step.</summary>
+public enum ChunkGenerationDependencyKind : byte
+{
+    /// <summary>The prerequisite must be achieved by a chunk holder at the requested status.</summary>
+    HolderStatus,
+    /// <summary>The prerequisite is immutable generator-owned data and does not require a resident chunk holder.</summary>
+    ImmutableWorldData,
+}
+
 /// <summary>
 /// A direct prerequisite of a step and the spatial envelope in which that
 /// prerequisite must be available.
@@ -117,18 +126,24 @@ public readonly record struct ChunkGenerationStepDependency
 {
     public ChunkGenerationStepDependency(
         ChunkGenerationStepId prerequisiteStep,
-        ChunkGenerationDependencyEnvelope envelope)
+        ChunkGenerationDependencyEnvelope envelope,
+        ChunkGenerationDependencyKind kind = ChunkGenerationDependencyKind.HolderStatus)
     {
         if (!Enum.IsDefined(prerequisiteStep))
             throw new ArgumentOutOfRangeException(nameof(prerequisiteStep));
+        if (!Enum.IsDefined(kind))
+            throw new ArgumentOutOfRangeException(nameof(kind));
 
         PrerequisiteStep = prerequisiteStep;
         Envelope = envelope;
+        Kind = kind;
     }
 
     public ChunkGenerationStepId PrerequisiteStep { get; }
 
     public ChunkGenerationDependencyEnvelope Envelope { get; }
+
+    public ChunkGenerationDependencyKind Kind { get; }
 }
 
 /// <summary>
@@ -277,9 +292,29 @@ public sealed class ChunkGenerationPlan
         return envelope;
     }
 
+    /// <summary>
+    /// Returns only the envelope that must be retained through chunk holders.
+    /// Immutable generator-field reads are deliberately excluded: they are
+    /// guarded by the step's read envelope, not by residency or a holder future.
+    /// Writes that cross a chunk boundary remain holder dependencies.
+    /// </summary>
+    public ChunkGenerationDependencyEnvelope GetHolderDependencyEnvelope(
+        ChunkGenerationStepId id)
+    {
+        var target = GetStep(id);
+        var envelope = target.WriteEnvelope;
+        foreach (var dependency in GetAccumulatedDependencies(id))
+        {
+            if (dependency.Kind == ChunkGenerationDependencyKind.HolderStatus)
+                envelope = envelope.Union(dependency.Envelope);
+        }
+
+        return envelope;
+    }
+
     public int GetMaximumHorizontalDependencyRadius(
         ChunkGenerationStepId id) =>
-        GetDependencyEnvelope(id).HorizontalRadius;
+        GetHolderDependencyEnvelope(id).HorizontalRadius;
 
     private static ImmutableArray<ChunkGenerationStepDefinition> TopologicallyOrder(
         ImmutableArray<ChunkGenerationStepDefinition> declared,
@@ -338,11 +373,16 @@ public sealed class ChunkGenerationPlan
         foreach (var step in ordered)
         {
             var envelopes = new Dictionary<
-                ChunkGenerationStepId, ChunkGenerationDependencyEnvelope>();
+                (ChunkGenerationStepId Step, ChunkGenerationDependencyKind Kind),
+                ChunkGenerationDependencyEnvelope>();
 
             foreach (var direct in step.DirectDependencies)
             {
-                AddOrUnion(envelopes, direct.PrerequisiteStep, direct.Envelope);
+                AddOrUnion(
+                    envelopes,
+                    direct.PrerequisiteStep,
+                    direct.Kind,
+                    direct.Envelope);
 
                 if (!result.TryGetValue(direct.PrerequisiteStep, out var nested))
                     continue;
@@ -352,14 +392,16 @@ public sealed class ChunkGenerationPlan
                     AddOrUnion(
                         envelopes,
                         ancestor.PrerequisiteStep,
+                        direct.Kind,
                         direct.Envelope.Compose(ancestor.Envelope));
                 }
             }
 
             var accumulated = envelopes
-                .OrderBy(entry => orderedIndex[entry.Key])
+                .OrderBy(entry => orderedIndex[entry.Key.Step])
+                .ThenBy(entry => entry.Key.Kind)
                 .Select(entry => new ChunkGenerationStepDependency(
-                    entry.Key, entry.Value))
+                    entry.Key.Step, entry.Value, entry.Key.Kind))
                 .ToImmutableArray();
             result.Add(step.Id, accumulated);
         }
@@ -368,11 +410,15 @@ public sealed class ChunkGenerationPlan
     }
 
     private static void AddOrUnion(
-        IDictionary<ChunkGenerationStepId, ChunkGenerationDependencyEnvelope> target,
+        IDictionary<
+            (ChunkGenerationStepId Step, ChunkGenerationDependencyKind Kind),
+            ChunkGenerationDependencyEnvelope> target,
         ChunkGenerationStepId id,
+        ChunkGenerationDependencyKind kind,
         ChunkGenerationDependencyEnvelope envelope)
     {
-        target[id] = target.TryGetValue(id, out var current)
+        var key = (id, kind);
+        target[key] = target.TryGetValue(key, out var current)
             ? current.Union(envelope)
             : envelope;
     }
