@@ -5,34 +5,32 @@ namespace Asteria.Core.Tests;
 public sealed class WorldWorkerPoolTests
 {
     [Fact]
-    public void ConstructorRequiresPositiveWorkerAndQueueCapacities()
+    public void ConstructorRequiresPositiveWorkerCount()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new WorldWorkerPool(0));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new WorldWorkerPool(1, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new WorldWorkerPool(1, -1));
     }
 
     [Fact]
-    public void OneExecutorBoundsPhysicalConcurrencyAcrossIndependentOperations()
+    public void LargePriorityQueueDoesNotIncreasePhysicalWorkerConcurrency()
     {
-        using var pool = new WorldWorkerPool(workerCount: 2, pendingCapacity: 2);
+        const int workerCount = 2;
+        const int queuedOperations = 256;
+        using var pool = new WorldWorkerPool(workerCount);
         using var releaseWorkers = new ManualResetEventSlim(false);
-        using var bothWorkersStarted = new CountdownEvent(2);
+        using var bothWorkersStarted = new CountdownEvent(workerCount);
         var active = 0;
         var maximumActive = 0;
         var operations = new List<WorldWorkerOperation<int>>();
 
-        for (var index = 0; index < 2; index++)
+        for (var index = 0; index < workerCount; index++)
         {
             var value = index;
             Assert.True(pool.TrySchedule(
                 _ =>
                 {
-                    var current = Interlocked.Increment(ref active);
-                    UpdateMaximum(ref maximumActive, current);
+                    var currentActive = Interlocked.Increment(ref active);
+                    UpdateMaximum(ref maximumActive, currentActive);
                     bothWorkersStarted.Signal();
                     releaseWorkers.Wait();
                     Interlocked.Decrement(ref active);
@@ -44,15 +42,15 @@ public sealed class WorldWorkerPoolTests
         }
 
         Assert.True(bothWorkersStarted.Wait(TimeSpan.FromSeconds(5)));
-        for (var index = 2; index < 4; index++)
+
+        for (var index = 0; index < queuedOperations; index++)
         {
-            var value = index;
+            var value = index + workerCount;
             Assert.True(pool.TrySchedule(
                 _ =>
                 {
-                    var current = Interlocked.Increment(ref active);
-                    UpdateMaximum(ref maximumActive, current);
-                    releaseWorkers.Wait();
+                    var currentActive = Interlocked.Increment(ref active);
+                    UpdateMaximum(ref maximumActive, currentActive);
                     Interlocked.Decrement(ref active);
                     return value;
                 },
@@ -61,34 +59,29 @@ public sealed class WorldWorkerPoolTests
             operations.Add(operation!);
         }
 
-        Assert.Equal(2, pool.WorkerCount);
-        Assert.Equal(2, pool.ActiveWorkerCount);
-        Assert.Equal(2, pool.PendingWorkCount);
-        Assert.Equal(4, pool.InFlightWorkCount);
-        Assert.Equal(0, pool.AvailableSubmissionCount);
-
-        Assert.False(pool.TrySchedule(
-            _ => 99,
-            CancellationToken.None,
-            out _));
-        Assert.Equal(1, pool.RejectedWorkCount);
+        Assert.Equal(workerCount, pool.WorkerCount);
+        Assert.Equal(workerCount, pool.ActiveWorkerCount);
+        Assert.Equal(queuedOperations, pool.PendingWorkCount);
+        Assert.Equal(workerCount + queuedOperations, pool.InFlightWorkCount);
+        Assert.Equal(0, pool.RejectedWorkCount);
 
         releaseWorkers.Set();
         Assert.True(SpinWait.SpinUntil(
             () => operations.All(operation => operation.IsCompleted) &&
                   pool.InFlightWorkCount == 0,
-            TimeSpan.FromSeconds(5)));
+            TimeSpan.FromSeconds(10)));
 
-        Assert.Equal(2, maximumActive);
-        Assert.Equal(new[] { 0, 1, 2, 3 },
-            operations.Select(GetResult).Order().ToArray());
-        Assert.Equal(4, pool.CompletedWorkCount);
+        Assert.Equal(workerCount, maximumActive);
+        Assert.Equal(
+            Enumerable.Range(0, workerCount + queuedOperations),
+            operations.Select(GetResult).Order());
+        Assert.Equal(workerCount + queuedOperations, pool.CompletedWorkCount);
     }
 
     [Fact]
     public void QueuedWorkUsesUrgencyThenStableSubmissionOrder()
     {
-        using var pool = new WorldWorkerPool(workerCount: 1, pendingCapacity: 4);
+        using var pool = new WorldWorkerPool(workerCount: 1);
         using var workerStarted = new ManualResetEventSlim(false);
         using var releaseWorker = new ManualResetEventSlim(false);
         var executionOrder = new System.Collections.Concurrent.ConcurrentQueue<int>();
@@ -112,7 +105,6 @@ public sealed class WorldWorkerPoolTests
         var secondHigh = Schedule(0, 1);
 
         Assert.Equal(4, pool.PendingWorkCount);
-        Assert.Equal(0, pool.AvailableSubmissionCount);
 
         releaseWorker.Set();
         var all = new[] { blocker!, low, firstHigh, medium, secondHigh };
@@ -142,7 +134,7 @@ public sealed class WorldWorkerPoolTests
     [Fact]
     public void QueuedOperationCanBeResortedWhenItsOwnerPriorityChanges()
     {
-        using var pool = new WorldWorkerPool(workerCount: 1, pendingCapacity: 3);
+        using var pool = new WorldWorkerPool(workerCount: 1);
         using var workerStarted = new ManualResetEventSlim(false);
         using var releaseWorker = new ManualResetEventSlim(false);
         var executionOrder = new System.Collections.Concurrent.ConcurrentQueue<int>();
@@ -199,7 +191,7 @@ public sealed class WorldWorkerPoolTests
     [Fact]
     public void CancellationAndFailuresArePublishedAsOperationResults()
     {
-        using var pool = new WorldWorkerPool(workerCount: 1, pendingCapacity: 2);
+        using var pool = new WorldWorkerPool(workerCount: 1);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var expectedError = new InvalidOperationException("worker failed");
@@ -255,16 +247,17 @@ public sealed class WorldWorkerPoolTests
     [Fact]
     public void DisposeDrainsQueuedOperationsBeforeWorkerThreadsExit()
     {
-        var pool = new WorldWorkerPool(workerCount: 1, pendingCapacity: 3);
+        var pool = new WorldWorkerPool(workerCount: 1);
         var completed = 0;
 
-        for (var index = 0; index < 3; index++)
+        for (var index = 0; index < 128; index++)
         {
+            var value = index;
             Assert.True(pool.TrySchedule(
                 _ =>
                 {
                     Interlocked.Increment(ref completed);
-                    return index;
+                    return value;
                 },
                 CancellationToken.None,
                 out _));
@@ -272,12 +265,12 @@ public sealed class WorldWorkerPoolTests
 
         pool.Dispose();
 
-        Assert.Equal(3, completed);
-        Assert.Equal(3, pool.CompletedWorkCount);
+        Assert.Equal(128, completed);
+        Assert.Equal(128, pool.CompletedWorkCount);
         Assert.Equal(0, pool.ActiveWorkerCount);
         Assert.Equal(0, pool.PendingWorkCount);
         Assert.False(pool.TrySchedule(
-            _ => 4,
+            _ => 129,
             CancellationToken.None,
             out _));
         Assert.Equal(1, pool.RejectedWorkCount);
