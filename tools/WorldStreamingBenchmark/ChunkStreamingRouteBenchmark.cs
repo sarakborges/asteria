@@ -246,8 +246,14 @@ internal static class ChunkStreamingRouteBenchmark
                 ref maximumInterSliceWaitMillisecondsPerChunk,
                 ref maximumWorkerSlicesPerChunk);
 
-            var availableSlots = Math.Max(
-                0, maximumWorldWorkers - residency.ActiveWorkerCount);
+            // Candidate residency exposes the same shared-executor
+            // admission capacity consumed by the live game. Historical
+            // baseline assemblies predate that API and keep their old
+            // worker-only calculation for an apples-to-apples comparison.
+            var availableSlots = ReadOptionalRuntimeCounter(
+                residency,
+                "AvailableWorldWorkerSubmissionCount",
+                Math.Max(0, maximumWorldWorkers - residency.ActiveWorkerCount));
             // The route does not run lighting or terrain-mesh workers. Observe
             // those queues, but do not use their undrained work as artificial
             // backpressure for the measured materialization path.
