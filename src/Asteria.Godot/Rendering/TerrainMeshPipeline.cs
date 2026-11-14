@@ -248,7 +248,10 @@ public sealed class TerrainMeshPipeline
                 _dyes,
                 batch,
                 _revisions,
-                relightable))
+                relightable,
+                workerPriority: priority
+                    ? WorldWorkerPool.InteractiveWorldPriority
+                    : WorldWorkerPool.BackgroundWorldPriority))
         {
             Requeue(batch, priority);
             return false;
