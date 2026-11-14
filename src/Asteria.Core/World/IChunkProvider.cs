@@ -114,6 +114,14 @@ public interface IChunkMaterializationJob : IDisposable
     /// <summary>Columns materialized to resolve the support query, including halo.</summary>
     int ActiveSupportMaterializationColumnCount => 0;
 
+    /// <summary>
+    /// An independent chunk job required before this job can continue. The
+    /// owning generation task schedules it through the dispatcher and resumes
+    /// this job only after the dependency has completed. Implementations must
+    /// not advance this dependency recursively from their own Advance method.
+    /// </summary>
+    IChunkMaterializationJob? PendingDependency => null;
+
     bool IsComplete { get; }
 
     Chunk? Result { get; }
