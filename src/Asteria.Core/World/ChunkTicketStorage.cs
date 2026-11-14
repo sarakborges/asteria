@@ -263,11 +263,7 @@ public sealed class ChunkDistanceTracker
     public bool TryGetLevel(ChunkColumnCoord column, out int level) =>
         _levels.TryGetValue(column, out level);
 
-    /// <summary>
-    /// Initializes a distance graph from the current ticket sources.
-    /// Subsequent ticket changes should use SynchronizeSources so only the
-    /// affected fixed-point region is propagated.
-    /// </summary>
+    /// <summary>Initializes a graph from the current ticket source set.</summary>
     public void Rebuild(
         ChunkTicketStorage tickets,
         ChunkTicketFlags graphFlag,
@@ -280,9 +276,10 @@ public sealed class ChunkDistanceTracker
     }
 
     /// <summary>
-    /// Diffs ticket source levels, then propagates increases or decreases
-    /// through the eight-neighbour graph until every changed node reaches its
-    /// minimum fixed point: min(source level, neighbour level + 1).
+    /// Diffs ticket sources and recomputes only the bounded region whose
+    /// shortest paths could be affected by those sources. The unaffected
+    /// boundary remains a set of valid seeds. A priority flood then restores
+    /// the exact minimum fixed point inside the affected region.
     /// </summary>
     public void SynchronizeSources(
         ChunkTicketStorage tickets,
@@ -314,38 +311,10 @@ public sealed class ChunkDistanceTracker
                 desiredSources[column] = ticket.Level;
         }
 
-        var pending = new Queue<ChunkColumnCoord>();
-        var scheduled = new HashSet<ChunkColumnCoord>();
-
-        void Schedule(ChunkColumnCoord column)
-        {
-            if (scheduled.Add(column))
-                pending.Enqueue(column);
-        }
-
-        void ScheduleNeighbors(ChunkColumnCoord column)
-        {
-            for (var dz = -1; dz <= 1; dz++)
-            for (var dx = -1; dx <= 1; dx++)
-            {
-                if (dx == 0 && dz == 0)
-                    continue;
-
-                var x = (long)column.X + dx;
-                var z = (long)column.Z + dz;
-                if (x < int.MinValue || x > int.MaxValue ||
-                    z < int.MinValue || z > int.MaxValue)
-                    continue;
-
-                Schedule(ChunkColumnCoord.FromChunk(
-                    new ChunkCoord((int)x, 0, (int)z)));
-            }
-        }
-
+        var changedSources = new List<ChunkColumnCoord>();
         foreach (var column in _sources.Keys
                      .Concat(desiredSources.Keys)
-                     .Distinct()
-                     .ToArray())
+                     .Distinct())
         {
             var hadSource = _sources.TryGetValue(column, out var oldLevel);
             var hasSource = desiredSources.TryGetValue(column, out var newLevel);
@@ -353,17 +322,54 @@ public sealed class ChunkDistanceTracker
                 (!hadSource || oldLevel == newLevel))
                 continue;
 
-            if (hasSource)
-                _sources[column] = newLevel;
-            else
-                _sources.Remove(column);
-            Schedule(column);
+            changedSources.Add(column);
         }
 
-        while (pending.TryDequeue(out var column))
+        if (changedSources.Count == 0)
+            return;
+
+        // A source at level L can influence at most (maximumLevel - L)
+        // neighbour rings. Include that entire Chebyshev region so no stale
+        // level derived from a removed source can become a boundary seed.
+        var affected = new HashSet<ChunkColumnCoord>();
+        foreach (var column in changedSources)
         {
-            scheduled.Remove(column);
-            var nextLevel = _sources.TryGetValue(column, out var sourceLevel)
+            var hadSource = _sources.TryGetValue(column, out var oldLevel);
+            var hasSource = desiredSources.TryGetValue(column, out var newLevel);
+            var sourceLevel = hadSource && hasSource
+                ? Math.Min(oldLevel, newLevel)
+                : hadSource ? oldLevel : newLevel;
+            var radius = maximumLevel - sourceLevel;
+
+            for (var dz = -radius; dz <= radius; dz++)
+            for (var dx = -radius; dx <= radius; dx++)
+            {
+                var x = (long)column.X + dx;
+                var z = (long)column.Z + dz;
+                if (x < int.MinValue || x > int.MaxValue ||
+                    z < int.MinValue || z > int.MaxValue)
+                    continue;
+
+                affected.Add(ChunkColumnCoord.FromChunk(
+                    new ChunkCoord((int)x, 0, (int)z)));
+            }
+        }
+
+        _sources.Clear();
+        foreach (var (column, level) in desiredSources)
+            _sources.Add(column, level);
+
+        foreach (var column in affected)
+            _levels.Remove(column);
+
+        var pending = new PriorityQueue<
+            ChunkColumnCoord, (int Level, int Z, int X)>();
+
+        // Every affected node can be reached either from a source inside the
+        // region or from an unchanged level just outside its boundary.
+        foreach (var column in affected)
+        {
+            var best = _sources.TryGetValue(column, out var sourceLevel)
                 ? sourceLevel
                 : maximumLevel + 1;
 
@@ -381,25 +387,61 @@ public sealed class ChunkDistanceTracker
 
                 var neighbor = ChunkColumnCoord.FromChunk(
                     new ChunkCoord((int)x, 0, (int)z));
-                if (_levels.TryGetValue(neighbor, out var neighborLevel) &&
-                    neighborLevel < maximumLevel)
-                    nextLevel = Math.Min(nextLevel, neighborLevel + 1);
+                if (affected.Contains(neighbor) ||
+                    !_levels.TryGetValue(neighbor, out var neighborLevel) ||
+                    neighborLevel >= maximumLevel)
+                    continue;
+
+                best = Math.Min(best, neighborLevel + 1);
             }
 
-            var hadLevel = _levels.TryGetValue(column, out var currentLevel);
-            var boundedLevel = Math.Min(nextLevel, maximumLevel + 1);
-            if (hadLevel && currentLevel == boundedLevel ||
-                !hadLevel && boundedLevel > maximumLevel)
+            if (best > maximumLevel)
                 continue;
 
-            if (boundedLevel > maximumLevel)
-                _levels.Remove(column);
-            else
-                _levels[column] = boundedLevel;
+            _levels[column] = best;
+            pending.Enqueue(column, (best, column.Z, column.X));
+        }
 
-            // Both promotions and demotions can change a neighbour's best
-            // path. Re-evaluate the surrounding ring until the graph settles.
-            ScheduleNeighbors(column);
+        while (pending.TryDequeue(out var column, out var priority))
+        {
+            if (!_levels.TryGetValue(column, out var currentLevel) ||
+                currentLevel != priority.Level ||
+                currentLevel >= maximumLevel)
+                continue;
+
+            var nextLevel = currentLevel + 1;
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dz == 0)
+                    continue;
+
+                var x = (long)column.X + dx;
+                var z = (long)column.Z + dz;
+                if (x < int.MinValue || x > int.MaxValue ||
+                    z < int.MinValue || z > int.MaxValue)
+                    continue;
+
+                var neighbor = ChunkColumnCoord.FromChunk(
+                    new ChunkCoord((int)x, 0, (int)z));
+                if (!affected.Contains(neighbor))
+                    continue;
+
+                var candidate = _sources.TryGetValue(
+                    neighbor, out var neighborSource)
+                    ? Math.Min(nextLevel, neighborSource)
+                    : nextLevel;
+
+                if (candidate > maximumLevel ||
+                    _levels.TryGetValue(neighbor, out var existingLevel) &&
+                    existingLevel <= candidate)
+                    continue;
+
+                _levels[neighbor] = candidate;
+                pending.Enqueue(
+                    neighbor,
+                    (candidate, neighbor.Z, neighbor.X));
+            }
         }
     }
 }
