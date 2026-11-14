@@ -227,13 +227,10 @@ public sealed class ChunkResidencyRuntime
             settings ??
             throw new ArgumentNullException(nameof(settings));
         var generationWorkerCount = _settings.MaxConcurrentWorkers;
-        var generationPendingCapacity = generationWorkerCount;
-        _generationCompletionMailbox = new ChunkGenerationCompletionMailbox(
-            checked(generationPendingCapacity + generationWorkerCount));
+        _generationCompletionMailbox = new ChunkGenerationCompletionMailbox();
         _generationWorkerPool = worldWorkerPool is null
             ? new ChunkGenerationWorkerPool(
                 generationWorkerCount,
-                generationPendingCapacity,
                 _generationCompletionMailbox)
             : new ChunkGenerationWorkerPool(
                 worldWorkerPool,
