@@ -228,7 +228,7 @@ public sealed class LightingRuntime
                 coord, focus, movement);
             if (nearest is null || priority.CompareTo(nearest.Value) < 0)
                 nearest = priority;
-            if (priority.StreamingBand == 0)
+            if (priority.TicketLevel <= ChunkLevel.EntityTicking)
                 break;
         }
 
