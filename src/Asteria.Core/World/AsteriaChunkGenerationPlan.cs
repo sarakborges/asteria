@@ -177,6 +177,43 @@ public static class AsteriaChunkGenerationPlan
     public static int MaximumHorizontalDependencyRadius =>
         FullSectionEnvelope.HorizontalRadius;
 
+    /// <summary>
+    /// Maps Asteria's concrete materialization DAG onto the holder status
+    /// ladder. Ticket levels decide the highest status a holder may reach;
+    /// a requested step maps to the future that represents its actual target.
+    /// </summary>
+    public static ChunkGenerationStatus GetGenerationStatus(
+        ChunkGenerationStepId step) =>
+        step switch
+        {
+            ChunkGenerationStepId.ColumnBiomeData =>
+                ChunkGenerationStatus.Biomes,
+            ChunkGenerationStepId.SurfaceTerrainColumn or
+            ChunkGenerationStepId.SectionTerrainSetup or
+            ChunkGenerationStepId.SectionTerrainLayers =>
+                ChunkGenerationStatus.Terrain,
+            ChunkGenerationStepId.SurfaceDecorations or
+            ChunkGenerationStepId.DirectionalFacePalettes or
+            ChunkGenerationStepId.VolumeStructures or
+            ChunkGenerationStepId.GeneratedFluids or
+            ChunkGenerationStepId.SurfaceStructures or
+            ChunkGenerationStepId.CaveSpikes or
+            ChunkGenerationStepId.VerticalDecorations or
+            ChunkGenerationStepId.Veins or
+            ChunkGenerationStepId.WallLayers or
+            ChunkGenerationStepId.WallObjects or
+            ChunkGenerationStepId.ShellFinalization or
+            ChunkGenerationStepId.GravitySupport or
+            ChunkGenerationStepId.StructureObjects or
+            ChunkGenerationStepId.PendingObjects =>
+                ChunkGenerationStatus.Features,
+            ChunkGenerationStepId.InitialLighting =>
+                ChunkGenerationStatus.Light,
+            ChunkGenerationStepId.SectionReady =>
+                ChunkGenerationStatus.Full,
+            _ => throw new ArgumentOutOfRangeException(nameof(step)),
+        };
+
     private static ChunkGenerationStepDefinition Step(
         ChunkGenerationStepId id,
         ChunkGenerationWorkScope scope,
