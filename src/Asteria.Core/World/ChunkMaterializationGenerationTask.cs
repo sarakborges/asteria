@@ -58,8 +58,6 @@ public sealed class ChunkMaterializationGenerationTask :
     private long _workerCompletedTimestamp;
     private double _workerMilliseconds;
     private double _initialLightingMilliseconds;
-    private int _workerSliceCount;
-    private double _interSliceWaitMilliseconds;
 
     public ChunkMaterializationGenerationTask(
         IChunkMaterializationJob job,
@@ -195,8 +193,8 @@ public sealed class ChunkMaterializationGenerationTask :
                 queueWait,
                 workerWall,
                 _workerCompletedTimestamp,
-                _workerSliceCount,
-                _interSliceWaitMilliseconds));
+                WorkerSliceCount: 1,
+                InterSliceWaitMilliseconds: 0d));
     }
 
     private ChunkMaterializationWorkerSlice AdvanceUntilComplete(
