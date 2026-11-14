@@ -261,11 +261,20 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.Equal(0, whileBlocked.TasksAdvanced);
         Assert.Equal(1, probe.AdvanceCount);
 
+        // Cancellation invalidates the result but cannot dispose the task or
+        // free the serial slot until its already-running advance returns.
+        Assert.True(dispatcher.TryCancel(Key(20)));
+        var whileCancelling = dispatcher.Pump(GenerousBudget(), 2);
+        Assert.Equal(0, whileCancelling.TasksAdvanced);
+        Assert.Equal(1, probe.AdvanceCount);
+
         releaseFirst.Set();
         PumpUntilIdle(dispatcher, maximumWorkerStarts: 4);
 
         Assert.Equal(2, probe.AdvanceCount);
         Assert.Equal(1, probe.MaximumConcurrentAdvances);
+        Assert.Equal(1, dispatcher.CancelledTaskCount);
+        Assert.Equal(1, dispatcher.CompletedTaskCount);
         Assert.All(probe.ThreadIds, threadId => Assert.NotEqual(ownerThread, threadId));
         Assert.False(dispatcher.HasTaskAdvanceInFlight);
     }
