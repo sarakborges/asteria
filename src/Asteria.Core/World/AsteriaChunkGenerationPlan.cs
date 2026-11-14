@@ -27,13 +27,23 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationStepId.SurfaceTerrainColumn,
             ChunkGenerationWorkScope.Column,
             ChunkGenerationExecutionPolicy.SharedWorkerPool,
-            DependsOn(ChunkGenerationStepId.ColumnBiomeData)),
+            [
+                Dependency(
+                    ChunkGenerationStepId.ColumnBiomeData,
+                    NoHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ]),
 
         Step(
             ChunkGenerationStepId.SectionTerrainSetup,
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.SharedWorkerPool,
-            DependsOn(ChunkGenerationStepId.SurfaceTerrainColumn)),
+            [
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    NoHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ]),
 
         Step(
             ChunkGenerationStepId.SectionTerrainLayers,
