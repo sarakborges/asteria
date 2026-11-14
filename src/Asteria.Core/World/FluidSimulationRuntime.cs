@@ -33,6 +33,7 @@ public sealed class FluidSimulationRuntime
     private bool _acceptingWork = true;
 
     private FluidWorkBatch? _inFlightBatch;
+    private int? _inFlightWorkerPriority;
 
     public FluidSimulationRuntime(
         VoxelWorld world,
@@ -84,8 +85,20 @@ public sealed class FluidSimulationRuntime
         _acceptingWork = false;
     }
 
-    public bool TryStartReadyWork()
+    public bool TryStartReadyWork(
+        ChunkCoord? center = null,
+        ChunkMovementDirection movement = default)
     {
+        if (_inFlightBatch is { } pendingBatch &&
+            center is { } currentCenter)
+        {
+            var updatedPriority = ResolveWorkerPriority(
+                pendingBatch, currentCenter, movement);
+            if (_inFlightWorkerPriority != updatedPriority &&
+                _worker.TryUpdatePriority(updatedPriority))
+                _inFlightWorkerPriority = updatedPriority;
+        }
+
         if (!_acceptingWork)
         {
             return false;
@@ -108,17 +121,46 @@ public sealed class FluidSimulationRuntime
             return false;
         }
 
+        var workerPriority = ResolveWorkerPriority(
+            batch, center, movement);
         if (!_worker.TryStart(
                 _world,
                 _fluids,
-                batch))
+                batch,
+                workerPriority))
         {
             Requeue(batch);
             return false;
         }
 
         _inFlightBatch = batch;
+        _inFlightWorkerPriority = workerPriority;
         return true;
+    }
+
+    private static int ResolveWorkerPriority(
+        FluidWorkBatch batch,
+        ChunkCoord? center,
+        ChunkMovementDirection movement)
+    {
+        if (center is not { } focus)
+            return WorldWorkerPool.BackgroundWorldPriority;
+
+        var nearestBand = int.MaxValue;
+        foreach (var position in batch.Positions)
+        {
+            var coord = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk;
+            var priority = ChunkStreamingState.StreamingPriority(
+                coord, focus, movement);
+            nearestBand = Math.Min(nearestBand, priority.StreamingBand);
+            if (nearestBand == 0)
+                break;
+        }
+
+        return nearestBand == int.MaxValue
+            ? WorldWorkerPool.BackgroundWorldPriority
+            : checked(nearestBand * 10);
     }
 
     public bool TryPollCompleted(
@@ -138,6 +180,7 @@ public sealed class FluidSimulationRuntime
         var sourceBatch =
             _inFlightBatch;
         _inFlightBatch = null;
+        _inFlightWorkerPriority = null;
 
         if (error is not null)
         {
