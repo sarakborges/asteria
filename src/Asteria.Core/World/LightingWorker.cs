@@ -55,7 +55,7 @@ public sealed class LightingWorker
         WorldLightingBatch batch,
         PackContentRegistry<ObjectDefinition>? objects,
         LightingWorkKind workKind,
-        int workerPriority = WorldWorkerPool.InteractiveWorldPriority)
+        WorldWorkerPriority? workerPriority = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -114,7 +114,9 @@ public sealed class LightingWorker
                     new VoxelLightingUpdateResult([], 0),
                     stopwatch.Elapsed.TotalMilliseconds, Cancelled: true);
             }
-        }, cancellation.Token, workerPriority))
+        }, cancellation.Token,
+            workerPriority ?? WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.InteractiveWorldPriority)))
         {
             cancellation.Dispose();
             return false;
@@ -125,7 +127,7 @@ public sealed class LightingWorker
         return true;
     }
 
-    public bool TryUpdatePriority(int priority) =>
+    public bool TryUpdatePriority(WorldWorkerPriority priority) =>
         _worker.TryUpdatePriority(priority);
 
     public bool TryTakeCompleted(
