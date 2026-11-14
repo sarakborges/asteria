@@ -7,8 +7,8 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public async Task YieldedTaskReturnsBehindPeersAtEqualPriority()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(2);
-        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
         var order = new List<string>();
         var first = new YieldOnceTask("first", order);
@@ -34,8 +34,8 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public async Task RequeuedTerminalOutcomeRemainsAvailableExactlyOnce()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(1);
-        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
         var payload = new CompletedChunkPayload("deferred", 16);
         Assert.True(dispatcher.TryEnqueue(
@@ -54,8 +54,8 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public async Task CompletedTaskPublishesDetachedResultForWorldLoop()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(1);
-        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
         var payload = new CompletedChunkPayload("chunk-10", 4096);
 
@@ -76,8 +76,8 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public async Task WorkerDependenciesSuspendAndResumeTaskWithResults()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(4);
-        await using var pool = new ChunkGenerationWorkerPool(2, 4, mailbox);
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(2, mailbox);
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
         var task = new TwoWorkerTask();
         Assert.True(dispatcher.TryEnqueue(Key(3), 8, Priority(0), 10, task));
@@ -110,8 +110,8 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public async Task PriorityCanChangeAfterEnqueueBeforeTaskStarts()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(2);
-        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
         var order = new List<string>();
 
@@ -131,8 +131,8 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public async Task TicketChangesResortWorkerOperationsAlreadyQueuedInSharedPool()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(4);
-        await using var pool = new ChunkGenerationWorkerPool(1, 3, mailbox);
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
         using var blockerStarted = new ManualResetEventSlim(false);
         using var releaseBlocker = new ManualResetEventSlim(false);
         var executionOrder = new System.Collections.Concurrent.ConcurrentQueue<string>();
@@ -179,8 +179,8 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public async Task WorkerFailureFailsTaskWithoutResumingIt()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(2);
-        await using var pool = new ChunkGenerationWorkerPool(1, 2, mailbox);
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
         var error = new InvalidOperationException("worker slice failed");
         var task = new FailingWorkerTask(error);
@@ -208,8 +208,8 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public async Task CancellationRejectsLateWorkerCompletionAndAllowsNewGeneration()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(4);
-        await using var pool = new ChunkGenerationWorkerPool(1, 2, mailbox);
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
         using var workerStarted = new ManualResetEventSlim(false);
 
@@ -257,7 +257,7 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public void DispatcherRejectsAccessFromNonOwningThread()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(1);
+        var mailbox = new ChunkGenerationCompletionMailbox();
         using var worker = new TestWorkerPoolScope(mailbox);
         var dispatcher = new ChunkGenerationDispatcher(mailbox, worker.Pool);
         var result = Task.Run(() =>
@@ -270,8 +270,8 @@ public sealed class ChunkGenerationDispatcherTests
     [Fact]
     public async Task InvalidTaskRegistrationAndWorkerStartBudgetsAreRejected()
     {
-        var mailbox = new ChunkGenerationCompletionMailbox(1);
-        await using var pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
 
         Assert.Throws<ArgumentOutOfRangeException>(
@@ -441,7 +441,7 @@ public sealed class ChunkGenerationDispatcherTests
     private sealed class TestWorkerPoolScope : IDisposable
     {
         public TestWorkerPoolScope(ChunkGenerationCompletionMailbox mailbox) =>
-            Pool = new ChunkGenerationWorkerPool(1, 1, mailbox);
+            Pool = new ChunkGenerationWorkerPool(1, mailbox);
 
         public ChunkGenerationWorkerPool Pool { get; }
 
