@@ -17,8 +17,9 @@ public sealed class FluidMeshPipeline
 
         public WorldMeshBatch? InFlightBatch { get; set; }
 
-        public int WorkerPriority { get; set; } =
-            WorldWorkerPool.BackgroundWorldPriority;
+        public WorldWorkerPriority WorkerPriority { get; set; } =
+            WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.BackgroundWorldPriority);
     }
 
     private readonly int _maximumMeshletsPerWorker;
@@ -152,9 +153,10 @@ public sealed class FluidMeshPipeline
             batch,
             center,
             movement,
-            nearest
-                ? WorldWorkerPool.InteractiveWorldPriority
-                : WorldWorkerPool.BackgroundWorldPriority);
+            WorldWorkerPriority.FromPriorityClass(
+                nearest
+                    ? WorldWorkerPool.InteractiveWorldPriority
+                    : WorldWorkerPool.BackgroundWorldPriority));
         if (!worker.Worker.TryStart(
                 _world,
                 _blocks,
@@ -195,19 +197,27 @@ public sealed class FluidMeshPipeline
         }
     }
 
-    private static int ResolveWorkerPriority(
+    private static WorldWorkerPriority ResolveWorkerPriority(
         WorldMeshBatch batch,
         ChunkCoord? center,
         ChunkMovementDirection movement,
-        int fallbackPriority)
+        WorldWorkerPriority fallbackPriority)
     {
         if (center is not { } focus || batch.DirtyMeshlets.Count == 0)
             return fallbackPriority;
 
-        var nearestBand = batch.DirtyMeshlets.Keys
-            .Min(coord => ChunkStreamingState.StreamingPriority(
-                coord, focus, movement).StreamingBand);
-        return checked(nearestBand * 10);
+        ChunkStreamingPriority? nearest = null;
+        foreach (var coord in batch.DirtyMeshlets.Keys)
+        {
+            var priority = ChunkStreamingState.StreamingPriority(
+                coord, focus, movement);
+            if (nearest is null || priority.CompareTo(nearest.Value) < 0)
+                nearest = priority;
+        }
+
+        return nearest is { } ticket
+            ? WorldWorkerPriority.FromStreaming(ticket)
+            : fallbackPriority;
     }
 
     public bool TryPollCompleted(
