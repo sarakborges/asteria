@@ -81,7 +81,7 @@ public sealed class FluidMeshWorker
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds,
                 captureMilliseconds);
-        }, priority: workerPriority ??
+        }, CancellationToken.None, workerPriority ??
             WorldWorkerPriority.FromPriorityClass(
                 WorldWorkerPool.DefaultPriority));
     }
