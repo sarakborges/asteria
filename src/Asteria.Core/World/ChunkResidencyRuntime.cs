@@ -390,6 +390,15 @@ public sealed class ChunkResidencyRuntime
             center,
             horizontalRadius);
 
+    public bool SelectionNeedsRebuild(
+        ChunkCoord center,
+        int horizontalRadius,
+        int simulationDistanceChunks) =>
+        _streaming.SelectionNeedsRebuild(
+            center,
+            horizontalRadius,
+            simulationDistanceChunks);
+
     public HashSet<ChunkCoord> BootstrapSelection(
         ChunkCoord center, int horizontalRadius) =>
         _streaming.BootstrapSelection(center, horizontalRadius);
@@ -398,6 +407,21 @@ public sealed class ChunkResidencyRuntime
         ChunkCoord center,
         int horizontalRadius,
         int retentionRadius,
+        IReadOnlySet<ChunkCoord> desired,
+        IEnumerable<ChunkCoord> presented) =>
+        SyncSelection(
+            center,
+            horizontalRadius,
+            retentionRadius,
+            _streaming.SimulationDistanceChunks,
+            desired,
+            presented);
+
+    public bool SyncSelection(
+        ChunkCoord center,
+        int horizontalRadius,
+        int retentionRadius,
+        int simulationDistanceChunks,
         IReadOnlySet<ChunkCoord> desired,
         IEnumerable<ChunkCoord> presented)
     {
@@ -409,6 +433,7 @@ public sealed class ChunkResidencyRuntime
                 center,
                 horizontalRadius,
                 retentionRadius,
+                simulationDistanceChunks,
                 desired);
 
         _presentationSelection.Sync(
