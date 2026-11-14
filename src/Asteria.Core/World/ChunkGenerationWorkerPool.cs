@@ -79,6 +79,8 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
         _ownsWorkerPool = ownsWorkerPool;
     }
 
+    internal WorldWorkerPool WorkerPool => _workerPool;
+
     public int WorkerCount => _workerPool.WorkerCount;
 
     public int PendingCapacity => _workerPool.PendingCapacity;
