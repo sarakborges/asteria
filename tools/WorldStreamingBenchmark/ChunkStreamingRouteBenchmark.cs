@@ -766,13 +766,19 @@ internal static class ChunkStreamingRouteBenchmark
         if (poolType is null)
             return null;
 
-        var constructor = poolType.GetConstructor(
+        // The candidate now has a single physical-worker constructor; the
+        // historical baseline used a second pending-capacity argument.
+        var currentConstructor = poolType.GetConstructor([typeof(int)]);
+        if (currentConstructor is not null)
+            return currentConstructor.Invoke([maximumWorldWorkers]);
+
+        var baselineConstructor = poolType.GetConstructor(
         [
             typeof(int),
             typeof(int?),
         ]) ?? throw new MissingMethodException(
-            poolType.FullName, ".ctor(int, int?)");
-        return constructor.Invoke([maximumWorldWorkers, null]);
+            poolType.FullName, ".ctor(int) or .ctor(int, int?)");
+        return baselineConstructor.Invoke([maximumWorldWorkers, null]);
     }
 
     private static ChunkResidencyRuntime CreateResidencyRuntime(
