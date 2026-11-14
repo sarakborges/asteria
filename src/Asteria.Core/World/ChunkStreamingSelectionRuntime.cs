@@ -14,9 +14,7 @@ public sealed record ChunkStreamingSelectionSnapshot(
 public sealed class ChunkStreamingSelectionRuntime
 {
     private readonly ChunkSurfaceRangeWindow _surfaceRanges;
-    private readonly SingleFlightWorker<
-        ChunkStreamingSelectionSnapshot> _worker =
-        new();
+    private readonly SingleFlightWorker<ChunkStreamingSelectionSnapshot> _worker;
 
     private bool _acceptingWork = true;
     private ulong _revision;
@@ -24,13 +22,16 @@ public sealed class ChunkStreamingSelectionRuntime
     private SelectionRequest? _inFlight;
 
     public ChunkStreamingSelectionRuntime(
-        IChunkSurfaceRangeProvider surfaceRanges)
+        IChunkSurfaceRangeProvider surfaceRanges,
+        WorldWorkerPool workerPool)
     {
         _surfaceRanges =
             new ChunkSurfaceRangeWindow(
                 surfaceRanges ??
                 throw new ArgumentNullException(
                     nameof(surfaceRanges)));
+        _worker = new SingleFlightWorker<ChunkStreamingSelectionSnapshot>(
+            workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
     }
 
     public bool IsRunning =>
