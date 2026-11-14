@@ -21,8 +21,12 @@ public sealed record FluidMeshWorkerResult(
 
 public sealed class FluidMeshWorker
 {
-    private readonly SingleFlightWorker<FluidMeshWorkerResult>
-        _worker = new();
+    private readonly SingleFlightWorker<FluidMeshWorkerResult> _worker;
+
+    public FluidMeshWorker(WorldWorkerPool workerPool)
+    {
+        _worker = new SingleFlightWorker<FluidMeshWorkerResult>(workerPool);
+    }
 
     public bool IsRunning => _worker.IsRunning;
 
