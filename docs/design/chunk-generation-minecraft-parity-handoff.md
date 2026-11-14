@@ -5,7 +5,7 @@
 **Working branch:** worldgen-perf-fix  
 **Pull request:** [#157 — perf(world): optimize worldgen and voxel rendering](https://github.com/sarakborges/asteria/pull/157)  
 **PR base:** worldgen-remake  
-**Reference snapshot:** Asteria HEAD c8e735aac3131c3fb9902aa57ea398981f4845cd (2026-11-14)  
+**Reference snapshot:** Asteria HEAD 222315a4ec8d600d562fc65558c6cc5d93fb6165 (2026-11-14)  
 **Date:** 2026-11-14
 
 This document is the durable restart point for the Minecraft-parity world-generation refactor. Work must proceed in small, independently reviewable commits. Do not merge the PR unless explicitly requested.
@@ -693,3 +693,41 @@ Reference: Minecraft Java 26.3 source analysis at [chunk generation pipeline](ht
 3. Then begin Phase B with one small slice: introduce the single-stage continuation contract and tests for a job that has multiple stages and a pending dependency. Do not route every stage to workers; the plan's execution policy must determine the lane.
 4. Keep PR #157 open. Do not merge.
 
+
+
+---
+
+## Follow-up implementation — 2026-11-14
+
+- **Docs/handoff commit:** `7279e9dcb8cd2128c0e97f7d4c5a5dcde4bc4575` (the original source-audit update).
+- **Derived status mapping:** `b528c24801f624ed83253f192048130eb8669477`.
+- **Ticket level integration:** `2b0e4fbe83478866a33ede0609413e0ed9a5a0d0`.
+- **Focused coverage:** `222315a4ec8d600d562fc65558c6cc5d93fb6165`.
+
+### Completed from Phase A
+
+- [x] Added `AsteriaChunkGenerationPlan.GetRequiredStatusAtHorizontalDistance`. It derives the deepest status needed at each horizontal ring from the target step's accumulated prerequisite envelopes.
+- [x] Replaced the hard-coded vanilla level-to-generation-status switch in `ChunkLevel.GetGenerationStatus` with the derived Asteria plan mapping.
+- [x] Added tests proving the current FULL target has horizontal radius 1, that its first neighbor ring needs `Terrain`, that a second ring is outside the declared dependency envelope, and that negative distance is rejected.
+
+**Verified implication:** Asteria's current first halo is `DirectionalFacePalettes -> SurfaceTerrainColumn`. A holder one ring away is therefore allowed through `Terrain`, not `InitializeLight`. The full generation distance remains derived from the Asteria graph; no vanilla radius of 11 was copied.
+
+### CI for this follow-up
+
+- Validate run [43622622606](https://github.com/sarakborges/asteria/actions/runs/43622622606), HEAD `222315a4ec8d600d562fc65558c6cc5d93fb6165`: WebUI passed; Godot C# build and ReadyToRun publish/verification passed; Core tests and terrain A/B were still running at the latest check.
+- Windows build run [43622617724](https://github.com/sarakborges/asteria/actions/runs/43622617724), same HEAD: was still in progress at the latest check.
+- The commit is not fully validated until the latest runs finish successfully. If any Core test fails, stop Phase B and fix that failure first.
+
+### Reference check: MineClone is not the scheduler to copy
+
+The required `mineclone/world-systems-rebuild` inspection covered `src/world/chunk_task_queue.rs` and `src/world/streaming/generation.rs`. Its current implementation keeps per-section `AsyncComputeTaskPool` tasks around a whole `generator.materialize_chunk(coord)` future and polls them from streaming. It does not implement Minecraft's ticket/status futures, accumulated generation pyramid, or serial continuation executor. Keep MineClone's useful ownership boundaries, but do not port this queue as the target architecture.
+
+### Next implementation boundary
+
+After run 43622622606 is green:
+
+1. Introduce a per-dimension serial worldgen continuation lane backed by the existing shared `WorldWorkerPool`. It must execute at most one logical task-advance operation at a time for that dimension, never block on an incomplete dependency, and allow independent worker forks to execute concurrently on the same physical pool.
+2. Keep dispatcher bookkeeping, ticket updates, cancellation requests and publication under their current authoritative owner. Worker continuations must publish detached completion messages; they must not mutate the dispatcher's collections directly.
+3. Add tests for single-lane serialization, different worker thread from the world/main owner, cooperative release on incomplete dependencies, reprioritization while queued, cancellation while an advance is in flight, and retirement after late completion.
+4. Only then split task progression by executable step policy. Do not put every stage on a worker automatically: the plan policy must control whether a stage runs inline on the serial worldgen lane, forks to the shared pool, uses the serial lighting lane, or requires main-thread integration.
+5. Preserve the current task's target status and generation identity while this lane is introduced; do not conflate one worker operation with one generation status.
