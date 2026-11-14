@@ -160,6 +160,7 @@ public partial class Main : Node3D
 	private AmbientParticlePresentation? _ambientParticlePresentation;
 	private DimensionSessionStateStore _sessionStates = null!;
 	private DimensionSessionController _sessions = null!;
+	private WorldWorkerPool? _worldWorkerPool;
 	private DimensionDefinition _dimension =>
 		_sessions.Active.Dimension;
 	private ulong _dimensionSeed =>
@@ -440,6 +441,8 @@ public partial class Main : Node3D
 	public override void _ExitTree()
 	{
 		_worldDiagnostics?.Write("client.exiting");
+		_worldWorkerPool?.Dispose();
+		_worldWorkerPool = null;
 		_worldDiagnostics?.Dispose();
 		_worldDiagnostics = null;
 	}
@@ -1350,6 +1353,8 @@ public partial class Main : Node3D
 		_loading.Reset();
 		_lastLoadingProgress = null;
 		_worldReadySent = false;
+		_worldWorkerPool?.Dispose();
+		_worldWorkerPool = null;
 		_sessions = null!;
 		_sessionStates = null!;
 		_worldSeed = null;
@@ -1472,6 +1477,8 @@ public partial class Main : Node3D
 				MaxFluidMeshWorkers,
 				MaxFluidUpdatesPerWorker,
 				MaxChunkEvictionsPerFrame),
+			_worldWorkerPool ??
+				throw new InvalidOperationException("World worker pool is not initialized."),
 			_mods.AllowBlockBreak);
 
 	private void RetirePlayerForDimensionTransition()
@@ -2645,6 +2652,7 @@ public partial class Main : Node3D
 		// This method is the one native publication point for newly
 		// created worlds and fully decoded/restored world sessions.
 		_sessionStates = states;
+		_worldWorkerPool = new WorldWorkerPool(MaxConcurrentWorldJobs);
 		_sessions = new DimensionSessionController(
 			_sessionStates, CreateDimensionSession);
 		_sessions.Start(startDimension);
