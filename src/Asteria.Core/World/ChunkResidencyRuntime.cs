@@ -260,6 +260,25 @@ public sealed class ChunkResidencyRuntime
 
     public bool IsDesired(ChunkCoord coord) => _streaming.IsDesired(coord);
 
+    public bool AddTicket(ChunkCoord coord, ChunkTicket ticket) =>
+        _streaming.DistanceManager.AddTicket(
+            ChunkColumnCoord.FromChunk(coord),
+            ticket,
+            _worldTicks.CurrentTick);
+
+    public bool RemoveTicket(ChunkCoord coord, ChunkTicket ticket) =>
+        _streaming.DistanceManager.RemoveTicket(
+            ChunkColumnCoord.FromChunk(coord),
+            ticket);
+
+    public ChunkTicketFlags AdvanceTicketLifetimes(ulong currentTick)
+    {
+        var changed = _streaming.DistanceManager.AdvanceTick(currentTick);
+        if (changed != ChunkTicketFlags.None)
+            UpdateGenerationTaskPriorities();
+        return changed;
+    }
+
     public bool IsBlockTicking(ChunkCoord coord) =>
         _world.ContainsChunk(coord) &&
         _streaming.IsBlockTicking(coord);
