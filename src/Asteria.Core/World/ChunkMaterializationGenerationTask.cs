@@ -47,6 +47,12 @@ public sealed class ChunkMaterializationGenerationTask :
     IChunkGenerationTask,
     IDisposable
 {
+    /// <summary>
+    /// Legacy source-compatibility value. Worker operations are no longer
+    /// split by advance count; they run until completion or a real dependency.
+    /// </summary>
+    public const int MaximumAdvancesPerWorkerOperation = 32;
+
     private readonly IChunkMaterializationJob _job;
     private readonly Action<Chunk>? _initializeLighting;
     private readonly long _dispatchTimestamp;
