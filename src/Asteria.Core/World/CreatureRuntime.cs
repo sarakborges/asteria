@@ -244,7 +244,8 @@ public sealed class CreatureRuntime
         VoxelWorld world,
         BlockRegistry blocks,
         WorldAabb playerBounds,
-        bool targetPlayer)
+        bool targetPlayer,
+        Func<ChunkCoord, bool>? isEntityTicking = null)
     {
         ArgumentNullException.ThrowIfNull(projectiles);
         ArgumentNullException.ThrowIfNull(world);
@@ -257,7 +258,12 @@ public sealed class CreatureRuntime
         foreach (var id in _active.Keys.ToArray())
         {
             var creature = _active[id];
-            if (creature.IsDying || creature.NoAi ||
+            var chunk = VoxelCoordinates.FromWorld(
+                (int)MathF.Floor(creature.Position.X),
+                (int)MathF.Floor(creature.Position.Y),
+                (int)MathF.Floor(creature.Position.Z)).Chunk;
+            if ((isEntityTicking is not null && !isEntityTicking(chunk)) ||
+                creature.IsDying || creature.NoAi ||
                 creature.AgeSeconds < creature.NextRangedAttackAtSeconds)
                 continue;
 
@@ -547,7 +553,10 @@ public sealed class CreatureRuntime
     /// Advances grace timers and removes distant entities. Stable ID ordering
     /// prevents collection order from affecting which entities survive.
     /// </summary>
-    public int Advance(double deltaSeconds, Vector3 playerPosition)
+    public int Advance(
+        double deltaSeconds,
+        Vector3 playerPosition,
+        Func<ChunkCoord, bool>? isEntityTicking = null)
     {
         if (!double.IsFinite(deltaSeconds) || deltaSeconds < 0 ||
             !IsFinite(playerPosition))
@@ -559,17 +568,28 @@ public sealed class CreatureRuntime
         foreach (var id in _active.Keys.ToArray())
         {
             var creature = _active[id];
+            var chunk = VoxelCoordinates.FromWorld(
+                (int)MathF.Floor(creature.Position.X),
+                (int)MathF.Floor(creature.Position.Y),
+                (int)MathF.Floor(creature.Position.Z)).Chunk;
+            var ticking = isEntityTicking is null || isEntityTicking(chunk);
             var age = creature.AgeSeconds + deltaSeconds;
-            var hurt = MathF.Max(0f,
-                creature.HurtSecondsRemaining - (float)deltaSeconds);
-            var attack = MathF.Max(0f,
-                creature.AttackSecondsRemaining - (float)deltaSeconds);
-            var death = MathF.Max(0f,
-                creature.DeathSecondsRemaining - (float)deltaSeconds);
+            var hurt = ticking
+                ? MathF.Max(0f, creature.HurtSecondsRemaining - (float)deltaSeconds)
+                : creature.HurtSecondsRemaining;
+            var attack = ticking
+                ? MathF.Max(0f, creature.AttackSecondsRemaining - (float)deltaSeconds)
+                : creature.AttackSecondsRemaining;
+            var death = ticking
+                ? MathF.Max(0f, creature.DeathSecondsRemaining - (float)deltaSeconds)
+                : creature.DeathSecondsRemaining;
+            var nextRangedAttack = ticking
+                ? creature.NextRangedAttackAtSeconds
+                : creature.NextRangedAttackAtSeconds + (float)deltaSeconds;
 
             if (creature.IsDying)
             {
-                if (death == 0f)
+                if (ticking && death == 0f)
                 {
                     Remove(creature.Id);
                     removed++;
@@ -585,6 +605,9 @@ public sealed class CreatureRuntime
                 continue;
             }
 
+            // Natural despawn is distance-driven independently of the
+            // simulation graph. Only AI and action timers are paused outside
+            // ENTITY_TICKING; the despawn grace keeps advancing.
             if (!creature.Persistent && age >= DespawnGraceSeconds &&
                 Vector3.DistanceSquared(creature.Position, playerPosition) >
                     DespawnRadius * DespawnRadius)
@@ -599,6 +622,7 @@ public sealed class CreatureRuntime
                     AgeSeconds = age,
                     HurtSecondsRemaining = hurt,
                     AttackSecondsRemaining = attack,
+                    NextRangedAttackAtSeconds = nextRangedAttack,
                 };
             }
         }
@@ -618,7 +642,8 @@ public sealed class CreatureRuntime
         BlockRegistry blocks,
         float gravityStrength,
         bool targetPlayer = true,
-        WorldAabb? playerBounds = null)
+        WorldAabb? playerBounds = null,
+        Func<ChunkCoord, bool>? isEntityTicking = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -632,19 +657,34 @@ public sealed class CreatureRuntime
         // when no player is present.
         _meleeHits.Clear();
         var hadEndingReactions = _active.Values.Any(
-            creature => !creature.IsDying &&
-                creature.HurtSecondsRemaining > 0f &&
-                creature.HurtSecondsRemaining <= deltaSeconds ||
-                !creature.IsDying &&
-                creature.AttackSecondsRemaining > 0f &&
-                creature.AttackSecondsRemaining <= deltaSeconds);
-        var changed = Advance(deltaSeconds, observerPosition) > 0 ||
+            creature =>
+            {
+                var chunk = VoxelCoordinates.FromWorld(
+                    (int)MathF.Floor(creature.Position.X),
+                    (int)MathF.Floor(creature.Position.Y),
+                    (int)MathF.Floor(creature.Position.Z)).Chunk;
+                return (isEntityTicking is null || isEntityTicking(chunk)) &&
+                    ((!creature.IsDying &&
+                      creature.HurtSecondsRemaining > 0f &&
+                      creature.HurtSecondsRemaining <= deltaSeconds) ||
+                     (!creature.IsDying &&
+                      creature.AttackSecondsRemaining > 0f &&
+                      creature.AttackSecondsRemaining <= deltaSeconds));
+            });
+        var changed = Advance(
+            deltaSeconds, observerPosition, isEntityTicking) > 0 ||
             hadEndingReactions;
         changed |= ResolveOverlaps(world, blocks);
         foreach (var id in _active.Keys.ToArray())
         {
             var creature = _active[id];
-            if (creature.IsDying || creature.NoAi) continue;
+            var chunk = VoxelCoordinates.FromWorld(
+                (int)MathF.Floor(creature.Position.X),
+                (int)MathF.Floor(creature.Position.Y),
+                (int)MathF.Floor(creature.Position.Z)).Chunk;
+            if ((isEntityTicking is not null && !isEntityTicking(chunk)) ||
+                creature.IsDying || creature.NoAi)
+                continue;
             var definition = _definitions.Get(creature.DefinitionId);
             var next = CreatureHopSolver.Step(
                 creature, definition, world, blocks,
