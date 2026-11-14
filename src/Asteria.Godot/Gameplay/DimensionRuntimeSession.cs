@@ -596,7 +596,8 @@ public sealed class DimensionRuntimeSession
             Generator,
             World,
             Blocks,
-            Creatures);
+            Creatures,
+            Residency.IsEntityTicking);
         var spawnMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         started = Stopwatch.GetTimestamp();
@@ -652,11 +653,16 @@ public sealed class DimensionRuntimeSession
                 new NVector3(p.X - .4f, p.Y, p.Z - .4f),
                 new NVector3(p.X + .4f, p.Y + 2f, p.Z + .4f))
             : null;
-        _saplings.Advance(WorldTicks.CurrentTick, playerBounds,
-            enabled: gameplayReady && playerBounds is not null);
-        _leafDecay.Advance(WorldTicks.CurrentTick,
+        _saplings.Advance(
+            WorldTicks.CurrentTick,
+            playerBounds,
+            enabled: gameplayReady && playerBounds is not null,
+            isBlockTicking: Residency.IsBlockTicking);
+        _leafDecay.Advance(
+            WorldTicks.CurrentTick,
             enabled: gameplayReady && playerBounds is not null &&
-                    !_retiring && !_retired);
+                    !_retiring && !_retired,
+            isBlockTicking: Residency.IsBlockTicking);
     }
 
     public FluidUpdateQueue FluidUpdates { get; }
