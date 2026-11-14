@@ -131,12 +131,14 @@ public sealed class ChunkMaterializationGenerationTask :
                 completedDependencies, cancellationToken);
         }
 
+        var collectedAsynchronousCompletion = false;
         if (_hasScheduledOperation)
         {
             if (_waitingForLighting)
                 CollectLightingCompletion(completedDependencies);
             else
                 CollectWorkerSlice(completedDependencies);
+            collectedAsynchronousCompletion = true;
         }
         else if (completedDependencies.Count != 0)
             throw new InvalidOperationException(
@@ -154,6 +156,12 @@ public sealed class ChunkMaterializationGenerationTask :
             return ChunkGenerationTaskAdvanceResult.YieldWithStatus(
                 ChunkGenerationStatus.Terrain);
         }
+
+        // A worker completion only makes the next stage runnable. Return to
+        // the column scheduler before performing another stage so sibling
+        // vertical sections and other columns get a fair serial continuation.
+        if (collectedAsynchronousCompletion)
+            return ChunkGenerationTaskAdvanceResult.Yield;
 
         return AdvanceParent(cancellationToken);
     }
@@ -417,7 +425,9 @@ public sealed class ChunkMaterializationGenerationTask :
         _pendingDependencyJob = null;
         _activeDependencyOperationIds.Clear();
 
-        return AdvanceParent(cancellationToken);
+        // Resolving a nested support dependency only makes the parent stage
+        // runnable. Let the column scheduler select the next section fairly.
+        return ChunkGenerationTaskAdvanceResult.Yield;
     }
 
     private ChunkGenerationTaskAdvanceResult WrapDependencyOperations(
