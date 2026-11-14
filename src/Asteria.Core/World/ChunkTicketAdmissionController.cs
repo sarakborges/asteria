@@ -91,21 +91,24 @@ public sealed class ChunkTicketAdmissionController
         _sectionsAwaitingFullStatus.Remove(column);
 
     /// <summary>
-    /// Drops throttle bookkeeping for columns removed from the desired player
-    /// view. ChunkDistanceManager owns removal of the actual loading tickets.
+    /// Drops throttle bookkeeping for sections removed from the current
+    /// desired view. ChunkDistanceManager separately removes loading tickets
+    /// for columns which leave the horizontal view.
     /// </summary>
-    public int RetainDesiredColumns(IReadOnlySet<ChunkColumnCoord> desiredColumns)
+    public int RetainDesiredSections(IReadOnlySet<ChunkCoord> desiredSections)
     {
-        ArgumentNullException.ThrowIfNull(desiredColumns);
-        var removed = 0;
-        foreach (var column in _sectionsAwaitingFullStatus.Keys.ToArray())
+        ArgumentNullException.ThrowIfNull(desiredSections);
+        var released = 0;
+        foreach (var (column, pending) in _sectionsAwaitingFullStatus.ToArray())
         {
-            if (desiredColumns.Contains(column))
+            pending.RemoveWhere(section => !desiredSections.Contains(section));
+            if (pending.Count != 0)
                 continue;
-            if (_sectionsAwaitingFullStatus.Remove(column))
-                removed++;
+
+            _sectionsAwaitingFullStatus.Remove(column);
+            released++;
         }
 
-        return removed;
+        return released;
     }
 }
