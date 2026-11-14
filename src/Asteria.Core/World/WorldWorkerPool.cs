@@ -202,7 +202,7 @@ public sealed class WorldWorkerPool : IDisposable
             Interlocked.Increment(ref _activeWorkerCount);
             try
             {
-                item.Execute();
+                item.Execute(this);
             }
             finally
             {
@@ -214,7 +214,7 @@ public sealed class WorldWorkerPool : IDisposable
 
     private interface IWorkItem
     {
-        void Execute();
+        void Execute(WorldWorkerPool owner);
     }
 
     private sealed class WorkItem<TResult>(
@@ -225,7 +225,7 @@ public sealed class WorldWorkerPool : IDisposable
     {
         public WorldWorkerOperation<TResult> Operation { get; } = new();
 
-        public void Execute()
+        public void Execute(WorldWorkerPool owner)
         {
             Operation.MarkRunning();
             WorldWorkerCompletion<TResult> completion;
@@ -241,19 +241,24 @@ public sealed class WorldWorkerPool : IDisposable
             }
 
             Operation.Publish(completion);
+            if (completion.Succeeded)
+                Interlocked.Increment(ref owner._completedWorkCount);
+            else if (completion.Error is OperationCanceledException)
+                Interlocked.Increment(ref owner._cancelledWorkCount);
+            else
+                Interlocked.Increment(ref owner._failedWorkCount);
+
             try
             {
                 onCompleted?.Invoke(completion);
             }
             catch
             {
-                // Completion delivery is deliberately isolated from the pool.
-                // The operation result remains observable by its owning runtime.
-                // Callback failures are counted by the enclosing pool below.
-                throw new WorkerCompletionCallbackException();
+                // The operation result is already published and remains
+                // observable by its owner. A delivery callback must never kill
+                // a physical worker or prevent it from consuming another item.
+                Interlocked.Increment(ref owner._completionCallbackFailures);
             }
         }
     }
-
-    private sealed class WorkerCompletionCallbackException : Exception;
 }
