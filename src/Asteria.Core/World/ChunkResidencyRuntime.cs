@@ -851,17 +851,9 @@ public sealed class ChunkResidencyRuntime
         var failures = new List<ChunkMaterializationFailure>();
         var startedTasks = 0;
         var restored = 0;
-        // Logical tasks are registered from the authoritative ticket queue.
-        // They may remain parked here while the shared executor is busy; only
-        // DispatchPendingWorkerOperations is limited by available worker slots.
-        // The frame deadline bounds coordinator-side task registration.
-
 
         while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
-            // Keep each X/Z column together in the ticket queue. Provider
-            // jobs are registered even when every physical worker is busy;
-            // their operations wait in the shared priority queue.
             var pendingColumn = _streaming.PopPendingColumnEntryByPriority();
             if (pendingColumn is null)
                 break;
@@ -873,20 +865,30 @@ public sealed class ChunkResidencyRuntime
                     _streaming.DesiredSectionsInColumn(column),
                     _world.LoadedChunkCoords))
             {
-                // Four is the number of outstanding player-ticket promotions,
-                // not a limit on workers or on already admitted columns.
                 RequeuePendingSections(sections, 0);
                 break;
             }
 
+            // One holder owns one active FULL request. If a previous column
+            // batch is still running, keep unstarted sections pending and let
+            // other holder tasks use the shared executor first.
+            if (_materializationTasks.ContainsKey(column))
+            {
+                foreach (var section in sections)
+                    RequeueIfDesired(section.Coord);
+                continue;
+            }
+
+            var dispatchTimestamp = Stopwatch.GetTimestamp();
+            var sectionJobs = new List<IChunkMaterializationJob>(sections.Count);
             var stopAfterBatch = false;
+
             for (var sectionIndex = 0;
                  sectionIndex < sections.Count;
                  sectionIndex++)
             {
                 var pendingEntry = sections[sectionIndex];
                 var selected = pendingEntry.Coord;
-                var dispatchTimestamp = Stopwatch.GetTimestamp();
 
                 if (budget.Exhausted(Stopwatch.GetTimestamp()))
                 {
@@ -895,10 +897,12 @@ public sealed class ChunkResidencyRuntime
                     break;
                 }
 
-                if (!_streaming.IsDesired(selected) ||
-                    _world.ContainsChunk(selected) ||
-                    _materializationTasks.ContainsKey(selected))
+                if (!_streaming.IsDesired(selected))
+                    continue;
+
+                if (_world.ContainsChunk(selected))
                 {
+                    _playerTicketAdmissions.MarkSectionFull(selected);
                     continue;
                 }
 
@@ -930,8 +934,7 @@ public sealed class ChunkResidencyRuntime
                 catch (Exception error)
                 {
                     failures.Add(new ChunkMaterializationFailure(selected, error));
-                    RequeueIfDesired(selected, pendingEntry.EnqueuedTimestamp);
-                    RequeuePendingSections(sections, sectionIndex + 1);
+                    RequeuePendingSections(sections, sectionIndex);
                     stopAfterBatch = true;
                     break;
                 }
@@ -943,54 +946,73 @@ public sealed class ChunkResidencyRuntime
                         selected,
                         new InvalidOperationException(
                             $"Materialization provider returned a job for {job.Coord}, expected {selected}.")));
-                    RequeueIfDesired(selected, pendingEntry.EnqueuedTimestamp);
-                    RequeuePendingSections(sections, sectionIndex + 1);
+                    RequeuePendingSections(sections, sectionIndex);
                     stopAfterBatch = true;
                     break;
                 }
 
+                sectionJobs.Add(job);
+            }
+
+            if (sectionJobs.Count > 0)
+            {
                 if (_nextMaterializationGeneration == 0 ||
                     _nextMaterializationGeneration == ulong.MaxValue)
                 {
-                    job.Dispose();
+                    foreach (var job in sectionJobs)
+                        job.Dispose();
                     throw new InvalidOperationException(
                         "Materialization task generation ID space was exhausted.");
                 }
 
                 var generation = _nextMaterializationGeneration++;
                 var taskKey = new ChunkGenerationTaskKey(
-                    ChunkColumnCoord.FromChunk(selected),
-                    ChunkGenerationStepId.SectionReady,
-                    selected.Y);
-                var taskPriority = GenerationPriority(selected);
-                var generationTask = new ChunkMaterializationGenerationTask(
-                    job,
+                    column,
+                    ChunkGenerationStepId.SectionReady);
+                var columnCenter = new ChunkCoord(column.X, _center.Y, column.Z);
+                var taskPriority = GenerationPriority(columnCenter);
+                var generationTask = new ChunkColumnMaterializationGenerationTask(
+                    column,
+                    sectionJobs,
                     chunk => ChunkLightingSolver.Initialize(
                         chunk, _blocks, _fluids, _objects),
                     dispatchTimestamp);
+                var taskSections = sectionJobs
+                    .Select(job => job.Coord)
+                    .OrderBy(coord => coord.Y)
+                    .ToArray();
                 var work = new MaterializationWork(
                     taskKey,
                     generation,
-                    pendingEntry.EnqueuedTimestamp,
-                    dispatchTimestamp);
-                _streaming.MarkMaterializing(selected);
-                _materializationTasks.Add(selected, work);
+                    pendingColumn.Value.EnqueuedTimestamp,
+                    dispatchTimestamp,
+                    taskSections);
+
+                foreach (var coord in taskSections)
+                    _streaming.MarkMaterializing(coord);
+                _materializationTasks.Add(column, work);
+
                 if (!_generationDispatcher.TryEnqueue(
                         taskKey,
                         generation,
                         taskPriority,
-                        pendingEntry.EnqueuedTimestamp,
+                        pendingColumn.Value.EnqueuedTimestamp,
                         generationTask))
                 {
-                    _materializationTasks.Remove(selected);
+                    _materializationTasks.Remove(column);
                     generationTask.Dispose();
-                    _streaming.FinishMaterializing(selected);
-                    RequeueIfDesired(selected, pendingEntry.EnqueuedTimestamp);
-                    RequeuePendingSections(sections, sectionIndex + 1);
+                    foreach (var coord in taskSections)
+                    {
+                        _streaming.FinishMaterializing(coord);
+                        RequeueIfDesired(coord, pendingColumn.Value.EnqueuedTimestamp);
+                    }
+
                     stopAfterBatch = true;
-                    break;
                 }
-                startedTasks++;
+                else
+                {
+                    startedTasks++;
+                }
             }
 
             if (stopAfterBatch)
