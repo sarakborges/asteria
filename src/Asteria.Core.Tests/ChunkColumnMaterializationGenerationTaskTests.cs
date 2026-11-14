@@ -64,6 +64,50 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void ColumnBatchesNextTerrainForkForEveryReadyVerticalSection()
+    {
+        var column = new ChunkColumnCoord(6, -4);
+        var lower = new FakeMaterializationJob(
+            new ChunkCoord(6, 0, -4),
+            sliceCount: 2,
+            ChunkMaterializationStage.TerrainLayer);
+        var upper = new FakeMaterializationJob(
+            new ChunkCoord(6, 1, -4),
+            sliceCount: 2,
+            ChunkMaterializationStage.TerrainLayer);
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [lower, upper],
+            initializeLighting: _ => { });
+
+        var firstTerrainBatch = task.Advance([], CancellationToken.None);
+        Assert.Equal(2, firstTerrainBatch.WorkerOperations.Length);
+
+        var firstCompletions = firstTerrainBatch.WorkerOperations
+            .Select(operation => Completion(
+                column,
+                operation.DependencyId,
+                operation.Execute(CancellationToken.None)))
+            .ToArray();
+        var terrainProgress = task.Advance(
+            firstCompletions, CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, terrainProgress.Kind);
+        Assert.Equal(ChunkGenerationStatus.Terrain, terrainProgress.ProgressStatus);
+        Assert.Equal(1, lower.AdvanceCount);
+        Assert.Equal(1, upper.AdvanceCount);
+
+        var secondTerrainBatch = task.Advance([], CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, secondTerrainBatch.Kind);
+        Assert.Equal(2, secondTerrainBatch.WorkerOperations.Length);
+        Assert.All(
+            secondTerrainBatch.WorkerOperations,
+            operation => Assert.Equal(
+                ChunkGenerationExecutionPolicy.SharedWorkerPool,
+                operation.ExecutionPolicy));
+    }
+
+    [Fact]
     public void ColumnPreservesLightExecutorPolicyForEverySection()
     {
         var column = new ChunkColumnCoord(5, -3);
