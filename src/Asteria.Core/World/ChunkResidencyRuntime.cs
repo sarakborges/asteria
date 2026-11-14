@@ -145,6 +145,8 @@ public sealed class ChunkResidencyRuntime
     private readonly WorldTickClock _worldTicks;
     private readonly ChunkResidencySettings _settings;
     private readonly ChunkStreamingState _streaming = new();
+    private readonly ChunkTicketAdmissionController _playerTicketAdmissions =
+        new(_streaming.DistanceManager);
     private readonly ChunkPresentationSelection _presentationSelection = new();
     // Each section keeps one private incremental materialization job. The
     // serial dispatcher resumes it between bounded worker slices; no worker
@@ -410,6 +412,8 @@ public sealed class ChunkResidencyRuntime
             return false;
         }
 
+        _playerTicketAdmissions.RetainDesiredSections(
+            _streaming.DesiredSections);
         CancelMaterializationsOutsideResidency();
         _center = center;
         _retentionRadius =
@@ -637,6 +641,8 @@ public sealed class ChunkResidencyRuntime
 
         if (outcome.Kind == ChunkGenerationTaskOutcomeKind.Cancelled)
         {
+            _playerTicketAdmissions.Abandon(
+                ChunkColumnCoord.FromChunk(coord));
             cancelledTasks++;
             return;
         }
@@ -647,6 +653,8 @@ public sealed class ChunkResidencyRuntime
                 new InvalidOperationException(
                     $"Chunk materialization failed without an exception: {coord}");
             failures.Add(new ChunkMaterializationFailure(coord, error));
+            _playerTicketAdmissions.Abandon(
+                ChunkColumnCoord.FromChunk(coord));
             if (_acceptingMaterializationWork)
                 RequeueIfDesired(coord, work.PendingSinceTimestamp);
             return;
@@ -659,6 +667,8 @@ public sealed class ChunkResidencyRuntime
                 coord,
                 new InvalidOperationException(
                     $"Completed generation task returned an invalid chunk result: {coord}")));
+            _playerTicketAdmissions.Abandon(
+                ChunkColumnCoord.FromChunk(coord));
             if (_acceptingMaterializationWork)
                 RequeueIfDesired(coord, work.PendingSinceTimestamp);
             return;
@@ -668,10 +678,16 @@ public sealed class ChunkResidencyRuntime
         if (!_acceptingMaterializationWork)
             return;
 
-        if (!_streaming.KeepsLoaded(coord) || _world.ContainsChunk(coord))
+        if (!_streaming.KeepsLoaded(coord))
             return;
+        if (_world.ContainsChunk(coord))
+        {
+            _playerTicketAdmissions.MarkSectionFull(coord);
+            return;
+        }
 
         _world.InsertChunk(coord, result.Chunk);
+        _playerTicketAdmissions.MarkSectionFull(coord);
         var activation = ActivateResidentChunk(
             coord,
             ChunkActivationSource.Provider,
@@ -853,6 +869,18 @@ public sealed class ChunkResidencyRuntime
                 break;
 
             var sections = pendingColumn.Value.Sections;
+            var column = pendingColumn.Value.Column;
+            if (!_playerTicketAdmissions.TryAdmit(
+                    column,
+                    _streaming.DesiredSectionsInColumn(column),
+                    _world.LoadedChunkCoords))
+            {
+                // Four is the number of outstanding player-ticket promotions,
+                // not a limit on workers or on already admitted columns.
+                RequeuePendingSections(sections, 0);
+                break;
+            }
+
             var stopAfterBatch = false;
             for (var sectionIndex = 0;
                  sectionIndex < sections.Count;
@@ -884,11 +912,15 @@ public sealed class ChunkResidencyRuntime
                         ChunkActivationSource.Archive,
                         workerMilliseconds: 0.0));
                     restored++;
+                    _playerTicketAdmissions.MarkSectionFull(selected);
                     continue;
                 }
 
                 if (restore == ChunkRestoreResult.AlreadyResident)
+                {
+                    _playerTicketAdmissions.MarkSectionFull(selected);
                     continue;
+                }
 
                 IChunkMaterializationJob job;
                 try
