@@ -130,6 +130,47 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void AsteriaFullStepRequiresOnlyTerrainAtItsHorizontalHalo()
+    {
+        Assert.Equal(
+            1,
+            AsteriaChunkGenerationPlan.MaximumHorizontalDependencyRadius);
+        Assert.Equal(
+            ChunkGenerationStatus.Terrain,
+            AsteriaChunkGenerationPlan.GetRequiredStatusAtHorizontalDistance(
+                ChunkGenerationStepId.SectionReady,
+                horizontalDistance: 1));
+        Assert.Equal(
+            ChunkGenerationStatus.Unloaded,
+            AsteriaChunkGenerationPlan.GetRequiredStatusAtHorizontalDistance(
+                ChunkGenerationStepId.SectionReady,
+                horizontalDistance: 2));
+    }
+
+    [Fact]
+    public void ChunkTicketLevelsUseTheGenerationPlanForNeighborStatus()
+    {
+        Assert.Equal(
+            ChunkLevel.Full + AsteriaChunkGenerationPlan.MaximumHorizontalDependencyRadius,
+            ChunkLevel.MaximumLoading);
+        Assert.Equal(
+            ChunkGenerationStatus.Terrain,
+            ChunkLevel.GetGenerationStatus(ChunkLevel.Full + 1));
+        Assert.Equal(
+            ChunkGenerationStatus.Unloaded,
+            ChunkLevel.GetGenerationStatus(ChunkLevel.Full + 2));
+    }
+
+    [Fact]
+    public void RequiredStatusRejectsNegativeHorizontalDistance()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => AsteriaChunkGenerationPlan.GetRequiredStatusAtHorizontalDistance(
+                ChunkGenerationStepId.SectionReady,
+                horizontalDistance: -1));
+    }
+
+    [Fact]
     public void PlanRejectsDependenciesThatAreNotDeclared()
     {
         var steps = new[]
