@@ -83,6 +83,10 @@ public sealed class ChunkMaterializationGenerationTask :
             : dispatchTimestamp;
         _createdTimestamp = Stopwatch.GetTimestamp();
         _returnJobOnCompletion = returnJobOnCompletion;
+        // A nested dependency job remains owned by the parent materialization
+        // job until it is returned in a completion payload. On cancellation,
+        // the parent's Dispose path is the single owner that releases it.
+        _jobOwnershipTransferred = returnJobOnCompletion;
     }
 
     public ChunkCoord Coord => _job.Coord;
