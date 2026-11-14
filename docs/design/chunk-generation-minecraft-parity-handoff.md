@@ -777,3 +777,69 @@ This matches Minecraft 26.3's processor-minus-one background-pool capacity polic
 
 A separate constant, `WorldWorkerLaneCount = 4`, in `Main.DispatchReadyWorldWorkers` is not the physical worker count. It caps per-frame admission attempts across four domain-owned queues (fluid simulation, terrain mesh, lighting, fluid mesh). It is not yet equivalent to Minecraft's worldgen/light `ChunkTaskDispatcher` pair. Audit this domain admission separately when moving lighting and other world CPU operations to their proper serial executors.
 
+
+
+---
+
+## Authoritative continuation update — 2026-11-14 (HEAD 49df11f)
+
+**Reference:** Minecraft Java 26.3 only.  
+**Branch:** `worldgen-perf-fix`  
+**PR:** #157, open, base `worldgen-remake`; no merge.  
+**Code HEAD:** `49df11ff3eb79b3949828fe52ef003fefb9db850`.
+
+### Current implementation
+
+- [x] The physical world worker pool remains shared by all dimensions. Capacity is `min(max(1, processorCount - 1), configuredMaximum)`; do not replace it with per-dimension physical pools.
+- [x] Each dimension has a serial worldgen continuation executor backed by that shared pool. At most one task advance for that dimension is in flight. A continuation can resume on another pool thread; no thread is pinned.
+- [x] Each dimension has a separate serial lighting executor on the same physical pool. Initial lighting, dynamic relighting and chunk-arrival lighting reconciliation use that same logical light lane.
+- [x] The materialization task executes one stage quantum per operation. Worker completion makes the next stage eligible and yields to the column scheduler instead of chaining another stage in the same worker operation.
+- [x] The plan's execution policy is consulted by the materialization adapter: terrain setup/layers fork to the shared pool; FEATURES-like mutation stages advance on the serial worldgen lane; lighting uses the serial light lane; completed chunks are returned for owner-thread publication.
+- [x] A column task fans independent section worker forks out together. It can start all ready vertical terrain forks in one continuation, but advances at most one ordered mutation stage before yielding. This preserves Asteria's parallelism across its 16³ vertical storage sections without allowing a section's mutation sequence to monopolize the serial lane.
+- [x] Holder generation progress is published through BIOMES, TERRAIN, FEATURES and lighting stages. Column progress is the minimum status across the currently required vertical sections. FULL is completed only after the detached section results have been validated and inserted by the owning world thread.
+- [x] Expanding the required vertical section set invalidates the previous generation-progress revision and rearms the relevant futures. Results from superseded batches are ignored.
+- [x] The generation plan now distinguishes `ImmutableWorldData` dependencies from `HolderStatus` dependencies. This is important: neighbor biome/density queries do not automatically imply that neighbor chunks must be loaded.
+- [x] The plan declares horizontal immutable-data read halos for SurfaceDecorations, DirectionalFacePalettes, WallLayers and WallObjects. The palette step also declares its vertical read halo.
+- [x] Tests now assert the difference between `FullSectionAccessEnvelope` and `FullSectionEnvelope`, and that immutable neighbor reads do not expand the loading-ticket radius.
+
+### Important envelope distinction
+
+The latest DAG describes two different regions:
+
+- `FullSectionAccessEnvelope`: horizontal radius 1, section offsets -1..+1. This is the conservative reach of immutable procedural data reads.
+- `FullSectionEnvelope`: horizontal radius 0, section offsets -1..0. This includes the current section and the lower-section gravity-support prerequisite, which is a real generated-section dependency.
+
+Therefore `ChunkLevel.MaximumLoading` is currently `ChunkLevel.Full`, not FULL+1 or FULL+11. Do not widen the loading graph just because a stage samples immutable generator fields in a neighboring X/Z column. Those fields are not chunk holders.
+
+**Remaining correctness issue:** `ChunkGenerationPlan.GetHolderDependencyEnvelope` retains vertical offsets, but `ChunkDistanceManager.AcquireDependencyClaims` currently acquires claims by horizontal column only. `ChunkHolder.GetGenerationFuture` is keyed by status only, not by vertical section Y, and the production materialization path does not request those holder futures. Gravity support still exposes its lower section as a nested `PendingDependency` job owned by the parent materialization task. This preserves correctness for the current special case, but it is not yet a reusable Minecraft-style holder-status dependency graph.
+
+### Remaining gaps, in priority order
+
+1. **Real holder-status dependency requests.** Replace the special nested gravity-support task with a general dependency request keyed to the Asteria section requirement. Asteria's storage is 16³ per `ChunkCoord`, unlike a single full-height vertical chunk column; define a section-aware future/claim contract rather than pretending an X/Z holder future alone identifies the lower section. Identical dependency requests must share in-flight work. The parent must suspend on a future and resume through its normal continuation, never synchronously wait.
+2. **Make column-scope DAG nodes real shared products.** `ColumnBiomeData` and `SurfaceTerrainColumn` are currently represented in the plan and cached by generator-owned data structures, but the initial materializer still enters through each section's TerrainSetup stage. Promote column data preparation to a single X/Z-scoped task/product shared by all vertical section tasks, with immutable lifetime/revision semantics. Avoid sampling the same column data independently per section.
+3. **Enforce read/write envelopes.** The plan now records immutable-data read halos and holder-status dependencies, but `SurfaceChunkMaterializer` still reads generator fields directly. Add a generation-region/capability boundary that validates every read against the active step's read envelope and every mutation against its write envelope. Do not convert immutable reads into resident-holder requirements.
+4. **Executable loading pyramid.** Archive restoration already precedes first materialization, but it is not represented by a distinct loading task/status pyramid equivalent to Minecraft's load path. Separate restore/upgrade/section integration from generation so saved sections do not enter provider generation.
+5. **Complete status/promotion parity.** Audit each Asteria status against Minecraft 26.3 semantics, including failed future rearming, ticket demotion, concurrent status requests, and completion of FULL/BLOCK_TICKING/ENTITY_TICKING only after owner-thread publication.
+6. **Finish lighting task admission.** Initial, dynamic and arrival lighting share the serial light executor. Continue by auditing snapshot capture, result validation, stale revision cancellation, retry and fair priority admission so all light work obeys the same executor contract without moving live-world snapshot capture off the owner thread.
+7. **Validation.** Core tests, Godot C# build, ReadyToRun, Windows export, WebUI screen parity and fixed-seed terrain A/B must all pass on one final HEAD. Compare deterministic outputs across worker counts and task/completion orders; benchmark median/p95, player-local readiness gaps, queue wait and worker utilization.
+
+### Recent implementation commits
+
+- `4f5e7fd6ee209b7b9b343983ebcb6b5b69ff7b79` — yield after each completed worker stage.
+- `d39a33ed206dd1c15f50b345807c6c2e27b2ef41` — complete section after the serial light future resolves.
+- `50ac4416de2caf8d047a93c4bfb4ba2d0fce3957` — test the yield between worker completion and the next stage.
+- `056b667c59be49546038de889e0bbee6e37afc66` — correct the task continuation contract documentation.
+- `4ac9981122634f1a1e6e707c25d9db196df16d3d` — expose each section task's next execution lane.
+- `dd3ec43ce9e4533dd84fa2e25b88037f70bcf230` — batch independent vertical-section forks.
+- `45d6e635a1495323259773697b5966079c115573` — batch initial section forks.
+- `78e20ff1bc3d4633699827ba642490e6826ee411` — test that vertical terrain forks remain parallel.
+- `193f1d3e5a86765dac7da269589b76440761b1bf` — declare immutable horizontal data-read halos.
+- `49df11ff3eb79b3949828fe52ef003fefb9db850` — test read-halo versus holder-ticket envelopes.
+
+### CI at this HEAD
+
+- Validate run [43654978196](https://github.com/sarakborges/asteria/actions/runs/43654978196), HEAD `49df11f`: pending/in progress at the last check. The C# build and WebUI build/Storybook had passed on the immediately preceding HEAD `0b7f830`; its Core tests and terrain A/B were not yet complete.
+- Windows export run [43654973317](https://github.com/sarakborges/asteria/actions/runs/43654973317), same HEAD: queued at the last check.
+- Earlier runs were cancelled because newer commits arrived. A cancelled run is not a pass. Do not mark this implementation validated until the current run's Core tests, terrain A/B and Windows export complete successfully on the same HEAD.
+
+**Next implementation slice:** implement a section-aware, deduplicated generation dependency future for the gravity-support lower-section requirement. Do not add a generic future framework before the section-Y identity and ownership semantics are defined; the present X/Z-only holder futures cannot safely represent two different vertical sections.
