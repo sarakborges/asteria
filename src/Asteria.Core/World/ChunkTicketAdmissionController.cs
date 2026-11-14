@@ -60,7 +60,14 @@ public sealed class ChunkTicketAdmissionController
             .ToHashSet();
 
         if (pending.Count > 0)
+        {
             _sectionsAwaitingFullStatus.Add(column, pending);
+        }
+        else
+        {
+            _distanceManager.CompleteFullStatus(
+                column, ChunkFullStatus.EntityTicking);
+        }
 
         return true;
     }
@@ -78,7 +85,11 @@ public sealed class ChunkTicketAdmissionController
             return false;
 
         if (pending.Count == 0)
+        {
             _sectionsAwaitingFullStatus.Remove(column);
+            _distanceManager.CompleteFullStatus(
+                column, ChunkFullStatus.EntityTicking);
+        }
 
         return true;
     }
@@ -87,8 +98,15 @@ public sealed class ChunkTicketAdmissionController
     /// Releases a failed or cancelled full-status future without removing the
     /// loading ticket itself. A retry can continue under the existing ticket.
     /// </summary>
-    public bool Abandon(ChunkColumnCoord column) =>
-        _sectionsAwaitingFullStatus.Remove(column);
+    public bool Abandon(ChunkColumnCoord column)
+    {
+        if (!_sectionsAwaitingFullStatus.Remove(column))
+            return false;
+
+        _distanceManager.FailPendingPromotions(
+            column, "The player chunk ticket could not reach ENTITY_TICKING.");
+        return true;
+    }
 
     /// <summary>
     /// Drops throttle bookkeeping for sections removed from the current
@@ -106,6 +124,8 @@ public sealed class ChunkTicketAdmissionController
                 continue;
 
             _sectionsAwaitingFullStatus.Remove(column);
+            _distanceManager.CompleteFullStatus(
+                column, ChunkFullStatus.EntityTicking);
             released++;
         }
 
