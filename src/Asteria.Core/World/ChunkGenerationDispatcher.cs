@@ -72,6 +72,9 @@ public sealed class ChunkGenerationDispatcher
 
     public bool HasLightingOperationInFlight => _lightingExecutor.HasInFlightTask;
 
+    /// <summary>Raised on the owning coordinator thread when a task advances its achieved holder status.</summary>
+    public event Action<ChunkGenerationTaskInstance, ChunkGenerationStatus>? GenerationStatusAdvanced;
+
     internal ChunkGenerationSerialExecutor LightingExecutor => _lightingExecutor;
 
     /// <summary>
@@ -320,6 +323,12 @@ public sealed class ChunkGenerationDispatcher
         var result = completion.Result ??
             throw new InvalidOperationException(
                 $"Task advance completed without a result: {entry.Instance}");
+        if (result.ProgressStatus is { } progressStatus &&
+            progressStatus > entry.HighestReportedStatus)
+        {
+            entry.HighestReportedStatus = progressStatus;
+            GenerationStatusAdvanced?.Invoke(entry.Instance, progressStatus);
+        }
         switch (result.Kind)
         {
             case ChunkGenerationTaskAdvanceKind.Completed:
@@ -712,6 +721,9 @@ public sealed class ChunkGenerationDispatcher
         public ChunkGenerationTaskLifecycle Lifecycle { get; } = new();
 
         public CancellationTokenSource Cancellation { get; } = new();
+
+        public ChunkGenerationStatus HighestReportedStatus { get; set; } =
+            ChunkGenerationStatus.Unloaded;
 
         public List<ChunkGenerationDependencyCompletion> CompletedDependencies { get; } = [];
 
