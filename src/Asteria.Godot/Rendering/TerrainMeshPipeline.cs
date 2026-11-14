@@ -124,6 +124,8 @@ public sealed class TerrainMeshPipeline
             return false;
         }
 
+        UpdateInFlightWorkerPriorities(center, movement);
+
         // Interactive and background operations enter the same global
         // priority queue. Alternate capture lanes for fairness; the shared
         // executor decides which queued operation gets a physical worker.
@@ -181,6 +183,45 @@ public sealed class TerrainMeshPipeline
             maximumPerFrame,
             budget);
 
+    private void UpdateInFlightWorkerPriorities(
+        ChunkCoord? center,
+        ChunkMovementDirection movement)
+    {
+        if (center is null)
+            return;
+
+        if (_interactiveInFlightBatch is { } interactive)
+        {
+            var priority = ResolveWorkerPriority(
+                interactive, center, movement,
+                WorldWorkerPool.InteractiveWorldPriority);
+            _interactiveWorker.TryUpdatePriority(priority);
+        }
+
+        if (_backgroundInFlightBatch is { } background)
+        {
+            var priority = ResolveWorkerPriority(
+                background, center, movement,
+                WorldWorkerPool.BackgroundWorldPriority);
+            _backgroundWorker.TryUpdatePriority(priority);
+        }
+    }
+
+    private static int ResolveWorkerPriority(
+        WorldMeshBatch batch,
+        ChunkCoord? center,
+        ChunkMovementDirection movement,
+        int fallbackPriority)
+    {
+        if (center is not { } focus || batch.DirtyMeshlets.Count == 0)
+            return fallbackPriority;
+
+        var nearestBand = batch.DirtyMeshlets.Keys
+            .Min(coord => ChunkStreamingState.StreamingPriority(
+                coord, focus, movement).StreamingBand);
+        return checked(nearestBand * 10);
+    }
+
     private bool TryStartLane(
         TerrainMeshWorker worker,
         ref WorldMeshBatch? inFlightBatch,
@@ -233,9 +274,11 @@ public sealed class TerrainMeshPipeline
                 batch,
                 _revisions,
                 relightable,
-                workerPriority: priority
-                    ? WorldWorkerPool.InteractiveWorldPriority
-                    : WorldWorkerPool.BackgroundWorldPriority))
+                workerPriority: ResolveWorkerPriority(
+                    batch, center, movement,
+                    priority
+                        ? WorldWorkerPool.InteractiveWorldPriority
+                        : WorldWorkerPool.BackgroundWorldPriority)))
         {
             Requeue(batch, priority);
             return false;
