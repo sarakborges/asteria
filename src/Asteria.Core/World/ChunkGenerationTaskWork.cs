@@ -62,11 +62,17 @@ public sealed class ChunkGenerationTaskAdvanceResult
     private ChunkGenerationTaskAdvanceResult(
         ChunkGenerationTaskAdvanceKind kind,
         ImmutableArray<ChunkGenerationWorkerOperation> workerOperations,
-        object? completionPayload)
+        object? completionPayload,
+        ChunkGenerationStatus? progressStatus = null)
     {
+        if (progressStatus is { } status &&
+            (!Enum.IsDefined(status) || status == ChunkGenerationStatus.Unloaded))
+            throw new ArgumentOutOfRangeException(nameof(progressStatus));
+
         Kind = kind;
         WorkerOperations = workerOperations;
         CompletionPayload = completionPayload;
+        ProgressStatus = progressStatus;
     }
 
     public ChunkGenerationTaskAdvanceKind Kind { get; }
@@ -76,21 +82,39 @@ public sealed class ChunkGenerationTaskAdvanceResult
     /// <summary>Detached result published when the logical task completes.</summary>
     public object? CompletionPayload { get; }
 
+    /// <summary>
+    /// Highest generation status newly achieved by this advance. The owner
+    /// thread publishes it to the corresponding ChunkHolder futures.
+    /// </summary>
+    public ChunkGenerationStatus? ProgressStatus { get; }
+
     public static ChunkGenerationTaskAdvanceResult Completed => CompletedResult;
 
-    public static ChunkGenerationTaskAdvanceResult CompletedWith(object payload)
+    public static ChunkGenerationTaskAdvanceResult CompletedWith(
+        object payload,
+        ChunkGenerationStatus? progressStatus = null)
     {
         ArgumentNullException.ThrowIfNull(payload);
         return new ChunkGenerationTaskAdvanceResult(
             ChunkGenerationTaskAdvanceKind.Completed,
             ImmutableArray<ChunkGenerationWorkerOperation>.Empty,
-            payload);
+            payload,
+            progressStatus);
     }
 
     public static ChunkGenerationTaskAdvanceResult Yield => YieldResult;
 
+    public static ChunkGenerationTaskAdvanceResult YieldWithStatus(
+        ChunkGenerationStatus progressStatus) =>
+        new(
+            ChunkGenerationTaskAdvanceKind.Yield,
+            ImmutableArray<ChunkGenerationWorkerOperation>.Empty,
+            null,
+            progressStatus);
+
     public static ChunkGenerationTaskAdvanceResult WaitForWorkers(
-        IEnumerable<ChunkGenerationWorkerOperation> workerOperations)
+        IEnumerable<ChunkGenerationWorkerOperation> workerOperations,
+        ChunkGenerationStatus? progressStatus = null)
     {
         ArgumentNullException.ThrowIfNull(workerOperations);
         var operations = workerOperations.ToImmutableArray();
@@ -116,7 +140,8 @@ public sealed class ChunkGenerationTaskAdvanceResult
         return new ChunkGenerationTaskAdvanceResult(
             ChunkGenerationTaskAdvanceKind.WaitForWorkers,
             operations,
-            null);
+            null,
+            progressStatus);
     }
 }
 
