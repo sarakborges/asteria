@@ -280,7 +280,7 @@ public sealed class ChunkGenerationDispatcher
         tasksFailed = 0;
 
         if (budget.Exhausted(Stopwatch.GetTimestamp()) ||
-            !_taskAdvanceMailbox.TryDequeue(out var completion))
+            !_worldgenExecutor.TryCollect(out var completion))
             return 0;
 
         if (!_allTasks.TryGetValue(completion.Task, out var entry) ||
