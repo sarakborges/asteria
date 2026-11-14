@@ -16,6 +16,8 @@ public partial class Main : Node3D
 {
 	private const float InteractionDistance = 6f;
 	private const int RetentionMarginChunks = 4;
+	private const int SimulationDistanceChunks =
+		ChunkStreamingSelection.DefaultSimulationDistanceChunks;
 	private static readonly int MaxConcurrentWorldJobs =
 		WorldWorkerCapacity.Resolve(
 			System.Environment.ProcessorCount,
@@ -1447,7 +1449,8 @@ public partial class Main : Node3D
 				MaxTerrainMeshletsPerWorker,
 				MaxFluidMeshletsPerWorker,
 				MaxFluidUpdatesPerWorker,
-				MaxChunkEvictionsPerFrame),
+				MaxChunkEvictionsPerFrame,
+				SimulationDistanceChunks),
 			_worldWorkerPool ??
 				throw new InvalidOperationException("World worker pool is not initialized."),
 			_mods.AllowBlockBreak);
@@ -2659,6 +2662,7 @@ public partial class Main : Node3D
 			_sessionStates.WorldSeed, _dimension.Id, _dimensionSeed);
 		_worldDiagnostics?.Write(
 			$"world.settings render_distance_chunks={_clientPreferences.RenderDistanceChunks} " +
+			$"simulation_distance_chunks={SimulationDistanceChunks} " +
 			$"retention_margin_chunks={RetentionMarginChunks} " +
 			$"processor_count={System.Environment.ProcessorCount} " +
 			$"max_world_jobs={MaxConcurrentWorldJobs} " +
@@ -2669,6 +2673,7 @@ public partial class Main : Node3D
 			$"dimension_seed={_dimensionSeed}");
 		GD.Print(
 			$"streaming: render_distance={_clientPreferences.RenderDistanceChunks} " +
+			$"simulation_distance={SimulationDistanceChunks} " +
 			$"retention_margin={RetentionMarginChunks} " +
 			$"background_workers={MaxConcurrentWorldJobs}");
 
