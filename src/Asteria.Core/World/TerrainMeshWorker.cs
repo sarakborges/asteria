@@ -94,6 +94,9 @@ public sealed class TerrainMeshWorker
         }, priority: workerPriority);
     }
 
+    public bool TryUpdatePriority(int priority) =>
+        _worker.TryUpdatePriority(priority);
+
     public bool TryTakeCompleted(
         out TerrainMeshWorkerResult? result,
         out Exception? error) =>
