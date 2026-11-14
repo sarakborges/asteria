@@ -1252,6 +1252,12 @@ public sealed class ChunkDistanceManager
         _holders.TryGetValue(column, out var holder) &&
         holder.CompleteGenerationStatus(status);
 
+    public bool ResetGenerationProgress(
+        ChunkColumnCoord column,
+        string reason) =>
+        _holders.TryGetValue(column, out var holder) &&
+        holder.ResetGenerationProgress(reason);
+
     public bool FailPendingPromotions(
         ChunkColumnCoord column,
         string reason) =>
