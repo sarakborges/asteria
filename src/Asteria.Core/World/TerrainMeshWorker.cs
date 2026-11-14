@@ -91,7 +91,7 @@ public sealed class TerrainMeshWorker
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds,
                 captureMilliseconds);
-        }, priority: workerPriority ??
+        }, CancellationToken.None, workerPriority ??
             WorldWorkerPriority.FromPriorityClass(
                 WorldWorkerPool.DefaultPriority));
     }
