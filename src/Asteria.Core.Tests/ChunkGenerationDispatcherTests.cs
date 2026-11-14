@@ -402,7 +402,10 @@ public sealed class ChunkGenerationDispatcherTests
             started?.Set();
             try
             {
-                release?.Wait(cancellationToken);
+                // Model an already-started CPU stage: cancellation invalidates
+                // its result but does not preempt the work in the middle.
+                release?.Wait();
+                cancellationToken.ThrowIfCancellationRequested();
             }
             finally
             {
