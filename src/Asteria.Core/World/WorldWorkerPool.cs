@@ -66,11 +66,11 @@ public sealed class WorldWorkerOperation<TResult>
 /// </summary>
 public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 {
-    public const int PlayerChunkPriority = 0;
-    public const int ForwardPrefetchPriority = 10;
+    public const int PlayerChunkPriority = ChunkLevel.EntityTicking;
+    public const int ForwardPrefetchPriority = ChunkLevel.BlockTicking;
     public const int InteractiveWorldPriority = 20;
-    public const int BackgroundChunkPriority = 30;
-    public const int RearChunkPriority = 40;
+    public const int BackgroundChunkPriority = ChunkLevel.MaximumLoading;
+    public const int RearChunkPriority = ChunkLevel.Unloaded;
     public const int BackgroundWorldPriority = 100;
     public const int DefaultPriority = BackgroundWorldPriority;
 
