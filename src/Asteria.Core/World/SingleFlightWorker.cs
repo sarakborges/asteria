@@ -38,6 +38,13 @@ internal sealed class SingleFlightWorker<TResult>
             priority: priority);
     }
 
+    public bool TryUpdatePriority(int priority)
+    {
+        var operation = _operation;
+        return operation is not null &&
+            _workerPool.TryUpdatePriority(operation, priority);
+    }
+
     public bool TryTakeCompleted(
         out TResult? result,
         out Exception? error)
