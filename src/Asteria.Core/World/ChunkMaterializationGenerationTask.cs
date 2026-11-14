@@ -63,6 +63,8 @@ public sealed class ChunkMaterializationGenerationTask :
     private ulong _nextDependencyId = 1;
     private ulong _lastDependencyId;
     private bool _hasScheduledOperation;
+    private bool _terrainStatusPublished;
+    private bool _featuresStatusPublished;
     private bool _waitingForLighting;
     private bool _lightingInitialized;
     private bool _hasStartedWorker;
@@ -151,6 +153,12 @@ public sealed class ChunkMaterializationGenerationTask :
             var chunk = _job.Result ??
                 throw new InvalidOperationException(
                     $"Completed materialization job returned no chunk: {_job.Coord}");
+            if (!_featuresStatusPublished)
+            {
+                _featuresStatusPublished = true;
+                return ChunkGenerationTaskAdvanceResult.YieldWithStatus(
+                    ChunkGenerationStatus.Features);
+            }
             if (_initializeLighting is not null && !_lightingInitialized)
                 return ScheduleInitialLighting(chunk);
             return Complete(chunk);
@@ -201,7 +209,8 @@ public sealed class ChunkMaterializationGenerationTask :
                         completed);
                 },
                 ChunkGenerationExecutionPolicy.LightExecutor),
-        ]);
+        ],
+        progressStatus: ChunkGenerationStatus.InitializeLight);
     }
 
     private void CollectLightingCompletion(
@@ -236,20 +245,26 @@ public sealed class ChunkMaterializationGenerationTask :
     private ChunkGenerationTaskAdvanceResult AdvanceParentInline(
         CancellationToken cancellationToken)
     {
-        ApplySlice(AdvanceSingleStage(cancellationToken));
+        var slice = AdvanceSingleStage(cancellationToken);
+        ApplySlice(slice);
         if (_pendingDependencyJob is not null)
             return BeginDependencyTask(cancellationToken);
-        if (_job.IsComplete)
+
+        // Publish TERRAIN only after the last terrain row has been written.
+        if (!_terrainStatusPublished &&
+            slice.StageTimings.Any(timing =>
+                timing.Stage == ChunkMaterializationStage.TerrainLayer) &&
+            _job.ActiveWorkStage != ChunkMaterializationStage.TerrainLayer)
         {
-            var chunk = _job.Result ??
-                throw new InvalidOperationException(
-                    $"Completed materialization job returned no chunk: {_job.Coord}");
-            return _initializeLighting is not null && !_lightingInitialized
-                ? ScheduleInitialLighting(chunk)
-                : Complete(chunk);
+            _terrainStatusPublished = true;
+            return ChunkGenerationTaskAdvanceResult.YieldWithStatus(
+                ChunkGenerationStatus.Terrain);
         }
 
-        // One serial stage quantum per continuation. Yielding lets the
+        if (_job.IsComplete)
+            return AdvanceParent(cancellationToken);
+
+        // One ordered stage quantum per continuation. Yielding lets the
         // dimension dispatcher advance other chunk columns before resuming.
         return ChunkGenerationTaskAdvanceResult.Yield;
     }
@@ -519,7 +534,10 @@ public sealed class ChunkMaterializationGenerationTask :
                 _workerCompletedTimestamp,
                 _workerOperationCount,
                 _interSliceWaitMilliseconds,
-                completedDependencyJob));
+                completedDependencyJob),
+            progressStatus: _initializeLighting is null
+                ? ChunkGenerationStatus.Features
+                : ChunkGenerationStatus.Light);
     }
 
     private readonly record struct ChunkLightingWorkerResult(
