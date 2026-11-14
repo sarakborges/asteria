@@ -350,6 +350,9 @@ public sealed class DimensionRuntimeSession
                 objects,
                 workerPool);
         FluidSimulation.ConfigureSimulationEligibility(Residency.IsBlockTicking);
+        BlockEntities.ConfigureSimulationEligibility(
+            Residency.IsBlockTicking,
+            Residency.IsEntityTicking);
         Presentations =
             new ChunkPresentationController(
                 Root,
