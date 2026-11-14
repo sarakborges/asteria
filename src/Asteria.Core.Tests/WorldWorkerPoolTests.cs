@@ -199,7 +199,7 @@ public sealed class WorldWorkerPoolTests
     [Fact]
     public void CancellationAndFailuresArePublishedAsOperationResults()
     {
-        using var pool = new WorldWorkerPool(workerCount: 1);
+        using var pool = new WorldWorkerPool(workerCount: 1, pendingCapacity: 2);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var expectedError = new InvalidOperationException("worker failed");
