@@ -55,7 +55,7 @@ public sealed class FluidSimulationWorker
                 snapshot.Dependencies,
                 simulation,
                 stopwatch.Elapsed.TotalMilliseconds);
-        });
+        }, priority: WorldWorkerPool.InteractiveWorldPriority);
     }
 
     public bool TryTakeCompleted(
