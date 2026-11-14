@@ -37,11 +37,12 @@ public static class ChunkLevel
     public const int Biomes = 36;
     public const int StructureStarts = 37;
 
-    // Minecraft 26.3 derives eleven dependency rings from its generation
-    // pyramid: Full (33) plus eleven rings yields the last holder level (44).
-    // Asteria will replace this reference radius with the accumulated spatial
-    // envelope from its own ChunkGenerationPlan when that plan owns scheduling.
-    public const int MaximumLoading = 44;
+    // The loading graph extends exactly as far as the accumulated spatial
+    // dependency envelope of Asteria's FULL generation step requires. This is
+    // derived from the stage DAG, not copied from Minecraft's eleven-ring
+    // vanilla pyramid.
+    public static int MaximumLoading =>
+        Full + AsteriaChunkGenerationPlan.MaximumHorizontalDependencyRadius;
     public const int Unloaded = 45;
     public const int NoSimulationTicket = 33;
 
@@ -56,17 +57,20 @@ public static class ChunkLevel
         return ChunkFullStatus.Inaccessible;
     }
 
-    public static ChunkGenerationStatus GetGenerationStatus(int level) =>
-        level switch
-        {
-            <= Full => ChunkGenerationStatus.Full,
-            InitializeLight => ChunkGenerationStatus.InitializeLight,
-            Terrain => ChunkGenerationStatus.Terrain,
-            Biomes => ChunkGenerationStatus.Biomes,
-            >= StructureStarts and <= MaximumLoading =>
-                ChunkGenerationStatus.StructureStarts,
-            _ => ChunkGenerationStatus.Unloaded,
-        };
+    public static ChunkGenerationStatus GetGenerationStatus(int level)
+    {
+        if (level <= Full)
+            return ChunkGenerationStatus.Full;
+        if (level == InitializeLight)
+            return ChunkGenerationStatus.InitializeLight;
+        if (level == Terrain)
+            return ChunkGenerationStatus.Terrain;
+        if (level == Biomes)
+            return ChunkGenerationStatus.Biomes;
+        if (level >= StructureStarts && level <= MaximumLoading)
+            return ChunkGenerationStatus.StructureStarts;
+        return ChunkGenerationStatus.Unloaded;
+    }
 }
 
 public enum ChunkFullStatus : byte
