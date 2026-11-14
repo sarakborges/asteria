@@ -113,8 +113,12 @@ public sealed class WorldWorkerPool : IDisposable
 
     public int InFlightWorkCount => Volatile.Read(ref _inFlightWorkCount);
 
+    /// <summary>
+    /// Total additional operations the executor can accept, counting idle
+    /// physical workers and the bounded queue behind them.
+    /// </summary>
     public int AvailableSubmissionCount =>
-        Math.Max(0, PendingCapacity - PendingWorkCount);
+        Math.Max(0, WorkerCount + PendingCapacity - InFlightWorkCount);
 
     public long CompletedWorkCount => Interlocked.Read(ref _completedWorkCount);
 
