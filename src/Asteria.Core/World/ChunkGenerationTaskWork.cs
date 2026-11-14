@@ -21,20 +21,30 @@ public readonly record struct ChunkGenerationWorkerOperation
 {
     public ChunkGenerationWorkerOperation(
         ulong dependencyId,
-        Func<CancellationToken, object?> execute)
+        Func<CancellationToken, object?> execute,
+        ChunkGenerationExecutionPolicy executionPolicy =
+            ChunkGenerationExecutionPolicy.SharedWorkerPool)
     {
         if (dependencyId == 0)
             throw new ArgumentOutOfRangeException(
                 nameof(dependencyId), "Dependency ID zero is reserved.");
         ArgumentNullException.ThrowIfNull(execute);
+        if (executionPolicy is not (
+            ChunkGenerationExecutionPolicy.SharedWorkerPool or
+            ChunkGenerationExecutionPolicy.LightExecutor))
+            throw new ArgumentOutOfRangeException(nameof(executionPolicy));
 
         DependencyId = dependencyId;
         Execute = execute;
+        ExecutionPolicy = executionPolicy;
     }
 
     public ulong DependencyId { get; }
 
     public Func<CancellationToken, object?> Execute { get; }
+
+    /// <summary>Serial executor lane that owns this asynchronous operation.</summary>
+    public ChunkGenerationExecutionPolicy ExecutionPolicy { get; }
 }
 
 /// <summary>
