@@ -37,7 +37,7 @@ public sealed class FluidMeshWorker
         WorldMeshBatch batch,
         MeshletContentRevisions revisions,
         IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>? relightable = null,
-        int workerPriority = WorldWorkerPool.DefaultPriority)
+        WorldWorkerPriority? workerPriority = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -81,10 +81,12 @@ public sealed class FluidMeshWorker
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds,
                 captureMilliseconds);
-        }, priority: workerPriority);
+        }, priority: workerPriority ??
+            WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.DefaultPriority));
     }
 
-    public bool TryUpdatePriority(int priority) =>
+    public bool TryUpdatePriority(WorldWorkerPriority priority) =>
         _worker.TryUpdatePriority(priority);
 
     public bool TryTakeCompleted(
