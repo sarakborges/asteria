@@ -135,6 +135,8 @@ public sealed class ChunkResidencyRuntime
     private readonly DeduplicatedQueue<ChunkCoord> _pendingChunkLightingReconciliations = new();
     private readonly Dictionary<ChunkCoord, ChunkLightingReconciliationWork>
         _chunkLightingReconciliationTasks = [];
+    private readonly ChunkGenerationCompletionMailbox _arrivalLightingCompletionMailbox = new();
+    private ulong _nextArrivalLightingGeneration = 1;
     private bool _preferChunkLightingReconciliation = true;
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
@@ -305,12 +307,10 @@ public sealed class ChunkResidencyRuntime
     public int MaterializingCount =>
         _streaming.MaterializingCount;
 
-    /// <summary>Background tasks currently owning terrain or initial-light stages.</summary>
+    /// <summary>Background tasks currently admitted by this dimension's shared worker adapter.</summary>
     public int ActiveWorkerCount =>
         _generationWorkerPool.InFlightWorkCount +
         _directionalFaceReconciliationTasks.Values.Count(work =>
-            !work.Operation.IsCompleted) +
-        _chunkLightingReconciliationTasks.Values.Count(work =>
             !work.Operation.IsCompleted);
 
     public int GenerationWorkerCount => _generationWorkerPool.WorkerCount;
@@ -535,8 +535,7 @@ public sealed class ChunkResidencyRuntime
             _generationDispatcher.PendingOutcomeCount == 0 &&
             !_directionalFaceReconciliationTasks.Values.Any(work =>
                 work.Operation.IsCompleted) &&
-            !_chunkLightingReconciliationTasks.Values.Any(work =>
-                work.Operation.IsCompleted))
+            _arrivalLightingCompletionMailbox.PendingCount == 0)
             return ChunkResidencyUpdate.Empty;
 
         var report = _generationDispatcher.Pump(
@@ -627,21 +626,21 @@ public sealed class ChunkResidencyRuntime
             }
         }
 
-        var completedLighting = _chunkLightingReconciliationTasks
-            .Where(entry => entry.Value.Operation.IsCompleted)
-            .OrderBy(entry => ChunkStreamingState.StreamingPriority(
-                entry.Key, _center, _streaming.MovementDirection))
-            .ToArray();
-
-        foreach (var (coord, work) in completedLighting)
+        foreach (var (coord, work) in _chunkLightingReconciliationTasks.ToArray())
         {
             if (budget.Exhausted(Stopwatch.GetTimestamp()))
                 break;
 
+            if (!_generationDispatcher.LightingExecutor.TryCollectDependency(
+                    _arrivalLightingCompletionMailbox, out var completion))
+                break;
+
             _chunkLightingReconciliationTasks.Remove(coord);
             processed++;
-            if (!work.Operation.TryGetCompletion(out var completion))
-                continue;
+            if (completion.Task != work.TaskInstance)
+                throw new InvalidOperationException(
+                    $"Arrival lighting completion did not match {coord}.");
+
             if (completion.Error is not null)
             {
                 failures.Add(new ChunkMaterializationFailure(
@@ -655,7 +654,7 @@ public sealed class ChunkResidencyRuntime
             if (!_acceptingMaterializationWork)
                 continue;
 
-            var result = completion.Result ??
+            var result = completion.Result as ChunkArrivalReconciliationResult ??
                 throw new InvalidOperationException(
                     $"Chunk lighting reconciliation returned no result: {coord}");
             if (!_world.IsContentStampCurrent(work.ContentDependencies) ||
@@ -1264,8 +1263,8 @@ public sealed class ChunkResidencyRuntime
         }
 
         foreach (var (coord, work) in _chunkLightingReconciliationTasks)
-            _worldWorkerPool.TryUpdatePriority(
-                work.Operation, StreamingWorkerPriority(coord));
+            _generationDispatcher.LightingExecutor.TryUpdatePriority(
+                work.TaskInstance, StreamingWorkerPriority(coord));
 
         foreach (var (coord, work) in _directionalFaceReconciliationTasks)
             _worldWorkerPool.TryUpdatePriority(
@@ -1312,28 +1311,41 @@ public sealed class ChunkResidencyRuntime
             var snapshotWorld = _world.CloneForWorker(dependencies);
             var contentDependencies = _world.CaptureContentStamp(dependencies);
             var lightingDependencies = _world.CaptureLightingStamps(dependencies);
-            if (!_worldWorkerPool.TrySchedule(
-                    _ =>
-                    {
-                        var lightingSeeds = ChunkTopologyFrontier.ArrivalLightingSeeds(
-                            snapshotWorld, _blocks, _fluids, coord, _objects);
-                        var physicsPlan = snapshotWorld.ContainsChunk(coord)
-                            ? _blockPhysics.CalculateResidentChunkActivationPlan(
-                                snapshotWorld, coord)
-                            : (BlockPhysicsChunkActivationPlan?)null;
-                        return new ChunkArrivalReconciliationResult(
-                            lightingSeeds, physicsPlan);
-                    },
-                    CancellationToken.None,
-                    out var operation,
-                    priority: StreamingWorkerPriority(coord)))
+            if (_nextArrivalLightingGeneration == 0 ||
+                _nextArrivalLightingGeneration == ulong.MaxValue)
+                throw new InvalidOperationException(
+                    "Arrival lighting generation IDs were exhausted.");
+
+            var taskInstance = new ChunkGenerationTaskInstance(
+                new ChunkGenerationTaskKey(
+                    ChunkColumnCoord.FromChunk(coord),
+                    ChunkGenerationStepId.InitialLighting),
+                _nextArrivalLightingGeneration++);
+            var request = new ChunkGenerationWorkerRequest(
+                taskInstance,
+                WaitToken: 1,
+                DependencyId: 1,
+                Execute: _ =>
+                {
+                    var lightingSeeds = ChunkTopologyFrontier.ArrivalLightingSeeds(
+                        snapshotWorld, _blocks, _fluids, coord, _objects);
+                    var physicsPlan = snapshotWorld.ContainsChunk(coord)
+                        ? _blockPhysics.CalculateResidentChunkActivationPlan(
+                            snapshotWorld, coord)
+                        : (BlockPhysicsChunkActivationPlan?)null;
+                    return new ChunkArrivalReconciliationResult(
+                        lightingSeeds, physicsPlan);
+                },
+                Priority: StreamingWorkerPriority(coord));
+            if (!_generationDispatcher.LightingExecutor.TryScheduleDependency(
+                    request, _arrivalLightingCompletionMailbox))
             {
                 _pendingChunkLightingReconciliations.Enqueue(coord);
                 return false;
             }
 
             var work = new ChunkLightingReconciliationWork(
-                coord, contentDependencies, lightingDependencies, operation!);
+                coord, contentDependencies, lightingDependencies, taskInstance);
             _chunkLightingReconciliationTasks.Add(coord, work);
             return true;
         }
@@ -1431,21 +1443,20 @@ public sealed class ChunkResidencyRuntime
             ChunkCoord coord,
             ChunkContentStamp contentDependencies,
             IReadOnlyList<VoxelLightChunkStamp> lightingDependencies,
-            WorldWorkerOperation<ChunkArrivalReconciliationResult> operation)
+            ChunkGenerationTaskInstance taskInstance)
         {
             Coord = coord;
             ContentDependencies = contentDependencies ??
                 throw new ArgumentNullException(nameof(contentDependencies));
             LightingDependencies = lightingDependencies ??
                 throw new ArgumentNullException(nameof(lightingDependencies));
-            Operation = operation ??
-                throw new ArgumentNullException(nameof(operation));
+            TaskInstance = taskInstance;
         }
 
         public ChunkCoord Coord { get; }
         public ChunkContentStamp ContentDependencies { get; }
         public IReadOnlyList<VoxelLightChunkStamp> LightingDependencies { get; }
-        public WorldWorkerOperation<ChunkArrivalReconciliationResult> Operation { get; }
+        public ChunkGenerationTaskInstance TaskInstance { get; }
     }
 
     private sealed record MaterializationWork(
