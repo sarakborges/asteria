@@ -346,7 +346,7 @@ internal sealed class ChunkColumnPendingQueue
             throw new InvalidOperationException(
                 $"Cannot prioritize a column without pending sections: {column}");
         return new ChunkGenerationTaskPriority(
-            priority.StreamingBand,
+            priority.TicketLevel,
             priority.HorizontalDistanceSquared,
             priority.TotalDistanceSquared,
             priority.Y,
