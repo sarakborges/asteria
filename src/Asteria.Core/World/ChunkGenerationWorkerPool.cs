@@ -28,8 +28,8 @@ public readonly record struct ChunkGenerationWorkerRequest(
 
 /// <summary>
 /// Generation-specific adapter over the session's shared WorldWorkerPool.
-/// It publishes detached completion messages to an unbounded mailbox; worker
-/// count limits execution, while the dispatcher owns logical task backlog.
+/// It accounts for both dependency forks and serial task-advance operations.
+/// The dispatcher owns logical backlog; the shared pool bounds physical work.
 /// </summary>
 public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 {
@@ -96,8 +96,8 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
     public long RejectedWorkCount => Interlocked.Read(ref _rejectedWorkCount);
 
     /// <summary>
-    /// Submits work to the shared priority queue. False means the adapter or
-    /// executor is retiring; pending queue length is not a worker admission cap.
+    /// Submits detached work for one generation dependency. False means the
+    /// adapter or executor is retiring; queued demand is not worker-count capped.
     /// </summary>
     public bool TrySchedule(ChunkGenerationWorkerRequest request) =>
         TrySchedule(request, out _);
@@ -107,7 +107,87 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
         out WorldWorkerOperation<object?>? operation)
     {
         request.Validate();
+        var priority = request.Priority ??
+            WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.DefaultPriority);
+
+        return TryScheduleCore(
+            request.Execute,
+            request.CancellationToken,
+            priority,
+            result => _completionMailbox.Publish(
+                new ChunkGenerationDependencyCompletion(
+                    request.Task,
+                    request.WaitToken,
+                    request.DependencyId,
+                    Result: result.Result,
+                    Error: result.Error)),
+            out operation);
+    }
+
+    /// <summary>
+    /// Submits one logical task advance to the serial worldgen lane. The
+    /// dispatcher guarantees only one such operation is in flight per
+    /// dimension; its result returns through the dedicated single-slot mailbox.
+    /// </summary>
+    internal bool TryScheduleTaskAdvance(
+        ChunkGenerationTaskInstance task,
+        Func<CancellationToken, ChunkGenerationTaskAdvanceResult> execute,
+        CancellationToken cancellationToken,
+        WorldWorkerPriority priority,
+        ChunkGenerationTaskAdvanceMailbox completionMailbox,
+        out WorldWorkerOperation<ChunkGenerationTaskAdvanceResult>? operation)
+    {
+        task.Validate();
+        ArgumentNullException.ThrowIfNull(execute);
+        ArgumentNullException.ThrowIfNull(completionMailbox);
+
+        return TryScheduleCore(
+            execute,
+            cancellationToken,
+            priority,
+            result => completionMailbox.Publish(
+                new ChunkGenerationTaskAdvanceCompletion(
+                    task,
+                    result.Result,
+                    result.Error)),
+            out operation);
+    }
+
+    /// <summary>
+    /// Changes the priority of any queued work owned by this adapter, including
+    /// task advances and dependency forks.
+    /// </summary>
+    public bool TryUpdatePriority<TResult>(
+        WorldWorkerOperation<TResult> operation,
+        WorldWorkerPriority priority) =>
+        _workerPool.TryUpdatePriority(operation, priority);
+
+    /// <summary>
+    /// Stops generation-specific admission. An injected shared executor remains
+    /// alive for other runtimes; an isolated test executor is drained and closed.
+    /// </summary>
+    public ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            CompleteDrainIfNeeded();
+
+        return _ownsWorkerPool
+            ? _workerPool.DisposeAsync()
+            : new ValueTask(_drained.Task);
+    }
+
+    private bool TryScheduleCore<TResult>(
+        Func<CancellationToken, TResult> execute,
+        CancellationToken cancellationToken,
+        WorldWorkerPriority priority,
+        Action<WorldWorkerCompletion<TResult>> publishCompletion,
+        out WorldWorkerOperation<TResult>? operation)
+    {
+        ArgumentNullException.ThrowIfNull(execute);
+        ArgumentNullException.ThrowIfNull(publishCompletion);
         operation = null;
+
         if (Volatile.Read(ref _disposed) != 0)
         {
             Interlocked.Increment(ref _rejectedWorkCount);
@@ -116,12 +196,9 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 
         Interlocked.Increment(ref _inFlightWorkCount);
         Interlocked.Increment(ref _pendingWorkCount);
-        var priority = request.Priority ??
-            WorldWorkerPriority.FromPriorityClass(
-                WorldWorkerPool.DefaultPriority);
         if (_workerPool.TrySchedule(
-                request.Execute,
-                request.CancellationToken,
+                execute,
+                cancellationToken,
                 out operation,
                 priority,
                 onStarted: () =>
@@ -133,14 +210,7 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
                 {
                     try
                     {
-                        _completionMailbox.Publish(
-                            new ChunkGenerationDependencyCompletion(
-                                request.Task,
-                                request.WaitToken,
-                                request.DependencyId,
-                                Result: result.Result,
-                                Error: result.Error));
-
+                        publishCompletion(result);
                         if (result.Error is null)
                             Interlocked.Increment(ref _completedWorkCount);
                         else
@@ -162,25 +232,6 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
         Interlocked.Increment(ref _rejectedWorkCount);
         CompleteDrainIfNeeded();
         return false;
-    }
-
-    public bool TryUpdatePriority(
-        WorldWorkerOperation<object?> operation,
-        WorldWorkerPriority priority) =>
-        _workerPool.TryUpdatePriority(operation, priority);
-
-    /// <summary>
-    /// Stops generation-specific admission. An injected shared executor remains
-    /// alive for other runtimes; an isolated test executor is drained and closed.
-    /// </summary>
-    public ValueTask DisposeAsync()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            CompleteDrainIfNeeded();
-
-        return _ownsWorkerPool
-            ? _workerPool.DisposeAsync()
-            : new ValueTask(_drained.Task);
     }
 
     private void CompleteDrainIfNeeded()
