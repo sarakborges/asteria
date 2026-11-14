@@ -1117,8 +1117,8 @@ public sealed class ChunkResidencyRuntime
                 work.Operation, StreamingWorkerPriority(coord));
     }
 
-    private int StreamingWorkerPriority(ChunkCoord coord) =>
-        checked(GenerationPriority(coord).TicketLevel * 10);
+    private WorldWorkerPriority StreamingWorkerPriority(ChunkCoord coord) =>
+        WorldWorkerPriority.FromGenerationTicket(GenerationPriority(coord));
 
     private void StartArrivalReconciliationWorker(
         WorldFrameWorkBudget budget,
