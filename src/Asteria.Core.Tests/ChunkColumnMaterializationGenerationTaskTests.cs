@@ -54,6 +54,43 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
             section => Assert.Equal(1, section.Coord.Y));
     }
 
+    [Fact]
+    public void ColumnPreservesLightExecutorPolicyForEverySection()
+    {
+        var column = new ChunkColumnCoord(5, -3);
+        var firstJob = new FakeMaterializationJob(
+            new ChunkCoord(5, 0, -3),
+            sliceCount: 1,
+            ChunkMaterializationStage.TerrainLayer);
+        var secondJob = new FakeMaterializationJob(
+            new ChunkCoord(5, 1, -3),
+            sliceCount: 1,
+            ChunkMaterializationStage.TerrainLayer);
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [firstJob, secondJob],
+            initializeLighting: _ => { });
+
+        var terrain = task.Advance([], CancellationToken.None);
+        Assert.Equal(2, terrain.WorkerOperations.Length);
+
+        var terrainCompletions = terrain.WorkerOperations
+            .Select(operation => Completion(
+                column,
+                operation.DependencyId,
+                operation.Execute(CancellationToken.None)))
+            .ToArray();
+        var lighting = task.Advance(terrainCompletions, CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, lighting.Kind);
+        Assert.Equal(2, lighting.WorkerOperations.Length);
+        Assert.All(
+            lighting.WorkerOperations,
+            operation => Assert.Equal(
+                ChunkGenerationExecutionPolicy.LightExecutor,
+                operation.ExecutionPolicy));
+    }
+
     private static ChunkGenerationDependencyCompletion Completion(
         ChunkColumnCoord column,
         ulong dependencyId,
