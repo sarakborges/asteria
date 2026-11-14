@@ -24,6 +24,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
     private readonly ChunkMaterializationGenerationTask[] _sectionTasks;
     private readonly ChunkMaterializationTaskOutput?[] _sectionResults;
     private readonly Dictionary<ulong, PendingSectionOperation> _pendingOperations = [];
+    private readonly SortedSet<int> _readySections = [];
     private ulong _nextDependencyId = 1;
     private bool _started;
     private bool _completed;
@@ -94,7 +95,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                         cancellationToken),
                     nextOperations);
         }
-        else
+        else if (completedDependencies.Count > 0)
         {
             if (completedDependencies.Count != _pendingOperations.Count)
                 throw new InvalidOperationException(
@@ -127,6 +128,25 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     nextOperations);
             }
         }
+        else if (_readySections.Count > 0)
+        {
+            // Feature/mutation steps are advanced one section at a time on the
+            // dimension's serial worldgen lane. A Yield never creates a fake
+            // worker dependency or a second in-flight section advance.
+            var sectionIndex = _readySections.Min;
+            _readySections.Remove(sectionIndex);
+            CollectChildAdvance(
+                sectionIndex,
+                _sectionTasks[sectionIndex].Advance(
+                    Array.Empty<ChunkGenerationDependencyCompletion>(),
+                    cancellationToken),
+                nextOperations);
+        }
+        else if (_pendingOperations.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Column {_column} was advanced while worker dependencies were still pending.");
+        }
 
         if (nextOperations.Count > 0)
             return ChunkGenerationTaskAdvanceResult.WaitForWorkers(nextOperations);
@@ -134,6 +154,9 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         if (_pendingOperations.Count > 0)
             throw new InvalidOperationException(
                 $"Column {_column} has outstanding operations without a wait result.");
+
+        if (_readySections.Count > 0)
+            return ChunkGenerationTaskAdvanceResult.Yield;
 
         var sections = _sectionResults
             .Select((result, index) => result ??
@@ -156,6 +179,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         foreach (var task in _sectionTasks)
             task.Dispose();
         _pendingOperations.Clear();
+        _readySections.Clear();
     }
 
     private void CollectChildAdvance(
@@ -202,8 +226,11 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 break;
 
             case ChunkGenerationTaskAdvanceKind.Yield:
-                throw new InvalidOperationException(
-                    "Section materialization tasks must yield only for worker dependencies.");
+                if (!_readySections.Add(sectionIndex))
+                    throw new InvalidOperationException(
+                        $"Section task {sectionIndex} in {_column} was queued to yield twice.");
+                break;
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(result));
         }
