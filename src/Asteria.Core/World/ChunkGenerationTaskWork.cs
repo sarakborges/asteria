@@ -146,9 +146,12 @@ public sealed class ChunkGenerationTaskAdvanceResult
 }
 
 /// <summary>
-/// Engine-agnostic, serial-coordinator-owned generation task. Advance must be a
-/// bounded coordinator slice: it may inspect completed detached results and
-/// produce worker operations, but must not perform long CPU work or block.
+/// Engine-agnostic generation task advanced by its dimension's serial
+/// continuation executor on the shared worker pool. The owning dispatcher
+/// remains responsible for lifecycle, tickets, priority and result collection.
+/// Advance must be bounded: it may inspect detached dependency results, perform
+/// one coordinator/ordered stage quantum, or produce worker operations, but
+/// must never block on an incomplete future or mutate the live world.
 /// </summary>
 public interface IChunkGenerationTask
 {
