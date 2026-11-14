@@ -29,6 +29,7 @@ public sealed class FluidSimulationRuntime
     private readonly WorldGameRules _gameRules;
     private readonly int _maximumUpdatesPerWorker;
     private readonly FluidSimulationWorker _worker;
+    private Func<ChunkCoord, bool>? _isBlockTicking;
 
     private bool _acceptingWork = true;
 
@@ -80,6 +81,13 @@ public sealed class FluidSimulationRuntime
 
     public int ActiveWorkerCount => _worker.IsRunning ? 1 : 0;
 
+    public void ConfigureSimulationEligibility(
+        Func<ChunkCoord, bool> isBlockTicking)
+    {
+        _isBlockTicking = isBlockTicking ??
+            throw new ArgumentNullException(nameof(isBlockTicking));
+    }
+
     public void BeginRetirement()
     {
         _acceptingWork = false;
@@ -104,22 +112,55 @@ public sealed class FluidSimulationRuntime
             return false;
         }
 
-        if (_worker.IsRunning ||
-            !_updates.HasReadyWork(
-                _ticks.CurrentTick))
-        {
+        if (_worker.IsRunning)
             return false;
-        }
 
-        var batch =
-            _updates.DrainReady(
+        if (_isBlockTicking is { } isBlockTicking)
+        {
+            _updates.ReactivateSimulationWork(
+                coord => _world.ContainsChunk(coord) && isBlockTicking(coord),
                 _ticks.CurrentTick,
                 _maximumUpdatesPerWorker);
+        }
+
+        if (!_updates.HasReadyWork(_ticks.CurrentTick))
+            return false;
+
+        var batch = _updates.DrainReady(
+            _ticks.CurrentTick,
+            _maximumUpdatesPerWorker);
+
+        if (_isBlockTicking is { } shouldBlockTick)
+        {
+            var topology = new List<WorldVoxelCoord>(batch.TopologyPositions.Count);
+            foreach (var position in batch.TopologyPositions)
+            {
+                var coord = VoxelCoordinates.FromWorld(
+                    position.X, position.Y, position.Z).Chunk;
+                if (_world.ContainsChunk(coord) && !shouldBlockTick(coord))
+                    _updates.DeferSimulationTopology(position);
+                else
+                    topology.Add(position);
+            }
+
+            var dueTicks = new List<FluidTickKey>(batch.DueTicks.Count);
+            foreach (var tick in batch.DueTicks)
+            {
+                var coord = VoxelCoordinates.FromWorld(
+                    tick.Position.X, tick.Position.Y, tick.Position.Z).Chunk;
+                if (!_world.ContainsChunk(coord))
+                    _updates.DeferUnloaded(tick);
+                else if (!shouldBlockTick(coord))
+                    _updates.DeferSimulation(tick);
+                else
+                    dueTicks.Add(tick);
+            }
+
+            batch = new FluidWorkBatch(topology, dueTicks);
+        }
 
         if (batch.IsEmpty)
-        {
             return false;
-        }
 
         var workerPriority = ResolveWorkerPriority(
             batch, center, movement);
