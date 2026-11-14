@@ -145,7 +145,8 @@ public sealed class ChunkGenerationDispatcher
         entry.Priority = priority;
         _readyTasks.UpdatePriority(key, priority);
         _pendingWorkerTasks.UpdatePriority(key, priority);
-        var workerPriority = checked(priority.TicketLevel * 10);
+        var workerPriority =
+            WorldWorkerPriority.FromGenerationTicket(priority);
         foreach (var operation in entry.InFlightWorkerOperations.Values)
             _workerPool.TryUpdatePriority(operation, workerPriority);
         return true;
@@ -355,7 +356,8 @@ public sealed class ChunkGenerationDispatcher
                 operation.DependencyId,
                 operation.Execute,
                 entry.Cancellation.Token,
-                Priority: checked(entry.Priority.TicketLevel * 10));
+                Priority: WorldWorkerPriority.FromGenerationTicket(
+                    entry.Priority));
 
             // Submit only while the coordinator still owns frame budget. The
             // shared executor accepts demand without a worker-count-derived cap.
