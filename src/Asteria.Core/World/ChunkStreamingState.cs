@@ -182,7 +182,7 @@ public sealed class ChunkStreamingState
 
         _desired.Clear();
         _desired.UnionWith(desired);
-        _distanceManager.ReplacePlayerTickets(
+        _distanceManager.UpdatePlayerView(
             _desired.Select(ChunkColumnCoord.FromChunk),
             ChunkColumnCoord.FromChunk(center),
             ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks);
