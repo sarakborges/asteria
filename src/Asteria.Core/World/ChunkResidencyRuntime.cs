@@ -852,14 +852,11 @@ public sealed class ChunkResidencyRuntime
         var failures = new List<ChunkMaterializationFailure>();
         var startedTasks = 0;
         var restored = 0;
-        // Logical chunk tasks remain in the ticket-priority dispatcher while
-        // they wait for a forked worker operation. Do not cap their lifetime
-        // count by the physical pool size: vanilla Minecraft also keeps parked
-        // chunk tasks queued and only limits actual operations admitted to the
-        // shared worker executor. This per-frame budget is the number of new
-        // provider jobs the coordinator may register during this dispatch.
-        // Archive restores are synchronous and do not consume worker starts.
-        var maximumNewMaterializationTasks = maximumGenerationWorkerStarts;
+        // Logical tasks are registered from the authoritative ticket queue.
+        // They may remain parked here while the shared executor is busy; only
+        // DispatchPendingWorkerOperations is limited by available worker slots.
+        // The frame deadline bounds coordinator-side task registration.
+
 
         while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
@@ -907,13 +904,6 @@ public sealed class ChunkResidencyRuntime
 
                 if (restore == ChunkRestoreResult.AlreadyResident)
                     continue;
-
-                if (startedTasks >= maximumNewMaterializationTasks)
-                {
-                    RequeuePendingSections(sections, sectionIndex);
-                    stopAfterBatch = true;
-                    break;
-                }
 
                 IChunkMaterializationJob job;
                 try
