@@ -221,7 +221,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
 
                     nextOperations.Add(new ChunkGenerationWorkerOperation(
                         dependencyId,
-                        operation.Execute));
+                        operation.Execute,
+                        operation.ExecutionPolicy));
                 }
                 break;
 
