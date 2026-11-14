@@ -152,8 +152,7 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
                         Interlocked.Decrement(ref _inFlightWorkCount);
                         CompleteDrainIfNeeded();
                     }
-                },
-                priority: request.Priority))
+                }))
         {
             return true;
         }
