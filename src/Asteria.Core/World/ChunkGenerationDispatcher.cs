@@ -229,11 +229,11 @@ public sealed class ChunkGenerationDispatcher
                 budget, out var staleCompletions,
                 out var tasksFailed, out var tasksCancelled);
             var workerStarts = DispatchPendingWorkerOperations(
-                maximumWorkerStarts);
+                budget, maximumWorkerStarts);
             var tasksAdvanced = AdvanceReadyTasks(
                 budget, out var tasksCompleted, ref tasksFailed);
             workerStarts += DispatchPendingWorkerOperations(
-                maximumWorkerStarts - workerStarts);
+                budget, maximumWorkerStarts - workerStarts);
 
             return new ChunkGenerationDispatchReport(
                 completionsProcessed,
@@ -328,10 +328,13 @@ public sealed class ChunkGenerationDispatcher
         return processed;
     }
 
-    private int DispatchPendingWorkerOperations(int maximumStarts)
+    private int DispatchPendingWorkerOperations(
+        WorldFrameWorkBudget budget,
+        int maximumStarts)
     {
         var started = 0;
         while (started < maximumStarts &&
+               !budget.Exhausted(Stopwatch.GetTimestamp()) &&
                _pendingWorkerTasks.TryPeek(out var queued))
         {
             if (!_currentTasks.TryGetValue(queued.Key, out var entry) ||
@@ -354,7 +357,8 @@ public sealed class ChunkGenerationDispatcher
                 entry.Cancellation.Token,
                 Priority: checked(entry.Priority.TicketLevel * 10));
 
-            // Leave the admission queue untouched when either bounded queue is full.
+            // Submit only while the coordinator still owns frame budget. The
+            // shared executor accepts demand without a worker-count-derived cap.
             if (!_workerPool.TrySchedule(request, out var workerOperation))
                 break;
 
