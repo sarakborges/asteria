@@ -500,15 +500,21 @@ public sealed class ChunkStreamingState
         var dx = (long)coord.X - center.X;
         var dy = (long)coord.Y - center.Y;
         var dz = (long)coord.Z - center.Z;
+        var chebyshevDistance = Math.Max(Math.Abs(dx), Math.Abs(dz));
         var horizontalDistance = dx * dx + dz * dz;
         var totalDistance = horizontalDistance + dy * dy;
         _ = movementDirection;
 
-        // PLAYER_LOADING tickets have level 31 in Minecraft. The queue then
-        // chooses the nearest waiting column, retaining the coordinate tuple
-        // as a deterministic tie-breaker instead of an authored forward band.
+        // PLAYER_LOADING starts at level 31. The loading graph increments
+        // exactly one level per Chebyshev ring across the eight neighbours.
+        // Estimate the same level for domains that do not own a holder handle;
+        // residency materialization replaces this estimate with the graph's
+        // authoritative level before dispatch.
+        var ticketLevel = (int)Math.Min(
+            ChunkLevel.Unloaded,
+            ChunkLevel.EntityTicking + chebyshevDistance);
         return new ChunkStreamingPriority(
-            ChunkLevel.EntityTicking,
+            ticketLevel,
             horizontalDistance,
             totalDistance,
             coord.Y,
