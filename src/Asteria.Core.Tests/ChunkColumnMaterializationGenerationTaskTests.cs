@@ -38,10 +38,36 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
 
         Assert.Equal(1, terrainSection.AdvanceCount);
         Assert.Equal(1, orderedSection.AdvanceCount);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, afterTerrain.Kind);
-        Assert.Empty(afterTerrain.WorkerOperations);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, afterTerrain.Kind);
+        var terrainLighting = Assert.Single(afterTerrain.WorkerOperations);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.LightExecutor,
+            terrainLighting.ExecutionPolicy);
 
-        var final = task.Advance([], CancellationToken.None);
+        var afterTerrainLighting = task.Advance(
+        [
+            Completion(
+                column,
+                terrainLighting.DependencyId,
+                terrainLighting.Execute(CancellationToken.None)),
+        ], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, afterTerrainLighting.Kind);
+        Assert.Empty(afterTerrainLighting.WorkerOperations);
+
+        var orderedLighting = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, orderedLighting.Kind);
+        var orderedLightOperation = Assert.Single(orderedLighting.WorkerOperations);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.LightExecutor,
+            orderedLightOperation.ExecutionPolicy);
+
+        var final = task.Advance(
+        [
+            Completion(
+                column,
+                orderedLightOperation.DependencyId,
+                orderedLightOperation.Execute(CancellationToken.None)),
+        ], CancellationToken.None);
 
         Assert.Equal(2, orderedSection.AdvanceCount);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
