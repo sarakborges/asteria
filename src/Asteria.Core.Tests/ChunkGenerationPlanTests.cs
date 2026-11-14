@@ -279,6 +279,99 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void HolderRetainsAchievedStatusUntilTicketPromotionPermitsIt()
+    {
+        var column = new ChunkColumnCoord(20, -11);
+        var holder = new ChunkHolder(column, ChunkLevel.Full + 1);
+
+        Assert.Equal(
+            ChunkGenerationStatus.Unloaded,
+            holder.HighestAllowedGenerationStatus);
+        Assert.False(holder.CompleteGenerationStatus(
+            ChunkGenerationStatus.Biomes));
+
+        Assert.Equal(
+            ChunkGenerationStatus.Biomes,
+            holder.CompletedGenerationStatus);
+        Assert.False(holder.GetGenerationFuture(
+            ChunkGenerationStatus.Biomes).Result.Succeeded);
+
+        Assert.True(holder.UpdateTicketLevel(ChunkLevel.Full));
+
+        var promoted = holder.GetGenerationFuture(
+            ChunkGenerationStatus.Biomes).Result;
+        Assert.True(promoted.Succeeded);
+        Assert.Equal(ChunkGenerationStatus.Biomes, promoted.Status);
+        Assert.Equal(holder.GenerationProgressRevision, promoted.Revision);
+        Assert.Equal(
+            ChunkGenerationStatus.Biomes,
+            holder.CompletedGenerationStatus);
+    }
+
+    [Fact]
+    public void ResetGenerationProgressInvalidatesOldRevisionAndRearmsPromotionFutures()
+    {
+        var column = new ChunkColumnCoord(-15, 9);
+        var holder = new ChunkHolder(column, ChunkLevel.EntityTicking);
+        Assert.True(holder.CompleteGenerationStatus(
+            ChunkGenerationStatus.Features));
+        var oldRevision = holder.GenerationProgressRevision;
+        var oldFuture = holder.GetGenerationFuture(
+            ChunkGenerationStatus.Features);
+        var oldFullFuture = holder.FullChunkFuture;
+
+        Assert.True(holder.ResetGenerationProgress(
+            "The partial column was discarded."));
+        Assert.Equal(oldRevision + 1, holder.GenerationProgressRevision);
+        Assert.Equal(
+            ChunkGenerationStatus.Unloaded,
+            holder.CompletedGenerationStatus);
+        Assert.True(oldFuture.IsCompletedSuccessfully);
+        Assert.Equal(oldRevision, oldFuture.Result.Revision);
+        Assert.False(holder.GetGenerationFuture(
+            ChunkGenerationStatus.Features).IsCompleted);
+        Assert.False(oldFullFuture.IsCompletedSuccessfully);
+        Assert.False(holder.FullChunkFuture.IsCompleted);
+    }
+
+    [Fact]
+    public void AdditionalVerticalSectionsInvalidatePriorColumnFullStatus()
+    {
+        var manager = new ChunkDistanceManager();
+        var admission = new ChunkTicketAdmissionController(manager);
+        var column = new ChunkColumnCoord(6, 8);
+        var existing = new ChunkCoord(6, 0, 8);
+        var newlyRequired = new ChunkCoord(6, 1, 8);
+
+        Assert.True(admission.TryAdmit(column, [existing], []));
+        Assert.True(admission.MarkSectionFull(existing));
+
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        Assert.Equal(ChunkGenerationStatus.Full, holder.CompletedGenerationStatus);
+        Assert.True(holder.FullChunkFuture.IsCompletedSuccessfully);
+        var previousRevision = holder.GenerationProgressRevision;
+
+        Assert.True(admission.TryAdmit(
+            column,
+            [existing, newlyRequired],
+            [existing]));
+
+        Assert.Equal(1, admission.PendingAdmissionCount);
+        Assert.Equal(previousRevision + 1, holder.GenerationProgressRevision);
+        Assert.Equal(
+            ChunkGenerationStatus.Unloaded,
+            holder.CompletedGenerationStatus);
+        Assert.False(holder.FullChunkFuture.IsCompleted);
+        Assert.False(holder.GetGenerationFuture(
+            ChunkGenerationStatus.Features).IsCompleted);
+
+        Assert.True(admission.MarkSectionFull(newlyRequired));
+        Assert.Equal(0, admission.PendingAdmissionCount);
+        Assert.Equal(ChunkGenerationStatus.Full, holder.CompletedGenerationStatus);
+        Assert.True(holder.FullChunkFuture.IsCompletedSuccessfully);
+    }
+
+    [Fact]
     public void RequiredStatusRejectsNegativeHorizontalDistance()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
