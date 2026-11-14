@@ -171,9 +171,7 @@ public sealed class ChunkStreamingController
         ChunkCoord center,
         WorldFrameWorkBudget budget,
         int horizontalRadius,
-        bool includeVerticalAccess = false,
-        int maximumGenerationWorkerStarts = int.MaxValue,
-        int maximumWorldWorkerStarts = int.MaxValue)
+        bool includeVerticalAccess = false)
     {
         var selection =
             SyncSelection(
@@ -188,9 +186,7 @@ public sealed class ChunkStreamingController
         var dispatched =
             _residency.DispatchMaterializationTasks(
                 budget,
-                _presentations.Coordinates,
-                maximumGenerationWorkerStarts,
-                maximumWorldWorkerStarts);
+                _presentations.Coordinates);
         var reserved =
             _presentations.ReservePending(
                 _residency,
