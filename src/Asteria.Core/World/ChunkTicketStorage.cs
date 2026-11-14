@@ -330,13 +330,29 @@ public sealed class ChunkDistanceTracker
     }
 }
 
+public readonly record struct ChunkHolderFutureResult(
+    bool Succeeded,
+    ChunkFullStatus Status,
+    string? FailureReason)
+{
+    public static ChunkHolderFutureResult Success(ChunkFullStatus status) =>
+        new(true, status, null);
+
+    public static ChunkHolderFutureResult Unloaded(string reason) =>
+        new(false, ChunkFullStatus.Inaccessible, reason);
+}
+
 /// <summary>
-/// One horizontal holder created by the loading graph. The ticket level is a
-/// ceiling on generation status, not a request to run all steps up to it.
-/// Generation and full-chunk futures are owned by the holder lifecycle.
+/// One horizontal holder created by the loading graph. Its ticket level is a
+/// ceiling on generation status, while its three futures represent actual
+/// promotion to FULL, BLOCK_TICKING and ENTITY_TICKING.
 /// </summary>
 public sealed class ChunkHolder
 {
+    private TaskCompletionSource<ChunkHolderFutureResult> _fullChunkFuture = NewFuture();
+    private TaskCompletionSource<ChunkHolderFutureResult> _blockTickingFuture = NewFuture();
+    private TaskCompletionSource<ChunkHolderFutureResult> _entityTickingFuture = NewFuture();
+
     internal ChunkHolder(ChunkColumnCoord position, int ticketLevel)
     {
         Position = position;
@@ -349,7 +365,31 @@ public sealed class ChunkHolder
 
     public ChunkGenerationStatus HighestAllowedGenerationStatus { get; private set; }
 
+    /// <summary>Maximum full-chunk status permitted by the loading ticket level.</summary>
     public ChunkFullStatus FullStatus { get; private set; }
+
+    public ChunkFullStatus CompletedFullStatus
+    {
+        get
+        {
+            if (Succeeded(_entityTickingFuture))
+                return ChunkFullStatus.EntityTicking;
+            if (Succeeded(_blockTickingFuture))
+                return ChunkFullStatus.BlockTicking;
+            if (Succeeded(_fullChunkFuture))
+                return ChunkFullStatus.Full;
+            return ChunkFullStatus.Inaccessible;
+        }
+    }
+
+    public Task<ChunkHolderFutureResult> FullChunkFuture =>
+        _fullChunkFuture.Task;
+
+    public Task<ChunkHolderFutureResult> BlockTickingFuture =>
+        _blockTickingFuture.Task;
+
+    public Task<ChunkHolderFutureResult> EntityTickingFuture =>
+        _entityTickingFuture.Task;
 
     public bool IsLoading => TicketLevel < ChunkLevel.Unloaded;
 
@@ -367,7 +407,99 @@ public sealed class ChunkHolder
             ChunkLevel.GetGenerationStatus(ticketLevel);
         FullStatus = ChunkLevel.GetFullStatus(ticketLevel);
         TicketLevelRevision++;
+
+        ReconcileFuture(
+            ref _fullChunkFuture,
+            FullStatus >= ChunkFullStatus.Full,
+            "Chunk is no longer allowed to remain FULL.");
+        ReconcileFuture(
+            ref _blockTickingFuture,
+            FullStatus >= ChunkFullStatus.BlockTicking,
+            "Chunk is no longer allowed to tick blocks.");
+        ReconcileFuture(
+            ref _entityTickingFuture,
+            FullStatus >= ChunkFullStatus.EntityTicking,
+            "Chunk is no longer allowed to tick entities.");
         return true;
+    }
+
+    /// <summary>
+    /// Completes every promotion future covered by the supplied achieved
+    /// status. A future is never completed successfully above the current
+    /// loading-ticket ceiling.
+    /// </summary>
+    public bool CompleteFullStatus(ChunkFullStatus completedStatus)
+    {
+        if (completedStatus <= ChunkFullStatus.Inaccessible)
+            throw new ArgumentOutOfRangeException(nameof(completedStatus));
+        if (completedStatus > FullStatus)
+            return false;
+
+        var changed = false;
+        if (completedStatus >= ChunkFullStatus.Full)
+            changed |= _fullChunkFuture.TrySetResult(
+                ChunkHolderFutureResult.Success(ChunkFullStatus.Full));
+        if (completedStatus >= ChunkFullStatus.BlockTicking)
+            changed |= _blockTickingFuture.TrySetResult(
+                ChunkHolderFutureResult.Success(ChunkFullStatus.BlockTicking));
+        if (completedStatus >= ChunkFullStatus.EntityTicking)
+            changed |= _entityTickingFuture.TrySetResult(
+                ChunkHolderFutureResult.Success(ChunkFullStatus.EntityTicking));
+        return changed;
+    }
+
+    /// <summary>
+    /// Completes pending promotion futures with a failed ChunkResult. The
+    /// ticket stays installed, so a later retry may arm fresh futures.
+    /// </summary>
+    public bool FailPendingPromotions(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        var failure = ChunkHolderFutureResult.Unloaded(reason);
+        var changed = false;
+        if (FullStatus >= ChunkFullStatus.Full)
+            changed |= _fullChunkFuture.TrySetResult(failure);
+        if (FullStatus >= ChunkFullStatus.BlockTicking)
+            changed |= _blockTickingFuture.TrySetResult(failure);
+        if (FullStatus >= ChunkFullStatus.EntityTicking)
+            changed |= _entityTickingFuture.TrySetResult(failure);
+        return changed;
+    }
+
+    private static TaskCompletionSource<ChunkHolderFutureResult> NewFuture() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private static bool Succeeded(
+        TaskCompletionSource<ChunkHolderFutureResult> future) =>
+        future.Task.IsCompletedSuccessfully &&
+        future.Task.Result.Succeeded;
+
+    private static void ReconcileFuture(
+        ref TaskCompletionSource<ChunkHolderFutureResult> future,
+        bool allowed,
+        string demotionReason)
+    {
+        if (allowed)
+        {
+            if (future.Task.IsCompletedSuccessfully &&
+                !future.Task.Result.Succeeded)
+                future = NewFuture();
+            return;
+        }
+
+        if (future.Task.IsCompletedSuccessfully)
+        {
+            if (future.Task.Result.Succeeded)
+            {
+                future = NewFuture();
+                future.TrySetResult(
+                    ChunkHolderFutureResult.Unloaded(demotionReason));
+            }
+            return;
+        }
+
+        future.TrySetResult(
+            ChunkHolderFutureResult.Unloaded(demotionReason));
     }
 }
 
