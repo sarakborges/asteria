@@ -63,8 +63,10 @@ internal static class ChunkStreamingRouteBenchmark
             droppedBlocks);
         var residencySettings = CreateResidencySettings(
             maximumWorldWorkers, rules);
-        using var worldWorkerPool = new WorldWorkerPool(maximumWorldWorkers);
-        var residency = new ChunkResidencyRuntime(
+        var sharedWorkerPool = CreateSharedWorkerPool(maximumWorldWorkers);
+        using var sharedWorkerPoolLifetime =
+            new OptionalDisposable(sharedWorkerPool);
+        var residency = CreateResidencyRuntime(
             world,
             blocks,
             fluids,
@@ -77,9 +79,9 @@ internal static class ChunkStreamingRouteBenchmark
             fluidRevisions,
             ticks,
             residencySettings,
-            worldWorkerPool: worldWorkerPool);
-        var selection = new ChunkStreamingSelectionRuntime(
-            generator, worldWorkerPool);
+            sharedWorkerPool);
+        var selection = CreateSelectionRuntime(
+            generator, sharedWorkerPool);
         var presented = new HashSet<ChunkCoord>();
         var chunkDigests = new Dictionary<ChunkCoord, ChunkContentDigest>();
         var chunkBlockDiagnostics = new Dictionary<ChunkCoord, ChunkBlockDiagnostics>();
@@ -749,6 +751,75 @@ internal static class ChunkStreamingRouteBenchmark
                 "FallingBlockSamples records the first 64 gravity entities created by support wakeups, including the source coordinate, block ID, and the below-block state after the wakeup batch.",
             },
         };
+    }
+
+    private static object? CreateSharedWorkerPool(int maximumWorldWorkers)
+    {
+        var poolType = typeof(ChunkResidencyRuntime).Assembly.GetType(
+            "Asteria.Core.World.WorldWorkerPool");
+        if (poolType is null)
+            return null;
+
+        var constructor = poolType.GetConstructor(
+        [
+            typeof(int),
+            typeof(int?),
+        ]) ?? throw new MissingMethodException(
+            poolType.FullName, ".ctor(int, int?)");
+        return constructor.Invoke([maximumWorldWorkers, null]);
+    }
+
+    private static ChunkResidencyRuntime CreateResidencyRuntime(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        IChunkProvider provider,
+        WorldUpdateQueue worldUpdates,
+        FluidUpdateQueue fluidUpdates,
+        FluidMeshUpdateQueue fluidMeshUpdates,
+        BlockPhysicsRuntime physics,
+        MeshletContentRevisions terrainRevisions,
+        MeshletContentRevisions fluidRevisions,
+        WorldTickClock ticks,
+        ChunkResidencySettings settings,
+        object? sharedWorkerPool)
+    {
+        var arguments = new List<object?>
+        {
+            world, blocks, fluids, provider, worldUpdates, fluidUpdates,
+            fluidMeshUpdates, physics, terrainRevisions, fluidRevisions,
+            ticks, settings, null,
+        };
+        if (sharedWorkerPool is not null)
+            arguments.Add(sharedWorkerPool);
+
+        var constructor = typeof(ChunkResidencyRuntime).GetConstructors()
+            .Single(candidate =>
+                candidate.GetParameters().Length == arguments.Count);
+        return (ChunkResidencyRuntime)(constructor.Invoke(arguments.ToArray()) ??
+            throw new InvalidOperationException(
+                "Chunk residency constructor returned null."));
+    }
+
+    private static ChunkStreamingSelectionRuntime CreateSelectionRuntime(
+        IChunkSurfaceRangeProvider provider,
+        object? sharedWorkerPool)
+    {
+        var constructors = typeof(ChunkStreamingSelectionRuntime).GetConstructors();
+        var constructor = constructors.Single(candidate =>
+            candidate.GetParameters().Length ==
+                (sharedWorkerPool is null ? 1 : 2));
+        var arguments = sharedWorkerPool is null
+            ? new object?[] { provider }
+            : new object?[] { provider, sharedWorkerPool };
+        return (ChunkStreamingSelectionRuntime)(constructor.Invoke(arguments) ??
+            throw new InvalidOperationException(
+                "Chunk selection runtime constructor returned null."));
+    }
+
+    private sealed class OptionalDisposable(object? value) : IDisposable
+    {
+        public void Dispose() => (value as IDisposable)?.Dispose();
     }
 
     private static int ResolveMaximumWorldWorkers(
