@@ -58,13 +58,16 @@ public sealed class WorldWorkerOperation<TResult>
 /// owners keep their own priority queues and submit bounded operations here;
 /// the executor never touches live world state or caller-owned queues.
 /// </summary>
-public sealed class WorldWorkerPool : IDisposable
+public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 {
     private readonly BlockingCollection<IWorkItem> _queue;
     private readonly Thread[] _workers;
     private readonly object _disposeSync = new();
     private int _disposed;
     private bool _disposeCompleted;
+    private int _exitedWorkerCount;
+    private readonly TaskCompletionSource _workersExited =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _pendingWorkCount;
     private int _activeWorkerCount;
     private int _inFlightWorkCount;
@@ -179,21 +182,27 @@ public sealed class WorldWorkerPool : IDisposable
         return false;
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         lock (_disposeSync)
         {
             if (_disposeCompleted)
-                return;
+                return ValueTask.CompletedTask;
 
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
                 _queue.CompleteAdding();
 
-            // Drain queued work before stopping. Session owners retire and
-            // collect their work first; this is the final safety net at exit.
-            foreach (var worker in _workers)
-                worker.Join();
+            return new ValueTask(_workersExited.Task);
+        }
+    }
 
+    public void Dispose()
+    {
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
+        lock (_disposeSync)
+        {
+            if (_disposeCompleted)
+                return;
             _queue.Dispose();
             _disposeCompleted = true;
         }
@@ -201,19 +210,27 @@ public sealed class WorldWorkerPool : IDisposable
 
     private void Consume()
     {
-        foreach (var item in _queue.GetConsumingEnumerable())
+        try
         {
-            Interlocked.Decrement(ref _pendingWorkCount);
-            Interlocked.Increment(ref _activeWorkerCount);
-            try
+            foreach (var item in _queue.GetConsumingEnumerable())
             {
-                item.Execute(this);
+                Interlocked.Decrement(ref _pendingWorkCount);
+                Interlocked.Increment(ref _activeWorkerCount);
+                try
+                {
+                    item.Execute(this);
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref _activeWorkerCount);
+                    Interlocked.Decrement(ref _inFlightWorkCount);
+                }
             }
-            finally
-            {
-                Interlocked.Decrement(ref _activeWorkerCount);
-                Interlocked.Decrement(ref _inFlightWorkCount);
-            }
+        }
+        finally
+        {
+            if (Interlocked.Increment(ref _exitedWorkerCount) == WorkerCount)
+                _workersExited.TrySetResult();
         }
     }
 
