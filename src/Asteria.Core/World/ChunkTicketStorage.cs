@@ -736,7 +736,7 @@ public sealed class ChunkDistanceManager
     {
         if (loadingChanged)
         {
-            _loading.Rebuild(
+            _loading.SynchronizeSources(
                 _tickets,
                 ChunkTicketFlags.Loading,
                 ChunkLevel.MaximumLoading);
