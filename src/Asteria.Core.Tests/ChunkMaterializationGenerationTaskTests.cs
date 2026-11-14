@@ -93,6 +93,54 @@ public sealed class ChunkMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void InitialLightingIsScheduledOnTheSeparateLightExecutor()
+    {
+        var job = new FakeMaterializationJob(sliceCount: 1);
+        var lightingCalls = 0;
+        using var task = new ChunkMaterializationGenerationTask(
+            job, _ => lightingCalls++);
+
+        var terrainAdvance = task.Advance([], CancellationToken.None);
+        var terrainOperation = Assert.Single(terrainAdvance.WorkerOperations);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            terrainOperation.ExecutionPolicy);
+
+        var terrainResult = terrainOperation.Execute(CancellationToken.None);
+        var lightingAdvance = task.Advance(
+        [
+            new ChunkGenerationDependencyCompletion(
+                TaskInstance(job),
+                WaitToken: 1,
+                terrainOperation.DependencyId,
+                terrainResult),
+        ], CancellationToken.None);
+
+        var lightingOperation = Assert.Single(lightingAdvance.WorkerOperations);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, lightingAdvance.Kind);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.LightExecutor,
+            lightingOperation.ExecutionPolicy);
+        Assert.Equal(0, lightingCalls);
+
+        var lightingResult = lightingOperation.Execute(CancellationToken.None);
+        var completed = task.Advance(
+        [
+            new ChunkGenerationDependencyCompletion(
+                TaskInstance(job),
+                WaitToken: 2,
+                lightingOperation.DependencyId,
+                lightingResult),
+        ], CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, completed.Kind);
+        Assert.Equal(1, lightingCalls);
+        var output = Assert.IsType<ChunkMaterializationTaskOutput>(
+            completed.CompletionPayload);
+        Assert.True(output.InitialLightingMilliseconds >= 0d);
+    }
+
+    [Fact]
     public void CompletedSliceCannotBeAdvancedAgain()
     {
         var job = new FakeMaterializationJob(sliceCount: 1);
@@ -121,6 +169,14 @@ public sealed class ChunkMaterializationGenerationTaskTests
         Assert.Throws<ObjectDisposedException>(
             () => task.Advance([], CancellationToken.None));
     }
+
+    private static ChunkGenerationTaskInstance TaskInstance(
+        FakeMaterializationJob job) =>
+        new(
+            new ChunkGenerationTaskKey(
+                new ChunkColumnCoord(job.Coord.X, job.Coord.Z),
+                ChunkGenerationStepId.SectionReady),
+            Generation: 1);
 
     private static ChunkGenerationTaskAdvanceResult RunSlice(
         ChunkMaterializationGenerationTask task,
