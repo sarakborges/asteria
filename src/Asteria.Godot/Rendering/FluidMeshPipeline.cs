@@ -166,7 +166,10 @@ public sealed class FluidMeshPipeline
                 _fluids,
                 batch,
                 _revisions,
-                relightable))
+                relightable,
+                workerPriority: nearest
+                    ? WorldWorkerPool.InteractiveWorldPriority
+                    : WorldWorkerPool.BackgroundWorldPriority))
         {
             _updates.Requeue(batch);
             return false;
