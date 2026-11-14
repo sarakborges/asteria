@@ -107,19 +107,6 @@ public partial class Main : Node3D
 	private int ActiveWorldWorkerCount =>
 		_worldWorkerPool?.ActiveWorkerCount ?? 0;
 
-	// If downstream world work is already queued and its owner has a free
-	// worker, reserve admission for it before streaming fills the entire pool.
-	private bool HasReadyNonStreamingWorldWork =>
-		(!_fluidSimulationRuntime.IsRunning &&
-		 _fluidUpdates.HasReadyWork(_worldTicks.CurrentTick)) ||
-		(!_lightingRuntime.IsRunning && _worldUpdates.HasLightingWork) ||
-		(_residency.DirectionalFaceReconciliationCount > 0 ||
-		 _residency.ChunkLightingReconciliationCount > 0) ||
-		(_terrainMeshPipeline.ActiveWorkerCount < 2 &&
-		 (_worldUpdates.HasPriorityMeshWork || _worldUpdates.HasBackgroundMeshWork)) ||
-		(_fluidMeshPipeline.HasAvailableWorkerSlot &&
-		 _fluidMeshUpdates.HasWork);
-
 	private BlockRegistry _blocks = null!;
 	private AttachedLayerRegistry _layers = null!;
 	private DyeRegistry _dyes = null!;
@@ -748,25 +735,16 @@ public partial class Main : Node3D
 			pendingPhysicsWakeups: _blockPhysicsUpdates.Count,
 			pendingTerrainPublications: _chunkPresentations.PendingTerrainPublications);
 		var stageStart = Stopwatch.GetTimestamp();
-		var availableWorkerSlots =
-			_worldWorkerPool?.AvailableSubmissionCount ?? 0;
-		var reservedWorkerSlots = HasReadyNonStreamingWorldWork
-			? Math.Min(1, availableWorkerSlots)
-			: 0;
-		var materializationWorkerStarts = Math.Max(
-			0, availableWorkerSlots - reservedWorkerSlots);
 		var streamingBegin =
 			_chunkStreaming.BeginFrame(
 				streamingCenter,
 				_worldFrameBudget,
 				streamingRadius,
-				RequiresPortalSurfaceAccess,
-				materializationWorkerStarts,
-				availableWorkerSlots);
+				RequiresPortalSurfaceAccess);
 		_worldDiagnostics?.ObserveStreamingAdmission(
 			streamingPressure.IsPressured,
-			availableWorkerSlots,
-			reservedWorkerSlots,
+			_worldWorkerPool?.ActiveWorkerCount ?? 0,
+			_worldWorkerPool?.PendingWorkCount ?? 0,
 			streamingBegin.Dispatched.StartedTasks,
 			streamingBegin.Dispatched.WorkerOperationsStarted);
 		_worldDiagnostics?.ObserveStage(
@@ -6058,8 +6036,7 @@ public partial class Main : Node3D
 
 		for (var offset = 0; offset < WorldWorkerLaneCount; offset++)
 		{
-			if (budget.Exhausted(Stopwatch.GetTimestamp()) ||
-				ActiveWorldWorkerCount >= MaxConcurrentWorldJobs)
+			if (budget.Exhausted(Stopwatch.GetTimestamp()))
 				break;
 
 			var lane = (firstLane + offset) % WorldWorkerLaneCount;
