@@ -641,10 +641,15 @@ public sealed class ChunkDistanceManager
                 _holders.Add(column, new ChunkHolder(column, level));
         }
 
-        foreach (var column in _holders.Keys
-                     .Where(column => !_loading.Levels.ContainsKey(column))
-                     .ToArray())
+        foreach (var (column, holder) in _holders.ToArray())
         {
+            if (_loading.Levels.ContainsKey(column))
+                continue;
+
+            // A holder leaving the loading graph is demoted to UNLOADED
+            // before it is removed from the visible holder map. Existing
+            // future observers must receive the demotion, not wait forever.
+            holder.UpdateTicketLevel(ChunkLevel.Unloaded);
             _holders.Remove(column);
         }
     }
