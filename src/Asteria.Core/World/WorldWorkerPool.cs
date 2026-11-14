@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -54,20 +52,28 @@ public sealed class WorldWorkerOperation<TResult>
 
 /// <summary>
 /// One physical executor shared by terrain generation, lighting, fluids and
-/// mesh preparation. It owns the only dedicated world-worker threads. Runtime
-/// owners keep their own priority queues and submit bounded operations here;
-/// the executor never touches live world state or caller-owned queues.
+/// mesh preparation. Runtime owners retain their logical priority queues and
+/// submit bounded operations here; this executor applies a stable priority
+/// order across domains and never touches live world state.
 /// </summary>
 public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 {
-    private readonly BlockingCollection<IWorkItem> _queue;
-    private readonly Thread[] _workers;
+    public const int PlayerChunkPriority = 0;
+    public const int InteractiveWorldPriority = 20;
+    public const int BackgroundWorldPriority = 100;
+    public const int DefaultPriority = BackgroundWorldPriority;
+
+    private readonly object _queueSync = new();
+    private readonly PriorityQueue<IWorkItem, QueuePriority> _queue = new();
     private readonly object _disposeSync = new();
-    private int _disposed;
-    private bool _disposeCompleted;
-    private int _exitedWorkerCount;
+    private readonly Thread[] _workers;
     private readonly TaskCompletionSource _workersExited =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private bool _addingCompleted;
+    private bool _disposeCompleted;
+    private long _nextEnqueueSequence = 1;
+    private int _disposed;
+    private int _exitedWorkerCount;
     private int _pendingWorkCount;
     private int _activeWorkerCount;
     private int _inFlightWorkCount;
@@ -88,11 +94,8 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 
         WorkerCount = workerCount;
         PendingCapacity = queueCapacity;
-        _queue = new BlockingCollection<IWorkItem>(
-            new ConcurrentQueue<IWorkItem>(),
-            queueCapacity);
-
         _workers = new Thread[workerCount];
+
         for (var index = 0; index < workerCount; index++)
         {
             var worker = new Thread(Consume)
@@ -135,51 +138,46 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
         Interlocked.Read(ref _completionCallbackFailures);
 
     /// <summary>
-    /// Enqueues one operation without blocking the coordinator. The optional
-    /// completion callback runs on a worker after the operation has published
-    /// its result; it must be thread-safe and limited to mailbox publication.
+    /// Enqueues one operation without blocking. Lower numeric priority is
+    /// dispatched first; equal priorities preserve submission order. A false
+    /// result means the bounded waiting queue is full or the pool is retiring.
     /// </summary>
     public bool TrySchedule<TResult>(
         Func<CancellationToken, TResult> execute,
         CancellationToken cancellationToken,
         out WorldWorkerOperation<TResult>? operation,
         Action? onStarted = null,
-        Action<WorldWorkerCompletion<TResult>>? onCompleted = null)
+        Action<WorldWorkerCompletion<TResult>>? onCompleted = null,
+        int priority = DefaultPriority)
     {
         ArgumentNullException.ThrowIfNull(execute);
         operation = null;
 
-        if (Volatile.Read(ref _disposed) != 0)
-        {
-            Interlocked.Increment(ref _rejectedWorkCount);
-            return false;
-        }
-
         var item = new WorkItem<TResult>(
             execute, cancellationToken, onStarted, onCompleted);
-        // Counts are visible before queue admission: a worker may consume an
-        // item immediately after TryAdd succeeds.
-        Interlocked.Increment(ref _pendingWorkCount);
-        Interlocked.Increment(ref _inFlightWorkCount);
 
-        try
+        lock (_queueSync)
         {
-            if (_queue.TryAdd(item))
+            if (Volatile.Read(ref _disposed) != 0 ||
+                _pendingWorkCount >= PendingCapacity)
             {
-                operation = item.Operation;
-                return true;
+                Interlocked.Increment(ref _rejectedWorkCount);
+                return false;
             }
-        }
-        catch (InvalidOperationException) when (
-            Volatile.Read(ref _disposed) != 0)
-        {
-            // CompleteAdding raced admission; the counters are rolled back.
-        }
 
-        Interlocked.Decrement(ref _pendingWorkCount);
-        Interlocked.Decrement(ref _inFlightWorkCount);
-        Interlocked.Increment(ref _rejectedWorkCount);
-        return false;
+            if (_nextEnqueueSequence == long.MaxValue)
+                throw new InvalidOperationException(
+                    "World worker queue sequence was exhausted.");
+
+            Interlocked.Increment(ref _pendingWorkCount);
+            Interlocked.Increment(ref _inFlightWorkCount);
+            _queue.Enqueue(
+                item,
+                new QueuePriority(priority, _nextEnqueueSequence++));
+            operation = item.Operation;
+            Monitor.Pulse(_queueSync);
+            return true;
+        }
     }
 
     public ValueTask DisposeAsync()
@@ -190,25 +188,41 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
                 return ValueTask.CompletedTask;
 
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
-                _queue.CompleteAdding();
+            {
+                lock (_queueSync)
+                {
+                    _addingCompleted = true;
+                    Monitor.PulseAll(_queueSync);
+                }
+            }
 
             return new ValueTask(_workersExited.Task);
         }
     }
 
-    public void Dispose()
-    {
+    public void Dispose() =>
         DisposeAsync().AsTask().GetAwaiter().GetResult();
-    }
 
     private void Consume()
     {
         try
         {
-            foreach (var item in _queue.GetConsumingEnumerable())
+            while (true)
             {
-                Interlocked.Decrement(ref _pendingWorkCount);
-                Interlocked.Increment(ref _activeWorkerCount);
+                IWorkItem item;
+                lock (_queueSync)
+                {
+                    while (_queue.Count == 0 && !_addingCompleted)
+                        Monitor.Wait(_queueSync);
+
+                    if (_queue.Count == 0 && _addingCompleted)
+                        break;
+
+                    item = _queue.Dequeue();
+                    Interlocked.Decrement(ref _pendingWorkCount);
+                    Interlocked.Increment(ref _activeWorkerCount);
+                }
+
                 try
                 {
                     item.Execute(this);
@@ -224,7 +238,6 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
         {
             if (Interlocked.Increment(ref _exitedWorkerCount) == WorkerCount)
             {
-                _queue.Dispose();
                 lock (_disposeSync)
                     _disposeCompleted = true;
                 _workersExited.TrySetResult();
@@ -235,6 +248,19 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     private interface IWorkItem
     {
         void Execute(WorldWorkerPool owner);
+    }
+
+    private readonly record struct QueuePriority(
+        int Priority,
+        long EnqueueSequence) : IComparable<QueuePriority>
+    {
+        public int CompareTo(QueuePriority other)
+        {
+            var result = Priority.CompareTo(other.Priority);
+            return result != 0
+                ? result
+                : EnqueueSequence.CompareTo(other.EnqueueSequence);
+        }
     }
 
     private sealed class WorkItem<TResult>(
@@ -255,8 +281,6 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
             }
             catch
             {
-                // Start hooks only maintain owner-side counters. They cannot
-                // prevent the actual operation from running.
                 Interlocked.Increment(ref owner._completionCallbackFailures);
             }
 
@@ -286,9 +310,7 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
             }
             catch
             {
-                // The operation result is already published and remains
-                // observable by its owner. A delivery callback must never kill
-                // a physical worker or prevent it from consuming another item.
+                // A publication callback must never terminate a physical worker.
                 Interlocked.Increment(ref owner._completionCallbackFailures);
             }
         }
