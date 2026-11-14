@@ -111,13 +111,16 @@ public sealed class LeafDecayRuntime : IDisposable
     /// Advances bounded work only when the logical world tick changes and
     /// gameplay is active. Returns the number of leaves successfully removed.
     /// </summary>
-    public int Advance(ulong worldTick, bool enabled = true)
+    public int Advance(
+        ulong worldTick,
+        bool enabled = true,
+        Func<ChunkCoord, bool>? isBlockTicking = null)
     {
         if (_disposed || !enabled || worldTick <= _lastProcessedTick)
             return 0;
 
         _lastProcessedTick = worldTick;
-        ScanPendingChunks(MaximumChunkScansPerAdvance);
+        ScanPendingChunks(MaximumChunkScansPerAdvance, isBlockTicking);
 
         // Retry only after this batch, so a deferred candidate cannot consume
         // the whole per-tick budget when it is the only queued leaf.
@@ -129,6 +132,14 @@ public sealed class LeafDecayRuntime : IDisposable
         {
             if (!TryTakeCandidate(out var position))
                 break;
+            var sourceChunk = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk;
+            if (isBlockTicking is not null && !isBlockTicking(sourceChunk))
+            {
+                retry.Add(position);
+                continue;
+            }
+
             if (!_world.TryGetCell(position, out var cell) || cell.IsEmpty)
                 continue;
 
@@ -165,11 +176,19 @@ public sealed class LeafDecayRuntime : IDisposable
         return removed;
     }
 
-    private void ScanPendingChunks(int maximumScans)
+    private void ScanPendingChunks(
+        int maximumScans,
+        Func<ChunkCoord, bool>? isBlockTicking)
     {
         for (var i = 0; i < maximumScans &&
                         _pendingChunkScans.TryDequeue(out var coord); i++)
         {
+            if (isBlockTicking is not null && !isBlockTicking(coord))
+            {
+                _pendingChunkScans.Enqueue(coord);
+                continue;
+            }
+
             if (!_world.TryGetChunk(coord, out var chunk))
                 continue;
 
