@@ -207,9 +207,9 @@ public sealed class ChunkGenerationDispatcher
 
     /// <summary>
     /// Runs serial continuation work within the caller's frame deadline.
-    /// Pending CPU operations are admitted only up to the currently available
-    /// physical worker slots, then newly-created operations are admitted in a
-    /// second pass. Chunk-task count itself is not an execution limit.
+    /// Ready chunk tasks submit detached CPU operations to the shared priority
+    /// queue. The pool bounds physical execution; queued demand is not capped
+    /// by a multiplier of the worker count.
     /// </summary>
     public ChunkGenerationDispatchReport Pump(
         WorldFrameWorkBudget budget,
