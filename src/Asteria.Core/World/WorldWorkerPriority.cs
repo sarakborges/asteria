@@ -19,7 +19,7 @@ public readonly record struct WorldWorkerPriority(
     public static WorldWorkerPriority FromStreaming(
         ChunkStreamingPriority priority) =>
         new(
-            priority.StreamingBand,
+            PriorityBandForTicketLevel(priority.StreamingBand),
             priority.HorizontalDistanceSquared,
             priority.TotalDistanceSquared,
             priority.Y,
@@ -29,12 +29,22 @@ public readonly record struct WorldWorkerPriority(
     public static WorldWorkerPriority FromGenerationTicket(
         ChunkGenerationTaskPriority priority) =>
         new(
-            priority.TicketLevel,
+            PriorityBandForTicketLevel(priority.TicketLevel),
             priority.HorizontalDistanceSquared,
             priority.TotalDistanceSquared,
             priority.CoordinateY,
             priority.CoordinateZ,
             priority.CoordinateX);
+
+    private static int PriorityBandForTicketLevel(int ticketLevel) =>
+        ticketLevel switch
+        {
+            0 => WorldWorkerPool.PlayerChunkPriority,
+            1 => WorldWorkerPool.ForwardPrefetchPriority,
+            2 => WorldWorkerPool.BackgroundChunkPriority,
+            3 => WorldWorkerPool.RearChunkPriority,
+            _ => WorldWorkerPool.BackgroundWorldPriority,
+        };
 
     public int CompareTo(WorldWorkerPriority other)
     {
