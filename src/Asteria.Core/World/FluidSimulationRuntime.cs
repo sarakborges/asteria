@@ -28,7 +28,7 @@ public sealed class FluidSimulationRuntime
     private readonly WorldTickClock _ticks;
     private readonly WorldGameRules _gameRules;
     private readonly int _maximumUpdatesPerWorker;
-    private readonly FluidSimulationWorker _worker = new();
+    private readonly FluidSimulationWorker _worker;
 
     private bool _acceptingWork = true;
 
@@ -41,7 +41,8 @@ public sealed class FluidSimulationRuntime
         VoxelMutationRuntime mutations,
         WorldTickClock ticks,
         WorldGameRules gameRules,
-        int maximumUpdatesPerWorker)
+        int maximumUpdatesPerWorker,
+        WorldWorkerPool workerPool)
     {
         _world =
             world ??
@@ -70,6 +71,8 @@ public sealed class FluidSimulationRuntime
 
         _maximumUpdatesPerWorker =
             maximumUpdatesPerWorker;
+        _worker = new FluidSimulationWorker(
+            workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
     }
 
     public bool IsRunning => _worker.IsRunning;
