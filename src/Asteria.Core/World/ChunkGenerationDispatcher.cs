@@ -33,6 +33,7 @@ public sealed class ChunkGenerationDispatcher
     private readonly ChunkGenerationWorkerPool _workerPool;
     private readonly ChunkGenerationSerialExecutor _worldgenExecutor;
     private readonly ChunkGenerationSerialExecutor _lightingExecutor;
+    private bool _preferLightingCompletion;
     private bool _isPumping;
     private long _completedTaskCount;
     private long _failedTaskCount;
@@ -358,10 +359,21 @@ public sealed class ChunkGenerationDispatcher
         while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
             ChunkGenerationDependencyCompletion completion;
-            if (!_completionMailbox.TryDequeue(out completion) &&
-                !_lightingExecutor.TryCollectDependency(out completion))
+            var collected = _preferLightingCompletion
+                ? _lightingExecutor.TryCollectDependency(out completion)
+                : _completionMailbox.TryDequeue(out completion);
+            if (!collected)
+            {
+                collected = _preferLightingCompletion
+                    ? _completionMailbox.TryDequeue(out completion)
+                    : _lightingExecutor.TryCollectDependency(out completion);
+            }
+            if (!collected)
                 break;
 
+            // Alternate the first mailbox examined. A steady stream of
+            // materialization forks must not starve the serial light lane.
+            _preferLightingCompletion = !_preferLightingCompletion;
             processed++;
             if (!_allTasks.TryGetValue(completion.Task, out var entry) ||
                 entry.InFlightOperations <= 0)
