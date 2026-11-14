@@ -37,8 +37,10 @@ public enum ChunkGenerationExecutionPolicy : byte
     Coordinator,
     /// <summary>CPU work over immutable inputs, admitted by the shared worker pool.</summary>
     SharedWorkerPool,
-    /// <summary>Ordered mutation or deterministic application of generated write plans.</summary>
+    /// <summary>Chunk-local or cross-chunk mutation serialized on the dimension's worldgen executor.</summary>
     OrderedMutation,
+    /// <summary>Lighting work serialized on the dimension's separate light executor.</summary>
+    LightExecutor,
     /// <summary>Integration that must execute on the engine/main thread.</summary>
     MainThreadIntegration,
 }
