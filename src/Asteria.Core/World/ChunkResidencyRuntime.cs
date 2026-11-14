@@ -260,6 +260,12 @@ public sealed class ChunkResidencyRuntime
 
     public bool IsDesired(ChunkCoord coord) => _streaming.IsDesired(coord);
 
+    public bool IsBlockTicking(ChunkCoord coord) =>
+        _streaming.IsBlockTicking(coord);
+
+    public bool IsEntityTicking(ChunkCoord coord) =>
+        _streaming.IsEntityTicking(coord);
+
     public bool IsLightingRelevant(ChunkCoord coord) =>
         _streaming.IsLightingRelevant(coord);
 
