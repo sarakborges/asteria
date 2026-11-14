@@ -36,7 +36,8 @@ public sealed class FluidMeshWorker
         FluidRegistry fluids,
         WorldMeshBatch batch,
         MeshletContentRevisions revisions,
-        IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>? relightable = null)
+        IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>? relightable = null,
+        int workerPriority = WorldWorkerPool.DefaultPriority)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -80,7 +81,7 @@ public sealed class FluidMeshWorker
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds,
                 captureMilliseconds);
-        });
+        }, priority: workerPriority);
     }
 
     public bool TryTakeCompleted(
