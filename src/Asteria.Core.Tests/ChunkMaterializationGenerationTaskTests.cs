@@ -44,7 +44,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
         var output = Assert.IsType<ChunkMaterializationTaskOutput>(
             advance.CompletionPayload);
         Assert.Equal(100, output.StageTimings.Length);
-        Assert.Equal(100, output.WorkerSliceCount);
+        Assert.Equal(101, output.WorkerSliceCount);
         Assert.True(output.InterSliceWaitMilliseconds >= 0d);
     }
 
@@ -62,10 +62,16 @@ public sealed class ChunkMaterializationGenerationTaskTests
         Assert.Empty(first.WorkerOperations);
         Assert.Equal(1, job.AdvanceCount);
 
-        var final = task.Advance([], CancellationToken.None);
+        var lighting = task.Advance([], CancellationToken.None);
 
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, lighting.Kind);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.LightExecutor,
+            Assert.Single(lighting.WorkerOperations).ExecutionPolicy);
         Assert.Equal(2, job.AdvanceCount);
+
+        var final = RunSlice(task, lighting, job, waitToken: 1);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
     }
 
     [Fact]
@@ -79,7 +85,9 @@ public sealed class ChunkMaterializationGenerationTaskTests
         var first = task.Advance([], CancellationToken.None);
         var second = RunSlice(task, first, job, 1);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, second.Kind);
-        var final = RunSlice(task, second, job, 2);
+        var lighting = RunSlice(task, second, job, 2);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, lighting.Kind);
+        var final = RunSlice(task, lighting, job, 3);
 
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
         Assert.Empty(final.WorkerOperations);
@@ -147,7 +155,8 @@ public sealed class ChunkMaterializationGenerationTaskTests
         using var task = new ChunkMaterializationGenerationTask(job, _ => { });
 
         var first = task.Advance([], CancellationToken.None);
-        var final = RunSlice(task, first, job, 1);
+        var lighting = RunSlice(task, first, job, 1);
+        var final = RunSlice(task, lighting, job, 2);
 
         Assert.Throws<InvalidOperationException>(
             () => task.Advance([], CancellationToken.None));
