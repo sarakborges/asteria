@@ -199,13 +199,6 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     public void Dispose()
     {
         DisposeAsync().AsTask().GetAwaiter().GetResult();
-        lock (_disposeSync)
-        {
-            if (_disposeCompleted)
-                return;
-            _queue.Dispose();
-            _disposeCompleted = true;
-        }
     }
 
     private void Consume()
@@ -230,7 +223,12 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
         finally
         {
             if (Interlocked.Increment(ref _exitedWorkerCount) == WorkerCount)
+            {
+                _queue.Dispose();
+                lock (_disposeSync)
+                    _disposeCompleted = true;
                 _workersExited.TrySetResult();
+            }
         }
     }
 
