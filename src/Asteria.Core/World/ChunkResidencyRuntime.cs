@@ -1179,7 +1179,8 @@ public sealed class ChunkResidencyRuntime
                             lightingSeeds, physicsPlan);
                     },
                     CancellationToken.None,
-                    out var operation))
+                    out var operation,
+                    priority: WorldWorkerPool.InteractiveWorldPriority))
             {
                 _pendingChunkLightingReconciliations.Enqueue(coord);
                 return false;
@@ -1237,7 +1238,8 @@ public sealed class ChunkResidencyRuntime
             if (!_worldWorkerPool.TrySchedule(
                     _ => updater.ReconcileChunkArrival(snapshot),
                     CancellationToken.None,
-                    out var operation))
+                    out var operation,
+                    priority: WorldWorkerPool.InteractiveWorldPriority))
             {
                 _pendingDirectionalFaceReconciliations.Enqueue(coord);
                 return false;
