@@ -124,6 +124,8 @@ public sealed class ChunkStreamingState
 
     public ChunkDistanceManager DistanceManager => _distanceManager;
 
+    public IReadOnlySet<ChunkCoord> DesiredSections => _desired;
+
     public IReadOnlySet<ChunkColumnCoord> DesiredColumns =>
         _desired.Select(ChunkColumnCoord.FromChunk).ToHashSet();
 
