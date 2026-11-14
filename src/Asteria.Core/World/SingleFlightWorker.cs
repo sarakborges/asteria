@@ -24,7 +24,8 @@ internal sealed class SingleFlightWorker<TResult>
 
     public bool TryStart(
         Func<TResult> work,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int priority = WorldWorkerPool.DefaultPriority)
     {
         ArgumentNullException.ThrowIfNull(work);
         if (_operation is not null)
@@ -33,7 +34,8 @@ internal sealed class SingleFlightWorker<TResult>
         return _workerPool.TrySchedule(
             _ => work(),
             cancellationToken,
-            out _operation);
+            out _operation,
+            priority: priority);
     }
 
     public bool TryTakeCompleted(
