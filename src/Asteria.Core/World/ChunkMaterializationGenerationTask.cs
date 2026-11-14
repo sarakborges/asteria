@@ -21,7 +21,7 @@ public sealed record ChunkMaterializationTaskOutput(
     int WorkerSliceCount,
     double InterSliceWaitMilliseconds);
 
-/// <summary>Result of advancing one worker-owned materialization slice.</summary>
+/// <summary>Result of one worker operation that advanced a materialization task.</summary>
 internal sealed record ChunkMaterializationWorkerSlice(
     ChunkCoord Coord,
     ImmutableArray<ChunkMaterializationStageTiming> StageTimings,
@@ -33,17 +33,16 @@ internal sealed record ChunkMaterializationWorkerSlice(
     long WorkerCompletedTimestamp);
 
 /// <summary>
-/// Adapts the existing stateful materializer job to the cooperative generation
-/// scheduler. Each worker operation executes a bounded batch of Advance calls;
-/// the job remains private and is never touched by the coordinator while a
-/// worker owns the slice. A completed chunk is returned as a detached outcome.
+/// Adapts the stateful materializer job to the cooperative generation scheduler.
+/// The task advances the complete synchronous materialization pipeline inside
+/// one worker operation and suspends only while that operation is outstanding.
+/// If materialization later gains genuine asynchronous dependencies, those
+/// dependencies become the suspension boundaries instead of elapsed-time slices.
 /// </summary>
 public sealed class ChunkMaterializationGenerationTask :
     IChunkGenerationTask,
     IDisposable
 {
-    internal const int MaximumAdvancesPerWorkerOperation = 32;
-    internal const double MaximumWorkerSliceMilliseconds = 6d;
     private readonly IChunkMaterializationJob _job;
     private readonly Action<Chunk> _initializeLighting;
     private readonly long _dispatchTimestamp;
@@ -68,7 +67,7 @@ public sealed class ChunkMaterializationGenerationTask :
         long dispatchTimestamp = 0)
     {
         _job = job ?? throw new ArgumentNullException(nameof(job));
-        _initializeLighting = initializeLighting ??
+        _initializeLighting = initializeLighting ?? 
             throw new ArgumentNullException(nameof(initializeLighting));
         _dispatchTimestamp = dispatchTimestamp == 0
             ? Stopwatch.GetTimestamp()
@@ -93,7 +92,7 @@ public sealed class ChunkMaterializationGenerationTask :
             CollectSlice(completedDependencies);
         else if (completedDependencies.Count != 0)
             throw new InvalidOperationException(
-                "The first materialization task slice cannot have worker completions.");
+                "The first materialization task operation cannot have worker completions.");
 
         if (_isCompleted)
             throw new InvalidOperationException(
@@ -119,7 +118,7 @@ public sealed class ChunkMaterializationGenerationTask :
         [
             new ChunkGenerationWorkerOperation(
                 dependencyId,
-                token => AdvanceOneSlice(token)),
+                token => AdvanceUntilComplete(token)),
         ]);
     }
 
@@ -143,36 +142,26 @@ public sealed class ChunkMaterializationGenerationTask :
             completion.Result is not ChunkMaterializationWorkerSlice slice)
         {
             throw new InvalidOperationException(
-                "Materialization worker returned a mismatched or invalid slice result.");
+                "Materialization worker returned a mismatched or invalid result.");
         }
         // A composite materialization job may advance a nested gravity-support
-        // child and then return to its parent during this same slice. Preserve
+        // child and then return to its parent during this same operation. Preserve
         // the leaf coordinate captured before Advance rather than comparing it
         // against the now-advanced job cursor.
         if (slice.StageTimings.IsDefaultOrEmpty)
             throw new InvalidOperationException(
                 "Materialization worker returned an empty stage-timing batch.");
+        if (!slice.IsComplete || slice.CompletedChunk is null)
+            throw new InvalidOperationException(
+                "Materialization worker returned before its synchronous job completed.");
+
         _stageTimings.AddRange(slice.StageTimings);
         _workerMilliseconds += slice.WorkerMilliseconds;
-        if (!_hasStartedWorker)
-        {
-            _hasStartedWorker = true;
-            _firstWorkerStartedTimestamp = slice.WorkerStartedTimestamp;
-        }
+        _hasStartedWorker = true;
+        _firstWorkerStartedTimestamp = slice.WorkerStartedTimestamp;
         _workerCompletedTimestamp = slice.WorkerCompletedTimestamp;
         _initialLightingMilliseconds += slice.InitialLightingMilliseconds;
-
-        if (slice.IsComplete)
-        {
-            if (slice.CompletedChunk is null)
-                throw new InvalidOperationException(
-                    "Completed materialization slice has no chunk.");
-        }
-        else if (slice.CompletedChunk is not null)
-        {
-            throw new InvalidOperationException(
-                "Incomplete materialization slice unexpectedly returned a chunk.");
-        }
+        _workerSliceCount = 1;
     }
 
     private ChunkGenerationTaskAdvanceResult Complete(Chunk chunk)
@@ -206,26 +195,17 @@ public sealed class ChunkMaterializationGenerationTask :
                 _interSliceWaitMilliseconds));
     }
 
-    private ChunkMaterializationWorkerSlice AdvanceOneSlice(
+    private ChunkMaterializationWorkerSlice AdvanceUntilComplete(
         CancellationToken cancellationToken)
     {
         var workerStartedTimestamp = Stopwatch.GetTimestamp();
-        if (_workerCompletedTimestamp != 0)
-        {
-            _interSliceWaitMilliseconds += Stopwatch.GetElapsedTime(
-                _workerCompletedTimestamp,
-                workerStartedTimestamp).TotalMilliseconds;
-        }
-        _workerSliceCount++;
-
         var stageTimings = ImmutableArray.CreateBuilder<ChunkMaterializationStageTiming>();
         var workerMilliseconds = 0d;
         var initialLightingMilliseconds = 0d;
         Chunk? completedChunk = null;
         var coord = _job.ActiveWorkCoord;
-        var advances = 0;
 
-        do
+        while (!_job.IsComplete)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var stage = _job.ActiveWorkStage;
@@ -241,7 +221,6 @@ public sealed class ChunkMaterializationGenerationTask :
             var stageMilliseconds = Stopwatch.GetElapsedTime(
                 stageStarted).TotalMilliseconds;
             workerMilliseconds += stageMilliseconds;
-            advances++;
 
             var paletteMetrics =
                 stage == ChunkMaterializationStage.DirectionalFacePalettes
@@ -266,30 +245,22 @@ public sealed class ChunkMaterializationGenerationTask :
                 sparseSupportFallback,
                 supportRequestedColumns,
                 supportMaterializationColumns));
-
-            if (_job.IsComplete)
-            {
-                completedChunk = _job.Result ??
-                    throw new InvalidOperationException(
-                        $"Completed materialization job returned no chunk: {_job.Coord}");
-                var lightingStarted = Stopwatch.GetTimestamp();
-                _initializeLighting(completedChunk);
-                initialLightingMilliseconds = Stopwatch.GetElapsedTime(
-                    lightingStarted).TotalMilliseconds;
-                workerMilliseconds += initialLightingMilliseconds;
-                break;
-            }
         }
-        while (advances < MaximumAdvancesPerWorkerOperation &&
-               Stopwatch.GetElapsedTime(
-                   workerStartedTimestamp).TotalMilliseconds <
-               MaximumWorkerSliceMilliseconds);
+
+        completedChunk = _job.Result ??
+            throw new InvalidOperationException(
+                $"Completed materialization job returned no chunk: {_job.Coord}");
+        var lightingStarted = Stopwatch.GetTimestamp();
+        _initializeLighting(completedChunk);
+        initialLightingMilliseconds = Stopwatch.GetElapsedTime(
+            lightingStarted).TotalMilliseconds;
+        workerMilliseconds += initialLightingMilliseconds;
 
         return new ChunkMaterializationWorkerSlice(
             coord,
             stageTimings.ToImmutable(),
             workerMilliseconds,
-            _job.IsComplete,
+            IsComplete: true,
             completedChunk,
             initialLightingMilliseconds,
             workerStartedTimestamp,
