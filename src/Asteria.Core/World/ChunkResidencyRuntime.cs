@@ -182,7 +182,8 @@ public sealed class ChunkResidencyRuntime
         MeshletContentRevisions fluidContentRevisions,
         WorldTickClock worldTicks,
         ChunkResidencySettings settings,
-        PackContentRegistry<ObjectDefinition>? objects = null)
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        WorldWorkerPool? worldWorkerPool = null)
     {
         _world =
             world ??
@@ -228,10 +229,14 @@ public sealed class ChunkResidencyRuntime
         var generationPendingCapacity = generationWorkerCount;
         _generationCompletionMailbox = new ChunkGenerationCompletionMailbox(
             checked(generationPendingCapacity + generationWorkerCount));
-        _generationWorkerPool = new ChunkGenerationWorkerPool(
-            generationWorkerCount,
-            generationPendingCapacity,
-            _generationCompletionMailbox);
+        _generationWorkerPool = worldWorkerPool is null
+            ? new ChunkGenerationWorkerPool(
+                generationWorkerCount,
+                generationPendingCapacity,
+                _generationCompletionMailbox)
+            : new ChunkGenerationWorkerPool(
+                worldWorkerPool,
+                _generationCompletionMailbox);
         _generationDispatcher = new ChunkGenerationDispatcher(
             _generationCompletionMailbox,
             _generationWorkerPool);
@@ -1117,20 +1122,8 @@ public sealed class ChunkResidencyRuntime
                 work.TaskKey, GenerationPriority(coord));
     }
 
-    private int AvailableGenerationWorkerStarts
-    {
-        get
-        {
-            var occupiedWorkerSlots =
-                _generationWorkerPool.InFlightWorkCount +
-                _directionalFaceReconciliationTasks.Values.Count(work =>
-                    !work.WorkerTask.IsCompleted) +
-                _chunkLightingReconciliationTasks.Values.Count(work =>
-                    !work.WorkerTask.IsCompleted);
-            return Math.Max(
-                0, _settings.MaxConcurrentWorkers - occupiedWorkerSlots);
-        }
-    }
+    private int AvailableGenerationWorkerStarts =>
+        _generationWorkerPool.AvailableSubmissionCount;
 
     private void StartArrivalReconciliationWorker(
         WorldFrameWorkBudget budget,
