@@ -762,3 +762,18 @@ The dispatcher is still pumped by the owner thread to admit work and consume res
 
 **Next code task:** after the current Core test suite passes, map the existing `ChunkMaterializationStage` transitions to the plan's step IDs and execution policies. Start with a single-stage serial transition contract; do not move every provider stage to workers by default.
 
+
+
+### Worker-capacity audit correction — 2026-11-14
+
+The worker-capacity path was checked end to end before changing it:
+
+- `Main.MaxConcurrentWorldJobs` calls `WorldWorkerCapacity.Resolve(Environment.ProcessorCount, ReadMaximumBackgroundThreads())`.
+- `WorldWorkerCapacity.Resolve` returns `min(max(1, processorCount - 1), maximumBackgroundThreads)`, with a default configurable ceiling of 255.
+- `ASTERIA_MAX_BACKGROUND_THREADS` is validated and supplied as the ceiling.
+- One `WorldWorkerPool` is created for the active world session and injected into the dimension-session controller; dimension sessions share that physical pool.
+
+This matches Minecraft 26.3's processor-minus-one background-pool capacity policy with a configurable maximum. **Do not replace this with an arbitrary fixed worker count or create separate per-dimension physical pools.**
+
+A separate constant, `WorldWorkerLaneCount = 4`, in `Main.DispatchReadyWorldWorkers` is not the physical worker count. It caps per-frame admission attempts across four domain-owned queues (fluid simulation, terrain mesh, lighting, fluid mesh). It is not yet equivalent to Minecraft's worldgen/light `ChunkTaskDispatcher` pair. Audit this domain admission separately when moving lighting and other world CPU operations to their proper serial executors.
+
