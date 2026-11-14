@@ -216,10 +216,9 @@ public sealed class ChunkMaterializationGenerationTask :
             initializeLighting: null,
             dispatchTimestamp: Stopwatch.GetTimestamp(),
             returnJobOnCompletion: true);
-        var advance = _activeDependencyTask.Advance(
+        return AdvanceActiveDependencyTask(
             Array.Empty<ChunkGenerationDependencyCompletion>(),
             cancellationToken);
-        return WrapDependencyOperations(advance);
     }
 
     private ChunkGenerationTaskAdvanceResult ResumeDependencyTask(
@@ -252,16 +251,36 @@ public sealed class ChunkMaterializationGenerationTask :
                 completion.Result));
         }
 
+        _hasScheduledOperation = false;
+        return AdvanceActiveDependencyTask(childCompletions, cancellationToken);
+    }
+
+    private ChunkGenerationTaskAdvanceResult AdvanceActiveDependencyTask(
+        IReadOnlyList<ChunkGenerationDependencyCompletion> completions,
+        CancellationToken cancellationToken)
+    {
         var dependencyAdvance = (_activeDependencyTask ??
             throw new InvalidOperationException(
-                "A chunk dependency completion arrived without an active dependency task."))
-            .Advance(childCompletions, cancellationToken);
+                "A chunk dependency continuation was requested without an active task."))
+            .Advance(completions, cancellationToken);
 
-        if (dependencyAdvance.Kind == ChunkGenerationTaskAdvanceKind.WaitForWorkers)
-            return WrapDependencyOperations(dependencyAdvance);
+        return dependencyAdvance.Kind switch
+        {
+            ChunkGenerationTaskAdvanceKind.WaitForWorkers =>
+                WrapDependencyOperations(dependencyAdvance),
+            ChunkGenerationTaskAdvanceKind.Yield =>
+                ChunkGenerationTaskAdvanceResult.Yield,
+            ChunkGenerationTaskAdvanceKind.Completed =>
+                CompleteDependencyTask(dependencyAdvance, cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(dependencyAdvance)),
+        };
+    }
 
-        if (dependencyAdvance.Kind != ChunkGenerationTaskAdvanceKind.Completed ||
-            dependencyAdvance.CompletionPayload is not ChunkMaterializationTaskOutput dependencyOutput ||
+    private ChunkGenerationTaskAdvanceResult CompleteDependencyTask(
+        ChunkGenerationTaskAdvanceResult dependencyAdvance,
+        CancellationToken cancellationToken)
+    {
+        if (dependencyAdvance.CompletionPayload is not ChunkMaterializationTaskOutput dependencyOutput ||
             dependencyOutput.CompletedDependencyJob is null)
         {
             throw new InvalidOperationException(
@@ -281,11 +300,12 @@ public sealed class ChunkMaterializationGenerationTask :
 
         // The child task relinquished ownership in its output. Disposing its
         // wrapper is safe; the parent job still owns the completed dependency.
-        _activeDependencyTask.Dispose();
+        _activeDependencyTask?.Dispose();
         _activeDependencyTask = null;
         _pendingDependencyJob = null;
+        _activeDependencyOperationIds.Clear();
 
-        return ScheduleParentOperation();
+        return AdvanceParent(cancellationToken);
     }
 
     private ChunkGenerationTaskAdvanceResult WrapDependencyOperations(
@@ -313,7 +333,6 @@ public sealed class ChunkMaterializationGenerationTask :
                 operation.Execute));
         }
 
-        _hasScheduledOperation = true;
         return ChunkGenerationTaskAdvanceResult.WaitForWorkers(wrapped);
     }
 
@@ -327,7 +346,7 @@ public sealed class ChunkMaterializationGenerationTask :
         [
             new ChunkGenerationWorkerOperation(
                 dependencyId,
-                token => AdvanceUntilWait(token)),
+                token => AdvanceSingleStage(token)),
         ]);
     }
 
@@ -339,7 +358,7 @@ public sealed class ChunkMaterializationGenerationTask :
         return _nextDependencyId++;
     }
 
-    private void CollectSlice(
+    private void CollectWorkerSlice(
         IReadOnlyList<ChunkGenerationDependencyCompletion> completions)
     {
         if (completions.Count != 1)
@@ -352,21 +371,27 @@ public sealed class ChunkMaterializationGenerationTask :
             throw new InvalidOperationException(
                 "Materialization worker returned a mismatched or invalid stage result.");
         }
+
+        _hasScheduledOperation = false;
+        ApplySlice(slice);
+    }
+
+    private void ApplySlice(ChunkMaterializationWorkerSlice slice)
+    {
         if (slice.StageTimings.IsDefaultOrEmpty)
             throw new InvalidOperationException(
-                "Materialization worker returned an empty stage-timing batch.");
+                "Materialization advance returned an empty stage-timing batch.");
 
         if (slice.IsComplete)
         {
             if (slice.CompletedChunk is null || slice.PendingDependency is not null)
                 throw new InvalidOperationException(
-                    "Completed materialization worker returned an invalid result.");
+                    "Completed materialization advance returned an invalid result.");
         }
-        else if (slice.CompletedChunk is not null ||
-                 slice.PendingDependency is null)
+        else if (slice.CompletedChunk is not null)
         {
             throw new InvalidOperationException(
-                "Incomplete materialization worker did not return a chunk dependency.");
+                "Incomplete materialization advance returned a completed chunk.");
         }
 
         _stageTimings.AddRange(slice.StageTimings);
@@ -379,10 +404,7 @@ public sealed class ChunkMaterializationGenerationTask :
         }
         _workerCompletedTimestamp = slice.WorkerCompletedTimestamp;
         _initialLightingMilliseconds += slice.InitialLightingMilliseconds;
-        if (!slice.IsComplete)
-        {
-            _pendingDependencyJob = slice.PendingDependency;
-        }
+        _pendingDependencyJob = slice.PendingDependency;
     }
 
     private ChunkGenerationTaskAdvanceResult Complete(Chunk chunk)
@@ -424,94 +446,71 @@ public sealed class ChunkMaterializationGenerationTask :
                 completedDependencyJob));
     }
 
-    private ChunkMaterializationWorkerSlice AdvanceUntilWait(
+    private ChunkMaterializationWorkerSlice AdvanceSingleStage(
         CancellationToken cancellationToken)
     {
-        var workerStartedTimestamp = Stopwatch.GetTimestamp();
-        var stageTimings = ImmutableArray.CreateBuilder<ChunkMaterializationStageTiming>();
-        var workerMilliseconds = 0d;
-        var initialLightingMilliseconds = 0d;
-        var coord = _job.ActiveWorkCoord;
-
-        // Synchronous work runs through the entire available pipeline. A
-        // dependency is the only reason to return control to the coordinator.
-        while (!_job.IsComplete)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var stage = _job.ActiveWorkStage;
-            coord = _job.ActiveWorkCoord;
-            var supportOnly = _job.ActiveSupportOnly;
-            var supportFaceFastPath = _job.ActiveSupportFaceFastPath;
-            var sparseSupportFallback = _job.ActiveSparseSupportFallback;
-            var supportRequestedColumns = _job.ActiveSupportRequestedColumnCount;
-            var supportMaterializationColumns = _job.ActiveSupportMaterializationColumnCount;
-
-            var stageStarted = Stopwatch.GetTimestamp();
-            _job.Advance();
-            var stageMilliseconds = Stopwatch.GetElapsedTime(
-                stageStarted).TotalMilliseconds;
-            workerMilliseconds += stageMilliseconds;
-
-            var paletteMetrics =
-                stage == ChunkMaterializationStage.DirectionalFacePalettes
-                    ? _job.DirectionalFacePaletteMetrics
-                    : null;
-            stageTimings.Add(new ChunkMaterializationStageTiming(
-                coord,
-                stage,
-                stageMilliseconds,
-                paletteMetrics,
-                stage == ChunkMaterializationStage.DirectionalFacePalettes
-                    ? _job.DirectionalFaceBoundaryColumnBoundsMilliseconds
-                    : 0d,
-                stage == ChunkMaterializationStage.DirectionalFacePalettes
-                    ? _job.DirectionalFaceCaveSamplerBuildMilliseconds
-                    : 0d,
-                stage == ChunkMaterializationStage.DirectionalFacePalettes
-                    ? _job.DirectionalFaceBoundaryColumnEvaluationMilliseconds
-                    : 0d,
-                supportOnly,
-                supportFaceFastPath,
-                sparseSupportFallback,
-                supportRequestedColumns,
-                supportMaterializationColumns));
-
-            if (_job.PendingDependency is { IsComplete: false } dependency)
-            {
-                return new ChunkMaterializationWorkerSlice(
-                    coord,
-                    stageTimings.ToImmutable(),
-                    workerMilliseconds,
-                    IsComplete: false,
-                    CompletedChunk: null,
-                    InitialLightingMilliseconds: 0d,
-                    workerStartedTimestamp,
-                    Stopwatch.GetTimestamp(),
-                    dependency);
-            }
-        }
-
-        var completedChunk = _job.Result ??
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_job.IsComplete)
             throw new InvalidOperationException(
-                $"Completed materialization job returned no chunk: {_job.Coord}");
-        if (_initializeLighting is not null)
-        {
-            var lightingStarted = Stopwatch.GetTimestamp();
-            _initializeLighting(completedChunk);
-            initialLightingMilliseconds = Stopwatch.GetElapsedTime(
-                lightingStarted).TotalMilliseconds;
-            workerMilliseconds += initialLightingMilliseconds;
-        }
+                $"Completed materialization job was advanced again: {_job.Coord}");
 
-        var completedTimestamp = Stopwatch.GetTimestamp();
+        var workerStartedTimestamp = Stopwatch.GetTimestamp();
+        var coord = _job.ActiveWorkCoord;
+        var stage = _job.ActiveWorkStage;
+        var supportOnly = _job.ActiveSupportOnly;
+        var supportFaceFastPath = _job.ActiveSupportFaceFastPath;
+        var sparseSupportFallback = _job.ActiveSparseSupportFallback;
+        var supportRequestedColumns = _job.ActiveSupportRequestedColumnCount;
+        var supportMaterializationColumns = _job.ActiveSupportMaterializationColumnCount;
+
+        var stageStarted = Stopwatch.GetTimestamp();
+        _job.Advance();
+        var stageMilliseconds = Stopwatch.GetElapsedTime(
+            stageStarted).TotalMilliseconds;
+
+        var paletteMetrics =
+            stage == ChunkMaterializationStage.DirectionalFacePalettes
+                ? _job.DirectionalFacePaletteMetrics
+                : null;
+        var stageTiming = new ChunkMaterializationStageTiming(
+            coord,
+            stage,
+            stageMilliseconds,
+            paletteMetrics,
+            stage == ChunkMaterializationStage.DirectionalFacePalettes
+                ? _job.DirectionalFaceBoundaryColumnBoundsMilliseconds
+                : 0d,
+            stage == ChunkMaterializationStage.DirectionalFacePalettes
+                ? _job.DirectionalFaceCaveSamplerBuildMilliseconds
+                : 0d,
+            stage == ChunkMaterializationStage.DirectionalFacePalettes
+                ? _job.DirectionalFaceBoundaryColumnEvaluationMilliseconds
+                : 0d,
+            supportOnly,
+            supportFaceFastPath,
+            sparseSupportFallback,
+            supportRequestedColumns,
+            supportMaterializationColumns);
+
+        var completed = _job.IsComplete;
+        var completedChunk = completed
+            ? _job.Result ?? throw new InvalidOperationException(
+                $"Completed materialization job returned no chunk: {_job.Coord}")
+            : null;
+        var pendingDependency = _job.PendingDependency is { IsComplete: false } dependency
+            ? dependency
+            : null;
+
         return new ChunkMaterializationWorkerSlice(
             coord,
-            stageTimings.ToImmutable(),
-            workerMilliseconds,
-            IsComplete: true,
+            ImmutableArray.Create(stageTiming),
+            stageMilliseconds,
+            completed,
             completedChunk,
-            initialLightingMilliseconds,
+            InitialLightingMilliseconds: 0d,
             workerStartedTimestamp,
-            completedTimestamp);
+            Stopwatch.GetTimestamp(),
+            pendingDependency);
     }
+
 }
