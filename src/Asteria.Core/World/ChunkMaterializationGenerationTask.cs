@@ -63,6 +63,8 @@ public sealed class ChunkMaterializationGenerationTask :
     private ulong _nextDependencyId = 1;
     private ulong _lastDependencyId;
     private bool _hasScheduledOperation;
+    private bool _waitingForLighting;
+    private bool _lightingInitialized;
     private bool _hasStartedWorker;
     private bool _isCompleted;
     private bool _isDisposed;
@@ -125,7 +127,12 @@ public sealed class ChunkMaterializationGenerationTask :
         }
 
         if (_hasScheduledOperation)
-            CollectWorkerSlice(completedDependencies);
+        {
+            if (_waitingForLighting)
+                CollectLightingCompletion(completedDependencies);
+            else
+                CollectWorkerSlice(completedDependencies);
+        }
         else if (completedDependencies.Count != 0)
             throw new InvalidOperationException(
                 "The first materialization operation cannot have worker completions.");
@@ -144,6 +151,8 @@ public sealed class ChunkMaterializationGenerationTask :
             var chunk = _job.Result ??
                 throw new InvalidOperationException(
                     $"Completed materialization job returned no chunk: {_job.Coord}");
+            if (_initializeLighting is not null && !_lightingInitialized)
+                return ScheduleInitialLighting(chunk);
             return Complete(chunk);
         }
 
@@ -162,6 +171,66 @@ public sealed class ChunkMaterializationGenerationTask :
                     $"Materialization stage {_job.ActiveWorkStage} cannot run in the section materializer."),
             _ => throw new ArgumentOutOfRangeException(nameof(policy)),
         };
+    }
+
+    private ChunkGenerationTaskAdvanceResult ScheduleInitialLighting(
+        Chunk chunk)
+    {
+        if (_initializeLighting is null || _lightingInitialized || _waitingForLighting)
+            throw new InvalidOperationException(
+                $"Initial lighting was scheduled in an invalid state: {_job.Coord}");
+
+        var dependencyId = NextDependencyId();
+        _lastDependencyId = dependencyId;
+        _hasScheduledOperation = true;
+        _waitingForLighting = true;
+
+        return ChunkGenerationTaskAdvanceResult.WaitForWorkers(
+        [
+            new ChunkGenerationWorkerOperation(
+                dependencyId,
+                cancellationToken =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var started = Stopwatch.GetTimestamp();
+                    _initializeLighting(chunk);
+                    var completed = Stopwatch.GetTimestamp();
+                    return new ChunkLightingWorkerResult(
+                        Stopwatch.GetElapsedTime(started, completed).TotalMilliseconds,
+                        started,
+                        completed);
+                },
+                ChunkGenerationExecutionPolicy.LightExecutor),
+        ]);
+    }
+
+    private void CollectLightingCompletion(
+        IReadOnlyList<ChunkGenerationDependencyCompletion> completions)
+    {
+        if (!_waitingForLighting || completions.Count != 1)
+            throw new InvalidOperationException(
+                $"Expected one serial-light completion for {_job.Coord}, received {completions.Count}.");
+
+        var completion = completions[0];
+        if (completion.DependencyId != _lastDependencyId ||
+            completion.Result is not ChunkLightingWorkerResult result)
+        {
+            throw new InvalidOperationException(
+                $"Serial-light executor returned a mismatched completion for {_job.Coord}.");
+        }
+
+        _waitingForLighting = false;
+        _hasScheduledOperation = false;
+        _lightingInitialized = true;
+        _initialLightingMilliseconds += result.ElapsedMilliseconds;
+        _workerMilliseconds += result.ElapsedMilliseconds;
+        _workerOperationCount++;
+        if (!_hasStartedWorker)
+        {
+            _hasStartedWorker = true;
+            _firstWorkerStartedTimestamp = result.StartedTimestamp;
+        }
+        _workerCompletedTimestamp = result.CompletedTimestamp;
     }
 
     private ChunkGenerationTaskAdvanceResult AdvanceParentInline(
@@ -412,16 +481,9 @@ public sealed class ChunkMaterializationGenerationTask :
         if (!_isCompleted)
             _isCompleted = true;
 
-        // Lighting is still supplied through the existing callback boundary.
-        // A dedicated serial light executor is the next migration slice; keep
-        // the current initialization behavior until that executor owns it.
-        if (_initializeLighting is not null)
-        {
-            var lightingStarted = Stopwatch.GetTimestamp();
-            _initializeLighting(chunk);
-            _initialLightingMilliseconds += Stopwatch.GetElapsedTime(
-                lightingStarted).TotalMilliseconds;
-        }
+        if (_initializeLighting is not null && !_lightingInitialized)
+            throw new InvalidOperationException(
+                $"Chunk {_job.Coord} reached completion before serial lighting finished.");
 
         var dispatchPreparation = Stopwatch.GetElapsedTime(
             _dispatchTimestamp, _createdTimestamp).TotalMilliseconds;
@@ -456,6 +518,11 @@ public sealed class ChunkMaterializationGenerationTask :
                 _interSliceWaitMilliseconds,
                 completedDependencyJob));
     }
+
+    private readonly record struct ChunkLightingWorkerResult(
+        double ElapsedMilliseconds,
+        long StartedTimestamp,
+        long CompletedTimestamp);
 
     private ChunkMaterializationWorkerSlice AdvanceSingleStage(
         CancellationToken cancellationToken)
