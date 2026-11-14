@@ -650,6 +650,7 @@ public sealed class DimensionRuntimeSession
         var elapsed = WorldTicks.Advance(
             deltaSeconds,
             _state.GameRules.TicksPerSecond);
+        Residency.AdvanceTicketLifetimes(WorldTicks.CurrentTick);
         DayNight.Advance(elapsed);
         WorldAabb? playerBounds = playerPosition is { } p
             ? new WorldAabb(
