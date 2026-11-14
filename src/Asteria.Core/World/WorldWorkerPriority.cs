@@ -1,0 +1,64 @@
+namespace Asteria.Core.World;
+
+/// <summary>
+/// Global executor ordering. Chunk-backed work preserves the complete ticket
+/// tuple (band, horizontal distance, total distance and coordinates); other
+/// world domains use semantic priority classes with stable FIFO ties.
+/// </summary>
+public readonly record struct WorldWorkerPriority(
+    int PriorityBand,
+    long HorizontalDistanceSquared,
+    long TotalDistanceSquared,
+    int CoordinateY,
+    int CoordinateZ,
+    int CoordinateX) : IComparable<WorldWorkerPriority>
+{
+    public static WorldWorkerPriority FromPriorityClass(int priorityClass) =>
+        new(priorityClass, 0, 0, 0, 0, 0);
+
+    public static WorldWorkerPriority FromStreaming(
+        ChunkStreamingPriority priority) =>
+        new(
+            priority.StreamingBand,
+            priority.HorizontalDistanceSquared,
+            priority.TotalDistanceSquared,
+            priority.Y,
+            priority.Z,
+            priority.X);
+
+    public static WorldWorkerPriority FromGenerationTicket(
+        ChunkGenerationTaskPriority priority) =>
+        new(
+            priority.TicketLevel,
+            priority.HorizontalDistanceSquared,
+            priority.TotalDistanceSquared,
+            priority.CoordinateY,
+            priority.CoordinateZ,
+            priority.CoordinateX);
+
+    public int CompareTo(WorldWorkerPriority other)
+    {
+        var result = PriorityBand.CompareTo(other.PriorityBand);
+        if (result != 0)
+            return result;
+
+        result = HorizontalDistanceSquared.CompareTo(
+            other.HorizontalDistanceSquared);
+        if (result != 0)
+            return result;
+
+        result = TotalDistanceSquared.CompareTo(
+            other.TotalDistanceSquared);
+        if (result != 0)
+            return result;
+
+        result = CoordinateY.CompareTo(other.CoordinateY);
+        if (result != 0)
+            return result;
+
+        result = CoordinateZ.CompareTo(other.CoordinateZ);
+        return result != 0
+            ? result
+            : CoordinateX.CompareTo(other.CoordinateX);
+    }
+}
