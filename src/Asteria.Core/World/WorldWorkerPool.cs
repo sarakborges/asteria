@@ -69,7 +69,7 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     public const int PlayerChunkPriority = ChunkLevel.EntityTicking;
     public const int ForwardPrefetchPriority = ChunkLevel.BlockTicking;
     public const int InteractiveWorldPriority = 20;
-    public const int BackgroundChunkPriority = ChunkLevel.MaximumLoading;
+    public static readonly int BackgroundChunkPriority = ChunkLevel.MaximumLoading;
     public const int RearChunkPriority = ChunkLevel.Unloaded;
     public const int BackgroundWorldPriority = 100;
     public const int DefaultPriority = BackgroundWorldPriority;
