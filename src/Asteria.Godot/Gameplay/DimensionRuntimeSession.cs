@@ -350,6 +350,7 @@ public sealed class DimensionRuntimeSession
                     state.GameRules),
                 objects,
                 workerPool);
+        Lighting.ConfigureSerialExecutor(Residency.LightingExecutor);
         FluidSimulation.ConfigureSimulationEligibility(Residency.IsBlockTicking);
         BlockEntities.ConfigureSimulationEligibility(
             Residency.IsBlockTicking,
