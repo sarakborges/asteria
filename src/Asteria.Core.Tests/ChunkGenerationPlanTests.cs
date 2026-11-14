@@ -216,6 +216,58 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void ProceduralNeighborReadStepsDeclareImmutableHorizontalHalos()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        var steps = new[]
+        {
+            ChunkGenerationStepId.SurfaceDecorations,
+            ChunkGenerationStepId.DirectionalFacePalettes,
+            ChunkGenerationStepId.WallLayers,
+            ChunkGenerationStepId.WallObjects,
+        };
+
+        foreach (var stepId in steps)
+        {
+            var step = plan.GetStep(stepId);
+            Assert.Equal(1, step.ReadEnvelope.HorizontalRadius);
+            Assert.Contains(
+                plan.GetAccumulatedDependencies(stepId),
+                dependency =>
+                    dependency.PrerequisiteStep ==
+                        ChunkGenerationStepId.SurfaceTerrainColumn &&
+                    dependency.Kind ==
+                        ChunkGenerationDependencyKind.ImmutableWorldData &&
+                    dependency.Envelope.HorizontalRadius == 1);
+        }
+
+        var palette = plan.GetStep(
+            ChunkGenerationStepId.DirectionalFacePalettes);
+        Assert.Equal(-1, palette.ReadEnvelope.MinimumSectionOffset);
+        Assert.Equal(1, palette.ReadEnvelope.MaximumSectionOffset);
+
+        Assert.Equal(
+            1,
+            AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
+        Assert.Equal(
+            -1,
+            AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MinimumSectionOffset);
+        Assert.Equal(
+            1,
+            AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MaximumSectionOffset);
+
+        Assert.Equal(
+            0,
+            AsteriaChunkGenerationPlan.FullSectionEnvelope.HorizontalRadius);
+        Assert.Equal(
+            -1,
+            AsteriaChunkGenerationPlan.FullSectionEnvelope.MinimumSectionOffset);
+        Assert.Equal(
+            0,
+            AsteriaChunkGenerationPlan.FullSectionEnvelope.MaximumSectionOffset);
+    }
+
+    [Fact]
     public void AsteriaFullStepHasNoHorizontalHolderStatusPrerequisite()
     {
         Assert.Equal(
