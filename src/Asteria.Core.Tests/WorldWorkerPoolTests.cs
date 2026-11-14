@@ -86,6 +86,60 @@ public sealed class WorldWorkerPoolTests
     }
 
     [Fact]
+    public void QueuedWorkUsesUrgencyThenStableSubmissionOrder()
+    {
+        using var pool = new WorldWorkerPool(workerCount: 1, pendingCapacity: 4);
+        using var workerStarted = new ManualResetEventSlim(false);
+        using var releaseWorker = new ManualResetEventSlim(false);
+        var executionOrder = new System.Collections.Concurrent.ConcurrentQueue<int>();
+
+        Assert.True(pool.TrySchedule(
+            _ =>
+            {
+                workerStarted.Set();
+                releaseWorker.Wait();
+                executionOrder.Enqueue(-1);
+                return -1;
+            },
+            CancellationToken.None,
+            out var blocker,
+            priority: WorldWorkerPool.BackgroundWorldPriority));
+        Assert.True(workerStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        var low = Schedule(30, 3);
+        var firstHigh = Schedule(0, 0);
+        var medium = Schedule(20, 2);
+        var secondHigh = Schedule(0, 1);
+
+        Assert.Equal(4, pool.PendingWorkCount);
+        Assert.Equal(0, pool.AvailableSubmissionCount);
+
+        releaseWorker.Set();
+        var all = new[] { blocker!, low, firstHigh, medium, secondHigh };
+        Assert.True(SpinWait.SpinUntil(
+            () => all.All(operation => operation.IsCompleted) &&
+                  pool.InFlightWorkCount == 0,
+            TimeSpan.FromSeconds(5)));
+
+        Assert.Equal(new[] { -1, 0, 1, 2, 3 }, executionOrder.ToArray());
+        Assert.Equal(5, pool.CompletedWorkCount);
+
+        WorldWorkerOperation<int> Schedule(int priority, int value)
+        {
+            Assert.True(pool.TrySchedule(
+                _ =>
+                {
+                    executionOrder.Enqueue(value);
+                    return value;
+                },
+                CancellationToken.None,
+                out var operation,
+                priority: priority));
+            return operation!;
+        }
+    }
+
+    [Fact]
     public void CancellationAndFailuresArePublishedAsOperationResults()
     {
         using var pool = new WorldWorkerPool(workerCount: 1);
