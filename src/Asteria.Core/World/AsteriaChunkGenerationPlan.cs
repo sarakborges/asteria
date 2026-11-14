@@ -61,7 +61,8 @@ public static class AsteriaChunkGenerationPlan
                     NoHalo),
                 Dependency(
                     ChunkGenerationStepId.SurfaceTerrainColumn,
-                    HorizontalPaletteHalo),
+                    HorizontalPaletteHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
             ],
             readEnvelope: HorizontalPaletteHalo),
 
@@ -237,6 +238,13 @@ public static class AsteriaChunkGenerationPlan
         };
 
     public static ChunkGenerationDependencyEnvelope FullSectionEnvelope =>
+        Default.GetHolderDependencyEnvelope(ChunkGenerationStepId.SectionReady);
+
+    /// <summary>
+    /// Complete spatial access envelope, including immutable generator-field
+    /// reads that do not require adjacent chunk holders.
+    /// </summary>
+    public static ChunkGenerationDependencyEnvelope FullSectionAccessEnvelope =>
         Default.GetDependencyEnvelope(ChunkGenerationStepId.SectionReady);
 
     public static int MaximumHorizontalDependencyRadius =>
@@ -258,7 +266,8 @@ public static class AsteriaChunkGenerationPlan
         var requiredStatus = ChunkGenerationStatus.Unloaded;
         foreach (var dependency in Default.GetAccumulatedDependencies(targetStep))
         {
-            if (dependency.Envelope.HorizontalRadius < horizontalDistance)
+            if (dependency.Kind != ChunkGenerationDependencyKind.HolderStatus ||
+                dependency.Envelope.HorizontalRadius < horizontalDistance)
                 continue;
 
             var dependencyStatus = GetGenerationStatus(
@@ -328,6 +337,8 @@ public static class AsteriaChunkGenerationPlan
 
     private static ChunkGenerationStepDependency Dependency(
         ChunkGenerationStepId prerequisite,
-        ChunkGenerationDependencyEnvelope envelope) =>
-        new(prerequisite, envelope);
+        ChunkGenerationDependencyEnvelope envelope,
+        ChunkGenerationDependencyKind kind =
+            ChunkGenerationDependencyKind.HolderStatus) =>
+        new(prerequisite, envelope, kind);
 }
