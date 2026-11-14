@@ -281,6 +281,13 @@ public sealed class ChunkResidencyRuntime
 
     public int GenerationWorkerCount => _generationWorkerPool.WorkerCount;
 
+    /// <summary>
+    /// Remaining submissions in the shared world executor, including idle
+    /// physical workers and available bounded queue positions.
+    /// </summary>
+    public int AvailableWorldWorkerSubmissionCount =>
+        _worldWorkerPool.AvailableSubmissionCount;
+
     public int ActiveGenerationWorkerCount =>
         _generationWorkerPool.ActiveWorkerCount;
 
