@@ -885,7 +885,8 @@ public sealed class DimensionRuntimeSession
         if (!_worldWorkerPool.TrySchedule(
                 _ => resolver(),
                 cancellation.Token,
-                out var operation))
+                out var operation,
+                priority: WorldWorkerPool.PlayerChunkPriority))
         {
             cancellation.Dispose();
             return;
