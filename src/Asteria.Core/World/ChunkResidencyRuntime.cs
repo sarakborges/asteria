@@ -278,13 +278,6 @@ public sealed class ChunkResidencyRuntime
 
     public int GenerationWorkerCount => _generationWorkerPool.WorkerCount;
 
-    /// <summary>
-    /// Remaining submissions in the shared world executor, including idle
-    /// physical workers and available bounded queue positions.
-    /// </summary>
-    public int AvailableWorldWorkerSubmissionCount =>
-        _worldWorkerPool.AvailableSubmissionCount;
-
     public int ActiveGenerationWorkerCount =>
         _generationWorkerPool.ActiveWorkerCount;
 
@@ -832,15 +825,9 @@ public sealed class ChunkResidencyRuntime
 
     public ChunkResidencyUpdate DispatchMaterializationTasks(
         WorldFrameWorkBudget budget,
-        IEnumerable<ChunkCoord> presented,
-        int maximumGenerationWorkerStarts = int.MaxValue,
-        int maximumWorldWorkerStarts = int.MaxValue)
+        IEnumerable<ChunkCoord> presented)
     {
         ArgumentNullException.ThrowIfNull(presented);
-        if (maximumGenerationWorkerStarts < 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumGenerationWorkerStarts));
-        if (maximumWorldWorkerStarts < 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumWorldWorkerStarts));
         if (!_acceptingMaterializationWork)
             return ChunkResidencyUpdate.Empty;
 
@@ -856,9 +843,9 @@ public sealed class ChunkResidencyRuntime
 
         while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
-            // Keep each X/Z column together in the pending queue. Continue
-            // restoring archived chunks, but defer new provider jobs once the
-            // shared executor has no remaining submission capacity.
+            // Keep each X/Z column together in the ticket queue. Provider
+            // jobs are registered even when every physical worker is busy;
+            // their operations wait in the shared priority queue.
             var pendingColumn = _streaming.PopPendingColumnEntryByPriority();
             if (pendingColumn is null)
                 break;
@@ -983,7 +970,7 @@ public sealed class ChunkResidencyRuntime
 
         UpdateGenerationTaskPriorities();
         var dispatchReport = _generationDispatcher.Pump(
-            budget, maximumGenerationWorkerStarts);
+            budget, int.MaxValue);
 
         // Reconciliation enters the same priority queue as every other world
         // operation. The executor, not a per-frame worker-slot reservation,
