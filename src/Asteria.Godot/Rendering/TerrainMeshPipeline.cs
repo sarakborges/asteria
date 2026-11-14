@@ -20,10 +20,6 @@ public sealed class TerrainMeshPipeline
 
     private bool _acceptingWork = true;
     private bool _preferInteractive = true;
-    // Ensure background meshes advance even under sustained pressure.
-    private const int MaximumDeferredBackgroundStarts = 8;
-    private int _deferredBackgroundStarts;
-
     private WorldMeshBatch? _interactiveInFlightBatch;
     private WorldMeshBatch? _backgroundInFlightBatch;
 
@@ -128,22 +124,10 @@ public sealed class TerrainMeshPipeline
             return false;
         }
 
-        var visibleWork = _updates.HasPriorityMeshWork ||
-            _interactiveWorker.IsRunning;
-        var shouldDeferBackground = underStreamingPressure &&
-            visibleWork && _updates.HasBackgroundMeshWork;
-        if (!allowBackground)
-            _deferredBackgroundStarts = 0;
-        else if (shouldDeferBackground)
-            _deferredBackgroundStarts = Math.Min(
-                MaximumDeferredBackgroundStarts,
-                _deferredBackgroundStarts + 1);
-        else
-            _deferredBackgroundStarts = 0;
-
-        var mayStartBackground = allowBackground &&
-            (!shouldDeferBackground ||
-             _deferredBackgroundStarts >= MaximumDeferredBackgroundStarts);
+        // Interactive and background operations enter the same global
+        // priority queue. Alternate capture lanes for fairness; the shared
+        // executor decides which queued operation gets a physical worker.
+        var mayStartBackground = allowBackground;
 
         // Worker startup captures neighboring chunks synchronously.
         // Limit each call to one lane and alternate to avoid starvation.
@@ -258,8 +242,6 @@ public sealed class TerrainMeshPipeline
         }
 
         inFlightBatch = batch;
-        if (!priority)
-            _deferredBackgroundStarts = 0;
         return true;
     }
 
