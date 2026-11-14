@@ -1,0 +1,215 @@
+using System.Collections.Immutable;
+
+namespace Asteria.Core.World;
+
+/// <summary>
+/// Detached result of one horizontal-column FULL request. Its section chunks
+/// are still private until the owning world coordinator validates the holder
+/// generation and publishes the column's sections to live residency.
+/// </summary>
+public sealed record ChunkColumnMaterializationTaskOutput(
+    ChunkColumnCoord Column,
+    ImmutableArray<ChunkMaterializationTaskOutput> Sections);
+
+/// <summary>
+/// One logical generation task per horizontal ChunkHolder. Independent
+/// vertical storage sections fork onto the shared worker pool; the holder task
+/// resumes only after every section operation in its current fork has returned.
+/// </summary>
+public sealed class ChunkColumnMaterializationGenerationTask :
+    IChunkGenerationTask,
+    IDisposable
+{
+    private readonly ChunkColumnCoord _column;
+    private readonly ChunkMaterializationGenerationTask[] _sectionTasks;
+    private readonly ChunkMaterializationTaskOutput?[] _sectionResults;
+    private readonly Dictionary<ulong, PendingSectionOperation> _pendingOperations = [];
+    private ulong _nextDependencyId = 1;
+    private bool _started;
+    private bool _completed;
+    private bool _disposed;
+
+    public ChunkColumnMaterializationGenerationTask(
+        ChunkColumnCoord column,
+        IEnumerable<IChunkMaterializationJob> sectionJobs,
+        Action<Chunk> initializeLighting,
+        long dispatchTimestamp = 0)
+    {
+        ArgumentNullException.ThrowIfNull(sectionJobs);
+        ArgumentNullException.ThrowIfNull(initializeLighting);
+
+        _column = column;
+        var jobs = sectionJobs
+            .OrderBy(job => job.Coord.Y)
+            .ToArray();
+        if (jobs.Length == 0)
+            throw new ArgumentException(
+                "A column generation task requires at least one section job.",
+                nameof(sectionJobs));
+
+        foreach (var job in jobs)
+        {
+            ArgumentNullException.ThrowIfNull(job);
+            if (ChunkColumnCoord.FromChunk(job.Coord) != column)
+                throw new ArgumentException(
+                    $"Section job {job.Coord} does not belong to column {column}.",
+                    nameof(sectionJobs));
+        }
+
+        _sectionTasks = jobs
+            .Select(job => new ChunkMaterializationGenerationTask(
+                job,
+                initializeLighting,
+                dispatchTimestamp))
+            .ToArray();
+        _sectionResults = new ChunkMaterializationTaskOutput?[jobs.Length];
+    }
+
+    public ChunkColumnCoord Column => _column;
+
+    public ChunkGenerationTaskAdvanceResult Advance(
+        IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_completed)
+            throw new InvalidOperationException(
+                "A completed column materialization task cannot advance.");
+        ArgumentNullException.ThrowIfNull(completedDependencies);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var nextOperations = new List<ChunkGenerationWorkerOperation>();
+        if (!_started)
+        {
+            if (completedDependencies.Count != 0)
+                throw new InvalidOperationException(
+                    "The first column generation advance cannot have worker completions.");
+
+            _started = true;
+            for (var index = 0; index < _sectionTasks.Length; index++)
+                CollectChildAdvance(
+                    index,
+                    _sectionTasks[index].Advance(
+                        Array.Empty<ChunkGenerationDependencyCompletion>(),
+                        cancellationToken),
+                    nextOperations);
+        }
+        else
+        {
+            if (completedDependencies.Count != _pendingOperations.Count)
+                throw new InvalidOperationException(
+                    $"Column {_column} expected {_pendingOperations.Count} worker completions, " +
+                    $"received {completedDependencies.Count}.");
+
+            foreach (var completion in completedDependencies)
+            {
+                if (completion.Error is not null)
+                    throw new InvalidOperationException(
+                        $"A section operation failed in column {_column}.",
+                        completion.Error);
+
+                if (!_pendingOperations.Remove(
+                        completion.DependencyId, out var pending))
+                    throw new InvalidOperationException(
+                        $"Unknown section dependency {completion.DependencyId} in column {_column}.");
+
+                var childCompletion = new ChunkGenerationDependencyCompletion(
+                    completion.Task,
+                    WaitToken: 1,
+                    pending.ChildDependencyId,
+                    completion.Result);
+                var childAdvance = _sectionTasks[pending.SectionIndex].Advance(
+                    [childCompletion],
+                    cancellationToken);
+                CollectChildAdvance(
+                    pending.SectionIndex,
+                    childAdvance,
+                    nextOperations);
+            }
+        }
+
+        if (nextOperations.Count > 0)
+            return ChunkGenerationTaskAdvanceResult.WaitForWorkers(nextOperations);
+
+        if (_pendingOperations.Count > 0)
+            throw new InvalidOperationException(
+                $"Column {_column} has outstanding operations without a wait result.");
+
+        var sections = _sectionResults
+            .Select((result, index) => result ??
+                throw new InvalidOperationException(
+                    $"Column {_column} section task {index} completed without a result."))
+            .OrderBy(result => result.Coord.Y)
+            .ToImmutableArray();
+
+        _completed = true;
+        return ChunkGenerationTaskAdvanceResult.CompletedWith(
+            new ChunkColumnMaterializationTaskOutput(_column, sections));
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        foreach (var task in _sectionTasks)
+            task.Dispose();
+        _pendingOperations.Clear();
+    }
+
+    private void CollectChildAdvance(
+        int sectionIndex,
+        ChunkGenerationTaskAdvanceResult result,
+        List<ChunkGenerationWorkerOperation> nextOperations)
+    {
+        switch (result.Kind)
+        {
+            case ChunkGenerationTaskAdvanceKind.Completed:
+                if (result.CompletionPayload is not ChunkMaterializationTaskOutput output)
+                    throw new InvalidOperationException(
+                        $"Section task {sectionIndex} in {_column} returned no materialization output.");
+                if (output.Coord.X != _column.X || output.Coord.Z != _column.Z)
+                    throw new InvalidOperationException(
+                        $"Section task {sectionIndex} returned a chunk outside {_column}.");
+                if (_sectionResults[sectionIndex] is not null)
+                    throw new InvalidOperationException(
+                        $"Section task {sectionIndex} in {_column} completed twice.");
+                _sectionResults[sectionIndex] = output;
+                break;
+
+            case ChunkGenerationTaskAdvanceKind.WaitForWorkers:
+                foreach (var operation in result.WorkerOperations)
+                {
+                    if (_nextDependencyId == 0 ||
+                        _nextDependencyId == ulong.MaxValue)
+                        throw new InvalidOperationException(
+                            $"Column worker dependency ID space was exhausted: {_column}");
+
+                    var dependencyId = _nextDependencyId++;
+                    if (!_pendingOperations.TryAdd(
+                            dependencyId,
+                            new PendingSectionOperation(
+                                sectionIndex,
+                                operation.DependencyId)))
+                        throw new InvalidOperationException(
+                            $"Duplicate column dependency ID {dependencyId}: {_column}");
+
+                    nextOperations.Add(new ChunkGenerationWorkerOperation(
+                        dependencyId,
+                        operation.Execute));
+                }
+                break;
+
+            case ChunkGenerationTaskAdvanceKind.Yield:
+                throw new InvalidOperationException(
+                    "Section materialization tasks must yield only for worker dependencies.");
+            default:
+                throw new ArgumentOutOfRangeException(nameof(result));
+        }
+    }
+
+    private readonly record struct PendingSectionOperation(
+        int SectionIndex,
+        ulong ChildDependencyId);
+}
