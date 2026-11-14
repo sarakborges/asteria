@@ -176,6 +176,27 @@ public sealed class ChunkTicketStorage
         return true;
     }
 
+    public bool RemoveTicketsWhere(
+        ChunkTicketType type,
+        Predicate<ChunkColumnCoord> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        if (!Enum.IsDefined(type))
+            throw new ArgumentOutOfRangeException(nameof(type));
+
+        var removedAny = false;
+        foreach (var (column, tickets) in _tickets.ToArray())
+        {
+            if (!predicate(column))
+                continue;
+
+            foreach (var ticket in tickets.Where(ticket => ticket.Type == type).ToArray())
+                removedAny |= RemoveTicket(column, ticket);
+        }
+
+        return removedAny;
+    }
+
     /// <summary>
     /// Replaces every ticket of one type with a new authoritative set.
     /// Other ticket types on the same columns are preserved.
@@ -320,49 +341,98 @@ public sealed class ChunkDistanceManager
 
     public ChunkDistanceTracker SimulationTracker => _simulation;
 
-    public bool ReplacePlayerTickets(
-        IEnumerable<ChunkColumnCoord> loadingColumns,
+    /// <summary>
+    /// Synchronizes the desired player view and simulation source. Existing
+    /// PLAYER_LOADING tickets remain for columns still in view; new loading
+    /// tickets are admitted later by the four-slot player-ticket dispatcher.
+    /// </summary>
+    public bool UpdatePlayerView(
+        IEnumerable<ChunkColumnCoord> desiredColumns,
         ChunkColumnCoord playerColumn,
         int simulationDistance)
     {
-        ArgumentNullException.ThrowIfNull(loadingColumns);
+        ArgumentNullException.ThrowIfNull(desiredColumns);
         if (simulationDistance < 0 ||
             simulationDistance >= ChunkLevel.EntityTicking)
             throw new ArgumentOutOfRangeException(nameof(simulationDistance));
 
-        var loadingTickets = loadingColumns
-            .Distinct()
-            .Select(column => new ChunkTicketPlacement(
+        var desired = desiredColumns.ToHashSet();
+        var loadingChanged = _tickets.RemoveTicketsWhere(
+            ChunkTicketType.PlayerLoading,
+            column => !desired.Contains(column));
+        var simulationChanged = _tickets.ReplaceTickets(
+            ChunkTicketType.PlayerSimulation,
+            [
+                new ChunkTicketPlacement(
+                    playerColumn,
+                    new ChunkTicket(
+                        ChunkTicketType.PlayerSimulation,
+                        ChunkLevel.EntityTicking - simulationDistance)),
+            ]);
+        if (!loadingChanged && !simulationChanged)
+            return false;
+
+        RebuildDistanceGraphs(loadingChanged, simulationChanged);
+        return true;
+    }
+
+    public bool AddPlayerLoadingTicket(ChunkColumnCoord column)
+    {
+        if (!_tickets.AddTicket(
                 column,
                 new ChunkTicket(
                     ChunkTicketType.PlayerLoading,
                     ChunkLevel.EntityTicking)))
-            .ToArray();
-        var simulationTickets = new[]
-        {
-            new ChunkTicketPlacement(
-                playerColumn,
-                new ChunkTicket(
-                    ChunkTicketType.PlayerSimulation,
-                    ChunkLevel.EntityTicking - simulationDistance)),
-        };
-
-        var loadingChanged = _tickets.ReplaceTickets(
-            ChunkTicketType.PlayerLoading, loadingTickets);
-        var simulationChanged = _tickets.ReplaceTickets(
-            ChunkTicketType.PlayerSimulation, simulationTickets);
-        if (!loadingChanged && !simulationChanged)
             return false;
 
         _loading.Rebuild(
             _tickets,
             ChunkTicketFlags.Loading,
             ChunkLevel.MaximumLoading);
-        _simulation.Rebuild(
-            _tickets,
-            ChunkTicketFlags.Simulation,
-            ChunkLevel.BlockTicking);
         return true;
+    }
+
+    public bool RemovePlayerLoadingTicket(ChunkColumnCoord column)
+    {
+        if (!_tickets.RemoveTicket(
+                column,
+                new ChunkTicket(
+                    ChunkTicketType.PlayerLoading,
+                    ChunkLevel.EntityTicking)))
+            return false;
+
+        _loading.Rebuild(
+            _tickets,
+            ChunkTicketFlags.Loading,
+            ChunkLevel.MaximumLoading);
+        return true;
+    }
+
+    public bool HasPlayerLoadingTicket(ChunkColumnCoord column) =>
+        _tickets.GetTickets(column).Contains(
+            new ChunkTicket(
+                ChunkTicketType.PlayerLoading,
+                ChunkLevel.EntityTicking));
+
+    private void RebuildDistanceGraphs(
+        bool loadingChanged,
+        bool simulationChanged)
+    {
+        if (loadingChanged)
+        {
+            _loading.Rebuild(
+                _tickets,
+                ChunkTicketFlags.Loading,
+                ChunkLevel.MaximumLoading);
+        }
+
+        if (simulationChanged)
+        {
+            _simulation.Rebuild(
+                _tickets,
+                ChunkTicketFlags.Simulation,
+                ChunkLevel.BlockTicking);
+        }
     }
 
     public int GetLoadingLevel(ChunkColumnCoord column) =>
