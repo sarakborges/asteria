@@ -71,6 +71,7 @@ public sealed class VolumeStructureField
                 throw new ArgumentException(
                     $"Volume structure {authored.Structure} needs a compact (<7) horizontal footprint.");
             rules.Add(new Rule(
+                rules.Count,
                 biome.Id,
                 biome.VolumeLayout!.Placement,
                 authored,
@@ -91,85 +92,242 @@ public sealed class VolumeStructureField
     /// template fits real density voids. All candidate decisions are made in
     /// world coordinates, including anchors outside the requested chunk.
     /// </summary>
+    public ChunkCursor CreateChunkCursor(ChunkCoord coord) =>
+        new(this, coord);
+
+    /// <summary>
+    /// Compatibility/reference query. Production materialization uses
+    /// <see cref="CreateChunkCursor"/> so candidate evaluation and voxel
+    /// application can be interleaved with other generation work.
+    /// </summary>
     public IReadOnlyList<VolumeStructureVoxel> VoxelsForChunk(ChunkCoord coord)
     {
-        if (_rules.Length == 0)
-            return Array.Empty<VolumeStructureVoxel>();
-
-        var origin = VoxelCoordinates.ChunkOrigin(coord);
-        var top = (long)origin.Y + Chunk.Size - 1;
-        var right = (long)origin.X + Chunk.Size - 1;
-        var back = (long)origin.Z + Chunk.Size - 1;
         var results = new List<VolumeStructureVoxel>();
-
-        for (var ruleIndex = 0; ruleIndex < _rules.Length; ruleIndex++)
+        var cursor = CreateChunkCursor(coord);
+        Span<VolumeStructureVoxel> batch = stackalloc VolumeStructureVoxel[64];
+        while (!cursor.IsComplete)
         {
-            var rule = _rules[ruleIndex];
-            // Template offsets are relative to the supporting solid at Y.
-            if (top < (long)rule.Definition.MinY + rule.MinOffsetY ||
-                origin.Y > (long)rule.Definition.MaxY + rule.MaxOffsetY)
-                continue;
+            _ = cursor.Advance(
+                batch,
+                maximumCandidateEvaluations: 8,
+                out var written);
+            for (var index = 0; index < written; index++)
+                results.Add(batch[index]);
+        }
 
-            var spacing = rule.Definition.Spacing;
-            var jitter = spacing / 4;
-            var radius = rule.Radius + jitter;
-            var firstX = Cell((long)origin.X - radius, spacing);
-            var lastX = Cell(right + radius, spacing);
-            var firstZ = Cell((long)origin.Z - radius, spacing);
-            var lastZ = Cell(back + radius, spacing);
-            for (var z = firstZ; z <= lastZ; z++)
-            for (var x = firstX; x <= lastX; x++)
+        return results;
+    }
+
+    /// <summary>
+    /// Resumable deterministic scan of authored formations intersecting one
+    /// 16³ section. Candidate evaluation and emitted voxels have separate
+    /// budgets: a large blueprint cannot monopolize a worker slice, and a
+    /// column containing no valid formations still yields after bounded tests.
+    /// </summary>
+    public sealed class ChunkCursor
+    {
+        private readonly VolumeStructureField _owner;
+        private readonly ChunkCoord _coord;
+        private readonly int _originX;
+        private readonly int _originY;
+        private readonly int _originZ;
+        private readonly long _right;
+        private readonly long _top;
+        private readonly long _back;
+        private int _ruleIndex = -1;
+        private Rule? _rule;
+        private int _firstX;
+        private int _lastX;
+        private int _firstZ;
+        private int _lastZ;
+        private int _nextX;
+        private int _nextZ;
+        private Variant? _activeVariant;
+        private int _activeVoxelIndex;
+        private int _activeWorldX;
+        private int _activeWorldZ;
+        private int _activeSupportY;
+
+        internal ChunkCursor(VolumeStructureField owner, ChunkCoord coord)
+        {
+            _owner = owner;
+            _coord = coord;
+            var origin = VoxelCoordinates.ChunkOrigin(coord);
+            _originX = origin.X;
+            _originY = origin.Y;
+            _originZ = origin.Z;
+            _right = (long)origin.X + Chunk.Size - 1;
+            _top = (long)origin.Y + Chunk.Size - 1;
+            _back = (long)origin.Z + Chunk.Size - 1;
+            IsComplete = owner._rules.Length == 0;
+        }
+
+        public bool IsComplete { get; private set; }
+
+        /// <summary>
+        /// Writes at most <paramref name="voxels"/>.Length intersecting
+        /// voxels and evaluates at most <paramref name="maximumCandidateEvaluations"/>
+        /// candidates. The cursor retains both rule/cell position and any
+        /// partially emitted blueprint between calls.
+        /// </summary>
+        public bool Advance(
+            Span<VolumeStructureVoxel> voxels,
+            int maximumCandidateEvaluations,
+            out int written)
+        {
+            if (voxels.IsEmpty)
+                throw new ArgumentException(
+                    "A volume-structure output buffer cannot be empty.",
+                    nameof(voxels));
+            if (maximumCandidateEvaluations <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maximumCandidateEvaluations));
+
+            written = 0;
+            if (IsComplete)
+                return true;
+
+            var evaluatedCandidates = 0;
+            while (!IsComplete &&
+                   evaluatedCandidates < maximumCandidateEvaluations &&
+                   written < voxels.Length)
             {
+                if (_activeVariant is { } activeVariant)
+                {
+                    while (_activeVoxelIndex < activeVariant.Voxels.Count &&
+                           written < voxels.Length)
+                    {
+                        var relative = activeVariant.Voxels[_activeVoxelIndex++];
+                        var voxelWorldX = (long)_activeWorldX + relative.X;
+                        var voxelWorldY = (long)_activeSupportY + relative.Y;
+                        var voxelWorldZ = (long)_activeWorldZ + relative.Z;
+                        if (voxelWorldX < _originX || voxelWorldX > _right ||
+                            voxelWorldY < _originY || voxelWorldY > _top ||
+                            voxelWorldZ < _originZ || voxelWorldZ > _back)
+                            continue;
+
+                        voxels[written++] = new VolumeStructureVoxel(
+                            (int)voxelWorldX,
+                            (int)voxelWorldY,
+                            (int)voxelWorldZ,
+                            relative.Block);
+                    }
+
+                    if (_activeVoxelIndex >= activeVariant.Voxels.Count)
+                    {
+                        _activeVariant = null;
+                        _activeVoxelIndex = 0;
+                    }
+                    continue;
+                }
+
+                if (!TryNextCandidate(
+                        out var rule, out var cellX, out var cellZ))
+                {
+                    IsComplete = true;
+                    break;
+                }
+
+                evaluatedCandidates++;
                 var hash = WorldGenerationEntropy.Sample2D(
-                    _seed, rule.Domain, x, z);
+                    _owner._seed, rule.Domain, cellX, cellZ);
                 if (WorldGenerationEntropy.Unit(hash) >= rule.Definition.Chance)
                     continue;
 
                 // Separate deterministic hashes give independent axes and
                 // family variations without global/random state.
                 var sampleX = WorldGenerationEntropy.Sample2D(
-                    _seed, rule.Domain, x + 113, z);
+                    _owner._seed, rule.Domain, cellX + 113, cellZ);
                 var sampleZ = WorldGenerationEntropy.Sample2D(
-                    _seed, rule.Domain, x, z + 317);
-                var wx = (long)x * spacing + spacing / 2 +
-                         (long)(sampleX % (uint)(2 * jitter + 1)) - jitter;
-                var wz = (long)z * spacing + spacing / 2 +
-                         (long)(sampleZ % (uint)(2 * jitter + 1)) - jitter;
-                if (wx is < int.MinValue or > int.MaxValue ||
-                    wz is < int.MinValue or > int.MaxValue)
+                    _owner._seed, rule.Domain, cellX, cellZ + 317);
+                var spacing = rule.Definition.Spacing;
+                var jitter = spacing / 4;
+                var worldX = (long)cellX * spacing + spacing / 2 +
+                             (long)(sampleX % (uint)(2 * jitter + 1)) - jitter;
+                var worldZ = (long)cellZ * spacing + spacing / 2 +
+                             (long)(sampleZ % (uint)(2 * jitter + 1)) - jitter;
+                if (worldX is < int.MinValue or > int.MaxValue ||
+                    worldZ is < int.MinValue or > int.MaxValue)
                     continue;
-                if (wx + rule.Radius < origin.X ||
-                    wx - rule.Radius > right ||
-                    wz + rule.Radius < origin.Z ||
-                    wz - rule.Radius > back)
+                if (worldX + rule.Radius < _originX ||
+                    worldX - rule.Radius > _right ||
+                    worldZ + rule.Radius < _originZ ||
+                    worldZ - rule.Radius > _back)
                     continue;
 
                 var variant = rule.Variants[
                     (int)(WorldGenerationEntropy.Sample2D(
-                        _seed, rule.Domain, x + 509, z + 1021) %
+                        _owner._seed, rule.Domain, cellX + 509, cellZ + 1021) %
                         (uint)rule.Variants.Count)];
-                var anchor = _anchors.GetOrAdd(
-                    new CandidateKey(ruleIndex, x, z),
-                    () => TryAnchor(rule, variant, (int)wx, (int)wz,
+                var anchor = _owner._anchors.GetOrAdd(
+                    new CandidateKey(rule.Index, cellX, cellZ),
+                    () => _owner.TryAnchor(
+                        rule, variant, (int)worldX, (int)worldZ,
                         out var located) ? located : null);
                 if (anchor is not { } supportY)
                     continue;
 
-                foreach (var voxel in variant.Voxels)
+                _activeVariant = variant;
+                _activeVoxelIndex = 0;
+                _activeWorldX = (int)worldX;
+                _activeWorldZ = (int)worldZ;
+                _activeSupportY = supportY;
+            }
+
+            return IsComplete;
+        }
+
+        private bool TryNextCandidate(
+            out Rule rule,
+            out int cellX,
+            out int cellZ)
+        {
+            while (true)
+            {
+                if (_rule is { } currentRule && _nextZ <= _lastZ)
                 {
-                    var worldX = (long)wx + voxel.X;
-                    var worldY = (long)supportY + voxel.Y;
-                    var worldZ = (long)wz + voxel.Z;
-                    if (worldX < origin.X || worldX > right ||
-                        worldY < origin.Y || worldY > top ||
-                        worldZ < origin.Z || worldZ > back)
-                        continue;
-                    results.Add(new VolumeStructureVoxel(
-                        (int)worldX, (int)worldY, (int)worldZ, voxel.Block));
+                    rule = currentRule;
+                    cellX = _nextX;
+                    cellZ = _nextZ;
+                    _nextX++;
+                    if (_nextX > _lastX)
+                    {
+                        _nextX = _firstX;
+                        _nextZ++;
+                    }
+                    return true;
                 }
+
+                _rule = null;
+                _ruleIndex++;
+                if (_ruleIndex >= _owner._rules.Length)
+                {
+                    rule = null!;
+                    cellX = 0;
+                    cellZ = 0;
+                    return false;
+                }
+
+                var candidateRule = _owner._rules[_ruleIndex];
+                if (_top < (long)candidateRule.Definition.MinY +
+                        candidateRule.MinOffsetY ||
+                    _originY > (long)candidateRule.Definition.MaxY +
+                        candidateRule.MaxOffsetY)
+                {
+                    continue;
+                }
+
+                var spacing = candidateRule.Definition.Spacing;
+                var radius = candidateRule.Radius + spacing / 4;
+                _firstX = Cell((long)_originX - radius, spacing);
+                _lastX = Cell(_right + radius, spacing);
+                _firstZ = Cell((long)_originZ - radius, spacing);
+                _lastZ = Cell(_back + radius, spacing);
+                _nextX = _firstX;
+                _nextZ = _firstZ;
+                _rule = candidateRule;
             }
         }
-        return results;
     }
 
     private bool TryAnchor(Rule rule, Variant variant, int x, int z,
@@ -295,6 +453,7 @@ public sealed class VolumeStructureField
         int Radius, int MinY, int MaxY);
 
     private sealed record Rule(
+        int Index,
         string Biome,
         VolumeBiomePlacement Placement,
         BiomeVolumeStructureDefinition Definition,

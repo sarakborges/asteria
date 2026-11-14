@@ -66,53 +66,6 @@
       }
     },
     {
-      "block": "asteria:thistle_dead",
-      "chance": 0.0186,
-      "surfaceBlocks": [
-        "asteria:dirt",
-        "asteria:gravel"
-      ],
-      "cluster": {
-        "scale": 32,
-        "threshold": -0.18,
-        "octaves": 4,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 80,
-        "maxY": 116,
-        "maxSlope": 3
-      },
-      "habitatWeights": {
-        "barren_flats": 0.08,
-        "deadwood_pockets": 0.87,
-        "rocky_scrub": 2.05
-      }
-    },
-    {
-      "block": "asteria:tuft_brittle",
-      "chance": 0.0174,
-      "surfaceBlocks": [
-        "asteria:dirt"
-      ],
-      "cluster": {
-        "scale": 43,
-        "threshold": -0.24,
-        "octaves": 4,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 80,
-        "maxY": 116,
-        "maxSlope": 2
-      },
-      "habitatWeights": {
-        "barren_flats": 0.92,
-        "deadwood_pockets": 1.25,
-        "rocky_scrub": 0.22
-      }
-    },
-    {
       "block": "asteria:lichen_dry",
       "chance": 0.0162,
       "surfaceBlocks": [
@@ -134,55 +87,6 @@
         "barren_flats": 0.15,
         "deadwood_pockets": 0.31,
         "rocky_scrub": 1.9
-      }
-    },
-    {
-      "block": "asteria:roots_bleached",
-      "chance": 0.011,
-      "surfaceBlocks": [
-        "asteria:dirt",
-        "asteria:gravel"
-      ],
-      "cluster": {
-        "scale": 34,
-        "threshold": -0.2,
-        "octaves": 4,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 80,
-        "maxY": 116,
-        "maxSlope": 3
-      },
-      "habitatWeights": {
-        "barren_flats": 0.025,
-        "deadwood_pockets": 2.3,
-        "rocky_scrub": 0.25
-      }
-    },
-    {
-      "block": "asteria:bone_scatter",
-      "chance": 0.0061,
-      "surfaceBlocks": [
-        "asteria:dirt",
-        "asteria:gravel",
-        "asteria:stone"
-      ],
-      "cluster": {
-        "scale": 51,
-        "threshold": -0.12,
-        "octaves": 4,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 80,
-        "maxY": 116,
-        "maxSlope": 2
-      },
-      "habitatWeights": {
-        "barren_flats": 0.09,
-        "deadwood_pockets": 0.3,
-        "rocky_scrub": 0.88
       }
     }
   ],

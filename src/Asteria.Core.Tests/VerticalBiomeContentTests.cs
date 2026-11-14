@@ -114,16 +114,15 @@ public sealed class VerticalBiomeContentTests
         Assert.Equal(VolumeBiomePlacement.Additive, floating.VolumeLayout.Placement);
         Assert.Null(cave.SurfaceHabitats);
         Assert.Null(floating.SurfaceHabitats);
-        Assert.Equal(8, cave.Decorations.Count);
+        Assert.Equal(6, cave.Decorations.Count);
         Assert.Contains(cave.Decorations, d => d.IsLayer &&
             d.Block == "asteria:moss_wall");
         Assert.Contains(cave.Decorations, d => d.IsObject &&
-            d.SupportSurface == DecorationSupportSurface.Wall &&
-            d.Block == "asteria:fungus_shelf_wall");
-        Assert.Equal(6, floating.Decorations.Count);
-        Assert.Contains(floating.Decorations, d => d.IsObject &&
             d.SupportSurface == DecorationSupportSurface.Ceiling &&
-            d.Block == "asteria:vines_aether");
+            d.Block == "asteria:roots_hanging");
+        Assert.Equal(4, floating.Decorations.Count);
+        Assert.All(floating.Decorations, decoration =>
+            Assert.Equal(DecorationSupportSurface.Floor, decoration.SupportSurface));
 
         var objects = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>
             .FromJson(ReadFiles("objects"),

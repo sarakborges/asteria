@@ -3,10 +3,10 @@ using Godot;
 
 namespace Asteria.Client.Content;
 
-/// <summary>Shared filesystem search policy for pack selection and all loaders.</summary>
+/// <summary>Shared filesystem search policy for portable and authored packs.</summary>
 internal static class ProjectPackDirectories
 {
     public static PackDirectoryCatalog Catalog { get; } = new(
-        Path.Combine(OS.GetUserDataDir(), "packs"),
+        GameDirectories.Packs,
         ProjectSettings.GlobalizePath("res://packs"));
 }

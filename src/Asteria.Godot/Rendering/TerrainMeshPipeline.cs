@@ -15,8 +15,8 @@ public sealed class TerrainMeshPipeline
     private readonly ChunkPresentationController _presentations;
     private readonly int _maximumInteractiveMeshletsPerWorker;
     private readonly int _maximumBackgroundMeshletsPerWorker;
-    private readonly TerrainMeshWorker _interactiveWorker = new();
-    private readonly TerrainMeshWorker _backgroundWorker = new();
+    private readonly TerrainMeshWorker _interactiveWorker;
+    private readonly TerrainMeshWorker _backgroundWorker;
 
     private bool _acceptingWork = true;
     private bool _preferInteractive = true;
@@ -38,7 +38,8 @@ public sealed class TerrainMeshPipeline
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
         int maximumInteractiveMeshletsPerWorker,
-        int maximumBackgroundMeshletsPerWorker)
+        int maximumBackgroundMeshletsPerWorker,
+        WorldWorkerPool workerPool)
     {
         _world =
             world ??
@@ -80,6 +81,9 @@ public sealed class TerrainMeshPipeline
             maximumInteractiveMeshletsPerWorker;
         _maximumBackgroundMeshletsPerWorker =
             maximumBackgroundMeshletsPerWorker;
+        ArgumentNullException.ThrowIfNull(workerPool);
+        _interactiveWorker = new TerrainMeshWorker(workerPool);
+        _backgroundWorker = new TerrainMeshWorker(workerPool);
     }
 
     public bool IsRunning =>
@@ -116,7 +120,8 @@ public sealed class TerrainMeshPipeline
     public bool TryStartReadyWork(
         bool underStreamingPressure = false,
         ChunkCoord? center = null,
-        ChunkMovementDirection movement = default)
+        ChunkMovementDirection movement = default,
+        bool allowBackground = true)
     {
         if (!_acceptingWork)
         {
@@ -127,15 +132,18 @@ public sealed class TerrainMeshPipeline
             _interactiveWorker.IsRunning;
         var shouldDeferBackground = underStreamingPressure &&
             visibleWork && _updates.HasBackgroundMeshWork;
-        if (shouldDeferBackground)
+        if (!allowBackground)
+            _deferredBackgroundStarts = 0;
+        else if (shouldDeferBackground)
             _deferredBackgroundStarts = Math.Min(
                 MaximumDeferredBackgroundStarts,
                 _deferredBackgroundStarts + 1);
         else
             _deferredBackgroundStarts = 0;
 
-        var mayStartBackground = !shouldDeferBackground ||
-            _deferredBackgroundStarts >= MaximumDeferredBackgroundStarts;
+        var mayStartBackground = allowBackground &&
+            (!shouldDeferBackground ||
+             _deferredBackgroundStarts >= MaximumDeferredBackgroundStarts);
 
         // Worker startup captures neighboring chunks synchronously.
         // Limit each call to one lane and alternate to avoid starvation.
@@ -230,6 +238,7 @@ public sealed class TerrainMeshPipeline
             return false;
         }
 
+        var relightable = _presentations.CaptureRelightableTerrain(batch);
         if (!worker.TryStart(
                 _world,
                 _blocks,
@@ -238,7 +247,11 @@ public sealed class TerrainMeshPipeline
                 _layers,
                 _dyes,
                 batch,
-                _revisions))
+                _revisions,
+                relightable,
+                workerPriority: priority
+                    ? WorldWorkerPool.InteractiveWorldPriority
+                    : WorldWorkerPool.BackgroundWorldPriority))
         {
             Requeue(batch, priority);
             return false;
@@ -297,6 +310,7 @@ public sealed class TerrainMeshPipeline
         var accepted = 0;
         var stale = 0;
         var salvaged = 0;
+        var relitWithoutMeshing = 0;
 
         foreach (var meshlet in result.Meshlets)
         {
@@ -345,6 +359,8 @@ public sealed class TerrainMeshPipeline
                 accepted++;
                 if (batchStale)
                     salvaged++;
+                if (meshlet.LightOnly)
+                    relitWithoutMeshing++;
             }
             else
             {
@@ -378,6 +394,7 @@ public sealed class TerrainMeshPipeline
                 accepted,
                 stale,
                 result.CaptureMilliseconds,
+                relitWithoutMeshing,
                 salvaged);
         return true;
     }

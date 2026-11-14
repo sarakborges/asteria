@@ -1,5 +1,9 @@
 namespace Asteria.Core.World;
 
+internal readonly record struct ChunkPendingDispatch(
+    ChunkCoord Coord,
+    long EnqueuedTimestamp);
+
 public readonly record struct ChunkMovementDirection(int X, int Z)
 {
     public static ChunkMovementDirection Zero => default;
@@ -34,11 +38,47 @@ public readonly record struct ChunkLoadPriority(
     }
 }
 
+public readonly record struct ChunkStreamingPriority(
+    int StreamingBand,
+    long HorizontalDistanceSquared,
+    long TotalDistanceSquared,
+    int Y,
+    int Z,
+    int X) : IComparable<ChunkStreamingPriority>
+{
+    public int CompareTo(ChunkStreamingPriority other)
+    {
+        var result = StreamingBand.CompareTo(other.StreamingBand);
+        if (result != 0) return result;
+
+        result = HorizontalDistanceSquared.CompareTo(
+            other.HorizontalDistanceSquared);
+        if (result != 0) return result;
+
+        result = TotalDistanceSquared.CompareTo(
+            other.TotalDistanceSquared);
+        if (result != 0) return result;
+
+        result = Y.CompareTo(other.Y);
+        if (result != 0) return result;
+
+        result = Z.CompareTo(other.Z);
+        return result != 0 ? result : X.CompareTo(other.X);
+    }
+}
+
 public sealed class ChunkStreamingState
 {
+    private const int ForwardPrefetchProjectionChunks =
+        ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks * 3;
+    private const int ForwardPrefetchLateralChunks =
+        ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
+
     private readonly HashSet<ChunkCoord> _desired = [];
+    // Light snapshots span neighboring horizontal columns at resident Y levels.
+    private readonly HashSet<(int X, int Z)> _lightingRelevantColumns = [];
     private readonly HashSet<ChunkCoord> _retained = [];
-    private readonly HashSet<ChunkCoord> _pending = [];
+    private readonly ChunkColumnPendingQueue _pending = new();
     private readonly HashSet<ChunkCoord> _materializing = [];
     private readonly HashSet<ChunkCoord> _presentationPending = [];
     private readonly RetiredChunkQueue _retired = new();
@@ -55,6 +95,8 @@ public sealed class ChunkStreamingState
 
     public int PendingCount => _pending.Count;
 
+    public int PendingColumnCount => _pending.ColumnCount;
+
     public int MaterializingCount => _materializing.Count;
 
     public int PresentationPendingCount => _presentationPending.Count;
@@ -68,6 +110,9 @@ public sealed class ChunkStreamingState
         _desired.Contains(coord) || _retained.Contains(coord);
 
     public bool IsDesired(ChunkCoord coord) => _desired.Contains(coord);
+
+    public bool IsLightingRelevant(ChunkCoord coord) =>
+        _lightingRelevantColumns.Contains((coord.X, coord.Z));
 
     public bool IsMaterializing(ChunkCoord coord) =>
         _materializing.Contains(coord);
@@ -120,6 +165,7 @@ public sealed class ChunkStreamingState
         }
 
         UpdateMovementDirection(center);
+        _pending.UpdatePriorityContext(center, MovementDirection);
 
         var previousInterest = _desired
             .Concat(_retained)
@@ -127,6 +173,7 @@ public sealed class ChunkStreamingState
 
         _desired.Clear();
         _desired.UnionWith(desired);
+        RebuildLightingRelevantColumns();
         _retained.Clear();
 
         var retired =
@@ -174,7 +221,7 @@ public sealed class ChunkStreamingState
             _retired.Remove(coord);
         }
 
-        _pending.RemoveWhere(coord =>
+        RemovePendingWhere(coord =>
             !_desired.Contains(coord));
         _presentationPending.RemoveWhere(coord =>
             !_desired.Contains(coord));
@@ -199,7 +246,7 @@ public sealed class ChunkStreamingState
             if (!residentSet.Contains(coord) &&
                 !_materializing.Contains(coord))
             {
-                _pending.Add(coord);
+                EnqueuePendingCore(coord);
                 continue;
             }
 
@@ -210,7 +257,7 @@ public sealed class ChunkStreamingState
             }
         }
 
-        _pending.RemoveWhere(coord =>
+        RemovePendingWhere(coord =>
             residentSet.Contains(coord) ||
             _materializing.Contains(coord) ||
             !_desired.Contains(coord));
@@ -226,53 +273,52 @@ public sealed class ChunkStreamingState
         if (IsDesired(coord) &&
             !_materializing.Contains(coord))
         {
-            _pending.Add(coord);
+            EnqueuePendingCore(coord);
+        }
+    }
+
+    internal void EnqueuePending(ChunkCoord coord, long enqueuedTimestamp)
+    {
+        if (IsDesired(coord) &&
+            !_materializing.Contains(coord))
+        {
+            EnqueuePendingCore(coord, enqueuedTimestamp);
         }
     }
 
     // Deferred distant chunks remain in the authoritative pending set.
-    public ChunkCoord? PopPendingByPriority(long? maximumHorizontalDistanceSquared = null)
+    public ChunkCoord? PopPendingByPriority(long? maximumHorizontalDistanceSquared = null) =>
+        PopPendingEntryByPriority(maximumHorizontalDistanceSquared)?.Coord;
+
+    internal ChunkPendingDispatch? PopPendingEntryByPriority(
+        long? maximumHorizontalDistanceSquared = null)
     {
-        if (maximumHorizontalDistanceSquared is < 0)
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumHorizontalDistanceSquared));
-        if (Center is not { } center ||
-            _pending.Count == 0)
-        {
+        if (Center is null ||
+            !_pending.TryDequeueSection(
+                maximumHorizontalDistanceSquared, out var dispatch))
             return null;
-        }
 
-        ChunkCoord? selected = null;
-        var selectedPriority =
-            default(ChunkLoadPriority);
+        return dispatch;
+    }
 
-        foreach (var coord in _pending)
-        {
-            var priority =
-                Priority(
-                    coord,
-                    center,
-                    MovementDirection);
-            if (maximumHorizontalDistanceSquared is { } limit &&
-                priority.HorizontalDistanceSquared > limit)
-                continue;
-
-            if (selected is null ||
-                priority.CompareTo(
-                    selectedPriority) < 0)
-            {
-                selected = coord;
-                selectedPriority = priority;
-            }
-        }
-
-        if (selected is not { } result)
-        {
+    /// <summary>
+    /// Removes every currently pending vertical section for the best eligible
+    /// horizontal column. The runtime can admit this as one logical column task.
+    /// </summary>
+    internal ChunkColumnPendingDispatch? PopPendingColumnEntryByPriority(
+        long? maximumHorizontalDistanceSquared = null,
+        int maximumSections = int.MaxValue)
+    {
+        if (maximumSections <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumSections));
+        if (Center is null ||
+            !_pending.TryDequeueColumn(
+                maximumHorizontalDistanceSquared,
+                maximumSections,
+                out var dispatch))
             return null;
-        }
 
-        _pending.Remove(result);
-        return result;
+        return dispatch;
     }
 
     public void MarkMaterializing(ChunkCoord coord)
@@ -283,7 +329,7 @@ public sealed class ChunkStreamingState
                 $"Chunk is already materializing: {coord}");
         }
 
-        _pending.Remove(coord);
+        RemovePending(coord);
     }
 
     public void FinishMaterializing(ChunkCoord coord)
@@ -321,7 +367,7 @@ public sealed class ChunkStreamingState
 
         ChunkCoord? selected = null;
         var selectedPriority =
-            default(ChunkLoadPriority);
+            default(ChunkStreamingPriority);
 
         foreach (var coord in
                  _presentationPending)
@@ -335,7 +381,7 @@ public sealed class ChunkStreamingState
             }
 
             var priority =
-                Priority(
+                StreamingPriority(
                     coord,
                     center,
                     MovementDirection);
@@ -370,12 +416,26 @@ public sealed class ChunkStreamingState
     public void Forget(ChunkCoord coord)
     {
         if (_desired.Remove(coord))
+            RebuildLightingRelevantColumns();
         _retained.Remove(coord);
-        _pending.Remove(coord);
+        RemovePending(coord);
         _materializing.Remove(coord);
         _presentationPending.Remove(coord);
         _retired.Remove(coord);
     }
+
+    private void EnqueuePendingCore(
+        ChunkCoord coord,
+        long? enqueuedTimestamp = null) =>
+        _pending.Enqueue(
+            coord,
+            enqueuedTimestamp ?? System.Diagnostics.Stopwatch.GetTimestamp());
+
+    private void RemovePending(ChunkCoord coord) =>
+        _pending.Remove(coord);
+
+    private void RemovePendingWhere(Predicate<ChunkCoord> predicate) =>
+        _pending.RemoveWhere(predicate);
 
     public static ChunkLoadPriority Priority(
         ChunkCoord coord,
@@ -385,14 +445,11 @@ public sealed class ChunkStreamingState
         var dx = (long)coord.X - center.X;
         var dy = (long)coord.Y - center.Y;
         var dz = (long)coord.Z - center.Z;
-        var horizontalDistance =
-            dx * dx + dz * dz;
-        var totalDistance =
-            horizontalDistance + dy * dy;
+        var horizontalDistance = dx * dx + dz * dz;
+        var totalDistance = horizontalDistance + dy * dy;
         var forward =
             dx * movementDirection.X +
             dz * movementDirection.Z;
-
         var directionalBand =
             movementDirection == ChunkMovementDirection.Zero ||
             forward == 0
@@ -410,6 +467,51 @@ public sealed class ChunkStreamingState
             coord.X);
     }
 
+    public static ChunkStreamingPriority StreamingPriority(
+        ChunkCoord coord,
+        ChunkCoord center,
+        ChunkMovementDirection movementDirection)
+    {
+        var dx = (long)coord.X - center.X;
+        var dy = (long)coord.Y - center.Y;
+        var dz = (long)coord.Z - center.Z;
+        var horizontalDistance = dx * dx + dz * dz;
+        var totalDistance = horizontalDistance + dy * dy;
+        var forward =
+            dx * movementDirection.X +
+            dz * movementDirection.Z;
+        var lateral =
+            Math.Abs(dx * movementDirection.Z -
+                     dz * movementDirection.X);
+        var localRadius = ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
+        var inPlayerLocalNeighborhood =
+            horizontalDistance <= (long)localRadius * localRadius;
+        var inForwardPrefetchCorridor =
+            movementDirection != ChunkMovementDirection.Zero &&
+            forward > 0 &&
+            forward <= ForwardPrefetchProjectionChunks &&
+            lateral <= ForwardPrefetchLateralChunks;
+
+        // Keep the immediate playable neighborhood complete first. Beyond it,
+        // materialize a bounded corridor ahead of movement before lateral or
+        // rear chunks so streaming work anticipates the player's direction.
+        var streamingBand = inPlayerLocalNeighborhood
+            ? 0
+            : inForwardPrefetchCorridor
+                ? 1
+                : movementDirection == ChunkMovementDirection.Zero ||
+                  forward >= 0
+                    ? 2
+                    : 3;
+
+        return new ChunkStreamingPriority(
+            streamingBand,
+            horizontalDistance,
+            totalDistance,
+            coord.Y,
+            coord.Z,
+            coord.X);
+    }
     private static int CompareRetirementPriority(
         ChunkCoord left,
         ChunkCoord right,
@@ -443,7 +545,23 @@ public sealed class ChunkStreamingState
             : left.X.CompareTo(right.X);
     }
 
-
+    private void RebuildLightingRelevantColumns()
+    {
+        _lightingRelevantColumns.Clear();
+        foreach (var coord in _desired)
+        {
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var x = (long)coord.X + dx;
+                var z = (long)coord.Z + dz;
+                if (x < int.MinValue || x > int.MaxValue ||
+                    z < int.MinValue || z > int.MaxValue)
+                    continue;
+                _lightingRelevantColumns.Add(((int)x, (int)z));
+            }
+        }
+    }
 
     private void UpdateMovementDirection(ChunkCoord center)
     {

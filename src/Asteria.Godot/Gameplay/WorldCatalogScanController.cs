@@ -66,7 +66,8 @@ public sealed class WorldCatalogScanController
                 try
                 {
                     var (snapshot, _) = SessionSaveStorage.RestoreLatest(
-                        folder, dimensions, blocks, fluids, dyes, layers);
+                        folder, dimensions, blocks, fluids, dyes, layers,
+                        initializeLighting: false);
                     return snapshot.Name == entry.Id &&
                            WorldCreationSeed.Format(snapshot.Spatial.WorldSeed) == entry.Seed &&
                            snapshot.ActiveSphere?.Value == entry.Sphere

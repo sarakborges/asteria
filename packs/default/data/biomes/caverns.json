@@ -78,7 +78,7 @@
       }
     },
     {
-      "object": "asteria:mushroom_glowcap",
+      "object": "asteria:mushroom_crimson",
       "chance": 0.0144,
       "surfaceBlocks": [
         "asteria:stone",
@@ -94,25 +94,6 @@
       },
       "conditions": {
         "maxY": 96
-      }
-    },
-    {
-      "object": "asteria:fern_glow",
-      "chance": 0.022,
-      "surfaceBlocks": [
-        "asteria:stone",
-        "asteria:cobble_stone",
-        "asteria:dirt",
-        "asteria:clay"
-      ],
-      "cluster": {
-        "scale": 36,
-        "threshold": -0.21,
-        "octaves": 3,
-        "transitionWidth": 0.19
-      },
-      "conditions": {
-        "maxY": 107
       }
     },
     {
@@ -133,25 +114,6 @@
         "maxY": 105
       },
       "layer": "asteria:moss_wall"
-    },
-    {
-      "object": "asteria:fungus_shelf_wall",
-      "supportSurface": "wall",
-      "chance": 0.052,
-      "surfaceBlocks": [
-        "asteria:stone",
-        "asteria:cobble_stone"
-      ],
-      "cluster": {
-        "scale": 41,
-        "threshold": -0.15,
-        "octaves": 4,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 18,
-        "maxY": 97
-      }
     }
   ],
   "caveSpikes": [

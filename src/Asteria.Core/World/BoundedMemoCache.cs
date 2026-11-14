@@ -34,6 +34,26 @@ internal sealed class BoundedMemoCache<TKey, TValue>
         }
     }
 
+    public bool TryGet(TKey key, out TValue value)
+    {
+        Lazy<TValue>? lazy;
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(key, out var node))
+            {
+                value = default!;
+                return false;
+            }
+
+            _recent.Remove(node);
+            _recent.AddFirst(node);
+            lazy = node.Value.Value;
+        }
+
+        value = lazy.Value;
+        return true;
+    }
+
     public TValue GetOrAdd(TKey key, Func<TValue> factory)
     {
         ArgumentNullException.ThrowIfNull(factory);

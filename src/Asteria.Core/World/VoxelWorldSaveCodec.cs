@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -99,7 +100,9 @@ public static class VoxelWorldSaveCodec
 
     public static VoxelWorld Restore(
         VoxelWorldSaveSnapshot snapshot, BlockRegistry blocks,
-        FluidRegistry fluids, DyeRegistry dyes, AttachedLayerRegistry layers)
+        FluidRegistry fluids, DyeRegistry dyes, AttachedLayerRegistry layers,
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        bool initializeLighting = true)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         var restored = new VoxelWorld();
@@ -111,9 +114,14 @@ public static class VoxelWorldSaveCodec
         {
             var chunk = ChunkSaveCodec.Decode(
                 entry.EncodedChunk, blocks, fluids, dyes, layers);
+            if (initializeLighting && !entry.Resident)
+                ChunkLightingSolver.Initialize(chunk, blocks, fluids, objects);
             restored.RestoreSavedChunk(
                 entry.Coordinate, chunk, entry.Resident, entry.Dirty);
         }
+
+        if (initializeLighting)
+            VoxelWorldLightingSolver.Initialize(restored, blocks, fluids, objects);
 
         return restored;
     }

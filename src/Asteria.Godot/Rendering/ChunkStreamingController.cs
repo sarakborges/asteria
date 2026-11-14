@@ -60,7 +60,8 @@ public sealed class ChunkStreamingController
         ChunkResidencyRuntime residency,
         ChunkPresentationController presentations,
         IChunkSurfaceRangeProvider surfaceRanges,
-        ChunkStreamingControllerSettings settings)
+        ChunkStreamingControllerSettings settings,
+        WorldWorkerPool workerPool)
     {
         _residency =
             residency ??
@@ -72,7 +73,8 @@ public sealed class ChunkStreamingController
             new ChunkStreamingSelectionRuntime(
                 surfaceRanges ??
                 throw new ArgumentNullException(
-                    nameof(surfaceRanges)));
+                    nameof(surfaceRanges)),
+                workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
         _settings =
             settings ??
             throw new ArgumentNullException(nameof(settings));
@@ -170,8 +172,8 @@ public sealed class ChunkStreamingController
         WorldFrameWorkBudget budget,
         int horizontalRadius,
         bool includeVerticalAccess = false,
-        WorldStreamingWorkPressure pressure = default,
-        int maximumMaterializationStarts = int.MaxValue)
+        int maximumGenerationWorkerStarts = int.MaxValue,
+        int maximumWorldWorkerStarts = int.MaxValue)
     {
         var selection =
             SyncSelection(
@@ -181,13 +183,14 @@ public sealed class ChunkStreamingController
         var collected =
             _residency.CollectMaterializationResults(
                 budget,
-                _presentations.Coordinates);
+                _presentations.Coordinates,
+                maximumWorkerStarts: 0);
         var dispatched =
             _residency.DispatchMaterializationTasks(
                 budget,
                 _presentations.Coordinates,
-                deferDistantWork: pressure.IsPressured,
-                maximumNewTasks: maximumMaterializationStarts);
+                maximumGenerationWorkerStarts,
+                maximumWorldWorkerStarts);
         var reserved =
             _presentations.ReservePending(
                 _residency,

@@ -25,10 +25,13 @@ public sealed class VolcanoBiomeContentTests
             biome.SurfaceTerrain!.Shape);
         Assert.InRange(rolling.Amplitude, 0f, 4f);
         Assert.Equal("asteria:basalt", biome.SurfaceLayers[^1].Block);
+        Assert.Equal(2, biome.Decorations.Count);
         Assert.Contains(biome.Decorations,
-            item => item.Block == "asteria:thorn_ash");
+            item => item.Block == "asteria:pebble");
         Assert.Contains(biome.Decorations,
-            item => item.Block == "asteria:bloom_cinder");
+            item => item.Block == "asteria:lichen_soot");
+        Assert.DoesNotContain(biome.Decorations,
+            item => item.Block is "asteria:thorn_ash" or "asteria:bloom_cinder");
         Assert.NotNull(biome.SurfaceHabitats);
     }
 
@@ -53,12 +56,16 @@ public sealed class VolcanoBiomeContentTests
             scorched, 0, 0, 6144);
         Assert.NotNull(target);
 
+        // Find a continuous interior near the closest biome sample rather than
+        // treating that nearest sample as the biome center. It may sit on the
+        // boundary; a single 384x384 window around it can miss the actual core.
         var sampler = field.CreateSampler();
         var longestRun = 0;
-        for (var z = target.Z - 192; z <= target.Z + 192; z += 8)
+        const int searchRadius = 512;
+        for (var z = target.Z - searchRadius; z <= target.Z + searchRadius; z += 8)
         {
             var run = 0;
-            for (var x = target.X - 192; x <= target.X + 192; x += 8)
+            for (var x = target.X - searchRadius; x <= target.X + searchRadius; x += 8)
             {
                 if (sampler.Sample(x, z).Primary == scorched)
                 {
@@ -73,8 +80,8 @@ public sealed class VolcanoBiomeContentTests
         }
 
         Assert.True(longestRun * 8 >= minimumInteriorWidth,
-            $"Scorched Wastes collapsed to a narrow strip: longest continuous " +
-            $"row was {longestRun * 8} blocks (biome size {biomeSize}).");
+            $"Scorched Wastes has no nearby continuous interior wide enough for the volcano: " +
+            $"longest continuous row was {longestRun * 8} blocks (biome size {biomeSize}).");
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
 
@@ -26,12 +27,14 @@ public sealed class WorldLoadController
     private readonly FluidRegistry _fluids;
     private readonly DyeRegistry _dyes;
     private readonly AttachedLayerRegistry _layers;
+    private readonly PackContentRegistry<ObjectDefinition>? _objects;
     private Task<PreparedWorldLoad>? _pending;
 
     public WorldLoadController(
         string worldsDirectory, DimensionRegistry dimensions,
         BlockRegistry blocks, FluidRegistry fluids,
-        DyeRegistry dyes, AttachedLayerRegistry layers)
+        DyeRegistry dyes, AttachedLayerRegistry layers,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(worldsDirectory);
         _root = worldsDirectory;
@@ -40,6 +43,7 @@ public sealed class WorldLoadController
         _fluids = fluids ?? throw new ArgumentNullException(nameof(fluids));
         _dyes = dyes ?? throw new ArgumentNullException(nameof(dyes));
         _layers = layers ?? throw new ArgumentNullException(nameof(layers));
+        _objects = objects;
     }
 
     public bool IsBusy => _pending is not null;
@@ -65,7 +69,8 @@ public sealed class WorldLoadController
         _pending = Task.Run(() =>
         {
             var restored = SessionSaveStorage.RestoreLatest(
-                directory, _dimensions, _blocks, _fluids, _dyes, _layers);
+                directory, _dimensions, _blocks, _fluids, _dyes, _layers,
+                _objects);
             if (restored.Snapshot.Name != validated.Name)
                 throw new InvalidDataException("Saved world does not match the selected folder.");
             return new PreparedWorldLoad(

@@ -10,9 +10,10 @@ public sealed class FluidMeshPipeline
     private readonly FluidMeshUpdateQueue _updates;
     private readonly MeshletContentRevisions _revisions;
     private readonly ChunkPresentationController _presentations;
-    private sealed class WorkerSlot
+    private sealed class WorkerSlot(WorldWorkerPool workerPool)
     {
-        public FluidMeshWorker Worker { get; } = new();
+        public FluidMeshWorker Worker { get; } =
+            new(workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
 
         public WorldMeshBatch? InFlightBatch { get; set; }
     }
@@ -32,7 +33,7 @@ public sealed class FluidMeshPipeline
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
         int maximumMeshletsPerWorker,
-        int maximumConcurrentWorkers)
+        WorldWorkerPool workerPool)
     {
         _world =
             world ??
@@ -59,17 +60,16 @@ public sealed class FluidMeshPipeline
                 nameof(maximumMeshletsPerWorker));
         }
 
-        if (maximumConcurrentWorkers <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumConcurrentWorkers));
-        }
-
         _maximumMeshletsPerWorker =
             maximumMeshletsPerWorker;
-        _workers = new WorkerSlot[maximumConcurrentWorkers];
+        ArgumentNullException.ThrowIfNull(workerPool);
+        // Slots represent bounded logical submissions, not physical threads.
+        // The shared executor controls how many can run simultaneously.
+        var maximumInFlightBatches = checked(
+            workerPool.WorkerCount + workerPool.PendingCapacity);
+        _workers = new WorkerSlot[maximumInFlightBatches];
         for (var index = 0; index < _workers.Length; index++)
-            _workers[index] = new WorkerSlot();
+            _workers[index] = new WorkerSlot(workerPool);
     }
 
     public bool IsRunning => ActiveWorkerCount > 0;
@@ -85,6 +85,9 @@ public sealed class FluidMeshPipeline
             return count;
         }
     }
+
+    public bool HasAvailableWorkerSlot =>
+        _workers.Any(worker => !worker.Worker.IsRunning);
 
     public bool HasWorkAffecting(Func<ChunkCoord, bool> isRelevantChunk)
     {
@@ -156,12 +159,17 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
+        var relightable = _presentations.CaptureRelightableFluid(batch);
         if (!availableWorker.Worker.TryStart(
                 _world,
                 _blocks,
                 _fluids,
                 batch,
-                _revisions))
+                _revisions,
+                relightable,
+                workerPriority: nearest
+                    ? WorldWorkerPool.InteractiveWorldPriority
+                    : WorldWorkerPool.BackgroundWorldPriority))
         {
             _updates.Requeue(batch);
             return false;
@@ -209,6 +217,7 @@ public sealed class FluidMeshPipeline
             var accepted = 0;
             var stale = 0;
             var salvaged = 0;
+            var relitWithoutMeshing = 0;
 
             foreach (var meshlet in result.Meshlets)
             {
@@ -234,6 +243,8 @@ public sealed class FluidMeshPipeline
                     accepted++;
                     if (batchStale)
                         salvaged++;
+                    if (meshlet.LightOnly)
+                        relitWithoutMeshing++;
                 }
                 else
                 {
@@ -252,6 +263,7 @@ public sealed class FluidMeshPipeline
                 accepted,
                 stale,
                 CaptureMilliseconds: result.CaptureMilliseconds,
+                RelitWithoutMeshing: relitWithoutMeshing,
                 SalvagedFromStaleBatch: salvaged);
             return true;
         }

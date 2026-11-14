@@ -1,60 +1,58 @@
 namespace Asteria.Core.World;
 
+/// <summary>
+/// One logical in-flight operation backed by the session's shared world
+/// executor. It never creates a thread or schedules work on Task.Run.
+/// </summary>
 internal sealed class SingleFlightWorker<TResult>
     where TResult : class
 {
-    private Task<TResult>? _task;
+    private readonly WorldWorkerPool _workerPool;
+    private WorldWorkerOperation<TResult>? _operation;
 
-    public bool IsRunning => _task is not null;
+    public SingleFlightWorker(WorldWorkerPool workerPool)
+    {
+        _workerPool = workerPool ??
+            throw new ArgumentNullException(nameof(workerPool));
+    }
 
-    public bool TryStart(Func<TResult> work)
+    /// <summary>
+    /// True while this worker owns a queued, executing, or uncollected result.
+    /// A completed operation remains owned until its coordinator polls it.
+    /// </summary>
+    public bool IsRunning => _operation is not null;
+
+    public bool TryStart(
+        Func<TResult> work,
+        CancellationToken cancellationToken = default,
+        int priority = WorldWorkerPool.DefaultPriority)
     {
         ArgumentNullException.ThrowIfNull(work);
-
-        if (_task is not null)
-        {
+        if (_operation is not null)
             return false;
-        }
 
-        _task = Task.Run(work);
-        return true;
+        return _workerPool.TrySchedule(
+            _ => work(),
+            cancellationToken,
+            out _operation,
+            priority: priority);
     }
 
     public bool TryTakeCompleted(
         out TResult? result,
         out Exception? error)
     {
-        if (_task is null ||
-            !_task.IsCompleted)
-        {
-            result = null;
-            error = null;
-            return false;
-        }
-
-        var task = _task;
-        _task = null;
-
-        if (task.IsCanceled)
-        {
-            result = null;
-            error =
-                new TaskCanceledException(task);
-            return true;
-        }
-
-        if (task.IsFaulted)
-        {
-            result = null;
-            error =
-                task.Exception?.GetBaseException() ??
-                new InvalidOperationException(
-                    "World worker task faulted without an exception.");
-            return true;
-        }
-
-        result = task.Result;
+        result = null;
         error = null;
+
+        var operation = _operation;
+        if (operation is null ||
+            !operation.TryGetCompletion(out var completion))
+            return false;
+
+        _operation = null;
+        result = completion.Result;
+        error = completion.Error;
         return true;
     }
 }

@@ -20,7 +20,7 @@ public sealed class VolumeStructureContentTests
         Assert.Equal(VolumeBiomePlacement.Additive,
             islands.VolumeLayout!.Placement);
         Assert.Equal(3, cave.VolumeStructures.Count);
-        Assert.Equal(5, islands.VolumeStructures.Count);
+        Assert.Single(islands.VolumeStructures);
         Assert.Equal(6, cave.CaveSpikes.Count);
         Assert.Single(islands.Terrain3d!.Additive);
 
@@ -54,7 +54,7 @@ public sealed class VolumeStructureContentTests
     }
 
     [Fact]
-    public void AllCaveAndSkyLandmarksUseOwnBiomeAndColoredLight()
+    public void AllCaveAndSkyLandmarksUseTheirBiomeAndCrystalLighting()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
@@ -63,7 +63,6 @@ public sealed class VolumeStructureContentTests
             ("mushroom_glow_cavern", 3, "mushroom_cap_glow"),
             ("cluster_crystal_cavern", 2, "crystal_core_aether"),
             ("chandelier_cavern", 2, "crystal_core_aether"),
-            ("tree_skyweave", 2, "leaf_skyweave"),
             ("arch_crystal_sky", 2, "crystal_core_aether"),
         })
         {
@@ -72,20 +71,13 @@ public sealed class VolumeStructureContentTests
             Assert.All(variants, v => Assert.Contains(v.Voxels,
                 voxel => voxel.Block == $"asteria:{block}"));
         }
-        foreach (var name in new[]
-        {
-            "mushroom_cap_glow", "crystal_core_aether",
-        })
-        {
-            var definition = blocks.GetDefinition(
-                blocks.GetId("asteria:" + name));
-            Assert.True(definition.IsCollidable);
-        }
+        var crystal = blocks.GetDefinition(
+            blocks.GetId("asteria:crystal_core_aether"));
+        Assert.True(crystal.LightEmission.Blue > 0);
+        Assert.True(crystal.IsCollidable);
+        Assert.True(blocks.GetDefinition(
+            blocks.GetId("asteria:mushroom_cap_glow")).LightEmission.IsDark);
 
-        var canopy = blocks.GetDefinition(
-            blocks.GetId("asteria:leaf_skyweave"));
-        Assert.True(canopy.WindSway);
-        Assert.Equal(BlockRenderMode.Cutout, canopy.RenderMode);
     }
 
     [Fact]
@@ -119,6 +111,54 @@ public sealed class VolumeStructureContentTests
                 new WorldGenerationOptions(spawnStructures: false));
         var chunk = generator.Materialize(new ChunkCoord(0, 0, 0));
         Assert.NotNull(chunk);
+    }
+
+    [Fact]
+    public void ResumableVolumeStructureCursorMatchesBulkQueryWithTinyBatches()
+    {
+        var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
+        var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
+        var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
+        var structures = StructureRegistry.FromJson(ReadJson("structures"));
+        var structureSets = StructureSetRegistry.FromJson(
+            ReadJson("structure_sets"));
+        var dimension = DimensionRegistry.FromJson(ReadJson("dimensions"))
+            .Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            181960897289965UL,
+            dimension,
+            blocks,
+            fluids,
+            biomes,
+            structures,
+            structureSets);
+        var field = generator.VolumeStructures;
+        var coord = new ChunkCoord(0, 2, 0);
+        var expected = field.VoxelsForChunk(coord);
+        var cursor = field.CreateChunkCursor(coord);
+        Span<VolumeStructureVoxel> batch =
+            stackalloc VolumeStructureVoxel[1];
+        var actual = new List<VolumeStructureVoxel>();
+        var advanceCount = 0;
+
+        while (!cursor.IsComplete)
+        {
+            _ = cursor.Advance(
+                batch,
+                maximumCandidateEvaluations: 1,
+                out var written);
+            Assert.InRange(written, 0, batch.Length);
+            for (var index = 0; index < written; index++)
+                actual.Add(batch[index]);
+
+            advanceCount++;
+            Assert.True(advanceCount < 10_000,
+                "The volume-structure cursor did not reach completion.");
+        }
+
+        Assert.True(advanceCount > 1,
+            "The selected cavern section should require multiple candidate steps.");
+        Assert.Equal(expected, actual);
     }
 
     private static IEnumerable<string> ReadJson(string directory)

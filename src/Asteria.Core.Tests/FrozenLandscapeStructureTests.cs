@@ -4,39 +4,43 @@ namespace Asteria.Core.Tests;
 
 public sealed class FrozenLandscapeStructureTests
 {
-    [Theory]
-    [InlineData("arctic", "frostveil", "frozen_plain", "rocky_ridges")]
-    [InlineData("arctic", "rimehollow", "frozen_plain", "rocky_ridges")]
-    [InlineData("alps", "hoarfane", "snowfields", "wind_scoured_rock")]
-    [InlineData("alps", "glassmorrow", "snowfields", "wind_scoured_rock")]
-    public void RetainedFrozenTreesUseExistingWoodAndFavorSnowyHabitats(
-        string biome, string species, string preferred, string avoided)
+    [Fact]
+    public void FrozenBiomesDoNotReferenceRemovedFantasyTrees()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
+        var structureSets = StructureSetRegistry.FromJson(ReadJson("structure_sets"));
         structures.ValidateBlocks(blocks);
         var dimension = DimensionRegistry.FromJson(ReadJson("dimensions"))
             .Get(DimensionId.Overworld);
-        var rule = Assert.Single(dimension.GeneratedSurfaceStructures,
-            r => r.Biome == "asteria:overworld/" + biome &&
-                 r.Structure == "asteria:tree_" + species);
-        Assert.True(rule.HabitatWeights!.For(preferred) >
-                    rule.HabitatWeights.For(avoided));
 
-        var variants = structures.ResolveReference("asteria:tree_" + species);
-        Assert.Equal(2, variants.Count);
-        Assert.All(variants, variant =>
+        foreach (var biome in new[]
         {
-            Assert.True(variant.Restrictions.RequiresDryGround);
-            Assert.Equal(StructureFluidPolicy.Forbid,
-                variant.Generation.FluidPolicy);
-            Assert.Contains("asteria:snow", variant.Restrictions.GroundBlocks);
-            Assert.Contains("asteria:ice", variant.Restrictions.GroundBlocks);
-            Assert.Contains(variant.Voxels,
-                voxel => voxel.Block == "asteria:log_" + species);
-            Assert.Contains(variant.Voxels,
-                voxel => voxel.Block == "asteria:leaf_" + species);
-        });
+            "asteria:overworld/arctic",
+            "asteria:overworld/alps"
+        })
+        {
+            var roots = dimension.GeneratedSurfaceStructures
+                .Where(rule => rule.Biome == biome).ToArray();
+            Assert.NotEmpty(roots);
+            Assert.DoesNotContain(roots,
+                root => root.Structure.StartsWith("asteria:tree_", StringComparison.Ordinal));
+            foreach (var root in roots)
+                Assert.True(structures.ResolvesReference(root.Structure) ||
+                            structureSets.ResolvesReference(root.Structure),
+                    $"Missing frozen-biome structure reference: {root.Structure}");
+        }
+
+        foreach (var species in new[]
+        {
+            "frostveil", "rimehollow", "hoarfane", "glassmorrow"
+        })
+        {
+            Assert.False(blocks.TryGetId("asteria:log_" + species, out _));
+            Assert.False(blocks.TryGetId("asteria:leaf_" + species, out _));
+            Assert.Throws<KeyNotFoundException>(() =>
+                structures.ResolveReference("asteria:tree_" + species));
+        }
     }
 
     [Theory]

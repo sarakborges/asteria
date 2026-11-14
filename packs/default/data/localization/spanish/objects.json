@@ -2,17 +2,8 @@
   "asteria:bloom_aether": {
     "/name": "Flor Etérea"
   },
-  "asteria:vines_aether": {
-    "/name": "Enredaderas Etéreas"
-  },
-  "asteria:bulrush": {
-    "/name": "Junco"
-  },
   "asteria:cattail": {
     "/name": "Espadaña"
-  },
-  "asteria:reed_cloud": {
-    "/name": "Junco de las Nubes"
   },
   "asteria:clover": {
     "/name": "Trébol"
@@ -20,29 +11,17 @@
   "asteria:daisy": {
     "/name": "Margarita"
   },
-  "asteria:fern_glow": {
-    "/name": "Helecho Luminoso"
-  },
-  "asteria:mushroom_glowcap": {
-    "/name": "Seta Luminosa"
-  },
   "asteria:grass": {
     "/name": "Hierba"
   },
   "asteria:roots_hanging": {
     "/name": "Raíces Colgantes"
   },
-  "asteria:iris": {
-    "/name": "Iris"
-  },
   "asteria:kelp": {
     "/name": "Alga kelp"
   },
   "asteria:pad_lily": {
     "/name": "Nenúfar"
-  },
-  "asteria:orchid_marsh": {
-    "/name": "Orquídea de Marisma"
   },
   "asteria:seedheads_meadow": {
     "/name": "Espigas de Pradera"
@@ -68,26 +47,17 @@
   "asteria:mushroom_yellow": {
     "/name": "Hongo Amarillo"
   },
-  "asteria:grass_pass": {
-    "/name": "Hierba de Paso"
-  },
   "asteria:pebble": {
     "/name": "Guijarro"
   },
   "asteria:aster_purple": {
     "/name": "Áster Púrpura"
   },
-  "asteria:sagebrush": {
-    "/name": "Artemisa"
-  },
   "asteria:sapling_oak": {
     "/name": "Brote de Roble"
   },
   "asteria:sapling_willow": {
     "/name": "Brote de Sauce"
-  },
-  "asteria:anemone_sea": {
-    "/name": "Anémona Marina"
   },
   "asteria:seagrass": {
     "/name": "Hierba marina"
@@ -101,127 +71,22 @@
   "asteria:stick": {
     "/name": "Palo"
   },
-  "asteria:grass_tall": {
-    "/name": "Hierba Alta"
-  },
-  "asteria:fern_violet": {
-    "/name": "Helecho Violeta"
-  },
-  "asteria:fungus_shelf_wall": {
-    "/name": "Hongo de Repisa de Pared"
-  },
   "asteria:wildflower_blue": {
     "/name": "Flor Silvestre Azul"
   },
   "asteria:wildflower_yellow": {
     "/name": "Flor Silvestre Amarilla"
   },
-  "asteria:sapling_cinderwood": {
-    "/name": "Brote de Cinderwood"
+  "asteria:crystal": {
+    "/name": "Cristal"
   },
-  "asteria:sapling_briarflame": {
-    "/name": "Brote de Briarflame"
+  "asteria:mushroom_crimson": {
+    "/name": "Champiñón Carmesí"
   },
-  "asteria:sapling_ashveil": {
-    "/name": "Brote de Ashveil"
+  "asteria:mushroom_warped": {
+    "/name": "Champiñón Distorsionado"
   },
-  "asteria:sapling_embercoil": {
-    "/name": "Brote de Embercoil"
-  },
-  "asteria:sapling_nacreveil": {
-    "/name": "Brote de Nacreveil"
-  },
-  "asteria:sapling_brinesong": {
-    "/name": "Brote de Brinesong"
-  },
-  "asteria:sapling_coralith": {
-    "/name": "Brote de Coralith"
-  },
-  "asteria:sapling_mirewake": {
-    "/name": "Brote de Mirewake"
-  },
-  "asteria:sapling_ferrumbark": {
-    "/name": "Brote de Ferrumbark"
-  },
-  "asteria:sapling_geodera": {
-    "/name": "Brote de Geodera"
-  },
-  "asteria:sapling_ambermaw": {
-    "/name": "Brote de Ambermaw"
-  },
-  "asteria:sapling_cragbloom": {
-    "/name": "Brote de Cragbloom"
-  },
-  "asteria:sapling_fulminara": {
-    "/name": "Brote de Fulminara"
-  },
-  "asteria:sapling_coppercoil": {
-    "/name": "Brote de Coppercoil"
-  },
-  "asteria:sapling_stormglass": {
-    "/name": "Brote de Stormglass"
-  },
-  "asteria:sapling_voltress": {
-    "/name": "Brote de Voltress"
-  },
-  "asteria:sapling_frostveil": {
-    "/name": "Brote de Frostveil"
-  },
-  "asteria:sapling_rimehollow": {
-    "/name": "Brote de Rimehollow"
-  },
-  "asteria:sapling_hoarfane": {
-    "/name": "Brote de Hoarfane"
-  },
-  "asteria:sapling_glassmorrow": {
-    "/name": "Brote de Glassmorrow"
-  },
-  "asteria:sapling_skyweave": {
-    "/name": "Brote de Skyweave"
-  },
-  "asteria:sapling_galeheart": {
-    "/name": "Brote de Galeheart"
-  },
-  "asteria:sapling_cloudspindle": {
-    "/name": "Brote de Cloudspindle"
-  },
-  "asteria:sapling_zephyra": {
-    "/name": "Brote de Zephyra"
-  },
-  "asteria:sapling_aurorasil": {
-    "/name": "Brote de Aurorasil"
-  },
-  "asteria:sapling_dawnlace": {
-    "/name": "Brote de Dawnlace"
-  },
-  "asteria:sapling_prismara": {
-    "/name": "Brote de Prismara"
-  },
-  "asteria:sapling_solmire": {
-    "/name": "Brote de Solmire"
-  },
-  "asteria:sapling_nighthollow": {
-    "/name": "Brote de Nighthollow"
-  },
-  "asteria:sapling_mourningbriar": {
-    "/name": "Brote de Mourningbriar"
-  },
-  "asteria:sapling_eclipseveil": {
-    "/name": "Brote de Eclipseveil"
-  },
-  "asteria:sapling_gloamroot": {
-    "/name": "Brote de Gloamroot"
-  },
-  "asteria:sapling_elderbloom": {
-    "/name": "Brote de Elderbloom"
-  },
-  "asteria:sapling_mycelora": {
-    "/name": "Brote de Mycelora"
-  },
-  "asteria:sapling_verdalune": {
-    "/name": "Brote de Verdalune"
-  },
-  "asteria:sapling_thornsong": {
-    "/name": "Brote de Thornsong"
+  "asteria:torchflower": {
+    "/name": "Flor Antorcha"
   }
 }

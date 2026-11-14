@@ -5,12 +5,12 @@
     "fragmentable"
   ],
   "textures": {
-    "top": "textures/blocks/cobble_stone.png",
-    "bottom": "textures/blocks/cobble_stone.png",
-    "left": "textures/blocks/cobble_stone.png",
-    "right": "textures/blocks/cobble_stone.png",
-    "front": "textures/blocks/cobble_stone.png",
-    "back": "textures/blocks/cobble_stone.png"
+    "top": "textures/blocks/stone_cobble.png",
+    "bottom": "textures/blocks/stone_cobble.png",
+    "left": "textures/blocks/stone_cobble.png",
+    "right": "textures/blocks/stone_cobble.png",
+    "front": "textures/blocks/stone_cobble.png",
+    "back": "textures/blocks/stone_cobble.png"
   },
   "lightDampening": 15,
   "castsShadow": true,

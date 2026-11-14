@@ -314,6 +314,36 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void BiomeSampleMemoReusesNearbyResultsAndEvictsWithinCapacity()
+    {
+        var definitions = StandardBiomeDefinitions();
+        var dimension = TestDimension(definitions.Select(x => x.Id));
+        var field = new BiomeField(
+            157UL,
+            dimension,
+            new BiomeRegistry(definitions));
+        var sampler = field.CreateSampler(sampleCacheCapacity: 2);
+
+        var first = sampler.Sample(-128, 256);
+        Assert.Same(first, sampler.Sample(-128, 256));
+
+        var second = sampler.Sample(-96, 256);
+        var third = sampler.Sample(-64, 256);
+        Assert.Same(second, sampler.Sample(-96, 256));
+        Assert.Same(third, sampler.Sample(-64, 256));
+
+        // The third distinct sample evicts the first from the two-entry FIFO.
+        var recomputedFirst = sampler.Sample(-128, 256);
+        Assert.NotSame(first, recomputedFirst);
+
+        var expected = field.Sample(-128, 256);
+        Assert.Equal(expected.Primary, recomputedFirst.Primary);
+        Assert.Equal(
+            expected.Influences.ToArray(),
+            recomputedFirst.Influences.ToArray());
+    }
+
+    [Fact]
     public void BiomeInfluencesAreNormalizedAndContainPrimary()
     {
         var field =
@@ -354,11 +384,17 @@ public sealed class BiomeWorldGenerationTests
                     total,
                     0.9999f,
                     1.0001f);
-                Assert.Contains(
-                    sample.Influences,
-                    influence =>
-                        influence.BiomeId ==
-                        sample.Primary);
+                Assert.Equal(
+                    sample.Primary,
+                    sample.Influences[0].BiomeId);
+                for (var index = 2;
+                     index < sample.Influences.Count;
+                     index++)
+                {
+                    var previous = sample.Influences[index - 1];
+                    var current = sample.Influences[index];
+                    Assert.True(previous.Weight >= current.Weight);
+                }
             }
         }
     }
@@ -366,7 +402,7 @@ public sealed class BiomeWorldGenerationTests
     [Theory]
     [InlineData("asteria:overworld/desert", "asteria:overworld/swamp", false)]
     [InlineData("asteria:overworld/wasteland", "asteria:overworld/swamp", false)]
-    [InlineData("asteria:overworld/wasteland", "asteria:overworld/ocean", true)]
+    [InlineData("asteria:overworld/wasteland", "asteria:overworld/ocean", false)]
     public void OverworldBoundaryRulesAreSymmetric(
         string first,
         string second,
@@ -608,6 +644,40 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void ValueNoise3DLatticeCachePreservesSamplesAcrossDirectMappedCollisions()
+    {
+        const ulong seed = 0xA57E_3D10_2026UL;
+        var domain = GenerationDomain.Named("tests/geology-lattice-cache/v1");
+        using var cache = new WorldGenerationEntropy.ValueNoise3DLatticeCache(capacity: 8);
+
+        for (var z = -12; z <= 12; z += 3)
+        for (var y = -9; y <= 9; y += 3)
+        for (var x = -15; x <= 15; x += 3)
+        {
+            var coordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+                x * 1.37d + z * 0.11d,
+                y * 1.19d + x * 0.07d,
+                z * 1.23d - y * 0.09d,
+                horizontalScale: 9,
+                verticalScale: 7);
+            var expected = coordinates.Sample(seed, domain);
+
+            Assert.Equal(
+                expected,
+                coordinates.Sample(seed, domain, cache));
+            Assert.Equal(
+                expected,
+                coordinates.Sample(seed, domain, cache));
+        }
+
+        cache.Dispose();
+        var disposedCoordinates = WorldGenerationEntropy.PrepareValueNoise3D(
+            1d, 2d, 3d, horizontalScale: 9, verticalScale: 7);
+        Assert.Throws<ObjectDisposedException>(() =>
+            disposedCoordinates.Sample(seed, domain, cache));
+    }
+
+    [Fact]
     public void PlainsKeepsShallowGrassCoverAndUsesThreeDimensionalGeology()
     {
         var blocks = LoadDefaultBlocks();
@@ -777,6 +847,84 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void ExteriorWallPaletteOverridesOnlySolidFacesFacingExteriorAir()
+    {
+        const ulong seed = 0xA57E_2026UL;
+        const string mountainId = "asteria:overworld/mountains";
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var biomes = BiomeRegistry.FromJson(
+            Directory.EnumerateFiles(
+                Path.Combine(AppContext.BaseDirectory, "packs", "default", "data", "biomes"),
+                "*.json").OrderBy(path => path, StringComparer.Ordinal)
+                .Select(path =>
+                {
+                    var content = File.ReadAllText(path);
+                    if (!path.EndsWith("mountains.json", StringComparison.Ordinal))
+                        return content;
+                    var root = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                    root["palette"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """
+                        {
+                          "default":[{"block":"asteria:stone"}],
+                          "walls":[
+                            {"block":"asteria:basalt","depth":1},
+                            {"block":"asteria:stone"}
+                          ]
+                        }
+                        """);
+                    root["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
+                    return root.ToJsonString();
+                }));
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id), dimension, blocks,
+            LoadDefaultFluids(), biomes, LoadDefaultStructures(),
+            LoadDefaultStructureSets(),
+            generation: new WorldGenerationOptions(
+                spawnStructures: false, spawnCaves: false));
+
+        (int X, int Y, int Z)? wall = null;
+        var directions = new (int X, int Z)[]
+        {
+            (1, 0), (-1, 0), (0, 1), (0, -1),
+        };
+        for (var z = -2048; z <= 2048 && wall is null; z += 16)
+        for (var x = -2048; x <= 2048 && wall is null; x += 16)
+        {
+            if (generator.Biomes.Sample(x, z).Primary != mountainId)
+                continue;
+
+            var surfaceY = generator.SurfaceHeight(x, z);
+            for (var y = surfaceY; y >= Math.Max(1, surfaceY - 8) && wall is null; y--)
+            {
+                if (generator.DensityAt(x, y, z) < 0d)
+                    continue;
+
+                foreach (var (dx, dz) in directions)
+                {
+                    var neighborX = x + dx;
+                    var neighborZ = z + dz;
+                    if (generator.DensityAt(neighborX, y, neighborZ) >= 0d ||
+                        generator.IsCaveVoidAt(neighborX, y, neighborZ))
+                        continue;
+
+                    wall = (x, y, z);
+                    break;
+                }
+            }
+        }
+
+        Assert.True(wall.HasValue,
+            "The fixed seed did not produce an exposed mountain wall in the search area.");
+        var target = wall!.Value;
+        var (coord, local) = VoxelCoordinates.FromWorld(
+            target.X, target.Y, target.Z);
+        var actual = generator.Materialize(coord).GetBlock(
+            local.X, local.Y, local.Z);
+        Assert.Equal(blocks.GetId("asteria:basalt"), actual);
+    }
+
+    [Fact]
     public void MaterializedGeologyFollowsSurfaceBiomeAcrossABiomeTransition()
     {
         const ulong seed = 0xA57E_2026UL;
@@ -788,13 +936,14 @@ public sealed class BiomeWorldGenerationTests
             DimensionSeed.Derive(seed, dimension.Id),
             dimension, blocks, LoadDefaultFluids(), biomes,
             LoadDefaultStructures(), LoadDefaultStructureSets(),
-            new WorldGenerationOptions(spawnStructures: false));
+            new WorldGenerationOptions(spawnStructures: false, spawnCaves: false));
         var geologyBiomeIds = dimension.SurfaceBiomes
             .Where(id => biomes.Get(id).Geology is not null &&
                 id != "asteria:overworld/ocean")
             .ToHashSet(StringComparer.Ordinal);
+        var dimensionSeed = DimensionSeed.Derive(seed, dimension.Id);
         var geologyField = new BiomeSurfaceMaterialField(
-            DimensionSeed.Derive(seed, dimension.Id),
+            dimensionSeed,
             geologyBiomeIds.Select(biomes.Get),
             blocks);
 
@@ -823,9 +972,11 @@ public sealed class BiomeWorldGenerationTests
 
         Assert.True(leftVoxel.HasValue && rightVoxel.HasValue,
             "No suitable boundary between two geology-enabled surface biomes was found.");
+
         Assert.Equal(
             leftVoxel!.Value.Expected,
             ReadMaterializedBlock(leftVoxel.Value.X, leftVoxel.Value.Y, leftVoxel.Value.Z));
+
         Assert.Equal(
             rightVoxel!.Value.Expected,
             ReadMaterializedBlock(rightVoxel.Value.X, rightVoxel.Value.Y, rightVoxel.Value.Z));
@@ -844,7 +995,9 @@ public sealed class BiomeWorldGenerationTests
                  depth++)
             {
                 var y = surfaceY - depth;
-                if (y < 2 || !IsInteriorSolid(x, y, z))
+                if (y < 2 ||
+                    generator.VolumeBiomes.Sample(x, y, z) is not null ||
+                    !IsInteriorSolid(x, y, z))
                     continue;
                 if (geologyField.TryGeologyBlockAt(sample, x, y, z, out var expected))
                 {
@@ -859,17 +1012,20 @@ public sealed class BiomeWorldGenerationTests
 
         bool IsInteriorSolid(int x, int y, int z)
         {
-            if (generator.DensityAt(x, y, z) < 0d ||
-                generator.IsCaveVoidAt(x, y, z))
-                return false;
-
-            return !generator.IsCaveVoidAt(x - 1, y, z) &&
-                !generator.IsCaveVoidAt(x + 1, y, z) &&
-                !generator.IsCaveVoidAt(x, y - 1, z) &&
-                !generator.IsCaveVoidAt(x, y + 1, z) &&
-                !generator.IsCaveVoidAt(x, y, z - 1) &&
-                !generator.IsCaveVoidAt(x, y, z + 1);
+            // This test isolates surface geology from cave-face material
+            // painting; cave generation is disabled for its generator.
+            return IsSolidVoxel(x, y, z) &&
+                IsSolidVoxel(x - 1, y, z) &&
+                IsSolidVoxel(x + 1, y, z) &&
+                IsSolidVoxel(x, y - 1, z) &&
+                IsSolidVoxel(x, y + 1, z) &&
+                IsSolidVoxel(x, y, z - 1) &&
+                IsSolidVoxel(x, y, z + 1);
         }
+
+        bool IsSolidVoxel(int x, int y, int z) =>
+            generator.DensityAt(x, y, z) >= 0d &&
+            !generator.IsCaveVoidAt(x, y, z);
 
         BlockRuntimeId ReadMaterializedBlock(int x, int y, int z)
         {
@@ -1059,6 +1215,8 @@ public sealed class BiomeWorldGenerationTests
 
         var chunk = new Chunk();
         chunk.SetBlock(2, 2, 2, blocks.GetId(leafId));
+        ChunkLightingSolver.Initialize(
+            chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var layer = Assert.Single(
@@ -1080,11 +1238,11 @@ public sealed class BiomeWorldGenerationTests
         Assert.All(vertices, vertex =>
         {
             Assert.InRange(
-                MathF.Abs(vertex.Tint.X - expected.X), 0f, 0.02f);
+                MathF.Abs(vertex.TintAndAo.X - expected.X), 0f, 0.02f);
             Assert.InRange(
-                MathF.Abs(vertex.Tint.Y - expected.Y), 0f, 0.02f);
+                MathF.Abs(vertex.TintAndAo.Y - expected.Y), 0f, 0.02f);
             Assert.InRange(
-                MathF.Abs(vertex.Tint.Z - expected.Z), 0f, 0.02f);
+                MathF.Abs(vertex.TintAndAo.Z - expected.Z), 0f, 0.02f);
             // Texture code includes tint and wind flags: 0.25 + 0.5.
             var encodedFlags = vertex.EncodedTextureLayers.X -
                 MathF.Floor(vertex.EncodedTextureLayers.X);
@@ -1093,12 +1251,17 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void MyceloraLeavesStayIntentionallyUntinted()
+    public void RemovedFantasyTreeLeavesAreAbsentFromTheDefaultPack()
     {
         var blocks = LoadDefaultBlocks();
-        var leaf = blocks.GetDefinition(blocks.GetId("asteria:leaf_mycelora"));
-        Assert.Equal(BlockTint.None, leaf.Tint);
-        Assert.All(leaf.Textures.AllLayers(), layer => Assert.False(layer.Dyable));
+        var directory = Path.Combine(AppContext.BaseDirectory, "packs",
+            "default", "data", "blocks");
+        foreach (var species in new[] { "mycelora", "gloamroot" })
+        {
+            var id = "asteria:leaf_" + species;
+            Assert.False(File.Exists(Path.Combine(directory, "leaf_" + species + ".json")));
+            Assert.False(blocks.TryGetId(id, out _));
+        }
     }
 
     [Fact]
@@ -1735,6 +1898,279 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void NestedGravitySupportMaterializationReportsItsOwnStageAndCoordinate()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                20f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 5),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        BiomeWorldGenerator CreateGenerator(DimensionDefinition dimension) =>
+            new(101UL, dimension, blocks, new BiomeRegistry([biome]));
+
+        var coord = new ChunkCoord(0, 1, 0);
+        var expected = CreateGenerator(TestDimension([biome.Id]))
+            .Materialize(coord);
+        Assert.Equal(20, CreateGenerator(TestDimension([biome.Id]))
+            .SurfaceHeight(0, 0));
+        Assert.Equal(blocks.GetId("asteria:gravel"),
+            expected.GetBlock(0, 0, 0));
+
+        using var job = CreateGenerator(TestDimension([biome.Id]))
+            .BeginMaterialization(coord);
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        // The first parent advance creates, but does not advance, the lower
+        // support-face job. Its own first stage is visible to the worker.
+        job.Advance();
+        Assert.Equal(new ChunkCoord(0, 0, 0), job.ActiveWorkCoord);
+        Assert.Equal(ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
+
+        job.Advance();
+        Assert.Equal(ChunkMaterializationStage.TerrainLayer,
+            job.ActiveWorkStage);
+
+        job.Advance();
+        Assert.Equal(ChunkMaterializationStage.TerrainLayer,
+            job.ActiveWorkStage);
+        job.Advance();
+        Assert.Equal(ChunkMaterializationStage.GravitySupport,
+            job.ActiveWorkStage);
+
+        // The support face is ordinary solid core terrain with no structures
+        // or occupancy-changing face palette. It resolves from the sparse
+        // terrain slice without starting the full lower-chunk pipeline.
+        job.Advance();
+        Assert.Equal(ChunkMaterializationStage.StructureObjects, job.Stage);
+        Assert.Equal(coord, job.ActiveWorkCoord);
+
+        while (!job.IsComplete)
+            job.Advance();
+        var actual = job.Result ??
+            throw new InvalidOperationException("Materialization returned no chunk.");
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var x = 0; x < Chunk.Size; x++)
+            Assert.Equal(expected.GetCell(x, y, z), actual.GetCell(x, y, z));
+    }
+
+    [Fact]
+    public void NestedGravitySupportFallsBackWhenSphereShellOwnsSupportFace()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition(
+                "asteria:shell_sphere",
+                mining: new BlockMiningDefinition(unbreakable: true)),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                20f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 5),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            seaLevel: 0,
+            gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f),
+            new DimensionShellDefinition(
+                "asteria:shell_sphere",
+                floorY: 14));
+        var generator = new BiomeWorldGenerator(
+            101UL,
+            dimension,
+            blocks,
+            new BiomeRegistry([biome]));
+
+        using var job = generator.BeginMaterialization(
+            new ChunkCoord(0, 1, 0));
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        job.Advance(); // Create the sparse face query.
+        job.Advance(); // Terrain setup.
+        job.Advance(); // Y=14.
+        job.Advance(); // Y=15, then complete the sparse query.
+        Assert.Equal(ChunkMaterializationStage.GravitySupport,
+            job.ActiveWorkStage);
+
+        job.Advance(); // Reject the fast result and schedule full fallback.
+        Assert.Equal(new ChunkCoord(0, 0, 0), job.ActiveWorkCoord);
+        Assert.Equal(ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
+    }
+
+    [Fact]
+    public void NestedGravitySupportFallbackRecursesAcrossMultipleVerticalChunks()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                34f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                // The gravity stack crosses chunk Y=2, Y=1 and Y=0.
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 20),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            seaLevel: 0,
+            gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f));
+        var generator = new BiomeWorldGenerator(
+            101UL,
+            dimension,
+            blocks,
+            new BiomeRegistry([biome]));
+
+        using var job = generator.BeginMaterialization(
+            new ChunkCoord(0, 2, 0));
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        // Start the sparse Y=1 support-face probe, then wait for the Y=1
+        // fallback to materialize the complete gravity stack in its columns.
+        var advanced = 0;
+        while (job.ActiveWorkCoord != new ChunkCoord(0, 0, 0) &&
+               advanced++ < 512)
+        {
+            job.Advance();
+        }
+
+        Assert.True(
+            advanced < 512,
+            $"Expected recursive support query to reach chunk Y=0; current work is {job.ActiveWorkCoord} at {job.ActiveWorkStage}.");
+        Assert.Equal(
+            new ChunkCoord(0, 0, 0),
+            job.ActiveWorkCoord);
+        Assert.Equal(
+            ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
+    }
+
+    [Fact]
+    public void NestedGravitySupportFallsBackWhenSupportFaceContainsGravityBlocks()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:gravel",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                19f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                // Both cells below the seam are gravity blocks. A two-row
+                // support probe cannot prove that the stack has a stable base.
+                new BiomeSurfaceLayerDefinition("asteria:gravel", depth: 6),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            seaLevel: 0,
+            gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f));
+        var generator = new BiomeWorldGenerator(
+            101UL,
+            dimension,
+            blocks,
+            new BiomeRegistry([biome]));
+
+        var lower = generator.Materialize(new ChunkCoord(0, 0, 0));
+        var gravel = blocks.GetId("asteria:gravel");
+        Assert.Equal(gravel, lower.GetBlock(0, Chunk.Size - 1, 0));
+        Assert.Equal(gravel, lower.GetBlock(0, Chunk.Size - 2, 0));
+
+        using var job = generator.BeginMaterialization(
+            new ChunkCoord(0, 1, 0));
+        while (job.Stage != ChunkMaterializationStage.GravitySupport)
+            job.Advance();
+
+        job.Advance(); // Create the sparse face query.
+        job.Advance(); // Terrain setup.
+        job.Advance(); // Y=14.
+        job.Advance(); // Y=15, then complete the sparse query.
+        Assert.Equal(ChunkMaterializationStage.GravitySupport,
+            job.ActiveWorkStage);
+
+        // A gravity-owned support face must use the full lower-chunk path.
+        job.Advance();
+        Assert.Equal(new ChunkCoord(0, 0, 0), job.ActiveWorkCoord);
+        Assert.Equal(ChunkMaterializationStage.TerrainSetup,
+            job.ActiveWorkStage);
+    }
+
+    [Fact]
     public void SphereShellMaterializesFloorAndRoofAndRejectsNegativeChunks()
     {
         var blocks =
@@ -2100,6 +2536,85 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void SurfacePlacementSlopeSamplingMatchesScalarTerrainQueries()
+    {
+        const ulong seed = 177UL;
+        const int worldX = 29;
+        const int worldZ = -37;
+        var blocks = LoadDefaultBlocks();
+        var fluids = LoadDefaultFluids();
+        var biomes = LoadDefaultBiomes();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var dimensionSeed = DimensionSeed.Derive(seed, dimension.Id);
+        var surfaceDefinitions = dimension.SurfaceBiomes
+            .Select(biomes.Get)
+            .ToArray();
+        var volumeDefinitions = dimension.VolumeBiomes
+            .Select(biomes.Get)
+            .ToArray();
+        var surfaceBiomes = new BiomeField(dimensionSeed, dimension, biomes);
+        var volumeBiomes = new VolumeBiomeField(dimensionSeed, dimension, biomes);
+        var generatedFluids = new GeneratedFluidField(
+            dimensionSeed, dimension, fluids);
+        var terrain = new SurfaceTerrainField(
+            dimensionSeed, dimension, surfaceBiomes, volumeBiomes,
+            generatedFluids, surfaceDefinitions, volumeDefinitions);
+
+        var xPlus = worldX + 1;
+        var xMinus = worldX - 1;
+        var zPlus = worldZ + 1;
+        var zMinus = worldZ - 1;
+        var surfaceY = terrain.SurfaceHeight(worldX, worldZ);
+        var surfaceSlope = Math.Max(
+            Math.Max(
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(xPlus, worldZ)),
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(xMinus, worldZ))),
+            Math.Max(
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(worldX, zPlus)),
+                Math.Abs((long)surfaceY - terrain.SurfaceHeight(worldX, zMinus))));
+        var expectedSurfacePlacement =
+            new SurfacePlacementContext(surfaceY, surfaceSlope);
+        Assert.Equal(
+            expectedSurfacePlacement,
+            SurfacePlacementContext.Sample(
+                terrain, worldX, worldZ, includeSlope: true));
+
+        var sharedTerrainSampleContext = terrain.CreateTerrainSampleContext();
+        Assert.Equal(
+            expectedSurfacePlacement,
+            SurfacePlacementContext.Sample(
+                terrain, sharedTerrainSampleContext,
+                worldX, worldZ, includeSlope: true));
+        var expectedNeighborSurfacePlacement =
+            SurfacePlacementContext.Sample(
+                terrain, worldX + 1, worldZ, includeSlope: true);
+        Assert.Equal(
+            expectedNeighborSurfacePlacement,
+            SurfacePlacementContext.Sample(
+                terrain, sharedTerrainSampleContext,
+                worldX + 1, worldZ, includeSlope: true));
+
+        var baseY = terrain.SampleBaseSurface(worldX, worldZ).BaseY;
+        var baseSlope = Math.Max(
+            Math.Max(
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(xPlus, worldZ).BaseY),
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(xMinus, worldZ).BaseY)),
+            Math.Max(
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(worldX, zPlus).BaseY),
+                Math.Abs((long)baseY - terrain.SampleBaseSurface(worldX, zMinus).BaseY)));
+        var expectedBasePlacement = new SurfacePlacementContext(baseY, baseSlope);
+        Assert.Equal(
+            expectedBasePlacement,
+            SurfacePlacementContext.Sample(
+                terrain, worldX, worldZ, includeSlope: true, baseSurface: true));
+        Assert.Equal(
+            expectedBasePlacement,
+            SurfacePlacementContext.Sample(
+                terrain, sharedTerrainSampleContext,
+                worldX, worldZ, includeSlope: true, baseSurface: true));
+    }
+
+    [Fact]
     public void DecorationUsesAuthoredSurfaceAndIsChunkDeterministic()
     {
         var blocks =
@@ -2219,6 +2734,26 @@ public sealed class BiomeWorldGenerationTests
                     if (!path.EndsWith("caverns.json", StringComparison.Ordinal))
                         return content;
                     var root = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                    // Surface metadata must not reclassify this biome's palette:
+                    // the dimension selects Caverns exclusively as a carved-void owner.
+                    root["surfaceLayout"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """
+                        {
+                          "weight": 1,
+                          "regionSize": { "min": 128, "max": 256 }
+                        }
+                        """);
+                    root["surfaceTerrain"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """
+                        {
+                          "type": "rolling",
+                          "baseHeight": 4,
+                          "amplitude": 2,
+                          "scale": 0.012,
+                          "detailAmplitude": 1,
+                          "detailScale": 0.045
+                        }
+                        """);
                     root["palette"] = System.Text.Json.Nodes.JsonNode.Parse(
                         """
                         {
@@ -2233,6 +2768,11 @@ public sealed class BiomeWorldGenerationTests
                     root["caveSpikes"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
                     return root.ToJsonString();
                 }));
+        var caverns = biomes.Get("asteria:overworld/caverns");
+        Assert.NotNull(caverns.SurfaceLayout);
+        Assert.Contains(caverns.Id, dimension.VolumeBiomes);
+        Assert.DoesNotContain(caverns.Id, dimension.SurfaceBiomes);
+
         var generator = new BiomeWorldGenerator(
             DimensionSeed.Derive(0xA57E_2026UL, dimension.Id), dimension,
             blocks, LoadDefaultFluids(), biomes, LoadDefaultStructures(),
@@ -2278,6 +2818,94 @@ public sealed class BiomeWorldGenerationTests
             local.X, local.Y, local.Z);
         Assert.Equal(blocks.GetId("asteria:basalt"), actual);
         Assert.False(generator.IsCaveVoidAt(target.X, target.Y, target.Z));
+    }
+
+    [Fact]
+    public void DirectionalPalettePreparationYieldsBetweenPhasesAndPreservesVerticalHaloReuse()
+    {
+        const ulong seed = 0xA57E_2026UL;
+
+        static BiomeWorldGenerator CreateGenerator(ulong seed)
+        {
+            var blocks = LoadDefaultBlocks();
+            var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+            var biomes = BiomeRegistry.FromJson(
+                Directory.EnumerateFiles(
+                    Path.Combine(
+                        AppContext.BaseDirectory,
+                        "packs",
+                        "default",
+                        "data",
+                        "biomes"),
+                    "*.json").OrderBy(path => path, StringComparer.Ordinal)
+                    .Select(path =>
+                    {
+                        var content = File.ReadAllText(path);
+                        if (!path.EndsWith("caverns.json", StringComparison.Ordinal))
+                            return content;
+
+                        var root = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                        root["palette"] = System.Text.Json.Nodes.JsonNode.Parse(
+                            """
+                            {
+                              "default":[{"block":"asteria:stone"}],
+                              "walls":[
+                                {"block":"asteria:basalt","depth":6},
+                                {"block":"asteria:stone"}
+                              ]
+                            }
+                            """);
+                        return root.ToJsonString();
+                    }));
+
+            return new BiomeWorldGenerator(
+                DimensionSeed.Derive(seed, dimension.Id),
+                dimension,
+                blocks,
+                LoadDefaultFluids(),
+                biomes,
+                LoadDefaultStructures(),
+                LoadDefaultStructureSets());
+        }
+
+        var probeGenerator = CreateGenerator(seed);
+        var cave = FindCaveVoid(probeGenerator);
+        var caveChunk = VoxelCoordinates.FromWorld(cave.X, cave.Y, cave.Z).Chunk;
+        var lowerCoord = new ChunkCoord(
+            caveChunk.X, Math.Max(0, caveChunk.Y - 1), caveChunk.Z);
+        var upperCoord = new ChunkCoord(
+            caveChunk.X, lowerCoord.Y + 1, caveChunk.Z);
+
+        using (var setupJob = probeGenerator.BeginMaterialization(lowerCoord))
+        {
+            var setupAdvances = 0;
+            while (setupJob.Stage == ChunkMaterializationStage.TerrainSetup)
+            {
+                setupJob.Advance();
+                setupAdvances++;
+            }
+
+            Assert.Equal(7, setupAdvances);
+            Assert.NotEqual(
+                ChunkMaterializationStage.TerrainSetup,
+                setupJob.Stage);
+        }
+
+        var upperFirstGenerator = CreateGenerator(seed);
+        var upperFirst = upperFirstGenerator.Materialize(upperCoord);
+        var lowerAfterUpper = upperFirstGenerator.Materialize(lowerCoord);
+
+        var lowerFirstGenerator = CreateGenerator(seed);
+        var lowerFirst = lowerFirstGenerator.Materialize(lowerCoord);
+        var upperAfterLower = lowerFirstGenerator.Materialize(upperCoord);
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            Assert.Equal(lowerFirst.GetCell(x, y, z), lowerAfterUpper.GetCell(x, y, z));
+            Assert.Equal(upperFirst.GetCell(x, y, z), upperAfterLower.GetCell(x, y, z));
+        }
     }
 
     [Fact]
@@ -2621,6 +3249,181 @@ public sealed class BiomeWorldGenerationTests
                 cave.X,
                 solidY,
                 cave.Z));
+    }
+
+    [Fact]
+    public void StreamingBenchmarkSeedKeepsObservedGravityCoordinatesSupported()
+    {
+        const ulong seed = 181960897289965UL;
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension,
+            blocks,
+            LoadDefaultFluids(),
+            LoadDefaultBiomes(),
+            LoadDefaultStructures(),
+            LoadDefaultStructureSets());
+        var spawn = generator.FindGeneratedSurfaceDestination(
+            dimension.Spawn.X,
+            dimension.Spawn.Z,
+            maxRadius: 64);
+        Assert.NotNull(spawn);
+
+        WorldVoxelCoord[] observedPositions =
+        [
+            new(71, 82, -3),
+            new(72, 82, -3),
+            new(73, 82, -2),
+            new(73, 82, -19),
+            new(74, 82, -19),
+            new(68, 82, -18),
+            new(72, 82, -18),
+            new(69, 82, -17),
+            new(70, 82, -17),
+            new(71, 82, -17),
+        ];
+        var chunks = new Dictionary<ChunkCoord, Chunk>();
+
+        Chunk GetChunk(ChunkCoord coord)
+        {
+            if (!chunks.TryGetValue(coord, out var chunk))
+            {
+                chunk = generator.Materialize(coord);
+                chunks.Add(coord, chunk);
+            }
+
+            return chunk;
+        }
+
+        foreach (var position in observedPositions)
+        {
+            var (coord, local) = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            var chunk = GetChunk(coord);
+            var cell = chunk.GetCell(local.X, local.Y, local.Z);
+            if (cell.IsEmpty ||
+                !blocks.GetDefinition(cell.Block).HasTag(
+                    BlockPhysicsCapabilities.Gravity))
+                continue;
+
+            var below = position.Y > coord.Y * Chunk.Size
+                ? chunk.GetCell(local.X, local.Y - 1, local.Z)
+                : GetChunk(new ChunkCoord(
+                    coord.X, coord.Y - 1, coord.Z))
+                    .GetCell(local.X, Chunk.Size - 1, local.Z);
+
+            Assert.False(
+                below.IsEmpty,
+                $"The streaming benchmark seed generated unsupported " +
+                $"gravity block {blocks.GetDefinition(cell.Block).Id} at " +
+                $"{position.X},{position.Y},{position.Z}.");
+        }
+    }
+
+    [Fact]
+    public void StreamingBenchmarkSeedDirectionalFaceArrivalKeepsGravitySupported()
+    {
+        const ulong seed = 181960897289965UL;
+        var blocks = LoadDefaultBlocks();
+        var fluids = LoadDefaultFluids();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension,
+            blocks,
+            fluids,
+            LoadDefaultBiomes(),
+            LoadDefaultStructures(),
+            LoadDefaultStructureSets());
+        var spawn = generator.FindGeneratedSurfaceDestination(
+            dimension.Spawn.X,
+            dimension.Spawn.Z,
+            maxRadius: 64);
+        Assert.NotNull(spawn);
+
+        WorldVoxelCoord[] observedPositions =
+        [
+            new(71, 82, -3),
+            new(72, 82, -3),
+            new(73, 82, -2),
+            new(73, 82, -19),
+            new(74, 82, -19),
+            new(68, 82, -18),
+            new(72, 82, -18),
+            new(69, 82, -17),
+            new(70, 82, -17),
+            new(71, 82, -17),
+        ];
+        ChunkCoord[] upperChunks =
+        [
+            new(4, 5, -1),
+            new(4, 5, -2),
+        ];
+        ChunkCoord[] lowerChunks =
+        [
+            new(4, 4, -1),
+            new(4, 4, -2),
+        ];
+
+        var world = new VoxelWorld();
+        foreach (var coord in upperChunks)
+        {
+            world.InsertChunk(coord, generator.Materialize(coord));
+            generator.ReconcileChunkArrival(world, coord);
+        }
+
+        // The lower chunks arrive after their upper neighbors. This is the
+        // residency order that exposes late downward-face palette candidates.
+        foreach (var coord in lowerChunks)
+        {
+            world.InsertChunk(coord, generator.Materialize(coord));
+            generator.ReconcileChunkArrival(world, coord);
+        }
+
+        foreach (var position in observedPositions)
+        {
+            Assert.True(world.TryGetCell(position, out var cell));
+            Assert.False(
+                cell.IsEmpty,
+                $"Directional-face reconciliation erased terrain at " +
+                $"{position.X},{position.Y},{position.Z}.");
+
+            var definition = blocks.GetDefinition(cell.Block);
+            Assert.False(
+                definition.HasTag(BlockPhysicsCapabilities.Gravity),
+                $"Directional-face reconciliation painted unsupported " +
+                $"{definition.Id} at {position.X},{position.Y},{position.Z}.");
+
+            // Stable terrain can be part of a cave wall or ceiling, so
+            // vertical occupancy below is not a valid support invariant.
+            // The generated-world guarantee is that directional reconciliation
+            // never paints a gravity-tagged block into the observed host.
+            Assert.True(
+                definition.IsCollidable,
+                $"Directional-face host at {position.X},{position.Y},{position.Z} " +
+                $"must remain collidable, got {definition.Id}.");
+        }
+
+        var physicsUpdates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(
+            world,
+            new WorldUpdateQueue(),
+            new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(),
+            physicsUpdates,
+            new MeshletContentRevisions(),
+            new MeshletContentRevisions());
+        var droppedBlocks = new DroppedBlockRuntime(world, blocks);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, physicsUpdates, droppedBlocks);
+
+        var queuedWakeups = upperChunks.Concat(lowerChunks)
+            .Sum(physics.EnqueueResidentChunk);
+        Assert.Equal(0, queuedWakeups);
+        Assert.Equal(0, physicsUpdates.Count);
+        Assert.Equal(0, physics.ProcessWakeups().FallingStarted);
     }
 
     [Fact]

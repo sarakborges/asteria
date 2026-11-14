@@ -1,12 +1,22 @@
 {
   "id": "asteria:overworld/ocean",
   "surfaceLayout": {
-    "weight": 2,
+    "weight": 1,
     "spawnWeight": 1,
     "regionSize": {
-      "min": 768,
-      "max": 1536
-    }
+      "min": 500,
+      "max": 1500
+    },
+    "cannotBorder": [
+      "asteria:overworld/alps",
+      "asteria:overworld/arctic",
+      "asteria:overworld/desert",
+      "asteria:overworld/mountain_belt",
+      "asteria:overworld/mountains",
+      "asteria:overworld/scorched_wastes",
+      "asteria:overworld/swamp",
+      "asteria:overworld/wasteland"
+    ]
   },
   "surfaceTerrain": {
     "type": "rolling",
@@ -128,31 +138,6 @@
         "sand_flats": 0.35,
         "gravel_banks": 1.2,
         "rocky_reefs": 1.9
-      }
-    },
-    {
-      "object": "asteria:anemone_sea",
-      "chance": 0.025,
-      "surfaceBlocks": [
-        "asteria:sand",
-        "asteria:gravel",
-        "asteria:clay",
-        "asteria:cobble_stone"
-      ],
-      "fluidPlacement": "submerged",
-      "cluster": {
-        "scale": 28,
-        "threshold": -0.1,
-        "octaves": 4,
-        "transitionWidth": 0.14
-      },
-      "conditions": {
-        "maxY": 86
-      },
-      "habitatWeights": {
-        "sand_flats": 0.12,
-        "gravel_banks": 0.8,
-        "rocky_reefs": 2.45
       }
     },
     {

@@ -5,9 +5,393 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkResidencyRuntimeTests
 {
     [Fact]
+    public void ChunkArrivalOnlyQueuesDirectionalReconciliationUntilWorkerDispatch()
+    {
+        using var provider = new BlockingDirectionalFacePaletteProvider();
+        using var fixture = CreateFixture(provider);
+        var coord = ChunkCoord.Zero;
+
+        fixture.World.InsertChunk(coord, new Chunk());
+
+        Assert.False(provider.ReconcileStarted.Wait(TimeSpan.FromMilliseconds(50)));
+        Assert.Equal(1, fixture.Runtime.DirectionalFaceReconciliationCount);
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(provider.ReconcileStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        provider.ReleaseReconciliation.Set();
+        for (var attempt = 0;
+             attempt < 2000 && fixture.Runtime.DirectionalFaceReconciliationCount > 0;
+             attempt++)
+        {
+            fixture.Runtime.CollectMaterializationResults(
+                GenerousBudget(), Array.Empty<ChunkCoord>());
+            Thread.Sleep(1);
+        }
+
+        Assert.Equal(0, fixture.Runtime.DirectionalFaceReconciliationCount);
+    }
+
+    [Fact]
+    public void StaleDirectionalReconciliationIsDiscardedAndRequeued()
+    {
+        using var provider = new BlockingDirectionalFacePaletteProvider();
+        using var fixture = CreateFixture(provider);
+        var coord = ChunkCoord.Zero;
+        fixture.World.InsertChunk(coord, new Chunk());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(provider.ReconcileStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        Assert.True(fixture.World.SetBlockAt(
+            new WorldVoxelCoord(1, 1, 1),
+            fixture.Blocks.GetId("asteria:stone"),
+            out _));
+        provider.ReleaseReconciliation.Set();
+
+        for (var attempt = 0;
+             attempt < 2000 && provider.ApplyAttempts == 0;
+             attempt++)
+        {
+            fixture.Runtime.CollectMaterializationResults(
+                GenerousBudget(), Array.Empty<ChunkCoord>());
+            Thread.Sleep(1);
+        }
+
+        Assert.Equal(1, provider.ApplyAttempts);
+        Assert.Equal(1, fixture.Runtime.DirectionalFaceReconciliationCount);
+    }
+
+    [Fact]
+    public void ReconciliationKeepsConfiguredTerrainWorkerCapacityAvailable()
+    {
+        using var provider = new BlockingDirectionalFacePaletteProvider();
+        using var fixture = CreateFixture(provider, maxConcurrentWorkers: 3);
+        fixture.World.InsertChunk(new ChunkCoord(-1, 0, 0), new Chunk());
+        var desired = new HashSet<ChunkCoord>
+        {
+            new(1, 0, 0),
+            new(2, 0, 0),
+        };
+        fixture.Runtime.SyncSelection(
+            new ChunkCoord(1, 0, 0),
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired,
+            Array.Empty<ChunkCoord>());
+
+        var dispatched = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 2,
+            maximumWorldWorkerStarts: 3);
+
+        Assert.Equal(2, dispatched.StartedTasks);
+        Assert.Equal(2, dispatched.WorkerOperationsStarted);
+        Assert.True(provider.TwoMaterializationWorkersStarted.Wait(
+            TimeSpan.FromSeconds(5)),
+            "The second terrain worker was held back by pending reconciliation.");
+        Assert.True(provider.ReconcileStarted.Wait(TimeSpan.FromSeconds(5)),
+            "Directional reconciliation did not use the third worker slot.");
+        Assert.Equal(3, fixture.Runtime.ActiveWorkerCount);
+
+        provider.ReleaseMaterialization.Set();
+        provider.ReleaseReconciliation.Set();
+        Assert.True(SpinWait.SpinUntil(
+            () => fixture.Runtime.ActiveWorkerCount == 0,
+            TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public void AdmitsLogicalChunkTasksWhileWorkerOperationsRemainBounded()
+    {
+        using var provider = new BlockingChunkProvider();
+        using var fixture = CreateFixture(
+            provider,
+            maxConcurrentWorkers: 2);
+        var desired = new HashSet<ChunkCoord>
+        {
+            new(1, 0, 0),
+            new(2, 0, 0),
+            new(3, 0, 0),
+            new(4, 0, 0),
+        };
+        fixture.Runtime.SyncSelection(
+            new ChunkCoord(1, 0, 0),
+            horizontalRadius: 4,
+            retentionRadius: 5,
+            desired,
+            Array.Empty<ChunkCoord>());
+
+        var noCapacity = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 0);
+
+        Assert.Equal(4, noCapacity.StartedTasks);
+        Assert.Equal(0, noCapacity.WorkerOperationsStarted);
+        Assert.Equal(4, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(0, fixture.Runtime.PendingCount);
+        Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
+        Assert.Equal(4, fixture.Runtime.PendingGenerationWorkerOperations);
+        Assert.Equal(0, fixture.Runtime.ActiveWorkerCount);
+
+        var firstBatch = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 2,
+            maximumWorldWorkerStarts: 2);
+
+        Assert.Equal(0, firstBatch.StartedTasks);
+        Assert.Equal(2, firstBatch.WorkerOperationsStarted);
+        Assert.Equal(4, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(0, fixture.Runtime.PendingCount);
+        Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)));
+        Assert.True(SpinWait.SpinUntil(
+            () => fixture.Runtime.ActiveWorkerCount == 2,
+            TimeSpan.FromSeconds(5)));
+
+        provider.ReleaseAdvance.Set();
+        var totalStartedTasks = noCapacity.StartedTasks + firstBatch.StartedTasks;
+        var failures = 0;
+        var drained = SpinWait.SpinUntil(
+            () =>
+            {
+                var collected = fixture.Runtime.CollectMaterializationResults(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                failures += collected.Failures.Count;
+
+                var dispatch = fixture.Runtime.DispatchMaterializationTasks(
+                    GenerousBudget(),
+                    Array.Empty<ChunkCoord>(),
+                    maximumGenerationWorkerStarts: 2,
+                    maximumWorldWorkerStarts: 2);
+                totalStartedTasks += dispatch.StartedTasks;
+                failures += dispatch.Failures.Count;
+                Assert.True(
+                    fixture.Runtime.ActiveWorkerCount <=
+                    fixture.Runtime.GenerationWorkerCount * 2,
+                    "Queued and executing worker operations exceeded shared executor capacity.");
+
+                return fixture.Runtime.MaterializationJobCount == 0 &&
+                       fixture.Runtime.PendingCount == 0 &&
+                       fixture.Runtime.ActiveWorkerCount == 0;
+            },
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(drained, "Ticket-queued materialization tasks did not drain.");
+        Assert.Equal(4, totalStartedTasks);
+        Assert.Equal(0, failures);
+        Assert.Equal(4, fixture.World.ChunkCount);
+    }
+
+    [Fact]
+    public void MaterializationIsCancelledWhenChunkLeavesDesiredAndRetentionSets()
+    {
+        using var provider = new BlockingChunkProvider();
+        using var fixture = CreateFixture(provider, maxConcurrentWorkers: 1);
+        var coord = new ChunkCoord(1, 0, 0);
+        fixture.Runtime.SyncSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        var started = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 1,
+            maximumWorldWorkerStarts: 1);
+        Assert.Equal(1, started.StartedTasks);
+        Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        fixture.Runtime.SyncSelection(
+            new ChunkCoord(20, 0, 0),
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord>(),
+            presented: Array.Empty<ChunkCoord>());
+        provider.ReleaseAdvance.Set();
+
+        var cancelled = 0;
+        var drained = SpinWait.SpinUntil(
+            () =>
+            {
+                var result = fixture.Runtime.CollectMaterializationResults(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                cancelled += result.CancelledTasks;
+                return fixture.Runtime.MaterializationJobCount == 0 &&
+                       fixture.Runtime.ActiveWorkerCount == 0;
+            },
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(drained, "Removed chunk materialization did not drain.");
+        Assert.Equal(1, cancelled);
+        Assert.False(fixture.World.ContainsChunk(coord));
+        Assert.Equal(0, fixture.Runtime.MaterializingCount);
+    }
+
+    [Fact]
+    public void ChunkArrivalLightingSeedsAreCalculatedOnDetachedWorkerSnapshot()
+    {
+        using var fixture = CreateFixture();
+        var arrivingCoord = ChunkCoord.Zero;
+        var neighborCoord = new ChunkCoord(1, 0, 0);
+        var arriving = new Chunk();
+        var neighbor = new Chunk();
+        ChunkLightingSolver.Initialize(arriving, fixture.Blocks, fixture.Fluids);
+        ChunkLightingSolver.Initialize(neighbor, fixture.Blocks, fixture.Fluids);
+        neighbor.SetLight(0, 5, 5, new VoxelLight(0, 15, 0, 0));
+
+        fixture.World.InsertChunk(neighborCoord, neighbor);
+        fixture.World.InsertChunk(arrivingCoord, arriving);
+        Assert.NotEqual(
+            ChunkArchiveResult.NotResident,
+            fixture.World.ArchiveChunk(arrivingCoord));
+
+        fixture.Runtime.SyncSelection(
+            arrivingCoord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { arrivingCoord },
+            presented: Array.Empty<ChunkCoord>());
+
+        var restored = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>(), maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 0);
+        Assert.Single(restored.Activations);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.False(fixture.WorldUpdates.HasLightingWork);
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>(), maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 1);
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Chunk-arrival lighting reconciliation did not finish on its worker.");
+
+        fixture.Runtime.CollectMaterializationResults(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        Assert.Equal(0, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.True(fixture.WorldUpdates.HasLightingWork);
+    }
+
+    [Fact]
+    public void ChunkArrivalPhysicsSeedsAreCalculatedOnDetachedWorkerSnapshot()
+    {
+        using var fixture = CreateFixture();
+        var coord = new ChunkCoord(0, 1, 0);
+        var chunk = new Chunk();
+        chunk.SetBlock(
+            3, 0, 4,
+            fixture.Blocks.GetId("asteria:falling_sand"));
+        chunk.SetBlock(
+            5, 5, 5,
+            fixture.Blocks.GetId("asteria:wall_plant"));
+
+        fixture.World.InsertChunk(coord, chunk);
+        fixture.Physics.RequestChunkReconciliation(coord);
+
+        // Arrival queues work only. The worker calculates from a detached
+        // snapshot; queues and gravity wait maps change after result collection.
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 1);
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Chunk-arrival physics reconciliation did not finish on its worker.");
+
+        fixture.Runtime.CollectMaterializationResults(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        Assert.Equal(0, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.Equal(1, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(1, fixture.PhysicsUpdates.Count);
+        Assert.Contains(
+            new WorldVoxelCoord(5, Chunk.Size + 5, 5),
+            fixture.PhysicsUpdates.DrainBatch());
+    }
+
+    [Fact]
+    public void GravityBoundaryReconciliationRunsOnWorkerAfterNeighborResidencyChanges()
+    {
+        using var fixture = CreateFixture();
+        var sourceCoord = new ChunkCoord(0, 1, 0);
+        var lowerCoord = ChunkCoord.Zero;
+        var source = new Chunk();
+        var gravityPosition = new WorldVoxelCoord(3, Chunk.Size, 4);
+        source.SetBlock(
+            3, 0, 4,
+            fixture.Blocks.GetId("asteria:falling_sand"));
+        fixture.World.InsertChunk(sourceCoord, source);
+
+        // The source first waits for its missing lower chunk.
+        fixture.Physics.RequestChunkReconciliation(sourceCoord);
+        RunArrivalReconciliation(fixture);
+        Assert.Equal(1, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+
+        // Making the lower chunk resident queues a fresh worker request but
+        // does not synchronously scan the source boundary or enqueue a wakeup.
+        fixture.World.InsertChunk(lowerCoord, new Chunk());
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+
+        RunArrivalReconciliation(fixture);
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Contains(gravityPosition, fixture.PhysicsUpdates.DrainBatch());
+
+        // Archiving the lower chunk must re-park the same upper boundary block,
+        // again through the worker rather than the residency event callback.
+        Assert.NotEqual(
+            ChunkArchiveResult.NotResident,
+            fixture.World.ArchiveChunk(lowerCoord));
+        Assert.Equal(0, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+
+        RunArrivalReconciliation(fixture);
+        Assert.Equal(1, fixture.Physics.WaitingGravityChunkCount);
+        Assert.Equal(0, fixture.PhysicsUpdates.Count);
+    }
+
+    private static void RunArrivalReconciliation(RuntimeFixture fixture)
+    {
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 1);
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Chunk physics reconciliation did not finish on its worker.");
+
+        fixture.Runtime.CollectMaterializationResults(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+    }
+
+    [Fact]
     public void DispatchRestoresArchivedChunkBeforeProviderWork()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = ChunkCoord.Zero;
 
         fixture.World.InsertChunk(
@@ -46,12 +430,192 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(
             1,
             fixture.Runtime.PresentationPendingCount);
+        // Without resident neighbors, the archived chunk already has
+        // its own light state and no cross-chunk reconciliation is needed.
+        Assert.False(
+            fixture.WorldUpdates.HasLightingWork);
     }
 
     [Fact]
-    public void PressuredGenerationPrioritizesLocalChunksAndEventuallyDispatchesDistantOnes()
+    public void MaterializationWorkerCompletesAllStagesBeforePublishingChunk()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture(new StagedChunkProvider());
+        var coord = ChunkCoord.Zero;
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.False(fixture.World.ContainsChunk(coord));
+        Assert.Equal(1, fixture.Runtime.MaterializingCount);
+
+        var completed = CollectUntilMaterializationResult(fixture.Runtime);
+
+        Assert.Equal(
+            new[]
+            {
+                ChunkMaterializationStage.TerrainSetup,
+                ChunkMaterializationStage.TerrainLayer,
+                ChunkMaterializationStage.SurfaceDecorations,
+            },
+            completed.MaterializationStageTimings.Select(timing => timing.Stage));
+        Assert.True(fixture.World.ContainsChunk(coord));
+        Assert.Equal(0, fixture.Runtime.MaterializingCount);
+        var activation = Assert.Single(completed.Activations);
+        Assert.Equal(ChunkActivationSource.Provider, activation.Source);
+        Assert.True(double.IsFinite(activation.PendingQueueWaitMilliseconds));
+        Assert.True(double.IsFinite(activation.DispatchPreparationMilliseconds));
+        Assert.True(double.IsFinite(activation.WorkerQueueWaitMilliseconds));
+        Assert.True(double.IsFinite(activation.WorkerWallMilliseconds));
+        Assert.True(double.IsFinite(activation.ResultCollectionWaitMilliseconds));
+        Assert.True(activation.PendingQueueWaitMilliseconds >= 0d);
+        Assert.True(activation.DispatchPreparationMilliseconds >= 0d);
+        Assert.True(activation.WorkerQueueWaitMilliseconds >= 0d);
+        Assert.True(activation.WorkerWallMilliseconds >= activation.WorkerMilliseconds);
+        Assert.True(activation.ResultCollectionWaitMilliseconds >= 0d);
+        Assert.True(
+            activation.ElapsedMilliseconds + 0.01d >=
+            activation.PendingQueueWaitMilliseconds +
+            activation.DispatchPreparationMilliseconds +
+            activation.WorkerQueueWaitMilliseconds +
+            activation.WorkerWallMilliseconds +
+            activation.ResultCollectionWaitMilliseconds);
+    }
+
+    [Fact]
+    public void MaterializationDispatchRegistersDesiredChunksAndQueuesWorkerSlices()
+    {
+        using var fixture = CreateFixture(
+            new StagedChunkProvider(), maxConcurrentWorkers: 2);
+        var coords = new HashSet<ChunkCoord>
+        {
+            ChunkCoord.Zero,
+            new(1, 0, 0),
+            new(0, 0, 1),
+        };
+        fixture.Runtime.SyncSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired: coords,
+            presented: Array.Empty<ChunkCoord>());
+
+        var admitted = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 0,
+            maximumWorldWorkerStarts: 0);
+
+        Assert.Equal(3, admitted.StartedTasks);
+        Assert.Equal(0, admitted.WorkerOperationsStarted);
+        Assert.Equal(3, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(0, fixture.Runtime.PendingCount);
+        Assert.Equal(3, fixture.Runtime.PendingGenerationWorkerOperations);
+        Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
+
+        var firstWorkers = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>(),
+            maximumGenerationWorkerStarts: 2,
+            maximumWorldWorkerStarts: 2);
+
+        Assert.Equal(0, firstWorkers.StartedTasks);
+        Assert.Equal(2, firstWorkers.WorkerOperationsStarted);
+        Assert.Equal(3, fixture.Runtime.MaterializationJobCount);
+        Assert.Equal(0, fixture.Runtime.PendingCount);
+
+        var completedActivations = 0;
+        var failures = 0;
+        var drained = SpinWait.SpinUntil(
+            () =>
+            {
+                var update = fixture.Runtime.CollectMaterializationResults(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                completedActivations += update.Activations.Count;
+                failures += update.Failures.Count;
+
+                var dispatch = fixture.Runtime.DispatchMaterializationTasks(
+                    GenerousBudget(),
+                    Array.Empty<ChunkCoord>(),
+                    maximumGenerationWorkerStarts: 2,
+                    maximumWorldWorkerStarts: 2);
+                failures += dispatch.Failures.Count;
+
+                return fixture.Runtime.MaterializationJobCount == 0 &&
+                       fixture.Runtime.PendingCount == 0;
+            },
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(drained, "All desired materialization tasks did not drain.");
+        Assert.Equal(3, completedActivations);
+        Assert.Equal(0, failures);
+    }
+
+    [Fact]
+    public void CompletedMaterializationReleasesWorkerSlotBeforeResultCollection()
+    {
+        using var fixture = CreateFixture(new StagedChunkProvider());
+        var coord = ChunkCoord.Zero;
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Completed materialization did not release its worker slot.");
+        Assert.Equal(1, fixture.Runtime.MaterializationJobCount);
+        Assert.False(fixture.World.ContainsChunk(coord));
+
+        var completed = CollectUntilMaterializationResult(fixture.Runtime);
+        Assert.Single(completed.Activations);
+        Assert.True(fixture.World.ContainsChunk(coord));
+    }
+
+    [Fact]
+    public void RetirementDiscardsInFlightMaterializationResult()
+    {
+        using var provider = new BlockingChunkProvider();
+        using var fixture = CreateFixture(provider);
+        var coord = ChunkCoord.Zero;
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)),
+            "Materialization worker did not enter its stage.");
+
+        fixture.Runtime.BeginRetirement();
+        Assert.Equal(1, fixture.Runtime.MaterializingCount);
+        provider.ReleaseAdvance.Set();
+
+        var drained = CollectUntilMaterializationResult(fixture.Runtime);
+        Assert.Empty(drained.Activations);
+        Assert.False(fixture.World.ContainsChunk(coord));
+        Assert.Equal(0, fixture.Runtime.MaterializingCount);
+        Assert.Equal(0, fixture.Runtime.ActiveWorkerCount);
+    }
+
+    [Fact]
+    public void DistantRestoresContinueUnderStreamingPressureAfterLocalChunks()
+    {
+        using var fixture = CreateFixture();
         var near = new ChunkCoord(1, 0, 0);
         var far = new ChunkCoord(5, 0, 0);
         foreach (var coord in new[] { near, far })
@@ -65,49 +629,20 @@ public sealed class ChunkResidencyRuntimeTests
             desired: new HashSet<ChunkCoord> { near, far },
             presented: Array.Empty<ChunkCoord>());
 
-        var first = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(),
-            deferDistantWork: true);
-        Assert.Equal(near, Assert.Single(first.Activations).Coord);
-        Assert.False(fixture.World.ContainsChunk(far));
-        Assert.Equal(1, fixture.Runtime.PendingCount);
-
-        for (var frame = 2; frame < 8; frame++)
-            Assert.Empty(fixture.Runtime.DispatchMaterializationTasks(
-                GenerousBudget(), Array.Empty<ChunkCoord>(),
-                deferDistantWork: true).Activations);
-
-        var eighth = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(),
-            deferDistantWork: true);
-        Assert.Equal(far, Assert.Single(eighth.Activations).Coord);
+        // The local chunk retains first priority, but distant work is no
+        // longer held behind an eight-frame pressure throttle.
+        var restored = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.Equal(
+            new[] { near, far },
+            restored.Activations.Select(activation => activation.Coord));
         Assert.Equal(0, fixture.Runtime.PendingCount);
     }
 
     [Fact]
-    public void UnpressuredGenerationImmediatelyResumesDistantDispatch()
+    public void ArchivedRestoresWaitForFrameBudgetInsteadOfFixedResultCount()
     {
-        var fixture = CreateFixture();
-        var far = new ChunkCoord(5, 0, 0);
-        fixture.World.InsertChunk(far, new Chunk());
-        fixture.World.ArchiveChunk(far);
-        fixture.Runtime.SyncSelection(ChunkCoord.Zero,
-            horizontalRadius: 5, retentionRadius: 6,
-            desired: new HashSet<ChunkCoord> { far },
-            presented: Array.Empty<ChunkCoord>());
-
-        Assert.Empty(fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>(),
-            deferDistantWork: true).Activations);
-        var resumed = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.Equal(far, Assert.Single(resumed.Activations).Coord);
-    }
-
-    [Fact]
-    public void ArchivedRestoresAreBoundedPerFrameAndRemainPendingForNextFrame()
-    {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coords = new[]
         {
             new ChunkCoord(0, 0, 0),
@@ -130,30 +665,116 @@ public sealed class ChunkResidencyRuntimeTests
             desired: coords.ToHashSet(),
             presented: Array.Empty<ChunkCoord>());
 
-        var first = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.Equal(2, first.Activations.Count);
-        Assert.Equal(3, fixture.Runtime.PendingCount);
+        var expired = fixture.Runtime.DispatchMaterializationTasks(
+            new WorldFrameWorkBudget(0),
+            Array.Empty<ChunkCoord>());
+        Assert.Empty(expired.Activations);
+        Assert.Equal(5, fixture.Runtime.PendingCount);
+        Assert.Equal(0, fixture.World.ChunkCount);
 
-        var second = fixture.Runtime.DispatchMaterializationTasks(
+        var restored = fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.Equal(2, second.Activations.Count);
-        Assert.Equal(1, fixture.Runtime.PendingCount);
-
-        var third = fixture.Runtime.DispatchMaterializationTasks(
-            GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.Single(third.Activations);
+        Assert.Equal(5, restored.Activations.Count);
         Assert.Equal(0, fixture.Runtime.PendingCount);
         Assert.Equal(5, fixture.World.ChunkCount);
         Assert.All(
-            first.Activations.Concat(second.Activations).Concat(third.Activations),
+            restored.Activations,
             activation => Assert.Equal(ChunkActivationSource.Archive, activation.Source));
+    }
+
+    [Fact]
+    public void RestoringChunkWithResidentNeighborQueuesLightingFrontier()
+    {
+        using var fixture = CreateFixture();
+        var coord = ChunkCoord.Zero;
+        var neighbor = new ChunkCoord(1, 0, 0);
+        fixture.World.InsertChunk(coord, new Chunk());
+        fixture.World.InsertChunk(neighbor, new Chunk());
+        fixture.World.ArchiveChunk(coord);
+
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord, neighbor },
+            presented: Array.Empty<ChunkCoord>());
+        var update = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>());
+
+        Assert.Equal(
+            ChunkActivationSource.Archive,
+            Assert.Single(update.Activations).Source);
+        Assert.Equal(1, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.False(fixture.WorldUpdates.HasLightingWork);
+
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => fixture.Runtime.ActiveWorkerCount == 0,
+                TimeSpan.FromSeconds(5)),
+            "Restored chunk lighting frontier did not finish on its worker.");
+
+        fixture.Runtime.CollectMaterializationResults(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+
+        Assert.Equal(0, fixture.Runtime.ChunkLightingReconciliationCount);
+        Assert.True(fixture.WorldUpdates.HasLightingWork);
+    }
+
+    [Fact]
+    public void ResidentFluidActivationWakesSourceWhenAnInChunkFlowTargetIsOpen()
+    {
+        using var fixture = CreateFixture();
+        var coord = ChunkCoord.Zero;
+        var chunk = new Chunk();
+        chunk.SetFluid(8, 8, 8,
+            FluidCell.Source(fixture.Fluids.GetId("asteria:water")));
+        fixture.World.InsertChunk(coord, chunk);
+        fixture.World.ArchiveChunk(coord);
+        fixture.Runtime.SyncSelection(
+            coord, horizontalRadius: 1, retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        CompleteFluidActivations(fixture);
+
+        Assert.True(fixture.FluidUpdates.ScheduledCount > 0);
+    }
+
+    [Fact]
+    public void ResidentFluidActivationLeavesFullyBlockedSourceDormant()
+    {
+        using var fixture = CreateFixture();
+        var coord = ChunkCoord.Zero;
+        var chunk = new Chunk();
+        var stone = fixture.Blocks.GetId("asteria:stone");
+        chunk.SetFluid(8, 8, 8,
+            FluidCell.Source(fixture.Fluids.GetId("asteria:water")));
+        chunk.SetBlock(8, 7, 8, stone);
+        chunk.SetBlock(7, 8, 8, stone);
+        chunk.SetBlock(9, 8, 8, stone);
+        chunk.SetBlock(8, 8, 7, stone);
+        chunk.SetBlock(8, 8, 9, stone);
+        fixture.World.InsertChunk(coord, chunk);
+        fixture.World.ArchiveChunk(coord);
+        fixture.Runtime.SyncSelection(
+            coord, horizontalRadius: 1, retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        CompleteFluidActivations(fixture);
+
+        Assert.Equal(0, fixture.FluidUpdates.ScheduledCount);
     }
 
     [Fact]
     public void UnloadedSourceFluidFrontierWakesOnlyWhenTargetChunkArrives()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var source = ChunkCoord.Zero;
         var east = new ChunkCoord(1, 0, 0);
         var chunk = new Chunk();
@@ -194,7 +815,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void FluidActivationDelayCacheInvalidatesWhenTickRateChanges()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = ChunkCoord.Zero;
         var position = new WorldVoxelCoord(8, 8, 8);
         var chunk = new Chunk();
@@ -242,7 +863,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void FluidActivationIsBoundedPerFrameAndEventuallyCompletesEveryChunk()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var water = fixture.Fluids.GetId("asteria:water");
         var coords = new[]
         {
@@ -319,7 +940,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void DormantFluidTicksReactivateInBoundedBatches()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var coord = ChunkCoord.Zero;
         var water = fixture.Fluids.GetId("asteria:water");
         for (var index = 0; index < 512; index++)
@@ -355,9 +976,53 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void InitialLightingCompletesOnMaterializationWorkerBeforeChunkPublication()
+    {
+        using var provider = new SignalingChunkProvider();
+        using var fixture = CreateFixture(provider);
+        var coord = ChunkCoord.Zero;
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(provider.Materialized.Wait(TimeSpan.FromSeconds(10)));
+
+        // The worker owns generation and initial lighting. A completed chunk
+        // is not published to the world until the main thread collects it.
+        Assert.Equal(1, fixture.Runtime.MaterializingCount);
+        Assert.False(fixture.World.ContainsChunk(coord));
+
+        ChunkResidencyUpdate? completed = null;
+        for (var attempt = 0;
+             attempt < 2000 && completed is null;
+             attempt++)
+        {
+            var update = fixture.Runtime.CollectMaterializationResults(
+                GenerousBudget(), Array.Empty<ChunkCoord>());
+            if (update.Activations.Count > 0)
+                completed = update;
+            else
+                Thread.Sleep(1);
+        }
+
+        Assert.NotNull(completed);
+        Assert.Single(completed!.Activations);
+        Assert.Equal(0, fixture.Runtime.MaterializingCount);
+        Assert.True(fixture.World.TryGetChunk(coord, out var resident));
+        Assert.Equal(
+            VoxelLight.MaxLevel,
+            resident.GetLight(0, 0, 0).Sky);
+    }
+
+    [Fact]
     public void PresentationDoesNotWaitForUnmaterializedNeighbor()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var center = ChunkCoord.Zero;
         var neighbor = new ChunkCoord(1, 0, 0);
 
@@ -382,7 +1047,7 @@ public sealed class ChunkResidencyRuntimeTests
     [Fact]
     public void RetirementArchivesDirtyChunkAndClearsResidency()
     {
-        var fixture = CreateFixture();
+        using var fixture = CreateFixture();
         var origin = ChunkCoord.Zero;
 
         fixture.World.InsertChunk(
@@ -441,7 +1106,9 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(0, report.PendingChunks);
     }
 
-    private static RuntimeFixture CreateFixture(IChunkProvider? chunkProvider = null)
+    private static RuntimeFixture CreateFixture(
+        IChunkProvider? chunkProvider = null,
+        int maxConcurrentWorkers = 2)
     {
         var blocks =
             new BlockRegistry(
@@ -450,6 +1117,11 @@ public sealed class ChunkResidencyRuntimeTests
                 new BlockDefinition("asteria:dirt"),
                 new BlockDefinition("asteria:stone"),
                 new BlockDefinition("asteria:sand"),
+                new BlockDefinition("asteria:falling_sand",
+                    tags: [BlockPhysicsCapabilities.Gravity]),
+                new BlockDefinition("asteria:wall_plant",
+                    tags: [BlockPhysicsCapabilities.SupportBelow],
+                    isCollidable: false),
                 new BlockDefinition("asteria:gravel"),
                 new BlockDefinition("asteria:clay"),
                 new BlockDefinition("asteria:mud"),
@@ -510,9 +1182,7 @@ public sealed class ChunkResidencyRuntimeTests
                 fluidRevisions,
                 ticks,
                 new ChunkResidencySettings(
-                    maxMaterializationsInFlight: 2,
-                    maxDispatchesPerFrame: 2,
-                    maxResultsPerFrame: 2,
+                    maxConcurrentWorkers,
                     maxEvictionsPerFrame: 2,
                     gameRules: rules));
 
@@ -522,8 +1192,260 @@ public sealed class ChunkResidencyRuntimeTests
             fluids,
             worldUpdates,
             fluidUpdates,
+            physicsUpdates,
+            physics,
             runtime,
             rules);
+    }
+
+    private static ChunkResidencyUpdate CollectUntilMaterializationResult(
+        ChunkResidencyRuntime runtime)
+    {
+        ChunkResidencyUpdate? observed = null;
+        var completed = SpinWait.SpinUntil(
+            () =>
+            {
+                var update = runtime.CollectMaterializationResults(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                if (update.MaterializationStageTimings.Count == 0 &&
+                    update.Activations.Count == 0 &&
+                    update.Failures.Count == 0 &&
+                    update.CancelledTasks == 0)
+                    return false;
+
+                observed = update;
+                return true;
+            },
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(completed, "Materialization worker did not finish its chunk.");
+        return observed!;
+    }
+
+    private sealed class StagedChunkProvider : IIncrementalChunkProvider
+    {
+        public Chunk Materialize(ChunkCoord coord)
+        {
+            using var job = BeginMaterialization(coord);
+            while (!job.IsComplete)
+                job.Advance();
+            return job.Result ??
+                throw new InvalidOperationException(
+                    "Completed staged provider returned no chunk.");
+        }
+
+        public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+            new StagedChunkJob(coord);
+
+        private sealed class StagedChunkJob(ChunkCoord coord)
+            : IChunkMaterializationJob
+        {
+            public ChunkCoord Coord { get; } = coord;
+            public ChunkMaterializationStage Stage { get; private set; } =
+                ChunkMaterializationStage.TerrainSetup;
+            public bool IsComplete => Stage == ChunkMaterializationStage.Complete;
+            public Chunk? Result { get; private set; }
+
+            public void Advance()
+            {
+                if (IsComplete)
+                    throw new InvalidOperationException(
+                        "Completed staged provider cannot advance.");
+
+                // Force separate stage costs and verify the worker completes
+                // the full job before the partial chunk can be published.
+                Thread.Sleep(8);
+                switch (Stage)
+                {
+                    case ChunkMaterializationStage.TerrainSetup:
+                        Stage = ChunkMaterializationStage.TerrainLayer;
+                        break;
+                    case ChunkMaterializationStage.TerrainLayer:
+                        Stage = ChunkMaterializationStage.SurfaceDecorations;
+                        break;
+                    case ChunkMaterializationStage.SurfaceDecorations:
+                        Result = new Chunk();
+                        Stage = ChunkMaterializationStage.Complete;
+                        break;
+                    default:
+                        throw new InvalidOperationException(
+                            $"Unexpected staged provider stage: {Stage}.");
+                }
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+    }
+
+    private sealed class BlockingChunkProvider : IIncrementalChunkProvider, IDisposable
+    {
+        public ManualResetEventSlim AdvanceStarted { get; } = new(false);
+        public ManualResetEventSlim ReleaseAdvance { get; } = new(false);
+
+        public Chunk Materialize(ChunkCoord coord)
+        {
+            using var job = BeginMaterialization(coord);
+            while (!job.IsComplete)
+                job.Advance();
+            return job.Result ??
+                throw new InvalidOperationException(
+                    "Completed blocked provider returned no chunk.");
+        }
+
+        public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+            new BlockingChunkJob(this, coord);
+
+        public void Dispose()
+        {
+            ReleaseAdvance.Set();
+            AdvanceStarted.Dispose();
+            ReleaseAdvance.Dispose();
+        }
+
+        private sealed class BlockingChunkJob(
+            BlockingChunkProvider provider,
+            ChunkCoord coord) : IChunkMaterializationJob
+        {
+            private bool _waited;
+
+            public ChunkCoord Coord { get; } = coord;
+            public ChunkMaterializationStage Stage { get; private set; } =
+                ChunkMaterializationStage.TerrainSetup;
+            public bool IsComplete => Stage == ChunkMaterializationStage.Complete;
+            public Chunk? Result { get; private set; }
+
+            public void Advance()
+            {
+                if (IsComplete)
+                    throw new InvalidOperationException(
+                        "Completed blocked provider cannot advance.");
+
+                if (!_waited)
+                {
+                    _waited = true;
+                    provider.AdvanceStarted.Set();
+                    provider.ReleaseAdvance.Wait();
+                }
+
+                if (Stage == ChunkMaterializationStage.TerrainSetup)
+                {
+                    Stage = ChunkMaterializationStage.TerrainLayer;
+                    return;
+                }
+
+                Result = new Chunk();
+                Stage = ChunkMaterializationStage.Complete;
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+    }
+
+    private sealed class BlockingDirectionalFacePaletteProvider :
+        IIncrementalChunkProvider,
+        IChunkDirectionalFacePaletteUpdater,
+        IDisposable
+    {
+        private int _materializationStartCount;
+
+        public ManualResetEventSlim ReconcileStarted { get; } = new(false);
+        public ManualResetEventSlim ReleaseReconciliation { get; } = new(false);
+        public ManualResetEventSlim TwoMaterializationWorkersStarted { get; } = new(false);
+        public ManualResetEventSlim ReleaseMaterialization { get; } = new(false);
+        public int ApplyAttempts { get; private set; }
+
+        public Chunk Materialize(ChunkCoord coord) => new();
+
+        public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+            new BlockingMaterializationJob(this, coord);
+
+        private void WaitForMaterializationRelease()
+        {
+            if (Interlocked.Increment(ref _materializationStartCount) == 2)
+                TwoMaterializationWorkersStarted.Set();
+            ReleaseMaterialization.Wait();
+        }
+
+        private sealed class BlockingMaterializationJob(
+            BlockingDirectionalFacePaletteProvider provider,
+            ChunkCoord coord) : IChunkMaterializationJob
+        {
+            private bool _waited;
+
+            public ChunkCoord Coord { get; } = coord;
+            public ChunkMaterializationStage Stage { get; private set; } =
+                ChunkMaterializationStage.TerrainSetup;
+            public bool IsComplete => Stage == ChunkMaterializationStage.Complete;
+            public Chunk? Result { get; private set; }
+
+            public void Advance()
+            {
+                if (IsComplete)
+                    throw new InvalidOperationException(
+                        "Completed blocked materialization cannot advance.");
+                if (!_waited)
+                {
+                    _waited = true;
+                    provider.WaitForMaterializationRelease();
+                }
+                Result = new Chunk();
+                Stage = ChunkMaterializationStage.Complete;
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+
+        public DirectionalFacePaletteReconciliationSnapshot CaptureChunkArrivalSnapshot(
+            VoxelWorld world, ChunkCoord arriving)
+        {
+            var captured = world.CaptureDirectionalFaceWorkerSnapshot([arriving]);
+            return new DirectionalFacePaletteReconciliationSnapshot(
+                arriving, captured.World, captured.Dependencies);
+        }
+
+        public DirectionalFacePaletteReconciliationResult ReconcileChunkArrival(
+            DirectionalFacePaletteReconciliationSnapshot snapshot)
+        {
+            ReconcileStarted.Set();
+            ReleaseReconciliation.Wait();
+            return new DirectionalFacePaletteReconciliationResult(
+                snapshot.Arriving,
+                snapshot.WorkerWorld,
+                snapshot.Dependencies,
+                Array.Empty<ChunkCoord>(),
+                Array.Empty<WorldVoxelCoord>());
+        }
+
+        public IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
+            VoxelWorld world, ChunkCoord arriving) =>
+            throw new NotSupportedException(
+                "Runtime must schedule directional reconciliation asynchronously.");
+
+        public bool TryApplyChunkArrivalReconciliation(
+            VoxelWorld world,
+            DirectionalFacePaletteReconciliationResult result,
+            out IReadOnlyList<WorldVoxelCoord> visualChanges)
+        {
+            ApplyAttempts++;
+            visualChanges = result.VisualChanges;
+            return result.Dependencies.IsCurrent(world);
+        }
+
+        public void Dispose()
+        {
+            ReleaseReconciliation.Set();
+            ReleaseMaterialization.Set();
+            ReconcileStarted.Dispose();
+            ReleaseReconciliation.Dispose();
+            TwoMaterializationWorkersStarted.Dispose();
+            ReleaseMaterialization.Dispose();
+        }
     }
 
     private sealed class EmptyChunkProvider : IChunkProvider
@@ -553,6 +1475,25 @@ public sealed class ChunkResidencyRuntimeTests
         FluidRegistry Fluids,
         WorldUpdateQueue WorldUpdates,
         FluidUpdateQueue FluidUpdates,
+        BlockPhysicsUpdateQueue PhysicsUpdates,
+        BlockPhysicsRuntime Physics,
         ChunkResidencyRuntime Runtime,
-        WorldGameRules Rules);
+        WorldGameRules Rules) : IDisposable
+    {
+        public void Dispose()
+        {
+            Runtime.BeginRetirement();
+            var drained = SpinWait.SpinUntil(
+                () =>
+                {
+                    Runtime.CollectMaterializationResults(
+                        GenerousBudget(), Array.Empty<ChunkCoord>());
+                    return Runtime.IsQuiescent;
+                },
+                TimeSpan.FromSeconds(5));
+            if (!drained)
+                throw new InvalidOperationException(
+                    "Chunk residency fixture did not retire its workers.");
+        }
+    }
 }

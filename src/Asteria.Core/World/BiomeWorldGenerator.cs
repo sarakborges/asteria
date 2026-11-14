@@ -7,8 +7,9 @@ namespace Asteria.Core.World;
 /// materials, decorations and chunk materialization own their own decisions.
 /// </summary>
 public sealed class BiomeWorldGenerator :
-    IChunkProvider,
-    IChunkSurfaceRangeProvider
+    IIncrementalChunkProvider,
+    IChunkSurfaceRangeProvider,
+    IChunkDirectionalFacePaletteUpdater
 {
     private static readonly FluidRegistry EmptyFluids =
         new(Array.Empty<FluidDefinition>());
@@ -23,6 +24,12 @@ public sealed class BiomeWorldGenerator :
     private readonly SurfaceChunkMaterializer _materializer;
     private readonly SurfaceStructureField _surfaceStructures;
     private readonly VolumeBiomeField _volumeBiomes;
+    private readonly VolumeStructureField _volumeStructures;
+
+    // Exposes authoritative worldgen fields to engine-agnostic diagnostics/tests.
+    internal SurfaceTerrainField Terrain => _terrain;
+
+    internal VolumeStructureField VolumeStructures => _volumeStructures;
 
     public BiomeWorldGenerator(
         ulong seed,
@@ -231,7 +238,7 @@ public sealed class BiomeWorldGenerator :
                 fluids: fluids,
                 layers: layers,
                 objects: objects);
-        var volumeStructures = new VolumeStructureField(
+        _volumeStructures = new VolumeStructureField(
             seed, volumeDefinitions, structures, blocks,
             _terrain, _volumeBiomes, materials,
             enabled: generation.SpawnStructures &&
@@ -259,7 +266,7 @@ public sealed class BiomeWorldGenerator :
                     ? _volumeBiomes : null,
                 _voidSpawnPlatform,
                 caveSpikes,
-                volumeStructures,
+                _volumeStructures,
                 veins);
         Tints =
             new BiomeTintField(
@@ -429,6 +436,35 @@ public sealed class BiomeWorldGenerator :
 
     public Chunk Materialize(ChunkCoord coord) =>
         _materializer.Materialize(coord);
+
+    public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
+        _materializer.BeginMaterialization(coord);
+
+    public IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrival(
+        VoxelWorld world, ChunkCoord arriving) =>
+        _materializer.ReconcileChunkArrival(world, arriving);
+
+    public DirectionalFacePaletteReconciliationSnapshot CaptureChunkArrivalSnapshot(
+        VoxelWorld world, ChunkCoord arriving) =>
+        _materializer.CaptureChunkArrivalSnapshot(world, arriving);
+
+    public DirectionalFacePaletteReconciliationResult ReconcileChunkArrival(
+        DirectionalFacePaletteReconciliationSnapshot snapshot) =>
+        _materializer.ReconcileChunkArrival(snapshot);
+
+    public bool TryApplyChunkArrivalReconciliation(
+        VoxelWorld world,
+        DirectionalFacePaletteReconciliationResult result,
+        out IReadOnlyList<WorldVoxelCoord> visualChanges) =>
+        _materializer.TryApplyChunkArrivalReconciliation(
+            world, result, out visualChanges);
+
+    internal IReadOnlyList<WorldVoxelCoord> ReconcileChunkArrivalWithDiagnostics(
+        VoxelWorld world,
+        ChunkCoord arriving,
+        Action<DirectionalFacePaletteReapplicationDiagnostic> diagnostic) =>
+        _materializer.ReconcileChunkArrivalWithDiagnostics(
+            world, arriving, diagnostic);
 
     public int SurfaceHeight(int worldX, int worldZ) =>
         _voidSpawnPlatform?.SurfaceHeight(worldX, worldZ) ??

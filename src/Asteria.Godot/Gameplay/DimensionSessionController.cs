@@ -24,13 +24,14 @@ public sealed class DimensionSessionController
     private readonly Func<
         DimensionSessionState,
         DimensionRuntimeSession> _factory;
+    private readonly WorldWorkerPool _worldWorkerPool;
 
     private DimensionId? _target;
     private NVector3? _sourcePosition;
     private NVector3? _destinationPosition;
     private bool _exactDestination;
     private CheckpointRequest? _checkpoint;
-    private Task<ulong>? _checkpointPublication;
+    private WorldWorkerOperation<ulong>? _checkpointPublication;
     private DimensionSessionArchiveReport? _checkpointArchive;
 
     private sealed record CheckpointRequest(
@@ -44,7 +45,8 @@ public sealed class DimensionSessionController
         DimensionSessionStateStore states,
         Func<
             DimensionSessionState,
-            DimensionRuntimeSession> factory)
+            DimensionRuntimeSession> factory,
+        WorldWorkerPool worldWorkerPool)
     {
         _states =
             states ??
@@ -54,6 +56,8 @@ public sealed class DimensionSessionController
             factory ??
             throw new ArgumentNullException(
                 nameof(factory));
+        _worldWorkerPool = worldWorkerPool ??
+            throw new ArgumentNullException(nameof(worldWorkerPool));
     }
 
     public DimensionRuntimeSession Active { get; private set; } =
@@ -81,6 +85,7 @@ public sealed class DimensionSessionController
             _factory(
                 _states.GetOrCreate(
                     dimension));
+        Active.BeginGeneratedSpawnResolution();
     }
 
     /// <summary>
@@ -160,7 +165,8 @@ public sealed class DimensionSessionController
     /// </summary>
     public bool RequestRelocation(
         NVector3 sourcePosition,
-        NVector3 destinationPosition)
+        NVector3 destinationPosition,
+        bool exactDestination = false)
     {
         if (Active is null)
             throw new InvalidOperationException(
@@ -175,6 +181,7 @@ public sealed class DimensionSessionController
 
         _sourcePosition = sourcePosition;
         _destinationPosition = destinationPosition;
+        _exactDestination = exactDestination;
         _target = Active.Dimension.Id;
         Active.BeginRetirement();
         return true;
@@ -197,19 +204,15 @@ public sealed class DimensionSessionController
         // this task finishes (even on a failed save).
         if (_checkpointPublication is { } publication)
         {
-            if (!publication.IsCompleted)
+            if (!publication.TryGetCompletion(out var result))
                 return null;
 
             ulong? generation = null;
             string? error = null;
-            try
-            {
-                generation = publication.GetAwaiter().GetResult();
-            }
-            catch (Exception exception)
-            {
-                error = exception.Message;
-            }
+            if (result.Error is not null)
+                error = result.Error.Message;
+            else
+                generation = result.Result;
 
             var retiredArchive = _checkpointArchive ??
                 throw new InvalidOperationException("Checkpoint retirement archive is missing.");
@@ -220,6 +223,8 @@ public sealed class DimensionSessionController
             // Success leaves the world. Failure restores the archived
             // session so gameplay and explicit retry remain possible.
             Active = leaving ? null! : _factory(_states.GetOrCreate(target));
+            if (!leaving)
+                Active.BeginGeneratedSpawnResolution();
             _target = null;
             _sourcePosition = null;
             _destinationPosition = null;
@@ -254,20 +259,27 @@ public sealed class DimensionSessionController
             // Capture runs only after retirement has finished and before
             // any new session is published. Only a failed save restores
             // the old Sphere; success returns to the menu.
-            _checkpointPublication = Task.Run(() =>
+            if (!_worldWorkerPool.TrySchedule(
+                    _ =>
+                    {
+                        var snapshot = GameplaySessionSaveCodec.Capture(
+                            _states, checkpoint.Blocks, checkpoint.Fluids,
+                            checkpoint.Dyes, checkpoint.Layers,
+                            activeSphere: previous);
+                        var generation = SessionSaveStorage.Publish(
+                            checkpoint.Directory, snapshot,
+                            checkpoint.Blocks, checkpoint.Fluids,
+                            checkpoint.Dyes, checkpoint.Layers);
+                        WorldSaveManifestPublisher.Publish(
+                            checkpoint.Directory, snapshot, generation);
+                        return generation;
+                    },
+                    CancellationToken.None,
+                    out _checkpointPublication))
             {
-                var snapshot = GameplaySessionSaveCodec.Capture(
-                    _states, checkpoint.Blocks, checkpoint.Fluids,
-                    checkpoint.Dyes, checkpoint.Layers,
-                    activeSphere: previous);
-                var generation = SessionSaveStorage.Publish(
-                    checkpoint.Directory, snapshot,
-                    checkpoint.Blocks, checkpoint.Fluids,
-                    checkpoint.Dyes, checkpoint.Layers);
-                WorldSaveManifestPublisher.Publish(
-                    checkpoint.Directory, snapshot, generation);
-                return generation;
-            });
+                throw new InvalidOperationException(
+                    "The shared world executor rejected checkpoint publication after the dimension drained.");
+            }
             return null;
         }
 
@@ -281,7 +293,11 @@ public sealed class DimensionSessionController
             if (_exactDestination)
                 Active.PrepareExactPortalDestination(destination);
             else
-                Active.PrepareGeneratedDestination(destination);
+                Active.BeginGeneratedDestinationResolution(destination);
+        }
+        else
+        {
+            Active.BeginGeneratedSpawnResolution();
         }
 
         _target = null;

@@ -182,6 +182,154 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void PendingColumnDispatchGroupsVerticalSectionsInPriorityOrder()
+    {
+        var state = new ChunkStreamingState();
+        var lower = new ChunkCoord(1, 0, 0);
+        var upper = new ChunkCoord(1, 1, 0);
+        var otherColumn = new ChunkCoord(0, 0, 1);
+        var desired = new HashSet<ChunkCoord>
+        {
+            upper,
+            otherColumn,
+            lower,
+        };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var first = state.PopPendingColumnEntryByPriority();
+
+        Assert.NotNull(first);
+        Assert.Equal(new ChunkColumnCoord(1, 0), first.Value.Column);
+        Assert.Equal(
+            new[] { lower, upper },
+            first.Value.Sections.Select(section => section.Coord));
+        Assert.Equal(1, state.PendingCount);
+        Assert.Equal(1, state.PendingColumnCount);
+
+        var second = state.PopPendingColumnEntryByPriority();
+
+        Assert.NotNull(second);
+        Assert.Equal(new ChunkColumnCoord(0, 1), second.Value.Column);
+        Assert.Equal(
+            new[] { otherColumn },
+            second.Value.Sections.Select(section => section.Coord));
+        Assert.Equal(0, state.PendingCount);
+        Assert.Equal(0, state.PendingColumnCount);
+    }
+
+    [Fact]
+    public void PendingColumnDispatchCanBeBoundedWithoutSplittingColumnIdentity()
+    {
+        var state = new ChunkStreamingState();
+        var lower = new ChunkCoord(1, 0, 0);
+        var upper = new ChunkCoord(1, 1, 0);
+        var column = new ChunkColumnCoord(1, 0);
+        var desired = new HashSet<ChunkCoord> { upper, lower };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var first = state.PopPendingColumnEntryByPriority(maximumSections: 1);
+
+        Assert.NotNull(first);
+        Assert.Equal(column, first.Value.Column);
+        Assert.Single(first.Value.Sections);
+        Assert.Equal(1, state.PendingCount);
+        Assert.Equal(1, state.PendingColumnCount);
+
+        var second = state.PopPendingColumnEntryByPriority(maximumSections: 1);
+
+        Assert.NotNull(second);
+        Assert.Equal(column, second.Value.Column);
+        Assert.Single(second.Value.Sections);
+        Assert.NotEqual(
+            first.Value.Sections[0].Coord,
+            second.Value.Sections[0].Coord);
+        Assert.Equal(0, state.PendingCount);
+        Assert.Equal(0, state.PendingColumnCount);
+    }
+
+    [Fact]
+    public void PendingColumnDispatchRejectsNonPositiveSectionBatchSize()
+    {
+        var state = new ChunkStreamingState();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => state.PopPendingColumnEntryByPriority(maximumSections: 0));
+    }
+
+    [Fact]
+    public void PendingColumnPriorityUpdatesWhenMovementDirectionChanges()
+    {
+        var state = new ChunkStreamingState();
+        var forward = new ChunkCoord(4, 0, 0);
+        var behind = new ChunkCoord(-2, 0, 0);
+        var desired = new HashSet<ChunkCoord> { forward, behind };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 5,
+            retentionRadius: 6,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        state.RebuildSelection(
+            new ChunkCoord(1, 0, 0),
+            horizontalRadius: 5,
+            retentionRadius: 6,
+            desired);
+
+        Assert.Equal(forward, state.PopPendingByPriority());
+        Assert.Equal(behind, state.PopPendingByPriority());
+    }
+
+    [Fact]
+    public void PendingDispatchPreservesOriginalQueueTimestamp()
+    {
+        var state = new ChunkStreamingState();
+        var coord = new ChunkCoord(1, 0, 0);
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired: new HashSet<ChunkCoord> { coord });
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var first = state.PopPendingEntryByPriority();
+        Assert.NotNull(first);
+        Assert.Equal(coord, first.Value.Coord);
+        Assert.InRange(
+            first.Value.EnqueuedTimestamp,
+            1L,
+            System.Diagnostics.Stopwatch.GetTimestamp());
+
+        state.EnqueuePending(coord, first.Value.EnqueuedTimestamp);
+        var requeued = state.PopPendingEntryByPriority();
+
+        Assert.NotNull(requeued);
+        Assert.Equal(first.Value.EnqueuedTimestamp, requeued.Value.EnqueuedTimestamp);
+        Assert.Equal(0, state.PendingCount);
+    }
+
+    [Fact]
     public void BootstrapKeepsKnownSurfaceChunksWithinNewRadius()
     {
         var state = new ChunkStreamingState();
@@ -221,9 +369,10 @@ public sealed class ChunkStreamingStateTests
     {
         var provider =
             new BlockingSurfaceRangeProvider();
+        using var workerPool = new WorldWorkerPool(workerCount: 1);
         var runtime =
             new ChunkStreamingSelectionRuntime(
-                provider);
+                provider, workerPool);
         var callerThread =
             Environment.CurrentManagedThreadId;
 
@@ -368,22 +517,26 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
-    public void LoadPriorityFavorsMovementDirectionAfterDistance()
+    public void LoadPriorityPrefersLocalChunksThenTheForwardPrefetchCorridor()
     {
         var center = ChunkCoord.Zero;
-        var movement =
-            new ChunkMovementDirection(1, 0);
+        var movement = new ChunkMovementDirection(1, 0);
 
-        var forward = ChunkStreamingState.Priority(
-            new ChunkCoord(2, 0, 0),
-            center,
-            movement);
-        var backward = ChunkStreamingState.Priority(
-            new ChunkCoord(-2, 0, 0),
-            center,
-            movement);
+        var localBehind = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(-1, 0, 0), center, movement);
+        var forward = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(4, 0, 0), center, movement);
+        var lateral = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(0, 0, 3), center, movement);
+        var behind = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(-4, 0, 0), center, movement);
+        var outsideCorridor = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(3, 0, 4), center, movement);
 
-        Assert.True(forward.CompareTo(backward) < 0);
+        Assert.True(localBehind.CompareTo(forward) < 0);
+        Assert.True(forward.CompareTo(lateral) < 0);
+        Assert.True(lateral.CompareTo(behind) < 0);
+        Assert.True(forward.CompareTo(outsideCorridor) < 0);
     }
 
     [Fact]
@@ -624,5 +777,22 @@ public sealed class ChunkStreamingStateTests
             int chunkX,
             int chunkZ) =>
             range;
+    }
+
+
+    [Fact]
+    public void LightingInterestIncludesDesiredColumnsAndTheirHorizontalNeighborColumns()
+    {
+        var state = new ChunkStreamingState();
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { ChunkCoord.Zero });
+
+        Assert.True(state.IsLightingRelevant(ChunkCoord.Zero));
+        Assert.True(state.IsLightingRelevant(new ChunkCoord(1, 0, 0)));
+        Assert.True(state.IsLightingRelevant(new ChunkCoord(0, 100, 0)));
+        Assert.False(state.IsLightingRelevant(new ChunkCoord(2, 0, 0)));
     }
 }

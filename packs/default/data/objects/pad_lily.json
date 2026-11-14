@@ -1,13 +1,13 @@
 {
   "id": "asteria:pad_lily",
   "category": "foliage",
-  "icon": "textures/objects/pad_lily.png",
+  "icon": "textures/objects/lily_pad.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "extrudedSprite",
-    "texture": "textures/objects/pad_lily.png",
+    "texture": "textures/objects/lily_pad.png",
     "size": [
       0.89,
       0.89

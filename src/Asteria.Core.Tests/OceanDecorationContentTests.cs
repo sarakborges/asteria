@@ -6,7 +6,7 @@ namespace Asteria.Core.Tests;
 public sealed class OceanDecorationContentTests
 {
     private static readonly string[] Names =
-        ["seagrass", "kelp", "anemone_sea", "seashell", "starfish"];
+        ["seagrass", "kelp", "seashell", "starfish"];
 
     [Fact]
     public void OceanObjectsUseSubmergedHabitatRulesAndExistingSpriteModels()
@@ -30,7 +30,6 @@ public sealed class OceanDecorationContentTests
             {
                 "seagrass" => 0.0675f,
                 "kelp" => 0.035f,
-                "anemone_sea" => 0.025f,
                 "seashell" => 0.03f,
                 "starfish" => 0.01875f,
                 _ => throw new InvalidOperationException(),
@@ -48,23 +47,12 @@ public sealed class OceanDecorationContentTests
                 ? ObjectVisualKind.ExtrudedSprite
                 : ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
             Assert.True(definition.Supports(BlockFace.Top));
-            Assert.Equal(name is not "anemone_sea", definition.DropSelf);
+            Assert.True(definition.DropSelf);
             Assert.Equal($"textures/objects/{name}.png", definition.Visual.Texture);
-            if (name == "anemone_sea")
-            {
-                Assert.Equal(.8f, definition.Visual.Width);
-                Assert.Equal(.88f, definition.Visual.Height);
-                Assert.Equal(4, definition.Visual.Planes);
-                Assert.Equal(.5f, definition.Visual.AlphaCutoff);
-                Assert.False(definition.WindSway);
-                Assert.False(definition.Unlit);
-                Assert.Equal(System.Numerics.Vector2.Zero, definition.PositionJitter);
-            }
+
         }
         var grass = Assert.Single(ocean.Decorations, d => d.Block == "asteria:seagrass");
-        var anemone = Assert.Single(ocean.Decorations, d => d.Block == "asteria:anemone_sea");
         Assert.True(grass.HabitatWeights!.For("sand_flats") > grass.HabitatWeights.For("rocky_reefs"));
-        Assert.True(anemone.HabitatWeights!.For("rocky_reefs") > anemone.HabitatWeights.For("sand_flats"));
     }
 
     [Fact]

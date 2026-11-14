@@ -96,30 +96,6 @@
       }
     },
     {
-      "object": "asteria:sagebrush",
-      "chance": 0.0231,
-      "surfaceBlocks": [
-        "asteria:dirt",
-        "asteria:gravel"
-      ],
-      "habitatWeights": {
-        "valley_floor": 2.2,
-        "rubble_slopes": 0.18,
-        "high_rims": 1.45
-      },
-      "cluster": {
-        "scale": 34,
-        "threshold": -0.23,
-        "octaves": 4,
-        "transitionWidth": 0.17
-      },
-      "conditions": {
-        "minY": 60,
-        "maxY": 151,
-        "maxSlope": 3
-      }
-    },
-    {
       "block": "asteria:tuft_dry",
       "chance": 0.0275,
       "surfaceBlocks": [
@@ -141,31 +117,6 @@
         "minY": 58,
         "maxY": 125,
         "maxSlope": 2
-      }
-    },
-    {
-      "block": "asteria:roots_exposed",
-      "chance": 0.0138,
-      "surfaceBlocks": [
-        "asteria:dirt",
-        "asteria:gravel",
-        "asteria:cobble_stone"
-      ],
-      "habitatWeights": {
-        "valley_floor": 1.5,
-        "rubble_slopes": 0.65,
-        "high_rims": 0.9
-      },
-      "cluster": {
-        "scale": 27,
-        "threshold": -0.17,
-        "octaves": 3,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 60,
-        "maxY": 148,
-        "maxSlope": 4
       }
     },
     {
@@ -191,30 +142,6 @@
         "minY": 68,
         "maxY": 180,
         "maxSlope": 5
-      }
-    },
-    {
-      "block": "asteria:rosette_cliff",
-      "supportSurface": "wall",
-      "chance": 0.1,
-      "surfaceBlocks": [
-        "asteria:stone",
-        "asteria:cobble_stone"
-      ],
-      "cluster": {
-        "scale": 39,
-        "threshold": -0.17,
-        "octaves": 4,
-        "transitionWidth": 0.15
-      },
-      "conditions": {
-        "minY": 65,
-        "maxY": 167
-      },
-      "habitatWeights": {
-        "valley_floor": 0.2,
-        "rubble_slopes": 2.4,
-        "high_rims": 0.65
       }
     },
     {
