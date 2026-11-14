@@ -405,6 +405,23 @@ public sealed class ChunkDistanceTracker
 }
 
 /// <summary>
+/// Result delivered by one of a chunk holder's asynchronous status futures.
+/// Failed promotions carry a reason and are completed as values, allowing
+/// callers to observe demotion without faulted continuation chains.
+/// </summary>
+public readonly record struct ChunkHolderFutureResult(
+    bool Succeeded,
+    ChunkFullStatus Status,
+    string? FailureReason)
+{
+    public static ChunkHolderFutureResult Success(ChunkFullStatus status) =>
+        new(true, status, null);
+
+    public static ChunkHolderFutureResult Unloaded(string reason) =>
+        new(false, ChunkFullStatus.Inaccessible, reason);
+}
+
+/// <summary>
 /// One horizontal holder created by the loading graph. Its ticket level is a
 /// ceiling on generation status, while its three futures represent actual
 /// promotion to FULL, BLOCK_TICKING and ENTITY_TICKING.
