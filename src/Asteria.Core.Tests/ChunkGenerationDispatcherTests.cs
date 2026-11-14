@@ -364,8 +364,9 @@ public sealed class ChunkGenerationDispatcherTests
     {
         private int _activeAdvances;
         private int _maximumConcurrentAdvances;
+        private int _advanceCount;
 
-        public int AdvanceCount { get; private set; }
+        public int AdvanceCount => Volatile.Read(ref _advanceCount);
 
         public int MaximumConcurrentAdvances =>
             Volatile.Read(ref _maximumConcurrentAdvances);
@@ -387,7 +388,7 @@ public sealed class ChunkGenerationDispatcherTests
                     break;
             }
 
-            Interlocked.Increment(ref AdvanceCount);
+            Interlocked.Increment(ref _advanceCount);
             ThreadIds.Enqueue(Environment.CurrentManagedThreadId);
             started?.Set();
             try
