@@ -251,6 +251,34 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void DependencyClaimsRetainHolderStatusTargetsNotImmutableHaloColumns()
+    {
+        var manager = new ChunkDistanceManager();
+        var target = new ChunkColumnCoord(12, -7);
+        var neighbor = new ChunkColumnCoord(13, -7);
+
+        Assert.True(manager.AddPlayerLoadingTicket(target));
+        Assert.Equal(1, manager.HolderCount);
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(target));
+        var lightFuture = manager.GetGenerationFuture(
+            target, ChunkGenerationStatus.Light);
+        Assert.False(lightFuture.IsCompleted);
+
+        using (manager.AcquireDependencyClaims(
+                   new ChunkCoord(target.X, 4, target.Z),
+                   AsteriaChunkGenerationPlan.FullSectionEnvelope))
+        {
+            Assert.Equal(1, holder.DependencyClaimCount);
+            Assert.Null(manager.GetHolder(neighbor));
+            Assert.Equal(1, manager.HolderCount);
+        }
+
+        Assert.Equal(0, holder.DependencyClaimCount);
+        Assert.Null(manager.GetHolder(neighbor));
+        Assert.Equal(1, manager.HolderCount);
+    }
+
+    [Fact]
     public void RequiredStatusRejectsNegativeHorizontalDistance()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
