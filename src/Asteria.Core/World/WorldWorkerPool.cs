@@ -21,6 +21,13 @@ public sealed class WorldWorkerOperation<TResult>
     private WorldWorkerCompletion<TResult> _completion;
     private int _state;
 
+    internal WorldWorkerOperation(long enqueueSequence)
+    {
+        EnqueueSequence = enqueueSequence;
+    }
+
+    internal long EnqueueSequence { get; }
+
     public bool IsPending => Volatile.Read(ref _state) == 0;
 
     public bool IsRunning => Volatile.Read(ref _state) == 1;
@@ -64,7 +71,8 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
     public const int DefaultPriority = BackgroundWorldPriority;
 
     private readonly object _queueSync = new();
-    private readonly PriorityQueue<IWorkItem, QueuePriority> _queue = new();
+    private readonly SortedSet<IWorkItem> _queue = new(WorkItemComparer.Instance);
+    private readonly Dictionary<long, IWorkItem> _queuedItemsBySequence = [];
     private readonly object _disposeSync = new();
     private readonly Thread[] _workers;
     private readonly TaskCompletionSource _workersExited =
@@ -169,12 +177,46 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
                 throw new InvalidOperationException(
                     "World worker queue sequence was exhausted.");
 
+            var enqueueSequence = _nextEnqueueSequence++;
+            item.InitializeQueuePosition(enqueueSequence, priority);
             Interlocked.Increment(ref _pendingWorkCount);
             Interlocked.Increment(ref _inFlightWorkCount);
-            _queue.Enqueue(
-                item,
-                new QueuePriority(priority, _nextEnqueueSequence++));
+            if (!_queue.Add(item) ||
+                !_queuedItemsBySequence.TryAdd(enqueueSequence, item))
+                throw new InvalidOperationException(
+                    "World worker queue rejected a unique operation.");
             operation = item.Operation;
+            Monitor.Pulse(_queueSync);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Changes the priority of an operation that is still waiting in the shared
+    /// executor. Running or completed operations are left untouched.
+    /// </summary>
+    public bool TryUpdatePriority<TResult>(
+        WorldWorkerOperation<TResult> operation,
+        int priority)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        lock (_queueSync)
+        {
+            if (!_queuedItemsBySequence.TryGetValue(
+                    operation.EnqueueSequence, out var item))
+                return false;
+
+            if (item.Priority == priority)
+                return true;
+
+            if (!_queue.Remove(item))
+                throw new InvalidOperationException(
+                    "A queued world worker operation was missing from its priority queue.");
+
+            item.UpdatePriority(priority);
+            if (!_queue.Add(item))
+                throw new InvalidOperationException(
+                    "A reprioritized world worker operation could not be reinserted.");
             Monitor.Pulse(_queueSync);
             return true;
         }
@@ -218,7 +260,13 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
                     if (_queue.Count == 0 && _addingCompleted)
                         break;
 
-                    item = _queue.Dequeue();
+                    item = _queue.Min ??
+                        throw new InvalidOperationException(
+                            "World worker queue was nonempty without a minimum item.");
+                    if (!_queue.Remove(item) ||
+                        !_queuedItemsBySequence.Remove(item.EnqueueSequence))
+                        throw new InvalidOperationException(
+                            "World worker queue lost an admitted operation.");
                     Interlocked.Decrement(ref _pendingWorkCount);
                     Interlocked.Increment(ref _activeWorkerCount);
                 }
@@ -247,19 +295,30 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
 
     private interface IWorkItem
     {
+        long EnqueueSequence { get; }
+        int Priority { get; }
+        void InitializeQueuePosition(long enqueueSequence, int priority);
+        void UpdatePriority(int priority);
         void Execute(WorldWorkerPool owner);
     }
 
-    private readonly record struct QueuePriority(
-        int Priority,
-        long EnqueueSequence) : IComparable<QueuePriority>
+    private sealed class WorkItemComparer : IComparer<IWorkItem>
     {
-        public int CompareTo(QueuePriority other)
+        public static WorkItemComparer Instance { get; } = new();
+
+        public int Compare(IWorkItem? left, IWorkItem? right)
         {
-            var result = Priority.CompareTo(other.Priority);
+            if (ReferenceEquals(left, right))
+                return 0;
+            if (left is null)
+                return -1;
+            if (right is null)
+                return 1;
+
+            var result = left.Priority.CompareTo(right.Priority);
             return result != 0
                 ? result
-                : EnqueueSequence.CompareTo(other.EnqueueSequence);
+                : left.EnqueueSequence.CompareTo(right.EnqueueSequence);
         }
     }
 
@@ -270,7 +329,24 @@ public sealed class WorldWorkerPool : IDisposable, IAsyncDisposable
         Action<WorldWorkerCompletion<TResult>>? onCompleted)
         : IWorkItem
     {
-        public WorldWorkerOperation<TResult> Operation { get; } = new();
+        private int _priority;
+        private long _enqueueSequence;
+
+        public WorldWorkerOperation<TResult> Operation { get; private set; } = null!;
+
+        public long EnqueueSequence => _enqueueSequence;
+
+        public int Priority => _priority;
+
+        public void InitializeQueuePosition(long enqueueSequence, int priority)
+        {
+            _enqueueSequence = enqueueSequence;
+            _priority = priority;
+            Operation = new WorldWorkerOperation<TResult>(enqueueSequence);
+        }
+
+        public void UpdatePriority(int priority) =>
+            _priority = priority;
 
         public void Execute(WorldWorkerPool owner)
         {
