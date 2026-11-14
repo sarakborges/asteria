@@ -40,7 +40,7 @@ public sealed class TerrainMeshWorker
         WorldMeshBatch batch,
         MeshletContentRevisions revisions,
         IReadOnlyDictionary<ChunkMeshletKey, ChunkMeshData>? relightable = null,
-        int workerPriority = WorldWorkerPool.DefaultPriority)
+        WorldWorkerPriority? workerPriority = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -91,10 +91,12 @@ public sealed class TerrainMeshWorker
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds,
                 captureMilliseconds);
-        }, priority: workerPriority);
+        }, priority: workerPriority ??
+            WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.DefaultPriority));
     }
 
-    public bool TryUpdatePriority(int priority) =>
+    public bool TryUpdatePriority(WorldWorkerPriority priority) =>
         _worker.TryUpdatePriority(priority);
 
     public bool TryTakeCompleted(
