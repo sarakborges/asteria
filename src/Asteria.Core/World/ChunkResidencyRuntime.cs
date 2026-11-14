@@ -636,6 +636,7 @@ public sealed class ChunkResidencyRuntime
             return;
 
         _materializationTasks.Remove(column);
+        work.DependencyClaims.Dispose();
         foreach (var section in work.Sections)
             _streaming.FinishMaterializing(section);
 
@@ -1010,12 +1011,16 @@ public sealed class ChunkResidencyRuntime
                     .Select(job => job.Coord)
                     .OrderBy(coord => coord.Y)
                     .ToArray();
+                var dependencyClaims = _streaming.DistanceManager.AcquireDependencyClaims(
+                    columnCenter,
+                    AsteriaChunkGenerationPlan.FullSectionEnvelope);
                 var work = new MaterializationWork(
                     taskKey,
                     generation,
                     pendingColumn.Value.EnqueuedTimestamp,
                     dispatchTimestamp,
-                    taskSections);
+                    taskSections,
+                    dependencyClaims);
 
                 foreach (var coord in taskSections)
                     _streaming.MarkMaterializing(coord);
@@ -1029,6 +1034,7 @@ public sealed class ChunkResidencyRuntime
                         generationTask))
                 {
                     _materializationTasks.Remove(column);
+                    work.DependencyClaims.Dispose();
                     generationTask.Dispose();
                     foreach (var coord in taskSections)
                     {
@@ -1387,7 +1393,8 @@ public sealed class ChunkResidencyRuntime
         ulong Generation,
         long PendingSinceTimestamp,
         long DispatchTimestamp,
-        IReadOnlyList<ChunkCoord> Sections);
+        IReadOnlyList<ChunkCoord> Sections,
+        ChunkDependencyClaim DependencyClaims);
 
     private sealed class ProviderMaterializationJob : IChunkMaterializationJob
     {
