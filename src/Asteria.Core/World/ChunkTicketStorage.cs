@@ -599,16 +599,19 @@ public readonly record struct ChunkHolderFutureResult(
 public readonly record struct ChunkGenerationFutureResult(
     bool Succeeded,
     ChunkGenerationStatus Status,
-    string? FailureReason)
+    string? FailureReason,
+    ulong Revision = 0)
 {
     public static ChunkGenerationFutureResult Success(
-        ChunkGenerationStatus status) =>
-        new(true, status, null);
+        ChunkGenerationStatus status,
+        ulong revision = 0) =>
+        new(true, status, null, revision);
 
     public static ChunkGenerationFutureResult Unloaded(
         ChunkGenerationStatus status,
-        string reason) =>
-        new(false, status, reason);
+        string reason,
+        ulong revision = 0) =>
+        new(false, status, reason, revision);
 }
 
 /// <summary>
@@ -639,6 +642,12 @@ public sealed class ChunkHolder
     public ChunkGenerationStatus HighestAllowedGenerationStatus { get; private set; }
 
     public ChunkGenerationStatus CompletedGenerationStatus { get; private set; }
+
+    /// <summary>
+    /// Revision of the currently retained generation products. Dependents must
+    /// reject a successful future result when its revision no longer matches.
+    /// </summary>
+    public ulong GenerationProgressRevision { get; private set; } = 1;
 
     /// <summary>Maximum full-chunk status permitted by the loading ticket level.</summary>
     public ChunkFullStatus FullStatus { get; private set; }
@@ -727,7 +736,8 @@ public sealed class ChunkHolder
         {
             return Task.FromResult(ChunkGenerationFutureResult.Unloaded(
                 requestedStatus,
-                $"Ticket level {TicketLevel} does not permit {requestedStatus}."));
+                $"Ticket level {TicketLevel} does not permit {requestedStatus}.",
+                GenerationProgressRevision));
         }
 
         return _generationFutures[requestedStatus].Task;
@@ -742,22 +752,48 @@ public sealed class ChunkHolder
         if (!Enum.IsDefined(completedStatus) ||
             completedStatus == ChunkGenerationStatus.Unloaded)
             throw new ArgumentOutOfRangeException(nameof(completedStatus));
-        if (completedStatus > HighestAllowedGenerationStatus ||
-            completedStatus <= CompletedGenerationStatus)
-            return false;
 
-        CompletedGenerationStatus = completedStatus;
-        var changed = false;
-        foreach (var (status, future) in _generationFutures)
+        // Achieved progress is independent from the current ticket ceiling.
+        // When tickets later promote this holder, ReconcileGenerationFutures
+        // completes the newly permitted futures from the retained progress.
+        if (completedStatus > CompletedGenerationStatus)
+            CompletedGenerationStatus = completedStatus;
+
+        ReconcileGenerationFutures();
+        return completedStatus <= HighestAllowedGenerationStatus &&
+            _generationFutures.Any(entry =>
+                entry.Key <= completedStatus &&
+                entry.Value.Task.IsCompletedSuccessfully &&
+                entry.Value.Task.Result.Succeeded &&
+                entry.Value.Task.Result.Revision == GenerationProgressRevision);
+    }
+
+    /// <summary>
+    /// Invalidates partial products discarded after a failed/cancelled
+    /// generation attempt. Existing waiters are released with a failed result;
+    /// future requests receive fresh tasks under the new progress revision.
+    /// </summary>
+    public bool ResetGenerationProgress(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        if (CompletedGenerationStatus == ChunkGenerationStatus.Unloaded &&
+            _generationFutures.Values.All(future => !future.Task.IsCompleted))
+            return false;
+        if (GenerationProgressRevision == ulong.MaxValue)
+            throw new InvalidOperationException(
+                $"Generation progress revision space was exhausted: {Position}");
+
+        var failedRevision = GenerationProgressRevision;
+        GenerationProgressRevision++;
+        CompletedGenerationStatus = ChunkGenerationStatus.Unloaded;
+        foreach (var (status, future) in _generationFutures.ToArray())
         {
-            if (status <= completedStatus)
-                changed |= future.TrySetResult(
-                    ChunkGenerationFutureResult.Success(status));
+            future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
+                status, reason, failedRevision));
+            _generationFutures[status] = NewGenerationFuture();
         }
 
-        if (completedStatus >= ChunkGenerationStatus.Full)
-            changed |= CompleteFullStatus(ChunkFullStatus.Full);
-        return changed;
+        return true;
     }
 
     /// <summary>
@@ -805,9 +841,6 @@ public sealed class ChunkHolder
 
     private void ReconcileGenerationFutures()
     {
-        if (CompletedGenerationStatus > HighestAllowedGenerationStatus)
-            CompletedGenerationStatus = HighestAllowedGenerationStatus;
-
         foreach (var status in _generationFutures.Keys.ToArray())
         {
             var future = _generationFutures[status];
@@ -819,15 +852,31 @@ public sealed class ChunkHolder
                     var demoted = NewGenerationFuture();
                     demoted.TrySetResult(ChunkGenerationFutureResult.Unloaded(
                         status,
-                        $"Ticket level {TicketLevel} no longer permits {status}."));
+                        $"Ticket level {TicketLevel} no longer permits {status}.",
+                        GenerationProgressRevision));
                     _generationFutures[status] = demoted;
                 }
                 else
                 {
                     future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
                         status,
-                        $"Ticket level {TicketLevel} does not permit {status}."));
+                        $"Ticket level {TicketLevel} does not permit {status}.",
+                        GenerationProgressRevision));
                 }
+                continue;
+            }
+
+            if (status <= CompletedGenerationStatus)
+            {
+                if (future.Task.IsCompletedSuccessfully &&
+                    !future.Task.Result.Succeeded)
+                {
+                    future = NewGenerationFuture();
+                    _generationFutures[status] = future;
+                }
+
+                future.TrySetResult(ChunkGenerationFutureResult.Success(
+                    status, GenerationProgressRevision));
             }
             else if (future.Task.IsCompletedSuccessfully &&
                      !future.Task.Result.Succeeded)
