@@ -104,6 +104,36 @@ public sealed class ChunkMaterializationGenerationTask :
 
     public ChunkCoord Coord => _job.Coord;
 
+    /// <summary>
+    /// Execution lane required by the next bounded continuation. The column
+    /// parent uses this to batch independent worker forks across vertical
+    /// sections while advancing no more than one ordered mutation stage.
+    /// </summary>
+    public ChunkGenerationExecutionPolicy NextExecutionPolicy
+    {
+        get
+        {
+            if (_activeDependencyTask is not null)
+                return _activeDependencyTask.NextExecutionPolicy;
+            if (_hasScheduledOperation)
+                throw new InvalidOperationException(
+                    $"A materialization task with an in-flight operation is not ready: {_job.Coord}");
+            if (_biomesStatusPending || _terrainStatusPending)
+                return ChunkGenerationExecutionPolicy.Coordinator;
+            if (_job.IsComplete)
+            {
+                if (!_featuresStatusPublished)
+                    return ChunkGenerationExecutionPolicy.Coordinator;
+                if (_initializeLighting is not null && !_lightingInitialized)
+                    return ChunkGenerationExecutionPolicy.LightExecutor;
+                return ChunkGenerationExecutionPolicy.MainThreadIntegration;
+            }
+
+            return AsteriaChunkGenerationPlan.GetExecutionPolicy(
+                _job.ActiveWorkStage);
+        }
+    }
+
     public ChunkGenerationTaskAdvanceResult Advance(
         IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
         CancellationToken cancellationToken)
