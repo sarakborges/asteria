@@ -483,8 +483,7 @@ public sealed class ChunkResidencyRuntime
             return ChunkResidencyUpdate.Empty;
 
         var report = _generationDispatcher.Pump(
-            budget,
-            Math.Min(maximumWorkerStarts, AvailableGenerationWorkerStarts));
+            budget, maximumWorkerStarts);
 
         var activations = new List<ChunkResidencyActivation>();
         var failures = new List<ChunkMaterializationFailure>();
@@ -984,19 +983,12 @@ public sealed class ChunkResidencyRuntime
 
         UpdateGenerationTaskPriorities();
         var dispatchReport = _generationDispatcher.Pump(
-            budget,
-            Math.Min(
-                maximumGenerationWorkerStarts, AvailableGenerationWorkerStarts));
+            budget, maximumGenerationWorkerStarts);
 
-        // Reconciliation remains on its detached-snapshot lane for now. It may
-        // use one genuinely unused world-worker slot, never a slot already
-        // consumed by a generation operation started in this frame.
-        var remainingWorldWorkerStarts =
-            Math.Max(0, maximumWorldWorkerStarts -
-                dispatchReport.WorkerOperationsStarted);
-        StartArrivalReconciliationWorker(
-            budget, failures,
-            hasWorkerAdmission: remainingWorldWorkerStarts > 0);
+        // Reconciliation enters the same priority queue as every other world
+        // operation. The executor, not a per-frame worker-slot reservation,
+        // decides when it runs.
+        StartArrivalReconciliationWorker(budget, failures);
 
         if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0 &&
             dispatchReport.WorkerOperationsStarted == 0)
@@ -1130,19 +1122,12 @@ public sealed class ChunkResidencyRuntime
                 work.TaskKey, GenerationPriority(coord));
     }
 
-    private int AvailableGenerationWorkerStarts =>
-        _generationWorkerPool.AvailableSubmissionCount;
-
     private void StartArrivalReconciliationWorker(
         WorldFrameWorkBudget budget,
-        List<ChunkMaterializationFailure> failures,
-        bool hasWorkerAdmission)
+        List<ChunkMaterializationFailure> failures)
     {
-        if (!hasWorkerAdmission || !_acceptingMaterializationWork ||
+        if (!_acceptingMaterializationWork ||
             budget.Exhausted(Stopwatch.GetTimestamp()))
-            return;
-
-        if (_worldWorkerPool.AvailableSubmissionCount == 0)
             return;
 
         var started = _preferChunkLightingReconciliation
