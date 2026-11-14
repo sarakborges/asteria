@@ -6,7 +6,8 @@ public sealed class ChunkStreamingControllerSettings
 {
     public ChunkStreamingControllerSettings(
         int retentionMarginChunks,
-        int maximumPresentationReservationsPerFrame)
+        int maximumPresentationReservationsPerFrame,
+        int simulationDistanceChunks = ChunkStreamingSelection.DefaultSimulationDistanceChunks)
     {
         if (retentionMarginChunks < 0)
         {
@@ -20,15 +21,24 @@ public sealed class ChunkStreamingControllerSettings
                 nameof(maximumPresentationReservationsPerFrame));
         }
 
+        if (simulationDistanceChunks < 0 ||
+            simulationDistanceChunks > ChunkStreamingSelection.MaximumSimulationDistanceChunks)
+        {
+            throw new ArgumentOutOfRangeException(nameof(simulationDistanceChunks));
+        }
+
         RetentionMarginChunks =
             retentionMarginChunks;
         MaximumPresentationReservationsPerFrame =
             maximumPresentationReservationsPerFrame;
+        SimulationDistanceChunks = simulationDistanceChunks;
     }
 
     public int RetentionMarginChunks { get; }
 
     public int MaximumPresentationReservationsPerFrame { get; }
+
+    public int SimulationDistanceChunks { get; }
 }
 
 public readonly record struct ChunkStreamingSelectionReport(
@@ -112,7 +122,8 @@ public sealed class ChunkStreamingController
 
         if (_residency.SelectionNeedsRebuild(
                 center,
-                radius) ||
+                radius,
+                _settings.SimulationDistanceChunks) ||
             _includeVerticalAccess != includeVerticalAccess)
         {
             _includeVerticalAccess = includeVerticalAccess;
@@ -125,6 +136,7 @@ public sealed class ChunkStreamingController
                     center,
                     radius,
                     retentionRadius,
+                    _settings.SimulationDistanceChunks,
                     bootstrap,
                     _presentations.Coordinates);
             _selection.Request(
@@ -152,6 +164,7 @@ public sealed class ChunkStreamingController
                         completed.HorizontalRadius,
                         completed.HorizontalRadius +
                         _settings.RetentionMarginChunks,
+                        _settings.SimulationDistanceChunks,
                         completed.Desired,
                         _presentations.Coordinates) ||
                     changed;
