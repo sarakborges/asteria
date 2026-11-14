@@ -169,8 +169,6 @@ public sealed class WorldWorkerPoolTests
 
         Assert.True(pool.TryUpdatePriority(
             movedChunk, WorldWorkerPool.PlayerChunkPriority));
-        Assert.False(pool.TryUpdatePriority(
-            movedChunk, WorldWorkerPool.PlayerChunkPriority + 1_000));
 
         releaseWorker.Set();
         var all = new[] { running!, movedChunk, nearbyChunk, distantChunk };
@@ -180,6 +178,8 @@ public sealed class WorldWorkerPoolTests
             TimeSpan.FromSeconds(5)));
 
         Assert.Equal(new[] { -1, 1, 2, 3 }, executionOrder.ToArray());
+        Assert.False(pool.TryUpdatePriority(
+            movedChunk, WorldWorkerPool.BackgroundWorldPriority));
 
         WorldWorkerOperation<int> Schedule(int priority, int value)
         {
