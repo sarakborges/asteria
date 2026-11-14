@@ -194,7 +194,8 @@ public sealed class TerrainMeshPipeline
         {
             var priority = ResolveWorkerPriority(
                 interactive, center, movement,
-                WorldWorkerPool.InteractiveWorldPriority);
+                WorldWorkerPriority.FromPriorityClass(
+                    WorldWorkerPool.InteractiveWorldPriority));
             _interactiveWorker.TryUpdatePriority(priority);
         }
 
@@ -202,24 +203,33 @@ public sealed class TerrainMeshPipeline
         {
             var priority = ResolveWorkerPriority(
                 background, center, movement,
-                WorldWorkerPool.BackgroundWorldPriority);
+                WorldWorkerPriority.FromPriorityClass(
+                    WorldWorkerPool.BackgroundWorldPriority));
             _backgroundWorker.TryUpdatePriority(priority);
         }
     }
 
-    private static int ResolveWorkerPriority(
+    private static WorldWorkerPriority ResolveWorkerPriority(
         WorldMeshBatch batch,
         ChunkCoord? center,
         ChunkMovementDirection movement,
-        int fallbackPriority)
+        WorldWorkerPriority fallbackPriority)
     {
         if (center is not { } focus || batch.DirtyMeshlets.Count == 0)
             return fallbackPriority;
 
-        var nearestBand = batch.DirtyMeshlets.Keys
-            .Min(coord => ChunkStreamingState.StreamingPriority(
-                coord, focus, movement).StreamingBand);
-        return checked(nearestBand * 10);
+        ChunkStreamingPriority? nearest = null;
+        foreach (var coord in batch.DirtyMeshlets.Keys)
+        {
+            var priority = ChunkStreamingState.StreamingPriority(
+                coord, focus, movement);
+            if (nearest is null || priority.CompareTo(nearest.Value) < 0)
+                nearest = priority;
+        }
+
+        return nearest is { } ticket
+            ? WorldWorkerPriority.FromStreaming(ticket)
+            : fallbackPriority;
     }
 
     private bool TryStartLane(
@@ -276,9 +286,10 @@ public sealed class TerrainMeshPipeline
                 relightable,
                 workerPriority: ResolveWorkerPriority(
                     batch, center, movement,
-                    priority
-                        ? WorldWorkerPool.InteractiveWorldPriority
-                        : WorldWorkerPool.BackgroundWorldPriority)))
+                    WorldWorkerPriority.FromPriorityClass(
+                        priority
+                            ? WorldWorkerPool.InteractiveWorldPriority
+                            : WorldWorkerPool.BackgroundWorldPriority))))
         {
             Requeue(batch, priority);
             return false;
