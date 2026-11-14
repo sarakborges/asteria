@@ -33,7 +33,7 @@ public sealed class FluidSimulationRuntime
     private bool _acceptingWork = true;
 
     private FluidWorkBatch? _inFlightBatch;
-    private int? _inFlightWorkerPriority;
+    private WorldWorkerPriority? _inFlightWorkerPriority;
 
     public FluidSimulationRuntime(
         VoxelWorld world,
@@ -138,29 +138,32 @@ public sealed class FluidSimulationRuntime
         return true;
     }
 
-    private static int ResolveWorkerPriority(
+    private static WorldWorkerPriority ResolveWorkerPriority(
         FluidWorkBatch batch,
         ChunkCoord? center,
         ChunkMovementDirection movement)
     {
         if (center is not { } focus)
-            return WorldWorkerPool.BackgroundWorldPriority;
+            return WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.BackgroundWorldPriority);
 
-        var nearestBand = int.MaxValue;
+        ChunkStreamingPriority? nearest = null;
         foreach (var position in batch.Positions)
         {
             var coord = VoxelCoordinates.FromWorld(
                 position.X, position.Y, position.Z).Chunk;
             var priority = ChunkStreamingState.StreamingPriority(
                 coord, focus, movement);
-            nearestBand = Math.Min(nearestBand, priority.StreamingBand);
-            if (nearestBand == 0)
+            if (nearest is null || priority.CompareTo(nearest.Value) < 0)
+                nearest = priority;
+            if (priority.StreamingBand == 0)
                 break;
         }
 
-        return nearestBand == int.MaxValue
-            ? WorldWorkerPool.BackgroundWorldPriority
-            : checked(nearestBand * 10);
+        return nearest is { } ticket
+            ? WorldWorkerPriority.FromStreaming(ticket)
+            : WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.BackgroundWorldPriority);
     }
 
     public bool TryPollCompleted(
