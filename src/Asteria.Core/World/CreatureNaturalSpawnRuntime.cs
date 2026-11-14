@@ -57,7 +57,8 @@ public sealed class CreatureNaturalSpawnRuntime
         VoxelWorld world,
         BlockRegistry blocks,
         CreatureRuntime creatures,
-        Func<ChunkCoord, bool>? isEntityTicking = null)
+        Func<ChunkCoord, bool>? isEntityTicking = null,
+        Func<ChunkCoord, bool>? isNaturalSpawnCandidate = null)
     {
         ArgumentNullException.ThrowIfNull(generator);
         ArgumentNullException.ThrowIfNull(world);
@@ -123,7 +124,9 @@ public sealed class CreatureNaturalSpawnRuntime
 
         var spawnChunk = VoxelCoordinates.FromWorld(
             feet.X, feet.Y, feet.Z).Chunk;
-        if (isEntityTicking is not null && !isEntityTicking(spawnChunk))
+        if ((isEntityTicking is not null && !isEntityTicking(spawnChunk)) ||
+            (isNaturalSpawnCandidate is not null &&
+             !isNaturalSpawnCandidate(spawnChunk)))
             return false;
 
         var position = new Vector3(
