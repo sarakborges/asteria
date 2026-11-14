@@ -23,7 +23,7 @@ public sealed class FluidSimulationWorker
         VoxelWorld world,
         FluidRegistry fluids,
         FluidWorkBatch batch,
-        int workerPriority = WorldWorkerPool.InteractiveWorldPriority)
+        WorldWorkerPriority? workerPriority = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(fluids);
@@ -56,10 +56,12 @@ public sealed class FluidSimulationWorker
                 snapshot.Dependencies,
                 simulation,
                 stopwatch.Elapsed.TotalMilliseconds);
-        }, priority: workerPriority);
+        }, priority: workerPriority ??
+            WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.InteractiveWorldPriority));
     }
 
-    public bool TryUpdatePriority(int priority) =>
+    public bool TryUpdatePriority(WorldWorkerPriority priority) =>
         _worker.TryUpdatePriority(priority);
 
     public bool TryTakeCompleted(
