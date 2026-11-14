@@ -1006,6 +1006,21 @@ public sealed class ChunkDistanceManager
         _holders.TryGetValue(column, out var holder) &&
         holder.CompleteFullStatus(status);
 
+    public Task<ChunkGenerationFutureResult> GetGenerationFuture(
+        ChunkColumnCoord column,
+        ChunkGenerationStatus requestedStatus) =>
+        _holders.TryGetValue(column, out var holder)
+            ? holder.GetGenerationFuture(requestedStatus)
+            : Task.FromResult(ChunkGenerationFutureResult.Unloaded(
+                requestedStatus,
+                $"Chunk holder does not exist: {column}"));
+
+    public bool CompleteGenerationStatus(
+        ChunkColumnCoord column,
+        ChunkGenerationStatus status) =>
+        _holders.TryGetValue(column, out var holder) &&
+        holder.CompleteGenerationStatus(status);
+
     public bool FailPendingPromotions(
         ChunkColumnCoord column,
         string reason) =>
