@@ -63,6 +63,7 @@ internal static class ChunkStreamingRouteBenchmark
             droppedBlocks);
         var residencySettings = CreateResidencySettings(
             maximumWorldWorkers, rules);
+        using var worldWorkerPool = new WorldWorkerPool(maximumWorldWorkers);
         var residency = new ChunkResidencyRuntime(
             world,
             blocks,
@@ -75,8 +76,10 @@ internal static class ChunkStreamingRouteBenchmark
             terrainRevisions,
             fluidRevisions,
             ticks,
-            residencySettings);
-        var selection = new ChunkStreamingSelectionRuntime(generator);
+            residencySettings,
+            worldWorkerPool: worldWorkerPool);
+        var selection = new ChunkStreamingSelectionRuntime(
+            generator, worldWorkerPool);
         var presented = new HashSet<ChunkCoord>();
         var chunkDigests = new Dictionary<ChunkCoord, ChunkContentDigest>();
         var chunkBlockDiagnostics = new Dictionary<ChunkCoord, ChunkBlockDiagnostics>();
