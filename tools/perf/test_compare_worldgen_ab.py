@@ -565,20 +565,42 @@ class CompareWorldgenAbTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "different per-coordinate"):
                 load_repetitions(root, 3)
 
-    def test_load_repetitions_rejects_inconsistent_streaming_route_digest(self) -> None:
+    def test_accepts_different_activation_coverage_when_shared_chunk_hashes_match(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for index, route_digest in enumerate(
-                (987654321, 987654321, 987654322), start=1
-            ):
+            for index, extra_chunks in enumerate((1, 0, 0), start=1):
+                run = sample_run(streaming_route={
+                    "uniqueActivatedChunkCount": 2 + extra_chunks,
+                    "routeDigest": 987654321 + index,
+                })
+                if extra_chunks:
+                    extra = dict(
+                        run["streamingRouteDiagnostics"]["activatedChunkDigests"][1]
+                    )
+                    extra["x"] = 3
+                    extra["digest"] += 1
+                    extra["blockDigest"] += 1
+                    run["streamingRouteDiagnostics"]["activatedChunkDigests"].append(extra)
+                (root / f"{index}.json").write_text(
+                    json.dumps(run),
+                    encoding="utf-8",
+                )
+
+            runs = load_repetitions(root, 3)
+            self.assertEqual(3, len(runs))
+
+    def test_load_repetitions_rejects_different_streaming_route_configuration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, route_steps in enumerate((6, 6, 7), start=1):
                 (root / f"{index}.json").write_text(
                     json.dumps(sample_run(
-                        streaming_route={"routeDigest": route_digest}
+                        streaming_route={"routeSteps": route_steps}
                     )),
                     encoding="utf-8",
                 )
 
-            with self.assertRaisesRegex(ValueError, "same streaming route"):
+            with self.assertRaisesRegex(ValueError, "route configuration"):
                 load_repetitions(root, 3)
 
     def test_reports_surface_decoration_time_and_allocations(self) -> None:
