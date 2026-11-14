@@ -649,6 +649,18 @@ public sealed class ChunkDistanceManager
         }
     }
 
+    public bool CompleteFullStatus(
+        ChunkColumnCoord column,
+        ChunkFullStatus status) =>
+        _holders.TryGetValue(column, out var holder) &&
+        holder.CompleteFullStatus(status);
+
+    public bool FailPendingPromotions(
+        ChunkColumnCoord column,
+        string reason) =>
+        _holders.TryGetValue(column, out var holder) &&
+        holder.FailPendingPromotions(reason);
+
     public int GetLoadingLevel(ChunkColumnCoord column) =>
         _loading.GetLevel(column, ChunkLevel.Unloaded);
 
