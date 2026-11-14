@@ -626,21 +626,23 @@ public sealed class ChunkResidencyRuntime
         List<ChunkMaterializationStageTiming> stageTimings,
         ref int cancelledTasks)
     {
-        var sectionY = outcome.Task.Key.SectionY ??
+        if (outcome.Task.Key.SectionY is not null)
             throw new InvalidOperationException(
-                "A section materialization outcome has no SectionY.");
-        var coord = outcome.Task.Key.Column.ToSection(sectionY);
-        if (!_materializationTasks.TryGetValue(coord, out var work) ||
+                "A column materialization outcome unexpectedly has a SectionY.");
+
+        var column = outcome.Task.Key.Column;
+        if (!_materializationTasks.TryGetValue(column, out var work) ||
             work.Generation != outcome.Task.Generation)
             return;
 
-        _materializationTasks.Remove(coord);
-        _streaming.FinishMaterializing(coord);
+        _materializationTasks.Remove(column);
+        foreach (var section in work.Sections)
+            _streaming.FinishMaterializing(section);
 
+        var failureCoord = work.Sections[0];
         if (outcome.Kind == ChunkGenerationTaskOutcomeKind.Cancelled)
         {
-            _playerTicketAdmissions.Abandon(
-                ChunkColumnCoord.FromChunk(coord));
+            _playerTicketAdmissions.Abandon(column);
             cancelledTasks++;
             return;
         }
@@ -649,69 +651,98 @@ public sealed class ChunkResidencyRuntime
         {
             var error = outcome.Error ??
                 new InvalidOperationException(
-                    $"Chunk materialization failed without an exception: {coord}");
-            failures.Add(new ChunkMaterializationFailure(coord, error));
-            _playerTicketAdmissions.Abandon(
-                ChunkColumnCoord.FromChunk(coord));
+                    $"Chunk column materialization failed without an exception: {column}");
+            failures.Add(new ChunkMaterializationFailure(failureCoord, error));
+            _playerTicketAdmissions.Abandon(column);
             if (_acceptingMaterializationWork)
-                RequeueIfDesired(coord, work.PendingSinceTimestamp);
+            {
+                foreach (var section in work.Sections)
+                    RequeueIfDesired(section, work.PendingSinceTimestamp);
+            }
             return;
         }
 
-        if (outcome.Result is not ChunkMaterializationTaskOutput result ||
-            result.Coord != coord)
+        if (outcome.Result is not ChunkColumnMaterializationTaskOutput result ||
+            result.Column != column ||
+            result.Sections.Length != work.Sections.Count ||
+            !result.Sections.Select(section => section.Coord).ToHashSet()
+                .SetEquals(work.Sections))
         {
             failures.Add(new ChunkMaterializationFailure(
-                coord,
+                failureCoord,
                 new InvalidOperationException(
-                    $"Completed generation task returned an invalid chunk result: {coord}")));
-            _playerTicketAdmissions.Abandon(
-                ChunkColumnCoord.FromChunk(coord));
+                    $"Completed generation task returned an invalid column result: {column}")));
+            _playerTicketAdmissions.Abandon(column);
             if (_acceptingMaterializationWork)
-                RequeueIfDesired(coord, work.PendingSinceTimestamp);
+            {
+                foreach (var section in work.Sections)
+                    RequeueIfDesired(section, work.PendingSinceTimestamp);
+            }
             return;
         }
 
-        stageTimings.AddRange(result.StageTimings);
+        stageTimings.AddRange(
+            result.Sections.SelectMany(section => section.StageTimings));
         if (!_acceptingMaterializationWork)
             return;
 
-        if (!_streaming.KeepsLoaded(coord))
-            return;
-        if (_world.ContainsChunk(coord))
+        // Publish every still-resident section in the holder batch before
+        // presentation/physics work is queued for any of them.
+        var sectionsToActivate = new List<ChunkMaterializationTaskOutput>(
+            result.Sections.Length);
+        foreach (var sectionResult in result.Sections)
         {
-            _playerTicketAdmissions.MarkSectionFull(coord);
-            return;
+            var coord = sectionResult.Coord;
+            if (!_streaming.KeepsLoaded(coord))
+                continue;
+
+            if (!_world.ContainsChunk(coord))
+                _world.InsertChunk(coord, sectionResult.Chunk);
+            sectionsToActivate.Add(sectionResult);
         }
 
-        _world.InsertChunk(coord, result.Chunk);
-        _playerTicketAdmissions.MarkSectionFull(coord);
-        var activation = ActivateResidentChunk(
-            coord,
-            ChunkActivationSource.Provider,
-            result.WorkerMilliseconds,
-            result.WorkerMilliseconds - result.InitialLightingMilliseconds,
-            elapsedMilliseconds: 0d,
-            result.InitialLightingMilliseconds,
-            result.WorkerQueueWaitMilliseconds,
-            result.WorkerWallMilliseconds,
-            resultCollectionWaitMilliseconds: 0d,
-            pendingQueueWaitMilliseconds: Stopwatch.GetElapsedTime(
-                work.PendingSinceTimestamp,
-                work.DispatchTimestamp).TotalMilliseconds,
-            dispatchPreparationMilliseconds: result.DispatchPreparationMilliseconds,
-            workerSliceCount: result.WorkerSliceCount,
-            interSliceWaitMilliseconds: result.InterSliceWaitMilliseconds);
         var activatedTimestamp = Stopwatch.GetTimestamp();
-        activations.Add(activation with
+        foreach (var sectionResult in sectionsToActivate)
         {
-            ElapsedMilliseconds = Stopwatch.GetElapsedTime(
-                work.PendingSinceTimestamp,
-                activatedTimestamp).TotalMilliseconds,
-            ResultCollectionWaitMilliseconds = Stopwatch.GetElapsedTime(
-                result.WorkerCompletedTimestamp,
-                activatedTimestamp).TotalMilliseconds,
-        });
+            var coord = sectionResult.Coord;
+            _playerTicketAdmissions.MarkSectionFull(coord);
+            if (_world.ContainsChunk(coord) &&
+                !_world.TryGetSavedChunk(coord, out _))
+            {
+                // A pre-existing resident chunk won the publication race.
+                // Its section has still reached the holder's FULL status.
+            }
+
+            var activation = ActivateResidentChunk(
+                coord,
+                ChunkActivationSource.Provider,
+                sectionResult.WorkerMilliseconds,
+                sectionResult.WorkerMilliseconds -
+                    sectionResult.InitialLightingMilliseconds,
+                elapsedMilliseconds: 0d,
+                sectionResult.InitialLightingMilliseconds,
+                sectionResult.WorkerQueueWaitMilliseconds,
+                sectionResult.WorkerWallMilliseconds,
+                resultCollectionWaitMilliseconds: 0d,
+                pendingQueueWaitMilliseconds: Stopwatch.GetElapsedTime(
+                    work.PendingSinceTimestamp,
+                    work.DispatchTimestamp).TotalMilliseconds,
+                dispatchPreparationMilliseconds:
+                    sectionResult.DispatchPreparationMilliseconds,
+                workerSliceCount: sectionResult.WorkerSliceCount,
+                interSliceWaitMilliseconds:
+                    sectionResult.InterSliceWaitMilliseconds);
+
+            activations.Add(activation with
+            {
+                ElapsedMilliseconds = Stopwatch.GetElapsedTime(
+                    work.PendingSinceTimestamp,
+                    activatedTimestamp).TotalMilliseconds,
+                ResultCollectionWaitMilliseconds = Stopwatch.GetElapsedTime(
+                    sectionResult.WorkerCompletedTimestamp,
+                    activatedTimestamp).TotalMilliseconds,
+            });
+        }
     }
 
     private void CollectDirectionalFaceOutcome(
