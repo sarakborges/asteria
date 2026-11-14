@@ -13,13 +13,21 @@ public enum ChunkTicketFlags : byte
 }
 
 /// <summary>
-/// Reasons that currently create persistent player interest in a chunk column.
-/// Additional ticket types should be added with their actual gameplay owner.
+/// Sources of chunk interest. Every ticket's flags decide which distance
+/// graph consumes it, whether it keeps the dimension awake, and whether it
+/// must survive saving or expires after a timeout.
 /// </summary>
 public enum ChunkTicketType : byte
 {
     PlayerLoading,
     PlayerSimulation,
+    Forced,
+    Portal,
+    EnderPearl,
+    Dragon,
+    PlayerSpawn,
+    SpawnSearch,
+    Unknown,
 }
 
 /// <summary>
@@ -102,15 +110,50 @@ public enum ChunkGenerationStatus : byte
 /// </summary>
 public readonly record struct ChunkTicket(
     ChunkTicketType Type,
-    int Level)
+    int Level,
+    ulong Key = 0)
 {
     public ChunkTicketFlags Flags => Type switch
     {
-        ChunkTicketType.PlayerLoading => ChunkTicketFlags.Loading,
+        ChunkTicketType.PlayerLoading =>
+            ChunkTicketFlags.Loading,
         ChunkTicketType.PlayerSimulation =>
             ChunkTicketFlags.Simulation |
             ChunkTicketFlags.KeepDimensionActive,
+        ChunkTicketType.Forced =>
+            ChunkTicketFlags.Loading |
+            ChunkTicketFlags.Simulation |
+            ChunkTicketFlags.Persist |
+            ChunkTicketFlags.KeepDimensionActive,
+        ChunkTicketType.Portal =>
+            ChunkTicketFlags.Loading |
+            ChunkTicketFlags.Simulation |
+            ChunkTicketFlags.Persist |
+            ChunkTicketFlags.KeepDimensionActive |
+            ChunkTicketFlags.CanExpireIfUnloaded,
+        ChunkTicketType.EnderPearl =>
+            ChunkTicketFlags.Loading |
+            ChunkTicketFlags.Simulation |
+            ChunkTicketFlags.KeepDimensionActive |
+            ChunkTicketFlags.CanExpireIfUnloaded,
+        ChunkTicketType.Dragon =>
+            ChunkTicketFlags.Loading |
+            ChunkTicketFlags.Simulation,
+        ChunkTicketType.PlayerSpawn or
+        ChunkTicketType.SpawnSearch or
+        ChunkTicketType.Unknown =>
+            ChunkTicketFlags.Loading |
+            ChunkTicketFlags.CanExpireIfUnloaded,
         _ => throw new ArgumentOutOfRangeException(nameof(Type)),
+    };
+
+    public ulong? TimeoutTicks => Type switch
+    {
+        ChunkTicketType.Portal => 300,
+        ChunkTicketType.EnderPearl => 40,
+        ChunkTicketType.PlayerSpawn => 20,
+        ChunkTicketType.SpawnSearch or ChunkTicketType.Unknown => 1,
+        _ => null,
     };
 }
 
@@ -126,6 +169,8 @@ public readonly record struct ChunkTicketPlacement(
 public sealed class ChunkTicketStorage
 {
     private readonly Dictionary<ChunkColumnCoord, HashSet<ChunkTicket>> _tickets = [];
+    private readonly Dictionary<(ChunkColumnCoord Column, ChunkTicket Ticket), ulong>
+        _expirationTicks = [];
 
     public int ColumnCount => _tickets.Count;
 
@@ -157,7 +202,10 @@ public sealed class ChunkTicketStorage
         return lowest;
     }
 
-    public bool AddTicket(ChunkColumnCoord column, ChunkTicket ticket)
+    public bool AddTicket(
+        ChunkColumnCoord column,
+        ChunkTicket ticket,
+        ulong currentTick = 0)
     {
         if (!Enum.IsDefined(ticket.Type))
             throw new ArgumentOutOfRangeException(nameof(ticket));
@@ -170,7 +218,43 @@ public sealed class ChunkTicketStorage
             _tickets.Add(column, tickets);
         }
 
-        return tickets.Add(ticket);
+        var added = tickets.Add(ticket);
+        if (ticket.TimeoutTicks is { } timeout)
+        {
+            var expiry = ulong.MaxValue - currentTick < timeout
+                ? ulong.MaxValue
+                : currentTick + timeout;
+            var key = (column, ticket);
+            if (!_expirationTicks.TryGetValue(key, out var existingExpiry) ||
+                expiry > existingExpiry)
+            {
+                _expirationTicks[key] = expiry;
+                added = true;
+            }
+        }
+
+        return added;
+    }
+
+    /// <summary>
+    /// Expires only tickets whose own timeout elapsed. Other identities in the
+    /// same column remain untouched. The returned flags tell DistanceManager
+    /// which of its two graphs needs to be propagated.
+    /// </summary>
+    public ChunkTicketFlags ExpireTickets(ulong currentTick)
+    {
+        var changed = ChunkTicketFlags.None;
+        foreach (var (identity, expiry) in _expirationTicks.ToArray())
+        {
+            if (currentTick < expiry)
+                continue;
+
+            if (RemoveTicket(identity.Column, identity.Ticket))
+                changed |= identity.Ticket.Flags &
+                    (ChunkTicketFlags.Loading | ChunkTicketFlags.Simulation);
+        }
+
+        return changed;
     }
 
     public bool RemoveTicket(ChunkColumnCoord column, ChunkTicket ticket)
@@ -179,6 +263,7 @@ public sealed class ChunkTicketStorage
             !tickets.Remove(ticket))
             return false;
 
+        _expirationTicks.Remove((column, ticket));
         if (tickets.Count == 0)
             _tickets.Remove(column);
         return true;
@@ -211,7 +296,8 @@ public sealed class ChunkTicketStorage
     /// </summary>
     public bool ReplaceTickets(
         ChunkTicketType type,
-        IEnumerable<ChunkTicketPlacement> replacements)
+        IEnumerable<ChunkTicketPlacement> replacements,
+        ulong currentTick = 0)
     {
         ArgumentNullException.ThrowIfNull(replacements);
         if (!Enum.IsDefined(type))
@@ -234,7 +320,7 @@ public sealed class ChunkTicketStorage
 
         foreach (var replacement in desired)
         {
-            if (!AddTicket(replacement.Column, replacement.Ticket))
+            if (!AddTicket(replacement.Column, replacement.Ticket, currentTick))
                 continue;
             changed = true;
         }
