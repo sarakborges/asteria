@@ -280,6 +280,46 @@ public sealed class ChunkGenerationDispatcherTests
     }
 
     [Fact]
+    public async Task LightingLaneDoesNotBlockWorldgenLaneOnSharedPool()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(2, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        using var lightStarted = new ManualResetEventSlim(false);
+        using var releaseLight = new ManualResetEventSlim(false);
+        var lightTask = new LightLaneTask(lightStarted, releaseLight);
+        var sharedOrder = new System.Collections.Concurrent.ConcurrentQueue<string>();
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(30), 1, Priority(0), 30, lightTask));
+        Assert.True(PumpUntilCondition(
+            dispatcher,
+            () => lightStarted.IsSet && dispatcher.HasLightingOperationInFlight,
+            maximumWorkerStarts: 4));
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(31), 1, Priority(1),
+            31, new OrderedWorkerTask("shared-worker", sharedOrder)));
+
+        // The light executor is occupied, but the other worker in the same
+        // physical pool must remain available to ordinary worldgen forks.
+        Assert.True(PumpUntilCondition(
+            dispatcher,
+            () => dispatcher.CompletedTaskCount == 1,
+            maximumWorkerStarts: 4));
+        Assert.Equal(new[] { "shared-worker" }, sharedOrder.ToArray());
+        Assert.True(dispatcher.HasLightingOperationInFlight);
+
+        releaseLight.Set();
+        PumpUntilIdle(dispatcher, maximumWorkerStarts: 4);
+
+        Assert.Equal(2, dispatcher.CompletedTaskCount);
+        Assert.False(dispatcher.HasLightingOperationInFlight);
+        Assert.False(dispatcher.HasTaskAdvanceInFlight);
+        Assert.Equal(0, dispatcher.WaitingTaskCount);
+    }
+
+    [Fact]
     public void DispatcherRejectsAccessFromNonOwningThread()
     {
         var mailbox = new ChunkGenerationCompletionMailbox();
@@ -489,6 +529,40 @@ public sealed class ChunkGenerationDispatcherTests
 
             ObservedResults.AddRange(
                 completedDependencies.Select(item => item.Result as string));
+            return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class LightLaneTask(
+        ManualResetEventSlim started,
+        ManualResetEventSlim release) : IChunkGenerationTask
+    {
+        private bool _waiting;
+
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            if (!_waiting)
+            {
+                _waiting = true;
+                return ChunkGenerationTaskAdvanceResult.WaitForWorkers(
+                [
+                    new ChunkGenerationWorkerOperation(
+                        501,
+                        token =>
+                        {
+                            started.Set();
+                            release.Wait();
+                            token.ThrowIfCancellationRequested();
+                            return "light";
+                        },
+                        ChunkGenerationExecutionPolicy.LightExecutor),
+                ]);
+            }
+
+            Assert.Equal(1, completedDependencies.Count);
+            Assert.Equal("light", completedDependencies[0].Result);
             return ChunkGenerationTaskAdvanceResult.Completed;
         }
     }
