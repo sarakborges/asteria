@@ -348,7 +348,7 @@ public sealed class ChunkGenerationDispatcher
                 operation.DependencyId,
                 operation.Execute,
                 entry.Cancellation.Token,
-                Priority: entry.Priority.TicketLevel);
+                Priority: checked(entry.Priority.TicketLevel * 10));
 
             // Leave the admission queue untouched when either bounded queue is full.
             if (!_workerPool.TrySchedule(request))
