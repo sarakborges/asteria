@@ -1252,6 +1252,11 @@ public sealed class ChunkDistanceManager
         _holders.TryGetValue(column, out var holder) &&
         holder.CompleteGenerationStatus(status);
 
+    public ulong GetGenerationProgressRevision(ChunkColumnCoord column) =>
+        _holders.TryGetValue(column, out var holder)
+            ? holder.GenerationProgressRevision
+            : 0;
+
     public bool ResetGenerationProgress(
         ChunkColumnCoord column,
         string reason) =>
