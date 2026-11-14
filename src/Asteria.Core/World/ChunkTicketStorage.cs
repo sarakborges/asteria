@@ -477,6 +477,7 @@ public sealed class ChunkHolder
     private TaskCompletionSource<ChunkHolderFutureResult> _fullChunkFuture = NewFuture();
     private TaskCompletionSource<ChunkHolderFutureResult> _blockTickingFuture = NewFuture();
     private TaskCompletionSource<ChunkHolderFutureResult> _entityTickingFuture = NewFuture();
+    private int _dependencyClaimCount;
 
     internal ChunkHolder(ChunkColumnCoord position, int ticketLevel)
     {
@@ -518,7 +519,20 @@ public sealed class ChunkHolder
 
     public bool IsLoading => TicketLevel < ChunkLevel.Unloaded;
 
+    /// <summary>Generation tasks retaining this holder as a dependency.</summary>
+    public int DependencyClaimCount => Volatile.Read(ref _dependencyClaimCount);
+
     public ulong TicketLevelRevision { get; private set; }
+
+    internal void AddDependencyClaim() =>
+        Interlocked.Increment(ref _dependencyClaimCount);
+
+    internal void RemoveDependencyClaim()
+    {
+        if (Interlocked.Decrement(ref _dependencyClaimCount) < 0)
+            throw new InvalidOperationException(
+                $"Chunk holder dependency claim count underflowed: {Position}");
+    }
 
     internal bool UpdateTicketLevel(int ticketLevel)
     {
@@ -629,6 +643,32 @@ public sealed class ChunkHolder
 }
 
 /// <summary>
+/// Reference-counted lease retaining the holder set required by one generation
+/// task. Disposing the lease releases those references exactly once.
+/// </summary>
+public sealed class ChunkDependencyClaim : IDisposable
+{
+    private ChunkDistanceManager? _owner;
+    private readonly ChunkColumnCoord[] _columns;
+
+    internal ChunkDependencyClaim(
+        ChunkDistanceManager owner,
+        ChunkColumnCoord[] columns)
+    {
+        _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+        _columns = columns ?? throw new ArgumentNullException(nameof(columns));
+    }
+
+    public IReadOnlyList<ChunkColumnCoord> Columns => _columns;
+
+    public void Dispose()
+    {
+        var owner = Interlocked.Exchange(ref _owner, null);
+        owner?.ReleaseDependencyClaims(_columns);
+    }
+}
+
+/// <summary>
 /// Owns the ticket store, independent loading and simulation distance graphs,
 /// and the holder map produced by the loading graph. Player view tickets decide
 /// which holders exist and their generation ceiling; simulation tickets decide
@@ -734,6 +774,67 @@ public sealed class ChunkDistanceManager
                 ChunkTicketType.PlayerLoading,
                 ChunkLevel.EntityTicking));
 
+    /// <summary>
+    /// Retains every horizontal holder intersecting the generation plan's
+    /// spatial dependency envelope. The lease is released when its owning
+    /// ChunkGenerationTask reaches a terminal state.
+    /// </summary>
+    public ChunkDependencyClaim AcquireDependencyClaims(
+        ChunkCoord target,
+        ChunkGenerationDependencyEnvelope envelope)
+    {
+        if (envelope.HorizontalRadius < 0)
+            throw new ArgumentOutOfRangeException(nameof(envelope));
+
+        var columns = new List<ChunkColumnCoord>();
+        for (var dz = -envelope.HorizontalRadius;
+             dz <= envelope.HorizontalRadius;
+             dz++)
+        for (var dx = -envelope.HorizontalRadius;
+             dx <= envelope.HorizontalRadius;
+             dx++)
+        {
+            var x = (long)target.X + dx;
+            var z = (long)target.Z + dz;
+            if (x < int.MinValue || x > int.MaxValue ||
+                z < int.MinValue || z > int.MaxValue)
+                continue;
+
+            var column = ChunkColumnCoord.FromChunk(
+                new ChunkCoord((int)x, 0, (int)z));
+            if (!_holders.TryGetValue(column, out var holder))
+            {
+                holder = new ChunkHolder(column, ChunkLevel.Unloaded);
+                _holders.Add(column, holder);
+            }
+
+            holder.AddDependencyClaim();
+            columns.Add(column);
+        }
+
+        return new ChunkDependencyClaim(this, columns.ToArray());
+    }
+
+    internal void ReleaseDependencyClaims(
+        IReadOnlyList<ChunkColumnCoord> columns)
+    {
+        ArgumentNullException.ThrowIfNull(columns);
+        foreach (var column in columns)
+        {
+            if (!_holders.TryGetValue(column, out var holder))
+                throw new InvalidOperationException(
+                    $"Claimed chunk holder was removed before its lease was released: {column}");
+
+            holder.RemoveDependencyClaim();
+            if (holder.DependencyClaimCount != 0 ||
+                _loading.Levels.ContainsKey(column))
+                continue;
+
+            holder.UpdateTicketLevel(ChunkLevel.Unloaded);
+            _holders.Remove(column);
+        }
+    }
+
     private void RebuildDistanceGraphs(
         bool loadingChanged,
         bool simulationChanged)
@@ -768,14 +869,18 @@ public sealed class ChunkDistanceManager
 
         foreach (var (column, holder) in _holders.ToArray())
         {
-            if (_loading.Levels.ContainsKey(column))
+            if (_loading.Levels.TryGetValue(column, out var level))
+            {
+                holder.UpdateTicketLevel(level);
                 continue;
+            }
 
-            // A holder leaving the loading graph is demoted to UNLOADED
-            // before it is removed from the visible holder map. Existing
-            // future observers must receive the demotion, not wait forever.
+            // An un-ticketed holder remains alive while a generation task
+            // claims it as a spatial dependency. The ticket ceiling is
+            // demoted immediately; only holder lifetime is retained.
             holder.UpdateTicketLevel(ChunkLevel.Unloaded);
-            _holders.Remove(column);
+            if (holder.DependencyClaimCount == 0)
+                _holders.Remove(column);
         }
     }
 
