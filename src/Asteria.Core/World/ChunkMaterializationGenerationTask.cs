@@ -132,9 +132,11 @@ public sealed class ChunkMaterializationGenerationTask :
         }
 
         var collectedAsynchronousCompletion = false;
+        var collectedLightingCompletion = false;
         if (_hasScheduledOperation)
         {
-            if (_waitingForLighting)
+            collectedLightingCompletion = _waitingForLighting;
+            if (collectedLightingCompletion)
                 CollectLightingCompletion(completedDependencies);
             else
                 CollectWorkerSlice(completedDependencies);
@@ -160,9 +162,12 @@ public sealed class ChunkMaterializationGenerationTask :
         // A worker completion only makes the next stage runnable. Return to
         // the column scheduler before performing another stage so sibling
         // vertical sections and other columns get a fair serial continuation.
-        if (collectedAsynchronousCompletion)
+        if (collectedAsynchronousCompletion && !collectedLightingCompletion)
             return ChunkGenerationTaskAdvanceResult.Yield;
 
+        // Completing the light future is the final generation step. The
+        // detached completed chunk can now be handed to the owner thread for
+        // FULL publication without another empty continuation.
         return AdvanceParent(cancellationToken);
     }
 
