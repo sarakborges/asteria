@@ -81,9 +81,13 @@ public enum ChunkGenerationStatus : byte
 {
     Unloaded,
     StructureStarts,
+    StructureReferences,
     Biomes,
     Terrain,
+    Features,
     InitializeLight,
+    Light,
+    Spawn,
     Full,
 }
 
