@@ -28,8 +28,8 @@ public readonly record struct ChunkGenerationWorkerRequest(
 
 /// <summary>
 /// Generation-specific adapter over the session's shared WorldWorkerPool.
-/// It reserves mailbox capacity before admission and publishes completions
-/// from worker threads without touching coordinator-owned dispatcher state.
+/// It publishes detached completion messages to an unbounded mailbox; worker
+/// count limits execution, while the dispatcher owns logical task backlog.
 /// </summary>
 public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 {
@@ -52,10 +52,9 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
     /// </summary>
     public ChunkGenerationWorkerPool(
         int workerCount,
-        int pendingCapacity,
         ChunkGenerationCompletionMailbox completionMailbox)
         : this(
-            new WorldWorkerPool(workerCount, pendingCapacity),
+            new WorldWorkerPool(workerCount),
             completionMailbox,
             ownsWorkerPool: true)
     {
@@ -84,10 +83,6 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 
     public int WorkerCount => _workerPool.WorkerCount;
 
-    public int PendingCapacity => _workerPool.PendingCapacity;
-
-    public int AvailableSubmissionCount => _workerPool.AvailableSubmissionCount;
-
     public int PendingWorkCount => Volatile.Read(ref _pendingWorkCount);
 
     public int ActiveWorkerCount => Volatile.Read(ref _activeWorkerCount);
@@ -101,9 +96,8 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
     public long RejectedWorkCount => Interlocked.Read(ref _rejectedWorkCount);
 
     /// <summary>
-    /// Queues a CPU operation without blocking. False means either the shared
-    /// worker queue or completion mailbox has no capacity; the coordinator
-    /// retains the request and retries after capacity becomes available.
+    /// Submits work to the shared priority queue. False means the adapter or
+    /// executor is retiring; pending queue length is not a worker admission cap.
     /// </summary>
     public bool TrySchedule(ChunkGenerationWorkerRequest request) =>
         TrySchedule(request, out _);
@@ -120,14 +114,6 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
             return false;
         }
 
-        if (!_completionMailbox.TryReserve(out var reservation))
-        {
-            Interlocked.Increment(ref _rejectedWorkCount);
-            return false;
-        }
-
-        // Publish the lane counters before submitting. A worker may dequeue
-        // and complete this operation before TrySchedule returns.
         Interlocked.Increment(ref _inFlightWorkCount);
         Interlocked.Increment(ref _pendingWorkCount);
         if (_workerPool.TrySchedule(
@@ -143,17 +129,13 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
                 {
                     try
                     {
-                        var completion = new ChunkGenerationDependencyCompletion(
-                            request.Task,
-                            request.WaitToken,
-                            request.DependencyId,
-                            Result: result.Result,
-                            Error: result.Error);
-                        if (!reservation!.TryPublish(completion))
-                        {
-                            Interlocked.Increment(ref _failedWorkCount);
-                            return;
-                        }
+                        _completionMailbox.Publish(
+                            new ChunkGenerationDependencyCompletion(
+                                request.Task,
+                                request.WaitToken,
+                                request.DependencyId,
+                                Result: result.Result,
+                                Error: result.Error));
 
                         if (result.Error is null)
                             Interlocked.Increment(ref _completedWorkCount);
@@ -162,7 +144,6 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
                     }
                     finally
                     {
-                        reservation!.Dispose();
                         Interlocked.Decrement(ref _activeWorkerCount);
                         Interlocked.Decrement(ref _inFlightWorkCount);
                         CompleteDrainIfNeeded();
@@ -175,7 +156,6 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 
         Interlocked.Decrement(ref _pendingWorkCount);
         Interlocked.Decrement(ref _inFlightWorkCount);
-        reservation!.Dispose();
         Interlocked.Increment(ref _rejectedWorkCount);
         CompleteDrainIfNeeded();
         return false;
