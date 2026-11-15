@@ -646,11 +646,15 @@ public sealed class ChunkGenerationPlanTests
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         var negativeSection = new ChunkCoord(target.X, -1, target.Z);
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            holder.GetSectionGenerationFuture(
-                negativeSection, ChunkGenerationStatus.Terrain));
+        {
+            _ = holder.GetSectionGenerationFuture(
+                negativeSection, ChunkGenerationStatus.Terrain);
+        });
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            manager.GetSectionGenerationFuture(
-                negativeSection, ChunkGenerationStatus.Terrain));
+        {
+            _ = manager.GetSectionGenerationFuture(
+                negativeSection, ChunkGenerationStatus.Terrain);
+        });
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             manager.GetCompletedSectionGenerationStatus(negativeSection));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
