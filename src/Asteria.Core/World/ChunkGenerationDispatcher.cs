@@ -75,6 +75,9 @@ public sealed class ChunkGenerationDispatcher
     /// <summary>Raised on the owning coordinator thread when a task advances its achieved holder status.</summary>
     public event Action<ChunkGenerationTaskInstance, ChunkGenerationStatus>? GenerationStatusAdvanced;
 
+    /// <summary>Raised on the owning coordinator thread for one exact vertical section.</summary>
+    public event Action<ChunkGenerationTaskInstance, ChunkCoord, ChunkGenerationStatus>? SectionGenerationStatusAdvanced;
+
     internal ChunkGenerationSerialExecutor LightingExecutor => _lightingExecutor;
 
     /// <summary>
@@ -323,6 +326,21 @@ public sealed class ChunkGenerationDispatcher
         var result = completion.Result ??
             throw new InvalidOperationException(
                 $"Task advance completed without a result: {entry.Instance}");
+        foreach (var sectionProgress in result.SectionProgress)
+        {
+            if (ChunkColumnCoord.FromChunk(sectionProgress.Coord) !=
+                entry.Instance.Key.Column)
+            {
+                throw new InvalidOperationException(
+                    $"Generation task {entry.Instance} published progress for an unrelated section: {sectionProgress.Coord}");
+            }
+
+            SectionGenerationStatusAdvanced?.Invoke(
+                entry.Instance,
+                sectionProgress.Coord,
+                sectionProgress.Status);
+        }
+
         if (result.ProgressStatus is { } progressStatus &&
             progressStatus > entry.HighestReportedStatus)
         {
