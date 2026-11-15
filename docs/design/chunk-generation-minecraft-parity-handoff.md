@@ -1,12 +1,12 @@
 # Handoff: Minecraft-style chunk-column generation pipeline
 
-**Status:** column-level task aggregation and ticket/holder foundations implemented; executable per-status generation pipeline and Minecraft-style serial executors still incomplete  
+**Status:** per-dimension serial worldgen and lighting continuation lanes, shared physical worker pool, column-level generation tasks, executable stage policies and same-column vertical dependency futures are implemented. General holder-status futures keyed by section Y, fully plan-driven dependency admission, and an executable loading pyramid remain incomplete.  
 **Repository:** sarakborges/asteria  
 **Working branch:** worldgen-perf-fix  
 **Pull request:** [#157 — perf(world): optimize worldgen and voxel rendering](https://github.com/sarakborges/asteria/pull/157)  
 **PR base:** worldgen-remake  
-**Reference snapshot:** Asteria HEAD 222315a4ec8d600d562fc65558c6cc5d93fb6165 (2026-11-14)  
-**Date:** 2026-11-14
+**Reference snapshot:** Asteria HEAD e84b4bc13af19cbdfc22ef6ec3de1ebc0350244d (2026-11-15)  
+**Date:** 2026-11-15
 
 This document is the durable restart point for the Minecraft-parity world-generation refactor. Work must proceed in small, independently reviewable commits. Do not merge the PR unless explicitly requested.
 
@@ -843,3 +843,64 @@ Therefore `ChunkLevel.MaximumLoading` is currently `ChunkLevel.Full`, not FULL+1
 - Earlier runs were cancelled because newer commits arrived. A cancelled run is not a pass. Do not mark this implementation validated until the current run's Core tests, terrain A/B and Windows export complete successfully on the same HEAD.
 
 **Next implementation slice:** implement a section-aware, deduplicated generation dependency future for the gravity-support lower-section requirement. Do not add a generic future framework before the section-Y identity and ownership semantics are defined; the present X/Z-only holder futures cannot safely represent two different vertical sections.
+
+
+---
+
+## Authoritative continuation update — 2026-11-15 (HEAD e84b4bc)
+
+**Architecture reference:** Minecraft Java 26.3 only. Do not introduce other projects or Minecraft clones as comparison targets. Asteria's existing 16×16×16 storage, deterministic world generation, archive format and Godot ownership boundaries remain authoritative constraints.
+
+**Branch:** `worldgen-perf-fix`  
+**PR:** [#157](https://github.com/sarakborges/asteria/pull/157), open, base `worldgen-remake`; no merge.  
+**Code HEAD:** `e84b4bc13af19cbdfc22ef6ec3de1ebc0350244d`.
+
+### Current implementation beyond HEAD 49df11f
+
+- [x] The serial worldgen continuation lane and separate serial lighting lane both use the same shared physical worker pool.
+- [x] The materialization adapter observes the step execution policy and yields between completed stage quanta.
+- [x] A column task coordinates the vertical Asteria sections and batches independent worker forks.
+- [x] Materialization tasks can expose a pending dependency's exact `ChunkCoord` to the owning column scheduler instead of unconditionally creating a nested task.
+- [x] The column scheduler maintains section-generation futures keyed by exact `ChunkCoord` and achieved `ChunkGenerationStatus.Light`. When a lower section is already part of the same requested column batch, its completed detached chunk resolves the upper section's gravity-support dependency.
+- [x] A completed lower section's top face is read only after that section has completed its own gravity-support stage. The redundant support-only job created by the upper section is disposed without being advanced.
+- [x] The old nested support-only continuation remains as a fallback when the required lower section is outside the requested vertical batch.
+- [x] A regression test covers the same-column case and asserts the duplicate support-only job receives zero advances.
+
+### Exact limitation of the new section future
+
+This is deliberately a first section-aware dependency step, **not yet a generic Minecraft-equivalent holder-future system**:
+
+- The futures are currently scoped to one `ChunkColumnMaterializationGenerationTask`.
+- The current key is `(ChunkCoord, Light)`; intermediate status futures such as `Terrain` and `Features` are not yet independently addressable per vertical section.
+- The future carries the detached `ChunkMaterializationTaskOutput`, not a reusable holder-managed product for arbitrary consumers.
+- Dependencies outside the current vertical batch still use the nested support-only job.
+- `ChunkHolder.GetGenerationFuture` remains keyed only by `ChunkGenerationStatus`, and `ChunkDependencyClaim` still retains horizontal holders rather than exposing exact section claims.
+
+Do not describe these futures as global, cross-column, or fully holder-managed until those contracts are implemented and tested.
+
+### Recent commits
+
+- `11cbe55` — define the materialization dependency-receiver contract.
+- `089993c` — allow column-owned materialization tasks to defer pending dependencies to the column scheduler.
+- `a3d4f5e` — resolve gravity support from an already completed lower section.
+- `d71f932` — add exact-section generation futures and sibling-section waiter handling to the column task.
+- `e84b4bc` — test reuse of the lower section result without advancing a duplicate support-only job.
+
+### CI at HEAD e84b4bc
+
+- Validate run [43680665080](https://github.com/sarakborges/asteria/actions/runs/43680665080): `build`, `terrain-ab` and `webui` were in progress at the latest check. The Godot C# build step had started; Core tests had not yet run.
+- Windows export run [43680660552](https://github.com/sarakborges/asteria/actions/runs/43680660552): in progress.
+- Earlier runs on intermediate commits were cancelled by subsequent pushes. Do not treat them as successful validation.
+- This HEAD is **not validated** until Core tests, A/B and Windows export complete successfully.
+
+### Next implementation slices
+
+1. Finish the current CI. Fix any compile or behavioral failures before adding another scheduler feature.
+2. Extend tests for lower-section dependency completion before and after waiter registration, multiple waiters sharing one section future, cancellation while waiting, dependency failure, and a lower section outside the requested batch.
+3. Move section/status future ownership into the holder/generation coordination model. The identity must include the full `ChunkCoord` (including vertical Y) and the requested `ChunkGenerationStatus`; do not overload the existing X/Z-only holder future.
+4. Extend dependency claims to retain the exact vertical sections in the plan envelope while continuing to deduplicate the shared X/Z holder lifetime.
+5. Connect `ChunkGenerationPlan.GetAccumulatedDependencies` and `GetHolderDependencyEnvelope` to real status requests. A step must suspend on the exact future it requires and resume through the normal serial continuation; it must not merely hold a spatial claim.
+6. Only after the reusable section/status futures work should the special gravity-support nested-job fallback be retired.
+7. Continue with the shared X/Z `ColumnBiomeData` / `SurfaceTerrainColumn` products, enforced read/write envelopes, executable loading pyramid, and remaining lighting admission/validation.
+
+**Immediate next action:** validate HEAD e84b4bc. If green, add the section/status future tests from item 2 and promote the current column-scoped future into an owner-managed section-aware generation future. Keep the commits small and do not merge PR #157.
