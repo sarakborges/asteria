@@ -291,9 +291,9 @@ public sealed class WorldWorkerPoolTests
         Assert.False(pool.TryUpdatePriority(
             running!, WorldWorkerPool.PlayerChunkPriority));
 
-        var movedChunk = Schedule(30, 1);
-        var nearbyChunk = Schedule(20, 2);
-        var distantChunk = Schedule(40, 3);
+        var movedChunk = Schedule(40, 1);
+        var nearbyChunk = Schedule(32, 2);
+        var distantChunk = Schedule(45, 3);
 
         Assert.True(pool.TryUpdatePriority(
             movedChunk, WorldWorkerPool.PlayerChunkPriority));
