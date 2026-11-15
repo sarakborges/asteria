@@ -159,6 +159,32 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void EveryCurrentHolderStatusRequirementIsWithinItsOwningColumn()
+    {
+        var target = new ChunkCoord(12, 5, -8);
+        foreach (var step in AsteriaChunkGenerationPlan.Default.Steps)
+        {
+            var requirements = AsteriaChunkGenerationPlan
+                .GetHolderStatusRequirements(step.Id, target);
+
+            Assert.All(requirements, requirement =>
+            {
+                Assert.Equal(target.X, requirement.Coord.X);
+                Assert.Equal(target.Z, requirement.Coord.Z);
+                Assert.True(requirement.Coord.Y >= 0);
+            });
+        }
+
+        var gravityRequirements = AsteriaChunkGenerationPlan
+            .GetHolderStatusRequirements(
+                ChunkGenerationStepId.GravitySupport, target);
+        var lowerTerrain = Assert.Single(gravityRequirements);
+        Assert.Equal(new ChunkCoord(target.X, target.Y - 1, target.Z),
+            lowerTerrain.Coord);
+        Assert.Equal(ChunkGenerationStatus.Terrain, lowerTerrain.Status);
+    }
+
+    [Fact]
     public void ProceduralNeighborReadsAreDeclaredWithoutLoadingNeighborHolders()
     {
         var plan = AsteriaChunkGenerationPlan.Default;
