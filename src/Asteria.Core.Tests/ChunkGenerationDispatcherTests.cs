@@ -131,12 +131,13 @@ public sealed class ChunkGenerationDispatcherTests
         Assert.Equal(0, pool.InFlightWorkCount);
 
         source.SetResult(ChunkGenerationFutureResult.Success(
-            ChunkGenerationStatus.Terrain, revision: 7));
+            ChunkGenerationStatus.Terrain, revision: 7, product: waitingTask.Product));
         PumpUntilIdle(dispatcher);
 
         Assert.True(waitingTask.ObservedFuture.Succeeded);
         Assert.Equal(ChunkGenerationStatus.Terrain, waitingTask.ObservedFuture.Status);
         Assert.Equal(7UL, waitingTask.ObservedFuture.Revision);
+        Assert.Same(waitingTask.Product, waitingTask.ObservedFuture.Product);
         Assert.Equal(2, dispatcher.CompletedTaskCount);
         Assert.Equal(0, dispatcher.RetiringTaskCount);
     }
@@ -399,11 +400,11 @@ public sealed class ChunkGenerationDispatcherTests
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
         var ownerThread = Environment.CurrentManagedThreadId;
         var observed = new List<(ChunkGenerationStatus Status, int ThreadId)>();
-        var observedSections = new List<(ChunkCoord Coord, ChunkGenerationStatus Status, int ThreadId)>();
+        var observedSections = new List<(ChunkCoord Coord, ChunkGenerationStatus Status, Chunk? Product, int ThreadId)>();
         dispatcher.GenerationStatusAdvanced += (_, status) =>
             observed.Add((status, Environment.CurrentManagedThreadId));
-        dispatcher.SectionGenerationStatusAdvanced += (_, section, status) =>
-            observedSections.Add((section, status, Environment.CurrentManagedThreadId));
+        dispatcher.SectionGenerationStatusAdvanced += (_, progress) =>
+            observedSections.Add((progress.Coord, progress.Status, progress.Product, Environment.CurrentManagedThreadId));
 
         Assert.True(dispatcher.TryEnqueue(
             Key(32), 1, Priority(0), 32, new StatusProgressTask()));
@@ -434,6 +435,10 @@ public sealed class ChunkGenerationDispatcherTests
             Assert.Equal(new ChunkCoord(32, 4, 0), item.Coord);
             Assert.Equal(ownerThread, item.ThreadId);
         });
+        Assert.Null(observedSections[0].Product);
+        Assert.Null(observedSections[1].Product);
+        Assert.Null(observedSections[2].Product);
+        Assert.NotNull(observedSections[3].Product);
         Assert.Equal(1, dispatcher.CompletedTaskCount);
     }
 
@@ -658,6 +663,8 @@ public sealed class ChunkGenerationDispatcherTests
 
         public ChunkGenerationFutureResult ObservedFuture { get; private set; }
 
+        public Chunk Product { get; } = new();
+
         public ChunkGenerationTaskAdvanceResult Advance(
             IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
             CancellationToken cancellationToken)
@@ -720,11 +727,12 @@ public sealed class ChunkGenerationDispatcherTests
         {
             Assert.Single(completedDependencies);
             Assert.Equal("light", completedDependencies[0].Result);
+            var chunk = new Chunk();
             return ChunkGenerationTaskAdvanceResult.CompletedWith(
                 new object(),
                 ChunkGenerationStatus.Light).WithSectionProgress(
                     [new ChunkSectionGenerationProgress(
-                        new ChunkCoord(32, 4, 0), ChunkGenerationStatus.Light)]);
+                        new ChunkCoord(32, 4, 0), ChunkGenerationStatus.Light, chunk)]);
         }
     }
 
