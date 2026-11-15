@@ -18,7 +18,8 @@ public enum ChunkGenerationTaskAdvanceKind : byte
 /// <summary>One vertical section reached a new generation status.</summary>
 public readonly record struct ChunkSectionGenerationProgress(
     ChunkCoord Coord,
-    ChunkGenerationStatus Status)
+    ChunkGenerationStatus Status,
+    Chunk? Product = null)
 {
     public ChunkSectionGenerationProgress Validate()
     {
