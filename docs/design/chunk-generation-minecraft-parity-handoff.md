@@ -1027,3 +1027,42 @@ Reference: https://minecraftdocs.dev/systems/world/tickets-and-loading (verified
 - Implementation/test commit: `75288c77`.
 
 The current ticket lifetime change set is **not yet validated**. CI run for HEAD `75288c77`: https://github.com/sarakborges/asteria/actions/runs/43736824818 (validate queued); Windows export: https://github.com/sarakborges/asteria/actions/runs/43736819605 (in progress).
+
+
+---
+
+## Continuation checkpoint — 2026-11-15 (bounded access region)
+
+### Implementation commit
+
+The first executable generation-region contract is implemented in commit
+`502b0132dbda24f45fc701a2e88146244f3bea6c` on the continuation branch.
+
+- `ChunkGenerationAccessRegion` binds a target section to one generation-plan step.
+- Immutable generator-data reads are checked against that step's `ReadEnvelope`.
+- Chunk writes are checked independently against its `WriteEnvelope`.
+- World voxel coordinates are translated to their owning 16³ section before access is admitted; negative world Y is rejected.
+- Envelope comparisons use widened coordinate deltas so extreme X/Z values cannot wrap.
+- Holder-status reads are deliberately not authorized by this region. Existing section futures and dependency claims remain the separate mechanism for resident chunk products.
+
+### First runtime integration
+
+`DirectionalFacePalettes` now uses the region for its procedural column lookups and validates the destination section before applying a palette write. The generation path is guarded; arrival-time palette reconciliation remains a separate operation over saved world state and does not pretend to be a generation step.
+
+This is an initial integration, not complete enforcement across the materialization pipeline. Other stages still need their actual field reads and mutations audited before they receive an access region or wider envelopes. Do not replace missing declarations with a blanket halo.
+
+The default authored biome palettes have a maximum directional paint depth of six blocks; the existing horizontal radius-one and vertical section offsets -1..+1 cover those reads. The Gorge biome's `surfaceTerrain.depth: 42` is valley geometry, not a material-palette depth, and does not widen this access envelope.
+
+### Validation checkpoint
+
+On parent HEAD `7140b07b53d73fc96e7a0d914b1103c6f436e9c5`, the validate workflow had completed the C# build, Core tests, ReadyToRun verification, Godot 4.7.2 headless smoke validation, WebUI build, Storybook build and WebUI screen-parity tests. The Windows export workflow also completed successfully.
+
+The parent validation run `43738792004` was still executing its fixed-seed worldgen and terrain A/B benchmarks when this continuation was prepared. Those results are not claimed for the new implementation commit; validation of the updated PR head remains required.
+
+### Next ordered work
+
+1. Validate this commit on the PR and inspect the fixed-seed benchmark evidence before making another performance change.
+2. Extend `ChunkGenerationAccessRegion` stage by stage. Audit the concrete generator-owned reads and writes first, then declare the smallest correct envelopes and route those accesses through the region.
+3. Keep immutable field sampling separate from holder-status dependencies and ticket claims. Cross-column holder-status prerequisites remain unsupported until their producer can be admitted/reused non-blockingly with revision-safe future ownership.
+4. After access enforcement is established, continue the shared column-product work for `ColumnBiomeData` and `SurfaceTerrainColumn`, preserving one owner and deterministic immutable snapshots.
+5. Keep lighting, ordered mutations, worker execution and main-thread publication in their existing separate lanes; do not merge these responsibilities into the access-region abstraction.
