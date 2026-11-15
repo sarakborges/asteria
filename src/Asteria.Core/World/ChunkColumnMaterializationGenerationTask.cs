@@ -75,14 +75,14 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     $"Column {column} contains more than one generation job for section {coord}.",
                     nameof(sectionJobs));
 
-            _sectionGenerationFutures.Add(
-                coord,
-                new SectionGenerationFuture());
             var sectionTask = new ChunkMaterializationGenerationTask(
                 jobs[index],
                 initializeLighting,
                 dispatchTimestamp,
                 deferDependenciesToColumn: true);
+            _sectionGenerationFutures.Add(
+                coord,
+                new SectionGenerationFuture(sectionTask.InitialProgressStatus));
             _sectionTasks.Add(sectionTask);
             _sectionResults.Add(null);
             _sectionProgressStatuses.Add(sectionTask.InitialProgressStatus);
@@ -176,6 +176,9 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             foreach (var sectionIndex in readyBatch)
             {
                 var sectionTask = _sectionTasks[sectionIndex];
+                if (WaitForPlanHolderRequirements(sectionIndex))
+                    continue;
+
                 var policy = sectionTask.NextExecutionPolicy;
                 var isFork = policy is
                     ChunkGenerationExecutionPolicy.SharedWorkerPool or
@@ -256,7 +259,10 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         _pendingOperations.Clear();
         _readySections.Clear();
         foreach (var future in _sectionGenerationFutures.Values)
+        {
             future.WaitingSections.Clear();
+            future.StatusWaiters.Clear();
+        }
         _pendingSectionProgress.Clear();
     }
 
@@ -289,7 +295,11 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             sectionStatus > _sectionProgressStatuses[sectionIndex])
         {
             _sectionProgressStatuses[sectionIndex] = sectionStatus;
-            if (result.Kind != ChunkGenerationTaskAdvanceKind.Completed)
+            CompleteSectionStatusFuture(
+                _sectionTasks[sectionIndex].Coord,
+                sectionStatus);
+            if (sectionIndex < _requiredSectionCount &&
+                result.Kind != ChunkGenerationTaskAdvanceKind.Completed)
             {
                 _pendingSectionProgress.Add(new ChunkSectionGenerationProgress(
                     _sectionTasks[sectionIndex].Coord,
@@ -315,11 +325,16 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 }
                 if (result.ProgressStatus is { } completedSectionStatus)
                 {
-                    _pendingSectionProgress.Add(
-                        new ChunkSectionGenerationProgress(
-                            output.Coord,
-                            completedSectionStatus,
-                            output.Chunk));
+                    CompleteSectionStatusFuture(
+                        output.Coord, completedSectionStatus);
+                    if (sectionIndex < _requiredSectionCount)
+                    {
+                        _pendingSectionProgress.Add(
+                            new ChunkSectionGenerationProgress(
+                                output.Coord,
+                                completedSectionStatus,
+                                output.Chunk));
+                    }
                 }
                 CompleteSectionFuture(output);
                 break;
@@ -417,8 +432,64 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         return result.WithSectionProgress(updates);
     }
 
+    private bool WaitForPlanHolderRequirements(int sectionIndex)
+    {
+        var sectionTask = _sectionTasks[sectionIndex];
+        if (sectionTask.NextGenerationStep is not { } targetStep)
+            return false;
+
+        var waiting = false;
+        foreach (var requirement in AsteriaChunkGenerationPlan
+                     .GetHolderStatusRequirements(targetStep, sectionTask.Coord))
+        {
+            // Same-section requirements are completed by this section task's
+            // own ordered plan. Only an exact neighbouring section needs a
+            // scheduler-level future; this prevents self-wait cycles.
+            if (requirement.Coord == sectionTask.Coord ||
+                !_sectionGenerationFutures.TryGetValue(
+                    requirement.Coord, out var future) ||
+                future.CompletedStatus >= requirement.Status)
+                continue;
+
+            if (future.StatusWaiters.TryGetValue(
+                    sectionIndex, out var registeredStatus))
+            {
+                if (registeredStatus < requirement.Status)
+                    future.StatusWaiters[sectionIndex] = requirement.Status;
+            }
+            else
+            {
+                future.StatusWaiters.Add(sectionIndex, requirement.Status);
+            }
+            waiting = true;
+        }
+
+        return waiting;
+    }
+
+    private void CompleteSectionStatusFuture(
+        ChunkCoord section,
+        ChunkGenerationStatus status)
+    {
+        if (!_sectionGenerationFutures.TryGetValue(section, out var future))
+            return;
+        if (status > future.CompletedStatus)
+            future.CompletedStatus = status;
+
+        foreach (var (waitingSection, requiredStatus) in
+                 future.StatusWaiters.ToArray())
+        {
+            if (requiredStatus > future.CompletedStatus)
+                continue;
+            future.StatusWaiters.Remove(waitingSection);
+            AddReadySection(waitingSection);
+        }
+    }
+
     private void CompleteSectionFuture(ChunkMaterializationTaskOutput output)
     {
+        CompleteSectionStatusFuture(
+            output.Coord, ChunkGenerationStatus.Light);
         if (!_sectionGenerationFutures.TryGetValue(
                 output.Coord, out var future) ||
             !future.Completion.TrySetResult(output.Chunk))
@@ -459,26 +530,32 @@ public sealed class ChunkColumnMaterializationGenerationTask :
 
         var dependencyIndex = _sectionTasks.Count;
         _sectionTaskIndices.Add(dependencyCoord, dependencyIndex);
-        _sectionGenerationFutures.Add(
-            dependencyCoord,
-            new SectionGenerationFuture());
-        _sectionTasks.Add(new ChunkMaterializationGenerationTask(
+        var dependencyTask = new ChunkMaterializationGenerationTask(
             dependencyJob,
             initializeLighting: null,
             dispatchTimestamp: 0,
             returnJobOnCompletion: true,
-            deferDependenciesToColumn: true));
+            deferDependenciesToColumn: true);
+        _sectionGenerationFutures.Add(
+            dependencyCoord,
+            new SectionGenerationFuture(dependencyTask.InitialProgressStatus));
+        _sectionTasks.Add(dependencyTask);
         _sectionResults.Add(null);
-        _sectionProgressStatuses.Add(ChunkGenerationStatus.Unloaded);
+        _sectionProgressStatuses.Add(dependencyTask.InitialProgressStatus);
         _sectionGenerationFutures[dependencyCoord].WaitingSections.Add(
             waitingSection);
         AddReadySection(dependencyIndex);
     }
 
-    private sealed class SectionGenerationFuture
+    private sealed class SectionGenerationFuture(
+        ChunkGenerationStatus initialStatus)
     {
         public TaskCompletionSource<Chunk> Completion { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public ChunkGenerationStatus CompletedStatus { get; set; } = initialStatus;
+
+        public Dictionary<int, ChunkGenerationStatus> StatusWaiters { get; } = [];
 
         public List<int> WaitingSections { get; } = [];
     }
