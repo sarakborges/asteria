@@ -141,6 +141,15 @@ public interface IChunkMaterializationJob : IDisposable
 }
 
 /// <summary>
+/// Allows a materialization job to consume a completed sibling-section result
+/// instead of running a duplicate support-only materialization job.
+/// </summary>
+public interface IChunkMaterializationDependencyReceiver
+{
+    void ResolveDependency(ChunkCoord dependencyCoord, Chunk completedChunk);
+}
+
+/// <summary>
 /// Optional incremental materialization capability. Providers that do not
 /// implement it remain supported through a single-step compatibility adapter.
 /// </summary>
