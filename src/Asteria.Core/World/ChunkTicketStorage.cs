@@ -615,9 +615,142 @@ public readonly record struct ChunkGenerationFutureResult(
 }
 
 /// <summary>
+/// Section-local generation progress owned by its horizontal holder. Each
+/// status future is distinct for the exact three-dimensional ChunkCoord.
+/// </summary>
+internal sealed class ChunkSectionGenerationProgressState
+{
+    private readonly Dictionary<ChunkGenerationStatus,
+        TaskCompletionSource<ChunkGenerationFutureResult>> _futures =
+        CreateGenerationFutures();
+
+    public ChunkGenerationStatus CompletedStatus { get; private set; }
+
+    public ulong Revision { get; private set; } = 1;
+
+    public bool HasProgressOrCompletedFuture =>
+        CompletedStatus != ChunkGenerationStatus.Unloaded ||
+        _futures.Values.Any(future => future.Task.IsCompleted);
+
+    public Task<ChunkGenerationFutureResult> GetFuture(
+        ChunkGenerationStatus status,
+        ChunkGenerationStatus highestAllowedStatus,
+        int ticketLevel)
+    {
+        ValidateStatus(status);
+        if (status > highestAllowedStatus)
+        {
+            return Task.FromResult(ChunkGenerationFutureResult.Unloaded(
+                status,
+                $"Ticket level {ticketLevel} does not permit {status} for this section.",
+                Revision));
+        }
+
+        return _futures[status].Task;
+    }
+
+    public bool Complete(
+        ChunkGenerationStatus completedStatus,
+        ChunkGenerationStatus highestAllowedStatus)
+    {
+        ValidateStatus(completedStatus);
+        if (completedStatus > CompletedStatus)
+            CompletedStatus = completedStatus;
+        Reconcile(highestAllowedStatus, ticketLevel: -1);
+        return completedStatus <= highestAllowedStatus &&
+            _futures.Any(entry =>
+                entry.Key <= completedStatus &&
+                entry.Value.Task.IsCompletedSuccessfully &&
+                entry.Value.Task.Result.Succeeded &&
+                entry.Value.Task.Result.Revision == Revision);
+    }
+
+    public void Reconcile(
+        ChunkGenerationStatus highestAllowedStatus,
+        int ticketLevel)
+    {
+        foreach (var status in _futures.Keys.ToArray())
+        {
+            var future = _futures[status];
+            if (status > highestAllowedStatus)
+            {
+                if (future.Task.IsCompletedSuccessfully &&
+                    future.Task.Result.Succeeded)
+                {
+                    var demoted = NewGenerationFuture();
+                    demoted.TrySetResult(ChunkGenerationFutureResult.Unloaded(
+                        status,
+                        $"Ticket level {ticketLevel} no longer permits {status} for this section.",
+                        Revision));
+                    _futures[status] = demoted;
+                }
+                else
+                {
+                    future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
+                        status,
+                        $"Ticket level {ticketLevel} does not permit {status} for this section.",
+                        Revision));
+                }
+                continue;
+            }
+
+            if (status <= CompletedStatus)
+            {
+                if (future.Task.IsCompletedSuccessfully &&
+                    !future.Task.Result.Succeeded)
+                {
+                    future = NewGenerationFuture();
+                    _futures[status] = future;
+                }
+                future.TrySetResult(ChunkGenerationFutureResult.Success(
+                    status, Revision));
+            }
+            else if (future.Task.IsCompletedSuccessfully &&
+                     !future.Task.Result.Succeeded)
+            {
+                _futures[status] = NewGenerationFuture();
+            }
+        }
+    }
+
+    public void Reset(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        if (Revision == ulong.MaxValue)
+            throw new InvalidOperationException(
+                "Section generation revision space was exhausted.");
+
+        var failedRevision = Revision;
+        foreach (var (status, future) in _futures)
+            future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
+                status, reason, failedRevision));
+        Revision++;
+        CompletedStatus = ChunkGenerationStatus.Unloaded;
+        foreach (var status in _futures.Keys.ToArray())
+            _futures[status] = NewGenerationFuture();
+    }
+
+    private static void ValidateStatus(ChunkGenerationStatus status)
+    {
+        if (!Enum.IsDefined(status) || status == ChunkGenerationStatus.Unloaded)
+            throw new ArgumentOutOfRangeException(nameof(status));
+    }
+
+    private static Dictionary<ChunkGenerationStatus,
+        TaskCompletionSource<ChunkGenerationFutureResult>> CreateGenerationFutures() =>
+        Enum.GetValues<ChunkGenerationStatus>()
+            .Where(status => status != ChunkGenerationStatus.Unloaded)
+            .ToDictionary(status => status, _ => NewGenerationFuture());
+
+    private static TaskCompletionSource<ChunkGenerationFutureResult>
+        NewGenerationFuture() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+}
+
+/// <summary>
 /// One horizontal holder created by the loading graph. Its ticket level is a
-/// ceiling on generation status, while its three futures represent actual
-/// promotion to FULL, BLOCK_TICKING and ENTITY_TICKING.
+/// ceiling on generation status, while section-local futures retain exact
+/// three-dimensional progress within the same X/Z holder.
 /// </summary>
 public sealed class ChunkHolder
 {
@@ -627,6 +760,8 @@ public sealed class ChunkHolder
     private readonly Dictionary<ChunkGenerationStatus,
         TaskCompletionSource<ChunkGenerationFutureResult>> _generationFutures =
         CreateGenerationFutures();
+    private readonly Dictionary<ChunkCoord, ChunkSectionGenerationProgressState>
+        _sectionGenerationProgress = [];
     private int _dependencyClaimCount;
 
     internal ChunkHolder(ChunkColumnCoord position, int ticketLevel)
@@ -718,6 +853,8 @@ public sealed class ChunkHolder
             FullStatus >= ChunkFullStatus.EntityTicking,
             "Chunk is no longer allowed to tick entities.");
         ReconcileGenerationFutures();
+        foreach (var section in _sectionGenerationProgress.Values)
+            section.Reconcile(HighestAllowedGenerationStatus, TicketLevel);
         return true;
     }
 
@@ -741,6 +878,63 @@ public sealed class ChunkHolder
         }
 
         return _generationFutures[requestedStatus].Task;
+    }
+
+    /// <summary>Gets the status future for one exact vertical section in this holder.</summary>
+    public Task<ChunkGenerationFutureResult> GetSectionGenerationFuture(
+        ChunkCoord section,
+        ChunkGenerationStatus requestedStatus)
+    {
+        ValidateSection(section);
+        if (!Enum.IsDefined(requestedStatus) ||
+            requestedStatus == ChunkGenerationStatus.Unloaded)
+            throw new ArgumentOutOfRangeException(nameof(requestedStatus));
+
+        return GetOrCreateSectionProgress(section).GetFuture(
+            requestedStatus,
+            HighestAllowedGenerationStatus,
+            TicketLevel);
+    }
+
+    /// <summary>Highest achieved generation status retained for one exact section.</summary>
+    public ChunkGenerationStatus GetCompletedSectionGenerationStatus(
+        ChunkCoord section)
+    {
+        ValidateSection(section);
+        return _sectionGenerationProgress.TryGetValue(section, out var progress)
+            ? progress.CompletedStatus
+            : ChunkGenerationStatus.Unloaded;
+    }
+
+    public ulong GetSectionGenerationRevision(ChunkCoord section)
+    {
+        ValidateSection(section);
+        return _sectionGenerationProgress.TryGetValue(section, out var progress)
+            ? progress.Revision
+            : 1UL;
+    }
+
+    public bool CompleteSectionGenerationStatus(
+        ChunkCoord section,
+        ChunkGenerationStatus completedStatus)
+    {
+        ValidateSection(section);
+        return GetOrCreateSectionProgress(section).Complete(
+            completedStatus, HighestAllowedGenerationStatus);
+    }
+
+    public bool ResetSectionGenerationProgress(
+        ChunkCoord section,
+        string reason)
+    {
+        ValidateSection(section);
+        if (!_sectionGenerationProgress.TryGetValue(section, out var progress) ||
+            !progress.HasProgressOrCompletedFuture)
+            return false;
+
+        progress.Reset(reason);
+        progress.Reconcile(HighestAllowedGenerationStatus, TicketLevel);
+        return true;
     }
 
     /// <summary>
@@ -777,7 +971,9 @@ public sealed class ChunkHolder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         if (CompletedGenerationStatus == ChunkGenerationStatus.Unloaded &&
-            _generationFutures.Values.All(future => !future.Task.IsCompleted))
+            _generationFutures.Values.All(future => !future.Task.IsCompleted) &&
+            _sectionGenerationProgress.Values.All(progress =>
+                !progress.HasProgressOrCompletedFuture))
             return false;
         if (GenerationProgressRevision == ulong.MaxValue)
             throw new InvalidOperationException(
@@ -792,6 +988,8 @@ public sealed class ChunkHolder
                 status, reason, failedRevision));
             _generationFutures[status] = NewGenerationFuture();
         }
+        foreach (var section in _sectionGenerationProgress.Values)
+            section.Reset(reason);
 
         ResetPromotionFuture(ref _fullChunkFuture, reason);
         ResetPromotionFuture(ref _blockTickingFuture, reason);
@@ -841,6 +1039,26 @@ public sealed class ChunkHolder
         if (FullStatus >= ChunkFullStatus.EntityTicking)
             changed |= _entityTickingFuture.TrySetResult(failure);
         return changed;
+    }
+
+    private ChunkSectionGenerationProgressState GetOrCreateSectionProgress(
+        ChunkCoord section)
+    {
+        if (_sectionGenerationProgress.TryGetValue(section, out var progress))
+            return progress;
+
+        progress = new ChunkSectionGenerationProgressState();
+        progress.Reconcile(HighestAllowedGenerationStatus, TicketLevel);
+        _sectionGenerationProgress.Add(section, progress);
+        return progress;
+    }
+
+    private void ValidateSection(ChunkCoord section)
+    {
+        if (ChunkColumnCoord.FromChunk(section) != Position)
+            throw new ArgumentException(
+                $"Section {section} does not belong to holder {Position}.",
+                nameof(section));
     }
 
     private void ReconcileGenerationFutures()
