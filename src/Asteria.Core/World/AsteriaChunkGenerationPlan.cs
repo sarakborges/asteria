@@ -27,6 +27,12 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope HorizontalPaletteHalo =
         new(horizontalRadius: 1, minimumSectionOffset: -1, maximumSectionOffset: 1);
 
+    // Volume-structure anchor selection scans the authored support range
+    // (at most 512 blocks) plus templates extending at most 16 blocks from
+    // their support face. Horizontal templates are bounded to radius six.
+    private static readonly ChunkGenerationDependencyEnvelope VolumeStructureReadHalo =
+        new(horizontalRadius: 1, minimumSectionOffset: -34, maximumSectionOffset: 34);
+
     private static readonly ChunkGenerationDependencyEnvelope LowerSupportHalo =
         new(horizontalRadius: 0, minimumSectionOffset: -1, maximumSectionOffset: -1);
 
@@ -100,14 +106,20 @@ public static class AsteriaChunkGenerationPlan
             ],
             readEnvelope: HorizontalPaletteHalo),
 
+        // Anchor selection reads immutable biome/density fields through the
+        // authored vertical support range. It does not require distant holders.
         Step(
             ChunkGenerationStepId.VolumeStructures,
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.OrderedMutation,
             [
                 Dependency(ChunkGenerationStepId.DirectionalFacePalettes, NoHalo),
-                Dependency(ChunkGenerationStepId.ColumnBiomeData, NoHalo),
-            ]),
+                Dependency(
+                    ChunkGenerationStepId.ColumnBiomeData,
+                    VolumeStructureReadHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ],
+            readEnvelope: VolumeStructureReadHalo),
 
         Step(
             ChunkGenerationStepId.GeneratedFluids,

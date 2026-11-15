@@ -92,8 +92,21 @@ public sealed class VolumeStructureField
     /// template fits real density voids. All candidate decisions are made in
     /// world coordinates, including anchors outside the requested chunk.
     /// </summary>
-    public ChunkCursor CreateChunkCursor(ChunkCoord coord) =>
-        new(this, coord);
+    public ChunkCursor CreateChunkCursor(
+        ChunkCoord coord,
+        ChunkGenerationAccessRegion? accessRegion = null)
+    {
+        if (accessRegion is not null &&
+            (accessRegion.TargetSection != coord ||
+             accessRegion.StepId != ChunkGenerationStepId.VolumeStructures))
+        {
+            throw new ArgumentException(
+                "Volume-structure access region must target this section and the VolumeStructures step.",
+                nameof(accessRegion));
+        }
+
+        return new ChunkCursor(this, coord, accessRegion);
+    }
 
     /// <summary>
     /// Compatibility/reference query. Production materialization uses
@@ -128,6 +141,7 @@ public sealed class VolumeStructureField
     {
         private readonly VolumeStructureField _owner;
         private readonly ChunkCoord _coord;
+        private readonly ChunkGenerationAccessRegion? _accessRegion;
         private readonly int _originX;
         private readonly int _originY;
         private readonly int _originZ;
@@ -148,10 +162,14 @@ public sealed class VolumeStructureField
         private int _activeWorldZ;
         private int _activeSupportY;
 
-        internal ChunkCursor(VolumeStructureField owner, ChunkCoord coord)
+        internal ChunkCursor(
+            VolumeStructureField owner,
+            ChunkCoord coord,
+            ChunkGenerationAccessRegion? accessRegion)
         {
             _owner = owner;
             _coord = coord;
+            _accessRegion = accessRegion;
             var origin = VoxelCoordinates.ChunkOrigin(coord);
             _originX = origin.X;
             _originY = origin.Y;
@@ -263,7 +281,7 @@ public sealed class VolumeStructureField
                     new CandidateKey(rule.Index, cellX, cellZ),
                     () => _owner.TryAnchor(
                         rule, variant, (int)worldX, (int)worldZ,
-                        out var located) ? located : null);
+                        _accessRegion, out var located) ? located : null);
                 if (anchor is not { } supportY)
                     continue;
 
@@ -330,10 +348,16 @@ public sealed class VolumeStructureField
         }
     }
 
-    private bool TryAnchor(Rule rule, Variant variant, int x, int z,
-                           out int supportY)
+    private bool TryAnchor(
+        Rule rule,
+        Variant variant,
+        int x,
+        int z,
+        ChunkGenerationAccessRegion? accessRegion,
+        out int supportY)
     {
         supportY = 0;
+        accessRegion?.EnsureCanReadColumnData(x, z);
         var direction = rule.Definition.SupportSurface ==
                         DecorationSupportSurface.Floor ? 1 : -1;
         var cavity = rule.Placement == VolumeBiomePlacement.CarvedVoid
@@ -350,14 +374,18 @@ public sealed class VolumeStructureField
                 (long)y + variant.MaxY > int.MaxValue - 1)
                 continue;
 
+            var supportNeighborY = checked(y + direction);
+            accessRegion?.EnsureCanReadWorldPosition(x, y, z);
+            accessRegion?.EnsureCanReadWorldPosition(
+                x, supportNeighborY, z);
             var volume = cavity ?? _volumes.Sample(x, y, z);
             if (volume?.Primary != rule.Biome ||
                 _terrain.DensityAt(x, y, z) < 0d ||
-                _terrain.DensityAt(x, y + direction, z) >= 0d)
+                _terrain.DensityAt(x, supportNeighborY, z) >= 0d)
                 continue;
 
             if (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
-                !_terrain.IsCaveVoidAt(x, y + direction, z))
+                !_terrain.IsCaveVoidAt(x, supportNeighborY, z))
                 continue;
 
             var face = direction > 0
@@ -379,13 +407,32 @@ public sealed class VolumeStructureField
                 var touchesGround = voxel.Y == direction;
                 if (px is < int.MinValue or > int.MaxValue ||
                     pz is < int.MinValue or > int.MaxValue ||
-                    py <= 0 || py > int.MaxValue ||
-                    _terrain.DensityAt((int)px, (int)py, (int)pz) >= 0d ||
-                    (touchesGround &&
-                     _terrain.DensityAt((int)px, (int)py - direction,
-                         (int)pz) < 0d) ||
+                    py <= 0 || py > int.MaxValue)
+                {
+                    valid = false;
+                    break;
+                }
+
+                var voxelX = (int)px;
+                var voxelY = (int)py;
+                var voxelZ = (int)pz;
+                accessRegion?.EnsureCanReadWorldPosition(
+                    voxelX, voxelY, voxelZ);
+                var hasUnsupportedFoot = false;
+                if (touchesGround)
+                {
+                    var supportYBelow = checked(voxelY - direction);
+                    accessRegion?.EnsureCanReadWorldPosition(
+                        voxelX, supportYBelow, voxelZ);
+                    hasUnsupportedFoot =
+                        _terrain.DensityAt(
+                            voxelX, supportYBelow, voxelZ) < 0d;
+                }
+
+                if (_terrain.DensityAt(voxelX, voxelY, voxelZ) >= 0d ||
+                    hasUnsupportedFoot ||
                     (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
-                     !_terrain.IsCaveVoidAt((int)px, (int)py, (int)pz)))
+                     !_terrain.IsCaveVoidAt(voxelX, voxelY, voxelZ)))
                 {
                     valid = false;
                     break;

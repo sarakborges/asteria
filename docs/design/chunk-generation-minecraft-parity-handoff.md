@@ -1105,3 +1105,53 @@ Continue with one stage at a time. Audit every procedural field and resident
 chunk read separately, derive the narrowest correct read/write envelope, then
 route the actual access through the corresponding region. Keep immutable
 column/field data reads separate from holder futures and ticket claims.
+
+
+---
+
+## VolumeStructures bounded access checkpoint — 2026-11-15
+
+### Audited access bounds
+
+`BiomeVolumeStructureDefinition` permits a support range of up to 512
+blocks. Authored templates are bounded to a horizontal radius of six blocks
+and a vertical reach of sixteen blocks on one side of their support face.
+`VolumeStructureField.TryAnchor` samples the biome and density over the
+whole configured support-Y range, then validates every template voxel and
+its supporting foot.
+
+The production `VolumeStructures` step now declares an immutable generator
+read envelope with horizontal radius 1 and section offsets [-34, +34]. The
+vertical bound covers the maximum authored support range plus template reach;
+the horizontal bound covers an anchor whose footprint intersects the target
+section and the farthest voxel of that same template. This is a field-data
+envelope, not a chunk-residency radius.
+
+`ChunkGenerationAccessRegion` is passed into the resumable structure cursor.
+Anchor biome/density reads, template occupancy/support reads, column material
+sampling, and writes into the target chunk are checked against that region.
+The volume-structure cursor parity test now runs its incremental cursor with
+the region enabled before comparing against the reference result.
+
+The plan keeps `ColumnBiomeData` as an `ImmutableWorldData` prerequisite
+for this range. It does not create any horizontal `HolderStatus` dependency
+or widen ticket/neighbor-holder admission. The full section access envelope
+therefore includes the volume-structure vertical range, while the holder
+envelope remains independent.
+
+### Follow-up architecture work
+
+The structure anchor cache is shared across vertical sections, but anchor
+resolution is still entered from the first section cursor that requests a
+candidate. The next structural improvement is to make that shared immutable
+anchor assignment an explicit column-scoped product/future, then let each
+section cursor consume the resolved placements. Do not narrow the vertical
+read envelope until that ownership split removes the full-range anchor scan
+from the section stage.
+
+### Validation
+
+This checkpoint requires a fresh Core test run, Windows export, fixed-seed
+terrain A/B result, and the existing Godot/WebUI checks on the new HEAD.
+No performance improvement is claimed from this architectural enforcement
+change.

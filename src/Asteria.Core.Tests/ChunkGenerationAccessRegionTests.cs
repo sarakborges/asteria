@@ -44,6 +44,31 @@ public sealed class ChunkGenerationAccessRegionTests
     }
 
     [Fact]
+    public void VolumeStructureReadsRespectTheDeclaredVerticalSearchRange()
+    {
+        var target = new ChunkCoord(12, 40, -8);
+        var origin = VoxelCoordinates.ChunkOrigin(target);
+        var region = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            target,
+            ChunkGenerationStepId.VolumeStructures);
+
+        Assert.True(region.CanReadWorldPosition(
+            origin.X + Chunk.Size,
+            origin.Y + 34 * Chunk.Size,
+            origin.Z - Chunk.Size));
+        Assert.True(region.CanReadWorldPosition(
+            origin.X - Chunk.Size,
+            origin.Y - 34 * Chunk.Size,
+            origin.Z + Chunk.Size));
+
+        Assert.False(region.CanReadWorldPosition(
+            origin.X, origin.Y + 35 * Chunk.Size, origin.Z));
+        Assert.False(region.CanReadWorldPosition(
+            origin.X, origin.Y - 35 * Chunk.Size, origin.Z));
+    }
+
+    [Fact]
     public void ColumnDataReadsUseHorizontalRadiusWithoutInventingVerticalSections()
     {
         var target = new ChunkCoord(12, 5, -8);

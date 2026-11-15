@@ -134,8 +134,11 @@ public sealed class VolumeStructureContentTests
             structureSets);
         var field = generator.VolumeStructures;
         var coord = new ChunkCoord(0, 2, 0);
-        var expected = field.VoxelsForChunk(coord);
-        var cursor = field.CreateChunkCursor(coord);
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            coord,
+            ChunkGenerationStepId.VolumeStructures);
+        var cursor = field.CreateChunkCursor(coord, accessRegion);
         Span<VolumeStructureVoxel> batch =
             stackalloc VolumeStructureVoxel[1];
         var actual = new List<VolumeStructureVoxel>();
@@ -158,6 +161,7 @@ public sealed class VolumeStructureContentTests
 
         Assert.True(advanceCount > 1,
             "The selected cavern section should require multiple candidate steps.");
+        var expected = field.VoxelsForChunk(coord);
         Assert.Equal(expected, actual);
     }
 

@@ -3720,8 +3720,16 @@ public sealed partial class SurfaceChunkMaterializer
         if (_volumeStructures is not { HasRules: true } formations)
             return true;
 
-        var cursor = job.VolumeStructureCursor ??=
-            formations.CreateChunkCursor(job.Coord);
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            job.Coord,
+            ChunkGenerationStepId.VolumeStructures);
+        var cursor = job.VolumeStructureCursor;
+        if (cursor is null)
+        {
+            cursor = formations.CreateChunkCursor(job.Coord, accessRegion);
+            job.VolumeStructureCursor = cursor;
+        }
         Span<VolumeStructureVoxel> voxels =
             stackalloc VolumeStructureVoxel[VolumeStructureVoxelsPerAdvance];
         var complete = cursor.Advance(
@@ -3746,6 +3754,8 @@ public sealed partial class SurfaceChunkMaterializer
                 !chunk.GetFluid(x, y, z).IsEmpty)
                 continue;
 
+            accessRegion.EnsureCanWriteWorldPosition(
+                voxel.X, voxel.Y, voxel.Z);
             chunk.SetBlock(x, y, z, voxel.Block);
         }
 

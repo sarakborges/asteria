@@ -260,10 +260,10 @@ public sealed class ChunkGenerationPlanTests
             2,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
         Assert.Equal(
-            -1,
+            -34,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MinimumSectionOffset);
         Assert.Equal(
-            1,
+            34,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MaximumSectionOffset);
 
         Assert.Equal(
@@ -318,10 +318,10 @@ public sealed class ChunkGenerationPlanTests
             2,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
         Assert.Equal(
-            -1,
+            -34,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MinimumSectionOffset);
         Assert.Equal(
-            1,
+            34,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MaximumSectionOffset);
 
         Assert.Equal(
@@ -333,6 +333,32 @@ public sealed class ChunkGenerationPlanTests
         Assert.Equal(
             0,
             AsteriaChunkGenerationPlan.FullSectionEnvelope.MaximumSectionOffset);
+    }
+
+    [Fact]
+    public void VolumeStructuresDeclareTheirFullImmutableAnchorSearchRange()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        var step = plan.GetStep(ChunkGenerationStepId.VolumeStructures);
+
+        Assert.Equal(1, step.ReadEnvelope.HorizontalRadius);
+        Assert.Equal(-34, step.ReadEnvelope.MinimumSectionOffset);
+        Assert.Equal(34, step.ReadEnvelope.MaximumSectionOffset);
+
+        Assert.Contains(
+            plan.GetAccumulatedDependencies(ChunkGenerationStepId.VolumeStructures),
+            dependency =>
+                dependency.PrerequisiteStep == ChunkGenerationStepId.ColumnBiomeData &&
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope.HorizontalRadius >= 1 &&
+                dependency.Envelope.MinimumSectionOffset <= -34 &&
+                dependency.Envelope.MaximumSectionOffset >= 34);
+
+        Assert.DoesNotContain(
+            plan.GetAccumulatedDependencies(ChunkGenerationStepId.VolumeStructures),
+            dependency =>
+                dependency.Kind == ChunkGenerationDependencyKind.HolderStatus &&
+                dependency.Envelope.HorizontalRadius > 0);
     }
 
     [Fact]
