@@ -441,7 +441,8 @@ public sealed class ChunkGenerationPlanTests
         Assert.Equal(oldRevision, oldFuture.Result.Revision);
         Assert.False(holder.GetGenerationFuture(
             ChunkGenerationStatus.Features).IsCompleted);
-        Assert.False(oldFullFuture.IsCompletedSuccessfully);
+        Assert.True(oldFullFuture.IsCompletedSuccessfully);
+        Assert.False(oldFullFuture.Result.Succeeded);
         Assert.False(holder.FullChunkFuture.IsCompleted);
     }
 
