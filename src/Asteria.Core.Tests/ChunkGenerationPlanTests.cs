@@ -621,6 +621,41 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void GravityDependenciesAndClaimsStopAtTheWorldFloor()
+    {
+        var target = new ChunkCoord(3, 0, -5);
+        var requirements = AsteriaChunkGenerationPlan.GetHolderStatusRequirements(
+            ChunkGenerationStepId.GravitySupport,
+            target);
+        Assert.NotEmpty(requirements);
+        Assert.All(requirements, requirement =>
+            Assert.True(requirement.Coord.Y >= 0));
+        Assert.False(AsteriaChunkGenerationPlan.SatisfiesHolderStatusRequirement(
+            ChunkGenerationStepId.GravitySupport,
+            target,
+            new ChunkCoord(target.X, -1, target.Z),
+            ChunkGenerationStatus.Full));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AsteriaChunkGenerationPlan.GetHolderStatusRequirements(
+                ChunkGenerationStepId.GravitySupport,
+                new ChunkCoord(target.X, -1, target.Z)));
+
+        var manager = new ChunkDistanceManager();
+        using (var claim = manager.AcquireDependencyClaims(
+                   [target], AsteriaChunkGenerationPlan.FullSectionEnvelope))
+        {
+            Assert.Contains(target, claim.SectionTargets);
+            Assert.All(claim.SectionTargets, section =>
+                Assert.True(section.Y >= 0));
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            manager.AcquireDependencyClaims(
+                [new ChunkCoord(target.X, -1, target.Z)],
+                AsteriaChunkGenerationPlan.FullSectionEnvelope));
+    }
+
+    [Fact]
     public void GenerationDagExpandsHolderRequirementsIntoClaimedSectionFutures()
     {
         var target = new ChunkCoord(14, 4, -9);
