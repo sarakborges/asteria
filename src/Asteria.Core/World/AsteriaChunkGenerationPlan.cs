@@ -371,6 +371,7 @@ public static class AsteriaChunkGenerationPlan
         var deltaX = (long)dependencySection.X - targetSection.X;
         var deltaY = (long)dependencySection.Y - targetSection.Y;
         var deltaZ = (long)dependencySection.Z - targetSection.Z;
+        var requiredStatus = ChunkGenerationStatus.Unloaded;
         foreach (var dependency in Default.GetAccumulatedDependencies(targetStep))
         {
             if (dependency.Kind != ChunkGenerationDependencyKind.HolderStatus ||
@@ -380,11 +381,13 @@ public static class AsteriaChunkGenerationPlan
                 deltaY > dependency.Envelope.MaximumSectionOffset)
                 continue;
 
-            if (availableStatus >= GetGenerationStatus(dependency.PrerequisiteStep))
-                return true;
+            var stepStatus = GetGenerationStatus(dependency.PrerequisiteStep);
+            if (stepStatus > requiredStatus)
+                requiredStatus = stepStatus;
         }
 
-        return false;
+        return requiredStatus != ChunkGenerationStatus.Unloaded &&
+            availableStatus >= requiredStatus;
     }
 
     /// <summary>
