@@ -1478,6 +1478,9 @@ public sealed class ChunkDistanceManager
             throw new ArgumentException(
                 "At least one target section is required for a dependency claim.",
                 nameof(targets));
+        if (targetSections.Any(section => section.Y < 0))
+            throw new ArgumentOutOfRangeException(
+                nameof(targets), "Sphere chunk Y cannot be negative.");
 
         var columns = new HashSet<ChunkColumnCoord>();
         var sectionTargets = new HashSet<ChunkCoord>();
@@ -1508,7 +1511,7 @@ public sealed class ChunkDistanceManager
                      sectionOffset++)
                 {
                     var sectionY = (long)target.Y + sectionOffset;
-                    if (sectionY < int.MinValue || sectionY > int.MaxValue)
+                    if (sectionY < 0 || sectionY > int.MaxValue)
                         continue;
                     sectionTargets.Add(new ChunkCoord(
                         (int)x, (int)sectionY, (int)z));
