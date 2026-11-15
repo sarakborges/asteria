@@ -2932,9 +2932,10 @@ public sealed partial class SurfaceChunkMaterializer
         int worldX,
         int worldY,
         int worldZ,
-        Func<int, int, DirectionalPaletteColumnData> columnAt,
+        Func<int, int, int, DirectionalPaletteColumnData> columnAt,
         VoxelWorld? supportWorld = null,
-        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic = null)
+        Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic = null,
+        ChunkGenerationAccessRegion? accessRegion = null)
     {
         chunk.RestoreDirectionalFaceBaseBlockAtLinearIndex(index);
         var data = chunk.DirectionalFaceDataAtLinearIndex(index);
@@ -2959,7 +2960,7 @@ public sealed partial class SurfaceChunkMaterializer
             return false;
         }
 
-        var sourceColumn = columnAt(worldX, worldZ);
+        var sourceColumn = columnAt(worldX, worldY, worldZ);
         var (sourceCoord, sourceLocal) = VoxelCoordinates.FromWorld(worldX, worldY, worldZ);
         var surfaceOwner = new BiomeRegionOwner(sourceColumn.SurfaceBiome, BiomeRegionOwnerKind.Surface);
         // The chunk snapshot already owns the immutable volume-placement
@@ -3086,7 +3087,7 @@ public sealed partial class SurfaceChunkMaterializer
                 4 => distance,
                 _ => 0,
             };
-            var neighborY = worldY + dy;
+            var neighborY = checked(worldY + dy);
             if (neighborY < 0)
                 continue;
 
@@ -3097,7 +3098,8 @@ public sealed partial class SurfaceChunkMaterializer
                 5 => BiomePaletteFace.Ceiling,
                 _ => throw new ArgumentOutOfRangeException(nameof(direction)),
             };
-            var targetColumn = columnAt(worldX + dx, worldZ + dz);
+            var targetColumn = columnAt(
+                checked(worldX + dx), neighborY, checked(worldZ + dz));
             var emptyPalette = targetColumn.EmptyRegionPalette;
             var shellBoundary = false;
             var emptyCanOwn =
@@ -3157,6 +3159,8 @@ public sealed partial class SurfaceChunkMaterializer
                 return false;
             }
 
+            accessRegion?.EnsureCanWriteWorldPosition(
+                worldX, worldY, worldZ);
             var applied = chunk.SetDirectionalFacePaletteBlockAtLinearIndex(
                 index, replacement);
             diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
@@ -3213,11 +3217,17 @@ public sealed partial class SurfaceChunkMaterializer
                 column.BaseHeightAt(x, z), column.SurfaceFluidCutDepthAt(x, z),
                 emptyPalette);
         }
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            job.Coord,
+            ChunkGenerationStepId.DirectionalFacePalettes);
         var externalColumns =
             new Dictionary<(int X, int Z), DirectionalPaletteColumnData>();
         var neighborColumnLookups = 0;
-        DirectionalPaletteColumnData ColumnAt(int x, int z)
+        DirectionalPaletteColumnData ColumnAt(int x, int y, int z)
         {
+            accessRegion.EnsureCanReadWorldPosition(x, y, z);
+
             var localX = x - origin.X;
             var localZ = z - origin.Z;
             if ((uint)localX < Chunk.Size && (uint)localZ < Chunk.Size)
@@ -3256,7 +3266,8 @@ public sealed partial class SurfaceChunkMaterializer
             var x = withinLayer % Chunk.Size;
             if (ReapplyDirectionalFacePaletteAt(
                     chunk, densityVolume, index,
-                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt))
+                    origin.X + x, origin.Y + y, origin.Z + z, ColumnAt,
+                    accessRegion: accessRegion))
                 writes++;
         });
 #if DEBUG
@@ -3588,7 +3599,7 @@ public sealed partial class SurfaceChunkMaterializer
             }
             var externalColumns =
                 new Dictionary<(int X, int Z), DirectionalPaletteColumnData>();
-            DirectionalPaletteColumnData ColumnAt(int x, int z)
+            DirectionalPaletteColumnData ColumnAt(int x, int y, int z)
             {
                 var localX = x - origin.X;
                 var localZ = z - origin.Z;
