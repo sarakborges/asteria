@@ -1066,3 +1066,42 @@ The parent validation run `43738792004` was still executing its fixed-seed world
 3. Keep immutable field sampling separate from holder-status dependencies and ticket claims. Cross-column holder-status prerequisites remain unsupported until their producer can be admitted/reused non-blockingly with revision-safe future ownership.
 4. After access enforcement is established, continue the shared column-product work for `ColumnBiomeData` and `SurfaceTerrainColumn`, preserving one owner and deterministic immutable snapshots.
 5. Keep lighting, ordered mutations, worker execution and main-thread publication in their existing separate lanes; do not merge these responsibilities into the access-region abstraction.
+
+
+---
+
+## SurfaceDecorations radius-2 checkpoint — 2026-11-15
+
+### Contract correction and runtime enforcement
+
+The authored swamp cattail decoration uses a nearby-water requirement with
+`maxDistance: 2`. The former `SurfaceDecorations` plan envelope of horizontal
+radius 1 did not describe that read. Slope conditions also inspect the four
+cardinal surface columns.
+
+The plan now declares horizontal radius 2 for `SurfaceDecorations` and its
+`SurfaceTerrainColumn` immutable-data prerequisite. This increases the full
+section **access** envelope, but does not create adjacent holder-status
+requirements or increase the ticket/dependency-claim radius.
+
+`ChunkGenerationAccessRegion` now distinguishes 2D column-data reads from
+3D section-position reads. The surface terrain sampler carries the optional
+region and validates contextual slope samples; the nearby-fluid query validates
+each probed column before reading it. Surface decoration voxel writes and
+pending object placements are checked against the stage's write envelope.
+Directional palette restoration is also guarded before its first mutation.
+
+### Validation
+
+The validate run for the preceding head was still executing fixed-seed
+benchmarks and the bounded worldgen query baseline when this checkpoint was
+prepared. Its results do not validate these changes. The Windows export for
+that preceding head completed successfully. Revalidation of the new head is
+required; do not claim performance improvement without the A/B report.
+
+### Next work
+
+Continue with one stage at a time. Audit every procedural field and resident
+chunk read separately, derive the narrowest correct read/write envelope, then
+route the actual access through the corresponding region. Keep immutable
+column/field data reads separate from holder futures and ticket claims.
