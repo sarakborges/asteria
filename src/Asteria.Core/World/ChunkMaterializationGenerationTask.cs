@@ -99,6 +99,20 @@ public sealed class ChunkMaterializationGenerationTask :
         _createdTimestamp = Stopwatch.GetTimestamp();
         _returnJobOnCompletion = returnJobOnCompletion;
         _deferDependenciesToColumn = deferDependenciesToColumn;
+
+        // A job can be created from an already-advanced stage (for example,
+        // a section restored from a partial generation product). Treat every
+        // earlier generation status as achieved; do not wait for a stage that
+        // this job will never execute.
+        var initialStage = _job.ActiveWorkStage;
+        _biomesStatusPublished = initialStage > ChunkMaterializationStage.TerrainSetup;
+        _terrainStatusPublished = initialStage > ChunkMaterializationStage.TerrainLayer;
+        InitialProgressStatus = _terrainStatusPublished
+            ? ChunkGenerationStatus.Terrain
+            : _biomesStatusPublished
+                ? ChunkGenerationStatus.Biomes
+                : ChunkGenerationStatus.Unloaded;
+
         // A nested dependency job remains owned by the parent materialization
         // job until it is returned in a completion payload. On cancellation,
         // the parent's Dispose path is the single owner that releases it.
@@ -106,6 +120,9 @@ public sealed class ChunkMaterializationGenerationTask :
     }
 
     public ChunkCoord Coord => _job.Coord;
+
+    /// <summary>Highest generation status already achieved before this job's first stage.</summary>
+    public ChunkGenerationStatus InitialProgressStatus { get; }
 
     /// <summary>Exact vertical section requested by the current materialization dependency.</summary>
     public ChunkCoord? PendingDependencyCoord => _pendingDependencyJob?.Coord;
