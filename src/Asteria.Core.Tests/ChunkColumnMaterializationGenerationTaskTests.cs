@@ -217,6 +217,39 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void OrderedMutationAdvancesRotateAcrossReadyVerticalSections()
+    {
+        var column = new ChunkColumnCoord(9, -6);
+        var lower = new FakeMaterializationJob(
+            new ChunkCoord(9, 1, -6),
+            sliceCount: 3,
+            ChunkMaterializationStage.SurfaceDecorations);
+        var upper = new FakeMaterializationJob(
+            new ChunkCoord(9, 2, -6),
+            sliceCount: 3,
+            ChunkMaterializationStage.SurfaceDecorations);
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [lower, upper],
+            initializeLighting: _ => { });
+
+        var first = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, first.Kind);
+        Assert.Equal(1, lower.AdvanceCount);
+        Assert.Equal(0, upper.AdvanceCount);
+
+        var second = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, second.Kind);
+        Assert.Equal(1, lower.AdvanceCount);
+        Assert.Equal(1, upper.AdvanceCount);
+
+        var third = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, third.Kind);
+        Assert.Equal(2, lower.AdvanceCount);
+        Assert.Equal(1, upper.AdvanceCount);
+    }
+
+    [Fact]
     public void ColumnPreservesLightExecutorPolicyForEverySection()
     {
         var column = new ChunkColumnCoord(5, -3);
