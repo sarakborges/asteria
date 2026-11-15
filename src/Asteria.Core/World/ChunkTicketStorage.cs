@@ -651,12 +651,13 @@ internal sealed class ChunkSectionGenerationProgressState
 
     public bool Complete(
         ChunkGenerationStatus completedStatus,
-        ChunkGenerationStatus highestAllowedStatus)
+        ChunkGenerationStatus highestAllowedStatus,
+        int ticketLevel)
     {
         ValidateStatus(completedStatus);
         if (completedStatus > CompletedStatus)
             CompletedStatus = completedStatus;
-        Reconcile(highestAllowedStatus, ticketLevel: -1);
+        Reconcile(highestAllowedStatus, ticketLevel);
         return completedStatus <= highestAllowedStatus &&
             _futures.Any(entry =>
                 entry.Key <= completedStatus &&
@@ -920,7 +921,7 @@ public sealed class ChunkHolder
     {
         ValidateSection(section);
         return GetOrCreateSectionProgress(section).Complete(
-            completedStatus, HighestAllowedGenerationStatus);
+            completedStatus, HighestAllowedGenerationStatus, TicketLevel);
     }
 
     public bool ResetSectionGenerationProgress(
