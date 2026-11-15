@@ -175,6 +175,35 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void LoadingTicketMaterializesItsVerticalTargetOutsidePlayerView()
+    {
+        using var fixture = CreateFixture(new StagedChunkProvider());
+        var coord = new ChunkCoord(24, 6, -17);
+        fixture.Runtime.SyncSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord>(),
+            presented: Array.Empty<ChunkCoord>());
+
+        Assert.True(fixture.Runtime.AddTicket(
+            coord,
+            new ChunkTicket(ChunkTicketType.Forced, Level: 30)));
+
+        var dispatched = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.Equal(1, dispatched.StartedTasks);
+
+        var completed = CollectUntilMaterializationResult(fixture.Runtime);
+        Assert.Empty(completed.Failures);
+        Assert.True(fixture.World.ContainsChunk(coord));
+        Assert.False(fixture.Runtime.IsDesired(coord));
+        Assert.Equal(0, fixture.Runtime.DesiredCount);
+        Assert.Equal(0, fixture.Runtime.PresentationPendingCount);
+        Assert.True(fixture.Runtime.IsEntityTicking(coord));
+    }
+
+    [Fact]
     public void MaterializationIsCancelledWhenChunkLeavesDesiredAndRetentionSets()
     {
         using var provider = new BlockingChunkProvider();

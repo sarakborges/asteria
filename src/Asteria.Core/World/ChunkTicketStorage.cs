@@ -38,7 +38,7 @@ public sealed class ChunkTicketStorage
                     ticket.Level <= ChunkLevel.Full &&
                     (ticket.Flags & ChunkTicketFlags.Loading) != 0)
                 .Select(ticket => new ChunkCoord(
-                    entry.Key.X, ticket.SectionY.Value, entry.Key.Z)))
+                    entry.Key.X, ticket.SectionY.GetValueOrDefault(), entry.Key.Z)))
             .Distinct()
             .OrderBy(coord => coord.Y)
             .ThenBy(coord => coord.Z)

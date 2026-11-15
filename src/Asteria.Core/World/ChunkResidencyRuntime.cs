@@ -343,6 +343,7 @@ public sealed class ChunkResidencyRuntime
         }
 
         _streaming.SyncTicketedSections(targets, _world.LoadedChunkCoords);
+        CancelMaterializationsOutsideResidency();
         foreach (var target in targets)
             if (_world.ContainsChunk(target))
                 MarkMaterializedSectionFull(target);
@@ -1135,11 +1136,11 @@ public sealed class ChunkResidencyRuntime
             }
 
             var dispatchTimestamp = Stopwatch.GetTimestamp();
-            var sectionJobs = new List<IChunkMaterializationJob>(sections.Count);
+            var sectionJobs = new List<IChunkMaterializationJob>(sections.Length);
             var stopAfterBatch = false;
 
             for (var sectionIndex = 0;
-                 sectionIndex < sections.Count;
+                 sectionIndex < sections.Length;
                  sectionIndex++)
             {
                 var pendingEntry = sections[sectionIndex];
