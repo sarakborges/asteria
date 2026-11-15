@@ -26,6 +26,25 @@ public sealed class ChunkTicketStorage
         _tickets.SelectMany(entry =>
             entry.Value.Select(ticket => (entry.Key, ticket)));
 
+    /// <summary>
+    /// Exact vertical targets whose loading tickets permit FULL materialization.
+    /// Distance propagation remains keyed by the horizontal X/Z column.
+    /// </summary>
+    public IReadOnlyList<ChunkCoord> FullMaterializationTargets =>
+        _tickets
+            .SelectMany(entry => entry.Value
+                .Where(ticket =>
+                    ticket.SectionY.HasValue &&
+                    ticket.Level <= ChunkLevel.Full &&
+                    (ticket.Flags & ChunkTicketFlags.Loading) != 0)
+                .Select(ticket => new ChunkCoord(
+                    entry.Key.X, ticket.SectionY.Value, entry.Key.Z)))
+            .Distinct()
+            .OrderBy(coord => coord.Y)
+            .ThenBy(coord => coord.Z)
+            .ThenBy(coord => coord.X)
+            .ToArray();
+
     public IReadOnlyCollection<ChunkTicket> GetTickets(ChunkColumnCoord column) =>
         _tickets.TryGetValue(column, out var tickets)
             ? tickets.ToArray()

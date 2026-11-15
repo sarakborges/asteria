@@ -70,6 +70,7 @@ public readonly record struct ChunkStreamingPriority(
 public sealed class ChunkStreamingState
 {
     private readonly HashSet<ChunkCoord> _desired = [];
+    private readonly HashSet<ChunkCoord> _ticketedSections = [];
     // Light snapshots span neighboring horizontal columns at resident Y levels.
     private readonly HashSet<(int X, int Z)> _lightingRelevantColumns = [];
     private readonly HashSet<ChunkCoord> _retained = [];
@@ -106,9 +107,17 @@ public sealed class ChunkStreamingState
         _presentationPending.Count > 0;
 
     public bool KeepsLoaded(ChunkCoord coord) =>
-        _desired.Contains(coord) || _retained.Contains(coord);
+        _desired.Contains(coord) ||
+        _retained.Contains(coord) ||
+        _ticketedSections.Contains(coord);
 
     public bool IsDesired(ChunkCoord coord) => _desired.Contains(coord);
+
+    public bool IsTicketDemanded(ChunkCoord coord) =>
+        _ticketedSections.Contains(coord);
+
+    public bool IsRequested(ChunkCoord coord) =>
+        _desired.Contains(coord) || _ticketedSections.Contains(coord);
 
     public bool IsLightingRelevant(ChunkCoord coord) =>
         _lightingRelevantColumns.Contains((coord.X, coord.Z));
@@ -132,6 +141,11 @@ public sealed class ChunkStreamingState
 
     public IReadOnlySet<ChunkCoord> DesiredSections => _desired;
 
+    public IReadOnlySet<ChunkCoord> TicketedSections => _ticketedSections;
+
+    public IReadOnlySet<ChunkCoord> RequestedSections =>
+        _desired.Concat(_ticketedSections).ToHashSet();
+
     public IReadOnlySet<ChunkColumnCoord> DesiredColumns =>
         _desired.Select(ChunkColumnCoord.FromChunk).ToHashSet();
 
@@ -141,6 +155,74 @@ public sealed class ChunkStreamingState
             .Where(coord => ChunkColumnCoord.FromChunk(coord) == column)
             .OrderBy(coord => coord.Y)
             .ToArray();
+
+    public IReadOnlyList<ChunkCoord> TicketedSectionsInColumn(
+        ChunkColumnCoord column) =>
+        _ticketedSections
+            .Where(coord => ChunkColumnCoord.FromChunk(coord) == column)
+            .OrderBy(coord => coord.Y)
+            .ToArray();
+
+    public IReadOnlyList<ChunkCoord> RequestedSectionsInColumn(
+        ChunkColumnCoord column) =>
+        _desired
+            .Concat(_ticketedSections)
+            .Where(coord => ChunkColumnCoord.FromChunk(coord) == column)
+            .Distinct()
+            .OrderBy(coord => coord.Y)
+            .ToArray();
+
+    /// <summary>
+    /// Reconciles exact section targets derived from active loading tickets.
+    /// Ticket demand keeps content resident, but does not make it part of the
+    /// player's presentation selection.
+    /// </summary>
+    public bool SyncTicketedSections(
+        IEnumerable<ChunkCoord> ticketedSections,
+        IEnumerable<ChunkCoord> residentSections)
+    {
+        ArgumentNullException.ThrowIfNull(ticketedSections);
+        ArgumentNullException.ThrowIfNull(residentSections);
+        var next = ticketedSections.ToHashSet();
+        if (next.Any(section => section.Y < 0))
+            throw new ArgumentOutOfRangeException(nameof(ticketedSections));
+        var resident = residentSections.ToHashSet();
+        var changed = false;
+
+        foreach (var removed in _ticketedSections
+                     .Where(section => !next.Contains(section))
+                     .OrderBy(section => section.Y)
+                     .ThenBy(section => section.Z)
+                     .ThenBy(section => section.X)
+                     .ToArray())
+        {
+            _ticketedSections.Remove(removed);
+            changed = true;
+            if (_desired.Contains(removed) || _retained.Contains(removed))
+                continue;
+
+            RemovePending(removed);
+            if (!_materializing.Contains(removed))
+                _retired.Enqueue(removed);
+        }
+
+        foreach (var added in next
+                     .Where(section => !_ticketedSections.Contains(section))
+                     .OrderBy(section => section.Y)
+                     .ThenBy(section => section.Z)
+                     .ThenBy(section => section.X))
+        {
+            _ticketedSections.Add(added);
+            _retired.Remove(added);
+            changed = true;
+            if (Center is not null &&
+                !resident.Contains(added) &&
+                !_materializing.Contains(added))
+                EnqueuePendingCore(added);
+        }
+
+        return changed;
+    }
 
     public bool IsMaterializing(ChunkCoord coord) =>
         _materializing.Contains(coord);
@@ -238,7 +320,8 @@ public sealed class ChunkStreamingState
 
         foreach (var coord in previousInterest)
         {
-            if (_desired.Contains(coord))
+            if (_desired.Contains(coord) ||
+                _ticketedSections.Contains(coord))
             {
                 continue;
             }
@@ -278,8 +361,13 @@ public sealed class ChunkStreamingState
             _retired.Remove(coord);
         }
 
+        foreach (var coord in _ticketedSections)
+        {
+            _retired.Remove(coord);
+        }
+
         RemovePendingWhere(coord =>
-            !_desired.Contains(coord));
+            !IsRequested(coord));
         _presentationPending.RemoveWhere(coord =>
             !_desired.Contains(coord));
 
@@ -298,7 +386,7 @@ public sealed class ChunkStreamingState
         var residentSet = resident.ToHashSet();
         var presentedSet = presented.ToHashSet();
 
-        foreach (var coord in _desired)
+        foreach (var coord in _desired.Concat(_ticketedSections).Distinct())
         {
             if (!residentSet.Contains(coord) &&
                 !_materializing.Contains(coord))
@@ -307,7 +395,8 @@ public sealed class ChunkStreamingState
                 continue;
             }
 
-            if (residentSet.Contains(coord) &&
+            if (_desired.Contains(coord) &&
+                residentSet.Contains(coord) &&
                 !presentedSet.Contains(coord))
             {
                 _presentationPending.Add(coord);
@@ -317,7 +406,7 @@ public sealed class ChunkStreamingState
         RemovePendingWhere(coord =>
             residentSet.Contains(coord) ||
             _materializing.Contains(coord) ||
-            !_desired.Contains(coord));
+            !IsRequested(coord));
 
         _presentationPending.RemoveWhere(coord =>
             presentedSet.Contains(coord) ||
@@ -327,7 +416,7 @@ public sealed class ChunkStreamingState
 
     public void EnqueuePending(ChunkCoord coord)
     {
-        if (IsDesired(coord) &&
+        if (IsRequested(coord) &&
             !_materializing.Contains(coord))
         {
             EnqueuePendingCore(coord);
@@ -336,7 +425,7 @@ public sealed class ChunkStreamingState
 
     internal void EnqueuePending(ChunkCoord coord, long enqueuedTimestamp)
     {
-        if (IsDesired(coord) &&
+        if (IsRequested(coord) &&
             !_materializing.Contains(coord))
         {
             EnqueuePendingCore(coord, enqueuedTimestamp);
@@ -463,12 +552,17 @@ public sealed class ChunkStreamingState
 
     public ChunkCoord? PopRetiredOutsideHorizontalRadius(
         ChunkCoord center,
-        int retentionRadius) =>
-        _retired.PopOutsideHorizontalRadius(
+        int retentionRadius)
+    {
+        var retained = _retained
+            .Concat(_ticketedSections)
+            .ToHashSet();
+        return _retired.PopOutsideHorizontalRadius(
             center,
             retentionRadius,
             _desired,
-            _retained);
+            retained);
+    }
 
     public void Forget(ChunkCoord coord)
     {
