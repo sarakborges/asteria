@@ -245,6 +245,8 @@ public sealed class ChunkResidencyRuntime
             _generationWorkerPool);
         _generationDispatcher.GenerationStatusAdvanced +=
             HandleGenerationStatusAdvanced;
+        _generationDispatcher.SectionGenerationStatusAdvanced +=
+            HandleSectionGenerationStatusAdvanced;
         _objects = objects;
         _directionalFacePaletteUpdater =
             chunkProvider as IChunkDirectionalFacePaletteUpdater;
@@ -312,6 +314,26 @@ public sealed class ChunkResidencyRuntime
 
         _streaming.DistanceManager.CompleteGenerationStatus(
             task.Key.Column, status);
+    }
+
+    private void HandleSectionGenerationStatusAdvanced(
+        ChunkGenerationTaskInstance task,
+        ChunkCoord section,
+        ChunkGenerationStatus status)
+    {
+        // Per-section futures belong to the horizontal holder but retain the
+        // exact vertical coordinate. Publish only while this section remains
+        // part of the same admitted generation revision.
+        if (ChunkColumnCoord.FromChunk(section) != task.Key.Column ||
+            !_materializationTasks.TryGetValue(task.Key.Column, out var work) ||
+            work.Generation != task.Generation ||
+            work.HolderProgressRevision !=
+                _streaming.DistanceManager.GetGenerationProgressRevision(task.Key.Column) ||
+            !work.Sections.Contains(section))
+            return;
+
+        _streaming.DistanceManager.CompleteSectionGenerationStatus(
+            section, status);
     }
 
     public ChunkGenerationSerialExecutor LightingExecutor =>
