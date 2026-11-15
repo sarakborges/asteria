@@ -1612,7 +1612,10 @@ public sealed partial class SurfaceChunkMaterializer
 
     }
 
-    private sealed class MaterializationJob : IChunkMaterializationJob, IChunkMaterializationStorageDiagnostics
+    private sealed class MaterializationJob :
+        IChunkMaterializationJob,
+        IChunkMaterializationDependencyReceiver,
+        IChunkMaterializationStorageDiagnostics
     {
         private readonly SurfaceChunkMaterializer _owner;
         private readonly int _supportRequestedColumnCount;
@@ -1736,6 +1739,38 @@ public sealed partial class SurfaceChunkMaterializer
 
         public IChunkMaterializationJob? PendingDependency =>
             SupportChunkJob is { IsComplete: false } child ? child : null;
+
+        public void ResolveDependency(
+            ChunkCoord dependencyCoord,
+            Chunk completedChunk)
+        {
+            ArgumentNullException.ThrowIfNull(completedChunk);
+            var pending = SupportChunkJob ??
+                throw new InvalidOperationException(
+                    $"Section {Coord} has no pending gravity-support dependency.");
+            if (pending.Coord != dependencyCoord ||
+                dependencyCoord.X != Coord.X ||
+                dependencyCoord.Z != Coord.Z ||
+                dependencyCoord.Y != Coord.Y - 1)
+            {
+                throw new InvalidOperationException(
+                    $"Section {Coord} cannot consume gravity-support dependency {dependencyCoord}.");
+            }
+
+            // A sibling section task has completed its own gravity pass.
+            // Its detached top face is therefore the authoritative support
+            // result; a second support-only materialization is unnecessary.
+            var supportFace = new bool[Chunk.Area];
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var x = 0; x < Chunk.Size; x++)
+                supportFace[x + Chunk.Size * z] =
+                    !completedChunk.GetCell(x, Chunk.Size - 1, z).IsEmpty;
+
+            SupportChunkTopOccupancy = supportFace;
+            SupportChunkFallbackColumns = null;
+            pending.Dispose();
+            SupportChunkJob = null;
+        }
 
         public bool[]? SupportChunkTopOccupancy { get; set; }
 
