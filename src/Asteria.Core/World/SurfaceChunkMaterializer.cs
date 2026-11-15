@@ -410,7 +410,7 @@ public sealed partial class SurfaceChunkMaterializer
 
             case ChunkMaterializationStage.GeneratedFluids:
                 MaterializeGeneratedFluids(
-                    job.Chunk, RequiredDensity(job),
+                    job.Chunk, job.Coord, RequiredDensity(job),
                     job.ColumnMaterializationCaches ??
                         throw new InvalidOperationException(
                             "Materialization column cache is missing."),
@@ -4496,6 +4496,7 @@ public sealed partial class SurfaceChunkMaterializer
 
     private void MaterializeGeneratedFluids(
         Chunk chunk,
+        ChunkCoord coord,
         TerrainDensityVolume densityVolume,
         ColumnMaterializationCache[] columnMaterializationCaches,
         int originY,
@@ -4504,6 +4505,11 @@ public sealed partial class SurfaceChunkMaterializer
     {
         if (!_generatedFluids.HasRules)
             return;
+
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            coord,
+            ChunkGenerationStepId.GeneratedFluids);
 
         // Resolve the authored fluid policy once per column. The reusable
         // column cache already carries biome, base height and surface-cut
@@ -4528,6 +4534,8 @@ public sealed partial class SurfaceChunkMaterializer
                         "Materialization column has no biome sample.");
                 var baseY = state.BaseY;
                 var surfaceCutDepth = state.SurfaceFluidCutDepth;
+                accessRegion.EnsureCanReadColumnData(
+                    state.WorldX, state.WorldZ);
 
                 if (!_generatedFluids.TryResolveColumn(
                         sample,
@@ -4575,6 +4583,9 @@ public sealed partial class SurfaceChunkMaterializer
 
                     var voxelIndex =
                         localX + Chunk.Size * (localZ + Chunk.Size * localY);
+                    ref var state = ref columnMaterializationCaches[columnIndex];
+                    accessRegion.EnsureCanReadWorldPosition(
+                        state.WorldX, worldY, state.WorldZ);
                     var block =
                         chunk.GetCellAtLinearIndexUnchecked(voxelIndex).Block;
                     if ((!block.IsAir &&
@@ -4583,7 +4594,6 @@ public sealed partial class SurfaceChunkMaterializer
                         !initialFluidWrites.IsEmptyAtLinearIndex(voxelIndex))
                         continue;
 
-                    ref var state = ref columnMaterializationCaches[columnIndex];
                     var fluid = _generatedFluids.FluidAtResolvedColumn(
                         state.GeneratedFluidPlan,
                         state.BaseY,
@@ -4596,6 +4606,8 @@ public sealed partial class SurfaceChunkMaterializer
 
                     if (!fluid.IsEmpty)
                     {
+                        accessRegion.EnsureCanWriteWorldPosition(
+                            state.WorldX, worldY, state.WorldZ);
                         initialFluidWrites.SetFluidAtLinearIndexIfEmpty(
                             voxelIndex,
                             fluid);

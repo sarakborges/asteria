@@ -1155,3 +1155,33 @@ This checkpoint requires a fresh Core test run, Windows export, fixed-seed
 terrain A/B result, and the existing Godot/WebUI checks on the new HEAD.
 No performance improvement is claimed from this architectural enforcement
 change.
+
+
+---
+
+## GeneratedFluids access checkpoint — 2026-11-15
+
+### Runtime enforcement
+
+The generated-fluid stage consumes the current section's
+`ColumnMaterializationCache` (surface biome, base height, cut depth and
+resolved fluid policy) and the current section's `TerrainDensityVolume`.
+It does not sample neighboring columns or read resident neighboring chunks.
+
+The stage now creates a `ChunkGenerationAccessRegion` for
+`GeneratedFluids`. Each cached column policy read is checked as a column
+read; each local occupancy/density lookup is checked as a position read; and
+a non-empty fluid write is checked against the stage's write envelope before
+the initial-fluid buffer is mutated.
+
+The plan declares the current `SurfaceTerrainColumn` as an explicit
+`ImmutableWorldData` prerequisite and keeps both read and write envelopes
+at `None`. The preceding `VolumeStructures` step remains a status
+prerequisite. No neighboring holder or ticket radius is introduced.
+
+### Validation
+
+The Windows export for the preceding HEAD completed successfully. Its
+validation workflow is still running the Core query baseline and fixed-seed
+terrain A/B checks. This new stage integration requires a fresh full
+validation run; no benchmark improvement is claimed.

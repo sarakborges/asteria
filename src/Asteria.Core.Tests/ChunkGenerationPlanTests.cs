@@ -362,6 +362,24 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void GeneratedFluidsUseOnlyCurrentSectionAndCachedColumnData()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        var step = plan.GetStep(ChunkGenerationStepId.GeneratedFluids);
+
+        Assert.Equal(ChunkGenerationDependencyEnvelope.None, step.ReadEnvelope);
+        Assert.Equal(ChunkGenerationDependencyEnvelope.None, step.WriteEnvelope);
+        Assert.Contains(
+            step.Dependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.SurfaceTerrainColumn &&
+                dependency.Kind ==
+                    ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope == ChunkGenerationDependencyEnvelope.None);
+    }
+
+    [Fact]
     public void AsteriaFullStepHasNoHorizontalHolderStatusPrerequisite()
     {
         Assert.Equal(

@@ -121,11 +121,21 @@ public static class AsteriaChunkGenerationPlan
             ],
             readEnvelope: VolumeStructureReadHalo),
 
+        // Fluid placement consumes only the current section's cached biome,
+        // surface-cut and density data. It does not probe neighboring holders.
         Step(
             ChunkGenerationStepId.GeneratedFluids,
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.OrderedMutation,
-            DependsOn(ChunkGenerationStepId.VolumeStructures)),
+            [
+                Dependency(ChunkGenerationStepId.VolumeStructures, NoHalo),
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    NoHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ],
+            readEnvelope: NoHalo,
+            writeEnvelope: NoHalo),
 
         Step(
             ChunkGenerationStepId.SurfaceStructures,
