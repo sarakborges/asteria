@@ -25,6 +25,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
     private readonly ChunkMaterializationGenerationTask[] _sectionTasks;
     private readonly ChunkMaterializationTaskOutput?[] _sectionResults;
     private readonly ChunkGenerationStatus[] _sectionProgressStatuses;
+    private readonly List<ChunkSectionGenerationProgress> _pendingSectionProgress = [];
     private readonly Dictionary<ChunkCoord, int> _sectionTaskIndices = [];
     private readonly Dictionary<SectionGenerationFutureKey, SectionGenerationFuture> _sectionGenerationFutures = [];
     private readonly Dictionary<ulong, PendingSectionOperation> _pendingOperations = [];
@@ -197,18 +198,20 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         var progressStatus = AdvanceAggregateProgress();
 
         if (nextOperations.Count > 0)
-            return ChunkGenerationTaskAdvanceResult.WaitForWorkers(
-                nextOperations,
-                progressStatus);
+            return AttachSectionProgress(
+                ChunkGenerationTaskAdvanceResult.WaitForWorkers(
+                    nextOperations,
+                    progressStatus));
 
         if (_pendingOperations.Count > 0)
             throw new InvalidOperationException(
                 $"Column {_column} has outstanding operations without a wait result.");
 
         if (_readySections.Count > 0)
-            return progressStatus is { } yieldedStatus
-                ? ChunkGenerationTaskAdvanceResult.YieldWithStatus(yieldedStatus)
-                : ChunkGenerationTaskAdvanceResult.Yield;
+            return AttachSectionProgress(
+                progressStatus is { } yieldedStatus
+                    ? ChunkGenerationTaskAdvanceResult.YieldWithStatus(yieldedStatus)
+                    : ChunkGenerationTaskAdvanceResult.Yield);
 
         var sections = _sectionResults
             .Select((result, index) => result ??
@@ -221,8 +224,9 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         // The FULL holder future is completed by ChunkResidencyRuntime
         // only after the detached column has been validated and every accepted
         // section has been inserted on the world-owning thread.
-        return ChunkGenerationTaskAdvanceResult.CompletedWith(
-            new ChunkColumnMaterializationTaskOutput(_column, sections));
+        return AttachSectionProgress(
+            ChunkGenerationTaskAdvanceResult.CompletedWith(
+                new ChunkColumnMaterializationTaskOutput(_column, sections)));
     }
 
     public void Dispose()
@@ -237,6 +241,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         _readySections.Clear();
         foreach (var future in _sectionGenerationFutures.Values)
             future.WaitingSections.Clear();
+        _pendingSectionProgress.Clear();
     }
 
     private ChunkGenerationStatus? AdvanceAggregateProgress()
@@ -268,6 +273,9 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             sectionStatus > _sectionProgressStatuses[sectionIndex])
         {
             _sectionProgressStatuses[sectionIndex] = sectionStatus;
+            _pendingSectionProgress.Add(new ChunkSectionGenerationProgress(
+                _sectionTasks[sectionIndex].Coord,
+                sectionStatus));
         }
 
         switch (result.Kind)
@@ -376,6 +384,17 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             default:
                 throw new ArgumentOutOfRangeException(nameof(result));
         }
+    }
+
+    private ChunkGenerationTaskAdvanceResult AttachSectionProgress(
+        ChunkGenerationTaskAdvanceResult result)
+    {
+        if (_pendingSectionProgress.Count == 0)
+            return result;
+
+        var updates = _pendingSectionProgress.ToArray();
+        _pendingSectionProgress.Clear();
+        return result.WithSectionProgress(updates);
     }
 
     private void CompleteSectionFuture(ChunkMaterializationTaskOutput output)
