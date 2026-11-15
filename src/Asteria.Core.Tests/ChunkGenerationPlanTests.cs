@@ -185,6 +185,41 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void HolderReadValidationUsesTheExactDAGSectionAndMinimumStatus()
+    {
+        var target = new ChunkCoord(12, 5, -8);
+        var lower = new ChunkCoord(12, 4, -8);
+        var horizontalNeighbor = new ChunkCoord(13, 4, -8);
+        var fartherLower = new ChunkCoord(12, 3, -8);
+
+        Assert.True(AsteriaChunkGenerationPlan.SatisfiesHolderStatusRequirement(
+            ChunkGenerationStepId.GravitySupport,
+            target,
+            lower,
+            ChunkGenerationStatus.Terrain));
+        Assert.True(AsteriaChunkGenerationPlan.SatisfiesHolderStatusRequirement(
+            ChunkGenerationStepId.GravitySupport,
+            target,
+            lower,
+            ChunkGenerationStatus.Features));
+        Assert.False(AsteriaChunkGenerationPlan.SatisfiesHolderStatusRequirement(
+            ChunkGenerationStepId.GravitySupport,
+            target,
+            lower,
+            ChunkGenerationStatus.Biomes));
+        Assert.False(AsteriaChunkGenerationPlan.SatisfiesHolderStatusRequirement(
+            ChunkGenerationStepId.GravitySupport,
+            target,
+            horizontalNeighbor,
+            ChunkGenerationStatus.Full));
+        Assert.False(AsteriaChunkGenerationPlan.SatisfiesHolderStatusRequirement(
+            ChunkGenerationStepId.GravitySupport,
+            target,
+            fartherLower,
+            ChunkGenerationStatus.Full));
+    }
+
+    [Fact]
     public void ProceduralNeighborReadsAreDeclaredWithoutLoadingNeighborHolders()
     {
         var plan = AsteriaChunkGenerationPlan.Default;
