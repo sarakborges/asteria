@@ -503,6 +503,14 @@ public sealed class ChunkGenerationPlanTests
                 claim.SectionTargets.OrderBy(section => section.Y),
                 section => Assert.Equal(new ChunkCoord(column.X, 3, column.Z), section),
                 section => Assert.Equal(new ChunkCoord(column.X, 4, column.Z), section));
+
+            var lower = new ChunkCoord(column.X, 3, column.Z);
+            var lowerTerrain = claim.GetSectionGenerationFuture(
+                lower, ChunkGenerationStatus.Terrain);
+            Assert.False(lowerTerrain.IsCompleted);
+            Assert.True(manager.CompleteSectionGenerationStatus(
+                lower, ChunkGenerationStatus.Terrain));
+            Assert.True(lowerTerrain.Result.Succeeded);
         }
 
         Assert.Equal(0, holder.DependencyClaimCount);
