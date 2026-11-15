@@ -21,7 +21,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
 
         Assert.Equal(1, job.AdvanceCount);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, advance.Kind);
-        Assert.Equal(ChunkGenerationStatus.Terrain, advance.ProgressStatus);
+        Assert.Null(advance.ProgressStatus);
         Assert.Empty(advance.WorkerOperations);
         Assert.Equal(0, lightingCalls);
 
@@ -90,7 +90,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
         var first = task.Advance([], CancellationToken.None);
         var second = RunSlice(task, first, job, 1);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, second.Kind);
-        Assert.Equal(ChunkGenerationStatus.Terrain, second.ProgressStatus);
+        Assert.Null(second.ProgressStatus);
         var final = CompleteTask(task, second, job);
 
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
