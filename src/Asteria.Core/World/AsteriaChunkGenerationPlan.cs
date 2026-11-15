@@ -302,6 +302,10 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationStepId targetStep,
             ChunkCoord targetSection)
     {
+        if (targetSection.Y < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(targetSection), "Sphere chunk Y cannot be negative.");
+
         var requirements = new Dictionary<
             (ChunkCoord Coord, ChunkGenerationStepId Step),
             ChunkGenerationStatus>();
@@ -317,7 +321,7 @@ public static class AsteriaChunkGenerationPlan
                  sectionOffset++)
             {
                 var sectionY = (long)targetSection.Y + sectionOffset;
-                if (sectionY < int.MinValue || sectionY > int.MaxValue)
+                if (sectionY < 0 || sectionY > int.MaxValue)
                     continue;
 
                 for (var dz = -dependency.Envelope.HorizontalRadius;
@@ -364,7 +368,8 @@ public static class AsteriaChunkGenerationPlan
         ChunkCoord dependencySection,
         ChunkGenerationStatus availableStatus)
     {
-        if (!Enum.IsDefined(availableStatus) ||
+        if (targetSection.Y < 0 || dependencySection.Y < 0 ||
+            !Enum.IsDefined(availableStatus) ||
             availableStatus == ChunkGenerationStatus.Unloaded)
             return false;
 
