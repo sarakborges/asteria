@@ -354,6 +354,40 @@ public static class AsteriaChunkGenerationPlan
     }
 
     /// <summary>
+    /// Checks whether a concrete section product satisfies a holder-status
+    /// prerequisite declared by the transitive DAG for the target step.
+    /// Immutable generator-data reads are intentionally not accepted here.
+    /// </summary>
+    public static bool SatisfiesHolderStatusRequirement(
+        ChunkGenerationStepId targetStep,
+        ChunkCoord targetSection,
+        ChunkCoord dependencySection,
+        ChunkGenerationStatus availableStatus)
+    {
+        if (!Enum.IsDefined(availableStatus) ||
+            availableStatus == ChunkGenerationStatus.Unloaded)
+            return false;
+
+        var deltaX = (long)dependencySection.X - targetSection.X;
+        var deltaY = (long)dependencySection.Y - targetSection.Y;
+        var deltaZ = (long)dependencySection.Z - targetSection.Z;
+        foreach (var dependency in Default.GetAccumulatedDependencies(targetStep))
+        {
+            if (dependency.Kind != ChunkGenerationDependencyKind.HolderStatus ||
+                !dependency.Envelope.ContainsOffset(
+                    (int)Math.Clamp(deltaX, int.MinValue, int.MaxValue),
+                    (int)Math.Clamp(deltaY, int.MinValue, int.MaxValue),
+                    (int)Math.Clamp(deltaZ, int.MinValue, int.MaxValue)))
+                continue;
+
+            if (availableStatus >= GetGenerationStatus(dependency.PrerequisiteStep))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Returns the deepest generation status required at a horizontal
     /// Chebyshev distance from a target step. Requirements come from the
     /// target's transitive prerequisite envelopes, rather than from a copied
