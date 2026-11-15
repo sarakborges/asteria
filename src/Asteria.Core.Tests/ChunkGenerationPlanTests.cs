@@ -520,6 +520,39 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void MultiSectionDependencyClaimDeduplicatesHorizontalHolderLeases()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(-13, 6);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        var targets = new[]
+        {
+            new ChunkCoord(column.X, -2, column.Z),
+            new ChunkCoord(column.X, -1, column.Z),
+            new ChunkCoord(column.X, 0, column.Z),
+            new ChunkCoord(column.X, 1, column.Z),
+        };
+
+        using (var claim = manager.AcquireDependencyClaims(
+                   targets,
+                   AsteriaChunkGenerationPlan.FullSectionEnvelope))
+        {
+            Assert.Single(claim.Columns);
+            Assert.Equal(1, holder.DependencyClaimCount);
+            Assert.Collection(
+                claim.SectionTargets.OrderBy(section => section.Y),
+                section => Assert.Equal(-3, section.Y),
+                section => Assert.Equal(-2, section.Y),
+                section => Assert.Equal(-1, section.Y),
+                section => Assert.Equal(0, section.Y),
+                section => Assert.Equal(1, section.Y));
+        }
+
+        Assert.Equal(0, holder.DependencyClaimCount);
+    }
+
+    [Fact]
     public void GenerationDagExpandsHolderRequirementsIntoClaimedSectionFutures()
     {
         var target = new ChunkCoord(14, 4, -9);
