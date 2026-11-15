@@ -111,6 +111,53 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void GravitySupportWaitsForLowerSectionTerrainStatusFromThePlan()
+    {
+        var column = new ChunkColumnCoord(7, -4);
+        var lower = new FakeMaterializationJob(
+            new ChunkCoord(7, 0, -4),
+            sliceCount: 1,
+            ChunkMaterializationStage.TerrainLayer);
+        var upper = new FakeMaterializationJob(
+            new ChunkCoord(7, 1, -4),
+            sliceCount: 2,
+            ChunkMaterializationStage.GravitySupport,
+            pendingDependencyCoord: lower.Coord);
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [lower, upper],
+            initializeLighting: _ => { });
+
+        var initial = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, initial.Kind);
+        Assert.Equal(0, upper.AdvanceCount);
+        var terrainOperation = Assert.Single(initial.WorkerOperations);
+        var terrainCompletion = Completion(
+            column,
+            terrainOperation.DependencyId,
+            terrainOperation.Execute(CancellationToken.None));
+
+        var afterTerrain = task.Advance(
+            [terrainCompletion], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, afterTerrain.Kind);
+        Assert.Equal(ChunkGenerationStatus.Terrain, afterTerrain.ProgressStatus);
+        Assert.Equal(0, upper.AdvanceCount);
+
+        var lightOperations = 0;
+        var final = CompleteColumn(
+            task, column, afterTerrain, ref lightOperations);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+        Assert.Equal(1, lower.AdvanceCount);
+        Assert.Equal(2, upper.AdvanceCount);
+        Assert.NotNull(upper.CreatedDependency);
+        Assert.Equal(0, upper.CreatedDependency!.AdvanceCount);
+        Assert.True(upper.CreatedDependency.IsDisposed);
+        Assert.Same(lower.Result, upper.ResolvedDependency);
+        Assert.Equal(2, lightOperations);
+    }
+
+    [Fact]
     public void SectionDependencyReusesCompletedLowerSectionFuture()
     {
         var column = new ChunkColumnCoord(3, -1);
