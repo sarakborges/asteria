@@ -683,7 +683,7 @@ public sealed class ChunkGenerationDispatcher
                                 waitToken,
                                 operation.DependencyId,
                                 Error: completed.Exception?.InnerException ??
-                                    completed.Exception ??
+                                    (Exception?)completed.Exception ??
                                     new InvalidOperationException(
                                         "Holder status future faulted without an exception.")));
                     }
