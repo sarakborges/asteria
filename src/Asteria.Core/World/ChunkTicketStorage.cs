@@ -110,8 +110,7 @@ public enum ChunkGenerationStatus : byte
 /// </summary>
 public readonly record struct ChunkTicket(
     ChunkTicketType Type,
-    int Level,
-    ulong Key = 0)
+    int Level)
 {
     public ChunkTicketFlags Flags => Type switch
     {
