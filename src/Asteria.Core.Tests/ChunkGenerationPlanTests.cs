@@ -364,10 +364,12 @@ public sealed class ChunkGenerationPlanTests
     {
         var manager = new ChunkDistanceManager();
         var target = new ChunkColumnCoord(12, -7);
-        var neighbor = new ChunkColumnCoord(13, -7);
+        var neighbor = new ChunkColumnCoord(15, -7);
 
         Assert.True(manager.AddPlayerLoadingTicket(target));
-        Assert.Equal(1, manager.HolderCount);
+        // A ticket at level 31 propagates through level 33 (two 8-neighbor
+        // rings), creating the expected 5x5 holder area.
+        Assert.Equal(25, manager.HolderCount);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(target));
         var lightFuture = manager.GetGenerationFuture(
             target, ChunkGenerationStatus.Light);
@@ -379,12 +381,12 @@ public sealed class ChunkGenerationPlanTests
         {
             Assert.Equal(1, holder.DependencyClaimCount);
             Assert.Null(manager.GetHolder(neighbor));
-            Assert.Equal(1, manager.HolderCount);
+            Assert.Equal(25, manager.HolderCount);
         }
 
         Assert.Equal(0, holder.DependencyClaimCount);
         Assert.Null(manager.GetHolder(neighbor));
-        Assert.Equal(1, manager.HolderCount);
+        Assert.Equal(25, manager.HolderCount);
     }
 
     [Fact]
