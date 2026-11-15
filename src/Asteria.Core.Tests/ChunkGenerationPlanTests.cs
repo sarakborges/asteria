@@ -473,18 +473,13 @@ public sealed class ChunkGenerationPlanTests
 
         var lowerCurrent = holder.GetSectionGenerationFuture(
             lower, ChunkGenerationStatus.Terrain);
+        // An already-completed future cannot be rewritten. Its successful
+        // result remains tied to the old revision and must be rejected by any
+        // waiter that compares it with the holder's current section revision.
         Assert.True(lowerOld.IsCompletedSuccessfully);
-        Assert.False(lowerOld.Result.Succeeded);
+        Assert.True(lowerOld.Result.Succeeded);
         Assert.Equal(lowerRevision, lowerOld.Result.Revision);
-        Assert.False(
-            lowerCurrent.IsCompleted,
-            $"Section future should be rearmed after reset. Ticket={holder.TicketLevel}, " +
-            $"allowed={holder.HighestAllowedGenerationStatus}, " +
-            $"completed={holder.GetCompletedSectionGenerationStatus(lower)}, " +
-            $"revision={holder.GetSectionGenerationRevision(lower)}, " +
-            (lowerCurrent.IsCompletedSuccessfully
-                ? $"result={lowerCurrent.Result.Succeeded}/{lowerCurrent.Result.Status}/{lowerCurrent.Result.Revision}"
-                : $"taskStatus={lowerCurrent.Status}"));
+        Assert.False(lowerCurrent.IsCompleted);
         Assert.Equal(lowerRevision + 1,
             holder.GetSectionGenerationRevision(lower));
         Assert.Same(upperExisting,
