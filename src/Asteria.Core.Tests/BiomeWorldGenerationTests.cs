@@ -2089,7 +2089,14 @@ public sealed class BiomeWorldGenerationTests
         while (job.ActiveWorkCoord != new ChunkCoord(0, 0, 0) &&
                advanced++ < 512)
         {
-            job.Advance();
+            // The incremental job exposes lower-section work explicitly. Drive
+            // the deepest pending dependency, matching the production scheduler's
+            // suspend/resume order without recursively advancing it on the parent.
+            var current = (IChunkMaterializationJob)job;
+            while (current.PendingDependency is
+                   { IsComplete: false } dependency)
+                current = dependency;
+            current.Advance();
         }
 
         Assert.True(
