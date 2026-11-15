@@ -1018,3 +1018,12 @@ Reference: https://minecraftdocs.dev/systems/world/tickets-and-loading (verified
 **Implementation commits:** `980269ac` (ticket flags/countdown), `da16a7c7` (holder save-readiness), `957e76be` (ticket lifetime tests), `44baa214` (ticket semantics comments), plus the follow-up assertion correction recorded in git history.
 
 **Validation:** CI for these ticket changes is pending on the current branch. Do not mark the new ticket tests or the combined branch validated until Core, terrain A/B, WebUI and Windows export complete on the same final HEAD.
+
+
+### Ticket expiry integration test — 2026-11-15
+
+- [x] Added a `ChunkDistanceManager` integration test proving that a Portal ticket remains while its holder is not save-ready, pauses the remaining TTL, then expires at tick 700 after becoming FULL/save-ready.
+- [x] The test also verifies that expiry removes the loading and simulation graph sources and drops the now-unretained holder.
+- Implementation/test commit: `75288c77`.
+
+The current ticket lifetime change set is **not yet validated**. CI run for HEAD `75288c77`: https://github.com/sarakborges/asteria/actions/runs/43736824818 (validate queued); Windows export: https://github.com/sarakborges/asteria/actions/runs/43736819605 (in progress).
