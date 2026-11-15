@@ -85,6 +85,25 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void DistanceManagerPausesPortalExpiryUntilItsHolderIsSaveReady()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(6, -2);
+        var portal = new ChunkTicket(ChunkTicketType.Portal, level: 30);
+        Assert.True(manager.AddTicket(column, portal, currentTick: 100));
+        Assert.NotNull(manager.GetHolder(column));
+
+        Assert.Equal(ChunkTicketFlags.None, manager.AdvanceTick(400));
+        Assert.NotNull(manager.GetHolder(column));
+
+        Assert.True(manager.CompleteFullStatus(column, ChunkFullStatus.Full));
+        Assert.Equal(
+            ChunkTicketFlags.Loading | ChunkTicketFlags.Simulation,
+            manager.AdvanceTick(700));
+        Assert.Null(manager.GetHolder(column));
+    }
+
+    [Fact]
     public void UnknownTicketExpiresEvenWhileHolderIsNotReadyForSaving()
     {
         var storage = new ChunkTicketStorage();
