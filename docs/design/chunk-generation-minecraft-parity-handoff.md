@@ -904,3 +904,92 @@ Do not describe these futures as global, cross-column, or fully holder-managed u
 7. Continue with the shared X/Z `ColumnBiomeData` / `SurfaceTerrainColumn` products, enforced read/write envelopes, executable loading pyramid, and remaining lighting admission/validation.
 
 **Immediate next action:** validate HEAD e84b4bc. If green, add the section/status future tests from item 2 and promote the current column-scoped future into an owner-managed section-aware generation future. Keep the commits small and do not merge PR #157.
+
+
+---
+
+## Authoritative continuation update — 2026-11-15 (HEAD 1c4e7c7)
+
+**Reference scope:** Minecraft Java Edition 26.3 only. Other projects and clones are not architecture targets for this work.
+
+**Branch:** `worldgen-perf-fix`  
+**PR:** #157, base `worldgen-remake`, still open and unmerged.  
+**HEAD:** `1c4e7c7b952d57e66513f84dacd82b1b63e99335`.
+
+### Implementation completed after e84b4bc
+
+- [x] Materialization tasks infer the status already achieved from their initial stage. A section beginning after `TerrainSetup` or `TerrainLayer` no longer waits for a status stage it cannot execute.
+- [x] The column task seeds its per-section progress from that initial status and publishes the initial status transition to the holder.
+- [x] The aggregate Terrain test now asserts that status on the coordinator turn that processes the final section's Terrain completion. It no longer assumes an extra yield.
+- [x] Ordered section mutation advances rotate between ready vertical sections.
+- [x] The column scheduler exposes and consults the current generation-plan step for a section.
+- [x] The `GravitySupport` step's transitive holder requirements are read through `AsteriaChunkGenerationPlan.GetHolderStatusRequirements`. When the lower section is part of the current column task, the upper section parks until the lower section reaches the required Terrain status; it resumes through the normal column ready queue.
+- [x] Out-of-batch gravity support remains a dynamic section task owned by the same column scheduler. The pending dependency product and the status prerequisite remain distinct: reaching Terrain wakes status waiters; finishing the detached support section resolves product waiters.
+- [x] Two upper sections requesting the same out-of-batch lower support section have a regression test proving that only one dependency job is advanced and the same resulting chunk is delivered to both.
+- [x] A dependency claim can now be acquired for multiple target sections. It unions the spatial envelopes, deduplicates exact 3D section coordinates and retains each horizontal holder exactly once.
+- [x] `ChunkResidencyRuntime` now creates the claim from every section in the column batch, not only from the player-centre Y.
+- [x] Section readiness is derived from the column's single authoritative `_sectionProgressStatuses` array. Local section futures retain waiting continuations and the detached product; they no longer keep a second mutable completed-status field.
+- [x] The scheduler explicitly rejects a cross-column `HolderStatus` requirement instead of silently skipping a missing local future. A plan regression test asserts that every current holder-status requirement is column-local and that GravitySupport requires the immediate lower section at Terrain.
+
+### Important boundary: cross-column status dependency admission is not implemented
+
+The dispatcher already supports non-blocking `WaitForFutures`, and `ChunkDependencyClaim` exposes holder-owned futures for exact `(ChunkCoord, ChunkGenerationStatus)` requirements. That is not yet an end-to-end cross-column admission path.
+
+A future cross-column dependency needs all of the following before it can be used by the plan:
+
+1. The owner of the dependency request must ensure a producer task is admitted or reused for the requested holder/status. A claim only retains the holder; it does not enqueue work or raise a ticket ceiling.
+2. The dependent task must suspend on the exact holder future using `ChunkGenerationFutureOperation`, without occupying a physical worker.
+3. The completion must be checked for success, requested status and current section progress revision before the dependent resumes.
+4. Cancellation, ticket demotion, reset and producer failure must release the waiter without reviving stale generation.
+5. The request must stay within the exact section set and holder lease owned by the task.
+
+The current plan declares no horizontal `HolderStatus` dependencies. Horizontal procedural reads are `ImmutableWorldData` dependencies and do not create/retain neighboring chunk holders. The only current holder-status dependency is the vertical GravitySupport prerequisite in the same X/Z column. The scheduler fails explicitly if this contract changes without corresponding cross-column admission.
+
+### Minecraft 26.3 comparison — corrected interpretation
+
+The 26.3 pipeline has ten statuses: EMPTY, STRUCTURE_STARTS, STRUCTURE_REFERENCES, BIOMES, TERRAIN, FEATURES, INITIALIZE_LIGHT, LIGHT, SPAWN and FULL. `ChunkPyramid` supplies separate generation and loading pyramids; `ChunkStep` owns direct/accumulated dependencies and write radius; `ChunkGenerationTask` walks a target; `GenerationChunkHolder` owns per-status futures and a ticket-derived ceiling; `WorldGenRegion` enforces read and write boundaries. The generation sweep radius of 11 for FULL is derived from the accumulated dependency list, not an isolated tuning constant. The loading sweep is narrower and may load persisted data before deciding whether full generation is necessary.
+
+Reference reading checked during this continuation:  
+- https://minecraftdocs.dev/systems/chunk-generation-pipeline (verified against 26.3; generation/loading pyramids, claims, futures, executors, access checks and load-or-generate walk).
+- https://minecraftdocs.dev/systems/world/tickets-and-loading (verified against 26.3; independent loading/simulation graphs, ticket levels and player view).
+
+Do not copy radius 11 into Asteria mechanically. Asteria's current DAG explicitly marks horizontal terrain/biome sampling as immutable generator data, not resident-holder prerequisites. Its current holder dependency envelope therefore has horizontal radius 0 and a vertical lower-section halo. If a later step genuinely needs a neighboring chunk's mutable generation product, declare a `HolderStatus` dependency and implement runtime admission before widening the loading graph.
+
+Asteria's archive is an in-memory authoritative chunk archive, not Minecraft's region-file I/O path. `RestoreChunk` restores an already materialized chunk; it should not be described as region-file loading. The current runtime correctly bypasses terrain regeneration for archived chunks, then rebuilds applicable derived lighting/presentation work.
+
+### Remaining gaps, in priority order
+
+1. **Validate HEAD 1c4e7c7.** Do not accept another scheduler slice until Core tests, WebUI/Storybook, terrain A/B and Windows x64 export finish on this exact HEAD.
+2. **Cross-column dependency admission.** Build an owner-level request path that can admit/reuse a producer for a required `(section, status)`, then connect it to non-blocking future waits with revision validation. The current fail-fast boundary must remain until this exists.
+3. **Executable read/write envelopes.** The plan stores each step's read and write envelopes, but materialization jobs do not yet receive a region-like access capability that enforces those bounds at each read/write. Add an explicit bounded access context rather than treating metadata as enforcement.
+4. **Separate loading vs generation plan semantics.** Asteria's saved-chunk restore path differs from Minecraft's disk EMPTY stage. Model the load path and generation path separately only where their actual work/status requirements differ; do not create a fake disk executor or duplicate persistence queue.
+5. **Shared column products.** `ColumnBiomeData` and `SurfaceTerrainColumn` are represented in the DAG, but materialization still needs full integration of shared per-column products/futures across vertical sections, with immutable ownership and cancellation/revision rules.
+6. **Exactly-once step lifecycle.** Validate duplicate request coalescing and step completion semantics against status futures across multiple requesting sections/tasks.
+7. **Lighting boundary.** Verify INITIALIZE_LIGHT and LIGHT scheduling separately from generation and ensure required neighboring lighting/status prerequisites are represented where the solver truly consumes them.
+8. **Ticket parity.** Re-check status ceilings, level mappings, priority resorting and ticket lifetimes against 26.3 source rather than relying on historical constants. Do not assume simulation and loading distances share one graph.
+9. **Final validation.** Benchmark and visual fixtures must cover ocean, elevated mountains, swamp, and the known geology/strata regressions. A/B evidence must be from the same validated HEAD.
+
+### Recent commits after e84b4bc
+
+- `6fafb822` — preserve achieved status on a resumed materialization task.
+- `5fe2c334` — publish initial vertical-section progress.
+- `a2535d10` — correct aggregate Terrain assertion timing.
+- `884f6b00` — verify multiple waiters can reuse one dynamic gravity dependency.
+- `08ece755` — expose current plan step to column scheduling.
+- `ad9a2f8f` — gate GravitySupport on the plan-derived lower-section status.
+- `7cecdd66` — test the lower Terrain prerequisite before gravity.
+- `e7860fb1` — acquire dependency claims across all target sections.
+- `93caed51` — apply multi-section claims from the residency runtime.
+- `1998e15f` — test unique horizontal-holder retention across vertical envelopes.
+- `e8dc91c5` / `d4a41f4d` — consolidate section progress ownership in the column task.
+- `21c42706` — reject unadmitted cross-column holder dependencies.
+- `1c4e7c7b` — assert all current holder requirements are column-local.
+
+### CI at HEAD 1c4e7c7
+
+- Validate run: https://github.com/sarakborges/asteria/actions/runs/43736038535 — in progress at the last check; build, terrain A/B and WebUI jobs were still running.
+- Windows export run: https://github.com/sarakborges/asteria/actions/runs/43736032358 — in progress at the last check.
+- The preceding HEAD `d4a41f4d` had WebUI passed, Windows export passed, and the Core test step completed successfully before its validation workflow was cancelled during the subsequent baseline/benchmark steps. Those results do not substitute for validation of 1c4e7c7.
+- No merge or deployment has been requested or performed.
+
+**Immediate next action:** finish and inspect the CI for HEAD 1c4e7c7. If green, implement the explicit bounded generation-region read/write contract in a small independently tested slice; keep cross-column dependencies fail-fast until their producer-admission lifecycle exists.
