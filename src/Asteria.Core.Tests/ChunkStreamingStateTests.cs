@@ -41,7 +41,7 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
-    public void DesiredSelectionUsesCircularHorizontalRadius()
+    public void DesiredSelectionUsesSquareHorizontalRadius()
     {
         var desired =
             ChunkStreamingSelection.DesiredSurfaceChunks(
@@ -58,7 +58,7 @@ public sealed class ChunkStreamingStateTests
         Assert.Contains(
             new ChunkCoord(0, 1, 2),
             desired);
-        Assert.DoesNotContain(
+        Assert.Contains(
             new ChunkCoord(2, 0, 2),
             desired);
     }
@@ -273,7 +273,7 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
-    public void PendingColumnPriorityUpdatesWhenMovementDirectionChanges()
+    public void PendingColumnPriorityUsesTicketDistanceAndStableCoordinateTies()
     {
         var state = new ChunkStreamingState();
         var forward = new ChunkCoord(4, 0, 0);
@@ -295,8 +295,11 @@ public sealed class ChunkStreamingStateTests
             retentionRadius: 6,
             desired);
 
-        Assert.Equal(forward, state.PopPendingByPriority());
+        // Both columns are three Chebyshev rings from the new center.
+        // The ticket/distance queue resolves this equal-priority tie by X/Z,
+        // not by a directional prefetch corridor.
         Assert.Equal(behind, state.PopPendingByPriority());
+        Assert.Equal(forward, state.PopPendingByPriority());
     }
 
     [Fact]
@@ -469,7 +472,7 @@ public sealed class ChunkStreamingStateTests
                 window);
 
         Assert.Equal(
-            13,
+            25,
             firstCalls);
         Assert.True(
             source.CallCount <
@@ -517,7 +520,7 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
-    public void LoadPriorityPrefersLocalChunksThenTheForwardPrefetchCorridor()
+    public void StreamingPriorityUsesTicketLevelThenHorizontalDistance()
     {
         var center = ChunkCoord.Zero;
         var movement = new ChunkMovementDirection(1, 0);
@@ -533,9 +536,9 @@ public sealed class ChunkStreamingStateTests
         var outsideCorridor = ChunkStreamingState.StreamingPriority(
             new ChunkCoord(3, 0, 4), center, movement);
 
-        Assert.True(localBehind.CompareTo(forward) < 0);
-        Assert.True(forward.CompareTo(lateral) < 0);
+        Assert.True(localBehind.CompareTo(lateral) < 0);
         Assert.True(lateral.CompareTo(behind) < 0);
+        Assert.True(behind.CompareTo(forward) < 0);
         Assert.True(forward.CompareTo(outsideCorridor) < 0);
     }
 
