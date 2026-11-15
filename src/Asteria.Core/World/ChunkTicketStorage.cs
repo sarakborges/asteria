@@ -1113,6 +1113,9 @@ public sealed class ChunkHolder
 
     private void ValidateSection(ChunkCoord section)
     {
+        if (section.Y < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(section), "Sphere chunk Y cannot be negative.");
         if (ChunkColumnCoord.FromChunk(section) != Position)
             throw new ArgumentException(
                 $"Section {section} does not belong to holder {Position}.",
@@ -1628,6 +1631,7 @@ public sealed class ChunkDistanceManager
         ChunkCoord section,
         ChunkGenerationStatus requestedStatus)
     {
+        ValidateSectionCoordinate(section);
         ValidateGenerationStatus(requestedStatus);
         var column = ChunkColumnCoord.FromChunk(section);
         return _holders.TryGetValue(column, out var holder)
@@ -1638,32 +1642,51 @@ public sealed class ChunkDistanceManager
     }
 
     public ChunkGenerationStatus GetCompletedSectionGenerationStatus(
-        ChunkCoord section) =>
-        _holders.TryGetValue(
+        ChunkCoord section)
+    {
+        ValidateSectionCoordinate(section);
+        return _holders.TryGetValue(
             ChunkColumnCoord.FromChunk(section), out var holder)
             ? holder.GetCompletedSectionGenerationStatus(section)
             : ChunkGenerationStatus.Unloaded;
+    }
 
-    public ulong GetSectionGenerationRevision(ChunkCoord section) =>
-        _holders.TryGetValue(
+    public ulong GetSectionGenerationRevision(ChunkCoord section)
+    {
+        ValidateSectionCoordinate(section);
+        return _holders.TryGetValue(
             ChunkColumnCoord.FromChunk(section), out var holder)
             ? holder.GetSectionGenerationRevision(section)
             : 0UL;
+    }
 
     public bool CompleteSectionGenerationStatus(
         ChunkCoord section,
         ChunkGenerationStatus status,
-        Chunk? product = null) =>
-        _holders.TryGetValue(
+        Chunk? product = null)
+    {
+        ValidateSectionCoordinate(section);
+        return _holders.TryGetValue(
             ChunkColumnCoord.FromChunk(section), out var holder) &&
-        holder.CompleteSectionGenerationStatus(section, status, product);
+            holder.CompleteSectionGenerationStatus(section, status, product);
+    }
 
     public bool ResetSectionGenerationProgress(
         ChunkCoord section,
-        string reason) =>
-        _holders.TryGetValue(
+        string reason)
+    {
+        ValidateSectionCoordinate(section);
+        return _holders.TryGetValue(
             ChunkColumnCoord.FromChunk(section), out var holder) &&
-        holder.ResetSectionGenerationProgress(section, reason);
+            holder.ResetSectionGenerationProgress(section, reason);
+    }
+
+    private static void ValidateSectionCoordinate(ChunkCoord section)
+    {
+        if (section.Y < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(section), "Sphere chunk Y cannot be negative.");
+    }
 
     private static void ValidateGenerationStatus(ChunkGenerationStatus status)
     {
