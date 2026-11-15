@@ -115,7 +115,8 @@ public sealed class ChunkTicketStorageTests
         Assert.True(storage.AddTicket(column, forced, currentTick: 100));
         Assert.True(storage.AddTicket(column, transient, currentTick: 100));
 
-        Assert.Equal(ChunkTicketFlags.None,
+        Assert.Equal(
+            ChunkTicketFlags.Loading | ChunkTicketFlags.Simulation,
             storage.ExpireTickets(150, _ => true));
         var snapshot = storage.CapturePersistentTickets();
 
