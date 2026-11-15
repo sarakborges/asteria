@@ -21,6 +21,9 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope HorizontalNeighborHalo =
         new(horizontalRadius: 1, minimumSectionOffset: 0, maximumSectionOffset: 0);
 
+    private static readonly ChunkGenerationDependencyEnvelope HorizontalDecorationReadHalo =
+        new(horizontalRadius: 2, minimumSectionOffset: 0, maximumSectionOffset: 0);
+
     private static readonly ChunkGenerationDependencyEnvelope HorizontalPaletteHalo =
         new(horizontalRadius: 1, minimumSectionOffset: -1, maximumSectionOffset: 1);
 
@@ -62,6 +65,9 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationExecutionPolicy.SharedWorkerPool,
             DependsOn(ChunkGenerationStepId.SectionTerrainSetup)),
 
+        // Surface decorators sample cardinal slope columns and nearby
+        // fluids. The authored swamp cattail rule reaches two columns, but all
+        // such probes are immutable column data rather than holder-status reads.
         Step(
             ChunkGenerationStepId.SurfaceDecorations,
             ChunkGenerationWorkScope.Section,
@@ -70,10 +76,10 @@ public static class AsteriaChunkGenerationPlan
                 Dependency(ChunkGenerationStepId.SectionTerrainLayers, NoHalo),
                 Dependency(
                     ChunkGenerationStepId.SurfaceTerrainColumn,
-                    HorizontalNeighborHalo,
+                    HorizontalDecorationReadHalo,
                     ChunkGenerationDependencyKind.ImmutableWorldData),
             ],
-            readEnvelope: HorizontalNeighborHalo),
+            readEnvelope: HorizontalDecorationReadHalo),
 
         // Directional face palettes sample procedural surface/terrain data in
         // cardinal columns and across the vertical voxel halo. This is a data

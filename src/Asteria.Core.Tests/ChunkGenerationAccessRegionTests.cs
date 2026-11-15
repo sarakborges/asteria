@@ -44,6 +44,27 @@ public sealed class ChunkGenerationAccessRegionTests
     }
 
     [Fact]
+    public void ColumnDataReadsUseHorizontalRadiusWithoutInventingVerticalSections()
+    {
+        var target = new ChunkCoord(12, 5, -8);
+        var origin = VoxelCoordinates.ChunkOrigin(target);
+        var region = CreateRegion(
+            target,
+            read: new ChunkGenerationDependencyEnvelope(2, 0, 0),
+            write: ChunkGenerationDependencyEnvelope.None);
+
+        Assert.True(region.CanReadColumnData(
+            origin.X + 2 * Chunk.Size,
+            origin.Z - 2 * Chunk.Size));
+        Assert.False(region.CanReadColumnData(
+            origin.X + 3 * Chunk.Size,
+            origin.Z));
+        Assert.Throws<InvalidOperationException>(
+            () => region.EnsureCanReadColumnData(
+                origin.X, origin.Z + 3 * Chunk.Size));
+    }
+
+    [Fact]
     public void ReadAndWriteEnvelopesAreIndependent()
     {
         var center = new ChunkCoord(4, 2, 7);
@@ -97,6 +118,10 @@ public sealed class ChunkGenerationAccessRegionTests
             () => region.EnsureCanReadWorldPosition(Chunk.Size, Chunk.Size, 0));
         Assert.Contains(nameof(ChunkGenerationStepId.DirectionalFacePalettes), readError.Message);
         Assert.Contains("read immutable generator data", readError.Message);
+
+        var columnError = Assert.Throws<InvalidOperationException>(
+            () => region.EnsureCanReadColumnData(Chunk.Size, 0));
+        Assert.Contains("read immutable generator column data", columnError.Message);
 
         var writeError = Assert.Throws<InvalidOperationException>(
             () => region.EnsureCanWriteWorldPosition(0, Chunk.Size * 2, 0));

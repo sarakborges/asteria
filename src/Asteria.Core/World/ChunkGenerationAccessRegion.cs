@@ -49,6 +49,15 @@ public sealed class ChunkGenerationAccessRegion
         CanReadGeneratorData(
             VoxelCoordinates.FromWorld(worldX, worldY, worldZ).Chunk);
 
+    /// <summary>
+    /// Whether immutable horizontal column data may be sampled. Column fields
+    /// are 2D products, so their access is bounded by X/Z distance and does not
+    /// manufacture a vertical section or a resident-holder prerequisite.
+    /// </summary>
+    public bool CanReadColumnData(int worldX, int worldZ) =>
+        IsWithinHorizontalReadEnvelope(
+            VoxelCoordinates.FromWorld(worldX, 0, worldZ).Chunk);
+
     public bool CanWriteWorldPosition(int worldX, int worldY, int worldZ) =>
         worldY >= 0 &&
         CanWrite(
@@ -74,6 +83,19 @@ public sealed class ChunkGenerationAccessRegion
             "write into",
             destinationSection,
             _step.WriteEnvelope);
+    }
+
+    public void EnsureCanReadColumnData(int worldX, int worldZ)
+    {
+        var column = VoxelCoordinates.FromWorld(worldX, 0, worldZ).Chunk;
+        if (IsWithinHorizontalReadEnvelope(column))
+            return;
+
+        throw new InvalidOperationException(
+            $"Generation step {_step.Id} for target section {_targetSection} " +
+            $"cannot read immutable generator column data at world position " +
+            $"({worldX}, {worldZ}) in column ({column.X}, {column.Z}); " +
+            $"declared horizontal read radius is {_step.ReadEnvelope.HorizontalRadius}.");
     }
 
     public void EnsureCanReadWorldPosition(int worldX, int worldY, int worldZ)
@@ -102,6 +124,14 @@ public sealed class ChunkGenerationAccessRegion
             $"cannot write at world position ({worldX}, {worldY}, {worldZ}) " +
             $"in section {destinationSection}; declared write envelope is " +
             $"{Format(_step.WriteEnvelope)}.");
+    }
+
+    private bool IsWithinHorizontalReadEnvelope(ChunkCoord accessedColumn)
+    {
+        var deltaX = (long)accessedColumn.X - _targetSection.X;
+        var deltaZ = (long)accessedColumn.Z - _targetSection.Z;
+        return Math.Max(Math.Abs(deltaX), Math.Abs(deltaZ)) <=
+            _step.ReadEnvelope.HorizontalRadius;
     }
 
     private bool IsWithinEnvelope(
