@@ -600,12 +600,14 @@ public readonly record struct ChunkGenerationFutureResult(
     bool Succeeded,
     ChunkGenerationStatus Status,
     string? FailureReason,
-    ulong Revision = 0)
+    ulong Revision = 0,
+    Chunk? Product = null)
 {
     public static ChunkGenerationFutureResult Success(
         ChunkGenerationStatus status,
-        ulong revision = 0) =>
-        new(true, status, null, revision);
+        ulong revision = 0,
+        Chunk? product = null) =>
+        new(true, status, null, revision, product);
 
     public static ChunkGenerationFutureResult Unloaded(
         ChunkGenerationStatus status,
@@ -623,6 +625,7 @@ internal sealed class ChunkSectionGenerationProgressState
     private readonly Dictionary<ChunkGenerationStatus,
         TaskCompletionSource<ChunkGenerationFutureResult>> _futures =
         CreateGenerationFutures();
+    private Chunk? _completedProduct;
 
     public ChunkGenerationStatus CompletedStatus { get; private set; }
 
@@ -652,11 +655,14 @@ internal sealed class ChunkSectionGenerationProgressState
     public bool Complete(
         ChunkGenerationStatus completedStatus,
         ChunkGenerationStatus highestAllowedStatus,
-        int ticketLevel)
+        int ticketLevel,
+        Chunk? product)
     {
         ValidateStatus(completedStatus);
         if (completedStatus > CompletedStatus)
             CompletedStatus = completedStatus;
+        if (product is not null)
+            _completedProduct = product;
         Reconcile(highestAllowedStatus, ticketLevel);
         return completedStatus <= highestAllowedStatus &&
             _futures.Any(entry =>
@@ -704,7 +710,10 @@ internal sealed class ChunkSectionGenerationProgressState
                     _futures[status] = future;
                 }
                 future.TrySetResult(ChunkGenerationFutureResult.Success(
-                    status, Revision));
+                    status, Revision,
+                    status >= ChunkGenerationStatus.Light
+                        ? _completedProduct
+                        : null));
             }
             else if (future.Task.IsCompletedSuccessfully &&
                      !future.Task.Result.Succeeded)
@@ -727,6 +736,7 @@ internal sealed class ChunkSectionGenerationProgressState
                 status, reason, failedRevision));
         Revision++;
         CompletedStatus = ChunkGenerationStatus.Unloaded;
+        _completedProduct = null;
         foreach (var status in _futures.Keys.ToArray())
             _futures[status] = NewGenerationFuture();
     }
@@ -917,11 +927,12 @@ public sealed class ChunkHolder
 
     public bool CompleteSectionGenerationStatus(
         ChunkCoord section,
-        ChunkGenerationStatus completedStatus)
+        ChunkGenerationStatus completedStatus,
+        Chunk? product = null)
     {
         ValidateSection(section);
         return GetOrCreateSectionProgress(section).Complete(
-            completedStatus, HighestAllowedGenerationStatus, TicketLevel);
+            completedStatus, HighestAllowedGenerationStatus, TicketLevel, product);
     }
 
     public bool ResetSectionGenerationProgress(
@@ -1567,10 +1578,11 @@ public sealed class ChunkDistanceManager
 
     public bool CompleteSectionGenerationStatus(
         ChunkCoord section,
-        ChunkGenerationStatus status) =>
+        ChunkGenerationStatus status,
+        Chunk? product = null) =>
         _holders.TryGetValue(
             ChunkColumnCoord.FromChunk(section), out var holder) &&
-        holder.CompleteSectionGenerationStatus(section, status);
+        holder.CompleteSectionGenerationStatus(section, status, product);
 
     public bool ResetSectionGenerationProgress(
         ChunkCoord section,
