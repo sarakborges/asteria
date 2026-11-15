@@ -390,6 +390,125 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void SectionGenerationFuturesAreDistinctForVerticalCoordinates()
+    {
+        var holder = new ChunkHolder(
+            new ChunkColumnCoord(7, -3),
+            ChunkLevel.EntityTicking);
+        var lower = new ChunkCoord(7, 2, -3);
+        var upper = new ChunkCoord(7, 3, -3);
+
+        var lowerTerrain = holder.GetSectionGenerationFuture(
+            lower, ChunkGenerationStatus.Terrain);
+        var upperTerrain = holder.GetSectionGenerationFuture(
+            upper, ChunkGenerationStatus.Terrain);
+
+        Assert.False(lowerTerrain.IsCompleted);
+        Assert.False(upperTerrain.IsCompleted);
+        Assert.NotSame(lowerTerrain, upperTerrain);
+
+        Assert.True(holder.CompleteSectionGenerationStatus(
+            lower, ChunkGenerationStatus.Terrain));
+
+        Assert.True(lowerTerrain.IsCompletedSuccessfully);
+        Assert.True(lowerTerrain.Result.Succeeded);
+        Assert.Equal(ChunkGenerationStatus.Terrain, lowerTerrain.Result.Status);
+        Assert.False(upperTerrain.IsCompleted);
+        Assert.Equal(
+            ChunkGenerationStatus.Unloaded,
+            holder.GetCompletedSectionGenerationStatus(upper));
+    }
+
+    [Fact]
+    public void SectionGenerationFutureReconcilesTicketDemotionAndPromotion()
+    {
+        var holder = new ChunkHolder(
+            new ChunkColumnCoord(-4, 8),
+            ChunkLevel.EntityTicking);
+        var section = new ChunkCoord(-4, 6, 8);
+
+        Assert.True(holder.CompleteSectionGenerationStatus(
+            section, ChunkGenerationStatus.Features));
+        var completed = holder.GetSectionGenerationFuture(
+            section, ChunkGenerationStatus.Features);
+        Assert.True(completed.Result.Succeeded);
+        var revision = completed.Result.Revision;
+
+        Assert.True(holder.UpdateTicketLevel(ChunkLevel.Unloaded));
+        var demoted = holder.GetSectionGenerationFuture(
+            section, ChunkGenerationStatus.Features);
+        Assert.True(demoted.IsCompletedSuccessfully);
+        Assert.False(demoted.Result.Succeeded);
+        Assert.Equal(revision, demoted.Result.Revision);
+
+        Assert.True(holder.UpdateTicketLevel(ChunkLevel.EntityTicking));
+        var promoted = holder.GetSectionGenerationFuture(
+            section, ChunkGenerationStatus.Features);
+        Assert.True(promoted.IsCompletedSuccessfully);
+        Assert.True(promoted.Result.Succeeded);
+        Assert.Equal(revision, promoted.Result.Revision);
+    }
+
+    [Fact]
+    public void ResettingOneSectionRearmsOnlyItsStatusFutures()
+    {
+        var holder = new ChunkHolder(
+            new ChunkColumnCoord(11, 5),
+            ChunkLevel.EntityTicking);
+        var lower = new ChunkCoord(11, 0, 5);
+        var upper = new ChunkCoord(11, 1, 5);
+        Assert.True(holder.CompleteSectionGenerationStatus(
+            lower, ChunkGenerationStatus.Terrain));
+        Assert.True(holder.CompleteSectionGenerationStatus(
+            upper, ChunkGenerationStatus.Biomes));
+
+        var lowerOld = holder.GetSectionGenerationFuture(
+            lower, ChunkGenerationStatus.Terrain);
+        var upperExisting = holder.GetSectionGenerationFuture(
+            upper, ChunkGenerationStatus.Biomes);
+        var lowerRevision = lowerOld.Result.Revision;
+
+        Assert.True(holder.ResetSectionGenerationProgress(
+            lower, "Lower section was discarded."));
+
+        var lowerCurrent = holder.GetSectionGenerationFuture(
+            lower, ChunkGenerationStatus.Terrain);
+        Assert.True(lowerOld.IsCompletedSuccessfully);
+        Assert.False(lowerOld.Result.Succeeded);
+        Assert.Equal(lowerRevision, lowerOld.Result.Revision);
+        Assert.False(lowerCurrent.IsCompleted);
+        Assert.Equal(lowerRevision + 1,
+            holder.GetSectionGenerationRevision(lower));
+        Assert.Same(upperExisting,
+            holder.GetSectionGenerationFuture(
+                upper, ChunkGenerationStatus.Biomes));
+        Assert.True(upperExisting.Result.Succeeded);
+    }
+
+    [Fact]
+    public void SectionDependencyClaimKeepsExactVerticalTargetsUnderOneColumnLease()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(12, -7);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+
+        using (var claim = manager.AcquireDependencyClaims(
+                   new ChunkCoord(column.X, 4, column.Z),
+                   AsteriaChunkGenerationPlan.FullSectionEnvelope))
+        {
+            Assert.Single(claim.Columns);
+            Assert.Equal(1, holder.DependencyClaimCount);
+            Assert.Collection(
+                claim.SectionTargets.OrderBy(section => section.Y),
+                section => Assert.Equal(new ChunkCoord(column.X, 3, column.Z), section),
+                section => Assert.Equal(new ChunkCoord(column.X, 4, column.Z), section));
+        }
+
+        Assert.Equal(0, holder.DependencyClaimCount);
+    }
+
+    [Fact]
     public void HolderRetainsAchievedStatusUntilTicketPromotionPermitsIt()
     {
         var column = new ChunkColumnCoord(20, -11);
