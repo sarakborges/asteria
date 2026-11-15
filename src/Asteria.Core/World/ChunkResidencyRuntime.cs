@@ -318,9 +318,9 @@ public sealed class ChunkResidencyRuntime
 
     private void HandleSectionGenerationStatusAdvanced(
         ChunkGenerationTaskInstance task,
-        ChunkCoord section,
-        ChunkGenerationStatus status)
+        ChunkSectionGenerationProgress progress)
     {
+        var section = progress.Coord;
         // Per-section futures belong to the horizontal holder but retain the
         // exact vertical coordinate. Publish only while this section remains
         // part of the same admitted generation revision.
@@ -333,7 +333,7 @@ public sealed class ChunkResidencyRuntime
             return;
 
         _streaming.DistanceManager.CompleteSectionGenerationStatus(
-            section, status);
+            section, progress.Status, progress.Product);
     }
 
     public ChunkGenerationSerialExecutor LightingExecutor =>
