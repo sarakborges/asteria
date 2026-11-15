@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Threading.Tasks;
 
 namespace Asteria.Core.World;
 
@@ -24,6 +25,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
     private readonly ChunkMaterializationGenerationTask[] _sectionTasks;
     private readonly ChunkMaterializationTaskOutput?[] _sectionResults;
     private readonly ChunkGenerationStatus[] _sectionProgressStatuses;
+    private readonly Dictionary<ChunkCoord, int> _sectionTaskIndices = [];
+    private readonly Dictionary<SectionGenerationFutureKey, SectionGenerationFuture> _sectionGenerationFutures = [];
     private readonly Dictionary<ulong, PendingSectionOperation> _pendingOperations = [];
     private readonly SortedSet<int> _readySections = [];
     private ulong _nextDependencyId = 1;
@@ -60,11 +63,25 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     nameof(sectionJobs));
         }
 
+        for (var index = 0; index < jobs.Length; index++)
+        {
+            var coord = jobs[index].Coord;
+            if (!_sectionTaskIndices.TryAdd(coord, index))
+                throw new ArgumentException(
+                    $"Column {column} contains more than one generation job for section {coord}.",
+                    nameof(sectionJobs));
+
+            _sectionGenerationFutures.Add(
+                new SectionGenerationFutureKey(coord, ChunkGenerationStatus.Light),
+                new SectionGenerationFuture());
+        }
+
         _sectionTasks = jobs
             .Select(job => new ChunkMaterializationGenerationTask(
                 job,
                 initializeLighting,
-                dispatchTimestamp))
+                dispatchTimestamp,
+                deferDependenciesToColumn: true))
             .ToArray();
         _sectionResults = new ChunkMaterializationTaskOutput?[jobs.Length];
         _sectionProgressStatuses = new ChunkGenerationStatus[jobs.Length];
@@ -126,7 +143,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 CollectChildAdvance(
                     pending.SectionIndex,
                     childAdvance,
-                    nextOperations);
+                    nextOperations,
+                    cancellationToken);
             }
         }
         else
@@ -163,7 +181,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     sectionTask.Advance(
                         Array.Empty<ChunkGenerationDependencyCompletion>(),
                         cancellationToken),
-                    nextOperations);
+                    nextOperations,
+                    cancellationToken);
 
                 if (!isFork)
                     orderedStageAdvanced = true;
@@ -216,6 +235,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             task.Dispose();
         _pendingOperations.Clear();
         _readySections.Clear();
+        foreach (var future in _sectionGenerationFutures.Values)
+            future.WaitingSections.Clear();
     }
 
     private ChunkGenerationStatus? AdvanceAggregateProgress()
@@ -240,7 +261,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
     private void CollectChildAdvance(
         int sectionIndex,
         ChunkGenerationTaskAdvanceResult result,
-        List<ChunkGenerationWorkerOperation> nextOperations)
+        List<ChunkGenerationWorkerOperation> nextOperations,
+        CancellationToken cancellationToken)
     {
         if (result.ProgressStatus is { } sectionStatus &&
             sectionStatus > _sectionProgressStatuses[sectionIndex])
@@ -261,6 +283,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     throw new InvalidOperationException(
                         $"Section task {sectionIndex} in {_column} completed twice.");
                 _sectionResults[sectionIndex] = output;
+                CompleteSectionFuture(output);
                 break;
 
             case ChunkGenerationTaskAdvanceKind.WaitForWorkers:
@@ -288,14 +311,111 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 break;
 
             case ChunkGenerationTaskAdvanceKind.Yield:
-                if (!_readySections.Add(sectionIndex))
-                    throw new InvalidOperationException(
-                        $"Section task {sectionIndex} in {_column} was queued to yield twice.");
+            {
+                var sectionTask = _sectionTasks[sectionIndex];
+                if (sectionTask.PendingDependencyCoord is { } dependencyCoord)
+                {
+                    // An out-of-column dependency already has its own nested
+                    // continuation. Requeue its owner until that future resolves.
+                    if (sectionTask.HasActiveDependencyTask)
+                    {
+                        AddReadySection(sectionIndex);
+                        break;
+                    }
+
+                    if (dependencyCoord.X == sectionTask.Coord.X &&
+                        dependencyCoord.Z == sectionTask.Coord.Z &&
+                        dependencyCoord.Y >= sectionTask.Coord.Y)
+                    {
+                        throw new InvalidOperationException(
+                            $"Section {sectionTask.Coord} declared a non-lower vertical dependency {dependencyCoord}.");
+                    }
+
+                    var dependencyKey = new SectionGenerationFutureKey(
+                        dependencyCoord, ChunkGenerationStatus.Light);
+                    if (_sectionGenerationFutures.TryGetValue(
+                            dependencyKey, out var dependencyFuture))
+                    {
+                        if (dependencyFuture.Completion.Task.IsCompletedSuccessfully)
+                        {
+                            sectionTask.ResolvePendingDependency(
+                                dependencyCoord,
+                                dependencyFuture.Completion.Task.Result.Chunk);
+                            AddReadySection(sectionIndex);
+                        }
+                        else
+                        {
+                            if (dependencyFuture.Completion.Task.IsCompleted)
+                                throw new InvalidOperationException(
+                                    $"Section dependency {dependencyCoord} failed before {sectionTask.Coord} could resume.",
+                                    dependencyFuture.Completion.Task.Exception);
+                            if (dependencyFuture.WaitingSections.Contains(sectionIndex))
+                                throw new InvalidOperationException(
+                                    $"Section {sectionTask.Coord} registered dependency {dependencyCoord} more than once.");
+                            dependencyFuture.WaitingSections.Add(sectionIndex);
+                        }
+
+                        break;
+                    }
+
+                    // The lower section is outside this requested vertical batch.
+                    // Keep its support-only job, but advance it through the same
+                    // continuation lifecycle instead of recursing in a worker.
+                    CollectChildAdvance(
+                        sectionIndex,
+                        sectionTask.AdvancePendingDependency(cancellationToken),
+                        nextOperations,
+                        cancellationToken);
+                    break;
+                }
+
+                AddReadySection(sectionIndex);
                 break;
+            }
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(result));
         }
+    }
+
+    private void CompleteSectionFuture(ChunkMaterializationTaskOutput output)
+    {
+        var key = new SectionGenerationFutureKey(
+            output.Coord, ChunkGenerationStatus.Light);
+        if (!_sectionGenerationFutures.TryGetValue(key, out var future) ||
+            !future.Completion.TrySetResult(output))
+        {
+            throw new InvalidOperationException(
+                $"Section {output.Coord} completed its generation future more than once or without registration.");
+        }
+
+        foreach (var waitingSection in future.WaitingSections)
+        {
+            _sectionTasks[waitingSection].ResolvePendingDependency(
+                output.Coord, output.Chunk);
+            AddReadySection(waitingSection);
+        }
+
+        future.WaitingSections.Clear();
+    }
+
+    private void AddReadySection(int sectionIndex)
+    {
+        if (!_readySections.Add(sectionIndex))
+            throw new InvalidOperationException(
+                $"Section task {sectionIndex} in {_column} was queued to resume twice.");
+    }
+
+    private readonly record struct SectionGenerationFutureKey(
+        ChunkCoord Coord,
+        ChunkGenerationStatus Status);
+
+    private sealed class SectionGenerationFuture
+    {
+        public TaskCompletionSource<ChunkMaterializationTaskOutput> Completion { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public List<int> WaitingSections { get; } = [];
     }
 
     private readonly record struct PendingSectionOperation(
