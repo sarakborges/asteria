@@ -119,9 +119,11 @@ public sealed class ChunkTicketAdmissionController
     public bool MarkSectionFull(ChunkCoord section)
     {
         var column = ChunkColumnCoord.FromChunk(section);
+        var completedSection = _distanceManager.CompleteSectionGenerationStatus(
+            section, ChunkGenerationStatus.Full);
         if (!_sectionsAwaitingFullStatus.TryGetValue(column, out var pending) ||
             !pending.Remove(section))
-            return false;
+            return completedSection;
 
         if (pending.Count == 0)
         {
