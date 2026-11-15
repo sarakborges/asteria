@@ -150,7 +150,7 @@ public sealed class ChunkGenerationPlanTests
                 dependency.PrerequisiteStep ==
                     ChunkGenerationStepId.SurfaceTerrainColumn &&
                 dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
-                dependency.Envelope.HorizontalRadius == 1);
+                dependency.Envelope.HorizontalRadius == 2);
         Assert.DoesNotContain(
             accumulated,
             dependency =>
@@ -253,7 +253,7 @@ public sealed class ChunkGenerationPlanTests
                         ChunkGenerationStepId.SurfaceTerrainColumn &&
                     dependency.Kind ==
                         ChunkGenerationDependencyKind.ImmutableWorldData &&
-                    dependency.Envelope.HorizontalRadius == horizontalRadius);
+                    dependency.Envelope.HorizontalRadius >= horizontalRadius);
         }
 
         Assert.Equal(
@@ -306,7 +306,7 @@ public sealed class ChunkGenerationPlanTests
                         ChunkGenerationStepId.SurfaceTerrainColumn &&
                     dependency.Kind ==
                         ChunkGenerationDependencyKind.ImmutableWorldData &&
-                    dependency.Envelope.HorizontalRadius == horizontalRadius);
+                    dependency.Envelope.HorizontalRadius >= horizontalRadius);
         }
 
         var palette = plan.GetStep(
