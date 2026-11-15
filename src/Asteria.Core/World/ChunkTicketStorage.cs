@@ -933,8 +933,10 @@ public sealed class ChunkHolder
             !progress.HasProgressOrCompletedFuture)
             return false;
 
+        // Reset rearms every section future in an incomplete state. A future
+        // request above the current ticket ceiling is rejected by GetFuture;
+        // the next ticket change reconciles the cached futures.
         progress.Reset(reason);
-        progress.Reconcile(HighestAllowedGenerationStatus, TicketLevel);
         return true;
     }
 
