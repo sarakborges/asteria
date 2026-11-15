@@ -993,3 +993,28 @@ Asteria's archive is an in-memory authoritative chunk archive, not Minecraft's r
 - No merge or deployment has been requested or performed.
 
 **Immediate next action:** finish and inspect the CI for HEAD 1c4e7c7. If green, implement the explicit bounded generation-region read/write contract in a small independently tested slice; keep cross-column dependencies fail-fast until their producer-admission lifecycle exists.
+
+
+---
+
+## Ticket lifetime parity follow-up — 2026-11-15
+
+The 26.3 ticket audit found that the timeout values were already correct, but the expiry behavior and flags were not.
+
+- [x] `PORTAL`: 300 ticks, loading + simulation + persistence + keep-dimension-active; no `CAN_EXPIRE_IF_UNLOADED`.
+- [x] `ENDER_PEARL`: 40 ticks, loading + simulation + keep-dimension-active; non-persistent and no `CAN_EXPIRE_IF_UNLOADED`.
+- [x] `PLAYER_SPAWN`: 20 ticks, loading only; no `CAN_EXPIRE_IF_UNLOADED`.
+- [x] `SPAWN_SEARCH`: 1 tick, loading only; no `CAN_EXPIRE_IF_UNLOADED`.
+- [x] `UNKNOWN`: 1 tick, loading and the only ticket type whose countdown continues while the holder is still loading.
+- [x] `PLAYER_LOADING`, `PLAYER_SIMULATION`, `FORCED`, and `DRAGON` retain their no-timeout and graph/persistence flags from the 26.3 ticket table.
+- [x] Expiry now tracks elapsed logical ticks and pauses the countdown of non-UNKNOWN timed tickets while the holder exists but is not ready for saving. The countdown advances when the holder is absent or FULL promotion has completed and no generation dependency claim remains.
+- [x] Re-adding an identical timed ticket resets its expiry tick, matching the vanilla reset-ticks-left behavior.
+- [x] Regression tests cover the nine ticket definitions, portal pause/resume, UNKNOWN expiry while not save-ready, TTL reset, monotonic world ticks and holder save-readiness under dependency claims.
+
+Reference: https://minecraftdocs.dev/systems/world/tickets-and-loading (verified against Minecraft 26.3; ticket table at lines 54–68 and expiry rules at lines 168–175).
+
+**Current caveat:** Asteria's `IsReadyForSaving` approximation is `FULL` completed with zero generation claims. This is the correct domain boundary available in the current runtime, but should be revisited if save/unload acquires additional in-flight ownership not represented by holder dependency claims.
+
+**Implementation commits:** `980269ac` (ticket flags/countdown), `da16a7c7` (holder save-readiness), `957e76be` (ticket lifetime tests), `44baa214` (ticket semantics comments), plus the follow-up assertion correction recorded in git history.
+
+**Validation:** CI for these ticket changes is pending on the current branch. Do not mark the new ticket tests or the combined branch validated until Core, terrain A/B, WebUI and Windows export complete on the same final HEAD.
