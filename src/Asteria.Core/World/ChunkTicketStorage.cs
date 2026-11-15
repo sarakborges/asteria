@@ -9,13 +9,14 @@ public enum ChunkTicketFlags : byte
     Simulation = 1 << 1,
     Persist = 1 << 2,
     KeepDimensionActive = 1 << 3,
+    // Only UNKNOWN uses this: its countdown runs even if its holder is still loading.
     CanExpireIfUnloaded = 1 << 4,
 }
 
 /// <summary>
-/// Sources of chunk interest. Every ticket's flags decide which distance
-/// graph consumes it, whether it keeps the dimension awake, and whether it
-/// must survive saving or expires after a timeout.
+/// Sources of chunk interest. Flags choose the loading/simulation graphs,
+/// persistence and the special UNKNOWN expiry behavior. Other timed tickets
+/// pause their countdown until the holder is absent or ready for saving.
 /// </summary>
 public enum ChunkTicketType : byte
 {
@@ -236,9 +237,10 @@ public sealed class ChunkTicketStorage
     }
 
     /// <summary>
-    /// Expires only tickets whose own timeout elapsed. Other identities in the
+    /// Advances timed ticket countdowns. Non-UNKNOWN tickets pause while their
+    /// holder is neither absent nor ready for saving. Other identities in the
     /// same column remain untouched. The returned flags tell DistanceManager
-    /// which of its two graphs needs to be propagated.
+    /// which distance graphs need to be propagated after an expiry.
     /// </summary>
     public ChunkTicketFlags ExpireTickets(
         ulong currentTick,
@@ -1429,8 +1431,9 @@ public sealed class ChunkDistanceManager
     }
 
     /// <summary>
-    /// Expires every timed ticket at the current world tick and updates only
-    /// the graph or graphs affected by the expired ticket flags.
+    /// Advances ticket lifetimes at the current world tick. Countdown behavior
+    /// depends on ticket type and holder save readiness; only expired ticket
+    /// flags cause distance-graph propagation.
     /// </summary>
     public ChunkTicketFlags AdvanceTick(ulong currentTick)
     {
