@@ -39,11 +39,14 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
         Assert.Equal(1, terrainSection.AdvanceCount);
         Assert.Equal(1, orderedSection.AdvanceCount);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, afterTerrain.Kind);
+        Assert.Equal(ChunkGenerationStatus.Terrain, afterTerrain.ProgressStatus);
         Assert.Empty(afterTerrain.WorkerOperations);
 
+        // The aggregate status is published on the same coordinator turn that
+        // processes the final section's Terrain completion, not one yield later.
         var aggregateTerrain = task.Advance([], CancellationToken.None);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, aggregateTerrain.Kind);
-        Assert.Equal(ChunkGenerationStatus.Terrain, aggregateTerrain.ProgressStatus);
+        Assert.Null(aggregateTerrain.ProgressStatus);
         Assert.Empty(aggregateTerrain.WorkerOperations);
 
         var lightOperations = 0;
