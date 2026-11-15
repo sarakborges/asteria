@@ -856,7 +856,8 @@ jobs:
           path: ${{ runner.temp }}/terrain-layer-ab/results/
           if-no-files-found: ignore
   webui:
-    runs-on: ubuntu-latest
+    # Playwright 1.56.1 does not support Ubuntu 26.04 yet.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
