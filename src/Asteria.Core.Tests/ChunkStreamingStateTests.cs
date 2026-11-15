@@ -543,6 +543,30 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void TicketedResidentChunkIsKeptLoadedWithoutPresentationDemand()
+    {
+        var state = new ChunkStreamingState();
+        var ticketed = new ChunkCoord(24, 6, -17);
+        Assert.True(state.SyncTicketedSections(
+            [ticketed], Array.Empty<ChunkCoord>()));
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord>());
+        state.SyncResidentState([ticketed], Array.Empty<ChunkCoord>());
+
+        Assert.True(state.KeepsLoaded(ticketed));
+        Assert.True(state.IsTicketDemanded(ticketed));
+        Assert.False(state.IsDesired(ticketed));
+        Assert.Equal(0, state.PendingCount);
+        Assert.Equal(0, state.PresentationPendingCount);
+        Assert.Null(state.PopPresentationByPriority(
+            new ChunkPresentationSelection(), static _ => true));
+    }
+
+    [Fact]
     public void ChunksLeavingDesiredRadiusRemainRetainedBeforeRetirement()
     {
         var state = new ChunkStreamingState();

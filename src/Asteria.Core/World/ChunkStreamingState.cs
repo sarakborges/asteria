@@ -485,10 +485,8 @@ public sealed class ChunkStreamingState
 
     public void EnqueuePresentation(ChunkCoord coord)
     {
-        if (KeepsLoaded(coord))
-        {
+        if (_desired.Contains(coord) || _retained.Contains(coord))
             _presentationPending.Add(coord);
-        }
     }
 
     public ChunkCoord? PopPresentationByPriority(
@@ -568,6 +566,7 @@ public sealed class ChunkStreamingState
     {
         if (_desired.Remove(coord))
             RebuildLightingRelevantColumns();
+        _ticketedSections.Remove(coord);
         _retained.Remove(coord);
         RemovePending(coord);
         _materializing.Remove(coord);
