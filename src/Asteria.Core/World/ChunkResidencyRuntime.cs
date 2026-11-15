@@ -1123,7 +1123,7 @@ public sealed class ChunkResidencyRuntime
                     .OrderBy(coord => coord.Y)
                     .ToArray();
                 var dependencyClaims = _streaming.DistanceManager.AcquireDependencyClaims(
-                    columnCenter,
+                    taskSections,
                     AsteriaChunkGenerationPlan.FullSectionEnvelope);
                 var work = new MaterializationWork(
                     taskKey,
