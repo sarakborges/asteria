@@ -370,7 +370,7 @@ public sealed class ChunkGenerationPlanTests
         Assert.Equal(ChunkGenerationDependencyEnvelope.None, step.ReadEnvelope);
         Assert.Equal(ChunkGenerationDependencyEnvelope.None, step.WriteEnvelope);
         Assert.Contains(
-            step.Dependencies,
+            plan.GetAccumulatedDependencies(ChunkGenerationStepId.GeneratedFluids),
             dependency =>
                 dependency.PrerequisiteStep ==
                     ChunkGenerationStepId.SurfaceTerrainColumn &&
