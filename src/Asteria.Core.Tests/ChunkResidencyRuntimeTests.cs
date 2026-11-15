@@ -164,9 +164,7 @@ public sealed class ChunkResidencyRuntimeTests
                     fixture.Runtime.GenerationWorkerCount,
                     "Physical generation concurrency exceeded the shared pool.");
 
-                return fixture.Runtime.MaterializationJobCount == 0 &&
-                       fixture.Runtime.PendingCount == 0 &&
-                       fixture.Runtime.ActiveWorkerCount == 0;
+                return fixture.Runtime.IsQuiescent;
             },
             TimeSpan.FromSeconds(10));
 
