@@ -273,9 +273,12 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             sectionStatus > _sectionProgressStatuses[sectionIndex])
         {
             _sectionProgressStatuses[sectionIndex] = sectionStatus;
-            _pendingSectionProgress.Add(new ChunkSectionGenerationProgress(
-                _sectionTasks[sectionIndex].Coord,
-                sectionStatus));
+            if (result.Kind != ChunkGenerationTaskAdvanceKind.Completed)
+            {
+                _pendingSectionProgress.Add(new ChunkSectionGenerationProgress(
+                    _sectionTasks[sectionIndex].Coord,
+                    sectionStatus));
+            }
         }
 
         switch (result.Kind)
@@ -291,6 +294,14 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     throw new InvalidOperationException(
                         $"Section task {sectionIndex} in {_column} completed twice.");
                 _sectionResults[sectionIndex] = output;
+                if (result.ProgressStatus is { } completedSectionStatus)
+                {
+                    _pendingSectionProgress.Add(
+                        new ChunkSectionGenerationProgress(
+                            output.Coord,
+                            completedSectionStatus,
+                            output.Chunk));
+                }
                 CompleteSectionFuture(output);
                 break;
 
