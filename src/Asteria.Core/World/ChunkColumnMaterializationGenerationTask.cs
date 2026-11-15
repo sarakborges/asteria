@@ -78,13 +78,19 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             _sectionGenerationFutures.Add(
                 coord,
                 new SectionGenerationFuture());
-            _sectionTasks.Add(new ChunkMaterializationGenerationTask(
+            var sectionTask = new ChunkMaterializationGenerationTask(
                 jobs[index],
                 initializeLighting,
                 dispatchTimestamp,
-                deferDependenciesToColumn: true));
+                deferDependenciesToColumn: true);
+            _sectionTasks.Add(sectionTask);
             _sectionResults.Add(null);
-            _sectionProgressStatuses.Add(ChunkGenerationStatus.Unloaded);
+            _sectionProgressStatuses.Add(sectionTask.InitialProgressStatus);
+            if (sectionTask.InitialProgressStatus != ChunkGenerationStatus.Unloaded)
+            {
+                _pendingSectionProgress.Add(new ChunkSectionGenerationProgress(
+                    coord, sectionTask.InitialProgressStatus));
+            }
         }
     }
 
