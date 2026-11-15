@@ -220,6 +220,52 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void MultipleSectionsShareOneDynamicGravityDependencyFuture()
+    {
+        var column = new ChunkColumnCoord(5, -2);
+        var dependency = new ChunkCoord(5, 0, -2);
+        var upper = new FakeMaterializationJob(
+            new ChunkCoord(5, 1, -2),
+            sliceCount: 2,
+            ChunkMaterializationStage.GravitySupport,
+            pendingDependencyCoord: dependency);
+        var top = new FakeMaterializationJob(
+            new ChunkCoord(5, 2, -2),
+            sliceCount: 2,
+            ChunkMaterializationStage.GravitySupport,
+            pendingDependencyCoord: dependency);
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [upper, top],
+            initializeLighting: _ => { });
+
+        var lightOperations = 0;
+        var final = CompleteColumn(
+            task,
+            column,
+            task.Advance([], CancellationToken.None),
+            ref lightOperations);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+        Assert.Equal(2, upper.AdvanceCount);
+        Assert.Equal(2, top.AdvanceCount);
+        Assert.NotNull(upper.CreatedDependency);
+        Assert.NotNull(top.CreatedDependency);
+        Assert.Equal(1,
+            upper.CreatedDependency!.AdvanceCount + top.CreatedDependency!.AdvanceCount);
+        Assert.True(upper.CreatedDependency.IsDisposed);
+        Assert.True(top.CreatedDependency.IsDisposed);
+        Assert.NotNull(upper.ResolvedDependency);
+        Assert.Same(upper.ResolvedDependency, top.ResolvedDependency);
+        Assert.Equal(2, lightOperations);
+
+        var output = Assert.IsType<ChunkColumnMaterializationTaskOutput>(
+            final.CompletionPayload);
+        Assert.Equal(2, output.Sections.Length);
+        Assert.DoesNotContain(output.Sections, section => section.Coord == dependency);
+    }
+
+    [Fact]
     public void OrderedMutationAdvancesRotateAcrossReadyVerticalSections()
     {
         var column = new ChunkColumnCoord(9, -6);
