@@ -1,10 +1,9 @@
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Owns the ticket store, independent loading and simulation distance graphs,
-/// and the holder map produced by the loading graph. Player view tickets decide
-/// which holders exist and their generation ceiling; simulation tickets decide
-/// which loaded holders are allowed to tick.
+/// Owns the ticket store and independent loading/simulation distance graphs.
+/// The holder map has a separate owner; loading updates reconcile it while the
+/// simulation graph remains an independent gate for world ticking.
 /// </summary>
 public sealed class ChunkDistanceManager
 {
@@ -12,7 +11,7 @@ public sealed class ChunkDistanceManager
     private readonly ChunkDistanceTracker _loading = new();
     private readonly ChunkDistanceTracker _simulation = new();
     private readonly NaturalSpawnChunkTracker _naturalSpawn = new();
-    private readonly Dictionary<ChunkColumnCoord, ChunkHolder> _holders = [];
+    private readonly ChunkHolderMap _holders = new();
 
     public ChunkTicketStorage Tickets => _tickets;
 
@@ -30,12 +29,12 @@ public sealed class ChunkDistanceManager
     public int HolderCount => _holders.Count;
 
     public ChunkHolder? GetHolder(ChunkColumnCoord column) =>
-        _holders.TryGetValue(column, out var holder) ? holder : null;
+        _holders.Get(column);
 
     public bool TryGetHolder(
         ChunkColumnCoord column,
         out ChunkHolder holder) =>
-        _holders.TryGetValue(column, out holder!);
+        _holders.TryGet(column, out holder!);
 
     /// <summary>
     /// Synchronizes the desired player view and simulation source. Existing
@@ -155,8 +154,7 @@ public sealed class ChunkDistanceManager
     {
         var changed = _tickets.ExpireTickets(
             currentTick,
-            column => !_holders.TryGetValue(column, out var holder) ||
-                holder.IsReadyForSaving);
+            _holders.IsReadyForSaving);
         if (changed == ChunkTicketFlags.None)
             return changed;
 
@@ -174,102 +172,12 @@ public sealed class ChunkDistanceManager
     public ChunkDependencyClaim AcquireDependencyClaims(
         ChunkCoord target,
         ChunkGenerationDependencyEnvelope envelope) =>
-        AcquireDependencyClaims([target], envelope);
+        _holders.AcquireDependencyClaims([target], envelope);
 
-    /// <summary>
-    /// Acquires the union of several section dependency envelopes while
-    /// retaining each horizontal holder exactly once. A column generation
-    /// task uses this for every vertical section it owns.
-    /// </summary>
     public ChunkDependencyClaim AcquireDependencyClaims(
         IEnumerable<ChunkCoord> targets,
-        ChunkGenerationDependencyEnvelope envelope)
-    {
-        ArgumentNullException.ThrowIfNull(targets);
-        if (envelope.HorizontalRadius < 0 ||
-            envelope.MinimumSectionOffset > envelope.MaximumSectionOffset)
-            throw new ArgumentOutOfRangeException(nameof(envelope));
-
-        var targetSections = targets.Distinct().ToArray();
-        if (targetSections.Length == 0)
-            throw new ArgumentException(
-                "At least one target section is required for a dependency claim.",
-                nameof(targets));
-        if (targetSections.Any(section => section.Y < 0))
-            throw new ArgumentOutOfRangeException(
-                nameof(targets), "Sphere chunk Y cannot be negative.");
-
-        var columns = new HashSet<ChunkColumnCoord>();
-        var sectionTargets = new HashSet<ChunkCoord>();
-        foreach (var target in targetSections)
-        {
-            for (var dz = -envelope.HorizontalRadius;
-                 dz <= envelope.HorizontalRadius;
-                 dz++)
-            for (var dx = -envelope.HorizontalRadius;
-                 dx <= envelope.HorizontalRadius;
-                 dx++)
-            {
-                var x = (long)target.X + dx;
-                var z = (long)target.Z + dz;
-                if (x < int.MinValue || x > int.MaxValue ||
-                    z < int.MinValue || z > int.MaxValue)
-                    continue;
-
-                var column = ChunkColumnCoord.FromChunk(
-                    new ChunkCoord((int)x, 0, (int)z));
-                if (!_holders.ContainsKey(column))
-                    _holders.Add(column, new ChunkHolder(
-                        column, ChunkLevel.Unloaded));
-                columns.Add(column);
-
-                for (var sectionOffset = envelope.MinimumSectionOffset;
-                     sectionOffset <= envelope.MaximumSectionOffset;
-                     sectionOffset++)
-                {
-                    var sectionY = (long)target.Y + sectionOffset;
-                    if (sectionY < 0 || sectionY > int.MaxValue)
-                        continue;
-                    sectionTargets.Add(new ChunkCoord(
-                        (int)x, (int)sectionY, (int)z));
-                }
-            }
-        }
-
-        // A holder is retained once regardless of how many vertical sections
-        // or overlapping envelopes inside this column refer to it.
-        foreach (var column in columns)
-            _holders[column].AddDependencyClaim();
-
-        return new ChunkDependencyClaim(
-            this,
-            columns.OrderBy(column => column.X).ThenBy(column => column.Z).ToArray(),
-            sectionTargets
-                .OrderBy(section => section.Y)
-                .ThenBy(section => section.Z)
-                .ThenBy(section => section.X)
-                .ToArray());
-    }
-
-    internal void ReleaseDependencyClaims(
-        IReadOnlyList<ChunkColumnCoord> columns)
-    {
-        ArgumentNullException.ThrowIfNull(columns);
-        foreach (var column in columns)
-        {
-            if (!_holders.TryGetValue(column, out var holder))
-                throw new InvalidOperationException(
-                    $"Claimed chunk holder was removed before its lease was released: {column}");
-
-            holder.RemoveDependencyClaim();
-            if (holder.DependencyClaimCount != 0 ||
-                _loading.Levels.ContainsKey(column))
-                continue;
-
-            holder.UpdateTicketLevel(ChunkLevel.Unloaded);
-            _holders.Remove(column);
-        }
-    }
+        ChunkGenerationDependencyEnvelope envelope) =>
+        _holders.AcquireDependencyClaims(targets, envelope);
 
     private void RebuildDistanceGraphs(
         bool loadingChanged,
@@ -293,32 +201,8 @@ public sealed class ChunkDistanceManager
         }
     }
 
-    private void SynchronizeHolders()
-    {
-        foreach (var (column, level) in _loading.Levels)
-        {
-            if (_holders.TryGetValue(column, out var holder))
-                holder.UpdateTicketLevel(level);
-            else
-                _holders.Add(column, new ChunkHolder(column, level));
-        }
-
-        foreach (var (column, holder) in _holders.ToArray())
-        {
-            if (_loading.Levels.TryGetValue(column, out var level))
-            {
-                holder.UpdateTicketLevel(level);
-                continue;
-            }
-
-            // An un-ticketed holder remains alive while a generation task
-            // claims it as a spatial dependency. The ticket ceiling is
-            // demoted immediately; only holder lifetime is retained.
-            holder.UpdateTicketLevel(ChunkLevel.Unloaded);
-            if (holder.DependencyClaimCount == 0)
-                _holders.Remove(column);
-        }
-    }
+    private void SynchronizeHolders() =>
+        _holders.SynchronizeLoadingLevels(_loading.Levels);
 
     public int PersistentTicketCount =>
         _tickets.PersistentTicketCount;
@@ -344,107 +228,53 @@ public sealed class ChunkDistanceManager
     public bool CompleteFullStatus(
         ChunkColumnCoord column,
         ChunkFullStatus status) =>
-        _holders.TryGetValue(column, out var holder) &&
-        holder.CompleteFullStatus(status);
+        _holders.CompleteFullStatus(column, status);
 
     public Task<ChunkGenerationFutureResult> GetGenerationFuture(
         ChunkColumnCoord column,
         ChunkGenerationStatus requestedStatus) =>
-        _holders.TryGetValue(column, out var holder)
-            ? holder.GetGenerationFuture(requestedStatus)
-            : Task.FromResult(ChunkGenerationFutureResult.Unloaded(
-                requestedStatus,
-                $"Chunk holder does not exist: {column}"));
+        _holders.GetGenerationFuture(column, requestedStatus);
 
     public bool CompleteGenerationStatus(
         ChunkColumnCoord column,
         ChunkGenerationStatus status) =>
-        _holders.TryGetValue(column, out var holder) &&
-        holder.CompleteGenerationStatus(status);
+        _holders.CompleteGenerationStatus(column, status);
 
     public Task<ChunkGenerationFutureResult> GetSectionGenerationFuture(
         ChunkCoord section,
-        ChunkGenerationStatus requestedStatus)
-    {
-        ValidateSectionCoordinate(section);
-        ValidateGenerationStatus(requestedStatus);
-        var column = ChunkColumnCoord.FromChunk(section);
-        return _holders.TryGetValue(column, out var holder)
-            ? holder.GetSectionGenerationFuture(section, requestedStatus)
-            : Task.FromResult(ChunkGenerationFutureResult.Unloaded(
-                requestedStatus,
-                $"Chunk holder does not exist for section {section}."));
-    }
+        ChunkGenerationStatus requestedStatus) =>
+        _holders.GetSectionGenerationFuture(section, requestedStatus);
 
     public ChunkGenerationStatus GetCompletedSectionGenerationStatus(
-        ChunkCoord section)
-    {
-        ValidateSectionCoordinate(section);
-        return _holders.TryGetValue(
-            ChunkColumnCoord.FromChunk(section), out var holder)
-            ? holder.GetCompletedSectionGenerationStatus(section)
-            : ChunkGenerationStatus.Unloaded;
-    }
+        ChunkCoord section) =>
+        _holders.GetCompletedSectionGenerationStatus(section);
 
-    public ulong GetSectionGenerationRevision(ChunkCoord section)
-    {
-        ValidateSectionCoordinate(section);
-        return _holders.TryGetValue(
-            ChunkColumnCoord.FromChunk(section), out var holder)
-            ? holder.GetSectionGenerationRevision(section)
-            : 0UL;
-    }
+    public ulong GetSectionGenerationRevision(ChunkCoord section) =>
+        _holders.GetSectionGenerationRevision(section);
 
     public bool CompleteSectionGenerationStatus(
         ChunkCoord section,
         ChunkGenerationStatus status,
-        Chunk? product = null)
-    {
-        ValidateSectionCoordinate(section);
-        return _holders.TryGetValue(
-            ChunkColumnCoord.FromChunk(section), out var holder) &&
-            holder.CompleteSectionGenerationStatus(section, status, product);
-    }
+        Chunk? product = null) =>
+        _holders.CompleteSectionGenerationStatus(section, status, product);
 
     public bool ResetSectionGenerationProgress(
         ChunkCoord section,
-        string reason)
-    {
-        ValidateSectionCoordinate(section);
-        return _holders.TryGetValue(
-            ChunkColumnCoord.FromChunk(section), out var holder) &&
-            holder.ResetSectionGenerationProgress(section, reason);
-    }
-
-    private static void ValidateSectionCoordinate(ChunkCoord section)
-    {
-        if (section.Y < 0)
-            throw new ArgumentOutOfRangeException(
-                nameof(section), "Sphere chunk Y cannot be negative.");
-    }
-
-    private static void ValidateGenerationStatus(ChunkGenerationStatus status)
-    {
-        if (!Enum.IsDefined(status) || status == ChunkGenerationStatus.Unloaded)
-            throw new ArgumentOutOfRangeException(nameof(status));
-    }
+        string reason) =>
+        _holders.ResetSectionGenerationProgress(section, reason);
 
     public ulong GetGenerationProgressRevision(ChunkColumnCoord column) =>
-        _holders.TryGetValue(column, out var holder)
-            ? holder.GenerationProgressRevision
-            : 0;
+        _holders.GetGenerationProgressRevision(column);
 
     public bool ResetGenerationProgress(
         ChunkColumnCoord column,
         string reason) =>
-        _holders.TryGetValue(column, out var holder) &&
-        holder.ResetGenerationProgress(reason);
+        _holders.ResetGenerationProgress(column, reason);
 
     public bool FailPendingPromotions(
         ChunkColumnCoord column,
         string reason) =>
-        _holders.TryGetValue(column, out var holder) &&
-        holder.FailPendingPromotions(reason);
+        _holders.FailPendingPromotions(column, reason);
 
     public int GetLoadingLevel(ChunkColumnCoord column) =>
         _loading.GetLevel(column, ChunkLevel.Unloaded);

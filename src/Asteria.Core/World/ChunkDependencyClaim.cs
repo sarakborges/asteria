@@ -6,18 +6,21 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class ChunkDependencyClaim : IDisposable
 {
-    private ChunkDistanceManager? _owner;
+    private ChunkHolderMap? _owner;
     private readonly ChunkColumnCoord[] _columns;
     private readonly ChunkCoord[] _sectionTargets;
+    private readonly IReadOnlyDictionary<ChunkColumnCoord, int> _loadingLevels;
 
     internal ChunkDependencyClaim(
-        ChunkDistanceManager owner,
+        ChunkHolderMap owner,
         ChunkColumnCoord[] columns,
-        ChunkCoord[] sectionTargets)
+        ChunkCoord[] sectionTargets,
+        IReadOnlyDictionary<ChunkColumnCoord, int> loadingLevels)
     {
         _owner = owner ?? throw new ArgumentNullException(nameof(owner));
         _columns = columns ?? throw new ArgumentNullException(nameof(columns));
         _sectionTargets = sectionTargets ?? throw new ArgumentNullException(nameof(sectionTargets));
+        _loadingLevels = loadingLevels ?? throw new ArgumentNullException(nameof(loadingLevels));
     }
 
     public IReadOnlyList<ChunkColumnCoord> Columns => _columns;
@@ -58,6 +61,6 @@ public sealed class ChunkDependencyClaim : IDisposable
     public void Dispose()
     {
         var owner = Interlocked.Exchange(ref _owner, null);
-        owner?.ReleaseDependencyClaims(_columns);
+        owner?.ReleaseDependencyClaims(_columns, _loadingLevels);
     }
 }
