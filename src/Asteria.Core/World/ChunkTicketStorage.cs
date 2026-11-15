@@ -1408,56 +1408,79 @@ public sealed class ChunkDistanceManager
     /// </summary>
     public ChunkDependencyClaim AcquireDependencyClaims(
         ChunkCoord target,
+        ChunkGenerationDependencyEnvelope envelope) =>
+        AcquireDependencyClaims([target], envelope);
+
+    /// <summary>
+    /// Acquires the union of several section dependency envelopes while
+    /// retaining each horizontal holder exactly once. A column generation
+    /// task uses this for every vertical section it owns.
+    /// </summary>
+    public ChunkDependencyClaim AcquireDependencyClaims(
+        IEnumerable<ChunkCoord> targets,
         ChunkGenerationDependencyEnvelope envelope)
     {
-        if (envelope.HorizontalRadius < 0)
+        ArgumentNullException.ThrowIfNull(targets);
+        if (envelope.HorizontalRadius < 0 ||
+            envelope.MinimumSectionOffset > envelope.MaximumSectionOffset)
             throw new ArgumentOutOfRangeException(nameof(envelope));
 
-        var columns = new List<ChunkColumnCoord>();
-        var sectionTargets = new List<ChunkCoord>();
-        for (var dz = -envelope.HorizontalRadius;
-             dz <= envelope.HorizontalRadius;
-             dz++)
-        for (var dx = -envelope.HorizontalRadius;
-             dx <= envelope.HorizontalRadius;
-             dx++)
+        var targetSections = targets.Distinct().ToArray();
+        if (targetSections.Length == 0)
+            throw new ArgumentException(
+                "At least one target section is required for a dependency claim.",
+                nameof(targets));
+
+        var columns = new HashSet<ChunkColumnCoord>();
+        var sectionTargets = new HashSet<ChunkCoord>();
+        foreach (var target in targetSections)
         {
-            var x = (long)target.X + dx;
-            var z = (long)target.Z + dz;
-            if (x < int.MinValue || x > int.MaxValue ||
-                z < int.MinValue || z > int.MaxValue)
-                continue;
-
-            var column = ChunkColumnCoord.FromChunk(
-                new ChunkCoord((int)x, 0, (int)z));
-            if (!_holders.TryGetValue(column, out var holder))
+            for (var dz = -envelope.HorizontalRadius;
+                 dz <= envelope.HorizontalRadius;
+                 dz++)
+            for (var dx = -envelope.HorizontalRadius;
+                 dx <= envelope.HorizontalRadius;
+                 dx++)
             {
-                holder = new ChunkHolder(column, ChunkLevel.Unloaded);
-                _holders.Add(column, holder);
-            }
-
-            // The lifetime lease is column-scoped. Exact section identities
-            // are retained separately so generation can request the correct
-            // (X,Y,Z,status) future without multiplying holder references.
-            holder.AddDependencyClaim();
-            columns.Add(column);
-
-            for (var sectionOffset = envelope.MinimumSectionOffset;
-                 sectionOffset <= envelope.MaximumSectionOffset;
-                 sectionOffset++)
-            {
-                var sectionY = (long)target.Y + sectionOffset;
-                if (sectionY < int.MinValue || sectionY > int.MaxValue)
+                var x = (long)target.X + dx;
+                var z = (long)target.Z + dz;
+                if (x < int.MinValue || x > int.MaxValue ||
+                    z < int.MinValue || z > int.MaxValue)
                     continue;
-                sectionTargets.Add(new ChunkCoord(
-                    (int)x, (int)sectionY, (int)z));
+
+                var column = ChunkColumnCoord.FromChunk(
+                    new ChunkCoord((int)x, 0, (int)z));
+                if (!_holders.ContainsKey(column))
+                    _holders.Add(column, new ChunkHolder(
+                        column, ChunkLevel.Unloaded));
+                columns.Add(column);
+
+                for (var sectionOffset = envelope.MinimumSectionOffset;
+                     sectionOffset <= envelope.MaximumSectionOffset;
+                     sectionOffset++)
+                {
+                    var sectionY = (long)target.Y + sectionOffset;
+                    if (sectionY < int.MinValue || sectionY > int.MaxValue)
+                        continue;
+                    sectionTargets.Add(new ChunkCoord(
+                        (int)x, (int)sectionY, (int)z));
+                }
             }
         }
 
+        // A holder is retained once regardless of how many vertical sections
+        // or overlapping envelopes inside this column refer to it.
+        foreach (var column in columns)
+            _holders[column].AddDependencyClaim();
+
         return new ChunkDependencyClaim(
             this,
-            columns.ToArray(),
-            sectionTargets.Distinct().ToArray());
+            columns.OrderBy(column => column.X).ThenBy(column => column.Z).ToArray(),
+            sectionTargets
+                .OrderBy(section => section.Y)
+                .ThenBy(section => section.Z)
+                .ThenBy(section => section.X)
+                .ToArray());
     }
 
     internal void ReleaseDependencyClaims(
