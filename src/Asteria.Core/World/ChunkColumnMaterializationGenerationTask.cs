@@ -82,7 +82,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 deferDependenciesToColumn: true);
             _sectionGenerationFutures.Add(
                 coord,
-                new SectionGenerationFuture(sectionTask.InitialProgressStatus));
+                new SectionGenerationFuture());
             _sectionTasks.Add(sectionTask);
             _sectionResults.Add(null);
             _sectionProgressStatuses.Add(sectionTask.InitialProgressStatus);
@@ -296,8 +296,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         {
             _sectionProgressStatuses[sectionIndex] = sectionStatus;
             CompleteSectionStatusFuture(
-                _sectionTasks[sectionIndex].Coord,
-                sectionStatus);
+                _sectionTasks[sectionIndex].Coord);
             if (sectionIndex < _requiredSectionCount &&
                 result.Kind != ChunkGenerationTaskAdvanceKind.Completed)
             {
@@ -323,18 +322,14 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                             $"Section task {sectionIndex} in {_column} completed twice.");
                     _sectionResults[sectionIndex] = output;
                 }
-                if (result.ProgressStatus is { } completedSectionStatus)
+                if (result.ProgressStatus is { } completedSectionStatus &&
+                    sectionIndex < _requiredSectionCount)
                 {
-                    CompleteSectionStatusFuture(
-                        output.Coord, completedSectionStatus);
-                    if (sectionIndex < _requiredSectionCount)
-                    {
-                        _pendingSectionProgress.Add(
-                            new ChunkSectionGenerationProgress(
-                                output.Coord,
-                                completedSectionStatus,
-                                output.Chunk));
-                    }
+                    _pendingSectionProgress.Add(
+                        new ChunkSectionGenerationProgress(
+                            output.Coord,
+                            completedSectionStatus,
+                            output.Chunk));
                 }
                 CompleteSectionFuture(output);
                 break;
@@ -448,7 +443,9 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             if (requirement.Coord == sectionTask.Coord ||
                 !_sectionGenerationFutures.TryGetValue(
                     requirement.Coord, out var future) ||
-                future.CompletedStatus >= requirement.Status)
+                !_sectionTaskIndices.TryGetValue(
+                    requirement.Coord, out var dependencyIndex) ||
+                _sectionProgressStatuses[dependencyIndex] >= requirement.Status)
                 continue;
 
             if (future.StatusWaiters.TryGetValue(
@@ -467,19 +464,17 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         return waiting;
     }
 
-    private void CompleteSectionStatusFuture(
-        ChunkCoord section,
-        ChunkGenerationStatus status)
+    private void CompleteSectionStatusFuture(ChunkCoord section)
     {
-        if (!_sectionGenerationFutures.TryGetValue(section, out var future))
+        if (!_sectionGenerationFutures.TryGetValue(section, out var future) ||
+            !_sectionTaskIndices.TryGetValue(section, out var sectionIndex))
             return;
-        if (status > future.CompletedStatus)
-            future.CompletedStatus = status;
 
+        var completedStatus = _sectionProgressStatuses[sectionIndex];
         foreach (var (waitingSection, requiredStatus) in
                  future.StatusWaiters.ToArray())
         {
-            if (requiredStatus > future.CompletedStatus)
+            if (requiredStatus > completedStatus)
                 continue;
             future.StatusWaiters.Remove(waitingSection);
             AddReadySection(waitingSection);
@@ -488,8 +483,6 @@ public sealed class ChunkColumnMaterializationGenerationTask :
 
     private void CompleteSectionFuture(ChunkMaterializationTaskOutput output)
     {
-        CompleteSectionStatusFuture(
-            output.Coord, ChunkGenerationStatus.Light);
         if (!_sectionGenerationFutures.TryGetValue(
                 output.Coord, out var future) ||
             !future.Completion.TrySetResult(output.Chunk))
@@ -538,7 +531,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             deferDependenciesToColumn: true);
         _sectionGenerationFutures.Add(
             dependencyCoord,
-            new SectionGenerationFuture(dependencyTask.InitialProgressStatus));
+            new SectionGenerationFuture());
         _sectionTasks.Add(dependencyTask);
         _sectionResults.Add(null);
         _sectionProgressStatuses.Add(dependencyTask.InitialProgressStatus);
@@ -547,13 +540,10 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         AddReadySection(dependencyIndex);
     }
 
-    private sealed class SectionGenerationFuture(
-        ChunkGenerationStatus initialStatus)
+    private sealed class SectionGenerationFuture
     {
         public TaskCompletionSource<Chunk> Completion { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public ChunkGenerationStatus CompletedStatus { get; set; } = initialStatus;
 
         public Dictionary<int, ChunkGenerationStatus> StatusWaiters { get; } = [];
 
