@@ -476,7 +476,15 @@ public sealed class ChunkGenerationPlanTests
         Assert.True(lowerOld.IsCompletedSuccessfully);
         Assert.False(lowerOld.Result.Succeeded);
         Assert.Equal(lowerRevision, lowerOld.Result.Revision);
-        Assert.False(lowerCurrent.IsCompleted);
+        Assert.False(
+            lowerCurrent.IsCompleted,
+            $"Section future should be rearmed after reset. Ticket={holder.TicketLevel}, " +
+            $"allowed={holder.HighestAllowedGenerationStatus}, " +
+            $"completed={holder.GetCompletedSectionGenerationStatus(lower)}, " +
+            $"revision={holder.GetSectionGenerationRevision(lower)}, " +
+            (lowerCurrent.IsCompletedSuccessfully
+                ? $"result={lowerCurrent.Result.Succeeded}/{lowerCurrent.Result.Status}/{lowerCurrent.Result.Revision}"
+                : $"taskStatus={lowerCurrent.Status}"));
         Assert.Equal(lowerRevision + 1,
             holder.GetSectionGenerationRevision(lower));
         Assert.Same(upperExisting,
