@@ -1189,6 +1189,23 @@ public sealed class ChunkDependencyClaim : IDisposable
     /// <summary>Exact 3D section coordinates covered by the generation dependency envelope.</summary>
     public IReadOnlyList<ChunkCoord> SectionTargets => _sectionTargets;
 
+    /// <summary>
+    /// Requests the holder-owned future for an exact section/status retained by
+    /// this lease. The horizontal holder is shared across its vertical sections.
+    /// </summary>
+    public Task<ChunkGenerationFutureResult> GetSectionGenerationFuture(
+        ChunkCoord section,
+        ChunkGenerationStatus status)
+    {
+        if (!_sectionTargets.Contains(section))
+            throw new ArgumentException(
+                $"Section {section} is outside this dependency claim.",
+                nameof(section));
+        var owner = Volatile.Read(ref _owner) ??
+            throw new ObjectDisposedException(nameof(ChunkDependencyClaim));
+        return owner.GetSectionGenerationFuture(section, status);
+    }
+
     public void Dispose()
     {
         var owner = Interlocked.Exchange(ref _owner, null);
