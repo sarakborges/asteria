@@ -1943,14 +1943,14 @@ public sealed class BiomeWorldGenerationTests
         Assert.Equal(ChunkMaterializationStage.TerrainSetup,
             job.ActiveWorkStage);
 
-        job.Advance();
+        AdvanceDeepestPendingDependency(job);
         Assert.Equal(ChunkMaterializationStage.TerrainLayer,
             job.ActiveWorkStage);
 
-        job.Advance();
+        AdvanceDeepestPendingDependency(job);
         Assert.Equal(ChunkMaterializationStage.TerrainLayer,
             job.ActiveWorkStage);
-        job.Advance();
+        AdvanceDeepestPendingDependency(job);
         Assert.Equal(ChunkMaterializationStage.GravitySupport,
             job.ActiveWorkStage);
 
@@ -1962,7 +1962,7 @@ public sealed class BiomeWorldGenerationTests
         Assert.Equal(coord, job.ActiveWorkCoord);
 
         while (!job.IsComplete)
-            job.Advance();
+            AdvanceDeepestPendingDependency(job);
         var actual = job.Result ??
             throw new InvalidOperationException("Materialization returned no chunk.");
         for (var z = 0; z < Chunk.Size; z++)
@@ -2024,9 +2024,9 @@ public sealed class BiomeWorldGenerationTests
             job.Advance();
 
         job.Advance(); // Create the sparse face query.
-        job.Advance(); // Terrain setup.
-        job.Advance(); // Y=14.
-        job.Advance(); // Y=15, then complete the sparse query.
+        AdvanceDeepestPendingDependency(job); // Terrain setup.
+        AdvanceDeepestPendingDependency(job); // Y=14.
+        AdvanceDeepestPendingDependency(job); // Y=15, then complete the sparse query.
         Assert.Equal(ChunkMaterializationStage.GravitySupport,
             job.ActiveWorkStage);
 
@@ -2092,11 +2092,7 @@ public sealed class BiomeWorldGenerationTests
             // The incremental job exposes lower-section work explicitly. Drive
             // the deepest pending dependency, matching the production scheduler's
             // suspend/resume order without recursively advancing it on the parent.
-            var current = (IChunkMaterializationJob)job;
-            while (current.PendingDependency is
-                   { IsComplete: false } dependency)
-                current = dependency;
-            current.Advance();
+            AdvanceDeepestPendingDependency(job);
         }
 
         Assert.True(
@@ -2164,9 +2160,9 @@ public sealed class BiomeWorldGenerationTests
             job.Advance();
 
         job.Advance(); // Create the sparse face query.
-        job.Advance(); // Terrain setup.
-        job.Advance(); // Y=14.
-        job.Advance(); // Y=15, then complete the sparse query.
+        AdvanceDeepestPendingDependency(job); // Terrain setup.
+        AdvanceDeepestPendingDependency(job); // Y=14.
+        AdvanceDeepestPendingDependency(job); // Y=15, then complete the sparse query.
         Assert.Equal(ChunkMaterializationStage.GravitySupport,
             job.ActiveWorkStage);
 
@@ -4004,6 +4000,17 @@ public sealed class BiomeWorldGenerationTests
         Assert.Equal(options, new DimensionSessionState(
             dimension, 541UL, new WorldGameRules(),
             options).Generation);
+    }
+
+
+    private static void AdvanceDeepestPendingDependency(
+        IChunkMaterializationJob root)
+    {
+        var current = root;
+        while (current.PendingDependency is
+               { IsComplete: false } dependency)
+            current = dependency;
+        current.Advance();
     }
 
 }
