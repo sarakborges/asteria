@@ -528,10 +528,10 @@ public sealed class ChunkGenerationPlanTests
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         var targets = new[]
         {
-            new ChunkCoord(column.X, -2, column.Z),
-            new ChunkCoord(column.X, -1, column.Z),
-            new ChunkCoord(column.X, 0, column.Z),
-            new ChunkCoord(column.X, 1, column.Z),
+            new ChunkCoord(column.X, 5, column.Z),
+            new ChunkCoord(column.X, 6, column.Z),
+            new ChunkCoord(column.X, 7, column.Z),
+            new ChunkCoord(column.X, 8, column.Z),
         };
 
         using (var claim = manager.AcquireDependencyClaims(
@@ -542,11 +542,11 @@ public sealed class ChunkGenerationPlanTests
             Assert.Equal(1, holder.DependencyClaimCount);
             Assert.Collection(
                 claim.SectionTargets.OrderBy(section => section.Y),
-                section => Assert.Equal(-3, section.Y),
-                section => Assert.Equal(-2, section.Y),
-                section => Assert.Equal(-1, section.Y),
-                section => Assert.Equal(0, section.Y),
-                section => Assert.Equal(1, section.Y));
+                section => Assert.Equal(4, section.Y),
+                section => Assert.Equal(5, section.Y),
+                section => Assert.Equal(6, section.Y),
+                section => Assert.Equal(7, section.Y),
+                section => Assert.Equal(8, section.Y));
         }
 
         Assert.Equal(0, holder.DependencyClaimCount);
