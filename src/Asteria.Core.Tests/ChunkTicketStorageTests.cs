@@ -61,7 +61,7 @@ public sealed class ChunkTicketStorageTests
     {
         var storage = new ChunkTicketStorage();
         var column = new ChunkColumnCoord(4, -3);
-        var ticket = new ChunkTicket(ChunkTicketType.Portal, level: 30);
+        var ticket = new ChunkTicket(ChunkTicketType.Portal, Level: 30);
         Assert.True(storage.AddTicket(column, ticket, currentTick: 100));
 
         // 300 ticks elapsed, but the holder is still generating. The full
@@ -89,7 +89,7 @@ public sealed class ChunkTicketStorageTests
     {
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(6, -2);
-        var portal = new ChunkTicket(ChunkTicketType.Portal, level: 30);
+        var portal = new ChunkTicket(ChunkTicketType.Portal, Level: 30);
         Assert.True(manager.AddTicket(column, portal, currentTick: 100));
         Assert.NotNull(manager.GetHolder(column));
 
@@ -108,7 +108,7 @@ public sealed class ChunkTicketStorageTests
     {
         var storage = new ChunkTicketStorage();
         var column = new ChunkColumnCoord(-8, 2);
-        var ticket = new ChunkTicket(ChunkTicketType.Unknown, level: 33);
+        var ticket = new ChunkTicket(ChunkTicketType.Unknown, Level: 33);
         Assert.True(storage.AddTicket(column, ticket, currentTick: 12));
 
         Assert.Equal(
@@ -122,7 +122,7 @@ public sealed class ChunkTicketStorageTests
     {
         var storage = new ChunkTicketStorage();
         var column = new ChunkColumnCoord(7, 9);
-        var ticket = new ChunkTicket(ChunkTicketType.EnderPearl, level: 30);
+        var ticket = new ChunkTicket(ChunkTicketType.EnderPearl, Level: 30);
         Assert.True(storage.AddTicket(column, ticket, currentTick: 10));
 
         Assert.Equal(
@@ -141,7 +141,7 @@ public sealed class ChunkTicketStorageTests
     public void TimedTicketExpiryRejectsWorldTickMovingBackwards()
     {
         var storage = new ChunkTicketStorage();
-        var ticket = new ChunkTicket(ChunkTicketType.Portal, level: 30);
+        var ticket = new ChunkTicket(ChunkTicketType.Portal, Level: 30);
         var column = new ChunkColumnCoord(0, 0);
         storage.AddTicket(column, ticket, currentTick: 25);
 
@@ -175,7 +175,7 @@ public sealed class ChunkTicketStorageTests
         ChunkTicketFlags flags,
         ulong? timeout)
     {
-        var ticket = new ChunkTicket(type, level: 31);
+        var ticket = new ChunkTicket(type, Level: 31);
         Assert.Equal(flags, ticket.Flags);
         Assert.Equal(timeout, ticket.TimeoutTicks);
     }
