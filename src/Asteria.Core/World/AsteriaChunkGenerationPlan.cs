@@ -374,10 +374,10 @@ public static class AsteriaChunkGenerationPlan
         foreach (var dependency in Default.GetAccumulatedDependencies(targetStep))
         {
             if (dependency.Kind != ChunkGenerationDependencyKind.HolderStatus ||
-                !dependency.Envelope.ContainsOffset(
-                    (int)Math.Clamp(deltaX, int.MinValue, int.MaxValue),
-                    (int)Math.Clamp(deltaY, int.MinValue, int.MaxValue),
-                    (int)Math.Clamp(deltaZ, int.MinValue, int.MaxValue)))
+                Math.Max(Math.Abs(deltaX), Math.Abs(deltaZ)) >
+                    dependency.Envelope.HorizontalRadius ||
+                deltaY < dependency.Envelope.MinimumSectionOffset ||
+                deltaY > dependency.Envelope.MaximumSectionOffset)
                 continue;
 
             if (availableStatus >= GetGenerationStatus(dependency.PrerequisiteStep))
