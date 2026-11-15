@@ -251,6 +251,33 @@ public sealed class ChunkTicketStorageTests
         Assert.True(holder.IsReadyForSaving);
     }
 
+    [Fact]
+    public void GenerationAndFullStatusFuturesAreIndependent()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(2, -5);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        Assert.IsAssignableFrom<GenerationChunkHolder>(holder);
+        var generationFuture = holder.GetGenerationFuture(
+            ChunkGenerationStatus.Full);
+        var fullFuture = holder.FullChunkFuture;
+
+        Assert.False(generationFuture.IsCompleted);
+        Assert.False(fullFuture.IsCompleted);
+
+        Assert.True(holder.CompleteGenerationStatus(
+            ChunkGenerationStatus.Full));
+        Assert.True(generationFuture.IsCompletedSuccessfully);
+        Assert.True(generationFuture.Result.Succeeded);
+        Assert.False(fullFuture.IsCompleted);
+
+        Assert.True(holder.CompleteFullStatus(ChunkFullStatus.Full));
+        Assert.True(fullFuture.IsCompletedSuccessfully);
+        Assert.True(fullFuture.Result.Succeeded);
+    }
+
     private static void AssertTicket(
         ChunkTicketType type,
         ChunkTicketFlags flags,

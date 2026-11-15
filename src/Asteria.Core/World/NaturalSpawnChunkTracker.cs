@@ -1,0 +1,3 @@
+namespace Asteria.Core.World;
+
+
