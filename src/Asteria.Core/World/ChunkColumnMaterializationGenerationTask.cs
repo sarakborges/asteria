@@ -34,6 +34,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
     private ulong _nextDependencyId = 1;
     private ChunkGenerationStatus _lastPublishedProgressStatus =
         ChunkGenerationStatus.Unloaded;
+    private int _nextOrderedSectionIndex;
     private bool _started;
     private bool _completed;
     private bool _disposed;
@@ -158,7 +159,11 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             // preserving vertical-section parallelism. Mutating/coordinator
             // steps remain serialized: at most one such section advances per
             // continuation, then the parent yields for fairness.
-            var readyBatch = _readySections.ToArray();
+            var readyBatch = _readySections
+                .OrderBy(index => index >= _nextOrderedSectionIndex
+                    ? index - _nextOrderedSectionIndex
+                    : _sectionTasks.Count - _nextOrderedSectionIndex + index)
+                .ToArray();
             _readySections.Clear();
             var orderedStageAdvanced = false;
 
@@ -185,7 +190,12 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     cancellationToken);
 
                 if (!isFork)
+                {
                     orderedStageAdvanced = true;
+                    _nextOrderedSectionIndex = sectionIndex + 1;
+                    if (_nextOrderedSectionIndex >= _sectionTasks.Count)
+                        _nextOrderedSectionIndex = 0;
+                }
             }
         }
         else if (advanceReadySections && _pendingOperations.Count > 0)
@@ -287,9 +297,9 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 if (result.CompletionPayload is not ChunkMaterializationTaskOutput output)
                     throw new InvalidOperationException(
                         $"Section task {sectionIndex} in {_column} returned no materialization output.");
-                if (output.Coord.X != _column.X || output.Coord.Z != _column.Z)
+                if (output.Coord != _sectionTasks[sectionIndex].Coord)
                     throw new InvalidOperationException(
-                        $"Section task {sectionIndex} returned a chunk outside {_column}.");
+                        $"Section task {sectionIndex} returned {output.Coord}, expected {_sectionTasks[sectionIndex].Coord} in {_column}.");
                 if (sectionIndex < _requiredSectionCount)
                 {
                     if (_sectionResults[sectionIndex] is not null)
