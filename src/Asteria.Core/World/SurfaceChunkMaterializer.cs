@@ -2156,8 +2156,13 @@ public sealed partial class SurfaceChunkMaterializer
         (_roofY is not { } roof || y < roof);
 
     private bool HasNearbyFluid(
+        FluidRuntimeId fluid, int radius, int worldX, int supportY, int worldZ) =>
+        HasNearbyFluid(
+            fluid, radius, worldX, supportY, worldZ, accessRegion: null);
+
+    private bool HasNearbyFluid(
         FluidRuntimeId fluid, int radius, int worldX, int supportY, int worldZ,
-        ChunkGenerationAccessRegion? accessRegion = null)
+        ChunkGenerationAccessRegion? accessRegion)
     {
         var distanceSquared = radius * radius;
         for (var dz = -radius; dz <= radius; dz++)
