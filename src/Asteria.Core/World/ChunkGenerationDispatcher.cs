@@ -187,6 +187,7 @@ public sealed class ChunkGenerationDispatcher
         RemoveFromActiveQueues(entry);
         entry.PendingWorkerOperations.Clear();
         entry.Cancellation.Cancel();
+        CancelFutureWaits(entry);
         Interlocked.Increment(ref _cancelledTaskCount);
         if (entry.InFlightOperations == 0)
             RetireEntry(entry);
@@ -365,6 +366,10 @@ public sealed class ChunkGenerationDispatcher
                 BeginWorkerWait(entry, result.WorkerOperations);
                 break;
 
+            case ChunkGenerationTaskAdvanceKind.WaitForFutures:
+                BeginFutureWait(entry, result.FutureOperations);
+                break;
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(result));
         }
@@ -409,8 +414,17 @@ public sealed class ChunkGenerationDispatcher
                 continue;
             }
 
+            var wasWorkerOperation =
+                entry.InFlightWorkerOperations.Remove(completion.DependencyId);
+            var wasFutureOperation =
+                entry.InFlightFutureOperations.Remove(completion.DependencyId);
+            if (!wasWorkerOperation && !wasFutureOperation)
+            {
+                staleCompletions++;
+                continue;
+            }
+
             entry.InFlightOperations--;
-            entry.InFlightWorkerOperations.Remove(completion.DependencyId);
             if (IsTerminal(entry.Lifecycle.State))
             {
                 staleCompletions++;
@@ -625,6 +639,83 @@ public sealed class ChunkGenerationDispatcher
                 $"Worker admission queue already contains waiting task: {entry.Instance}");
     }
 
+    private void BeginFutureWait(
+        TaskEntry entry,
+        IReadOnlyList<ChunkGenerationFutureOperation> operations)
+    {
+        if (operations.Count == 0)
+            throw new InvalidOperationException(
+                $"A waiting task did not provide holder futures: {entry.Instance}");
+
+        var waitToken = entry.Lifecycle.BeginWaitingForDependencies(
+            operations.Select(operation => operation.DependencyId));
+        if (waitToken == 0)
+            throw new InvalidOperationException(
+                $"Generation task received an invalid future wait token: {entry.Instance}");
+
+        foreach (var operation in operations)
+        {
+            if (!entry.InFlightFutureOperations.Add(operation.DependencyId))
+                throw new InvalidOperationException(
+                    $"Future dependency {operation.DependencyId} was registered twice: {entry.Instance}");
+            entry.InFlightOperations++;
+
+            // This continuation only publishes a detached completion message.
+            // It never resumes a task or mutates dispatcher/lifecycle state, and
+            // it does not occupy a physical worker while the holder future waits.
+            _ = operation.Future.ContinueWith(
+                completed =>
+                {
+                    if (completed.IsCanceled)
+                    {
+                        _completionMailbox.Publish(
+                            new ChunkGenerationDependencyCompletion(
+                                entry.Instance,
+                                waitToken,
+                                operation.DependencyId,
+                                Error: new TaskCanceledException(completed)));
+                    }
+                    else if (completed.IsFaulted)
+                    {
+                        _completionMailbox.Publish(
+                            new ChunkGenerationDependencyCompletion(
+                                entry.Instance,
+                                waitToken,
+                                operation.DependencyId,
+                                Error: completed.Exception?.InnerException ??
+                                    completed.Exception ??
+                                    new InvalidOperationException(
+                                        "Holder status future faulted without an exception.")));
+                    }
+                    else
+                    {
+                        _completionMailbox.Publish(
+                            new ChunkGenerationDependencyCompletion(
+                                entry.Instance,
+                                waitToken,
+                                operation.DependencyId,
+                                completed.Result));
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
+    }
+
+    private void CancelFutureWaits(TaskEntry entry)
+    {
+        var cancelled = entry.InFlightFutureOperations.Count;
+        if (cancelled == 0)
+            return;
+
+        entry.InFlightFutureOperations.Clear();
+        entry.InFlightOperations -= cancelled;
+        if (entry.InFlightOperations < 0)
+            throw new InvalidOperationException(
+                $"Future wait cancellation underflowed in-flight operations: {entry.Instance}");
+    }
+
     private void EnqueueReadyAgain(TaskEntry entry)
     {
         if (!_readyTasks.Enqueue(
@@ -638,7 +729,8 @@ public sealed class ChunkGenerationDispatcher
     private void CompleteEntry(TaskEntry entry, object? completionPayload)
     {
         if (entry.InFlightOperations != 0 ||
-            entry.PendingWorkerOperations.Count != 0)
+            entry.PendingWorkerOperations.Count != 0 ||
+            entry.InFlightFutureOperations.Count != 0)
         {
             throw new InvalidOperationException(
                 $"Generation task completed while worker operations remained: {entry.Instance}");
@@ -667,6 +759,7 @@ public sealed class ChunkGenerationDispatcher
         RemoveFromActiveQueues(entry);
         entry.PendingWorkerOperations.Clear();
         entry.Cancellation.Cancel();
+        CancelFutureWaits(entry);
         _outcomes.Enqueue(new ChunkGenerationTaskOutcome(
             entry.Instance,
             ChunkGenerationTaskOutcomeKind.Failed,
@@ -748,6 +841,8 @@ public sealed class ChunkGenerationDispatcher
         public Queue<ChunkGenerationWorkerOperation> PendingWorkerOperations { get; } = [];
 
         public Dictionary<ulong, WorldWorkerOperation<object?>> InFlightWorkerOperations { get; } = [];
+
+        public HashSet<ulong> InFlightFutureOperations { get; } = [];
 
         public int InFlightOperations { get; set; }
 
