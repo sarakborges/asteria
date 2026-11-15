@@ -517,6 +517,35 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void GenerationDagExpandsHolderRequirementsIntoClaimedSectionFutures()
+    {
+        var target = new ChunkCoord(14, 4, -9);
+        var lower = new ChunkCoord(14, 3, -9);
+        var requirements = AsteriaChunkGenerationPlan.GetHolderStatusRequirements(
+            ChunkGenerationStepId.SectionReady,
+            target);
+
+        Assert.Contains(requirements, requirement =>
+            requirement.Coord == lower &&
+            requirement.PrerequisiteStep == ChunkGenerationStepId.SectionTerrainLayers &&
+            requirement.Status == ChunkGenerationStatus.Terrain);
+
+        var manager = new ChunkDistanceManager();
+        var column = ChunkColumnCoord.FromChunk(target);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        using var claim = manager.AcquireDependencyClaims(
+            target,
+            AsteriaChunkGenerationPlan.FullSectionEnvelope);
+
+        foreach (var requirement in requirements)
+        {
+            Assert.Contains(requirement.Coord, claim.SectionTargets);
+            var future = claim.GetSectionGenerationFuture(requirement);
+            Assert.NotNull(future);
+        }
+    }
+
+    [Fact]
     public void HolderRetainsAchievedStatusUntilTicketPromotionPermitsIt()
     {
         var column = new ChunkColumnCoord(20, -11);
