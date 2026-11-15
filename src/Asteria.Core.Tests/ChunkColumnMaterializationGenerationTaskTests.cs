@@ -142,6 +142,45 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void ColumnCarriesExactVerticalSectionStatusTransitions()
+    {
+        var column = new ChunkColumnCoord(8, -5);
+        var lower = new FakeMaterializationJob(
+            new ChunkCoord(8, 2, -5),
+            sliceCount: 1,
+            ChunkMaterializationStage.TerrainLayer);
+        var upper = new FakeMaterializationJob(
+            new ChunkCoord(8, 3, -5),
+            sliceCount: 2,
+            ChunkMaterializationStage.TerrainLayer);
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [lower, upper],
+            initializeLighting: _ => { });
+
+        var firstBatch = task.Advance([], CancellationToken.None);
+        var completions = firstBatch.WorkerOperations
+            .Select(operation => Completion(
+                column,
+                operation.DependencyId,
+                operation.Execute(CancellationToken.None)))
+            .ToArray();
+
+        var afterFirstSections = task.Advance(
+            completions, CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, afterFirstSections.Kind);
+        Assert.Null(afterFirstSections.ProgressStatus);
+        Assert.Contains(
+            new ChunkSectionGenerationProgress(
+                lower.Coord, ChunkGenerationStatus.Terrain),
+            afterFirstSections.SectionProgress);
+        Assert.DoesNotContain(
+            afterFirstSections.SectionProgress,
+            progress => progress.Coord == upper.Coord);
+    }
+
+    [Fact]
     public void ColumnPreservesLightExecutorPolicyForEverySection()
     {
         var column = new ChunkColumnCoord(5, -3);
