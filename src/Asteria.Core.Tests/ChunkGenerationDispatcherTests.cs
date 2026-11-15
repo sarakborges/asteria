@@ -104,6 +104,74 @@ public sealed class ChunkGenerationDispatcherTests
     }
 
     [Fact]
+    public async Task HolderFutureWaitDoesNotOccupyWorkerAndResumesOnCoordinator()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var source = new TaskCompletionSource<ChunkGenerationFutureResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitingTask = new HolderFutureWaitTask(source.Task);
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(40), 1, Priority(0), 40, waitingTask));
+        Assert.True(PumpUntilCondition(
+            dispatcher,
+            () => dispatcher.WaitingTaskCount == 1));
+
+        Assert.Equal(0, pool.InFlightWorkCount);
+        Assert.Equal(0, dispatcher.PendingWorkerOperationCount);
+        Assert.True(dispatcher.TryEnqueue(
+            Key(41), 1, Priority(0), 41,
+            new CompleteImmediatelyTask("peer", [])));
+        Assert.True(PumpUntilCondition(
+            dispatcher,
+            () => dispatcher.CompletedTaskCount == 1));
+        Assert.Equal(1, dispatcher.ActiveTaskCount);
+        Assert.Equal(0, pool.InFlightWorkCount);
+
+        source.SetResult(ChunkGenerationFutureResult.Success(
+            ChunkGenerationStatus.Terrain, revision: 7));
+        PumpUntilIdle(dispatcher);
+
+        Assert.True(waitingTask.ObservedFuture.Succeeded);
+        Assert.Equal(ChunkGenerationStatus.Terrain, waitingTask.ObservedFuture.Status);
+        Assert.Equal(7UL, waitingTask.ObservedFuture.Revision);
+        Assert.Equal(2, dispatcher.CompletedTaskCount);
+        Assert.Equal(0, dispatcher.RetiringTaskCount);
+    }
+
+    [Fact]
+    public async Task CancellingHolderFutureWaitReleasesTaskWithoutWaitingForFuture()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var source = new TaskCompletionSource<ChunkGenerationFutureResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var task = new HolderFutureWaitTask(source.Task);
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(42), 1, Priority(0), 42, task));
+        Assert.True(PumpUntilCondition(
+            dispatcher,
+            () => dispatcher.WaitingTaskCount == 1));
+        Assert.True(dispatcher.TryCancel(Key(42)));
+        Assert.Equal(0, dispatcher.ActiveTaskCount);
+        Assert.Equal(0, dispatcher.RetiringTaskCount);
+        Assert.True(dispatcher.TryDequeueOutcome(out var cancelled));
+        Assert.Equal(ChunkGenerationTaskOutcomeKind.Cancelled, cancelled.Kind);
+
+        // A late source completion is stale and cannot resurrect the cancelled task.
+        source.SetResult(ChunkGenerationFutureResult.Success(
+            ChunkGenerationStatus.Terrain));
+        dispatcher.Pump(GenerousBudget(), maximumWorkerStarts: 0);
+        Assert.Equal(0, dispatcher.ActiveTaskCount);
+        Assert.Equal(0, dispatcher.RetiringTaskCount);
+        Assert.False(dispatcher.TryDequeueOutcome(out _));
+    }
+
+    [Fact]
     public async Task PriorityCanChangeAfterEnqueueBeforeTaskStarts()
     {
         var mailbox = new ChunkGenerationCompletionMailbox();
@@ -579,6 +647,35 @@ public sealed class ChunkGenerationDispatcherTests
 
             ObservedResults.AddRange(
                 completedDependencies.Select(item => item.Result as string));
+            return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class HolderFutureWaitTask(
+        Task<ChunkGenerationFutureResult> future) : IChunkGenerationTask
+    {
+        private bool _waiting;
+
+        public ChunkGenerationFutureResult ObservedFuture { get; private set; }
+
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!_waiting)
+            {
+                _waiting = true;
+                return ChunkGenerationTaskAdvanceResult.WaitForFutures(
+                [
+                    new ChunkGenerationFutureOperation(901, future),
+                ]);
+            }
+
+            var completion = Assert.Single(completedDependencies);
+            Assert.Null(completion.Error);
+            ObservedFuture = Assert.IsType<ChunkGenerationFutureResult>(
+                completion.Result);
             return ChunkGenerationTaskAdvanceResult.Completed;
         }
     }
