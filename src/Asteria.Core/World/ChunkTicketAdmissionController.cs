@@ -29,6 +29,9 @@ public sealed class ChunkTicketAdmissionController
     /// </summary>
     public int PendingAdmissionCount => _sectionsAwaitingFullStatus.Count;
 
+    public bool HasPendingAdmission(ChunkColumnCoord column) =>
+        _sectionsAwaitingFullStatus.ContainsKey(column);
+
     public bool HasLoadingTicket(ChunkColumnCoord column) =>
         _distanceManager.HasPlayerLoadingTicket(column);
 

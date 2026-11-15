@@ -240,6 +240,7 @@ public sealed class ChunkResidencyRuntime
             _worldTicks.CurrentTick);
         _playerTicketAdmissions =
             new ChunkTicketAdmissionController(_streaming.DistanceManager);
+        SyncTicketDemands();
         var generationWorkerCount = _settings.MaxConcurrentWorkers;
         _generationCompletionMailbox = new ChunkGenerationCompletionMailbox();
         _generationWorkerPool = worldWorkerPool is null
@@ -278,6 +279,9 @@ public sealed class ChunkResidencyRuntime
 
     public bool AddTicket(ChunkCoord coord, ChunkTicket ticket)
     {
+        if (coord.Y < 0)
+            throw new ArgumentOutOfRangeException(nameof(coord));
+        ticket = ticket with { SectionY = coord.Y };
         var changed = _streaming.DistanceManager.AddTicket(
             ChunkColumnCoord.FromChunk(coord),
             ticket,
@@ -285,6 +289,7 @@ public sealed class ChunkResidencyRuntime
         if (!changed)
             return false;
 
+        SyncTicketDemands();
         UpdateGenerationTaskPriorities();
         if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
             PublishPersistentChunkTickets(_worldTicks.CurrentTick);
@@ -293,11 +298,15 @@ public sealed class ChunkResidencyRuntime
 
     public bool RemoveTicket(ChunkCoord coord, ChunkTicket ticket)
     {
+        if (coord.Y < 0)
+            throw new ArgumentOutOfRangeException(nameof(coord));
+        ticket = ticket with { SectionY = coord.Y };
         var changed = _streaming.DistanceManager.RemoveTicket(
             ChunkColumnCoord.FromChunk(coord), ticket);
         if (!changed)
             return false;
 
+        SyncTicketDemands();
         UpdateGenerationTaskPriorities();
         if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
             PublishPersistentChunkTickets(_worldTicks.CurrentTick);
@@ -310,11 +319,57 @@ public sealed class ChunkResidencyRuntime
             _streaming.DistanceManager.PersistentTimedTicketCount > 0;
         var changed = _streaming.DistanceManager.AdvanceTick(currentTick);
         if (changed != ChunkTicketFlags.None)
+        {
+            SyncTicketDemands();
             UpdateGenerationTaskPriorities();
+        }
         if (hadPersistentTimedTickets &&
             currentTick != _lastPersistentTicketSnapshotTick)
             PublishPersistentChunkTickets(currentTick);
         return changed;
+    }
+
+    private void SyncTicketDemands()
+    {
+        var targets = _streaming.DistanceManager.Tickets.FullMaterializationTargets;
+        var previous = _streaming.TicketedSections;
+        foreach (var added in targets.Where(section =>
+                     !previous.Contains(section) &&
+                     !_streaming.IsDesired(section)))
+        {
+            _streaming.DistanceManager.ResetGenerationProgress(
+                ChunkColumnCoord.FromChunk(added),
+                "A loading ticket added a new vertical FULL target.");
+        }
+
+        _streaming.SyncTicketedSections(targets, _world.LoadedChunkCoords);
+        foreach (var target in targets)
+            if (_world.ContainsChunk(target))
+                MarkMaterializedSectionFull(target);
+
+        _playerTicketAdmissions.RetainDesiredSections(
+            _streaming.RequestedSections);
+    }
+
+    private void MarkMaterializedSectionFull(ChunkCoord section)
+    {
+        _playerTicketAdmissions.MarkSectionFull(section);
+        var column = ChunkColumnCoord.FromChunk(section);
+        if (!_streaming.IsTicketDemanded(section) ||
+            _streaming.DesiredSectionsInColumn(column).Count > 0)
+            return;
+
+        var ticketed = _streaming.TicketedSectionsInColumn(column);
+        if (ticketed.Count == 0 ||
+            ticketed.Any(target => !_world.ContainsChunk(target)))
+            return;
+
+        var distanceManager = _streaming.DistanceManager;
+        distanceManager.CompleteGenerationStatus(
+            column, ChunkGenerationStatus.Full);
+        var permittedFullStatus = distanceManager.GetFullStatus(column);
+        if (permittedFullStatus >= ChunkFullStatus.Full)
+            distanceManager.CompleteFullStatus(column, permittedFullStatus);
     }
 
     private void PublishPersistentChunkTickets(ulong currentTick)
@@ -557,7 +612,7 @@ public sealed class ChunkResidencyRuntime
         }
 
         _playerTicketAdmissions.RetainDesiredSections(
-            _streaming.DesiredSections);
+            _streaming.RequestedSections);
         CancelMaterializationsOutsideResidency();
         _center = center;
         _retentionRadius =
@@ -852,7 +907,7 @@ public sealed class ChunkResidencyRuntime
 
             if (_world.ContainsChunk(coord))
             {
-                _playerTicketAdmissions.MarkSectionFull(coord);
+                MarkMaterializedSectionFull(coord);
                 continue;
             }
 
@@ -864,7 +919,7 @@ public sealed class ChunkResidencyRuntime
         foreach (var sectionResult in sectionsToActivate)
         {
             var coord = sectionResult.Coord;
-            _playerTicketAdmissions.MarkSectionFull(coord);
+            MarkMaterializedSectionFull(coord);
             var activation = ActivateResidentChunk(
                 coord,
                 ChunkActivationSource.Provider,
@@ -1041,16 +1096,33 @@ public sealed class ChunkResidencyRuntime
             if (pendingColumn is null)
                 break;
 
-            var sections = pendingColumn.Value.Sections;
+            var pendingSections = pendingColumn.Value.Sections;
             var column = pendingColumn.Value.Column;
-            if (!_playerTicketAdmissions.TryAdmit(
+            var hasPlayerDemand =
+                _streaming.DesiredSectionsInColumn(column).Count > 0;
+            var hasPendingAdmission =
+                _playerTicketAdmissions.HasPendingAdmission(column);
+            var admitted = (!hasPlayerDemand && !hasPendingAdmission) ||
+                _playerTicketAdmissions.TryAdmit(
                     column,
-                    _streaming.DesiredSectionsInColumn(column),
-                    _world.LoadedChunkCoords))
+                    _streaming.RequestedSectionsInColumn(column),
+                    _world.LoadedChunkCoords);
+
+            var sections = pendingSections
+                .Where(section =>
+                    _streaming.IsRequested(section.Coord) &&
+                    (admitted || !_streaming.IsDesired(section.Coord)))
+                .ToArray();
+            if (!admitted)
             {
-                RequeuePendingSections(sections, 0);
-                break;
+                foreach (var section in pendingSections.Where(section =>
+                             _streaming.IsDesired(section.Coord)))
+                    RequeueIfDesired(section.Coord, section.EnqueuedTimestamp);
+                if (sections.Length == 0)
+                    break;
             }
+            if (sections.Length == 0)
+                continue;
 
             // One holder owns one active FULL request. If a previous column
             // batch is still running, keep unstarted sections pending and let
@@ -1080,12 +1152,12 @@ public sealed class ChunkResidencyRuntime
                     break;
                 }
 
-                if (!_streaming.IsDesired(selected))
+                if (!_streaming.IsRequested(selected))
                     continue;
 
                 if (_world.ContainsChunk(selected))
                 {
-                    _playerTicketAdmissions.MarkSectionFull(selected);
+                    MarkMaterializedSectionFull(selected);
                     continue;
                 }
 
@@ -1097,13 +1169,13 @@ public sealed class ChunkResidencyRuntime
                         ChunkActivationSource.Archive,
                         workerMilliseconds: 0.0));
                     restored++;
-                    _playerTicketAdmissions.MarkSectionFull(selected);
+                    MarkMaterializedSectionFull(selected);
                     continue;
                 }
 
                 if (restore == ChunkRestoreResult.AlreadyResident)
                 {
-                    _playerTicketAdmissions.MarkSectionFull(selected);
+                    MarkMaterializedSectionFull(selected);
                     continue;
                 }
 
@@ -1972,7 +2044,7 @@ public sealed class ChunkResidencyRuntime
         ChunkCoord coord,
         long? enqueuedTimestamp = null)
     {
-        if (!_streaming.IsDesired(coord))
+        if (!_streaming.IsRequested(coord))
             return;
 
         if (enqueuedTimestamp is { } timestamp)
