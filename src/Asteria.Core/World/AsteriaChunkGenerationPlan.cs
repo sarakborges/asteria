@@ -1,4 +1,12 @@
+using System.Collections.Immutable;
+
 namespace Asteria.Core.World;
+
+/// <summary>One exact holder-status prerequisite derived from the generation DAG.</summary>
+public readonly record struct ChunkGenerationSectionRequirement(
+    ChunkCoord Coord,
+    ChunkGenerationStepId PrerequisiteStep,
+    ChunkGenerationStatus Status);
 
 /// <summary>
 /// The authoritative stage DAG for Asteria's chunk materialization pipeline.
@@ -283,6 +291,67 @@ public static class AsteriaChunkGenerationPlan
 
     public static int MaximumHorizontalDependencyRadius =>
         FullSectionEnvelope.HorizontalRadius;
+
+    /// <summary>
+    /// Expands a target step's accumulated HolderStatus dependencies into
+    /// exact 3D section/status requirements. Immutable generator-data reads
+    /// are excluded because they do not require a resident holder.
+    /// </summary>
+    public static ImmutableArray<ChunkGenerationSectionRequirement>
+        GetHolderStatusRequirements(
+            ChunkGenerationStepId targetStep,
+            ChunkCoord targetSection)
+    {
+        var requirements = new Dictionary<
+            (ChunkCoord Coord, ChunkGenerationStepId Step),
+            ChunkGenerationStatus>();
+
+        foreach (var dependency in Default.GetAccumulatedDependencies(targetStep))
+        {
+            if (dependency.Kind != ChunkGenerationDependencyKind.HolderStatus)
+                continue;
+
+            var status = GetGenerationStatus(dependency.PrerequisiteStep);
+            for (var sectionOffset = dependency.Envelope.MinimumSectionOffset;
+                 sectionOffset <= dependency.Envelope.MaximumSectionOffset;
+                 sectionOffset++)
+            {
+                var sectionY = (long)targetSection.Y + sectionOffset;
+                if (sectionY < int.MinValue || sectionY > int.MaxValue)
+                    continue;
+
+                for (var dz = -dependency.Envelope.HorizontalRadius;
+                     dz <= dependency.Envelope.HorizontalRadius;
+                     dz++)
+                for (var dx = -dependency.Envelope.HorizontalRadius;
+                     dx <= dependency.Envelope.HorizontalRadius;
+                     dx++)
+                {
+                    var x = (long)targetSection.X + dx;
+                    var z = (long)targetSection.Z + dz;
+                    if (x < int.MinValue || x > int.MaxValue ||
+                        z < int.MinValue || z > int.MaxValue)
+                        continue;
+
+                    var coord = new ChunkCoord(
+                        (int)x, (int)sectionY, (int)z);
+                    var key = (coord, dependency.PrerequisiteStep);
+                    if (!requirements.TryGetValue(key, out var existing) ||
+                        status > existing)
+                        requirements[key] = status;
+                }
+            }
+        }
+
+        return requirements
+            .Select(entry => new ChunkGenerationSectionRequirement(
+                entry.Key.Coord, entry.Key.Step, entry.Value))
+            .OrderBy(item => item.Coord.Y)
+            .ThenBy(item => item.Coord.Z)
+            .ThenBy(item => item.Coord.X)
+            .ThenBy(item => item.PrerequisiteStep)
+            .ToImmutableArray();
+    }
 
     /// <summary>
     /// Returns the deepest generation status required at a horizontal
