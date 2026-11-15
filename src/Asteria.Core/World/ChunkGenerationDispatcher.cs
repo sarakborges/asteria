@@ -415,7 +415,8 @@ public sealed class ChunkGenerationDispatcher
             }
 
             var wasWorkerOperation =
-                entry.InFlightWorkerOperations.Remove(completion.DependencyId);
+                entry.InFlightWorkerDependencyIds.Remove(completion.DependencyId);
+            entry.InFlightWorkerOperations.Remove(completion.DependencyId);
             var wasFutureOperation =
                 entry.InFlightFutureOperations.Remove(completion.DependencyId);
             if (!wasWorkerOperation && !wasFutureOperation)
@@ -543,6 +544,9 @@ public sealed class ChunkGenerationDispatcher
             _pendingWorkerTasks.TryDequeue(out _);
             entry.PendingWorkerOperations.Dequeue();
             entry.InFlightOperations++;
+            if (!entry.InFlightWorkerDependencyIds.Add(operation.DependencyId))
+                throw new InvalidOperationException(
+                    $"Worker dependency {operation.DependencyId} was already in flight: {entry.Instance}");
             if (workerOperation is not null)
             {
                 entry.InFlightWorkerOperations.Add(
@@ -841,6 +845,8 @@ public sealed class ChunkGenerationDispatcher
         public Queue<ChunkGenerationWorkerOperation> PendingWorkerOperations { get; } = [];
 
         public Dictionary<ulong, WorldWorkerOperation<object?>> InFlightWorkerOperations { get; } = [];
+
+        public HashSet<ulong> InFlightWorkerDependencyIds { get; } = [];
 
         public HashSet<ulong> InFlightFutureOperations { get; } = [];
 
