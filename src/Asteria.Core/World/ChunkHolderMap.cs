@@ -8,8 +8,14 @@ namespace Asteria.Core.World;
 public sealed class ChunkHolderMap
 {
     private readonly Dictionary<ChunkColumnCoord, ChunkHolder> _holders = [];
-    private IReadOnlyDictionary<ChunkColumnCoord, int> _currentLoadingLevels =
-        new Dictionary<ChunkColumnCoord, int>();
+    private readonly IReadOnlyDictionary<ChunkColumnCoord, int> _loadingLevels;
+
+    internal ChunkHolderMap(
+        IReadOnlyDictionary<ChunkColumnCoord, int> loadingLevels)
+    {
+        _loadingLevels = loadingLevels ??
+            throw new ArgumentNullException(nameof(loadingLevels));
+    }
 
     public IReadOnlyCollection<ChunkHolder> Values => _holders.Values;
 
@@ -32,13 +38,9 @@ public sealed class ChunkHolderMap
     /// with the settled loading graph. Dependency-only holders remain present
     /// but are demoted to UNLOADED until a graph ticket promotes them again.
     /// </summary>
-    internal void SynchronizeLoadingLevels(
-        IReadOnlyDictionary<ChunkColumnCoord, int> loadingLevels)
+    internal void SynchronizeLoadingLevels()
     {
-        ArgumentNullException.ThrowIfNull(loadingLevels);
-        _currentLoadingLevels = loadingLevels;
-
-        foreach (var (column, level) in loadingLevels)
+        foreach (var (column, level) in _loadingLevels)
         {
             if (_holders.TryGetValue(column, out var holder))
                 holder.UpdateTicketLevel(level);
@@ -48,7 +50,7 @@ public sealed class ChunkHolderMap
 
         foreach (var (column, holder) in _holders.ToArray())
         {
-            if (loadingLevels.TryGetValue(column, out var level))
+            if (_loadingLevels.TryGetValue(column, out var level))
             {
                 holder.UpdateTicketLevel(level);
                 continue;
@@ -133,15 +135,13 @@ public sealed class ChunkHolderMap
             .ThenBy(section => section.X)
             .ToArray();
 
-        return new ChunkDependencyClaim(this, orderedColumns, orderedSections, _currentLoadingLevels);
+        return new ChunkDependencyClaim(this, orderedColumns, orderedSections);
     }
 
     internal void ReleaseDependencyClaims(
-        IReadOnlyList<ChunkColumnCoord> columns,
-        IReadOnlyDictionary<ChunkColumnCoord, int> loadingLevels)
+        IReadOnlyList<ChunkColumnCoord> columns)
     {
         ArgumentNullException.ThrowIfNull(columns);
-        ArgumentNullException.ThrowIfNull(loadingLevels);
         foreach (var column in columns)
         {
             if (!_holders.TryGetValue(column, out var holder))
@@ -150,7 +150,7 @@ public sealed class ChunkHolderMap
 
             holder.RemoveDependencyClaim();
             if (holder.DependencyClaimCount != 0 ||
-                loadingLevels.ContainsKey(column))
+                _loadingLevels.ContainsKey(column))
                 continue;
 
             holder.UpdateTicketLevel(ChunkLevel.Unloaded);

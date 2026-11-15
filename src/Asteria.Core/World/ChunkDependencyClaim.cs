@@ -9,18 +9,15 @@ public sealed class ChunkDependencyClaim : IDisposable
     private ChunkHolderMap? _owner;
     private readonly ChunkColumnCoord[] _columns;
     private readonly ChunkCoord[] _sectionTargets;
-    private readonly IReadOnlyDictionary<ChunkColumnCoord, int> _loadingLevels;
 
     internal ChunkDependencyClaim(
         ChunkHolderMap owner,
         ChunkColumnCoord[] columns,
-        ChunkCoord[] sectionTargets,
-        IReadOnlyDictionary<ChunkColumnCoord, int> loadingLevels)
+        ChunkCoord[] sectionTargets)
     {
         _owner = owner ?? throw new ArgumentNullException(nameof(owner));
         _columns = columns ?? throw new ArgumentNullException(nameof(columns));
         _sectionTargets = sectionTargets ?? throw new ArgumentNullException(nameof(sectionTargets));
-        _loadingLevels = loadingLevels ?? throw new ArgumentNullException(nameof(loadingLevels));
     }
 
     public IReadOnlyList<ChunkColumnCoord> Columns => _columns;
@@ -61,6 +58,6 @@ public sealed class ChunkDependencyClaim : IDisposable
     public void Dispose()
     {
         var owner = Interlocked.Exchange(ref _owner, null);
-        owner?.ReleaseDependencyClaims(_columns, _loadingLevels);
+        owner?.ReleaseDependencyClaims(_columns);
     }
 }

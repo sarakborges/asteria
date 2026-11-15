@@ -11,7 +11,12 @@ public sealed class ChunkDistanceManager
     private readonly ChunkDistanceTracker _loading = new();
     private readonly ChunkDistanceTracker _simulation = new();
     private readonly NaturalSpawnChunkTracker _naturalSpawn = new();
-    private readonly ChunkHolderMap _holders = new();
+    private readonly ChunkHolderMap _holders;
+
+    public ChunkDistanceManager()
+    {
+        _holders = new ChunkHolderMap(_loading.Levels);
+    }
 
     public ChunkTicketStorage Tickets => _tickets;
 
@@ -202,7 +207,7 @@ public sealed class ChunkDistanceManager
     }
 
     private void SynchronizeHolders() =>
-        _holders.SynchronizeLoadingLevels(_loading.Levels);
+        _holders.SynchronizeLoadingLevels();
 
     public int PersistentTicketCount =>
         _tickets.PersistentTicketCount;

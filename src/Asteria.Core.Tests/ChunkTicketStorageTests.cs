@@ -252,6 +252,27 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void DependencyClaimReleasedAfterTicketArrivalKeepsHolder()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(8, -4);
+        var claim = manager.AcquireDependencyClaims(
+            [new ChunkCoord(column.X, 2, column.Z)],
+            ChunkGenerationDependencyEnvelope.None);
+        var retainedHolder = Assert.IsType<ChunkHolder>(
+            manager.GetHolder(column));
+
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        Assert.Same(retainedHolder, manager.GetHolder(column));
+
+        claim.Dispose();
+
+        Assert.Same(retainedHolder, manager.GetHolder(column));
+        Assert.Equal(0, retainedHolder.DependencyClaimCount);
+        Assert.Equal(ChunkLevel.EntityTicking, retainedHolder.TicketLevel);
+    }
+
+    [Fact]
     public void GenerationAndFullStatusFuturesAreIndependent()
     {
         var manager = new ChunkDistanceManager();
