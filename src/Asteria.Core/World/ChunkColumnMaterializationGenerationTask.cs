@@ -438,14 +438,34 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                      .GetHolderStatusRequirements(targetStep, sectionTask.Coord))
         {
             // Same-section requirements are completed by this section task's
-            // own ordered plan. Only an exact neighbouring section needs a
-            // scheduler-level future; this prevents self-wait cycles.
-            if (requirement.Coord == sectionTask.Coord ||
-                !_sectionGenerationFutures.TryGetValue(
-                    requirement.Coord, out var future) ||
-                !_sectionTaskIndices.TryGetValue(
-                    requirement.Coord, out var dependencyIndex) ||
-                _sectionProgressStatuses[dependencyIndex] >= requirement.Status)
+            // own ordered plan. Current Asteria holder-status dependencies are
+            // confined to this horizontal column; a future DAG change that adds
+            // a cross-column holder dependency must first add runtime admission
+            // for its producer instead of silently waiting on an idle holder.
+            if (requirement.Coord == sectionTask.Coord)
+                continue;
+
+            if (requirement.Coord.X != sectionTask.Coord.X ||
+                requirement.Coord.Z != sectionTask.Coord.Z)
+            {
+                throw new InvalidOperationException(
+                    $"Generation step {targetStep} for {sectionTask.Coord} requires " +
+                    $"holder status {requirement.Status} from {requirement.Coord}, " +
+                    "but cross-column dependency admission is not configured.");
+            }
+
+            // A lower section outside the initial vertical batch is created as
+            // a dynamic gravity-support task when the materialization job
+            // exposes its pending dependency. Its progress future is registered
+            // before the next dependent continuation.
+            if (!_sectionGenerationFutures.TryGetValue(
+                    requirement.Coord, out var future))
+                continue;
+            if (!_sectionTaskIndices.TryGetValue(
+                    requirement.Coord, out var dependencyIndex))
+                throw new InvalidOperationException(
+                    $"Section future {requirement.Coord} has no owning task in {_column}.");
+            if (_sectionProgressStatuses[dependencyIndex] >= requirement.Status)
                 continue;
 
             if (future.StatusWaiters.TryGetValue(
