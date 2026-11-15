@@ -1770,6 +1770,22 @@ public sealed partial class SurfaceChunkMaterializer
                     $"Section {Coord} cannot consume gravity-support dependency {dependencyCoord}.");
             }
 
+            // This is a real mutable cross-section chunk read. Enforce the
+            // same requirement declared by the generation DAG before reading
+            // the lower section's top face. A completed support dependency
+            // has at least FEATURES status (the support-only task does not
+            // require initial lighting), which exceeds the declared TERRAIN.
+            if (!AsteriaChunkGenerationPlan.SatisfiesHolderStatusRequirement(
+                    ChunkGenerationStepId.GravitySupport,
+                    Coord,
+                    dependencyCoord,
+                    ChunkGenerationStatus.Features))
+            {
+                throw new InvalidOperationException(
+                    $"Gravity support for {Coord} attempted to read {dependencyCoord} " +
+                    "without satisfying the declared holder-status prerequisite.");
+            }
+
             // A sibling section task has completed its own gravity pass.
             // Its detached top face is therefore the authoritative support
             // result; a second support-only materialization is unnecessary.
