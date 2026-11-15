@@ -847,6 +847,14 @@ public sealed class ChunkHolder
         }
     }
 
+    /// <summary>
+    /// A timed ticket may count down while its holder exists only after FULL
+    /// promotion has completed and no generation task retains the holder.
+    /// </summary>
+    public bool IsReadyForSaving =>
+        DependencyClaimCount == 0 &&
+        CompletedFullStatus >= ChunkFullStatus.Full;
+
     public Task<ChunkHolderFutureResult> FullChunkFuture =>
         _fullChunkFuture.Task;
 
@@ -1426,7 +1434,10 @@ public sealed class ChunkDistanceManager
     /// </summary>
     public ChunkTicketFlags AdvanceTick(ulong currentTick)
     {
-        var changed = _tickets.ExpireTickets(currentTick);
+        var changed = _tickets.ExpireTickets(
+            currentTick,
+            column => !_holders.TryGetValue(column, out var holder) ||
+                holder.IsReadyForSaving);
         if (changed == ChunkTicketFlags.None)
             return changed;
 
