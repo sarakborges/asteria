@@ -129,6 +129,8 @@ public sealed class ChunkTicketStorageTests
             ChunkTicketFlags.None,
             storage.ExpireTickets(30, _ => true));
         Assert.True(storage.AddTicket(column, ticket, currentTick: 30));
+        Assert.Equal(1, storage.TicketCount);
+        Assert.Equal(ticket, Assert.Single(storage.GetTickets(column)));
         Assert.Equal(
             ChunkTicketFlags.None,
             storage.ExpireTickets(69, _ => true));
