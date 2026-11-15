@@ -128,18 +128,17 @@ public readonly record struct ChunkTicket(
             ChunkTicketFlags.Loading |
             ChunkTicketFlags.Simulation |
             ChunkTicketFlags.Persist |
-            ChunkTicketFlags.KeepDimensionActive |
-            ChunkTicketFlags.CanExpireIfUnloaded,
+            ChunkTicketFlags.KeepDimensionActive,
         ChunkTicketType.EnderPearl =>
             ChunkTicketFlags.Loading |
             ChunkTicketFlags.Simulation |
-            ChunkTicketFlags.KeepDimensionActive |
-            ChunkTicketFlags.CanExpireIfUnloaded,
+            ChunkTicketFlags.KeepDimensionActive,
         ChunkTicketType.Dragon =>
             ChunkTicketFlags.Loading |
             ChunkTicketFlags.Simulation,
         ChunkTicketType.PlayerSpawn or
-        ChunkTicketType.SpawnSearch or
+        ChunkTicketType.SpawnSearch =>
+            ChunkTicketFlags.Loading,
         ChunkTicketType.Unknown =>
             ChunkTicketFlags.Loading |
             ChunkTicketFlags.CanExpireIfUnloaded,
@@ -168,7 +167,7 @@ public readonly record struct ChunkTicketPlacement(
 public sealed class ChunkTicketStorage
 {
     private readonly Dictionary<ChunkColumnCoord, HashSet<ChunkTicket>> _tickets = [];
-    private readonly Dictionary<(ChunkColumnCoord Column, ChunkTicket Ticket), ulong>
+    private readonly Dictionary<(ChunkColumnCoord Column, ChunkTicket Ticket), TicketExpiration>
         _expirationTicks = [];
 
     public int ColumnCount => _tickets.Count;
@@ -220,14 +219,15 @@ public sealed class ChunkTicketStorage
         var added = tickets.Add(ticket);
         if (ticket.TimeoutTicks is { } timeout)
         {
-            var expiry = ulong.MaxValue - currentTick < timeout
-                ? ulong.MaxValue
-                : currentTick + timeout;
+            var expiration = new TicketExpiration(
+                SaturatingAdd(currentTick, timeout), currentTick);
             var key = (column, ticket);
-            if (!_expirationTicks.TryGetValue(key, out var existingExpiry) ||
-                expiry > existingExpiry)
+            if (!_expirationTicks.TryGetValue(key, out var existing) ||
+                expiration != existing)
             {
-                _expirationTicks[key] = expiry;
+                // Re-adding the same ticket resets its countdown just as
+                // Ticket.resetTicksLeft does in Minecraft.
+                _expirationTicks[key] = expiration;
                 added = true;
             }
         }
@@ -240,13 +240,41 @@ public sealed class ChunkTicketStorage
     /// same column remain untouched. The returned flags tell DistanceManager
     /// which of its two graphs needs to be propagated.
     /// </summary>
-    public ChunkTicketFlags ExpireTickets(ulong currentTick)
+    public ChunkTicketFlags ExpireTickets(
+        ulong currentTick,
+        Func<ChunkColumnCoord, bool> isHolderReadyForSaving)
     {
+        ArgumentNullException.ThrowIfNull(isHolderReadyForSaving);
         var changed = ChunkTicketFlags.None;
-        foreach (var (identity, expiry) in _expirationTicks.ToArray())
+        foreach (var (identity, expiration) in _expirationTicks.ToArray())
         {
-            if (currentTick < expiry)
+            if (currentTick < expiration.LastEvaluatedTick)
+                throw new InvalidOperationException(
+                    "Chunk ticket expiration ticks must be monotonic.");
+
+            var elapsed = currentTick - expiration.LastEvaluatedTick;
+            var mayExpireWhileLoaded =
+                (identity.Ticket.Flags & ChunkTicketFlags.CanExpireIfUnloaded) != 0;
+            var countdownRuns = mayExpireWhileLoaded ||
+                isHolderReadyForSaving(identity.Column);
+
+            if (!countdownRuns)
+            {
+                // Non-UNKNOWN timed tickets pause while a holder is still
+                // being generated or retained by another generation task.
+                _expirationTicks[identity] = new TicketExpiration(
+                    SaturatingAdd(expiration.ExpiresAtTick, elapsed), currentTick);
                 continue;
+            }
+
+            if (currentTick < expiration.ExpiresAtTick)
+            {
+                _expirationTicks[identity] = expiration with
+                {
+                    LastEvaluatedTick = currentTick,
+                };
+                continue;
+            }
 
             if (RemoveTicket(identity.Column, identity.Ticket))
                 changed |= identity.Ticket.Flags &
@@ -255,6 +283,13 @@ public sealed class ChunkTicketStorage
 
         return changed;
     }
+
+    private static ulong SaturatingAdd(ulong left, ulong right) =>
+        ulong.MaxValue - left < right ? ulong.MaxValue : left + right;
+
+    private readonly record struct TicketExpiration(
+        ulong ExpiresAtTick,
+        ulong LastEvaluatedTick);
 
     public bool RemoveTicket(ChunkColumnCoord column, ChunkTicket ticket)
     {
