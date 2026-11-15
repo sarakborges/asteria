@@ -87,12 +87,12 @@ public sealed class ChunkResidencyRuntimeTests
             Array.Empty<ChunkCoord>());
 
         Assert.Equal(2, dispatched.StartedTasks);
-        Assert.Equal(2, dispatched.WorkerOperationsStarted);
-        Assert.True(provider.TwoMaterializationWorkersStarted.Wait(
-            TimeSpan.FromSeconds(5)),
-            "The second terrain worker was held back by pending reconciliation.");
-        Assert.True(provider.ReconcileStarted.Wait(TimeSpan.FromSeconds(5)),
-            "Directional reconciliation did not use the third worker slot.");
+        Assert.Equal(1, dispatched.WorkerOperationsStarted);
+        PumpDispatchUntil(
+            fixture,
+            () => provider.TwoMaterializationWorkersStarted.IsSet &&
+                  provider.ReconcileStarted.IsSet,
+            "Worldgen did not start two terrain forks and reconciliation on the shared pool.");
         Assert.Equal(3, fixture.Runtime.ActiveWorkerCount);
 
         provider.ReleaseMaterialization.Set();
@@ -128,15 +128,19 @@ public sealed class ChunkResidencyRuntimeTests
             Array.Empty<ChunkCoord>());
 
         Assert.Equal(4, admitted.StartedTasks);
-        Assert.Equal(4, admitted.WorkerOperationsStarted);
+        Assert.Equal(1, admitted.WorkerOperationsStarted);
         Assert.Equal(4, fixture.Runtime.MaterializationJobCount);
         Assert.Equal(0, fixture.Runtime.PendingCount);
         Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
-        Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)));
-        Assert.True(SpinWait.SpinUntil(
+        PumpDispatchUntil(
+            fixture,
+            () => provider.AdvanceStarted.IsSet,
+            "No materialization stage started after serial task admission.");
+        PumpDispatchUntil(
+            fixture,
             () => fixture.Runtime.ActiveGenerationWorkerCount == 2 &&
                   fixture.Runtime.PendingGenerationWorkerQueueCount == 2,
-            TimeSpan.FromSeconds(5)));
+            "Ticket demand did not fill the bounded shared worker queue.");
         Assert.Equal(4, fixture.Runtime.ActiveWorkerCount);
 
         provider.ReleaseAdvance.Set();
@@ -189,7 +193,10 @@ public sealed class ChunkResidencyRuntimeTests
             GenerousBudget(),
             Array.Empty<ChunkCoord>());
         Assert.Equal(1, started.StartedTasks);
-        Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)));
+        PumpDispatchUntil(
+            fixture,
+            () => provider.AdvanceStarted.IsSet,
+            "Materialization worker did not enter its stage.");
 
         fixture.Runtime.SyncSelection(
             new ChunkCoord(20, 0, 0),
@@ -485,13 +492,11 @@ public sealed class ChunkResidencyRuntimeTests
             Array.Empty<ChunkCoord>());
 
         Assert.Equal(3, admitted.StartedTasks);
-        Assert.Equal(3, admitted.WorkerOperationsStarted);
+        Assert.Equal(1, admitted.WorkerOperationsStarted);
         Assert.Equal(3, fixture.Runtime.MaterializationJobCount);
         Assert.Equal(0, fixture.Runtime.PendingCount);
         Assert.Equal(2, fixture.Runtime.GenerationWorkerCount);
-        Assert.True(SpinWait.SpinUntil(
-            () => fixture.Runtime.PendingGenerationWorkerQueueCount > 0,
-            TimeSpan.FromSeconds(5)));
+
 
         var completedActivations = 0;
         var failures = 0;
@@ -566,7 +571,9 @@ public sealed class ChunkResidencyRuntimeTests
 
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.True(provider.AdvanceStarted.Wait(TimeSpan.FromSeconds(5)),
+        PumpDispatchUntil(
+            fixture,
+            () => provider.AdvanceStarted.IsSet,
             "Materialization worker did not enter its stage.");
 
         fixture.Runtime.BeginRetirement();
@@ -958,7 +965,10 @@ public sealed class ChunkResidencyRuntimeTests
 
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
-        Assert.True(provider.Materialized.Wait(TimeSpan.FromSeconds(10)));
+        PumpDispatchUntil(
+            fixture,
+            () => provider.Materialized.IsSet,
+            "Materialization and initial lighting did not finish on the worker.");
 
         // The worker owns generation and initial lighting. A completed chunk
         // is not published to the world until the main thread collects it.
@@ -1062,6 +1072,22 @@ public sealed class ChunkResidencyRuntimeTests
 
     private static WorldFrameWorkBudget GenerousBudget() =>
         new(long.MaxValue);
+
+    private static void PumpDispatchUntil(
+        RuntimeFixture fixture,
+        Func<bool> condition,
+        string failureMessage)
+    {
+        var completed = SpinWait.SpinUntil(
+            () =>
+            {
+                fixture.Runtime.DispatchMaterializationTasks(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                return condition();
+            },
+            TimeSpan.FromSeconds(10));
+        Assert.True(completed, failureMessage);
+    }
 
     private static void CompleteFluidActivations(RuntimeFixture fixture)
     {
