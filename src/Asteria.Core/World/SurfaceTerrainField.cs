@@ -168,22 +168,27 @@ public sealed class SurfaceTerrainField
     // probes reuse seed assignments instead of allocating a sampler per point.
     internal readonly record struct TerrainSampleContext(
         BiomeField.Sampler SurfaceBiomes,
-        BiomeField.Sampler? VolumePlacement);
+        BiomeField.Sampler? VolumePlacement,
+        ChunkGenerationAccessRegion? AccessRegion = null);
 
     internal TerrainSampleContext CreateTerrainSampleContext(
-        int biomeSampleCacheCapacity = 0) =>
+        int biomeSampleCacheCapacity = 0,
+        ChunkGenerationAccessRegion? accessRegion = null) =>
         new(
             _surfaceBiomes.CreateSampler(biomeSampleCacheCapacity),
-            _volumeBiomes.CreatePlacementSampler(biomeSampleCacheCapacity));
+            _volumeBiomes.CreatePlacementSampler(biomeSampleCacheCapacity),
+            accessRegion);
 
     internal TerrainSampleContext CreateTerrainSampleContext(
         SurfaceTerrainColumn column,
         int originX,
         int originZ,
-        int biomeSampleCacheCapacity)
+        int biomeSampleCacheCapacity,
+        ChunkGenerationAccessRegion? accessRegion = null)
     {
         ArgumentNullException.ThrowIfNull(column);
-        var context = CreateTerrainSampleContext(biomeSampleCacheCapacity);
+        var context = CreateTerrainSampleContext(
+            biomeSampleCacheCapacity, accessRegion);
         column.PrimeBiomeSamplers(
             context.SurfaceBiomes,
             context.VolumePlacement,
@@ -197,6 +202,7 @@ public sealed class SurfaceTerrainField
         int worldX,
         int worldZ)
     {
+        context.AccessRegion?.EnsureCanReadColumnData(worldX, worldZ);
         var biome = context.SurfaceBiomes.Sample(worldX, worldZ);
         return (biome, BaseHeightAt(biome, worldX, worldZ));
     }
@@ -308,6 +314,7 @@ public sealed class SurfaceTerrainField
         int worldX,
         int worldZ)
     {
+        context.AccessRegion?.EnsureCanReadColumnData(worldX, worldZ);
         var biome = context.SurfaceBiomes.Sample(worldX, worldZ);
         var baseY = BaseHeightAt(biome, worldX, worldZ);
         return FinalSurfaceHeight(

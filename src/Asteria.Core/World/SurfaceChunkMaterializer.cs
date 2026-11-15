@@ -938,6 +938,15 @@ public sealed partial class SurfaceChunkMaterializer
             throw new InvalidOperationException("Materialization column is missing.");
         var densityVolume = job.DensityVolume ??
             throw new InvalidOperationException("Terrain density snapshot is missing.");
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            job.Coord,
+            ChunkGenerationStepId.SurfaceDecorations);
+        bool HasNearbyFluidInGenerationRegion(
+            FluidRuntimeId fluid, int radius, int worldX, int supportY, int worldZ) =>
+            HasNearbyFluid(
+                fluid, radius, worldX, supportY, worldZ, accessRegion);
+
         // Slope conditions inspect the current and four adjacent columns.
         // Seed the query-local samplers with the immutable biome samples that
         // TerrainSetup already resolved for this chunk; only the outer halo
@@ -946,7 +955,7 @@ public sealed partial class SurfaceChunkMaterializer
             _decorations.HasSlopeConditions
                 ? _terrain.CreateTerrainSampleContext(
                     column, originX, originZ,
-                    SlopeProbeSampleCacheCapacity)
+                    SlopeProbeSampleCacheCapacity, accessRegion)
                 : null;
         var topExclusive = job.TopExclusive;
         var pendingObjects = job.PendingObjects;
@@ -1052,12 +1061,16 @@ public sealed partial class SurfaceChunkMaterializer
                             supportY: surfaceY,
                             onFluidSurface: false,
                             fluidBelow: default,
-                            nearbyFluid: _nearbyFluidQuery,
+                            nearbyFluid: HasNearbyFluidInGenerationRegion,
                             supportSurface: DecorationSupportSurface.Floor,
                             terrainSampleContext: terrainSampleContext);
                         if (!decoration.IsAir)
+                        {
+                            accessRegion.EnsureCanWriteWorldPosition(
+                                worldX, checked((int)decorationY), worldZ);
                             chunk.SetBlock(localX, (int)decorationY - originY,
                                 localZ, decoration);
+                        }
                     }
                     if (considerObjects)
                     {
@@ -1067,13 +1080,15 @@ public sealed partial class SurfaceChunkMaterializer
                             verticalY: null,
                             submerged: submerged,
                             supportY: surfaceY,
-                            nearbyFluid: _nearbyFluidQuery,
+                            nearbyFluid: HasNearbyFluidInGenerationRegion,
                             supportSurface: DecorationSupportSurface.Floor,
                             onFluidSurface: false,
                             fluidBelow: default,
                             terrainSampleContext: terrainSampleContext);
                         if (objectId is not null)
                         {
+                            accessRegion.EnsureCanWriteWorldPosition(
+                                worldX, surfaceY, worldZ);
                             pendingObjects ??= [];
                             pendingObjects.Add(new PendingGeneratedObject(
                                 localX, surfaceY - originY, localZ,
@@ -1113,13 +1128,19 @@ public sealed partial class SurfaceChunkMaterializer
                                 supportY: (int)decorationY,
                                 onFluidSurface: true,
                                 fluidBelow: supportFluid.Fluid,
-                                nearbyFluid: _nearbyFluidQuery,
+                                nearbyFluid: HasNearbyFluidInGenerationRegion,
                                 supportSurface: DecorationSupportSurface.Floor,
                                 terrainSampleContext: terrainSampleContext);
                             if (!decoration.IsAir)
+                            {
+                                var decorationWorldY =
+                                    checked((int)(decorationY + 1L));
+                                accessRegion.EnsureCanWriteWorldPosition(
+                                    worldX, decorationWorldY, worldZ);
                                 chunk.SetBlock(
-                                    localX, (int)decorationY + 1 - originY,
+                                    localX, decorationWorldY - originY,
                                     localZ, decoration);
+                            }
                         }
                         if (considerFluidObject)
                         {
@@ -1129,13 +1150,15 @@ public sealed partial class SurfaceChunkMaterializer
                                 verticalY: null,
                                 submerged: false,
                                 supportY: (int)decorationY,
-                                nearbyFluid: _nearbyFluidQuery,
+                                nearbyFluid: HasNearbyFluidInGenerationRegion,
                                 supportSurface: DecorationSupportSurface.Floor,
                                 onFluidSurface: true,
                                 fluidBelow: supportFluid.Fluid,
                                 terrainSampleContext: terrainSampleContext);
                             if (objectId is not null)
                             {
+                                accessRegion.EnsureCanWriteWorldPosition(
+                                    worldX, checked((int)decorationY), worldZ);
                                 pendingObjects ??= [];
                                 pendingObjects.Add(new PendingGeneratedObject(
                                     localX, (int)decorationY - originY, localZ,
@@ -2133,7 +2156,8 @@ public sealed partial class SurfaceChunkMaterializer
         (_roofY is not { } roof || y < roof);
 
     private bool HasNearbyFluid(
-        FluidRuntimeId fluid, int radius, int worldX, int supportY, int worldZ)
+        FluidRuntimeId fluid, int radius, int worldX, int supportY, int worldZ,
+        ChunkGenerationAccessRegion? accessRegion = null)
     {
         var distanceSquared = radius * radius;
         for (var dz = -radius; dz <= radius; dz++)
@@ -2147,6 +2171,7 @@ public sealed partial class SurfaceChunkMaterializer
             if (px < int.MinValue || px > int.MaxValue ||
                 pz < int.MinValue || pz > int.MaxValue)
                 continue;
+            accessRegion?.EnsureCanReadColumnData((int)px, (int)pz);
             var (coord, local) = VoxelCoordinates.FromWorld(
                 (int)px, 0, (int)pz);
             var neighbor = _columns.Get(coord.X, coord.Z);
@@ -2937,6 +2962,7 @@ public sealed partial class SurfaceChunkMaterializer
         Action<DirectionalFacePaletteReapplicationDiagnostic>? diagnostic = null,
         ChunkGenerationAccessRegion? accessRegion = null)
     {
+        accessRegion?.EnsureCanWriteWorldPosition(worldX, worldY, worldZ);
         chunk.RestoreDirectionalFaceBaseBlockAtLinearIndex(index);
         var data = chunk.DirectionalFaceDataAtLinearIndex(index);
         var restoredBlock = chunk.GetCellAtLinearIndexUnchecked(index).Block;
@@ -3159,8 +3185,6 @@ public sealed partial class SurfaceChunkMaterializer
                 return false;
             }
 
-            accessRegion?.EnsureCanWriteWorldPosition(
-                worldX, worldY, worldZ);
             var applied = chunk.SetDirectionalFacePaletteBlockAtLinearIndex(
                 index, replacement);
             diagnostic?.Invoke(new DirectionalFacePaletteReapplicationDiagnostic(
