@@ -331,8 +331,11 @@ public sealed class ChunkGenerationDispatcherTests
         var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
         var ownerThread = Environment.CurrentManagedThreadId;
         var observed = new List<(ChunkGenerationStatus Status, int ThreadId)>();
+        var observedSections = new List<(ChunkCoord Coord, ChunkGenerationStatus Status, int ThreadId)>();
         dispatcher.GenerationStatusAdvanced += (_, status) =>
             observed.Add((status, Environment.CurrentManagedThreadId));
+        dispatcher.SectionGenerationStatusAdvanced += (_, section, status) =>
+            observedSections.Add((section, status, Environment.CurrentManagedThreadId));
 
         Assert.True(dispatcher.TryEnqueue(
             Key(32), 1, Priority(0), 32, new StatusProgressTask()));
@@ -349,6 +352,20 @@ public sealed class ChunkGenerationDispatcherTests
             },
             observed.Select(item => item.Status));
         Assert.All(observed, item => Assert.Equal(ownerThread, item.ThreadId));
+        Assert.Equal(
+            new[]
+            {
+                ChunkGenerationStatus.Terrain,
+                ChunkGenerationStatus.Features,
+                ChunkGenerationStatus.InitializeLight,
+                ChunkGenerationStatus.Light,
+            },
+            observedSections.Select(item => item.Status));
+        Assert.All(observedSections, item =>
+        {
+            Assert.Equal(new ChunkCoord(32, 4, 0), item.Coord);
+            Assert.Equal(ownerThread, item.ThreadId);
+        });
         Assert.Equal(1, dispatcher.CompletedTaskCount);
     }
 
@@ -578,9 +595,13 @@ public sealed class ChunkGenerationDispatcherTests
             return _advance++ switch
             {
                 0 => ChunkGenerationTaskAdvanceResult.YieldWithStatus(
-                    ChunkGenerationStatus.Terrain),
+                    ChunkGenerationStatus.Terrain).WithSectionProgress(
+                        [new ChunkSectionGenerationProgress(
+                            new ChunkCoord(32, 4, 0), ChunkGenerationStatus.Terrain)]),
                 1 => ChunkGenerationTaskAdvanceResult.YieldWithStatus(
-                    ChunkGenerationStatus.Features),
+                    ChunkGenerationStatus.Features).WithSectionProgress(
+                        [new ChunkSectionGenerationProgress(
+                            new ChunkCoord(32, 4, 0), ChunkGenerationStatus.Features)]),
                 2 => ChunkGenerationTaskAdvanceResult.WaitForWorkers(
                     [
                         new ChunkGenerationWorkerOperation(
@@ -588,7 +609,9 @@ public sealed class ChunkGenerationDispatcherTests
                             _ => "light",
                             ChunkGenerationExecutionPolicy.LightExecutor),
                     ],
-                    ChunkGenerationStatus.InitializeLight),
+                    ChunkGenerationStatus.InitializeLight).WithSectionProgress(
+                        [new ChunkSectionGenerationProgress(
+                            new ChunkCoord(32, 4, 0), ChunkGenerationStatus.InitializeLight)]),
                 3 => CompleteLight(completedDependencies),
                 _ => throw new InvalidOperationException(
                     "Status progress task advanced beyond completion."),
@@ -602,7 +625,9 @@ public sealed class ChunkGenerationDispatcherTests
             Assert.Equal("light", completedDependencies[0].Result);
             return ChunkGenerationTaskAdvanceResult.CompletedWith(
                 new object(),
-                ChunkGenerationStatus.Light);
+                ChunkGenerationStatus.Light).WithSectionProgress(
+                    [new ChunkSectionGenerationProgress(
+                        new ChunkCoord(32, 4, 0), ChunkGenerationStatus.Light)]);
         }
     }
 
