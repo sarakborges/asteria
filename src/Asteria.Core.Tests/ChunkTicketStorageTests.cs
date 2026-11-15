@@ -104,6 +104,84 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void PersistentTicketsCaptureOnlyPersistentIdentitiesAndRestoreRemainingLifetime()
+    {
+        var storage = new ChunkTicketStorage();
+        var column = new ChunkColumnCoord(4, -3);
+        var portal = new ChunkTicket(ChunkTicketType.Portal, Level: 30);
+        var forced = new ChunkTicket(ChunkTicketType.Forced, Level: 30);
+        var transient = new ChunkTicket(ChunkTicketType.EnderPearl, Level: 30);
+        Assert.True(storage.AddTicket(column, portal, currentTick: 100));
+        Assert.True(storage.AddTicket(column, forced, currentTick: 100));
+        Assert.True(storage.AddTicket(column, transient, currentTick: 100));
+
+        Assert.Equal(ChunkTicketFlags.None,
+            storage.ExpireTickets(150, _ => true));
+        var snapshot = storage.CapturePersistentTickets();
+
+        Assert.Equal(2, snapshot.Entries.Count);
+        Assert.Contains(snapshot.Entries, entry =>
+            entry.Ticket == portal && entry.RemainingTicks == 250UL);
+        Assert.Contains(snapshot.Entries, entry =>
+            entry.Ticket == forced && entry.RemainingTicks is null);
+        Assert.DoesNotContain(snapshot.Entries, entry => entry.Ticket == transient);
+
+        var restored = new ChunkTicketStorage();
+        restored.RestorePersistentTickets(snapshot, currentTick: 1000);
+        Assert.Equal(2, restored.TicketCount);
+        Assert.Equal(ChunkTicketFlags.None,
+            restored.ExpireTickets(1249, _ => true));
+        Assert.Contains(portal, restored.GetTickets(column));
+        Assert.Equal(
+            ChunkTicketFlags.Loading | ChunkTicketFlags.Simulation,
+            restored.ExpireTickets(1250, _ => true));
+        Assert.DoesNotContain(portal, restored.GetTickets(column));
+        Assert.Contains(forced, restored.GetTickets(column));
+    }
+
+    [Fact]
+    public void PersistentTicketSnapshotRejectsTransientAndInvalidTimerState()
+    {
+        var column = new ChunkColumnCoord(1, 2);
+        Assert.Throws<InvalidDataException>(() =>
+            new PersistentChunkTicketSnapshot([
+                new PersistentChunkTicketSnapshotEntry(
+                    column,
+                    new ChunkTicket(ChunkTicketType.EnderPearl, Level: 30),
+                    20UL)]));
+        Assert.Throws<InvalidDataException>(() =>
+            new PersistentChunkTicketSnapshot([
+                new PersistentChunkTicketSnapshotEntry(
+                    column,
+                    new ChunkTicket(ChunkTicketType.Portal, Level: 30),
+                    null)]));
+        Assert.Throws<InvalidDataException>(() =>
+            new PersistentChunkTicketSnapshot([
+                new PersistentChunkTicketSnapshotEntry(
+                    column,
+                    new ChunkTicket(ChunkTicketType.Portal, Level: 30),
+                    301UL)]));
+    }
+
+    [Fact]
+    public void DistanceManagerRestoresPersistentTicketsIntoBothTicketGraphs()
+    {
+        var column = new ChunkColumnCoord(-7, 5);
+        var portal = new ChunkTicket(ChunkTicketType.Portal, Level: 30);
+        var snapshot = new PersistentChunkTicketSnapshot([
+            new PersistentChunkTicketSnapshotEntry(column, portal, 180UL)]);
+
+        var manager = new ChunkDistanceManager();
+        manager.RestorePersistentTickets(snapshot, currentTick: 900);
+
+        Assert.Contains(portal, manager.Tickets.GetTickets(column));
+        Assert.Equal(30, manager.GetLoadingLevel(column));
+        Assert.Equal(30, manager.GetSimulationLevel(column));
+        Assert.Equal(snapshot.Entries,
+            manager.CapturePersistentTickets().Entries);
+    }
+
+    [Fact]
     public void UnknownTicketExpiresEvenWhileHolderIsNotReadyForSaving()
     {
         var storage = new ChunkTicketStorage();

@@ -105,6 +105,36 @@ public sealed class GameplaySessionSaveCodecTests
     }
 
     [Fact]
+    public void PersistentChunkTicketsRoundTripWithTheirSphereSession()
+    {
+        var content = Content();
+        var dimensions = Dimensions();
+        var creation = new WorldCreationOptions("Ticket World", 9123UL);
+        var source = new DimensionSessionStateStore(creation, dimensions);
+        var surface = source.GetOrCreate(DimensionId.Overworld);
+        var column = new ChunkColumnCoord(12, -4);
+        var expected = new PersistentChunkTicketSnapshot([
+            new PersistentChunkTicketSnapshotEntry(
+                column,
+                new ChunkTicket(ChunkTicketType.Forced, Level: 30),
+                null),
+            new PersistentChunkTicketSnapshotEntry(
+                column,
+                new ChunkTicket(ChunkTicketType.Portal, Level: 30),
+                217UL)]);
+        surface.SetPersistentChunkTickets(expected);
+
+        var saved = Capture(source, content);
+        var restored = Restore(creation, dimensions, saved, content);
+        var restoredSurface = restored.GetOrCreate(DimensionId.Overworld);
+
+        Assert.Equal(expected.Entries,
+            saved.Spheres.Single().PersistentChunkTickets.Entries);
+        Assert.Equal(expected.Entries,
+            restoredSurface.PersistentChunkTickets.Entries);
+    }
+
+    [Fact]
     public void CapturedInventoryCannotBeChangedThroughExposedArrays()
     {
         var content = Content();

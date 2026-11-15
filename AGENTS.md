@@ -56,17 +56,16 @@ When touching an area that already violates the canon, do not add new code on to
 - Gameplay UI follows Atomic Design under `ui/src/components/{atoms,molecules,organisms,templates,pages}`.
 - Every reusable WebUI component owns a directory named after the component, containing its `*.tsx`, colocated CSS and Storybook story. Do not place component implementation files flat in an Atomic Design tier.
 - React is the WebUI rendering layer. The presentation flow is `bridge -> controllers -> UiStore -> React`. Controllers parse/bind Godot messages and update presentation state; React components render snapshots and emit explicit semantic UI actions through injected callbacks. Components must never import or call the Godot bridge directly.
-- MineClone UI design migration must preserve Asteria's current `Winky Rough Variable` font family. Do not port MineClone's `SystemUi` font choice or replace the font family unless the user explicitly requests it.
+- Preserve Asteria's current `Winky Rough Variable` font family in WebUI. Do not replace it with a platform/system font unless the user explicitly requests that change.
 - Keep Godot WRY/IPC transport in `ui/src/bridge`; keep event/state binding in `ui/src/controllers`; components must not own transport logic.
 - Global/gameplay input (keyboard presses, mouse buttons, wheel, captured-mouse controls, gameplay hotkeys and debug hotkeys) is owned by Godot/input code, never by WebUI document/window listeners. WebUI may handle pointer/keyboard events only while the user is explicitly interacting with a UI control/surface; gameplay/global actions must cross the bridge as semantic commands/state instead of raw browser input.
 - Every reusable WebUI component or page must have a colocated Storybook `*.stories.ts` file covering meaningful visual states.
 - Storybook is part of WebUI validation. `npm run build-storybook` must stay green together with `npm run build`.
 
-## Mineclone reference rule
+## Minecraft Java Edition 26.3 reference rule
 
-- Before implementing or materially changing a system that already exists in `sarakborges/mineclone`, inspect the equivalent implementation on the `world-systems-rebuild` branch first.
-- Use Mineclone as the architecture/behavior reference, then adapt deliberately to Asteria's Godot + C# boundaries rather than copying engine-specific code blindly.
-- Mineclone is a reference, not the final authority. For every inspected implementation, identify whether Asteria can achieve the same contract more simply, correctly, efficiently, or with cleaner ownership; prefer the better Asteria design when there is a concrete improvement.
-- Preserve the behavioral intent and proven invariants from Mineclone, but do not preserve incidental complexity, engine-driven compromises, duplicated ownership, or legacy constraints when Asteria can avoid them.
-- Prefer the rebuild branch over Mineclone `main` for chunk, voxel, world, lighting, meshing, placement, streaming and other world-runtime systems unless the task explicitly concerns old presentation behavior.
-- **UI / world-creation parity MUST compare MineClone `main` AND `world-systems-rebuild`** before declaring an interface complete. The rebuild branch can lag `main` on entire user-facing configuration sections and features. Do not infer parity from the existence of a page, Storybook story, old migration checklist, or a branch-specific subset. Record the compared source ref/commit, every section, option, enabled/disabled state, and its authoritative runtime owner. Never insert interactive world-generation controls that the engine silently ignores.
+- Minecraft Java Edition 26.3 is the sole external reference version for world/chunk lifecycle, ticketing, distance propagation, generation stages, lighting and streaming architecture.
+- Before materially changing one of those systems, inspect the corresponding 26.3 behavior and record the source/version used. Adapt its contracts to Asteria's C# and Godot ownership boundaries instead of copying engine-specific code.
+- Minecraft is a behavioral and architectural reference, not the final authority. Prefer an Asteria design when it is demonstrably simpler, more correct, more efficient, or has cleaner ownership while preserving the relevant contract.
+- Preserve Asteria-specific improvements and its section-based world model; do not reintroduce constraints that belong only to Minecraft's engine or implementation.
+- World-creation controls exposed by UI must map to real authored options and runtime behavior. Never add interactive settings that the generator silently ignores.

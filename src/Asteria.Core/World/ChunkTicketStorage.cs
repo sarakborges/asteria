@@ -169,10 +169,17 @@ public sealed class ChunkTicketStorage
     private readonly Dictionary<ChunkColumnCoord, HashSet<ChunkTicket>> _tickets = [];
     private readonly Dictionary<(ChunkColumnCoord Column, ChunkTicket Ticket), TicketExpiration>
         _expirationTicks = [];
+    private readonly HashSet<(ChunkColumnCoord Column, ChunkTicket Ticket)>
+        _persistentTickets = [];
+    private int _persistentTimedTicketCount;
 
     public int ColumnCount => _tickets.Count;
 
     public int TicketCount => _tickets.Values.Sum(tickets => tickets.Count);
+
+    public int PersistentTicketCount => _persistentTickets.Count;
+
+    public int PersistentTimedTicketCount => _persistentTimedTicketCount;
 
     public IEnumerable<(ChunkColumnCoord Column, ChunkTicket Ticket)> AllTickets =>
         _tickets.SelectMany(entry =>
@@ -217,6 +224,11 @@ public sealed class ChunkTicketStorage
         }
 
         var added = tickets.Add(ticket);
+        if ((ticket.Flags & ChunkTicketFlags.Persist) != 0 &&
+            _persistentTickets.Add((column, ticket)) &&
+            ticket.TimeoutTicks is not null)
+            _persistentTimedTicketCount++;
+
         if (ticket.TimeoutTicks is { } timeout)
         {
             var expiration = new TicketExpiration(
@@ -233,6 +245,79 @@ public sealed class ChunkTicketStorage
         }
 
         return added;
+    }
+
+    /// <summary>
+    /// Captures only tickets whose authored flags make them survive session
+    /// recreation. Timed tickets store their remaining lifetime, not an
+    /// absolute world tick, so the snapshot is independent of the next session.
+    /// </summary>
+    public PersistentChunkTicketSnapshot CapturePersistentTickets()
+    {
+        if (_persistentTickets.Count == 0)
+            return PersistentChunkTicketSnapshot.Empty;
+
+        var entries = new List<PersistentChunkTicketSnapshotEntry>(
+            _persistentTickets.Count);
+        foreach (var identity in _persistentTickets)
+        {
+            ulong? remainingTicks = null;
+            if (identity.Ticket.TimeoutTicks is not null)
+            {
+                if (!_expirationTicks.TryGetValue(identity, out var expiration))
+                    throw new InvalidOperationException(
+                        $"Persistent timed ticket has no expiration state: {identity}.");
+
+                remainingTicks = expiration.ExpiresAtTick > expiration.LastEvaluatedTick
+                    ? expiration.ExpiresAtTick - expiration.LastEvaluatedTick
+                    : 0UL;
+            }
+
+            entries.Add(new PersistentChunkTicketSnapshotEntry(
+                identity.Column, identity.Ticket, remainingTicks));
+        }
+
+        return new PersistentChunkTicketSnapshot(entries);
+    }
+
+    /// <summary>
+    /// Restores a persistent-ticket snapshot into an empty store. Remaining
+    /// timeout ticks are rebased onto the new session clock without resetting
+    /// the ticket's lifetime.
+    /// </summary>
+    public void RestorePersistentTickets(
+        PersistentChunkTicketSnapshot snapshot,
+        ulong currentTick)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (TicketCount != 0 || _expirationTicks.Count != 0 ||
+            _persistentTickets.Count != 0)
+            throw new InvalidOperationException(
+                "Persistent tickets can only be restored into an empty ticket store.");
+
+        foreach (var entry in snapshot.Entries)
+        {
+            if (!_tickets.TryGetValue(entry.Column, out var tickets))
+            {
+                tickets = [];
+                _tickets.Add(entry.Column, tickets);
+            }
+
+            if (!tickets.Add(entry.Ticket))
+                throw new InvalidDataException(
+                    $"Persistent ticket snapshot contains a duplicate identity: {entry.Column}.");
+
+            _persistentTickets.Add((entry.Column, entry.Ticket));
+            if (entry.RemainingTicks is { } remainingTicks)
+            {
+                _persistentTimedTicketCount++;
+                _expirationTicks.Add(
+                    (entry.Column, entry.Ticket),
+                    new TicketExpiration(
+                        SaturatingAdd(currentTick, remainingTicks),
+                        currentTick));
+            }
+        }
     }
 
     /// <summary>
@@ -299,6 +384,9 @@ public sealed class ChunkTicketStorage
             return false;
 
         _expirationTicks.Remove((column, ticket));
+        if (_persistentTickets.Remove((column, ticket)) &&
+            ticket.TimeoutTicks is not null)
+            _persistentTimedTicketCount--;
         if (tickets.Count == 0)
             _tickets.Remove(column);
         return true;
@@ -1604,6 +1692,27 @@ public sealed class ChunkDistanceManager
             if (holder.DependencyClaimCount == 0)
                 _holders.Remove(column);
         }
+    }
+
+    public int PersistentTicketCount =>
+        _tickets.PersistentTicketCount;
+
+    public int PersistentTimedTicketCount =>
+        _tickets.PersistentTimedTicketCount;
+
+    public PersistentChunkTicketSnapshot CapturePersistentTickets() =>
+        _tickets.CapturePersistentTickets();
+
+    public void RestorePersistentTickets(
+        PersistentChunkTicketSnapshot snapshot,
+        ulong currentTick)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        _tickets.RestorePersistentTickets(snapshot, currentTick);
+        if (snapshot.Entries.Count > 0)
+            RebuildDistanceGraphs(
+                loadingChanged: true,
+                simulationChanged: true);
     }
 
     public bool CompleteFullStatus(

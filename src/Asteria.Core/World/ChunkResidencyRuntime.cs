@@ -148,6 +148,9 @@ public sealed class ChunkResidencyRuntime
     private readonly ChunkResidencySettings _settings;
     private readonly ChunkStreamingState _streaming = new();
     private readonly ChunkTicketAdmissionController _playerTicketAdmissions;
+    private readonly Action<PersistentChunkTicketSnapshot>?
+        _persistentChunkTicketsChanged;
+    private ulong _lastPersistentTicketSnapshotTick;
     private readonly ChunkPresentationSelection _presentationSelection = new();
     // One logical generation task owns a horizontal column holder. Its
     // vertical section jobs fork to the shared executor and publish together.
@@ -186,7 +189,9 @@ public sealed class ChunkResidencyRuntime
         WorldTickClock worldTicks,
         ChunkResidencySettings settings,
         PackContentRegistry<ObjectDefinition>? objects = null,
-        WorldWorkerPool? worldWorkerPool = null)
+        WorldWorkerPool? worldWorkerPool = null,
+        PersistentChunkTicketSnapshot? persistentChunkTickets = null,
+        Action<PersistentChunkTicketSnapshot>? persistentChunkTicketsChanged = null)
     {
         _world =
             world ??
@@ -228,6 +233,11 @@ public sealed class ChunkResidencyRuntime
         _settings =
             settings ??
             throw new ArgumentNullException(nameof(settings));
+        _persistentChunkTicketsChanged = persistentChunkTicketsChanged;
+        _lastPersistentTicketSnapshotTick = _worldTicks.CurrentTick;
+        _streaming.DistanceManager.RestorePersistentTickets(
+            persistentChunkTickets ?? PersistentChunkTicketSnapshot.Empty,
+            _worldTicks.CurrentTick);
         _playerTicketAdmissions =
             new ChunkTicketAdmissionController(_streaming.DistanceManager);
         var generationWorkerCount = _settings.MaxConcurrentWorkers;
@@ -266,23 +276,55 @@ public sealed class ChunkResidencyRuntime
 
     public bool IsDesired(ChunkCoord coord) => _streaming.IsDesired(coord);
 
-    public bool AddTicket(ChunkCoord coord, ChunkTicket ticket) =>
-        _streaming.DistanceManager.AddTicket(
+    public bool AddTicket(ChunkCoord coord, ChunkTicket ticket)
+    {
+        var changed = _streaming.DistanceManager.AddTicket(
             ChunkColumnCoord.FromChunk(coord),
             ticket,
             _worldTicks.CurrentTick);
+        if (!changed)
+            return false;
 
-    public bool RemoveTicket(ChunkCoord coord, ChunkTicket ticket) =>
-        _streaming.DistanceManager.RemoveTicket(
-            ChunkColumnCoord.FromChunk(coord),
-            ticket);
+        UpdateGenerationTaskPriorities();
+        if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
+            PublishPersistentChunkTickets(_worldTicks.CurrentTick);
+        return true;
+    }
+
+    public bool RemoveTicket(ChunkCoord coord, ChunkTicket ticket)
+    {
+        var changed = _streaming.DistanceManager.RemoveTicket(
+            ChunkColumnCoord.FromChunk(coord), ticket);
+        if (!changed)
+            return false;
+
+        UpdateGenerationTaskPriorities();
+        if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
+            PublishPersistentChunkTickets(_worldTicks.CurrentTick);
+        return true;
+    }
 
     public ChunkTicketFlags AdvanceTicketLifetimes(ulong currentTick)
     {
+        var hadPersistentTimedTickets =
+            _streaming.DistanceManager.PersistentTimedTicketCount > 0;
         var changed = _streaming.DistanceManager.AdvanceTick(currentTick);
         if (changed != ChunkTicketFlags.None)
             UpdateGenerationTaskPriorities();
+        if (hadPersistentTimedTickets &&
+            currentTick != _lastPersistentTicketSnapshotTick)
+            PublishPersistentChunkTickets(currentTick);
         return changed;
+    }
+
+    private void PublishPersistentChunkTickets(ulong currentTick)
+    {
+        if (_persistentChunkTicketsChanged is null)
+            return;
+
+        _persistentChunkTicketsChanged(
+            _streaming.DistanceManager.CapturePersistentTickets());
+        _lastPersistentTicketSnapshotTick = currentTick;
     }
 
     public bool IsBlockTicking(ChunkCoord coord) =>

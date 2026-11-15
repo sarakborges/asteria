@@ -349,7 +349,9 @@ public sealed class DimensionRuntimeSession
                     settings.MaxChunkEvictionsPerFrame,
                     state.GameRules),
                 objects,
-                workerPool);
+                workerPool,
+                state.PersistentChunkTickets,
+                state.SetPersistentChunkTickets);
         Lighting.ConfigureSerialExecutor(Residency.LightingExecutor);
         FluidSimulation.ConfigureSimulationEligibility(Residency.IsBlockTicking);
         BlockEntities.ConfigureSimulationEligibility(
