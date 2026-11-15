@@ -292,9 +292,3 @@ public sealed class ChunkTicketStorage
         return changed;
     }
 }
-
-/// <summary>
-/// Propagates the minimum ticket level outwards through the eight neighboring
-/// columns. The priority queue is ordered by level then coordinates, so graph
-/// results are deterministic regardless of dictionary enumeration order.
-/// </summary>

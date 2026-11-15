@@ -158,9 +158,3 @@ public readonly record struct ChunkTicket(
 public readonly record struct ChunkTicketPlacement(
     ChunkColumnCoord Column,
     ChunkTicket Ticket);
-
-/// <summary>
-/// Authoritative set of ticket reasons per horizontal chunk column.
-/// Re-adding an identical (type, level) ticket is a no-op, matching vanilla's
-/// TicketStorage identity and replacement behavior.
-/// </summary>
