@@ -110,6 +110,12 @@ public sealed class ChunkMaterializationGenerationTask :
     /// <summary>Exact vertical section requested by the current materialization dependency.</summary>
     public ChunkCoord? PendingDependencyCoord => _pendingDependencyJob?.Coord;
 
+    /// <summary>
+    /// Pending support-only section job owned by this materialization job. The
+    /// column scheduler may admit it as an independent dynamic section task.
+    /// </summary>
+    public IChunkMaterializationJob? PendingDependencyJob => _pendingDependencyJob;
+
     /// <summary>Whether an out-of-column dependency is already being advanced by this task.</summary>
     public bool HasActiveDependencyTask => _activeDependencyTask is not null;
 
