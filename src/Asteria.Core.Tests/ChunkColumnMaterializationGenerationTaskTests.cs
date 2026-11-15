@@ -92,7 +92,7 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
         var terrainProgress = task.Advance(
             firstCompletions, CancellationToken.None);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, terrainProgress.Kind);
-        Assert.Equal(ChunkGenerationStatus.Terrain, terrainProgress.ProgressStatus);
+        Assert.Null(terrainProgress.ProgressStatus);
         Assert.Equal(1, lower.AdvanceCount);
         Assert.Equal(1, upper.AdvanceCount);
 
