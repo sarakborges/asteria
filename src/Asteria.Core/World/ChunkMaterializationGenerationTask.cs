@@ -121,6 +121,25 @@ public sealed class ChunkMaterializationGenerationTask :
 
     public ChunkCoord Coord => _job.Coord;
 
+    /// <summary>Current generation-plan step requested by this section task, if any.</summary>
+    public ChunkGenerationStepId? NextGenerationStep
+    {
+        get
+        {
+            if (_activeDependencyTask is not null)
+                return _activeDependencyTask.NextGenerationStep;
+            if (_job.IsComplete || _hasScheduledOperation ||
+                _biomesStatusPending || _terrainStatusPending)
+                return null;
+
+            return _job.ActiveWorkStage is
+                ChunkMaterializationStage.ProviderFallback or
+                ChunkMaterializationStage.Complete
+                    ? null
+                    : AsteriaChunkGenerationPlan.GetStepId(_job.ActiveWorkStage);
+        }
+    }
+
     /// <summary>Highest generation status already achieved before this job's first stage.</summary>
     public ChunkGenerationStatus InitialProgressStatus { get; }
 
