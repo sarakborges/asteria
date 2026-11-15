@@ -641,6 +641,26 @@ public sealed class ChunkGenerationPlanTests
                 new ChunkCoord(target.X, -1, target.Z)));
 
         var manager = new ChunkDistanceManager();
+        var column = ChunkColumnCoord.FromChunk(target);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        var negativeSection = new ChunkCoord(target.X, -1, target.Z);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            holder.GetSectionGenerationFuture(
+                negativeSection, ChunkGenerationStatus.Terrain));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            manager.GetSectionGenerationFuture(
+                negativeSection, ChunkGenerationStatus.Terrain));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            manager.GetCompletedSectionGenerationStatus(negativeSection));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            manager.GetSectionGenerationRevision(negativeSection));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            manager.CompleteSectionGenerationStatus(
+                negativeSection, ChunkGenerationStatus.Terrain));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            manager.ResetSectionGenerationProgress(negativeSection, "invalid floor target"));
+
         using (var claim = manager.AcquireDependencyClaims(
                    [target], AsteriaChunkGenerationPlan.FullSectionEnvelope))
         {
