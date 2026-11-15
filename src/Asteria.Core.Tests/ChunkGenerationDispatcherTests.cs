@@ -125,7 +125,7 @@ public sealed class ChunkGenerationDispatcherTests
     }
 
     [Fact]
-    public async Task TicketChangesResortWorkerOperationsAlreadyQueuedInSharedPool()
+    public async Task TicketChangesReprioritizeReadyTasksWithoutPreemptingAdmittedSerialAdvance()
     {
         var mailbox = new ChunkGenerationCompletionMailbox();
         await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
@@ -160,8 +160,12 @@ public sealed class ChunkGenerationDispatcherTests
         releaseBlocker.Set();
         PumpUntilIdle(dispatcher, maximumWorkerStarts: 4);
 
+        // The near task's serial advance was already admitted to the
+        // per-dimension continuation lane before the far ticket changed.
+        // Reprioritization applies to the next dispatch; it does not preempt
+        // an advance already selected by the serial lane.
         Assert.Equal(
-            new[] { "far-when-enqueued", "near-when-enqueued" },
+            new[] { "near-when-enqueued", "far-when-enqueued" },
             executionOrder.ToArray());
         Assert.Equal(2, dispatcher.CompletedTaskCount);
     }
