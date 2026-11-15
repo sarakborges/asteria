@@ -104,13 +104,15 @@ public enum ChunkGenerationStatus : byte
 }
 
 /// <summary>
-/// A ticket is identified by its type and level on one horizontal chunk
-/// column. Its flags determine whether it participates in loading,
-/// simulation, or both.
+/// A ticket is identified by its type, level and optional Asteria target
+/// section within one horizontal chunk column. The X/Z column is still the
+/// distance-graph node; SectionY preserves the 3D materialization target
+/// which vanilla's full-height 2D chunk does not need.
 /// </summary>
 public readonly record struct ChunkTicket(
     ChunkTicketType Type,
-    int Level)
+    int Level,
+    int? SectionY = null)
 {
     public ChunkTicketFlags Flags => Type switch
     {

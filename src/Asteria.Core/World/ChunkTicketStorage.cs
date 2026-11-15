@@ -55,7 +55,8 @@ public sealed class ChunkTicketStorage
     {
         if (!Enum.IsDefined(ticket.Type))
             throw new ArgumentOutOfRangeException(nameof(ticket));
-        if (ticket.Level < 0 || ticket.Level >= ChunkLevel.Unloaded)
+        if (ticket.Level < 0 || ticket.Level >= ChunkLevel.Unloaded ||
+            ticket.SectionY is < 0)
             throw new ArgumentOutOfRangeException(nameof(ticket));
 
         if (!_tickets.TryGetValue(column, out var tickets))

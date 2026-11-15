@@ -38,6 +38,7 @@ public sealed class PersistentChunkTicketSnapshot
             if (!Enum.IsDefined(entry.Ticket.Type) ||
                 entry.Ticket.Level < 0 ||
                 entry.Ticket.Level >= ChunkLevel.Unloaded ||
+                entry.Ticket.SectionY is < 0 ||
                 (entry.Ticket.Flags & ChunkTicketFlags.Persist) == 0 ||
                 !identities.Add((entry.Column, entry.Ticket)))
                 throw new InvalidDataException(

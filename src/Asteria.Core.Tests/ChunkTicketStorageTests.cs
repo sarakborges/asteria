@@ -108,9 +108,9 @@ public sealed class ChunkTicketStorageTests
     {
         var storage = new ChunkTicketStorage();
         var column = new ChunkColumnCoord(4, -3);
-        var portal = new ChunkTicket(ChunkTicketType.Portal, Level: 30);
-        var forced = new ChunkTicket(ChunkTicketType.Forced, Level: 30);
-        var transient = new ChunkTicket(ChunkTicketType.EnderPearl, Level: 30);
+        var portal = new ChunkTicket(ChunkTicketType.Portal, Level: 30, SectionY: 7);
+        var forced = new ChunkTicket(ChunkTicketType.Forced, Level: 30, SectionY: 8);
+        var transient = new ChunkTicket(ChunkTicketType.EnderPearl, Level: 30, SectionY: 9);
         Assert.True(storage.AddTicket(column, portal, currentTick: 100));
         Assert.True(storage.AddTicket(column, forced, currentTick: 100));
         Assert.True(storage.AddTicket(column, transient, currentTick: 100));

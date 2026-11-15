@@ -81,6 +81,9 @@ internal static class SphereSessionFileCodec
                 writer.Write(entry.Column.Z);
                 writer.Write((byte)entry.Ticket.Type);
                 writer.Write(entry.Ticket.Level);
+                writer.Write(entry.Ticket.SectionY.HasValue);
+                if (entry.Ticket.SectionY is { } sectionY)
+                    writer.Write(sectionY);
                 writer.Write(entry.RemainingTicks.HasValue);
                 if (entry.RemainingTicks is { } remainingTicks)
                     writer.Write(remainingTicks);
@@ -90,7 +93,8 @@ internal static class SphereSessionFileCodec
 
     internal static void ReadPersistentTickets(
         BinaryReader reader,
-        SphereClockSnapshot[] spheres)
+        SphereClockSnapshot[] spheres,
+        bool hasSectionTargets)
     {
         if (reader.ReadUInt32() != PersistentTicketExtensionMagic)
             throw new InvalidDataException("Unknown persistent ticket extension.");
@@ -126,11 +130,15 @@ internal static class SphereSessionFileCodec
                     reader.ReadInt32(), reader.ReadInt32());
                 var type = (ChunkTicketType)reader.ReadByte();
                 var level = reader.ReadInt32();
+                var sectionY = hasSectionTargets &&
+                    PortableStackSaveCodec.ReadBool(reader)
+                    ? reader.ReadInt32()
+                    : (int?)null;
                 var remainingTicks = PortableStackSaveCodec.ReadBool(reader)
                     ? reader.ReadUInt64()
                     : (ulong?)null;
                 entries[index] = new PersistentChunkTicketSnapshotEntry(
-                    column, new ChunkTicket(type, level), remainingTicks);
+                    column, new ChunkTicket(type, level, sectionY), remainingTicks);
             }
 
             var snapshot = new PersistentChunkTicketSnapshot(entries);
