@@ -305,6 +305,25 @@ public sealed class GameplaySessionFileCodecTests
     }
 
     [Fact]
+    public void LegacyV7WithoutPersistentTicketExtensionLoadsWithEmptyTicketState()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions("Legacy V7", 779UL);
+        var states = new DimensionSessionStateStore(creation, Dimensions());
+        states.GetOrCreate(DimensionId.Overworld);
+        var encoded = Encode(GameplaySessionSaveCodec.Capture(states,
+            content.Blocks, content.Fluids, content.Dyes, content.Layers), content);
+
+        // v8 has no trailing extension when no Sphere owns a persistent ticket,
+        // so this is byte-for-byte the old v7 layout except for its version tag.
+        encoded[4] = 7;
+        encoded[5] = 0;
+        var decoded = Decode(encoded, content);
+
+        Assert.Empty(decoded.Spheres.Single().PersistentChunkTickets.Entries);
+    }
+
+    [Fact]
     public void LegacyV5DefaultsCreatureAttackModeToDefault()
     {
         var content = Content(false);

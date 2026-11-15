@@ -153,6 +153,13 @@ public sealed record SphereClockSnapshot
     // Legacy-only data. New captures leave this null and restore ignores it.
     public BlockPhysicsUpdateQueueSnapshot? PhysicsWork => _physicsWork;
 
+    internal SphereClockSnapshot WithPersistentChunkTickets(
+        PersistentChunkTicketSnapshot persistentChunkTickets) =>
+        new(
+            Dimension, WorldTick, DayNight, Position, NaturalSpawnNextAttemptTick,
+            _storageBoxes, _manualStructures, _blockPhysics, _droppedBlocks,
+            _creatures, _fluidWork, _physicsWork, persistentChunkTickets);
+
     public DimensionId Dimension { get; }
     public ulong WorldTick { get; }
     public DayNightClockState? DayNight { get; }
