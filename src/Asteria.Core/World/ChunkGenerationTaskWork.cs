@@ -13,6 +13,19 @@ public enum ChunkGenerationTaskAdvanceKind : byte
     WaitForWorkers,
 }
 
+/// <summary>One vertical section reached a new generation status.</summary>
+public readonly record struct ChunkSectionGenerationProgress(
+    ChunkCoord Coord,
+    ChunkGenerationStatus Status)
+{
+    public ChunkSectionGenerationProgress Validate()
+    {
+        if (!Enum.IsDefined(Status) || Status == ChunkGenerationStatus.Unloaded)
+            throw new ArgumentOutOfRangeException(nameof(Status));
+        return this;
+    }
+}
+
 /// <summary>
 /// One worker operation requested by a generation task. Dependency IDs are
 /// unique within a wait batch and later identify the corresponding completion.
@@ -63,7 +76,8 @@ public sealed class ChunkGenerationTaskAdvanceResult
         ChunkGenerationTaskAdvanceKind kind,
         ImmutableArray<ChunkGenerationWorkerOperation> workerOperations,
         object? completionPayload,
-        ChunkGenerationStatus? progressStatus = null)
+        ChunkGenerationStatus? progressStatus = null,
+        ImmutableArray<ChunkSectionGenerationProgress> sectionProgress = default)
     {
         if (progressStatus is { } status &&
             (!Enum.IsDefined(status) || status == ChunkGenerationStatus.Unloaded))
@@ -73,6 +87,11 @@ public sealed class ChunkGenerationTaskAdvanceResult
         WorkerOperations = workerOperations;
         CompletionPayload = completionPayload;
         ProgressStatus = progressStatus;
+        SectionProgress = sectionProgress.IsDefault
+            ? ImmutableArray<ChunkSectionGenerationProgress>.Empty
+            : sectionProgress;
+        foreach (var progress in SectionProgress)
+            progress.Validate();
     }
 
     public ChunkGenerationTaskAdvanceKind Kind { get; }
@@ -87,6 +106,26 @@ public sealed class ChunkGenerationTaskAdvanceResult
     /// thread publishes it to the corresponding ChunkHolder futures.
     /// </summary>
     public ChunkGenerationStatus? ProgressStatus { get; }
+
+    /// <summary>
+    /// Per-section status transitions carried to the owning coordinator. The
+    /// worker task never mutates a holder; the dispatcher publishes these
+    /// detached transitions on its coordinator thread.
+    /// </summary>
+    public ImmutableArray<ChunkSectionGenerationProgress> SectionProgress { get; }
+
+    public ChunkGenerationTaskAdvanceResult WithSectionProgress(
+        IEnumerable<ChunkSectionGenerationProgress> sectionProgress)
+    {
+        ArgumentNullException.ThrowIfNull(sectionProgress);
+        var updates = sectionProgress.ToImmutableArray();
+        if (updates.IsDefaultOrEmpty)
+            return this;
+
+        var combined = SectionProgress.AddRange(updates);
+        return new ChunkGenerationTaskAdvanceResult(
+            Kind, WorkerOperations, CompletionPayload, ProgressStatus, combined);
+    }
 
     public static ChunkGenerationTaskAdvanceResult Completed => CompletedResult;
 
