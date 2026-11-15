@@ -11,6 +11,8 @@ public enum ChunkGenerationTaskAdvanceKind : byte
     Yield,
     /// <summary>The task forked independent CPU operations and must wait for their results.</summary>
     WaitForWorkers,
+    /// <summary>The task registered non-blocking continuations on holder/status futures.</summary>
+    WaitForFutures,
 }
 
 /// <summary>One vertical section reached a new generation status.</summary>
@@ -24,6 +26,29 @@ public readonly record struct ChunkSectionGenerationProgress(
             throw new ArgumentOutOfRangeException(nameof(Status));
         return this;
     }
+}
+
+/// <summary>
+/// One holder/status future requested by a generation task. The dispatcher
+/// observes completion without blocking a worker and returns the detached
+/// result through the same dependency mailbox used by worker forks.
+/// </summary>
+public readonly record struct ChunkGenerationFutureOperation
+{
+    public ChunkGenerationFutureOperation(
+        ulong dependencyId,
+        Task<ChunkGenerationFutureResult> future)
+    {
+        if (dependencyId == 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(dependencyId), "Dependency ID zero is reserved.");
+        Future = future ?? throw new ArgumentNullException(nameof(future));
+        DependencyId = dependencyId;
+    }
+
+    public ulong DependencyId { get; }
+
+    public Task<ChunkGenerationFutureResult> Future { get; }
 }
 
 /// <summary>
@@ -77,7 +102,8 @@ public sealed class ChunkGenerationTaskAdvanceResult
         ImmutableArray<ChunkGenerationWorkerOperation> workerOperations,
         object? completionPayload,
         ChunkGenerationStatus? progressStatus = null,
-        ImmutableArray<ChunkSectionGenerationProgress> sectionProgress = default)
+        ImmutableArray<ChunkSectionGenerationProgress> sectionProgress = default,
+        ImmutableArray<ChunkGenerationFutureOperation> futureOperations = default)
     {
         if (progressStatus is { } status &&
             (!Enum.IsDefined(status) || status == ChunkGenerationStatus.Unloaded))
@@ -92,6 +118,9 @@ public sealed class ChunkGenerationTaskAdvanceResult
             : sectionProgress;
         foreach (var progress in SectionProgress)
             progress.Validate();
+        FutureOperations = futureOperations.IsDefault
+            ? ImmutableArray<ChunkGenerationFutureOperation>.Empty
+            : futureOperations;
     }
 
     public ChunkGenerationTaskAdvanceKind Kind { get; }
@@ -114,6 +143,8 @@ public sealed class ChunkGenerationTaskAdvanceResult
     /// </summary>
     public ImmutableArray<ChunkSectionGenerationProgress> SectionProgress { get; }
 
+    public ImmutableArray<ChunkGenerationFutureOperation> FutureOperations { get; }
+
     public ChunkGenerationTaskAdvanceResult WithSectionProgress(
         IEnumerable<ChunkSectionGenerationProgress> sectionProgress)
     {
@@ -124,7 +155,8 @@ public sealed class ChunkGenerationTaskAdvanceResult
 
         var combined = SectionProgress.AddRange(updates);
         return new ChunkGenerationTaskAdvanceResult(
-            Kind, WorkerOperations, CompletionPayload, ProgressStatus, combined);
+            Kind, WorkerOperations, CompletionPayload, ProgressStatus, combined,
+            FutureOperations);
     }
 
     public static ChunkGenerationTaskAdvanceResult Completed => CompletedResult;
@@ -150,6 +182,37 @@ public sealed class ChunkGenerationTaskAdvanceResult
             ImmutableArray<ChunkGenerationWorkerOperation>.Empty,
             null,
             progressStatus);
+
+    public static ChunkGenerationTaskAdvanceResult WaitForFutures(
+        IEnumerable<ChunkGenerationFutureOperation> futureOperations)
+    {
+        ArgumentNullException.ThrowIfNull(futureOperations);
+        var operations = futureOperations.ToImmutableArray();
+        if (operations.IsDefaultOrEmpty)
+            throw new ArgumentException(
+                "A task can wait only when it has at least one future dependency.",
+                nameof(futureOperations));
+
+        var dependencyIds = new HashSet<ulong>();
+        foreach (var operation in operations)
+        {
+            if (operation.DependencyId == 0)
+                throw new ArgumentException(
+                    "Future dependency ID zero is reserved.",
+                    nameof(futureOperations));
+            ArgumentNullException.ThrowIfNull(operation.Future);
+            if (!dependencyIds.Add(operation.DependencyId))
+                throw new ArgumentException(
+                    $"Future dependency ID {operation.DependencyId} is duplicated.",
+                    nameof(futureOperations));
+        }
+
+        return new ChunkGenerationTaskAdvanceResult(
+            ChunkGenerationTaskAdvanceKind.WaitForFutures,
+            ImmutableArray<ChunkGenerationWorkerOperation>.Empty,
+            null,
+            futureOperations: operations);
+    }
 
     public static ChunkGenerationTaskAdvanceResult WaitForWorkers(
         IEnumerable<ChunkGenerationWorkerOperation> workerOperations,
