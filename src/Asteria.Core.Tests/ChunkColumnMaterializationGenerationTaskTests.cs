@@ -181,6 +181,42 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void ColumnSchedulesOutOfBatchGravityDependencyAsDynamicSectionTask()
+    {
+        var column = new ChunkColumnCoord(5, -2);
+        var lower = new ChunkCoord(5, 0, -2);
+        var upper = new FakeMaterializationJob(
+            new ChunkCoord(5, 1, -2),
+            sliceCount: 2,
+            ChunkMaterializationStage.GravitySupport,
+            pendingDependencyCoord: lower);
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [upper],
+            initializeLighting: _ => { });
+
+        var lightOperations = 0;
+        var final = CompleteColumn(
+            task,
+            column,
+            task.Advance([], CancellationToken.None),
+            ref lightOperations);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+        var output = Assert.IsType<ChunkColumnMaterializationTaskOutput>(
+            final.CompletionPayload);
+        Assert.Collection(
+            output.Sections,
+            section => Assert.Equal(new ChunkCoord(5, 1, -2), section.Coord));
+        Assert.Equal(2, upper.AdvanceCount);
+        Assert.NotNull(upper.CreatedDependency);
+        Assert.Equal(1, upper.CreatedDependency!.AdvanceCount);
+        Assert.True(upper.CreatedDependency.IsDisposed);
+        Assert.Same(upper.CreatedDependency.Result, upper.ResolvedDependency);
+        Assert.Equal(1, lightOperations);
+    }
+
+    [Fact]
     public void ColumnPreservesLightExecutorPolicyForEverySection()
     {
         var column = new ChunkColumnCoord(5, -3);
