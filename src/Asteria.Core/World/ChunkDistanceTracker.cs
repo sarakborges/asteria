@@ -207,9 +207,3 @@ public sealed class ChunkDistanceTracker
         }
     }
 }
-
-/// <summary>
-/// Result delivered by one of a chunk holder's asynchronous status futures.
-/// Failed promotions carry a reason and are completed as values, allowing
-/// callers to observe demotion without faulted continuation chains.
-/// </summary>

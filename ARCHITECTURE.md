@@ -117,7 +117,7 @@ Block/fluid occupancy follows one shared voxel-content policy.
 Chunk content, residency, simulation readiness and presentation are different facts.
 
 - A resident chunk is not automatically presentation-ready.
-- `GenerationChunkHolder` owns the ticket-derived generation ceiling and generation futures; `ChunkHolder` extends it with FULL/BLOCK_TICKING/ENTITY_TICKING promotion futures and save readiness. Asteria keeps exact vertical-section progress inside the column holder rather than treating each 16³ storage chunk as a Minecraft `LevelChunk`.
+- `GenerationChunkHolder` owns the ticket-derived generation ceiling and generation futures; `ChunkHolder` extends it with FULL/BLOCK_TICKING/ENTITY_TICKING promotion futures and save readiness. This follows the Minecraft Java 26.3 class boundary (`GenerationChunkHolder` is the abstract base and `ChunkHolder` its direct subclass; see the [26.3 GenerationChunkHolder reference](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/server/level/generationchunkholder) and [26.3 ChunkHolder reference](https://aldak0.ru/javadoc/26.3.x/net/m/minecraft/server/level/ChunkHolder.html)). Asteria keeps exact vertical-section progress inside the column holder rather than treating each 16³ storage chunk as a Minecraft `LevelChunk`.
 - A presentation is derived state and may be rebuilt/discarded without mutating authoritative content.
 - Worker snapshots are not authoritative live chunks.
 - Eviction must explicitly retire adapter presentation and domain scheduling state that cannot survive residency.
