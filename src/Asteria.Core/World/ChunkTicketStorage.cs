@@ -1208,6 +1208,19 @@ public sealed class ChunkDependencyClaim : IDisposable
         return owner.GetSectionGenerationFuture(section, status);
     }
 
+    public Task<ChunkGenerationFutureResult> GetSectionGenerationFuture(
+        ChunkGenerationSectionRequirement requirement)
+    {
+        var owner = Volatile.Read(ref _owner) ??
+            throw new ObjectDisposedException(nameof(ChunkDependencyClaim));
+        if (!_sectionTargets.Contains(requirement.Coord))
+            throw new ArgumentException(
+                $"Section {requirement.Coord} is outside this dependency claim.",
+                nameof(requirement));
+        return owner.GetSectionGenerationFuture(
+            requirement.Coord, requirement.Status);
+    }
+
     public void Dispose()
     {
         var owner = Interlocked.Exchange(ref _owner, null);
