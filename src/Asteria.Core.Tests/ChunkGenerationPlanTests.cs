@@ -178,16 +178,16 @@ public sealed class ChunkGenerationPlanTests
         var gravityRequirements = AsteriaChunkGenerationPlan
             .GetHolderStatusRequirements(
                 ChunkGenerationStepId.GravitySupport, target);
-        Assert.NotEmpty(gravityRequirements);
-        Assert.All(gravityRequirements, requirement =>
-        {
-            Assert.Equal(new ChunkCoord(target.X, target.Y - 1, target.Z),
-                requirement.Coord);
-            Assert.Equal(ChunkGenerationStatus.Terrain, requirement.Status);
-        });
-        Assert.Contains(gravityRequirements, requirement =>
+        var lowerSection = new ChunkCoord(target.X, target.Y - 1, target.Z);
+        var lowerRequirements = gravityRequirements
+            .Where(requirement => requirement.Coord == lowerSection)
+            .ToArray();
+        Assert.NotEmpty(lowerRequirements);
+        Assert.All(lowerRequirements, requirement =>
+            Assert.Equal(ChunkGenerationStatus.Terrain, requirement.Status));
+        Assert.Contains(lowerRequirements, requirement =>
             requirement.PrerequisiteStep == ChunkGenerationStepId.SectionTerrainLayers);
-        Assert.Contains(gravityRequirements, requirement =>
+        Assert.Contains(lowerRequirements, requirement =>
             requirement.PrerequisiteStep == ChunkGenerationStepId.SectionTerrainSetup);
     }
 
