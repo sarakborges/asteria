@@ -517,11 +517,17 @@ public sealed partial class SurfaceChunkMaterializer
             }
 
             case ChunkMaterializationStage.ShellFinalization:
+            {
+                var accessRegion = new ChunkGenerationAccessRegion(
+                    AsteriaChunkGenerationPlan.Default,
+                    job.Coord,
+                    ChunkGenerationStepId.ShellFinalization);
                 ConcealSphereShell(
                     job.Chunk, RequiredColumn(job), job.OriginY, job.TopExclusive,
-                    job.SupportMaterializationColumns);
+                    job.SupportMaterializationColumns, accessRegion);
                 job.Stage = ChunkMaterializationStage.GravitySupport;
                 break;
+            }
 
             case ChunkMaterializationStage.GravitySupport:
                 AdvanceGravitySupport(job);
@@ -4766,7 +4772,8 @@ public sealed partial class SurfaceChunkMaterializer
         SurfaceTerrainColumn column,
         int originY,
         int topExclusive,
-        bool[]? columnMask)
+        bool[]? columnMask,
+        ChunkGenerationAccessRegion accessRegion)
     {
         if (_shellBlock.IsAir)
             return;
@@ -4788,21 +4795,26 @@ public sealed partial class SurfaceChunkMaterializer
             if (columnMask is not null &&
                 !columnMask[z * Chunk.Size + x])
                 continue;
+            accessRegion.EnsureCanReadColumnData(
+                checked(x + VoxelCoordinates.ChunkOrigin(
+                    accessRegion.TargetSection).X),
+                checked(z + VoxelCoordinates.ChunkOrigin(
+                    accessRegion.TargetSection).Z));
             var coreBlock = _materials.CoreLayer(column.BiomeAt(x, z)).Block;
 
             // Seal the playable face with its biome's deep terrain material.
             SealShellLining(chunk, x, z, originY, topExclusive,
-                floorLiningY, coreBlock);
+                floorLiningY, coreBlock, accessRegion);
             SealShellLining(chunk, x, z, originY, topExclusive,
-                roofLiningY, coreBlock);
+                roofLiningY, coreBlock, accessRegion);
 
             // Apply the unbreakable boundary last, after every worldgen pass.
             if (_floorY is { } floorY)
                 SetBoundaryBlock(chunk, x, z, originY, topExclusive,
-                    floorY, _shellBlock);
+                    floorY, _shellBlock, accessRegion);
             if (_roofY is { } roofY)
                 SetBoundaryBlock(chunk, x, z, originY, topExclusive,
-                    roofY, _shellBlock);
+                    roofY, _shellBlock, accessRegion);
         }
     }
 
@@ -4813,12 +4825,16 @@ public sealed partial class SurfaceChunkMaterializer
         int originY,
         int topExclusive,
         long worldY,
-        BlockRuntimeId coreBlock)
+        BlockRuntimeId coreBlock,
+        ChunkGenerationAccessRegion accessRegion)
     {
         if (worldY < originY || worldY >= topExclusive)
             return;
 
         var localY = (int)(worldY - originY);
+        var origin = VoxelCoordinates.ChunkOrigin(accessRegion.TargetSection);
+        accessRegion.EnsureCanReadWorldPosition(
+            checked(origin.X + x), checked((int)worldY), checked(origin.Z + z));
         var current = chunk.GetBlock(x, localY, z);
         if (!current.IsAir)
         {
@@ -4829,13 +4845,15 @@ public sealed partial class SurfaceChunkMaterializer
             {
                 // Preserve the biome's legitimate surface if it already
                 // conceals the shell; only repair cleared/partial cells.
+                accessRegion.EnsureCanWriteWorldPosition(
+                    checked(origin.X + x), checked((int)worldY), checked(origin.Z + z));
                 chunk.SetFluid(x, localY, z, FluidCell.Empty);
                 return;
             }
         }
 
         SetBoundaryBlock(chunk, x, z, originY, topExclusive,
-            worldY, coreBlock);
+            worldY, coreBlock, accessRegion);
     }
 
     private static void SetBoundaryBlock(
@@ -4845,12 +4863,16 @@ public sealed partial class SurfaceChunkMaterializer
         int originY,
         int topExclusive,
         long worldY,
-        BlockRuntimeId block)
+        BlockRuntimeId block,
+        ChunkGenerationAccessRegion accessRegion)
     {
         if (worldY < originY || worldY >= topExclusive)
             return;
 
         var localY = (int)(worldY - originY);
+        var origin = VoxelCoordinates.ChunkOrigin(accessRegion.TargetSection);
+        accessRegion.EnsureCanWriteWorldPosition(
+            checked(origin.X + x), checked((int)worldY), checked(origin.Z + z));
         chunk.SetBlock(x, localY, z, block);
         chunk.SetFluid(x, localY, z, FluidCell.Empty);
         chunk.SetSurfaceState(x, localY, z, BlockSurfaceState.Empty);
