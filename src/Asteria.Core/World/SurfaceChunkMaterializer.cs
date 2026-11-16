@@ -1337,7 +1337,9 @@ public sealed partial class SurfaceChunkMaterializer
                     new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
                     supportOnly: true,
                     supportFaceFastPath: true,
-                    supportFaceColumns: supportColumns);
+                    supportFaceColumns: supportColumns,
+                    surfaceStructurePlacements:
+                        RequiredSurfaceStructurePlacements(job));
                 supportJobCreated = true;
             }
         }
@@ -1385,7 +1387,9 @@ public sealed partial class SurfaceChunkMaterializer
                         this,
                         new ChunkCoord(job.Coord.X, job.Coord.Y - 1, job.Coord.Z),
                         supportOnly: true,
-                        supportFaceColumns: fallbackColumns);
+                        supportFaceColumns: fallbackColumns,
+                        surfaceStructurePlacements:
+                            RequiredSurfaceStructurePlacements(job));
                     return;
                 }
 
@@ -1498,7 +1502,7 @@ public sealed partial class SurfaceChunkMaterializer
         var worldX = supportJob.OriginX + localX;
         var worldZ = supportJob.OriginZ + localZ;
         var structurePlacements =
-            ResolveSurfaceStructurePlacementsForColumn(supportJob.Coord);
+            RequiredSurfaceStructurePlacements(supportJob);
         if (HasSurfaceStructurePayloadAt(
                 structurePlacements, worldX, topWorldY, worldZ) ||
             HasSurfaceStructurePayloadAt(
@@ -1789,7 +1793,8 @@ public sealed partial class SurfaceChunkMaterializer
             ChunkCoord coord,
             bool supportOnly = false,
             bool supportFaceFastPath = false,
-            bool[]? supportFaceColumns = null)
+            bool[]? supportFaceColumns = null,
+            IReadOnlyList<SurfaceStructurePlacement>? surfaceStructurePlacements = null)
         {
             _owner = owner;
             Coord = coord;
@@ -1801,8 +1806,13 @@ public sealed partial class SurfaceChunkMaterializer
                 throw new ArgumentException(
                     "A support-face fast path requires a non-empty chunk-area column mask.",
                     nameof(supportFaceColumns));
+            if (supportFaceFastPath && surfaceStructurePlacements is null)
+                throw new ArgumentException(
+                    "A support-face fast path requires the parent column's resolved surface-structure placements.",
+                    nameof(surfaceStructurePlacements));
             SupportFaceFastPath = supportFaceFastPath;
             SupportFaceColumns = supportFaceColumns;
+            SurfaceStructurePlacements = surfaceStructurePlacements;
             IsSparseSupportFallback =
                 supportOnly &&
                 !supportFaceFastPath &&
