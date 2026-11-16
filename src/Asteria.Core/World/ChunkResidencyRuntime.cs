@@ -1414,13 +1414,9 @@ public sealed class ChunkResidencyRuntime
         if (pending.Count == 0)
             return;
 
-        var residentColumns = _world.LoadedChunkCoords
-            .Select(ChunkColumnCoord.FromChunk)
-            .ToHashSet();
-
         foreach (var column in pending)
         {
-            if (residentColumns.Contains(column) ||
+            if (_world.HasResidentChunksInColumn(column) ||
                 _materializationTasks.ContainsKey(column) ||
                 _streaming.RequestedSectionsInColumn(column).Count > 0)
                 continue;

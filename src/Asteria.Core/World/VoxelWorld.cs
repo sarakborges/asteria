@@ -155,6 +155,13 @@ public sealed class VoxelWorld
     public bool ContainsChunk(ChunkCoord coord) => _chunks.ContainsKey(coord);
 
     /// <summary>
+    /// O(1) residency query used to finish holder unloads without scanning
+    /// every resident vertical section in the world.
+    /// </summary>
+    public bool HasResidentChunksInColumn(ChunkColumnCoord column) =>
+        _residentColumnChunkCounts.ContainsKey(column);
+
+    /// <summary>
     /// Captures light/residency revisions for the resident chunk neighborhood
     /// that can contribute samples to a one-voxel lighting halo at this position.
     /// The destination must contain at least eight entries.

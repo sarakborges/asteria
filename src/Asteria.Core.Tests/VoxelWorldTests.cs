@@ -62,6 +62,39 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
+    public void ResidentColumnIndexTracksInsertArchiveAndRestore()
+    {
+        var world = new VoxelWorld();
+        var lower = new ChunkCoord(4, 0, -3);
+        var upper = new ChunkCoord(4, 1, -3);
+        var otherColumn = new ChunkCoord(5, 0, -3);
+
+        Assert.False(world.HasResidentChunksInColumn(
+            ChunkColumnCoord.FromChunk(lower)));
+        world.InsertChunk(lower, new Chunk());
+        world.InsertChunk(upper, new Chunk());
+        world.InsertChunk(otherColumn, new Chunk());
+
+        Assert.True(world.HasResidentChunksInColumn(
+            ChunkColumnCoord.FromChunk(lower)));
+        Assert.True(world.HasResidentChunksInColumn(
+            ChunkColumnCoord.FromChunk(otherColumn)));
+
+        world.ArchiveChunk(lower);
+        Assert.True(world.HasResidentChunksInColumn(
+            ChunkColumnCoord.FromChunk(upper)));
+        Assert.False(world.HasResidentChunksInColumn(
+            ChunkColumnCoord.FromChunk(otherColumn)) is false);
+
+        world.ArchiveChunk(upper);
+        Assert.False(world.HasResidentChunksInColumn(
+            ChunkColumnCoord.FromChunk(upper)));
+        Assert.Equal(ChunkRestoreResult.Restored, world.RestoreChunk(lower));
+        Assert.True(world.HasResidentChunksInColumn(
+            ChunkColumnCoord.FromChunk(lower)));
+    }
+
+    [Fact]
     public void EditedChunkMovesToSessionArchiveAndRestoresExactRuntimeState()
     {
         var world = new VoxelWorld();
