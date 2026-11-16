@@ -189,12 +189,6 @@ public sealed class VolumeStructureField
     }
 
     /// <summary>
-    /// Resumable deterministic scan of authored formations intersecting one
-    /// 16³ section. Candidate evaluation and emitted voxels have separate
-    /// budgets: a large blueprint cannot monopolize a worker slice, and a
-    /// column containing no valid formations still yields after bounded tests.
-    /// </summary>
-    /// <summary>
     /// Resumable section rasterizer over one completed column anchor product.
     /// Candidate discovery and support-Y resolution happen once per X/Z column;
     /// this cursor only selects placements intersecting its 16³ section.
@@ -215,7 +209,7 @@ public sealed class VolumeStructureField
         private int _activeWorldZ;
         private int _activeSupportY;
 
-        private ChunkCursor(
+        internal ChunkCursor(
             VolumeStructureField owner,
             ChunkCoord coord,
             ColumnAnchorProduct columnProduct)
@@ -337,7 +331,7 @@ public sealed class VolumeStructureField
     /// its placements are frozen in deterministic order and shared read-only by
     /// all vertical section cursors in that column.
     /// </summary>
-    private sealed class ColumnAnchorProduct
+    internal sealed class ColumnAnchorProduct
     {
         private readonly object _gate = new();
         private readonly VolumeStructureField _owner;
@@ -551,7 +545,7 @@ public sealed class VolumeStructureField
         }
     }
 
-    private readonly record struct ResolvedAnchor(
+    internal readonly record struct ResolvedAnchor(
         Variant Variant,
         int WorldX,
         int WorldZ,
@@ -753,10 +747,10 @@ public sealed class VolumeStructureField
     private readonly record struct CandidateKey(
         int RuleIndex, int CellX, int CellZ);
 
-    private sealed record RelativeVoxel(int X, int Y, int Z,
+    internal sealed record RelativeVoxel(int X, int Y, int Z,
                                         BlockRuntimeId Block);
 
-    private sealed record Variant(
+    internal sealed record Variant(
         IReadOnlyList<RelativeVoxel> Voxels,
         IReadOnlySet<BlockRuntimeId> GroundBlocks,
         int Radius, int MinY, int MaxY);
