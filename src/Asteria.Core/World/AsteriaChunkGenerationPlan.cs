@@ -34,12 +34,12 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope DirectionalPaletteReadHalo =
         new(horizontalRadius: 4, minimumSectionOffset: -4, maximumSectionOffset: 4);
 
-    // Ceiling decorators may begin resolving an additive support palette
-    // one voxel above the target section's top face, then read its full finite
-    // surface depth. This can reach one section farther than TerrainLayers.
+    // The vertical scan includes a target at localY == Chunk.Size; its
+    // ceiling support can start at originY + Chunk.Size + 1 before reading
+    // the full finite surface depth.
     private static readonly int MaximumVerticalDecorationReadSectionOffset =
         checked((int)(
-            ((uint)Chunk.Size +
+            ((uint)Chunk.Size + 1u +
              BiomeDefinition.MaximumFiniteSurfaceLayerDepth) /
             (uint)Chunk.Size));
 
