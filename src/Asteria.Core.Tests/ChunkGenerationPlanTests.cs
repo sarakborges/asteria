@@ -822,8 +822,13 @@ public sealed class ChunkGenerationPlanTests
         Assert.True(admission.MarkSectionFull(existing));
 
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
-        Assert.Equal(ChunkGenerationStatus.Full, holder.CompletedGenerationStatus);
-        Assert.True(holder.FullChunkFuture.IsCompletedSuccessfully);
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            manager.GetCompletedSectionGenerationStatus(existing));
+        Assert.Equal(
+            ChunkGenerationStatus.Unloaded,
+            holder.CompletedGenerationStatus);
+        Assert.False(holder.FullChunkFuture.IsCompleted);
         var previousRevision = holder.GenerationProgressRevision;
 
         Assert.True(admission.TryAdmit(
@@ -842,8 +847,14 @@ public sealed class ChunkGenerationPlanTests
 
         Assert.True(admission.MarkSectionFull(newlyRequired));
         Assert.Equal(0, admission.PendingAdmissionCount);
-        Assert.Equal(ChunkGenerationStatus.Full, holder.CompletedGenerationStatus);
-        Assert.True(holder.FullChunkFuture.IsCompletedSuccessfully);
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            manager.GetCompletedSectionGenerationStatus(newlyRequired));
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            manager.GetCompletedSectionGenerationStatus(existing));
+        Assert.Equal(ChunkGenerationStatus.Unloaded, holder.CompletedGenerationStatus);
+        Assert.False(holder.FullChunkFuture.IsCompleted);
     }
 
     [Fact]

@@ -865,6 +865,11 @@ public sealed class ChunkResidencyRuntime
         {
             _playerTicketAdmissions.Abandon(column);
             cancelledTasks++;
+            if (_acceptingMaterializationWork)
+            {
+                foreach (var section in work.Sections)
+                    RequeueIfDesired(section, work.PendingSinceTimestamp);
+            }
             return;
         }
 

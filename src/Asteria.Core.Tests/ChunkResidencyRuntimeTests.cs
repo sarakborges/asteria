@@ -241,7 +241,10 @@ public sealed class ChunkResidencyRuntimeTests
             TimeSpan.FromSeconds(5));
 
         Assert.True(staleDiscarded,
-            "The obsolete holder result was not discarded and requeued.");
+            $"The obsolete holder result was not discarded and requeued. " +
+            $"Pending={fixture.Runtime.PendingCount}, " +
+            $"Materializing={fixture.Runtime.MaterializingCount}, " +
+            $"Jobs={fixture.Runtime.MaterializationJobCount}.");
         Assert.False(fixture.World.ContainsChunk(playerSection));
         Assert.False(fixture.World.ContainsChunk(ticketSection));
 
