@@ -1326,3 +1326,45 @@ The old duplicate `ChunkStreamingPriority` type was removed and remaining stream
 - Validate workflow: [#43810247289](https://github.com/sarakborges/asteria/actions/runs/43810247289), on HEAD `96a1204b6aaaac17718207e43046bbdba0bca0e5`, running when this checkpoint was written. Core/headless results not yet reported; WebUI build and Storybook had passed, screen parity was running; fixed-seed terrain A/B was running.
 - Windows export workflow: [#43810237876](https://github.com/sarakborges/asteria/actions/runs/43810237876), on the same HEAD and still running.
 - No performance improvement is claimed until the fixed-seed A/B report completes on the same implementation HEAD.
+
+
+---
+
+## Continuation checkpoint — single-owner surface placement product — 2026-11-16
+
+### Current branch state
+
+- Branch: `worldgen-perf-fix`
+- PR: [#157](https://github.com/sarakborges/asteria/pull/157), base `worldgen-remake`
+- Latest implementation commits:
+  - `8a59596c7e` — support-face and fallback child jobs inherit resolved surface placements.
+  - `2594d1bd64` — `MaterializeStructures` reuses the inherited product instead of resolving the column again.
+- PR remains open and unmerged. Do not merge or deploy without an explicit request.
+
+### Surface placement producer/consumer contract
+
+- The main section's `SurfaceStructures` pass is the only path that resolves placements for that job.
+- Gravity-support child jobs receive the immutable `SurfaceStructurePlacements` product from their parent.
+- `CanResolveSupportFaceFromTerrain` consumes that product when deciding whether a terrain-derived support face is safe.
+- The child `SurfaceStructures` stage also reuses the inherited placements; it no longer calls the column resolver again.
+- Both the initial support-face fast path and the sparse fallback child receive the same product, so neither can silently become a second producer.
+
+This fixes an access/lifecycle violation, but the column-scoped step is still represented by a shared immutable field cache and a job product rather than a separately admitted column task/future. A proper column producer/future is still a follow-up if strict execution-scope parity is required.
+
+### Validation on the previous implementation commit
+
+- Windows export on `8a59596c7e`: passed.
+- WebUI build, Storybook and screen parity: passed.
+- Core suite: 1,892 passed / 2 failed / 1,894 total. Both failures were five-second worker-pool completion waits:
+  - `ChunkGenerationWorkerPoolTests.WorkerPublishesDetachedResultToCompletionMailbox`
+  - `WorldWorkerPoolTests.CancellationAndFailuresArePublishedAsOperationResults`
+- No C# compilation errors were reported. The failures may be ThreadPool/test-runner scheduling contention, but this has not yet been proven; retry the failed job once the parent workflow finishes before classifying them as flakes.
+- Fixed-seed terrain A/B was still running when the validation job was inspected. No performance result is claimed.
+
+### Next work
+
+1. Validate the new `2594d1bd64` commit, including the inherited-product path.
+2. Retry the two timeout tests only after the previous workflow is terminal; investigate if they reproduce.
+3. Complete the fixed-seed terrain A/B and inspect its uploaded evidence before making performance claims.
+4. Continue the column-scoped product/future design for `SurfaceStructurePlacements` and `VolumeStructures`; do not narrow the current `VolumeStructureReadHalo` of horizontal radius 1 / vertical offsets [-34, +34] until the true producer has explicit immutable inputs and consumers use the product.
+5. Finish auditing the remaining stage access contracts and holder queue-priority propagation.
