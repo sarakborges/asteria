@@ -143,6 +143,57 @@ public sealed class ChunkGenerationDispatcherTests
     }
 
     [Fact]
+    public async Task HolderFutureWaitAdmitsItsProducerOnTheCoordinatorBeforeParking()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var ownerThread = Environment.CurrentManagedThreadId;
+        var source = new TaskCompletionSource<ChunkGenerationFutureResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var product = new Chunk();
+        var producerColumn = new ChunkColumnCoord(44, 0);
+        var producerKey = new ChunkGenerationTaskKey(
+            producerColumn, ChunkGenerationStepId.SectionReady);
+        var admissionCount = 0;
+        var admissionThread = 0;
+        var waitingTask = new ProducerAdmissionFutureWaitTask(
+            source.Task,
+            () =>
+            {
+                admissionCount++;
+                admissionThread = Environment.CurrentManagedThreadId;
+                Assert.True(dispatcher.TryEnqueue(
+                    producerKey,
+                    1,
+                    Priority(0),
+                    44,
+                    new FutureProducerTask(() =>
+                        source.TrySetResult(ChunkGenerationFutureResult.Success(
+                            ChunkGenerationStatus.Terrain,
+                            revision: 12,
+                            product: product)))));
+            });
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(43), 1, Priority(0), 43, waitingTask));
+
+        var report = PumpUntilIdle(dispatcher);
+
+        Assert.Equal(1, admissionCount);
+        Assert.Equal(ownerThread, admissionThread);
+        Assert.True(waitingTask.ObservedFuture.Succeeded);
+        Assert.Equal(ChunkGenerationStatus.Terrain, waitingTask.ObservedFuture.Status);
+        Assert.Equal(12UL, waitingTask.ObservedFuture.Revision);
+        Assert.Same(product, waitingTask.ObservedFuture.Product);
+        Assert.Equal(2, dispatcher.CompletedTaskCount);
+        Assert.Equal(0, dispatcher.WaitingTaskCount);
+        Assert.Equal(0, dispatcher.RetiringTaskCount);
+        Assert.Equal(0, pool.InFlightWorkCount);
+        Assert.True(report.TasksCompleted >= 2);
+    }
+
+    [Fact]
     public async Task CancellingHolderFutureWaitReleasesTaskWithoutWaitingForFuture()
     {
         var mailbox = new ChunkGenerationCompletionMailbox();
@@ -652,6 +703,49 @@ public sealed class ChunkGenerationDispatcherTests
 
             ObservedResults.AddRange(
                 completedDependencies.Select(item => item.Result as string));
+            return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class ProducerAdmissionFutureWaitTask(
+        Task<ChunkGenerationFutureResult> future,
+        Action requestProducer) : IChunkGenerationTask
+    {
+        private bool _waiting;
+
+        public ChunkGenerationFutureResult ObservedFuture { get; private set; }
+
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!_waiting)
+            {
+                _waiting = true;
+                return ChunkGenerationTaskAdvanceResult.WaitForFutures(
+                [
+                    new ChunkGenerationFutureOperation(
+                        902, future, requestProducer),
+                ]);
+            }
+
+            var completion = Assert.Single(completedDependencies);
+            Assert.Null(completion.Error);
+            ObservedFuture = Assert.IsType<ChunkGenerationFutureResult>(
+                completion.Result);
+            return ChunkGenerationTaskAdvanceResult.Completed;
+        }
+    }
+
+    private sealed class FutureProducerTask(Action produce) : IChunkGenerationTask
+    {
+        public ChunkGenerationTaskAdvanceResult Advance(
+            IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            produce();
             return ChunkGenerationTaskAdvanceResult.Completed;
         }
     }

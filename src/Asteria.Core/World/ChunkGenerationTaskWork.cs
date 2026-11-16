@@ -38,18 +38,27 @@ public readonly record struct ChunkGenerationFutureOperation
 {
     public ChunkGenerationFutureOperation(
         ulong dependencyId,
-        Task<ChunkGenerationFutureResult> future)
+        Task<ChunkGenerationFutureResult> future,
+        Action? requestProducer = null)
     {
         if (dependencyId == 0)
             throw new ArgumentOutOfRangeException(
                 nameof(dependencyId), "Dependency ID zero is reserved.");
         Future = future ?? throw new ArgumentNullException(nameof(future));
         DependencyId = dependencyId;
+        RequestProducer = requestProducer;
     }
 
     public ulong DependencyId { get; }
 
     public Task<ChunkGenerationFutureResult> Future { get; }
+
+    /// <summary>
+    /// Idempotent producer admission request executed by the serial dispatcher
+    /// before it subscribes to an incomplete future. It must only enqueue or
+    /// raise the target holder's requested status; it must not block.
+    /// </summary>
+    public Action? RequestProducer { get; }
 }
 
 /// <summary>

@@ -657,6 +657,27 @@ public sealed class ChunkGenerationDispatcher
             throw new InvalidOperationException(
                 $"Generation task received an invalid future wait token: {entry.Instance}");
 
+        // Admission belongs to the serial coordinator, not the task's
+        // worker advance. This lets the request enqueue a producer on the same
+        // dispatcher before the dependent task parks on its status future.
+        // A future may complete between the IsCompleted check and admission,
+        // so RequestProducer must be idempotent.
+        try
+        {
+            foreach (var operation in operations)
+            {
+                if (!operation.Future.IsCompleted)
+                    operation.RequestProducer?.Invoke();
+            }
+        }
+        catch (Exception error)
+        {
+            FailEntry(entry, error);
+            if (entry.InFlightOperations == 0)
+                RetireEntry(entry);
+            return;
+        }
+
         foreach (var operation in operations)
         {
             if (!entry.InFlightFutureOperations.Add(operation.DependencyId))

@@ -1441,3 +1441,14 @@ The first validation of `99a7102` found a C# local-name collision between the ac
 ### Ticket-propagation test correction
 
 On `f7c07fa`, Core compilation passed and 1,900 of 1,901 tests passed. The new priority-event test initially counted every holder affected by ticket propagation (26) while asserting only the target holder's two transitions. The assertion now filters by holder identity and validates exactly those two transitions. The next CI run must confirm the corrected test on its exact HEAD.
+
+
+## Deferred holder-future producer admission — 2026-11-16
+
+Minecraft Java Edition 26.3's `ChunkGenerationTask.runUntilWait` yields on an incomplete layer future; the chunk-map continuation resumes the task when that future completes. The layer scheduler has already called `GenerationChunkHolder.applyStep` for the dependent holders, which claims or reuses each status producer before the future wait is installed. See the 26.3 [generation pipeline](https://minecraftdocs.dev/systems/world/chunk-generation-pipeline) and the `ChunkGenerationTask.scheduleLayer`, `scheduleChunkInLayer`, and `runUntilWait` method descriptions in the [26.3 Javadoc](https://aldak0.ru/javadoc/26.3.x/net/minecraft/server/level/ChunkGenerationTask.html).
+
+Asteria's dispatcher already supported non-blocking `WaitForFutures`, but `ChunkGenerationFutureOperation` carried only the future. A dependent could park forever on an allowed holder/status future without requesting the producer that would complete it. The operation now optionally carries an idempotent `RequestProducer` callback. `ChunkGenerationDispatcher.BeginFutureWait` invokes that callback on the serial coordinator before attaching the future continuation. The callback is restricted to producer admission/enqueue and must not block; future completion still returns through the completion mailbox and resumes the waiting task on a later coordinator pump.
+
+A regression test now has one column task request a status future, admit a second column's producer through the same dispatcher, and complete only when that producer runs. It verifies the producer request occurs exactly once on the owner thread, both tasks complete, and no worker remains occupied by the parked wait.
+
+**Boundary:** this installs the producer-admission contract at the dispatcher. The residency runtime still needs to provide a concrete status-target producer factory and the column task must translate cross-column `HolderStatus` requirements into these operations. Same-column section dependencies remain locally coordinated to avoid parent/child scheduler deadlocks.
