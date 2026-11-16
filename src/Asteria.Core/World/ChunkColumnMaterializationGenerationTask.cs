@@ -434,7 +434,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             return false;
 
         var waiting = false;
-        foreach (var requirement in AsteriaChunkGenerationPlan
+        foreach (var requirement in AsteriaChunkLoadingPlan
                      .GetHolderStatusRequirements(targetStep, sectionTask.Coord))
         {
             // Same-section requirements are completed by this section task's
