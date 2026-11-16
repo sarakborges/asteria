@@ -303,6 +303,40 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void PendingColumnsUseAuthoritativeHolderTicketLevelsAndReprioritizeOnChange()
+    {
+        var state = new ChunkStreamingState();
+        var near = new ChunkCoord(1, 0, 0);
+        var forcedFar = new ChunkCoord(8, 0, 0);
+        var desired = new HashSet<ChunkCoord> { near, forcedFar };
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 10,
+            retentionRadius: 0,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        Assert.Equal(near, state.PopPendingByPriority());
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 10,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord> { near, forcedFar });
+
+        // The second assertion below exercises a fresh pending set. Give the
+        // farther column a stronger FORCED ticket after both entries are queued.
+        var ticket = new ChunkTicket(
+            ChunkTicketType.Forced, Level: 30, SectionY: forcedFar.Y);
+        Assert.True(state.DistanceManager.AddTicket(
+            ChunkColumnCoord.FromChunk(forcedFar), ticket, currentTick: 0));
+
+        Assert.Equal(forcedFar, state.PopPendingByPriority());
+    }
+
+    [Fact]
     public void PendingDispatchPreservesOriginalQueueTimestamp()
     {
         var state = new ChunkStreamingState();

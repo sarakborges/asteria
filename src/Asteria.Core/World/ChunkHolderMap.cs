@@ -1,6 +1,15 @@
 namespace Asteria.Core.World;
 
 /// <summary>
+/// One authoritative loading-ticket level transition emitted after the loading
+/// graph settles and the owning holder reconciles its status futures.
+/// </summary>
+public readonly record struct ChunkHolderTicketLevelChange(
+    ChunkHolder Holder,
+    int PreviousTicketLevel,
+    int TicketLevel);
+
+/// <summary>
 /// Owns the identity and lifetime of horizontal chunk holders. Loading graph
 /// updates are applied here; generation tasks retain holders through explicit
 /// dependency claims until their work reaches a terminal state.
@@ -47,29 +56,49 @@ public sealed class ChunkHolderMap
     /// with the settled loading graph. Dependency-only holders remain present
     /// but are demoted to UNLOADED until a graph ticket promotes them again.
     /// </summary>
-    internal void SynchronizeLoadingLevels()
+    internal IReadOnlyList<ChunkHolderTicketLevelChange> SynchronizeLoadingLevels()
     {
+        var changes = new List<ChunkHolderTicketLevelChange>();
+
         foreach (var (column, level) in _loadingLevels)
         {
             _pendingUnloads.Remove(column);
             if (_holders.TryGetValue(column, out var holder))
-                holder.UpdateTicketLevel(level);
+            {
+                var previousLevel = holder.TicketLevel;
+                if (holder.UpdateTicketLevel(level))
+                {
+                    changes.Add(new ChunkHolderTicketLevelChange(
+                        holder, previousLevel, level));
+                }
+            }
             else
-                _holders.Add(column, new ChunkHolder(column, level));
+            {
+                var holder = new ChunkHolder(column, level);
+                _holders.Add(column, holder);
+                changes.Add(new ChunkHolderTicketLevelChange(
+                    holder, ChunkLevel.Unloaded, level));
+            }
         }
 
         foreach (var (column, holder) in _holders.ToArray())
         {
-            if (_loadingLevels.TryGetValue(column, out var level))
+            if (_loadingLevels.ContainsKey(column))
             {
                 _pendingUnloads.Remove(column);
-                holder.UpdateTicketLevel(level);
                 continue;
             }
 
-            holder.UpdateTicketLevel(ChunkLevel.Unloaded);
+            var previousLevel = holder.TicketLevel;
+            if (holder.UpdateTicketLevel(ChunkLevel.Unloaded))
+            {
+                changes.Add(new ChunkHolderTicketLevelChange(
+                    holder, previousLevel, ChunkLevel.Unloaded));
+            }
             _pendingUnloads.Add(column);
         }
+
+        return changes;
     }
 
     /// <summary>

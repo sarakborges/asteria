@@ -303,6 +303,37 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void DistanceManagerPublishesSettledHolderTicketLevelChangesInOneBatch()
+    {
+        var manager = new ChunkDistanceManager();
+        IReadOnlyList<ChunkHolderTicketLevelChange>? observed = null;
+        manager.HolderTicketLevelsChanged += changes => observed = changes;
+        var column = new ChunkColumnCoord(7, -5);
+
+        Assert.True(manager.AddTicket(
+            column,
+            new ChunkTicket(ChunkTicketType.Forced, Level: 30),
+            currentTick: 0));
+
+        Assert.NotNull(observed);
+        var change = Assert.Single(observed.Where(
+            item => item.Holder.Position == column));
+        Assert.Equal(ChunkLevel.Unloaded, change.PreviousTicketLevel);
+        Assert.Equal(30, change.TicketLevel);
+
+        observed = null;
+        Assert.True(manager.RemoveTicket(
+            column,
+            new ChunkTicket(ChunkTicketType.Forced, Level: 30)));
+
+        Assert.NotNull(observed);
+        var demotion = Assert.Single(observed.Where(
+            item => item.Holder.Position == column));
+        Assert.Equal(30, demotion.PreviousTicketLevel);
+        Assert.Equal(ChunkLevel.Unloaded, demotion.TicketLevel);
+    }
+
+    [Fact]
     public void HolderIdentitySurvivesPendingUnloadAndIsReusedByANewTicket()
     {
         var manager = new ChunkDistanceManager();

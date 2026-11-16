@@ -26,6 +26,7 @@ internal sealed class ChunkColumnPendingQueue
 
     private ChunkCoord _center;
     private ChunkMovementDirection _movementDirection;
+    private Func<ChunkCoord, int>? _ticketLevelProvider;
     private bool _hasPriorityContext;
 
     public int Count { get; private set; }
@@ -46,12 +47,30 @@ internal sealed class ChunkColumnPendingQueue
     /// </summary>
     public void UpdatePriorityContext(
         ChunkCoord center,
-        ChunkMovementDirection movementDirection)
+        ChunkMovementDirection movementDirection,
+        Func<ChunkCoord, int> ticketLevelProvider)
     {
         _center = center;
         _movementDirection = movementDirection;
+        _ticketLevelProvider = ticketLevelProvider ??
+            throw new ArgumentNullException(nameof(ticketLevelProvider));
         _hasPriorityContext = true;
+        ReprioritizeColumns();
+    }
 
+    /// <summary>
+    /// Reclassifies all not-yet-admitted columns after the loading graph changes
+    /// holder ticket levels. Distance and stable coordinate tie-breaks remain
+    /// secondary to the authoritative ticket level.
+    /// </summary>
+    public void UpdateTicketLevels()
+    {
+        if (_hasPriorityContext)
+            ReprioritizeColumns();
+    }
+
+    private void ReprioritizeColumns()
+    {
         foreach (var (column, sections) in _sectionsByColumn
                      .OrderBy(entry => entry.Key))
         {
@@ -337,7 +356,15 @@ internal sealed class ChunkColumnPendingQueue
         ChunkStreamingPriority? best = null;
         foreach (var section in sections)
         {
-            var candidate = StreamingPriority(section.Coord);
+            var distancePriority = StreamingPriority(section.Coord);
+            var candidate = new ChunkStreamingPriority(
+                _ticketLevelProvider?.Invoke(section.Coord) ??
+                    distancePriority.TicketLevel,
+                distancePriority.HorizontalDistanceSquared,
+                distancePriority.TotalDistanceSquared,
+                distancePriority.Y,
+                distancePriority.Z,
+                distancePriority.X);
             if (best is null || candidate.CompareTo(best.Value) < 0)
                 best = candidate;
         }

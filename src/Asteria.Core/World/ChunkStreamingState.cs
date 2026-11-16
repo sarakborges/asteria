@@ -82,6 +82,12 @@ public sealed class ChunkStreamingState
     private readonly RetiredChunkQueue _retired = new();
     private readonly ChunkDistanceManager _distanceManager = new();
 
+    public ChunkStreamingState()
+    {
+        _distanceManager.HolderTicketLevelsChanged +=
+            _ => _pending.UpdateTicketLevels();
+    }
+
     public ChunkCoord? Center { get; private set; }
 
     public int HorizontalRadius { get; private set; }
@@ -305,7 +311,8 @@ public sealed class ChunkStreamingState
         }
 
         UpdateMovementDirection(center);
-        _pending.UpdatePriorityContext(center, MovementDirection);
+        _pending.UpdatePriorityContext(
+            center, MovementDirection, GetLoadingLevel);
 
         var previousInterest = _desired
             .Concat(_retained)

@@ -18,6 +18,14 @@ public sealed class ChunkDistanceManager
         _holders = new ChunkHolderMap(_loading.Levels);
     }
 
+    /// <summary>
+    /// Raised once per settled loading-graph update when one or more holder
+    /// ticket levels change. Subscribers reclassify queued work from the new
+    /// authoritative levels rather than relying on distance estimates.
+    /// </summary>
+    public event Action<IReadOnlyList<ChunkHolderTicketLevelChange>>?
+        HolderTicketLevelsChanged;
+
     public ChunkTicketStorage Tickets => _tickets;
 
     public ChunkDistanceTracker LoadingTracker => _loading;
@@ -217,8 +225,12 @@ public sealed class ChunkDistanceManager
         }
     }
 
-    private void SynchronizeHolders() =>
-        _holders.SynchronizeLoadingLevels();
+    private void SynchronizeHolders()
+    {
+        var changes = _holders.SynchronizeLoadingLevels();
+        if (changes.Count > 0)
+            HolderTicketLevelsChanged?.Invoke(changes);
+    }
 
     public int PersistentTicketCount =>
         _tickets.PersistentTicketCount;
