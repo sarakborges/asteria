@@ -106,9 +106,10 @@ public sealed class ChunkHolderMap
     }
 
     /// <summary>
-    /// Retains every horizontal holder intersecting the generation plan's
-    /// spatial dependency envelope. Each holder is retained once even when
-    /// several section targets or overlapping envelopes refer to it.
+    /// Retains every horizontal holder intersecting the loading plan's
+    /// holder-status envelope. Immutable generator-field read halos do not
+    /// retain holders. Each holder is claimed once even when several section
+    /// targets or overlapping envelopes refer to it.
     /// </summary>
     public ChunkDependencyClaim AcquireDependencyClaims(
         IEnumerable<ChunkCoord> targets,
