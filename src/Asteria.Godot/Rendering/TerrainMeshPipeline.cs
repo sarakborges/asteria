@@ -124,7 +124,7 @@ public sealed class TerrainMeshPipeline
             return false;
         }
 
-        UpdateInFlightWorkerPriorities(center, movement);
+        UpdateInFlightWorkerPriorities(center);
 
         // Interactive and background operations enter the same global
         // priority queue. Alternate capture lanes for fairness; the shared
@@ -184,8 +184,7 @@ public sealed class TerrainMeshPipeline
             budget);
 
     private void UpdateInFlightWorkerPriorities(
-        ChunkCoord? center,
-        ChunkMovementDirection movement)
+        ChunkCoord? center)
     {
         if (center is null)
             return;
@@ -193,7 +192,7 @@ public sealed class TerrainMeshPipeline
         if (_interactiveInFlightBatch is { } interactive)
         {
             var priority = ResolveWorkerPriority(
-                interactive, center, movement,
+                interactive, center,
                 WorldWorkerPriority.FromPriorityClass(
                     WorldWorkerPool.InteractiveWorldPriority));
             _interactiveWorker.TryUpdatePriority(priority);
@@ -202,7 +201,7 @@ public sealed class TerrainMeshPipeline
         if (_backgroundInFlightBatch is { } background)
         {
             var priority = ResolveWorkerPriority(
-                background, center, movement,
+                background, center,
                 WorldWorkerPriority.FromPriorityClass(
                     WorldWorkerPool.BackgroundWorldPriority));
             _backgroundWorker.TryUpdatePriority(priority);
@@ -212,7 +211,6 @@ public sealed class TerrainMeshPipeline
     private static WorldWorkerPriority ResolveWorkerPriority(
         WorldMeshBatch batch,
         ChunkCoord? center,
-        ChunkMovementDirection movement,
         WorldWorkerPriority fallbackPriority)
     {
         if (center is not { } focus || batch.DirtyMeshlets.Count == 0)
@@ -222,7 +220,7 @@ public sealed class TerrainMeshPipeline
         foreach (var coord in batch.DirtyMeshlets.Keys)
         {
             var priority = ChunkStreamingState.StreamingPriority(
-                coord, focus, movement);
+                coord, focus);
             if (nearest is null || priority.CompareTo(nearest.Value) < 0)
                 nearest = priority;
         }
@@ -285,7 +283,7 @@ public sealed class TerrainMeshPipeline
                 _revisions,
                 relightable,
                 workerPriority: ResolveWorkerPriority(
-                    batch, center, movement,
+                    batch, center,
                     WorldWorkerPriority.FromPriorityClass(
                         priority
                             ? WorldWorkerPool.InteractiveWorldPriority

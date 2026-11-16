@@ -118,7 +118,7 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
-        UpdateInFlightWorkerPriorities(center, movement);
+        UpdateInFlightWorkerPriorities(center);
 
         if (!_updates.HasWork)
             return false;
@@ -152,7 +152,6 @@ public sealed class FluidMeshPipeline
         var workerPriority = ResolveWorkerPriority(
             batch,
             center,
-            movement,
             WorldWorkerPriority.FromPriorityClass(
                 nearest
                     ? WorldWorkerPool.InteractiveWorldPriority
@@ -178,8 +177,7 @@ public sealed class FluidMeshPipeline
     }
 
     private void UpdateInFlightWorkerPriorities(
-        ChunkCoord? center,
-        ChunkMovementDirection movement)
+        ChunkCoord? center)
     {
         if (center is null)
             return;
@@ -190,7 +188,7 @@ public sealed class FluidMeshPipeline
                 continue;
 
             var priority = ResolveWorkerPriority(
-                batch, center, movement, worker.WorkerPriority);
+                batch, center, worker.WorkerPriority);
             if (priority != worker.WorkerPriority &&
                 worker.Worker.TryUpdatePriority(priority))
                 worker.WorkerPriority = priority;
@@ -200,7 +198,6 @@ public sealed class FluidMeshPipeline
     private static WorldWorkerPriority ResolveWorkerPriority(
         WorldMeshBatch batch,
         ChunkCoord? center,
-        ChunkMovementDirection movement,
         WorldWorkerPriority fallbackPriority)
     {
         if (center is not { } focus || batch.DirtyMeshlets.Count == 0)
@@ -210,7 +207,7 @@ public sealed class FluidMeshPipeline
         foreach (var coord in batch.DirtyMeshlets.Keys)
         {
             var priority = ChunkStreamingState.StreamingPriority(
-                coord, focus, movement);
+                coord, focus);
             if (nearest is null || priority.CompareTo(nearest.Value) < 0)
                 nearest = priority;
         }
