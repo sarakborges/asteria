@@ -1407,3 +1407,8 @@ The previous TerrainLayers envelope [0, +1] only covered the default pack's curr
 ### VerticalDecorations content-derived upper read envelope — 2026-11-16
 
 A second consumer of `AdditiveDepthAt` is ceiling-decoration placement: when an additive support sits across the upper section seam, the stage resolves its palette from density above the target section. The loop also explicitly considers the target immediately below the section (`localY = -1`). The support query starts at the first voxel above the target section, then may inspect 64 additional voxels; its final density read can therefore reach section offset +5. `VerticalDecorations` requires offsets [-1, +5], not [-1, +1]. `TerrainLayers` starts within the target section and remains [0, +4]. Both limits derive from the same validated 64-voxel content cap, with the vertical-decoration limit accounting for its one-voxel-above starting position. Tests assert both stage envelopes and their immutable-data dependencies.
+
+
+### Surface-decoration fluid occupancy guard — 2026-11-16
+
+The water-top decoration branch queried generated fluid at the support voxel and the air voxel immediately above it without first passing those world positions through the stage's `ChunkGenerationAccessRegion`. It now validates both reads before calling `FluidAtEmptyVoxel`. This makes the existing [-1, +1] SurfaceDecorations read envelope cover both the terrain and fluid occupancy paths, rather than only the density branch.

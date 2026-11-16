@@ -1199,12 +1199,18 @@ public sealed partial class SurfaceChunkMaterializer
                         requireObject: true, onFluidSurface: true);
                 if (considerFluidBlock || considerFluidObject)
                 {
+                    var supportFluidY = checked((int)decorationY);
+                    var aboveFluidY = checked(supportFluidY + 1);
+                    accessRegion.EnsureCanReadWorldPosition(
+                        worldX, supportFluidY, worldZ);
+                    accessRegion.EnsureCanReadWorldPosition(
+                        worldX, aboveFluidY, worldZ);
                     var supportFluid = _generatedFluids.FluidAtEmptyVoxel(
                         sample, baseY, surfaceFluidCutDepth,
-                        worldX, (int)decorationY, worldZ);
+                        worldX, supportFluidY, worldZ);
                     var aboveFluid = _generatedFluids.FluidAtEmptyVoxel(
                         sample, baseY, surfaceFluidCutDepth,
-                        worldX, (int)decorationY + 1, worldZ);
+                        worldX, aboveFluidY, worldZ);
                     if (!supportFluid.IsEmpty && aboveFluid.IsEmpty)
                     {
                         if (considerFluidBlock)
