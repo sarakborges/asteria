@@ -30,6 +30,12 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope VerticalDecorationReadHalo =
         new(horizontalRadius: 0, minimumSectionOffset: -1, maximumSectionOffset: 1);
 
+    // Cave-spike anchors can extend 16 blocks beyond the target section, and
+    // each placement may inspect up to 64 blocks of clearance. This remains
+    // immutable density-field access; it does not retain neighboring holders.
+    private static readonly ChunkGenerationDependencyEnvelope CaveSpikeReadHalo =
+        new(horizontalRadius: 0, minimumSectionOffset: -5, maximumSectionOffset: 5);
+
     // Volume-structure anchor selection scans the authored support range
     // (at most 512 blocks) plus templates extending at most 16 blocks from
     // their support face. Horizontal templates are bounded to radius six.
@@ -156,7 +162,12 @@ public static class AsteriaChunkGenerationPlan
             [
                 Dependency(ChunkGenerationStepId.SurfaceStructures, NoHalo),
                 Dependency(ChunkGenerationStepId.SectionTerrainLayers, NoHalo),
-            ]),
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    CaveSpikeReadHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ],
+            readEnvelope: CaveSpikeReadHalo),
 
         Step(
             ChunkGenerationStepId.VerticalDecorations,
