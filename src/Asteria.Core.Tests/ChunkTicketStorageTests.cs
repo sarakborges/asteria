@@ -294,6 +294,39 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void PlayerAdmissionSlotIsReleasedWhenOnlyForcedTicketRemains()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(8, -4);
+        var playerColumn = new ChunkColumnCoord(0, 0);
+        var playerSection = new ChunkCoord(column.X, 2, column.Z);
+        var forced = new ChunkTicket(
+            ChunkTicketType.Forced, Level: 30, SectionY: 6);
+        Assert.True(manager.AddTicket(column, forced, currentTick: 0));
+
+        var admission = new ChunkTicketAdmissionController(manager);
+        Assert.True(admission.TryAdmit(
+            column, [playerSection], Array.Empty<ChunkCoord>()));
+        Assert.True(admission.HasPendingAdmission(column));
+        Assert.True(manager.HasPlayerLoadingTicket(column));
+
+        manager.UpdatePlayerView(
+            Array.Empty<ChunkColumnCoord>(),
+            playerColumn,
+            simulationDistance: 2);
+        Assert.False(manager.HasPlayerLoadingTicket(column));
+
+        admission.RetainDesiredSections(new HashSet<ChunkCoord>());
+        Assert.False(admission.HasPendingAdmission(column));
+
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        Assert.False(holder.FullChunkFuture.IsCompleted);
+        Assert.Equal(
+            new[] { new ChunkCoord(column.X, 6, column.Z) },
+            manager.Tickets.FullMaterializationTargets);
+    }
+
+    [Fact]
     public void GenerationAndFullStatusFuturesAreIndependent()
     {
         var manager = new ChunkDistanceManager();

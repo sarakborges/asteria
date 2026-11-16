@@ -358,7 +358,7 @@ public sealed class ChunkResidencyRuntime
                      .ThenBy(section => section.X))
             MarkMaterializedSectionFull(section);
 
-        _playerTicketAdmissions.RetainRequestedSections(
+        _playerTicketAdmissions.RetainDesiredSections(
             _streaming.RequestedSections);
     }
 
@@ -626,7 +626,7 @@ public sealed class ChunkResidencyRuntime
             return false;
         }
 
-        _playerTicketAdmissions.RetainRequestedSections(
+        _playerTicketAdmissions.RetainDesiredSections(
             _streaming.RequestedSections);
         CancelMaterializationsOutsideResidency();
         _center = center;
@@ -1136,7 +1136,7 @@ public sealed class ChunkResidencyRuntime
             var admitted = (!hasPlayerDemand && !hasPendingAdmission) ||
                 _playerTicketAdmissions.TryAdmit(
                     column,
-                    _streaming.RequestedSectionsInColumn(column),
+                    _streaming.DesiredSectionsInColumn(column),
                     _world.LoadedChunkCoords);
 
             var sections = pendingSections
