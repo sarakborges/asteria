@@ -383,6 +383,29 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void TerrainLayersDeclareUpperSurfaceFluidReadAsImmutableData()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        var step = plan.GetStep(ChunkGenerationStepId.SectionTerrainLayers);
+        var expected = new ChunkGenerationDependencyEnvelope(0, 0, 1);
+
+        Assert.Equal(expected, step.ReadEnvelope);
+        Assert.Contains(
+            step.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.SurfaceTerrainColumn &&
+                dependency.Kind ==
+                    ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope == expected);
+        Assert.DoesNotContain(
+            plan.GetAccumulatedDependencies(ChunkGenerationStepId.SectionTerrainLayers),
+            dependency =>
+                dependency.Kind == ChunkGenerationDependencyKind.HolderStatus &&
+                dependency.Envelope.MaximumSectionOffset > 0);
+    }
+
+    [Fact]
     public void CaveSpikeClearanceUsesImmutableDataWithoutRetainingNeighborHolders()
     {
         var plan = AsteriaChunkGenerationPlan.Default;
