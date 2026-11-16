@@ -1393,3 +1393,14 @@ The prior Core run on HEAD `3649fe4795` reported two failures in `OceanObjectGen
 ### Surface-decoration envelope correction — 2026-11-16
 
 The first enforcement commit renamed the SurfaceDecorations halo and changed its expected test values but left the runtime numeric offsets at [0, 0]. The follow-up commit corrects the actual plan declaration to horizontal radius 2 / vertical offsets [-1, +1], with the runtime reason documented above. The failing ocean-decoration tests therefore remain an explicit validation gate until this corrected HEAD passes.
+
+---
+
+## Gravity-support write guard and current validation — 2026-11-16
+
+- GravitySupport now validates its density read at worldY - 1; follow-up commits corrected the declared immutable-data envelope to horizontal radius 0 / vertical offsets [-1, 0].
+- The audit found one remaining unguarded mutation in the same stage: replacing an unsupported gravity voxel with its biome core material. Commit c56caae0c5 now calls EnsureCanWriteWorldPosition(worldX, worldY, worldZ) immediately before the replacement.
+- The other SurfaceChunkMaterializer mutation sites inspected in this pass already validate their destination positions before writing.
+- The latest validation run observed before this write-guard commit was run 43917182761 on HEAD fddf2c54a235f206588eef9da32c4b6fe2d5658a: WebUI build, Storybook and rendered screen parity passed; Windows export passed on the same HEAD; Core build/test and fixed-seed terrain A/B were still running when inspected.
+- The write-guard commit supersedes that validation HEAD. Wait for its new workflow run before treating the guard as validated. No A/B performance conclusion is available yet.
+- Next audit target: trace the VolumeStructures cursor's complete read path and determine which field queries can be moved behind a column-scoped immutable anchor product/future. Keep the current horizontal radius 1 / vertical offsets [-34, +34] until that producer boundary is explicit.
