@@ -218,7 +218,7 @@ public sealed class TerrainMeshPipeline
         if (center is not { } focus || batch.DirtyMeshlets.Count == 0)
             return fallbackPriority;
 
-        ChunkStreamingPriority? nearest = null;
+        ChunkGenerationTaskPriority? nearest = null;
         foreach (var coord in batch.DirtyMeshlets.Keys)
         {
             var priority = ChunkStreamingState.StreamingPriority(
@@ -228,7 +228,7 @@ public sealed class TerrainMeshPipeline
         }
 
         return nearest is { } ticket
-            ? WorldWorkerPriority.FromStreaming(ticket)
+            ? WorldWorkerPriority.FromGenerationTicket(ticket)
             : fallbackPriority;
     }
 
