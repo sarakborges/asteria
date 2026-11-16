@@ -133,7 +133,7 @@ public sealed class ChunkGenerationPlanTests
     public void ImmutableGeneratorHaloDoesNotRequireNeighborChunkHolders()
     {
         Assert.Equal(
-            2,
+            4,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
         Assert.Equal(
             0,
@@ -150,7 +150,7 @@ public sealed class ChunkGenerationPlanTests
                 dependency.PrerequisiteStep ==
                     ChunkGenerationStepId.SurfaceTerrainColumn &&
                 dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
-                dependency.Envelope.HorizontalRadius == 2);
+                dependency.Envelope.HorizontalRadius == 4);
         Assert.DoesNotContain(
             accumulated,
             dependency =>
@@ -233,7 +233,7 @@ public sealed class ChunkGenerationPlanTests
         var expectedReads = new[]
         {
             (ChunkGenerationStepId.SurfaceDecorations, 2, 0, 0),
-            (ChunkGenerationStepId.DirectionalFacePalettes, 1, -1, 1),
+            (ChunkGenerationStepId.DirectionalFacePalettes, 4, -4, 4),
             (ChunkGenerationStepId.WallLayers, 1, 0, 0),
             (ChunkGenerationStepId.WallObjects, 1, 0, 0),
         };
@@ -257,7 +257,7 @@ public sealed class ChunkGenerationPlanTests
         }
 
         Assert.Equal(
-            2,
+            4,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
         Assert.Equal(
             -34,
@@ -290,7 +290,7 @@ public sealed class ChunkGenerationPlanTests
         var steps = new[]
         {
             (ChunkGenerationStepId.SurfaceDecorations, 2),
-            (ChunkGenerationStepId.DirectionalFacePalettes, 1),
+            (ChunkGenerationStepId.DirectionalFacePalettes, 4),
             (ChunkGenerationStepId.WallLayers, 1),
             (ChunkGenerationStepId.WallObjects, 1),
         };
@@ -311,11 +311,11 @@ public sealed class ChunkGenerationPlanTests
 
         var palette = plan.GetStep(
             ChunkGenerationStepId.DirectionalFacePalettes);
-        Assert.Equal(-1, palette.ReadEnvelope.MinimumSectionOffset);
-        Assert.Equal(1, palette.ReadEnvelope.MaximumSectionOffset);
+        Assert.Equal(-4, palette.ReadEnvelope.MinimumSectionOffset);
+        Assert.Equal(4, palette.ReadEnvelope.MaximumSectionOffset);
 
         Assert.Equal(
-            2,
+            4,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
         Assert.Equal(
             -34,
@@ -380,6 +380,29 @@ public sealed class ChunkGenerationPlanTests
                     dependency.Envelope.MinimumSectionOffset < 0 ||
                     dependency.Envelope.MaximumSectionOffset > 0);
         }
+    }
+
+    [Fact]
+    public void TerrainSetupDeclaresDirectionalOccupancyPreparationHalo()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        var step = plan.GetStep(ChunkGenerationStepId.SectionTerrainSetup);
+        var expected = new ChunkGenerationDependencyEnvelope(4, -4, 4);
+
+        Assert.Equal(expected, step.ReadEnvelope);
+        Assert.Contains(
+            step.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.SurfaceTerrainColumn &&
+                dependency.Kind ==
+                    ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope == expected);
+        Assert.DoesNotContain(
+            plan.GetAccumulatedDependencies(ChunkGenerationStepId.SectionTerrainSetup),
+            dependency =>
+                dependency.Kind == ChunkGenerationDependencyKind.HolderStatus &&
+                dependency.Envelope.HorizontalRadius > 0);
     }
 
     [Fact]
