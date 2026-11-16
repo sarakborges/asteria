@@ -1276,6 +1276,10 @@ public sealed partial class SurfaceChunkMaterializer
             return;
         }
 
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            job.Coord,
+            ChunkGenerationStepId.GravitySupport);
         var supportJobCreated = false;
         var positions = job.GravityPositions;
         if (positions is null)
@@ -1453,7 +1457,7 @@ public sealed partial class SurfaceChunkMaterializer
             var surfaceBiome = column.BiomeAt(x, z);
             var owner = ResolveGravityMaterialOwner(
                 column, RequiredDensity(job), surfaceBiome,
-                x, y, z, worldX, worldY, worldZ);
+                x, y, z, worldX, worldY, worldZ, accessRegion);
             var stableBlock = _materials.CoreLayer(owner).Block;
             if (stableBlock.IsAir || _gravityBlocks.Contains(stableBlock))
             {
@@ -1694,7 +1698,8 @@ public sealed partial class SurfaceChunkMaterializer
         int localZ,
         int worldX,
         int worldY,
-        int worldZ)
+        int worldZ,
+        ChunkGenerationAccessRegion accessRegion)
     {
         var baseY = column.BaseHeightAt(localX, localZ);
         if (worldY > baseY)
@@ -1704,6 +1709,9 @@ public sealed partial class SurfaceChunkMaterializer
         }
 
         var below = new WorldVoxelCoord(worldX, worldY - 1, worldZ);
+        if (worldY > 0)
+            accessRegion.EnsureCanReadWorldPosition(
+                worldX, checked(worldY - 1), worldZ);
         if (worldY > 0 &&
             _terrain.IsCaveVoidAt(baseY, below) &&
             column.CaveBiomeAt(localX, localZ) is { } caveBiome)
