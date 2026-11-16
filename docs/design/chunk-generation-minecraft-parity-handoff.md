@@ -1241,3 +1241,57 @@ This is a deliberate richer adaptation rather than a literal integer QueueLevel 
 2. Formalize the composite queue-priority/level-change contract against the 26.3 ticketLevel/queueLevel split; preserve a single source of truth and avoid a decorative QueueLevel property.
 3. Continue the bounded generation access-region audit one stage at a time. Cross-column holder-status requirements remain fail-fast until their producer can be admitted/reused non-blockingly with revision-safe future ownership.
 4. After access enforcement, make shared immutable column products (especially volume-structure anchor resolution) explicit column-scoped products/futures; preserve deterministic results and the existing 16³ storage/archive ownership.
+
+
+
+---
+
+## Continuation checkpoint — bounded access enforcement and holder queue priority — 2026-11-16
+
+### Current branch state
+
+- Branch: `worldgen-perf-fix`
+- PR: [#157](https://github.com/sarakborges/asteria/pull/157), base `worldgen-remake`
+- Current implementation HEAD: `aae80031506d904ba14dbdd851164cc2a468d5d8`
+- Do not merge or deploy without an explicit request.
+
+### Generation access enforcement added
+
+The `ChunkGenerationAccessRegion` audit now covers additional materialization accesses:
+
+- `SectionTerrainSetup` creates a region before column/density setup and checks column reads and shell writes.
+- Directional occupancy preparation uses the same region. Its maximum configured palette depth is 64 voxels, so the setup read envelope is horizontal radius 4 and vertical offsets [-4, +4]. The same conservative envelope is declared by `DirectionalFacePalettes`.
+- `SectionTerrainLayers` checks column reads and terrain writes. Its immutable-data envelope includes the upper section because submerged-surface selection may sample generated fluid at surfaceY + 1.
+- `CaveSpikes` checks column reads, the conservative 64-voxel clearance interval and every emitted segment write. The declared immutable-data envelope remains vertical offsets [-5, +5].
+- `ShellFinalization` checks the local shell/lining reads and writes.
+- The standalone directional occupancy builder also receives an explicit region; this covers its utility/test path as well as the normal terrain setup path.
+
+These are generator-field/data-access contracts, not holder-status dependencies.
+
+### Loading plan separated from generation plan
+
+Added `AsteriaChunkLoadingPlan` as the explicit projection of the generation DAG's `HolderStatus` requirements. `AsteriaChunkGenerationPlan` continues to describe both immutable generator-data reads and holder prerequisites. Ticket level limits, materialization dependency claims and holder-status expansion now use the loading plan.
+
+Regression coverage asserts that the full generation access envelope (including directional palette data reads) is distinct from the holder-retention envelope. The current data halo does not enlarge the resident-holder radius.
+
+### Queue-priority ownership work
+
+The holder now stores a composite `ChunkGenerationTaskPriority`, a context-initialized flag and a revision. Ticket-level updates preserve the spatial part of the key while replacing its urgency band. Runtime reprioritization refreshes every changed holder even when it has no active materialization task; active worldgen dispatch and lighting/reconciliation workers derive their priority through the same holder-aware path.
+
+The old duplicate `ChunkStreamingPriority` type was removed and remaining streaming consumers were migrated to `ChunkGenerationTaskPriority`. A stale `FromStreaming` adapter and its call sites were removed/migrated after CI exposed them.
+
+**Remaining architectural question:** the dispatcher and pending-column queue still maintain their own ordered queue entries, updated from the holder's composite key. The next pass should verify that every ticket-level, player-center and movement-context change refreshes all relevant pending and admitted queues, and decide whether to introduce a direct holder queue-level change notification instead of retaining parallel update paths. Do not add a separate integer `QueueLevel` unless the dispatch queues consume it as their source of truth.
+
+### Validation status
+
+- A previous Windows export run passed on HEAD `3d42e2af`, but its PR validation (including the terrain A/B run) was canceled when later commits arrived. It does not validate this checkpoint.
+- The intermediate queue-priority commit `539b0ace` failed compilation because several call sites still referenced the removed `ChunkStreamingPriority`. Those call sites were migrated in subsequent commits.
+- The latest HEAD `aae80031506d904ba14dbdd851164cc2a468d5d8` has a fresh validation run queued/in progress. Do not claim final build/test success or a terrain performance improvement until Core, Godot headless, WebUI, Windows export and fixed-seed A/B checks complete on this exact HEAD.
+
+### Next ordered work
+
+1. Validate the current HEAD and inspect the first non-cancelled compiler/test failure, if any.
+2. Finish the holder queue-priority audit: make queue ownership/event propagation explicit, and test reprioritization of pending columns, admitted worldgen, lighting and reconciliation work after ticket-level and player-view changes.
+3. Continue the bounded-access audit for remaining generation stages, especially surface decorations, directional palettes, structures, wall generation and gravity support. Keep field-data reads separate from resident-holder reads.
+4. Make volume-structure anchor assignment an explicit column-scoped immutable product/future; only then reconsider the current [-34, +34] section-stage read range.
+5. Inspect fixed-seed terrain A/B and materialized geology artifacts before making any new performance claim.
