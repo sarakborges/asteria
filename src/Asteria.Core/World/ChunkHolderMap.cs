@@ -74,10 +74,10 @@ public sealed class ChunkHolderMap
             }
             else
             {
-                var holder = new ChunkHolder(column, level);
-                _holders.Add(column, holder);
+                var createdHolder = new ChunkHolder(column, level);
+                _holders.Add(column, createdHolder);
                 changes.Add(new ChunkHolderTicketLevelChange(
-                    holder, ChunkLevel.Unloaded, level));
+                    createdHolder, ChunkLevel.Unloaded, level));
             }
         }
 
