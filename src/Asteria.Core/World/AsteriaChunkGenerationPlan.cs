@@ -78,7 +78,15 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationStepId.SectionTerrainLayers,
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.SharedWorkerPool,
-            DependsOn(ChunkGenerationStepId.SectionTerrainSetup)),
+            [
+                Dependency(ChunkGenerationStepId.SectionTerrainSetup, NoHalo),
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    NoHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ],
+            readEnvelope: NoHalo,
+            writeEnvelope: NoHalo),
 
         // Surface decorators sample cardinal slope columns and nearby
         // fluids. The authored swamp cattail rule reaches two columns, but all
