@@ -953,7 +953,8 @@ public sealed partial class SurfaceChunkMaterializer
                     _materials.SampleColumn(volumeSample, worldX, worldZ);
                 var depth = AdditiveDepthAt(
                     densityVolume, sample, baseY, localX, localY, localZ,
-                    worldX, worldY, worldZ, volumeMaterials.FiniteDepth);
+                    worldX, worldY, worldZ, volumeMaterials.FiniteDepth,
+                    accessRegion);
                 var useSurfaceCover =
                     state.VolumeGeology.SurfaceCoverDepth is { } authoredCoverDepth
                         ? depth < authoredCoverDepth
@@ -1119,6 +1120,9 @@ public sealed partial class SurfaceChunkMaterializer
                 {
                     // Generated-fluid occupancy, not only the column range,
                     // decides whether this is a submerged decorator cell.
+                    if (!normalInChunk)
+                        accessRegion.EnsureCanReadWorldPosition(
+                            worldX, checked((int)decorationY), worldZ);
                     var decorationTerrainSolid = normalInChunk
                         ? densityVolume.IsSolidAtUnchecked(
                             localX, (int)decorationY - originY, localZ)
@@ -2321,6 +2325,8 @@ public sealed partial class SurfaceChunkMaterializer
                 pz < int.MinValue || pz > int.MaxValue)
                 continue;
             accessRegion?.EnsureCanReadColumnData((int)px, (int)pz);
+            accessRegion?.EnsureCanReadWorldPosition(
+                (int)px, supportY, (int)pz);
             var (coord, local) = VoxelCoordinates.FromWorld(
                 (int)px, 0, (int)pz);
             var neighbor = _columns.Get(coord.X, coord.Z);
@@ -2373,7 +2379,8 @@ public sealed partial class SurfaceChunkMaterializer
         int worldX,
         int worldY,
         int worldZ,
-        uint finiteDepth)
+        uint finiteDepth,
+        ChunkGenerationAccessRegion accessRegion)
     {
         if (finiteDepth == 0)
             return 0;
@@ -2393,8 +2400,12 @@ public sealed partial class SurfaceChunkMaterializer
         while (depth < finiteDepth)
         {
             var above = (long)worldY + depth + 1L;
-            if (above > int.MaxValue ||
-                _terrain.DensityAt(
+            if (above > int.MaxValue)
+                break;
+
+            accessRegion.EnsureCanReadWorldPosition(
+                worldX, (int)above, worldZ);
+            if (_terrain.DensityAt(
                     surfaceBiome,
                     baseY,
                     worldX,
@@ -4165,7 +4176,8 @@ public sealed partial class SurfaceChunkMaterializer
                         densityVolume, surfaceBiome, baseY,
                         localX, localY + 1, localZ,
                         worldX, worldY + 1, worldZ,
-                        volumeMaterials.FiniteDepth);
+                        volumeMaterials.FiniteDepth,
+                        accessRegion);
                     ceilingSupport = volumeMaterials.BlockAt(depth);
                 }
                 else
