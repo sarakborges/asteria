@@ -83,8 +83,8 @@ public sealed class VoxelWorldTests
         world.ArchiveChunk(lower);
         Assert.True(world.HasResidentChunksInColumn(
             ChunkColumnCoord.FromChunk(upper)));
-        Assert.False(world.HasResidentChunksInColumn(
-            ChunkColumnCoord.FromChunk(otherColumn)) is false);
+        Assert.True(world.HasResidentChunksInColumn(
+            ChunkColumnCoord.FromChunk(otherColumn)));
 
         world.ArchiveChunk(upper);
         Assert.False(world.HasResidentChunksInColumn(
