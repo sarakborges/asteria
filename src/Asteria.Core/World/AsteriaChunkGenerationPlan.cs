@@ -38,7 +38,10 @@ public static class AsteriaChunkGenerationPlan
     // one voxel above the target section's top face, then read its full finite
     // surface depth. This can reach one section farther than TerrainLayers.
     private static readonly int MaximumVerticalDecorationReadSectionOffset =
-        checked(MaximumFiniteSurfaceLayerSectionOffset + 1);
+        checked((int)(
+            ((uint)Chunk.Size +
+             BiomeDefinition.MaximumFiniteSurfaceLayerDepth) /
+            (uint)Chunk.Size));
 
     private static readonly ChunkGenerationDependencyEnvelope VerticalDecorationReadHalo =
         new(
