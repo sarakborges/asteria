@@ -191,6 +191,26 @@ public sealed class ChunkGenerationAccessRegionTests
         Assert.True(region.CanWrite(target));
     }
 
+    [Fact]
+    public void GravitySupportReadEnvelopeIncludesCurrentAndLowerSectionsOnly()
+    {
+        var target = new ChunkCoord(12, 5, -8);
+        var origin = VoxelCoordinates.ChunkOrigin(target);
+        var region = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            target,
+            ChunkGenerationStepId.GravitySupport);
+
+        Assert.Equal(-1, region.ReadEnvelope.MinimumSectionOffset);
+        Assert.Equal(0, region.ReadEnvelope.MaximumSectionOffset);
+        Assert.True(region.CanReadWorldPosition(
+            origin.X, origin.Y, origin.Z));
+        Assert.True(region.CanReadWorldPosition(
+            origin.X, origin.Y - 1, origin.Z));
+        Assert.False(region.CanReadWorldPosition(
+            origin.X, origin.Y + Chunk.Size, origin.Z));
+    }
+
     private static ChunkGenerationAccessRegion CreateRegion(
         ChunkCoord center,
         ChunkGenerationDependencyEnvelope read,

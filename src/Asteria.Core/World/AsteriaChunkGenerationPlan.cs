@@ -51,6 +51,11 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope LowerSupportHalo =
         new(horizontalRadius: 0, minimumSectionOffset: -1, maximumSectionOffset: -1);
 
+    // Gravity material ownership may inspect the voxel immediately below.
+    // That position can belong to the current section or the lower section.
+    private static readonly ChunkGenerationDependencyEnvelope GravitySupportReadHalo =
+        new(horizontalRadius: 0, minimumSectionOffset: -1, maximumSectionOffset: 0);
+
     public static ChunkGenerationPlan Default { get; } = new(
     [
         Step(
@@ -266,7 +271,7 @@ public static class AsteriaChunkGenerationPlan
                     ChunkGenerationStepId.SectionTerrainLayers,
                     LowerSupportHalo),
             ],
-            readEnvelope: LowerSupportHalo),
+            readEnvelope: GravitySupportReadHalo),
 
         Step(
             ChunkGenerationStepId.StructureObjects,
