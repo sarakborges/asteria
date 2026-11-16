@@ -880,11 +880,19 @@ public sealed partial class SurfaceChunkMaterializer
                     surfaceOwner = sample;
                 }
 
-                if (!exposedGeology.RequiresSubmergedSurface ||
-                    HasGeneratedFluidAboveSurface(
+                var hasRequiredSurfaceFluid =
+                    !exposedGeology.RequiresSubmergedSurface;
+                if (!hasRequiredSurfaceFluid)
+                {
+                    accessRegion.EnsureCanReadWorldPosition(
+                        worldX, checked(worldY + 1), worldZ);
+                    hasRequiredSurfaceFluid = HasGeneratedFluidAboveSurface(
                         surfaceOwner, sample, baseY,
                         surfaceFluidCutDepth, worldX, worldY, worldZ,
-                        densityVolume.VolumePlacementAt(localX, localZ)))
+                        densityVolume.VolumePlacementAt(localX, localZ));
+                }
+
+                if (hasRequiredSurfaceFluid)
                 {
                     hasExposedGeology = exposedGeology.TrySurfaceBlockAtCached(
                         worldX, worldY, worldZ,
@@ -4514,6 +4522,9 @@ public sealed partial class SurfaceChunkMaterializer
             if (columnMask is not null &&
                 !columnMask[z * Chunk.Size + x])
                 continue;
+            var worldX = checked(originX + x);
+            var worldZ = checked(originZ + z);
+            accessRegion.EnsureCanReadColumnData(worldX, worldZ);
             var baseY = column.BaseHeightAt(x, z);
             var first = Math.Max(1, originY - maximumHeight + 1);
             var last = Math.Min(baseY - 1,
@@ -4551,8 +4562,6 @@ public sealed partial class SurfaceChunkMaterializer
                 ~(uint)solidColumnMask &
                 (supportedInteriorMask | 0x8001u));
 
-            var worldX = originX + x;
-            var worldZ = originZ + z;
             var surfaceBiome = column.BiomeAt(x, z);
             var spikeColumn = spikes.PrepareColumn(biome.Primary, surfaceBiome);
             if (!spikeColumn.HasRules)
@@ -4632,6 +4641,8 @@ public sealed partial class SurfaceChunkMaterializer
                         if ((uint)localY >= Chunk.Size)
                             continue;
 
+                        accessRegion.EnsureCanWriteWorldPosition(
+                            worldX, worldY, worldZ);
                         chunk.SetCell(x, localY, z,
                             new VoxelCell(placement.Block,
                                 state: SpikeSegmentState.Encode(
