@@ -149,7 +149,8 @@ public sealed class VolumeStructureContentTests
             _ = cursor.Advance(
                 batch,
                 maximumCandidateEvaluations: 1,
-                out var written);
+                out var written,
+                maximumAnchorSupportSamples: 1);
             Assert.InRange(written, 0, batch.Length);
             for (var index = 0; index < written; index++)
                 actual.Add(batch[index]);
@@ -161,6 +162,8 @@ public sealed class VolumeStructureContentTests
 
         Assert.True(advanceCount > 1,
             "The selected cavern section should require multiple candidate steps.");
+        Assert.True(cursor.AnchorSearchSlices > 1,
+            "A support-Y search should resume across bounded cursor slices.");
         var expected = field.VoxelsForChunk(coord);
         Assert.Equal(expected, actual);
     }
