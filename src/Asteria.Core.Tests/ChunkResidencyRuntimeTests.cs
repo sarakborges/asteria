@@ -244,7 +244,11 @@ public sealed class ChunkResidencyRuntimeTests
             $"The obsolete holder result was not discarded and requeued. " +
             $"Pending={fixture.Runtime.PendingCount}, " +
             $"Materializing={fixture.Runtime.MaterializingCount}, " +
-            $"Jobs={fixture.Runtime.MaterializationJobCount}.");
+            $"Jobs={fixture.Runtime.MaterializationJobCount}, " +
+            $"PlayerDesired={fixture.Runtime.IsDesired(playerSection)}, " +
+            $"TicketDesired={fixture.Runtime.IsDesired(ticketSection)}, " +
+            $"PlayerResident={fixture.World.ContainsChunk(playerSection)}, " +
+            $"TicketResident={fixture.World.ContainsChunk(ticketSection)}.");
         Assert.False(fixture.World.ContainsChunk(playerSection));
         Assert.False(fixture.World.ContainsChunk(ticketSection));
 

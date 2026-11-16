@@ -870,10 +870,8 @@ public sealed class ChunkResidencyRuntime
             _playerTicketAdmissions.Abandon(column);
             cancelledTasks++;
             if (_acceptingMaterializationWork)
-            {
-                foreach (var section in work.Sections)
-                    RequeueIfDesired(section, work.PendingSinceTimestamp);
-            }
+                RequeueRequestedSectionsInColumn(
+                    column, work.PendingSinceTimestamp);
             return;
         }
 
@@ -923,15 +921,13 @@ public sealed class ChunkResidencyRuntime
             _streaming.DistanceManager.GetGenerationProgressRevision(column))
         {
             // A new section target changed the holder's required FULL set while
-            // this worker was detached. Its products belong to an obsolete
-            // generation revision: discard them and requeue only live demand.
-            foreach (var section in work.Sections)
-            {
-                if (_world.ContainsChunk(section))
-                    MarkMaterializedSectionFull(section);
-                else
-                    RequeueIfDesired(section, work.PendingSinceTimestamp);
-            }
+            // this worker was detached. Discard its products and reconstruct
+            // the complete active demand set, including targets added in-flight.
+            foreach (var section in work.Sections.Where(_world.ContainsChunk))
+                MarkMaterializedSectionFull(section);
+
+            RequeueRequestedSectionsInColumn(
+                column, work.PendingSinceTimestamp);
             return;
         }
 
@@ -2067,6 +2063,18 @@ public sealed class ChunkResidencyRuntime
             SaturatingAdd(
                 _worldTicks.CurrentTick,
                 delay.Value));
+    }
+
+    private void RequeueRequestedSectionsInColumn(
+        ChunkColumnCoord column,
+        long? enqueuedTimestamp = null)
+    {
+        foreach (var section in _streaming.RequestedSectionsInColumn(column))
+        {
+            if (!_world.ContainsChunk(section) &&
+                !_streaming.IsMaterializing(section))
+                RequeueIfDesired(section, enqueuedTimestamp);
+        }
     }
 
     private void RequeuePendingSections(
