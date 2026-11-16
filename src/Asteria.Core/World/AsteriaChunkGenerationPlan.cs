@@ -21,7 +21,7 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope HorizontalNeighborHalo =
         new(horizontalRadius: 1, minimumSectionOffset: 0, maximumSectionOffset: 0);
 
-    private static readonly ChunkGenerationDependencyEnvelope HorizontalDecorationReadHalo =
+    private static readonly ChunkGenerationDependencyEnvelope SurfaceDecorationReadHalo =
         new(horizontalRadius: 2, minimumSectionOffset: 0, maximumSectionOffset: 0);
 
     // Directional face paint can inspect up to 64 voxels across horizontal
@@ -111,10 +111,10 @@ public static class AsteriaChunkGenerationPlan
                 Dependency(ChunkGenerationStepId.SectionTerrainLayers, NoHalo),
                 Dependency(
                     ChunkGenerationStepId.SurfaceTerrainColumn,
-                    HorizontalDecorationReadHalo,
+                    SurfaceDecorationReadHalo,
                     ChunkGenerationDependencyKind.ImmutableWorldData),
             ],
-            readEnvelope: HorizontalDecorationReadHalo),
+            readEnvelope: SurfaceDecorationReadHalo),
 
         // Directional face palettes sample procedural surface/terrain data in
         // cardinal columns and across the vertical voxel halo. This is a data

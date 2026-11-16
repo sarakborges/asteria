@@ -1368,3 +1368,23 @@ This fixes an access/lifecycle violation, but the column-scoped step is still re
 3. Complete the fixed-seed terrain A/B and inspect its uploaded evidence before making performance claims.
 4. Continue the column-scoped product/future design for `SurfaceStructurePlacements` and `VolumeStructures`; do not narrow the current `VolumeStructureReadHalo` of horizontal radius 1 / vertical offsets [-34, +34] until the true producer has explicit immutable inputs and consumers use the product.
 5. Finish auditing the remaining stage access contracts and holder queue-priority propagation.
+
+
+---
+
+## SurfaceDecorations cross-section read envelope — 2026-11-16
+
+### Runtime access contract
+
+The latest access guards exposed two legitimate cross-section reads in surface decoration materialization:
+
+- Ground placement can inspect density at `surfaceY + 1` when the support voxel is at the upper edge of the target section.
+- A nearby-fluid placement rule can inspect the support voxel at `surfaceY` when its decoration cell is at the lower edge.
+
+The stage's immutable data envelope is therefore horizontal radius 2 and vertical section offsets [-1, +1]. Its dependency on `SurfaceTerrainColumn` remains `ImmutableWorldData`; this does not create neighboring `HolderStatus` requirements or widen holder retention/loading.
+
+Regression coverage now asserts the full surface-decoration read envelope while retaining the existing holder-envelope assertions.
+
+### Validation
+
+The prior Core run on HEAD `3649fe4795` reported two failures in `OceanObjectGenerationTests`: ocean-floor decorations at the top section boundary read density in section Y+1 while the stage declared [0, 0]. This checkpoint updates that contract and requires a fresh Core validation. No terrain performance result is claimed until the in-flight fixed-seed A/B evidence is inspected.

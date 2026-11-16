@@ -244,7 +244,7 @@ public sealed class ChunkGenerationPlanTests
         var plan = AsteriaChunkGenerationPlan.Default;
         var expectedReads = new[]
         {
-            (ChunkGenerationStepId.SurfaceDecorations, 2, 0, 0),
+            (ChunkGenerationStepId.SurfaceDecorations, 2, -1, 1),
             (ChunkGenerationStepId.DirectionalFacePalettes, 4, -4, 4),
             (ChunkGenerationStepId.WallLayers, 1, 0, 0),
             (ChunkGenerationStepId.WallObjects, 1, 0, 0),
@@ -296,7 +296,7 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
-    public void ProceduralNeighborReadStepsDeclareImmutableHorizontalHalos()
+    public void ProceduralNeighborReadStepsDeclareImmutableHorizontalAndVerticalHalos()
     {
         var plan = AsteriaChunkGenerationPlan.Default;
         var steps = new[]
