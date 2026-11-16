@@ -362,6 +362,27 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void ObjectPublicationStepsWriteOnlyToTheirTargetSection()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        foreach (var stepId in new[]
+                 {
+                     ChunkGenerationStepId.StructureObjects,
+                     ChunkGenerationStepId.PendingObjects,
+                 })
+        {
+            var step = plan.GetStep(stepId);
+            Assert.Equal(ChunkGenerationDependencyEnvelope.None, step.ReadEnvelope);
+            Assert.Equal(ChunkGenerationDependencyEnvelope.None, step.WriteEnvelope);
+            Assert.DoesNotContain(
+                plan.GetAccumulatedDependencies(stepId),
+                dependency => dependency.Envelope.HorizontalRadius > 0 ||
+                    dependency.Envelope.MinimumSectionOffset < 0 ||
+                    dependency.Envelope.MaximumSectionOffset > 0);
+        }
+    }
+
+    [Fact]
     public void VerticalDecorationsDeclareVerticalSeamReadsAsImmutableData()
     {
         var step = AsteriaChunkGenerationPlan.Default.GetStep(
