@@ -883,10 +883,8 @@ public sealed class ChunkResidencyRuntime
             failures.Add(new ChunkMaterializationFailure(failureCoord, error));
             _playerTicketAdmissions.Abandon(column);
             if (_acceptingMaterializationWork)
-            {
-                foreach (var section in work.Sections)
-                    RequeueIfDesired(section, work.PendingSinceTimestamp);
-            }
+                RequeueRequestedSectionsInColumn(
+                    column, work.PendingSinceTimestamp);
             return;
         }
 
@@ -905,10 +903,8 @@ public sealed class ChunkResidencyRuntime
                 $"Generation attempt {outcome.Task.Generation} returned an invalid column result.");
             _playerTicketAdmissions.Abandon(column);
             if (_acceptingMaterializationWork)
-            {
-                foreach (var section in work.Sections)
-                    RequeueIfDesired(section, work.PendingSinceTimestamp);
-            }
+                RequeueRequestedSectionsInColumn(
+                    column, work.PendingSinceTimestamp);
             return;
         }
 
