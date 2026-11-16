@@ -362,6 +362,36 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void VerticalDecorationsDeclareVerticalSeamReadsAsImmutableData()
+    {
+        var step = AsteriaChunkGenerationPlan.Default.GetStep(
+            ChunkGenerationStepId.VerticalDecorations);
+        var expected = new ChunkGenerationDependencyEnvelope(0, -1, 1);
+
+        Assert.Equal(expected, step.ReadEnvelope);
+        Assert.Contains(
+            step.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.SurfaceTerrainColumn &&
+                dependency.Kind ==
+                    ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope == expected);
+        Assert.DoesNotContain(
+            AsteriaChunkGenerationPlan.Default.GetAccumulatedDependencies(
+                ChunkGenerationStepId.VerticalDecorations),
+            dependency =>
+                dependency.Envelope.MinimumSectionOffset < 0 &&
+                dependency.Kind == ChunkGenerationDependencyKind.HolderStatus);
+        Assert.DoesNotContain(
+            AsteriaChunkGenerationPlan.Default.GetAccumulatedDependencies(
+                ChunkGenerationStepId.VerticalDecorations),
+            dependency =>
+                dependency.Envelope.MaximumSectionOffset > 0 &&
+                dependency.Kind == ChunkGenerationDependencyKind.HolderStatus);
+    }
+
+    [Fact]
     public void GeneratedFluidsUseOnlyCurrentSectionAndCachedColumnData()
     {
         var plan = AsteriaChunkGenerationPlan.Default;
