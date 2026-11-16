@@ -3037,6 +3037,10 @@ public sealed partial class SurfaceChunkMaterializer
         out DirectionalFaceOccupancyPreparationProfile preparationProfile,
         TerrainDensityVolume? densityVolume = null)
     {
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            VoxelCoordinates.FromWorld(originX, originY, originZ).Chunk,
+            ChunkGenerationStepId.SectionTerrainSetup);
         var buildJob = new DirectionalFaceOccupancyBuildJob(
             this,
             isSolid,
@@ -3044,7 +3048,8 @@ public sealed partial class SurfaceChunkMaterializer
             originX,
             originY,
             originZ,
-            densityVolume);
+            densityVolume,
+            accessRegion);
         while (!buildJob.IsComplete)
             buildJob.Advance();
 
