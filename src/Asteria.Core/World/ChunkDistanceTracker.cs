@@ -10,7 +10,6 @@ public readonly record struct ChunkDistanceLevelChange(
 /// columns. The priority queue is ordered by level then coordinates, so graph
 /// results are deterministic regardless of dictionary enumeration order.
 /// </summary>
-
 public sealed class ChunkDistanceTracker
 {
     private readonly Dictionary<ChunkColumnCoord, int> _levels = [];
@@ -43,10 +42,8 @@ public sealed class ChunkDistanceTracker
     }
 
     /// <summary>
-    /// Diffs ticket sources and recomputes only the bounded region whose
-    /// shortest paths could be affected by those sources. The unaffected
-    /// boundary remains a set of valid seeds. A priority flood then restores
-    /// the exact minimum fixed point inside the affected region.
+    /// Full-source synchronization for initialization, restoration and
+    /// explicit graph rebuilds. Normal ticket mutations use ApplySourceChanges.
     /// </summary>
     public void SynchronizeSources(
         ChunkTicketStorage tickets,
@@ -55,15 +52,50 @@ public sealed class ChunkDistanceTracker
         SynchronizeSourcesCore(tickets, graphFlag, maximumLevel, captureChanges: false);
 
     /// <summary>
-    /// Synchronizes ticket sources and returns only nodes whose effective
-    /// distance level changed. Holder maps can consume this delta without
-    /// rescanning every node in the settled graph.
+    /// Full-source synchronization that also returns the resulting graph delta.
     /// </summary>
     public IReadOnlyList<ChunkDistanceLevelChange> SynchronizeSourcesWithChanges(
         ChunkTicketStorage tickets,
         ChunkTicketFlags graphFlag,
         int maximumLevel) =>
         SynchronizeSourcesCore(tickets, graphFlag, maximumLevel, captureChanges: true);
+
+    /// <summary>
+    /// Applies only ticket-source changes received from TicketStorage. This is
+    /// the normal mutation path; its work is bounded by the changed sources and
+    /// the graph regions those sources can influence.
+    /// </summary>
+    public IReadOnlyList<ChunkDistanceLevelChange> ApplySourceChanges(
+        IEnumerable<KeyValuePair<ChunkColumnCoord, int>> changedSources,
+        int maximumLevel)
+    {
+        ArgumentNullException.ThrowIfNull(changedSources);
+        if (maximumLevel < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumLevel));
+
+        if (MaximumLevel != maximumLevel)
+        {
+            if (_levels.Count != 0 || _sources.Count != 0)
+                throw new InvalidOperationException(
+                    "Changing the graph ceiling requires a full source synchronization.");
+
+            MaximumLevel = maximumLevel;
+        }
+
+        var sourceChanges = new Dictionary<ChunkColumnCoord, int?>();
+        foreach (var (column, level) in changedSources)
+        {
+            if (level < 0)
+                throw new ArgumentOutOfRangeException(nameof(changedSources));
+            sourceChanges[column] = level == int.MaxValue ? null : level;
+        }
+
+        return ApplySourceChangesCore(
+            sourceChanges,
+            maximumLevel,
+            captureChanges: true,
+            previousFullGraph: null);
+    }
 
     private IReadOnlyList<ChunkDistanceLevelChange> SynchronizeSourcesCore(
         ChunkTicketStorage tickets,
@@ -99,10 +131,8 @@ public sealed class ChunkDistanceTracker
                 desiredSources[column] = ticket.Level;
         }
 
-        var changedSources = new List<ChunkColumnCoord>();
-        foreach (var column in _sources.Keys
-                     .Concat(desiredSources.Keys)
-                     .Distinct())
+        var sourceChanges = new Dictionary<ChunkColumnCoord, int?>();
+        foreach (var column in _sources.Keys.Concat(desiredSources.Keys).Distinct())
         {
             var hadSource = _sources.TryGetValue(column, out var oldLevel);
             var hasSource = desiredSources.TryGetValue(column, out var newLevel);
@@ -110,7 +140,44 @@ public sealed class ChunkDistanceTracker
                 (!hadSource || oldLevel == newLevel))
                 continue;
 
-            changedSources.Add(column);
+            sourceChanges[column] = hasSource ? newLevel : null;
+        }
+
+        return ApplySourceChangesCore(
+            sourceChanges,
+            maximumLevel,
+            captureChanges,
+            previousFullGraph);
+    }
+
+    private IReadOnlyList<ChunkDistanceLevelChange> ApplySourceChangesCore(
+        IReadOnlyDictionary<ChunkColumnCoord, int?> sourceChanges,
+        int maximumLevel,
+        bool captureChanges,
+        IReadOnlyDictionary<ChunkColumnCoord, int>? previousFullGraph)
+    {
+        var changedSources = new List<(
+            ChunkColumnCoord Column,
+            bool HadSource,
+            int OldLevel,
+            bool HasSource,
+            int NewLevel)>();
+
+        foreach (var (column, proposedLevel) in sourceChanges)
+        {
+            var hadSource = _sources.TryGetValue(column, out var oldLevel);
+            var hasSource = proposedLevel is { } nextLevel &&
+                nextLevel <= maximumLevel;
+            var newLevel = hasSource ? proposedLevel.GetValueOrDefault() : 0;
+            if (hadSource == hasSource &&
+                (!hadSource || oldLevel == newLevel))
+                continue;
+
+            changedSources.Add((column, hadSource, oldLevel, hasSource, newLevel));
+            if (hasSource)
+                _sources[column] = newLevel;
+            else
+                _sources.Remove(column);
         }
 
         if (changedSources.Count == 0)
@@ -118,24 +185,19 @@ public sealed class ChunkDistanceTracker
                 ? Array.Empty<ChunkDistanceLevelChange>()
                 : CreateChanges(previousFullGraph, _levels);
 
-        // A source at level L can influence at most (maximumLevel - L)
-        // neighbour rings. Include that entire Chebyshev region so no stale
-        // level derived from a removed source can become a boundary seed.
         var affected = new HashSet<ChunkColumnCoord>();
-        foreach (var column in changedSources)
+        foreach (var change in changedSources)
         {
-            var hadSource = _sources.TryGetValue(column, out var oldLevel);
-            var hasSource = desiredSources.TryGetValue(column, out var newLevel);
-            var sourceLevel = hadSource && hasSource
-                ? Math.Min(oldLevel, newLevel)
-                : hadSource ? oldLevel : newLevel;
+            var sourceLevel = change.HadSource && change.HasSource
+                ? Math.Min(change.OldLevel, change.NewLevel)
+                : change.HadSource ? change.OldLevel : change.NewLevel;
             var radius = maximumLevel - sourceLevel;
 
             for (var dz = -radius; dz <= radius; dz++)
             for (var dx = -radius; dx <= radius; dx++)
             {
-                var x = (long)column.X + dx;
-                var z = (long)column.Z + dz;
+                var x = (long)change.Column.X + dx;
+                var z = (long)change.Column.Z + dz;
                 if (x < int.MinValue || x > int.MaxValue ||
                     z < int.MinValue || z > int.MaxValue)
                     continue;
@@ -144,10 +206,6 @@ public sealed class ChunkDistanceTracker
                     new ChunkCoord((int)x, 0, (int)z)));
             }
         }
-
-        _sources.Clear();
-        foreach (var (column, level) in desiredSources)
-            _sources.Add(column, level);
 
         var previousAffected = captureChanges
             ? new Dictionary<ChunkColumnCoord, int>()
@@ -163,8 +221,6 @@ public sealed class ChunkDistanceTracker
         var pending = new PriorityQueue<
             ChunkColumnCoord, (int Level, int Z, int X)>();
 
-        // Every affected node can be reached either from a source inside the
-        // region or from an unchanged level just outside its boundary.
         foreach (var column in affected)
         {
             var best = _sources.TryGetValue(column, out var sourceLevel)

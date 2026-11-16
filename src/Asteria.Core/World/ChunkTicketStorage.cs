@@ -14,6 +14,15 @@ public sealed class ChunkTicketStorage
         _persistentTickets = [];
     private int _persistentTimedTicketCount;
 
+    /// <summary>
+    /// Raised when a column's minimum loading-ticket level changes. The
+    /// callback is queued by DistanceManager and applied with other updates.
+    /// </summary>
+    public event Action<ChunkColumnCoord, int, bool>? LoadingChunkUpdated;
+
+    /// <summary>Simulation-graph equivalent of LoadingChunkUpdated.</summary>
+    public event Action<ChunkColumnCoord, int, bool>? SimulationChunkUpdated;
+
     public int ColumnCount => _tickets.Count;
 
     public int TicketCount => _tickets.Values.Sum(tickets => tickets.Count);
@@ -78,6 +87,10 @@ public sealed class ChunkTicketStorage
             ticket.SectionY is < 0)
             throw new ArgumentOutOfRangeException(nameof(ticket));
 
+        var previousLoadingLevel = GetLowestLevel(
+            column, ChunkTicketFlags.Loading);
+        var previousSimulationLevel = GetLowestLevel(
+            column, ChunkTicketFlags.Simulation);
         if (!_tickets.TryGetValue(column, out var tickets))
         {
             tickets = [];
@@ -105,6 +118,8 @@ public sealed class ChunkTicketStorage
             }
         }
 
+        PublishSourceLevelChanges(
+            column, previousLoadingLevel, previousSimulationLevel);
         return added;
     }
 
@@ -164,6 +179,10 @@ public sealed class ChunkTicketStorage
                 _tickets.Add(entry.Column, tickets);
             }
 
+            var previousLoadingLevel = GetLowestLevel(
+                entry.Column, ChunkTicketFlags.Loading);
+            var previousSimulationLevel = GetLowestLevel(
+                entry.Column, ChunkTicketFlags.Simulation);
             if (!tickets.Add(entry.Ticket))
                 throw new InvalidDataException(
                     $"Persistent ticket snapshot contains a duplicate identity: {entry.Column}.");
@@ -178,6 +197,9 @@ public sealed class ChunkTicketStorage
                         SaturatingAdd(currentTick, remainingTicks),
                         currentTick));
             }
+
+            PublishSourceLevelChanges(
+                entry.Column, previousLoadingLevel, previousSimulationLevel);
         }
     }
 
@@ -241,7 +263,14 @@ public sealed class ChunkTicketStorage
     public bool RemoveTicket(ChunkColumnCoord column, ChunkTicket ticket)
     {
         if (!_tickets.TryGetValue(column, out var tickets) ||
-            !tickets.Remove(ticket))
+            !tickets.Contains(ticket))
+            return false;
+
+        var previousLoadingLevel = GetLowestLevel(
+            column, ChunkTicketFlags.Loading);
+        var previousSimulationLevel = GetLowestLevel(
+            column, ChunkTicketFlags.Simulation);
+        if (!tickets.Remove(ticket))
             return false;
 
         _expirationTicks.Remove((column, ticket));
@@ -250,7 +279,35 @@ public sealed class ChunkTicketStorage
             _persistentTimedTicketCount--;
         if (tickets.Count == 0)
             _tickets.Remove(column);
+        PublishSourceLevelChanges(
+            column, previousLoadingLevel, previousSimulationLevel);
         return true;
+    }
+
+    private void PublishSourceLevelChanges(
+        ChunkColumnCoord column,
+        int previousLoadingLevel,
+        int previousSimulationLevel)
+    {
+        var loadingLevel = GetLowestLevel(
+            column, ChunkTicketFlags.Loading);
+        if (loadingLevel != previousLoadingLevel)
+        {
+            LoadingChunkUpdated?.Invoke(
+                column,
+                loadingLevel,
+                loadingLevel < previousLoadingLevel);
+        }
+
+        var simulationLevel = GetLowestLevel(
+            column, ChunkTicketFlags.Simulation);
+        if (simulationLevel != previousSimulationLevel)
+        {
+            SimulationChunkUpdated?.Invoke(
+                column,
+                simulationLevel,
+                simulationLevel < previousSimulationLevel);
+        }
     }
 
     public bool RemoveTicketsWhere(

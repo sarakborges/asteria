@@ -12,10 +12,16 @@ public sealed class ChunkDistanceManager
     private readonly ChunkDistanceTracker _simulation = new();
     private readonly NaturalSpawnChunkTracker _naturalSpawn = new();
     private readonly ChunkHolderMap _holders;
+    private readonly Dictionary<ChunkColumnCoord, int> _pendingLoadingSourceChanges = [];
+    private readonly Dictionary<ChunkColumnCoord, int> _pendingSimulationSourceChanges = [];
 
     public ChunkDistanceManager()
     {
         _holders = new ChunkHolderMap(_loading.Levels);
+        _tickets.LoadingChunkUpdated +=
+            (column, level, _) => _pendingLoadingSourceChanges[column] = level;
+        _tickets.SimulationChunkUpdated +=
+            (column, level, _) => _pendingSimulationSourceChanges[column] = level;
     }
 
     /// <summary>
@@ -104,11 +110,9 @@ public sealed class ChunkDistanceManager
                     ChunkLevel.EntityTicking)))
             return false;
 
-        var changes = _loading.SynchronizeSourcesWithChanges(
-            _tickets,
-            ChunkTicketFlags.Loading,
-            ChunkLevel.MaximumLoading);
-        SynchronizeHolders(changes);
+        RebuildDistanceGraphs(
+            loadingChanged: true,
+            simulationChanged: false);
         return true;
     }
 
@@ -121,11 +125,9 @@ public sealed class ChunkDistanceManager
                     ChunkLevel.EntityTicking)))
             return false;
 
-        var changes = _loading.SynchronizeSourcesWithChanges(
-            _tickets,
-            ChunkTicketFlags.Loading,
-            ChunkLevel.MaximumLoading);
-        SynchronizeHolders(changes);
+        RebuildDistanceGraphs(
+            loadingChanged: true,
+            simulationChanged: false);
         return true;
     }
 
@@ -209,20 +211,50 @@ public sealed class ChunkDistanceManager
     {
         if (loadingChanged)
         {
-            var changes = _loading.SynchronizeSourcesWithChanges(
-                _tickets,
-                ChunkTicketFlags.Loading,
-                ChunkLevel.MaximumLoading);
+            var changes = _loading.MaximumLevel != ChunkLevel.MaximumLoading
+                ? _loading.SynchronizeSourcesWithChanges(
+                    _tickets,
+                    ChunkTicketFlags.Loading,
+                    ChunkLevel.MaximumLoading)
+                : _loading.ApplySourceChanges(
+                    DrainSourceChanges(_pendingLoadingSourceChanges),
+                    ChunkLevel.MaximumLoading);
+            _pendingLoadingSourceChanges.Clear();
             SynchronizeHolders(changes);
         }
 
         if (simulationChanged)
         {
-            _simulation.SynchronizeSources(
-                _tickets,
-                ChunkTicketFlags.Simulation,
-                ChunkLevel.BlockTicking);
+            if (_simulation.MaximumLevel != ChunkLevel.BlockTicking)
+            {
+                _simulation.SynchronizeSources(
+                    _tickets,
+                    ChunkTicketFlags.Simulation,
+                    ChunkLevel.BlockTicking);
+                _pendingSimulationSourceChanges.Clear();
+            }
+            else
+            {
+                _simulation.ApplySourceChanges(
+                    DrainSourceChanges(_pendingSimulationSourceChanges),
+                    ChunkLevel.BlockTicking);
+            }
         }
+    }
+
+    private static IReadOnlyList<KeyValuePair<ChunkColumnCoord, int>>
+        DrainSourceChanges(
+            Dictionary<ChunkColumnCoord, int> pending)
+    {
+        if (pending.Count == 0)
+            return Array.Empty<KeyValuePair<ChunkColumnCoord, int>>();
+
+        var changes = pending
+            .OrderBy(entry => entry.Key.X)
+            .ThenBy(entry => entry.Key.Z)
+            .ToArray();
+        pending.Clear();
+        return changes;
     }
 
     private void SynchronizeHolders(
