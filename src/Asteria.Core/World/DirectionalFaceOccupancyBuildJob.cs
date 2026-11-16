@@ -14,6 +14,7 @@ public sealed partial class SurfaceChunkMaterializer
     private sealed class DirectionalFaceOccupancyBuildJob
     {
         private readonly SurfaceChunkMaterializer _owner;
+        private readonly ChunkGenerationAccessRegion _accessRegion;
         private readonly Func<int, int, int, bool> _isSolid;
         private readonly SurfaceTerrainColumn _column;
         private readonly int _originX;
@@ -56,9 +57,12 @@ public sealed partial class SurfaceChunkMaterializer
             int originX,
             int originY,
             int originZ,
-            TerrainDensityVolume? densityVolume)
+            TerrainDensityVolume? densityVolume,
+            ChunkGenerationAccessRegion accessRegion)
         {
             _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            _accessRegion = accessRegion ??
+                throw new ArgumentNullException(nameof(accessRegion));
             _isSolid = isSolid ?? throw new ArgumentNullException(nameof(isSolid));
             _column = column ?? throw new ArgumentNullException(nameof(column));
             _originX = originX;
@@ -165,14 +169,20 @@ public sealed partial class SurfaceChunkMaterializer
 #if DEBUG
             var started = Stopwatch.GetTimestamp();
 #endif
+            var minimumReadY = Math.Max(0, _originY - _maximumDepth);
+            var topStartY = checked(_originY + Chunk.Size);
+            var maximumReadY = checked(topStartY + _maximumDepth - 1);
+            _accessRegion.EnsureCanReadWorldPosition(
+                _originX, minimumReadY, _originZ);
+            _accessRegion.EnsureCanReadWorldPosition(
+                _originX, maximumReadY, _originZ);
             _bottomSlabs = _owner.SampleVerticalDensitySlabs(
                 _column,
                 _originX,
                 _originZ,
-                Math.Max(0, _originY - _maximumDepth),
+                minimumReadY,
                 _originY,
                 out var bottomDensityProbes);
-            var topStartY = checked(_originY + Chunk.Size);
             _topSlabs = _owner.SampleVerticalDensitySlabs(
                 _column,
                 _originX,
@@ -190,6 +200,11 @@ public sealed partial class SurfaceChunkMaterializer
 
         private void ReadLeftXBoundary()
         {
+            EnsureBoundaryReadEnvelope(
+                checked(_originX - _maximumDepth),
+                checked(_originX - 1),
+                _originZ,
+                checked(_originZ + Chunk.Size - 1));
             Span<int> columnIndices = stackalloc int[Chunk.Area];
             Span<ushort> requestedYMasks = stackalloc ushort[Chunk.Area];
             Span<ushort> solidMasks = stackalloc ushort[Chunk.Area];
@@ -217,6 +232,11 @@ public sealed partial class SurfaceChunkMaterializer
 
         private void ReadRightXBoundary()
         {
+            EnsureBoundaryReadEnvelope(
+                checked(_originX + Chunk.Size),
+                checked(_originX + Chunk.Size + _maximumDepth - 1),
+                _originZ,
+                checked(_originZ + Chunk.Size - 1));
             Span<int> columnIndices = stackalloc int[Chunk.Area];
             Span<ushort> requestedYMasks = stackalloc ushort[Chunk.Area];
             Span<ushort> solidMasks = stackalloc ushort[Chunk.Area];
@@ -244,6 +264,11 @@ public sealed partial class SurfaceChunkMaterializer
 
         private void ReadNegativeZBoundary()
         {
+            EnsureBoundaryReadEnvelope(
+                _originX,
+                checked(_originX + Chunk.Size - 1),
+                checked(_originZ - _maximumDepth),
+                checked(_originZ - 1));
             Span<int> columnIndices = stackalloc int[Chunk.Area];
             Span<ushort> requestedYMasks = stackalloc ushort[Chunk.Area];
             Span<ushort> solidMasks = stackalloc ushort[Chunk.Area];
@@ -272,6 +297,11 @@ public sealed partial class SurfaceChunkMaterializer
 
         private void ReadPositiveZBoundary()
         {
+            EnsureBoundaryReadEnvelope(
+                _originX,
+                checked(_originX + Chunk.Size - 1),
+                checked(_originZ + Chunk.Size),
+                checked(_originZ + Chunk.Size + _maximumDepth - 1));
             Span<int> columnIndices = stackalloc int[Chunk.Area];
             Span<ushort> requestedYMasks = stackalloc ushort[Chunk.Area];
             Span<ushort> solidMasks = stackalloc ushort[Chunk.Area];
@@ -296,6 +326,24 @@ public sealed partial class SurfaceChunkMaterializer
             _horizontalBoundaryReadMilliseconds +=
                 Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 #endif
+        }
+
+        private void EnsureBoundaryReadEnvelope(
+            int minimumX,
+            int maximumX,
+            int minimumZ,
+            int maximumZ)
+        {
+            var minimumY = _originY;
+            var maximumY = checked(_originY + Chunk.Size - 1);
+            _accessRegion.EnsureCanReadWorldPosition(
+                minimumX, minimumY, minimumZ);
+            _accessRegion.EnsureCanReadWorldPosition(
+                minimumX, maximumY, maximumZ);
+            _accessRegion.EnsureCanReadWorldPosition(
+                maximumX, minimumY, maximumZ);
+            _accessRegion.EnsureCanReadWorldPosition(
+                maximumX, maximumY, minimumZ);
         }
 
         private void RecordBoundaryMetrics(BoundaryMaskReadMetrics metrics)
