@@ -374,11 +374,14 @@ public sealed class ChunkGenerationPlanTests
             var step = plan.GetStep(stepId);
             Assert.Equal(ChunkGenerationDependencyEnvelope.None, step.ReadEnvelope);
             Assert.Equal(ChunkGenerationDependencyEnvelope.None, step.WriteEnvelope);
-            Assert.DoesNotContain(
-                plan.GetAccumulatedDependencies(stepId),
-                dependency => dependency.Envelope.HorizontalRadius > 0 ||
-                    dependency.Envelope.MinimumSectionOffset < 0 ||
-                    dependency.Envelope.MaximumSectionOffset > 0);
+            // The step itself has no spatial halo. Its transitive
+            // prerequisites may still include GravitySupport's legitimate
+            // lower-section holder dependency.
+            Assert.All(
+                step.DirectDependencies,
+                dependency => Assert.Equal(
+                    ChunkGenerationDependencyEnvelope.None,
+                    dependency.Envelope));
         }
     }
 
