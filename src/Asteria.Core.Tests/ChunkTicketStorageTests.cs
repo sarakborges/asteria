@@ -469,7 +469,7 @@ public sealed class ChunkTicketStorageTests
         var nearTicket = new ChunkTicket(
             ChunkTicketType.PlayerLoading, Level: ChunkLevel.EntityTicking);
         var farTicket = new ChunkTicket(
-            ChunkTicketType.PlayerLoading, Level: ChunkLevel.BlockTicking);
+            ChunkTicketType.PlayerLoading, Level: ChunkLevel.EntityTicking - 1);
 
         Assert.True(storage.AddTicket(near, nearTicket));
         var initial = tracker.SynchronizeSourcesWithChanges(
@@ -504,7 +504,7 @@ public sealed class ChunkTicketStorageTests
         Assert.Equal(169, removedFar.Count);
         Assert.All(removedFar, change =>
         {
-            Assert.Equal(ChunkLevel.BlockTicking, change.PreviousLevel);
+            Assert.Equal(ChunkLevel.EntityTicking - 1, change.PreviousLevel);
             Assert.Null(change.Level);
         });
         Assert.Equal(121, tracker.Count);
