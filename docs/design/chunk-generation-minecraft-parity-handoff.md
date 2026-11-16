@@ -1436,3 +1436,8 @@ The active worker priority calculation is now section-local and side-effect free
 ### Priority-event compile correction
 
 The first validation of `99a7102` found a C# local-name collision between the active-holder and unloaded-holder branches in `ChunkHolderMap.SynchronizeLoadingLevels` (CS0136). The variables now have branch-specific names; the next validation must run on the correction commit. The benchmark tool build failed only because it builds the same Core project and hit this compiler error.
+
+
+### Ticket-propagation test correction
+
+On `f7c07fa`, Core compilation passed and 1,900 of 1,901 tests passed. The new priority-event test initially counted every holder affected by ticket propagation (26) while asserting only the target holder's two transitions. The assertion now filters by holder identity and validates exactly those two transitions. The next CI run must confirm the corrected test on its exact HEAD.

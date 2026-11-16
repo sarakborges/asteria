@@ -188,9 +188,11 @@ public sealed class ChunkStreamingStateTests
 
         Assert.True(manager.RemovePlayerLoadingTicket(column));
 
-        Assert.Equal(2, changes.Count);
-        var ticketChange = changes[1];
-        Assert.Same(holder, ticketChange.Holder);
+        var holderChanges = changes
+            .Where(change => ReferenceEquals(change.Holder, holder))
+            .ToArray();
+        Assert.Equal(2, holderChanges.Length);
+        var ticketChange = holderChanges[1];
         Assert.Equal(ChunkLevel.Unloaded, ticketChange.Priority.TicketLevel);
         Assert.Equal(ticketChange.Priority, holder.QueuePriority);
         Assert.Equal(holder.QueuePriorityRevision, ticketChange.Revision);
