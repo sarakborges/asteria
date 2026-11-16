@@ -21,8 +21,12 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope HorizontalNeighborHalo =
         new(horizontalRadius: 1, minimumSectionOffset: 0, maximumSectionOffset: 0);
 
+    // Ground placement may inspect density one voxel above a top-edge
+    // support; nearby-fluid rules may inspect the support voxel below a
+    // bottom-edge decoration. These are immutable data reads, not holder
+    // status requirements.
     private static readonly ChunkGenerationDependencyEnvelope SurfaceDecorationReadHalo =
-        new(horizontalRadius: 2, minimumSectionOffset: 0, maximumSectionOffset: 0);
+        new(horizontalRadius: 2, minimumSectionOffset: -1, maximumSectionOffset: 1);
 
     // Directional face paint can inspect up to 64 voxels across horizontal
     // and vertical seams. At 16 voxels per section this requires four

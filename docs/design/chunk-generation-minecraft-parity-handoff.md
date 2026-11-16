@@ -1388,3 +1388,8 @@ Regression coverage now asserts the full surface-decoration read envelope while 
 ### Validation
 
 The prior Core run on HEAD `3649fe4795` reported two failures in `OceanObjectGenerationTests`: ocean-floor decorations at the top section boundary read density in section Y+1 while the stage declared [0, 0]. This checkpoint updates that contract and requires a fresh Core validation. No terrain performance result is claimed until the in-flight fixed-seed A/B evidence is inspected.
+
+
+### Surface-decoration envelope correction — 2026-11-16
+
+The first enforcement commit renamed the SurfaceDecorations halo and changed its expected test values but left the runtime numeric offsets at [0, 0]. The follow-up commit corrects the actual plan declaration to horizontal radius 2 / vertical offsets [-1, +1], with the runtime reason documented above. The failing ocean-decoration tests therefore remain an explicit validation gate until this corrected HEAD passes.
