@@ -63,10 +63,30 @@ internal sealed class ChunkColumnPendingQueue
     /// holder ticket levels. Distance and stable coordinate tie-breaks remain
     /// secondary to the authoritative ticket level.
     /// </summary>
-    public void UpdateTicketLevels()
+    public void UpdateTicketLevels(
+        IReadOnlyList<ChunkHolderTicketLevelChange> changes)
     {
-        if (_hasPriorityContext)
-            ReprioritizeColumns();
+        ArgumentNullException.ThrowIfNull(changes);
+        if (!_hasPriorityContext || changes.Count == 0)
+            return;
+
+        foreach (var column in changes
+                     .Select(change => change.Holder.Position)
+                     .Distinct()
+                     .OrderBy(column => column.X)
+                     .ThenBy(column => column.Z))
+        {
+            if (!_sectionsByColumn.TryGetValue(column, out var sections))
+                continue;
+
+            if (!_columns.UpdatePriority(
+                    Key(column),
+                    CalculatePriority(column, sections.Values)))
+            {
+                throw new InvalidOperationException(
+                    $"Pending column is missing from its priority index: {column}");
+            }
+        }
     }
 
     private void ReprioritizeColumns()

@@ -156,6 +156,7 @@ public sealed class ChunkResidencyRuntime
     // vertical section jobs fork to the shared executor and publish together.
     private readonly Dictionary<ChunkColumnCoord, MaterializationWork>
         _materializationTasks = [];
+    private readonly HashSet<ChunkColumnCoord> _pendingHolderPriorityChanges = [];
     private readonly ChunkGenerationCompletionMailbox _generationCompletionMailbox;
     private readonly ChunkGenerationWorkerPool _generationWorkerPool;
     private readonly WorldWorkerPool _worldWorkerPool;
@@ -258,6 +259,8 @@ public sealed class ChunkResidencyRuntime
             HandleGenerationStatusAdvanced;
         _generationDispatcher.SectionGenerationStatusAdvanced +=
             HandleSectionGenerationStatusAdvanced;
+        _streaming.DistanceManager.HolderTicketLevelsChanged +=
+            HandleHolderTicketLevelsChanged;
         _objects = objects;
         _directionalFacePaletteUpdater =
             chunkProvider as IChunkDirectionalFacePaletteUpdater;
@@ -290,7 +293,7 @@ public sealed class ChunkResidencyRuntime
             return false;
 
         SyncTicketDemands();
-        UpdateGenerationTaskPriorities();
+        ApplyPendingHolderPriorityChanges();
         if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
             PublishPersistentChunkTickets(_worldTicks.CurrentTick);
         return true;
@@ -307,7 +310,7 @@ public sealed class ChunkResidencyRuntime
             return false;
 
         SyncTicketDemands();
-        UpdateGenerationTaskPriorities();
+        ApplyPendingHolderPriorityChanges();
         if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
             PublishPersistentChunkTickets(_worldTicks.CurrentTick);
         return true;
@@ -321,7 +324,7 @@ public sealed class ChunkResidencyRuntime
         if (changed != ChunkTicketFlags.None)
         {
             SyncTicketDemands();
-            UpdateGenerationTaskPriorities();
+            ApplyPendingHolderPriorityChanges();
         }
         if (hadPersistentTimedTickets &&
             currentTick != _lastPersistentTicketSnapshotTick)
@@ -617,6 +620,8 @@ public sealed class ChunkResidencyRuntime
         ArgumentNullException.ThrowIfNull(desired);
         ArgumentNullException.ThrowIfNull(presented);
 
+        var previousCenter = _center;
+        var previousMovementDirection = _streaming.MovementDirection;
         var changed =
             _streaming.RebuildSelection(
                 center,
@@ -642,6 +647,11 @@ public sealed class ChunkResidencyRuntime
             Math.Max(0, retentionRadius);
         SyncResidentState(presented);
         CompleteReadyPendingHolderUnloads();
+
+        if (previousCenter != center ||
+            previousMovementDirection != _streaming.MovementDirection)
+            ReprioritizeActiveWorldWork();
+        ApplyPendingHolderPriorityChanges();
         return true;
     }
 
@@ -1321,7 +1331,7 @@ public sealed class ChunkResidencyRuntime
         if (restored > 0)
             SyncResidentState(presented);
 
-        UpdateGenerationTaskPriorities();
+        ApplyPendingHolderPriorityChanges();
         var dispatchReport = _generationDispatcher.Pump(
             budget, int.MaxValue);
 
@@ -1476,7 +1486,46 @@ public sealed class ChunkResidencyRuntime
             coord.X);
     }
 
-    private void UpdateGenerationTaskPriorities()
+    private void HandleHolderTicketLevelsChanged(
+        IReadOnlyList<ChunkHolderTicketLevelChange> changes)
+    {
+        foreach (var change in changes)
+            _pendingHolderPriorityChanges.Add(change.Holder.Position);
+    }
+
+    private void ApplyPendingHolderPriorityChanges()
+    {
+        if (_pendingHolderPriorityChanges.Count == 0)
+            return;
+
+        foreach (var column in _pendingHolderPriorityChanges
+                     .OrderBy(column => column.X)
+                     .ThenBy(column => column.Z))
+        {
+            var coord = new ChunkCoord(column.X, _center.Y, column.Z);
+            if (_materializationTasks.TryGetValue(column, out var generationWork))
+                _generationDispatcher.UpdatePriority(
+                    generationWork.TaskKey, GenerationPriority(coord));
+
+            foreach (var (section, work) in _chunkLightingReconciliationTasks)
+            {
+                if (section.X == column.X && section.Z == column.Z)
+                    _generationDispatcher.LightingExecutor.TryUpdatePriority(
+                        work.TaskInstance, StreamingWorkerPriority(section));
+            }
+
+            foreach (var (section, work) in _directionalFaceReconciliationTasks)
+            {
+                if (section.X == column.X && section.Z == column.Z)
+                    _worldWorkerPool.TryUpdatePriority(
+                        work.Operation, StreamingWorkerPriority(section));
+            }
+        }
+
+        _pendingHolderPriorityChanges.Clear();
+    }
+
+    private void ReprioritizeActiveWorldWork()
     {
         foreach (var (column, work) in _materializationTasks)
         {

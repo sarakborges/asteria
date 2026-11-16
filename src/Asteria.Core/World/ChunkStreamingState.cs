@@ -85,7 +85,7 @@ public sealed class ChunkStreamingState
     public ChunkStreamingState()
     {
         _distanceManager.HolderTicketLevelsChanged +=
-            _ => _pending.UpdateTicketLevels();
+            changes => _pending.UpdateTicketLevels(changes);
     }
 
     public ChunkCoord? Center { get; private set; }
