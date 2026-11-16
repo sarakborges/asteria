@@ -526,8 +526,7 @@ public sealed class ChunkStreamingState
             var priority =
                 StreamingPriority(
                     coord,
-                    center,
-                    MovementDirection);
+                    center);
 
             if (selected is null ||
                 priority.CompareTo(

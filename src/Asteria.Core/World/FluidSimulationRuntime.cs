@@ -101,7 +101,7 @@ public sealed class FluidSimulationRuntime
             center is { } currentCenter)
         {
             var updatedPriority = ResolveWorkerPriority(
-                pendingBatch, currentCenter, movement);
+                pendingBatch, currentCenter);
             if (_inFlightWorkerPriority != updatedPriority &&
                 _worker.TryUpdatePriority(updatedPriority))
                 _inFlightWorkerPriority = updatedPriority;
@@ -163,7 +163,7 @@ public sealed class FluidSimulationRuntime
             return false;
 
         var workerPriority = ResolveWorkerPriority(
-            batch, center, movement);
+            batch, center);
         if (!_worker.TryStart(
                 _world,
                 _fluids,
@@ -181,8 +181,7 @@ public sealed class FluidSimulationRuntime
 
     private static WorldWorkerPriority ResolveWorkerPriority(
         FluidWorkBatch batch,
-        ChunkCoord? center,
-        ChunkMovementDirection movement)
+        ChunkCoord? center)
     {
         if (center is not { } focus)
             return WorldWorkerPriority.FromPriorityClass(
@@ -194,7 +193,7 @@ public sealed class FluidSimulationRuntime
             var coord = VoxelCoordinates.FromWorld(
                 position.X, position.Y, position.Z).Chunk;
             var priority = ChunkStreamingState.StreamingPriority(
-                coord, focus, movement);
+                coord, focus);
             if (nearest is null || priority.CompareTo(nearest.Value) < 0)
                 nearest = priority;
             if (priority.TicketLevel <= ChunkLevel.EntityTicking)

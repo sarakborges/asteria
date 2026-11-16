@@ -154,7 +154,7 @@ public sealed class LightingRuntime
             center is { } currentCenter)
         {
             var updatedPriority = ResolveWorkerPriority(
-                pendingBatch, currentCenter, movement);
+                pendingBatch, currentCenter);
             if (_inFlightWorkerPriority != updatedPriority &&
                 _worker.TryUpdatePriority(updatedPriority))
                 _inFlightWorkerPriority = updatedPriority;
@@ -202,7 +202,7 @@ public sealed class LightingRuntime
         }
 
         var workerPriority = ResolveWorkerPriority(
-            batch, center, movement);
+            batch, center);
         var captureStart = Stopwatch.GetTimestamp();
         if (!_worker.TryStartScoped(
                 _world,
@@ -224,8 +224,7 @@ public sealed class LightingRuntime
 
     private static WorldWorkerPriority ResolveWorkerPriority(
         WorldLightingBatch batch,
-        ChunkCoord? center,
-        ChunkMovementDirection movement)
+        ChunkCoord? center)
     {
         if (batch.IsPriority)
             return WorldWorkerPriority.FromPriorityClass(
@@ -240,7 +239,7 @@ public sealed class LightingRuntime
             var coord = VoxelCoordinates.FromWorld(
                 position.X, position.Y, position.Z).Chunk;
             var priority = ChunkStreamingState.StreamingPriority(
-                coord, focus, movement);
+                coord, focus);
             if (nearest is null || priority.CompareTo(nearest.Value) < 0)
                 nearest = priority;
             if (priority.TicketLevel <= ChunkLevel.EntityTicking)
