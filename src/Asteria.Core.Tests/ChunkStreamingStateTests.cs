@@ -305,35 +305,37 @@ public sealed class ChunkStreamingStateTests
     [Fact]
     public void PendingColumnsUseAuthoritativeHolderTicketLevelsAndReprioritizeOnChange()
     {
-        var state = new ChunkStreamingState();
         var near = new ChunkCoord(1, 0, 0);
         var forcedFar = new ChunkCoord(8, 0, 0);
         var desired = new HashSet<ChunkCoord> { near, forcedFar };
-        state.RebuildSelection(
+
+        var withoutTicket = new ChunkStreamingState();
+        withoutTicket.RebuildSelection(
             ChunkCoord.Zero,
             horizontalRadius: 10,
             retentionRadius: 0,
             desired);
-        state.SyncResidentState(
+        withoutTicket.SyncResidentState(
             Array.Empty<ChunkCoord>(),
             Array.Empty<ChunkCoord>());
+        Assert.Equal(near, withoutTicket.PopPendingByPriority());
 
-        Assert.Equal(near, state.PopPendingByPriority());
-
-        state.RebuildSelection(
+        var withTicket = new ChunkStreamingState();
+        withTicket.RebuildSelection(
             ChunkCoord.Zero,
             horizontalRadius: 10,
             retentionRadius: 0,
-            desired: new HashSet<ChunkCoord> { near, forcedFar });
+            desired);
+        withTicket.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
 
-        // The second assertion below exercises a fresh pending set. Give the
-        // farther column a stronger FORCED ticket after both entries are queued.
         var ticket = new ChunkTicket(
             ChunkTicketType.Forced, Level: 30, SectionY: forcedFar.Y);
-        Assert.True(state.DistanceManager.AddTicket(
+        Assert.True(withTicket.DistanceManager.AddTicket(
             ChunkColumnCoord.FromChunk(forcedFar), ticket, currentTick: 0));
 
-        Assert.Equal(forcedFar, state.PopPendingByPriority());
+        Assert.Equal(forcedFar, withTicket.PopPendingByPriority());
     }
 
     [Fact]
