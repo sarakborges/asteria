@@ -460,12 +460,20 @@ public sealed partial class SurfaceChunkMaterializer
             }
 
             case ChunkMaterializationStage.Veins:
+            {
                 // Veins only attach face-layer state; they cannot change voxel
                 // occupancy and are irrelevant to a support-face query.
                 if (!job.SupportOnly)
-                    _veins?.Apply(job.Chunk, job.Coord);
+                {
+                    var accessRegion = new ChunkGenerationAccessRegion(
+                        AsteriaChunkGenerationPlan.Default,
+                        job.Coord,
+                        ChunkGenerationStepId.Veins);
+                    _veins?.Apply(job.Chunk, job.Coord, accessRegion);
+                }
                 job.Stage = ChunkMaterializationStage.WallLayers;
                 break;
+            }
 
             case ChunkMaterializationStage.WallLayers:
             {
