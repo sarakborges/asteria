@@ -111,12 +111,12 @@ public sealed class ChunkHolderMap
                 if (_holders.TryGetValue(column, out var holder))
                 {
                     var previousLevel = holder.TicketLevel;
-                    var previousPriority = holder.QueuePriority;
+                    var previousHolderPriority = holder.QueuePriority;
                     if (holder.UpdateTicketLevel(level))
                     {
                         changes.Add(new ChunkHolderTicketLevelChange(
                             holder, previousLevel, level));
-                        PublishQueuePriorityChanged(holder, previousPriority);
+                        PublishQueuePriorityChanged(holder, previousHolderPriority);
                     }
                 }
                 else
@@ -134,12 +134,12 @@ public sealed class ChunkHolderMap
                 continue;
 
             var previousTicketLevel = unloadedHolder.TicketLevel;
-            var previousPriority = unloadedHolder.QueuePriority;
+            var previousUnloadedPriority = unloadedHolder.QueuePriority;
             if (unloadedHolder.UpdateTicketLevel(ChunkLevel.Unloaded))
             {
                 changes.Add(new ChunkHolderTicketLevelChange(
                     unloadedHolder, previousTicketLevel, ChunkLevel.Unloaded));
-                PublishQueuePriorityChanged(unloadedHolder, previousPriority);
+                PublishQueuePriorityChanged(unloadedHolder, previousUnloadedPriority);
             }
             _pendingUnloads.Add(column);
         }

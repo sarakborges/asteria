@@ -1431,3 +1431,8 @@ The residency coordinator applies each holder event directly to the matching col
 The active worker priority calculation is now section-local and side-effect free. Only the horizontal column generation task updates the holder's canonical composite key; lighting and reconciliation workers no longer overwrite that holder key with a different vertical section's Y-distance.
 
 **Validation required:** focused Core tests, the full Core suite, Windows export and fixed-seed A/B must complete on the exact new HEAD. This change does not implement cross-column producer admission or the full loading/generation pyramids; those remain separate architecture gaps.
+
+
+### Priority-event compile correction
+
+The first validation of `99a7102` found a C# local-name collision between the active-holder and unloaded-holder branches in `ChunkHolderMap.SynchronizeLoadingLevels` (CS0136). The variables now have branch-specific names; the next validation must run on the correction commit. The benchmark tool build failed only because it builds the same Core project and hit this compiler error.
