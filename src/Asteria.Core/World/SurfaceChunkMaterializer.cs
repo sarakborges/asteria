@@ -442,13 +442,18 @@ public sealed partial class SurfaceChunkMaterializer
 
             case ChunkMaterializationStage.VerticalDecorations:
             {
+                var accessRegion = new ChunkGenerationAccessRegion(
+                    AsteriaChunkGenerationPlan.Default,
+                    job.Coord,
+                    ChunkGenerationStepId.VerticalDecorations);
                 var pendingObjects = job.PendingObjects;
                 MaterializeVerticalDecorations(
                     job.Chunk, RequiredColumn(job), RequiredDensity(job),
                     job.OriginX, job.OriginY, job.OriginZ,
                     ref pendingObjects,
                     includeObjects: !job.SupportOnly,
-                    columnMask: job.SupportOutputColumns);
+                    columnMask: job.SupportOutputColumns,
+                    accessRegion);
                 job.PendingObjects = pendingObjects;
                 job.Stage = ChunkMaterializationStage.Veins;
                 break;
@@ -3804,7 +3809,8 @@ public sealed partial class SurfaceChunkMaterializer
         int originZ,
         ref List<PendingGeneratedObject>? pendingObjects,
         bool includeObjects,
-        bool[]? columnMask)
+        bool[]? columnMask,
+        ChunkGenerationAccessRegion accessRegion)
     {
         if (!_decorations.HasVerticalDecorations)
             return;
@@ -3820,6 +3826,8 @@ public sealed partial class SurfaceChunkMaterializer
             var surfaceBiome = column.BiomeAt(localX, localZ);
             var worldX = originX + localX;
             var worldZ = originZ + localZ;
+            void EnsureReadWorldY(int worldY) =>
+                accessRegion.EnsureCanReadWorldPosition(worldX, worldY, worldZ);
             var volumePlacement = densityVolume.VolumePlacementAt(localX, localZ);
             var hasVolumeDecorations = volumePlacement is not null &&
                 _decorations.HasVerticalDecorationsFor(volumePlacement.Primary);
@@ -3845,6 +3853,8 @@ public sealed partial class SurfaceChunkMaterializer
                     continue;
 
                 var targetInChunk = (uint)localY < Chunk.Size;
+                if (!targetInChunk)
+                    EnsureReadWorldY(worldY);
                 var targetSolid = targetInChunk
                     ? densityVolume.IsSolidAtUnchecked(localX, localY, localZ)
                     : _terrain.DensityAt(surfaceBiome, baseY,
@@ -3855,9 +3865,14 @@ public sealed partial class SurfaceChunkMaterializer
                     continue;
                 var belowSolid = localY > 0 && localY <= Chunk.Size
                     ? densityVolume.IsSolidAtUnchecked(localX, localY - 1, localZ)
-                    : _terrain.DensityAt(
+                    : ReadBelowSolid();
+                bool ReadBelowSolid()
+                {
+                    EnsureReadWorldY(worldY - 1);
+                    return _terrain.DensityAt(
                         surfaceBiome, baseY,
                         worldX, worldY - 1, worldZ, volumePlacement) >= 0d;
+                }
                 var isFloor = belowSolid;
                 // Additive islands may expose their undersides above the
                 // base surface. Resolve the author at the solid voxel above.
@@ -3879,9 +3894,14 @@ public sealed partial class SurfaceChunkMaterializer
                 {
                     var aboveSolid = localY + 1 >= 0 && localY + 1 < Chunk.Size
                         ? densityVolume.IsSolidAtUnchecked(localX, localY + 1, localZ)
-                        : _terrain.DensityAt(
+                        : ReadAboveSolid();
+                    bool ReadAboveSolid()
+                    {
+                        EnsureReadWorldY(worldY + 1);
+                        return _terrain.DensityAt(
                             surfaceBiome, baseY,
                             worldX, worldY + 1, worldZ, volumePlacement) >= 0d;
+                    }
                     isCeiling = aboveSolid;
                 }
                 if (!isFloor && !isCeiling)
@@ -3910,8 +3930,11 @@ public sealed partial class SurfaceChunkMaterializer
                 {
                     // A solid face outside a carved void does not authorize
                     // a volume decorator on the ordinary terrain surface.
-                    if (!hasCaveBiomeField ||
-                        !_terrain.IsCaveVoidAt(
+                    if (!hasCaveBiomeField)
+                        continue;
+                    if (!targetInChunk)
+                        EnsureReadWorldY(worldY);
+                    if (!_terrain.IsCaveVoidAt(
                             baseY, new WorldVoxelCoord(worldX, worldY, worldZ)))
                         continue;
                     if (!undergroundResolved)
@@ -3931,6 +3954,8 @@ public sealed partial class SurfaceChunkMaterializer
                         decoratorBiome.Primary))
                     continue;
 
+                if (!targetInChunk)
+                    EnsureReadWorldY(worldY);
                 var submerged = !_generatedFluids.FluidAt(
                     surfaceBiome,
                     baseY,
@@ -3946,8 +3971,13 @@ public sealed partial class SurfaceChunkMaterializer
                         : worldY > baseY
                             ? (volumeMaterials ??= _materials.SampleColumn(
                                 decoratorBiome, worldX, worldZ)).BlockAt(0)
-                            : _materials.VolumeBlockAt(
-                                decoratorBiome, worldX, worldY - 1, worldZ);
+                            : ReadBelowMaterial();
+                    BlockRuntimeId ReadBelowMaterial()
+                    {
+                        EnsureReadWorldY(worldY - 1);
+                        return _materials.VolumeBlockAt(
+                            decoratorBiome, worldX, worldY - 1, worldZ);
+                    }
                     if (!support.IsAir)
                     {
                         if (targetInChunk)
@@ -3958,6 +3988,8 @@ public sealed partial class SurfaceChunkMaterializer
                                 submerged: submerged);
                             if (!decoration.IsAir)
                             {
+                                accessRegion.EnsureCanWriteWorldPosition(
+                                    worldX, worldY, worldZ);
                                 chunk.SetBlock(localX, localY, localZ, decoration);
                                 continue;
                             }
@@ -3971,6 +4003,8 @@ public sealed partial class SurfaceChunkMaterializer
                                 submerged: submerged, supportY: worldY - 1);
                             if (objectId is not null)
                             {
+                                accessRegion.EnsureCanWriteWorldPosition(
+                                    worldX, worldY - 1, worldZ);
                                 pendingObjects ??= [];
                                 pendingObjects.Add(new PendingGeneratedObject(
                                     localX, localY - 1, localZ,
@@ -3997,6 +4031,7 @@ public sealed partial class SurfaceChunkMaterializer
                     // solid-material pass, even across a vertical chunk seam.
                     volumeMaterials ??= _materials.SampleColumn(
                         decoratorBiome, worldX, worldZ);
+                    EnsureReadWorldY(worldY + 1);
                     var depth = AdditiveDepthAt(
                         densityVolume, surfaceBiome, baseY,
                         localX, localY + 1, localZ,
@@ -4006,6 +4041,7 @@ public sealed partial class SurfaceChunkMaterializer
                 }
                 else
                 {
+                    EnsureReadWorldY(worldY + 1);
                     ceilingSupport = _materials.VolumeBlockAt(
                         decoratorBiome, worldX, worldY + 1, worldZ,
                         BiomePaletteFace.Ceiling);
@@ -4020,7 +4056,11 @@ public sealed partial class SurfaceChunkMaterializer
                         placement, verticalY: worldY, submerged: submerged,
                         supportSurface: DecorationSupportSurface.Ceiling);
                     if (!hanger.IsAir)
+                    {
+                        accessRegion.EnsureCanWriteWorldPosition(
+                            worldX, worldY, worldZ);
                         chunk.SetBlock(localX, localY, localZ, hanger);
+                    }
                 }
                 if (includeObjects &&
                     (uint)(localY + 1) < Chunk.Size)
@@ -4032,6 +4072,8 @@ public sealed partial class SurfaceChunkMaterializer
                         supportSurface: DecorationSupportSurface.Ceiling);
                     if (objectId is not null)
                     {
+                        accessRegion.EnsureCanWriteWorldPosition(
+                            worldX, worldY + 1, worldZ);
                         pendingObjects ??= [];
                         pendingObjects.Add(new PendingGeneratedObject(
                             localX, localY + 1, localZ,
