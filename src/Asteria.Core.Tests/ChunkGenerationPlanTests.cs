@@ -136,11 +136,23 @@ public sealed class ChunkGenerationPlanTests
             4,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
         Assert.Equal(
+            AsteriaChunkGenerationPlan.FullSectionEnvelope,
+            AsteriaChunkLoadingPlan.FullSectionDependencyEnvelope);
+        Assert.Equal(
+            0,
+            AsteriaChunkLoadingPlan.MaximumHorizontalDependencyRadius);
+        Assert.Equal(
             0,
             AsteriaChunkGenerationPlan.MaximumHorizontalDependencyRadius);
         Assert.Equal(
             0,
-            AsteriaChunkGenerationPlan.FullSectionEnvelope.HorizontalRadius);
+            AsteriaChunkLoadingPlan.FullSectionDependencyEnvelope.HorizontalRadius);
+        Assert.Equal(
+            4,
+            AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
+        Assert.NotEqual(
+            AsteriaChunkLoadingPlan.FullSectionDependencyEnvelope,
+            AsteriaChunkGenerationPlan.FullSectionAccessEnvelope);
 
         var accumulated = AsteriaChunkGenerationPlan.Default.GetAccumulatedDependencies(
             ChunkGenerationStepId.SectionReady);
