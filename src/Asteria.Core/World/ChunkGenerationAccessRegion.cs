@@ -81,7 +81,7 @@ public sealed class ChunkGenerationAccessRegion
         throw CreateAccessException(
             "read immutable generator data from",
             sourceSection,
-            _step.ReadEnvelope);
+            _readEnvelope);
     }
 
     public void EnsureCanWrite(ChunkCoord destinationSection)

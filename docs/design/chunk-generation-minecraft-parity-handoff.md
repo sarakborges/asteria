@@ -1295,3 +1295,34 @@ The old duplicate `ChunkStreamingPriority` type was removed and remaining stream
 3. Continue the bounded-access audit for remaining generation stages, especially surface decorations, directional palettes, structures, wall generation and gravity support. Keep field-data reads separate from resident-holder reads.
 4. Make volume-structure anchor assignment an explicit column-scoped immutable product/future; only then reconsider the current [-34, +34] section-stage read range.
 5. Inspect fixed-seed terrain A/B and materialized geology artifacts before making any new performance claim.
+
+
+---
+
+## Continuation checkpoint — surface structure access product — 2026-11-16
+
+### Current branch state
+
+- Branch: `worldgen-perf-fix`
+- PR: [#157](https://github.com/sarakborges/asteria/pull/157), base `worldgen-remake`
+- Implementation HEAD before this checkpoint: `96a1204b6aaaac17718207e43046bbdba0bca0e5`
+- Do not merge or deploy without an explicit request.
+
+### Surface structure read contract
+
+- `SurfaceStructureField` computes a conservative immutable-column read radius from each configured rule's spacing, connector/placement extent and maximum authored proximity distance. The runtime `ChunkGenerationAccessRegion` accepts this content-derived read envelope without expanding the write envelope or holder-retention requirements.
+- Structure placement resolution installs the access region for the duration of the query. Both biome and base-surface helpers check the column envelope before serving a cached value, so a warm cache cannot bypass the guard.
+- `SurfaceStructures` now publishes its resolved, immutable placement list on the materialization job. The later gravity-support fast path and `StructureObjects` stage consume this product rather than invoking `PlacementsForChunk` again. Jobs fail fast if either consumer runs before the producer stage.
+- Regression coverage verifies that a runtime read-envelope override expands immutable reads while writes remain restricted to the target section.
+
+### Remaining audit items
+
+- Inspect any remaining generation entrypoint that can resolve surface placements outside `SurfaceStructures`, especially `ExpandSurfaceRange`; keep explicit user/manual structure queries separate from generation-stage access enforcement.
+- Continue checking all dynamic field reads by stage and confirm late consumers use products emitted by their owning stage.
+- Keep the VolumeStructures anchor/support-Y search as a separate follow-up: it still needs a column-scoped immutable anchor product/future before the large vertical data halo can be narrowed.
+
+### Validation
+
+- Validate workflow: [#43810247289](https://github.com/sarakborges/asteria/actions/runs/43810247289), on HEAD `96a1204b6aaaac17718207e43046bbdba0bca0e5`, running when this checkpoint was written. Core/headless results not yet reported; WebUI build and Storybook had passed, screen parity was running; fixed-seed terrain A/B was running.
+- Windows export workflow: [#43810237876](https://github.com/sarakborges/asteria/actions/runs/43810237876), on the same HEAD and still running.
+- No performance improvement is claimed until the fixed-seed A/B report completes on the same implementation HEAD.
