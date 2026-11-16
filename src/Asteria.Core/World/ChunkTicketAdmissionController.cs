@@ -49,10 +49,25 @@ public sealed class ChunkTicketAdmissionController
         ArgumentNullException.ThrowIfNull(residentSections);
 
         var resident = residentSections.ToHashSet();
-        var missing = requiredSections
+        var required = requiredSections
             .Where(coord => ChunkColumnCoord.FromChunk(coord) == column)
+            .Distinct()
+            .OrderBy(coord => coord.Y)
+            .ThenBy(coord => coord.Z)
+            .ThenBy(coord => coord.X)
+            .ToArray();
+        var missing = required
             .Where(coord => !resident.Contains(coord))
             .ToHashSet();
+
+        void ResetProgressAndRetainResidentSections(string reason)
+        {
+            _distanceManager.ResetGenerationProgress(column, reason);
+            foreach (var section in required)
+                if (resident.Contains(section))
+                    _distanceManager.CompleteSectionGenerationStatus(
+                        section, ChunkGenerationStatus.Full);
+        }
 
         if (_sectionsAwaitingFullStatus.TryGetValue(column, out var pending))
         {
@@ -64,8 +79,7 @@ public sealed class ChunkTicketAdmissionController
                 // A previously achieved status described the old vertical set.
                 // Invalidate it and let the current/new column task report
                 // aggregate progress for the expanded requirement set.
-                _distanceManager.ResetGenerationProgress(
-                    column,
+                ResetProgressAndRetainResidentSections(
                     "New vertical sections were added to the holder's FULL requirement.");
             }
 
@@ -87,8 +101,7 @@ public sealed class ChunkTicketAdmissionController
                 return false;
 
             _sectionsAwaitingFullStatus.Add(column, missing);
-            _distanceManager.ResetGenerationProgress(
-                column,
+            ResetProgressAndRetainResidentSections(
                 "Additional vertical sections are now required by the holder.");
             return true;
         }
@@ -161,13 +174,13 @@ public sealed class ChunkTicketAdmissionController
     /// desired view. ChunkDistanceManager separately removes loading tickets
     /// for columns which leave the horizontal view.
     /// </summary>
-    public int RetainDesiredSections(IReadOnlySet<ChunkCoord> desiredSections)
+    public int RetainRequestedSections(IReadOnlySet<ChunkCoord> requestedSections)
     {
-        ArgumentNullException.ThrowIfNull(desiredSections);
+        ArgumentNullException.ThrowIfNull(requestedSections);
         var released = 0;
         foreach (var (column, pending) in _sectionsAwaitingFullStatus.ToArray())
         {
-            pending.RemoveWhere(section => !desiredSections.Contains(section));
+            pending.RemoveWhere(section => !requestedSections.Contains(section));
             if (pending.Count != 0)
                 continue;
 

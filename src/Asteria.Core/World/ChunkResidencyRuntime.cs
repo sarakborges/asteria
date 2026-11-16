@@ -333,22 +333,32 @@ public sealed class ChunkResidencyRuntime
     {
         var targets = _streaming.DistanceManager.Tickets.FullMaterializationTargets;
         var previous = _streaming.TicketedSections;
-        foreach (var added in targets.Where(section =>
-                     !previous.Contains(section) &&
-                     !_streaming.IsDesired(section)))
-        {
+        var newlyRequiredColumns = targets
+            .Where(section =>
+                !previous.Contains(section) &&
+                !_streaming.IsDesired(section) &&
+                !_world.ContainsChunk(section))
+            .Select(ChunkColumnCoord.FromChunk)
+            .Distinct()
+            .OrderBy(column => column.X)
+            .ThenBy(column => column.Z)
+            .ToArray();
+
+        foreach (var column in newlyRequiredColumns)
             _streaming.DistanceManager.ResetGenerationProgress(
-                ChunkColumnCoord.FromChunk(added),
-                "A loading ticket added a new vertical FULL target.");
-        }
+                column,
+                "A new vertical FULL target changed the holder's required section set.");
 
         _streaming.SyncTicketedSections(targets, _world.LoadedChunkCoords);
         CancelMaterializationsOutsideResidency();
-        foreach (var target in targets)
-            if (_world.ContainsChunk(target))
-                MarkMaterializedSectionFull(target);
+        foreach (var section in _streaming.RequestedSections
+                     .Where(_world.ContainsChunk)
+                     .OrderBy(section => section.Y)
+                     .ThenBy(section => section.Z)
+                     .ThenBy(section => section.X))
+            MarkMaterializedSectionFull(section);
 
-        _playerTicketAdmissions.RetainDesiredSections(
+        _playerTicketAdmissions.RetainRequestedSections(
             _streaming.RequestedSections);
     }
 
@@ -356,13 +366,12 @@ public sealed class ChunkResidencyRuntime
     {
         _playerTicketAdmissions.MarkSectionFull(section);
         var column = ChunkColumnCoord.FromChunk(section);
-        if (!_streaming.IsTicketDemanded(section) ||
-            _streaming.DesiredSectionsInColumn(column).Count > 0)
+        if (_playerTicketAdmissions.HasPendingAdmission(column))
             return;
 
-        var ticketed = _streaming.TicketedSectionsInColumn(column);
-        if (ticketed.Count == 0 ||
-            ticketed.Any(target => !_world.ContainsChunk(target)))
+        var requested = _streaming.RequestedSectionsInColumn(column);
+        if (requested.Count == 0 ||
+            requested.Any(target => !_world.ContainsChunk(target)))
             return;
 
         var distanceManager = _streaming.DistanceManager;
@@ -612,7 +621,7 @@ public sealed class ChunkResidencyRuntime
             return false;
         }
 
-        _playerTicketAdmissions.RetainDesiredSections(
+        _playerTicketAdmissions.RetainRequestedSections(
             _streaming.RequestedSections);
         CancelMaterializationsOutsideResidency();
         _center = center;
