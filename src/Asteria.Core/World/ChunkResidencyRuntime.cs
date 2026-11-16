@@ -260,6 +260,8 @@ public sealed class ChunkResidencyRuntime
             HandleSectionGenerationStatusAdvanced;
         _streaming.DistanceManager.HolderQueuePriorityChanged +=
             HandleHolderQueuePriorityChanged;
+        _streaming.DistanceManager.HolderTicketLevelsChanged +=
+            HandleHolderTicketLevelsChanged;
         _objects = objects;
         _directionalFacePaletteUpdater =
             chunkProvider as IChunkDirectionalFacePaletteUpdater;
@@ -321,7 +323,7 @@ public sealed class ChunkResidencyRuntime
         if (changed != ChunkTicketFlags.None)
         {
             SyncTicketDemands();
-            }
+        }
         if (hadPersistentTimedTickets &&
             currentTick != _lastPersistentTicketSnapshotTick)
             PublishPersistentChunkTickets(currentTick);
@@ -1487,26 +1489,43 @@ public sealed class ChunkResidencyRuntime
     private void HandleHolderQueuePriorityChanged(
         ChunkHolderQueuePriorityChange change)
     {
-        var column = change.Holder.Position;
-        if (_materializationTasks.TryGetValue(column, out var work))
-            _generationDispatcher.UpdatePriority(work.TaskKey, change.Priority);
+        if (change.Revision != change.Holder.QueuePriorityRevision)
+            return;
 
-        // Reconciliation jobs are section-addressed. Preserve their exact
-        // vertical distance while adopting the holder's new ticket urgency.
-        foreach (var (section, lightingWork) in _chunkLightingReconciliationTasks)
+        if (_materializationTasks.TryGetValue(
+                change.Holder.Position, out var work))
         {
-            if (ChunkColumnCoord.FromChunk(section) == column)
+            _generationDispatcher.UpdatePriority(work.TaskKey, change.Priority);
+        }
+    }
+
+    /// <summary>
+    /// Ticket graph updates are delivered as one settled batch. Reclassify each
+    /// auxiliary worker lane in one pass rather than rescanning every task once
+    /// per changed holder notification.
+    /// </summary>
+    private void HandleHolderTicketLevelsChanged(
+        IReadOnlyList<ChunkHolderTicketLevelChange> changes)
+    {
+        if (changes.Count == 0)
+            return;
+
+        var changedColumns = changes
+            .Select(change => change.Holder.Position)
+            .ToHashSet();
+
+        foreach (var (section, work) in _chunkLightingReconciliationTasks)
+        {
+            if (changedColumns.Contains(ChunkColumnCoord.FromChunk(section)))
                 _generationDispatcher.LightingExecutor.TryUpdatePriority(
-                    lightingWork.TaskInstance,
-                    StreamingWorkerPriority(section));
+                    work.TaskInstance, StreamingWorkerPriority(section));
         }
 
-        foreach (var (section, directionalWork) in _directionalFaceReconciliationTasks)
+        foreach (var (section, work) in _directionalFaceReconciliationTasks)
         {
-            if (ChunkColumnCoord.FromChunk(section) == column)
+            if (changedColumns.Contains(ChunkColumnCoord.FromChunk(section)))
                 _worldWorkerPool.TryUpdatePriority(
-                    directionalWork.Operation,
-                    StreamingWorkerPriority(section));
+                    work.Operation, StreamingWorkerPriority(section));
         }
     }
 

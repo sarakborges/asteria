@@ -1420,13 +1420,13 @@ The first enforcement commit renamed the SurfaceDecorations halo and changed its
 
 ## Holder-driven queue reprioritization — 2026-11-16
 
-**Implementation commit:** pending validation on `worldgen-perf-fix`.
+**Implementation:** `8e6cfa9` with a follow-up batching correction; validation is pending on the follow-up HEAD.
 
 Minecraft Java Edition 26.3's `ChunkTaskDispatcher` is a `ChunkHolder.LevelChangeListener`; its `onLevelChange` path updates the task queue when the holder's effective level changes. The 26.3 API reference is [ChunkTaskDispatcher](https://aldak0.ru/javadoc/26.3.x/net/minecraft/server/level/ChunkTaskDispatcher.html).
 
 Asteria previously stored the composite key on `GenerationChunkHolder`, but `ChunkResidencyRuntime` collected ticket-level changes into a `HashSet` and later scanned active worldgen, lighting and directional-reconciliation maps to propagate them. The holder map now emits `ChunkHolderQueuePriorityChange` with the new composite priority and monotonic revision whenever either ticket urgency or spatial priority changes. `ChunkDistanceManager` forwards the event directly to the residency coordinator.
 
-The residency coordinator immediately applies the event to the matching column task in `ChunkGenerationDispatcher` and to section-local lighting/reconciliation operations for that holder. The pending-column queue continues to consume the settled ticket-level change event in `ChunkStreamingState`, while player-center changes rebuild its distance ordering. The intermediate `_pendingHolderPriorityChanges` set and its second-pass scan were removed.
+The residency coordinator applies each holder event directly to the matching column task in `ChunkGenerationDispatcher` (with an O(1) key lookup). Auxiliary lighting/reconciliation workers consume the existing settled ticket-level batch and are reclassified in one pass, avoiding one full task-map scan per changed holder. The pending-column queue also consumes that settled batch in `ChunkStreamingState`, while player-center changes rebuild its distance ordering. The intermediate `_pendingHolderPriorityChanges` set and its deferred second-pass scan were removed.
 
 The active worker priority calculation is now section-local and side-effect free. Only the horizontal column generation task updates the holder's canonical composite key; lighting and reconciliation workers no longer overwrite that holder key with a different vertical section's Y-distance.
 
