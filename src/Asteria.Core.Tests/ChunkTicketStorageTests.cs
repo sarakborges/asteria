@@ -338,8 +338,10 @@ public sealed class ChunkTicketStorageTests
             [section], ChunkGenerationDependencyEnvelope.None);
 
         Assert.True(manager.RemovePlayerLoadingTicket(column));
-        Assert.False(manager.IsHolderPendingUnload(column));
+        Assert.True(manager.IsHolderPendingUnload(column));
         Assert.Same(holder, manager.GetHolder(column));
+        Assert.False(manager.CompletePendingHolderUnload(column));
+        Assert.True(manager.IsHolderPendingUnload(column));
 
         claim.Dispose();
 

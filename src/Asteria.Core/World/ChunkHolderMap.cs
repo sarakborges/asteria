@@ -68,10 +68,7 @@ public sealed class ChunkHolderMap
             }
 
             holder.UpdateTicketLevel(ChunkLevel.Unloaded);
-            if (holder.DependencyClaimCount == 0)
-                _pendingUnloads.Add(column);
-            else
-                _pendingUnloads.Remove(column);
+            _pendingUnloads.Add(column);
         }
     }
 
@@ -120,7 +117,10 @@ public sealed class ChunkHolderMap
                 if (!_holders.ContainsKey(column))
                     _holders.Add(column, new ChunkHolder(
                         column, ChunkLevel.Unloaded));
-                _pendingUnloads.Remove(column);
+                if (_loadingLevels.ContainsKey(column))
+                    _pendingUnloads.Remove(column);
+                else
+                    _pendingUnloads.Add(column);
                 columns.Add(column);
 
                 for (var sectionOffset = envelope.MinimumSectionOffset;
