@@ -1457,3 +1457,12 @@ A regression test now has one column task request a status future, admit a secon
 ### Producer-admission failure path
 
 The producer-admission callback is guarded: if the coordinator cannot admit a producer, the dependent task transitions to Failed, its active queue entry and future waits are cleared, and it is retired when no worker/future operations remain. Added a regression test with an incomplete future and a throwing admission callback to verify there is no orphaned waiting task.
+
+
+### Cross-column holder-status waits in the column coordinator
+
+`ChunkColumnMaterializationGenerationTask` no longer rejects a cross-column `HolderStatus` prerequisite outright. It can now use an injected status-future resolver and producer-admission callback, park through `WaitForFutures`, validate the exact returned status, and resume the dependent section on the parent coordinator. A shared (holder coordinate, status) future is deduplicated across all section consumers; the same task can defer CPU forks from other sections while it awaits external holder status, then dispatch those forks after resumption. Existing same-column vertical status waiters and dynamic GravitySupport dependency scheduling remain unchanged.
+
+A focused test injects one cross-column status requirement for two vertical section consumers and verifies they share a single future and one producer admission before both sections resume.
+
+**Runtime integration boundary:** the default Asteria DAG currently has no cross-column `HolderStatus` dependency; its horizontal procedural read halos are immutable field data and should not retain chunk holders. `ChunkResidencyRuntime` does not yet inject the status-future resolver/producer callback into this task. A future plan that adds a true cross-column holder dependency must supply those two delegates from its active `ChunkDependencyClaim` and status-target producer coordinator. The task layer now supports that contract and fails fast if the producer resolver is absent.

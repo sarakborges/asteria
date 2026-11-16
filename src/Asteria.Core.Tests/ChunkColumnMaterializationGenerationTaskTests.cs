@@ -158,6 +158,80 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void ColumnSharesCrossColumnHolderFutureAcrossSectionConsumers()
+    {
+        var column = new ChunkColumnCoord(4, -2);
+        var lower = new FakeMaterializationJob(
+            new ChunkCoord(4, 0, -2),
+            sliceCount: 1,
+            ChunkMaterializationStage.SurfaceDecorations);
+        var upper = new FakeMaterializationJob(
+            new ChunkCoord(4, 1, -2),
+            sliceCount: 1,
+            ChunkMaterializationStage.SurfaceDecorations);
+        var externalSection = new ChunkCoord(40, 0, 40);
+        var requirement = new ChunkGenerationSectionRequirement(
+            externalSection,
+            ChunkGenerationStepId.ColumnBiomeData,
+            ChunkGenerationStatus.Biomes);
+        var source = new TaskCompletionSource<ChunkGenerationFutureResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var futureRequests = 0;
+        var producerRequests = 0;
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [lower, upper],
+            initializeLighting: _ => { },
+            getHolderStatusRequirements: (_, _) => [requirement],
+            getHolderStatusFuture: _ =>
+            {
+                futureRequests++;
+                return source.Task;
+            },
+            requestHolderProducer: _ => producerRequests++);
+
+        var initial = task.Advance([], CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForFutures, initial.Kind);
+        var operation = Assert.Single(initial.FutureOperations);
+        Assert.Equal(0, lower.AdvanceCount);
+        Assert.Equal(0, upper.AdvanceCount);
+        Assert.Equal(1, futureRequests);
+
+        operation.RequestProducer?.Invoke();
+        Assert.Equal(1, producerRequests);
+        source.SetResult(ChunkGenerationFutureResult.Success(
+            ChunkGenerationStatus.Biomes,
+            revision: 5));
+
+        var futureCompletion = Completion(
+            column,
+            operation.DependencyId,
+            source.Task.Result);
+        var resumed = task.Advance(
+            [futureCompletion],
+            CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, resumed.Kind);
+        Assert.Equal(0, lower.AdvanceCount);
+        Assert.Equal(0, upper.AdvanceCount);
+
+        var lightOperations = 0;
+        var final = CompleteColumn(
+            task,
+            column,
+            task.Advance([], CancellationToken.None),
+            ref lightOperations);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+        Assert.Equal(1, lower.AdvanceCount);
+        Assert.Equal(1, upper.AdvanceCount);
+        Assert.Equal(1, futureRequests);
+        Assert.Equal(1, producerRequests);
+        Assert.Equal(2, lightOperations);
+    }
+
+    [Fact]
     public void SectionDependencyReusesCompletedLowerSectionFuture()
     {
         var column = new ChunkColumnCoord(3, -1);
