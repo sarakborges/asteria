@@ -1034,12 +1034,10 @@ public sealed partial class SurfaceChunkMaterializer
             HasNearbyFluid(
                 fluid, radius, worldX, supportY, worldZ, accessRegion);
 
-        // Slope conditions inspect the current and four adjacent columns.
-        // Seed the query-local samplers with the immutable biome samples that
-        // TerrainSetup already resolved for this chunk; only the outer halo
-        // needs additional sampling.
+        // Conditional ground rules may sample altitude or slope. Always pass
+        // the stage access region through the terrain sampler for either case.
         SurfaceTerrainField.TerrainSampleContext? terrainSampleContext =
-            _decorations.HasSlopeConditions
+            _decorations.HasSurfacePlacementConditions
                 ? _terrain.CreateTerrainSampleContext(
                     column, originX, originZ,
                     SlopeProbeSampleCacheCapacity, accessRegion)

@@ -76,6 +76,53 @@ public sealed class SurfaceDecorationFieldTests
     }
 
     [Fact]
+    public void AltitudeOnlyGroundConditionsStillRequireAccessAwareTerrainSampling()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:block_grass"),
+            new BlockDefinition("asteria:pebble"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/altitude_condition",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(0, 0, 64, 0, 32),
+            [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
+            decorations:
+            [
+                new BiomeDecorationDefinition(
+                    "asteria:pebble", 1f, ["asteria:block_grass"],
+                    conditions: new SurfacePlacementConditions(minY: 32)),
+            ]);
+        var field = new SurfaceDecorationField(71, [biome], blocks);
+
+        Assert.True(field.HasSurfacePlacementConditions);
+    }
+
+    [Fact]
+    public void UnconditionalGroundDecorationsDoNotRequireTerrainSampling()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:block_grass"),
+            new BlockDefinition("asteria:pebble"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/unconditional",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(0, 0, 64, 0, 32),
+            [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
+            decorations:
+            [
+                new BiomeDecorationDefinition(
+                    "asteria:pebble", 1f, ["asteria:block_grass"]),
+            ]);
+        var field = new SurfaceDecorationField(71, [biome], blocks);
+
+        Assert.False(field.HasSurfacePlacementConditions);
+    }
+
+    [Fact]
     public void ClusteredDecorationsAreDeterministicAndStayOnAllowedSurfaces()
     {
         var blocks = new BlockRegistry(

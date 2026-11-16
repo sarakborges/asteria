@@ -29,7 +29,7 @@ public sealed class SurfaceDecorationField
         _fluidBlockSupportIndex;
     private readonly IReadOnlyDictionary<string, HashSet<BlockRuntimeId>>
         _fluidObjectSupportIndex;
-    private readonly bool _hasSlopeConditions;
+    private readonly bool _hasSurfacePlacementConditions;
 
     public SurfaceDecorationField(
         ulong seed,
@@ -150,8 +150,10 @@ public sealed class SurfaceDecorationField
                 rule.FluidRelation == DecorationFluidRelation.Below))
             .Select(pair => pair.Key)
             .ToHashSet(StringComparer.Ordinal);
-        _hasSlopeConditions = _rules.Values.Any(rules =>
-            rules.Any(rule => rule.Conditions?.RequiresSlope == true));
+        _hasSurfacePlacementConditions = _rules.Values.Any(rules =>
+            rules.Any(rule =>
+                rule.SupportSurface == DecorationSupportSurface.Floor &&
+                rule.Conditions is not null));
 
         foreach (var biome in definitions)
             foreach (var decoration in biome.Decorations)
@@ -168,7 +170,10 @@ public sealed class SurfaceDecorationField
     public bool HasWallObjects => _wallObjectBiomes.Count > 0;
     public bool HasWallObjectsFor(string biomeId) =>
         _wallObjectBiomes.Contains(biomeId);
-    internal bool HasSlopeConditions => _hasSlopeConditions;
+    // Ground conditions may sample either altitude or slope. Both require the
+    // access-aware terrain sampler during section materialization.
+    internal bool HasSurfacePlacementConditions =>
+        _hasSurfacePlacementConditions;
     public bool HasWallBlocksFor(string biomeId) =>
         _wallBlockBiomes.Contains(biomeId);
     public bool HasWallLayersFor(string biomeId) =>
