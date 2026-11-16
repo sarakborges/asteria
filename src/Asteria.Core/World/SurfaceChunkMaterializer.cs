@@ -430,7 +430,8 @@ public sealed partial class SurfaceChunkMaterializer
                 var accessRegion = new ChunkGenerationAccessRegion(
                     AsteriaChunkGenerationPlan.Default,
                     job.Coord,
-                    ChunkGenerationStepId.SurfaceStructures);
+                    ChunkGenerationStepId.SurfaceStructures,
+                    _structures.AccessReadEnvelope);
                 MaterializeStructures(
                     job.Chunk, job.Coord, job.OriginY, job.TopExclusive,
                     job.SupportMaterializationColumns, accessRegion);
@@ -2388,7 +2389,8 @@ public sealed partial class SurfaceChunkMaterializer
         var placements =
             _structures.PlacementsForChunk(
                 coord.X,
-                coord.Z);
+                coord.Z,
+                accessRegion);
 
         // Placement bounds include blocks, fluids and explicit clears.
         // Surface structures must not scan underground occupancy or

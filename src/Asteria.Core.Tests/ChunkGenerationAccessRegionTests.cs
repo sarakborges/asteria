@@ -167,6 +167,34 @@ public sealed class ChunkGenerationAccessRegionTests
                 ChunkGenerationStepId.DirectionalFacePalettes));
     }
 
+    [Fact]
+    public void RuntimeReadEnvelopeExpandsImmutableReadsWithoutExpandingWrites()
+    {
+        var target = new ChunkCoord(12, 5, -8);
+        var origin = VoxelCoordinates.ChunkOrigin(target);
+        var configured = new ChunkGenerationDependencyEnvelope(3, -2, 2);
+        var region = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            target,
+            ChunkGenerationStepId.SurfaceStructures,
+            configured);
+
+        Assert.Equal(configured, region.ReadEnvelope);
+        Assert.True(region.CanReadColumnData(
+            origin.X + 3 * Chunk.Size,
+            origin.Z - 3 * Chunk.Size));
+        Assert.True(region.CanReadWorldPosition(
+            origin.X + 3 * Chunk.Size,
+            origin.Y + 2 * Chunk.Size,
+            origin.Z));
+        Assert.False(region.CanReadWorldPosition(
+            origin.X,
+            origin.Y + 3 * Chunk.Size,
+            origin.Z));
+        Assert.False(region.CanWrite(new ChunkCoord(13, 5, -8)));
+        Assert.True(region.CanWrite(target));
+    }
+
     private static ChunkGenerationAccessRegion CreateRegion(
         ChunkCoord center,
         ChunkGenerationDependencyEnvelope read,

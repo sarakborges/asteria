@@ -81,6 +81,8 @@ public sealed class SurfaceStructureField
     // and cleared afterward, so parallel chunk generation never shares it.
     private readonly ThreadLocal<BiomeField.Sampler?> _activeBiomeSampler =
         new();
+    private readonly ThreadLocal<ChunkGenerationAccessRegion?> _activeAccessRegion =
+        new();
 
     public SurfaceStructureField(
         ulong seed,
@@ -166,10 +168,43 @@ public sealed class SurfaceStructureField
                             fluids,
                             _connectors))
                 .ToArray();
+
+        AccessReadEnvelope = CalculateAccessReadEnvelope(_rules);
     }
+
+    /// <summary>
+    /// Conservative horizontal column-data radius for resolving all surface
+    /// placements intersecting one target chunk, including the conflict
+    /// broad-phase and each candidate's authored proximity probes.
+    /// </summary>
+    internal ChunkGenerationDependencyEnvelope AccessReadEnvelope { get; }
 
     public bool HasRules =>
         _rules.Length > 0;
+
+    private static ChunkGenerationDependencyEnvelope CalculateAccessReadEnvelope(
+        IReadOnlyList<RootRule> rules)
+    {
+        long maximumWorldRadius = 0;
+        foreach (var rule in rules)
+        {
+            // The biome-margin broad phase can inspect cells on either side of
+            // its padded query. Conflict resolution expands the direct bounds
+            // by one structure radius and performs that broad phase again.
+            // Proximity rules then probe from the candidate anchor.
+            var worldRadius =
+                2L * rule.MaximumHorizontalRadius +
+                2L * rule.Spacing +
+                rule.MaximumProximityRadius +
+                1L;
+            maximumWorldRadius = Math.Max(maximumWorldRadius, worldRadius);
+        }
+
+        var horizontalRadius = checked((int)(
+            (maximumWorldRadius + Chunk.Size - 1L) / Chunk.Size));
+        return new ChunkGenerationDependencyEnvelope(
+            horizontalRadius, 0, 0);
+    }
 
     /// <summary>
     /// Resolves manual root, connector graph and StructureSet using the
@@ -818,15 +853,26 @@ public sealed class SurfaceStructureField
     internal IReadOnlyList<SurfaceStructurePlacement>
         PlacementsForChunk(
             int chunkX,
-            int chunkZ)
+            int chunkZ,
+            ChunkGenerationAccessRegion? accessRegion = null)
     {
+        if (accessRegion is not null &&
+            (accessRegion.StepId != ChunkGenerationStepId.SurfaceStructures ||
+             accessRegion.TargetSection.X != chunkX ||
+             accessRegion.TargetSection.Z != chunkZ))
+        {
+            throw new ArgumentException(
+                "Surface structure placement queries require a matching SurfaceStructures access region.",
+                nameof(accessRegion));
+        }
+
         var key = new StructureChunkKey(chunkX, chunkZ);
         if (_placements.TryGet(key, out var cached))
             return cached;
 
         return _placements.GetOrAdd(
             key,
-            () => ResolvePlacements(chunkX, chunkZ));
+            () => ResolvePlacements(chunkX, chunkZ, accessRegion));
     }
 
     public ChunkSurfaceRange ExpandSurfaceRange(
@@ -864,7 +910,8 @@ public sealed class SurfaceStructureField
     private IReadOnlyList<SurfaceStructurePlacement>
         ResolvePlacements(
             int chunkX,
-            int chunkZ)
+            int chunkZ,
+            ChunkGenerationAccessRegion? accessRegion)
     {
         if (_rules.Length == 0)
         {
@@ -872,8 +919,9 @@ public sealed class SurfaceStructureField
                 SurfaceStructurePlacement>();
         }
 
-        return WithBiomeSampler(() =>
-            ResolvePlacementsCore(chunkX, chunkZ));
+        return WithBiomeSampler(
+            () => ResolvePlacementsCore(chunkX, chunkZ),
+            accessRegion);
     }
 
     private IReadOnlyList<SurfaceStructurePlacement>
@@ -2553,12 +2601,15 @@ public sealed class SurfaceStructureField
         };
 
     private TResult WithBiomeSampler<TResult>(
-        Func<TResult> query)
+        Func<TResult> query,
+        ChunkGenerationAccessRegion? accessRegion = null)
     {
         ArgumentNullException.ThrowIfNull(query);
         var previousSampler = _activeBiomeSampler.Value;
+        var previousAccessRegion = _activeAccessRegion.Value;
         _activeBiomeSampler.Value =
             previousSampler ?? _terrain.CreateBiomeSampler();
+        _activeAccessRegion.Value = accessRegion ?? previousAccessRegion;
         try
         {
             return query();
@@ -2566,6 +2617,7 @@ public sealed class SurfaceStructureField
         finally
         {
             _activeBiomeSampler.Value = previousSampler;
+            _activeAccessRegion.Value = previousAccessRegion;
         }
     }
 
@@ -2573,6 +2625,7 @@ public sealed class SurfaceStructureField
         int worldX,
         int worldZ)
     {
+        _activeAccessRegion.Value?.EnsureCanReadColumnData(worldX, worldZ);
         var key = (X: worldX, Z: worldZ);
         if (_surfaceSamples.TryGet(key, out var cachedSurface))
             return cachedSurface.Biome;
@@ -2592,6 +2645,7 @@ public sealed class SurfaceStructureField
         int worldX,
         int worldZ)
     {
+        _activeAccessRegion.Value?.EnsureCanReadColumnData(worldX, worldZ);
         var key = (X: worldX, Z: worldZ);
         if (_surfaceSamples.TryGet(key, out var cached))
             return cached;
@@ -2944,6 +2998,10 @@ public sealed class SurfaceStructureField
             Set = set;
             MaximumHorizontalRadius =
                 maximumHorizontalRadius;
+            MaximumProximityRadius = set?.MaximumProximityRadius ??
+                members.Select(member => member.MaximumProximityRadius)
+                    .DefaultIfEmpty(0)
+                    .Max();
             MaximumPriority = set is not null
                 ? set.Priority
                 : members.Max(member => member.Definition.Priority);
@@ -2998,6 +3056,8 @@ public sealed class SurfaceStructureField
         public RuntimeStructureSet? Set { get; }
 
         public int MaximumHorizontalRadius { get; }
+
+        public int MaximumProximityRadius { get; }
 
         public int MaximumPriority { get; }
 
@@ -3198,6 +3258,11 @@ public sealed class SurfaceStructureField
                 maximumExtent >= int.MaxValue
                     ? int.MaxValue
                     : (int)maximumExtent;
+            MaximumProximityRadius = Elements
+                .SelectMany(element => element.Members)
+                .Select(member => member.MaximumProximityRadius)
+                .DefaultIfEmpty(0)
+                .Max();
         }
 
         public int Priority { get; }
@@ -3209,6 +3274,8 @@ public sealed class SurfaceStructureField
         public RuntimeSetElement[] Elements { get; }
 
         public int MaximumHorizontalRadius { get; }
+
+        public int MaximumProximityRadius { get; }
     }
 
     private sealed record RuntimeSetElement(
@@ -4023,6 +4090,11 @@ public sealed class SurfaceStructureField
         public RuntimeProximityRule[] Proximity { get; }
 
         public int MaximumHorizontalRadius { get; }
+
+        public int MaximumProximityRadius =>
+            Proximity.Select(rule => rule.MaximumDistance)
+                .DefaultIfEmpty(0)
+                .Max();
 
         public IReadOnlyList<(int X, int Z)>
             HorizontalFootprint(

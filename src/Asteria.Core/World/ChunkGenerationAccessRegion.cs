@@ -10,11 +10,13 @@ public sealed class ChunkGenerationAccessRegion
 {
     private readonly ChunkCoord _targetSection;
     private readonly ChunkGenerationStepDefinition _step;
+    private readonly ChunkGenerationDependencyEnvelope _readEnvelope;
 
     public ChunkGenerationAccessRegion(
         ChunkGenerationPlan plan,
         ChunkCoord targetSection,
-        ChunkGenerationStepId stepId)
+        ChunkGenerationStepId stepId,
+        ChunkGenerationDependencyEnvelope? readEnvelopeOverride = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         if (targetSection.Y < 0)
@@ -23,13 +25,21 @@ public sealed class ChunkGenerationAccessRegion
 
         _targetSection = targetSection;
         _step = plan.GetStep(stepId);
+        _readEnvelope = readEnvelopeOverride is { } configured
+            ? _step.ReadEnvelope.Union(configured)
+            : _step.ReadEnvelope;
     }
 
     public ChunkCoord TargetSection => _targetSection;
 
     public ChunkGenerationStepId StepId => _step.Id;
 
-    public ChunkGenerationDependencyEnvelope ReadEnvelope => _step.ReadEnvelope;
+    /// <summary>
+    /// Effective immutable-data read envelope. Content-driven stages may
+    /// expand the plan's baseline with a conservative envelope computed from
+    /// their validated world-generation definitions.
+    /// </summary>
+    public ChunkGenerationDependencyEnvelope ReadEnvelope => _readEnvelope;
 
     public ChunkGenerationDependencyEnvelope WriteEnvelope => _step.WriteEnvelope;
 
@@ -38,7 +48,7 @@ public sealed class ChunkGenerationAccessRegion
     /// by the active step. This does not authorize reading a resident chunk.
     /// </summary>
     public bool CanReadGeneratorData(ChunkCoord sourceSection) =>
-        IsWithinEnvelope(sourceSection, _step.ReadEnvelope);
+        IsWithinEnvelope(sourceSection, _readEnvelope);
 
     /// <summary>Whether this step may write into the specified section.</summary>
     public bool CanWrite(ChunkCoord destinationSection) =>
@@ -95,7 +105,7 @@ public sealed class ChunkGenerationAccessRegion
             $"Generation step {_step.Id} for target section {_targetSection} " +
             $"cannot read immutable generator column data at world position " +
             $"({worldX}, {worldZ}) in column ({column.X}, {column.Z}); " +
-            $"declared horizontal read radius is {_step.ReadEnvelope.HorizontalRadius}.");
+            $"declared horizontal read radius is {_readEnvelope.HorizontalRadius}.");
     }
 
     public void EnsureCanReadWorldPosition(int worldX, int worldY, int worldZ)
@@ -109,7 +119,7 @@ public sealed class ChunkGenerationAccessRegion
             $"Generation step {_step.Id} for target section {_targetSection} " +
             $"cannot read immutable generator data at world position " +
             $"({worldX}, {worldY}, {worldZ}) in section {sourceSection}; " +
-            $"declared read envelope is {Format(_step.ReadEnvelope)}.");
+            $"declared read envelope is {Format(_readEnvelope)}.");
     }
 
     public void EnsureCanWriteWorldPosition(int worldX, int worldY, int worldZ)
@@ -131,7 +141,7 @@ public sealed class ChunkGenerationAccessRegion
         var deltaX = (long)accessedColumn.X - _targetSection.X;
         var deltaZ = (long)accessedColumn.Z - _targetSection.Z;
         return Math.Max(Math.Abs(deltaX), Math.Abs(deltaZ)) <=
-            _step.ReadEnvelope.HorizontalRadius;
+            _readEnvelope.HorizontalRadius;
     }
 
     private bool IsWithinEnvelope(
