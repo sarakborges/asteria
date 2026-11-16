@@ -420,11 +420,17 @@ public sealed partial class SurfaceChunkMaterializer
                 break;
 
             case ChunkMaterializationStage.SurfaceStructures:
+            {
+                var accessRegion = new ChunkGenerationAccessRegion(
+                    AsteriaChunkGenerationPlan.Default,
+                    job.Coord,
+                    ChunkGenerationStepId.SurfaceStructures);
                 MaterializeStructures(
                     job.Chunk, job.Coord, job.OriginY, job.TopExclusive,
-                    job.SupportMaterializationColumns);
+                    job.SupportMaterializationColumns, accessRegion);
                 job.Stage = ChunkMaterializationStage.CaveSpikes;
                 break;
+            }
 
             case ChunkMaterializationStage.CaveSpikes:
                 MaterializeCaveSpikes(
@@ -2272,7 +2278,8 @@ public sealed partial class SurfaceChunkMaterializer
         ChunkCoord coord,
         int originY,
         int topExclusive,
-        bool[]? columnMask)
+        bool[]? columnMask,
+        ChunkGenerationAccessRegion accessRegion)
     {
         if (!_structures.HasRules)
         {
@@ -2356,6 +2363,10 @@ public sealed partial class SurfaceChunkMaterializer
                     continue;
                 }
 
+                accessRegion.EnsureCanWriteWorldPosition(
+                    checked(origin.X + localX),
+                    checked(originY + localY),
+                    checked(origin.Z + localZ));
                 var key =
                     StructureCellKey(
                         localX,
@@ -2402,6 +2413,10 @@ public sealed partial class SurfaceChunkMaterializer
                     continue;
                 }
 
+                accessRegion.EnsureCanWriteWorldPosition(
+                    checked(origin.X + localX),
+                    checked(originY + localY),
+                    checked(origin.Z + localZ));
                 var key =
                     StructureCellKey(
                         localX,
@@ -2452,6 +2467,10 @@ public sealed partial class SurfaceChunkMaterializer
                     continue;
                 }
 
+                accessRegion.EnsureCanWriteWorldPosition(
+                    checked(origin.X + localX),
+                    checked(originY + localY),
+                    checked(origin.Z + localZ));
                 var key =
                     StructureCellKey(
                         localX,
