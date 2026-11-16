@@ -1497,7 +1497,8 @@ public sealed partial class SurfaceChunkMaterializer
 
         var worldX = supportJob.OriginX + localX;
         var worldZ = supportJob.OriginZ + localZ;
-        var structurePlacements = RequiredSurfaceStructurePlacements(supportJob);
+        var structurePlacements =
+            ResolveSurfaceStructurePlacementsForColumn(supportJob.Coord);
         if (HasSurfaceStructurePayloadAt(
                 structurePlacements, worldX, topWorldY, worldZ) ||
             HasSurfaceStructurePayloadAt(
@@ -1537,6 +1538,18 @@ public sealed partial class SurfaceChunkMaterializer
             worldY > 0 &&
             worldY <= baseY &&
             !isSphereShellBoundaryOrLining;
+    }
+
+    private IReadOnlyList<SurfaceStructurePlacement>
+        ResolveSurfaceStructurePlacementsForColumn(ChunkCoord coord)
+    {
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            new ChunkCoord(coord.X, 0, coord.Z),
+            ChunkGenerationStepId.SurfaceStructurePlacements,
+            _structures.AccessReadEnvelope);
+        return _structures.GetPlacementsForColumn(
+            coord.X, coord.Z, accessRegion);
     }
 
     private static IReadOnlyList<SurfaceStructurePlacement>
@@ -2400,16 +2413,7 @@ public sealed partial class SurfaceChunkMaterializer
         var origin =
             VoxelCoordinates.ChunkOrigin(
                 coord);
-        var placementAccessRegion = new ChunkGenerationAccessRegion(
-            AsteriaChunkGenerationPlan.Default,
-            new ChunkCoord(coord.X, 0, coord.Z),
-            ChunkGenerationStepId.SurfaceStructurePlacements,
-            _structures.AccessReadEnvelope);
-        var placements =
-            _structures.GetPlacementsForColumn(
-                coord.X,
-                coord.Z,
-                placementAccessRegion);
+        var placements = ResolveSurfaceStructurePlacementsForColumn(coord);
         job.SurfaceStructurePlacements = placements;
 
         // Placement bounds include blocks, fluids and explicit clears.

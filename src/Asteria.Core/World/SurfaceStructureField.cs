@@ -193,7 +193,7 @@ public sealed class SurfaceStructureField
             // by one structure radius and performs that broad phase again.
             // Proximity rules then probe from the candidate anchor.
             var worldRadius =
-                2L * rule.MaximumHorizontalRadius +
+                3L * rule.MaximumHorizontalRadius +
                 2L * rule.Spacing +
                 rule.MaximumProximityRadius +
                 1L;
@@ -1314,6 +1314,8 @@ public sealed class SurfaceStructureField
 
         if (rule.HabitatWeights is not null)
         {
+            _activeAccessRegion.Value?.EnsureCanReadColumnData(
+                root.Value.X, root.Value.Z);
             var effectiveChance = Math.Min(1d,
                 rule.Chance * _habitats.Weight(
                     rule.Biome, rule.HabitatWeights, root.Value.X, root.Value.Z));
