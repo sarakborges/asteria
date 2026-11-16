@@ -1,5 +1,10 @@
 namespace Asteria.Core.World;
 
+public readonly record struct ChunkDistanceLevelChange(
+    ChunkColumnCoord Column,
+    int? PreviousLevel,
+    int? Level);
+
 /// <summary>
 /// Propagates the minimum ticket level outwards through the eight neighboring
 /// columns. The priority queue is ordered by level then coordinates, so graph
@@ -46,7 +51,25 @@ public sealed class ChunkDistanceTracker
     public void SynchronizeSources(
         ChunkTicketStorage tickets,
         ChunkTicketFlags graphFlag,
-        int maximumLevel)
+        int maximumLevel) =>
+        SynchronizeSourcesCore(tickets, graphFlag, maximumLevel, captureChanges: false);
+
+    /// <summary>
+    /// Synchronizes ticket sources and returns only nodes whose effective
+    /// distance level changed. Holder maps can consume this delta without
+    /// rescanning every node in the settled graph.
+    /// </summary>
+    public IReadOnlyList<ChunkDistanceLevelChange> SynchronizeSourcesWithChanges(
+        ChunkTicketStorage tickets,
+        ChunkTicketFlags graphFlag,
+        int maximumLevel) =>
+        SynchronizeSourcesCore(tickets, graphFlag, maximumLevel, captureChanges: true);
+
+    private IReadOnlyList<ChunkDistanceLevelChange> SynchronizeSourcesCore(
+        ChunkTicketStorage tickets,
+        ChunkTicketFlags graphFlag,
+        int maximumLevel,
+        bool captureChanges)
     {
         ArgumentNullException.ThrowIfNull(tickets);
         if (graphFlag is not (ChunkTicketFlags.Loading or ChunkTicketFlags.Simulation))
@@ -54,8 +77,11 @@ public sealed class ChunkDistanceTracker
         if (maximumLevel < 0)
             throw new ArgumentOutOfRangeException(nameof(maximumLevel));
 
+        Dictionary<ChunkColumnCoord, int>? previousFullGraph = null;
         if (MaximumLevel != maximumLevel)
         {
+            if (captureChanges)
+                previousFullGraph = new Dictionary<ChunkColumnCoord, int>(_levels);
             _levels.Clear();
             _sources.Clear();
             MaximumLevel = maximumLevel;
@@ -88,7 +114,9 @@ public sealed class ChunkDistanceTracker
         }
 
         if (changedSources.Count == 0)
-            return;
+            return previousFullGraph is null
+                ? Array.Empty<ChunkDistanceLevelChange>()
+                : CreateChanges(previousFullGraph, _levels);
 
         // A source at level L can influence at most (maximumLevel - L)
         // neighbour rings. Include that entire Chebyshev region so no stale
@@ -121,8 +149,16 @@ public sealed class ChunkDistanceTracker
         foreach (var (column, level) in desiredSources)
             _sources.Add(column, level);
 
+        var previousAffected = captureChanges
+            ? new Dictionary<ChunkColumnCoord, int>()
+            : null;
         foreach (var column in affected)
+        {
+            if (previousAffected is not null &&
+                _levels.TryGetValue(column, out var previousLevel))
+                previousAffected.Add(column, previousLevel);
             _levels.Remove(column);
+        }
 
         var pending = new PriorityQueue<
             ChunkColumnCoord, (int Level, int Z, int X)>();
@@ -205,5 +241,41 @@ public sealed class ChunkDistanceTracker
                     (candidate, neighbor.Z, neighbor.X));
             }
         }
+
+        if (previousFullGraph is not null)
+            return CreateChanges(previousFullGraph, _levels);
+        if (previousAffected is null)
+            return Array.Empty<ChunkDistanceLevelChange>();
+
+        var currentAffected = new Dictionary<ChunkColumnCoord, int>();
+        foreach (var affectedColumn in affected)
+            if (_levels.TryGetValue(affectedColumn, out var currentLevel))
+                currentAffected.Add(affectedColumn, currentLevel);
+        return CreateChanges(previousAffected, currentAffected);
+    }
+
+    private static IReadOnlyList<ChunkDistanceLevelChange> CreateChanges(
+        IReadOnlyDictionary<ChunkColumnCoord, int> previous,
+        IReadOnlyDictionary<ChunkColumnCoord, int> current)
+    {
+        var changes = new List<ChunkDistanceLevelChange>();
+        foreach (var column in previous.Keys.Concat(current.Keys)
+                     .Distinct()
+                     .OrderBy(column => column.X)
+                     .ThenBy(column => column.Z))
+        {
+            var hadPrevious = previous.TryGetValue(column, out var previousLevel);
+            var hasCurrent = current.TryGetValue(column, out var currentLevel);
+            if (hadPrevious == hasCurrent &&
+                (!hadPrevious || previousLevel == currentLevel))
+                continue;
+
+            changes.Add(new ChunkDistanceLevelChange(
+                column,
+                hadPrevious ? previousLevel : null,
+                hasCurrent ? currentLevel : null));
+        }
+
+        return changes;
     }
 }

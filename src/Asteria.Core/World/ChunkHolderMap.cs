@@ -56,44 +56,48 @@ public sealed class ChunkHolderMap
     /// with the settled loading graph. Dependency-only holders remain present
     /// but are demoted to UNLOADED until a graph ticket promotes them again.
     /// </summary>
-    internal IReadOnlyList<ChunkHolderTicketLevelChange> SynchronizeLoadingLevels()
+    internal IReadOnlyList<ChunkHolderTicketLevelChange> SynchronizeLoadingLevels(
+        IReadOnlyList<ChunkDistanceLevelChange> graphChanges)
     {
-        var changes = new List<ChunkHolderTicketLevelChange>();
+        ArgumentNullException.ThrowIfNull(graphChanges);
+        if (graphChanges.Count == 0)
+            return Array.Empty<ChunkHolderTicketLevelChange>();
 
-        foreach (var (column, level) in _loadingLevels)
+        var changes = new List<ChunkHolderTicketLevelChange>(graphChanges.Count);
+        foreach (var graphChange in graphChanges)
         {
-            _pendingUnloads.Remove(column);
-            if (_holders.TryGetValue(column, out var holder))
-            {
-                var previousLevel = holder.TicketLevel;
-                if (holder.UpdateTicketLevel(level))
-                {
-                    changes.Add(new ChunkHolderTicketLevelChange(
-                        holder, previousLevel, level));
-                }
-            }
-            else
-            {
-                var createdHolder = new ChunkHolder(column, level);
-                _holders.Add(column, createdHolder);
-                changes.Add(new ChunkHolderTicketLevelChange(
-                    createdHolder, ChunkLevel.Unloaded, level));
-            }
-        }
-
-        foreach (var (column, holder) in _holders.ToArray())
-        {
-            if (_loadingLevels.ContainsKey(column))
+            var column = graphChange.Column;
+            if (_loadingLevels.TryGetValue(column, out var level))
             {
                 _pendingUnloads.Remove(column);
+                if (_holders.TryGetValue(column, out var holder))
+                {
+                    var previousLevel = holder.TicketLevel;
+                    if (holder.UpdateTicketLevel(level))
+                    {
+                        changes.Add(new ChunkHolderTicketLevelChange(
+                            holder, previousLevel, level));
+                    }
+                }
+                else
+                {
+                    var createdHolder = new ChunkHolder(column, level);
+                    _holders.Add(column, createdHolder);
+                    changes.Add(new ChunkHolderTicketLevelChange(
+                        createdHolder, ChunkLevel.Unloaded, level));
+                }
+
                 continue;
             }
 
-            var previousLevel = holder.TicketLevel;
-            if (holder.UpdateTicketLevel(ChunkLevel.Unloaded))
+            if (!_holders.TryGetValue(column, out var unloadedHolder))
+                continue;
+
+            var previousTicketLevel = unloadedHolder.TicketLevel;
+            if (unloadedHolder.UpdateTicketLevel(ChunkLevel.Unloaded))
             {
                 changes.Add(new ChunkHolderTicketLevelChange(
-                    holder, previousLevel, ChunkLevel.Unloaded));
+                    unloadedHolder, previousTicketLevel, ChunkLevel.Unloaded));
             }
             _pendingUnloads.Add(column);
         }

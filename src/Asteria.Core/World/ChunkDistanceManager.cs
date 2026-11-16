@@ -104,11 +104,11 @@ public sealed class ChunkDistanceManager
                     ChunkLevel.EntityTicking)))
             return false;
 
-        _loading.SynchronizeSources(
+        var changes = _loading.SynchronizeSourcesWithChanges(
             _tickets,
             ChunkTicketFlags.Loading,
             ChunkLevel.MaximumLoading);
-        SynchronizeHolders();
+        SynchronizeHolders(changes);
         return true;
     }
 
@@ -121,11 +121,11 @@ public sealed class ChunkDistanceManager
                     ChunkLevel.EntityTicking)))
             return false;
 
-        _loading.SynchronizeSources(
+        var changes = _loading.SynchronizeSourcesWithChanges(
             _tickets,
             ChunkTicketFlags.Loading,
             ChunkLevel.MaximumLoading);
-        SynchronizeHolders();
+        SynchronizeHolders(changes);
         return true;
     }
 
@@ -209,11 +209,11 @@ public sealed class ChunkDistanceManager
     {
         if (loadingChanged)
         {
-            _loading.SynchronizeSources(
+            var changes = _loading.SynchronizeSourcesWithChanges(
                 _tickets,
                 ChunkTicketFlags.Loading,
                 ChunkLevel.MaximumLoading);
-            SynchronizeHolders();
+            SynchronizeHolders(changes);
         }
 
         if (simulationChanged)
@@ -225,9 +225,10 @@ public sealed class ChunkDistanceManager
         }
     }
 
-    private void SynchronizeHolders()
+    private void SynchronizeHolders(
+        IReadOnlyList<ChunkDistanceLevelChange> graphChanges)
     {
-        var changes = _holders.SynchronizeLoadingLevels();
+        var changes = _holders.SynchronizeLoadingLevels(graphChanges);
         if (changes.Count > 0)
             HolderTicketLevelsChanged?.Invoke(changes);
     }
