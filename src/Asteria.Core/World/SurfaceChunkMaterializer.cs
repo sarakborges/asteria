@@ -433,12 +433,18 @@ public sealed partial class SurfaceChunkMaterializer
             }
 
             case ChunkMaterializationStage.CaveSpikes:
+            {
+                var accessRegion = new ChunkGenerationAccessRegion(
+                    AsteriaChunkGenerationPlan.Default,
+                    job.Coord,
+                    ChunkGenerationStepId.CaveSpikes);
                 MaterializeCaveSpikes(
                     job.Chunk, RequiredColumn(job), RequiredDensity(job),
                     job.OriginX, job.OriginY, job.OriginZ,
-                    job.SupportOutputColumns);
+                    job.SupportOutputColumns, accessRegion);
                 job.Stage = ChunkMaterializationStage.VerticalDecorations;
                 break;
+            }
 
             case ChunkMaterializationStage.VerticalDecorations:
             {
@@ -4463,7 +4469,8 @@ public sealed partial class SurfaceChunkMaterializer
         int originX,
         int originY,
         int originZ,
-        bool[]? columnMask)
+        bool[]? columnMask,
+        ChunkGenerationAccessRegion accessRegion)
     {
         if (_caveSpikes is not { HasRules: true } spikes ||
             _volumeBiomes is not { HasBiomes: true } volumeBiomes)
@@ -4543,6 +4550,17 @@ public sealed partial class SurfaceChunkMaterializer
                     var down = direction == 1;
                     var supportY = anchorY + (down ? 1 : -1);
                     var localSupportY = supportY - originY;
+
+                    // The selected rule can probe up to 64 blocks of
+                    // clearance from this anchor. Validate the conservative
+                    // world-space probe interval before entering the sampler;
+                    // the declared envelope is immutable data, not a holder
+                    // residency requirement.
+                    accessRegion.EnsureCanReadWorldPosition(
+                        worldX, Math.Max(1, anchorY - 64), worldZ);
+                    accessRegion.EnsureCanReadWorldPosition(
+                        worldX, Math.Min(baseY - 1, anchorY + 64), worldZ);
+
                     if (supportY > 0 && supportY < baseY &&
                         (uint)localSupportY < densityVolume.Height &&
                         (solidColumnMask & (1u << localSupportY)) == 0)
