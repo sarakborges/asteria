@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -19,6 +21,11 @@ public sealed class VolumeStructureField
     // Each request advances a bounded support-Y slice; no worker performs the
     // full authored vertical scan synchronously.
     private readonly BoundedMemoCache<CandidateKey, AnchorSearch> _anchorSearches =
+        new(4096);
+    // One resumable horizontal-column product replaces the repeated X/Z candidate
+    // scan previously performed independently by every vertical section cursor.
+    // It is bounded and non-authoritative: eviction only causes deterministic recomputation.
+    private readonly BoundedMemoCache<ColumnKey, ColumnAnchorProduct> _columnAnchorProducts =
         new(4096);
 
     public VolumeStructureField(
@@ -108,7 +115,54 @@ public sealed class VolumeStructureField
                 nameof(accessRegion));
         }
 
-        return new ChunkCursor(this, coord, accessRegion);
+        if (coord.Y < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(coord), "Volume structures cannot target a section below the world floor.");
+
+        var columnProduct = _columnAnchorProducts.GetOrAdd(
+            new ColumnKey(coord.X, coord.Z),
+            () => new ColumnAnchorProduct(
+                this,
+                coord.X,
+                coord.Z,
+                CreateColumnAccessRegion(coord)));
+        return new ChunkCursor(this, coord, columnProduct);
+    }
+
+    /// <summary>
+    /// Creates the access boundary for resolving the immutable volume-structure
+    /// anchor product of one X/Z column. The vertical allowance is derived from
+    /// the active authored support range and template reach, not from the
+    /// requesting section's local +/- section halo.
+    /// </summary>
+    public ChunkGenerationAccessRegion CreateColumnAccessRegion(ChunkCoord coord)
+    {
+        if (coord.Y < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(coord), "Volume structures cannot target a section below the world floor.");
+
+        var maximumReadWorldY = 0L;
+        foreach (var rule in _rules)
+        {
+            var templateReach = Math.Max(0L, (long)rule.MaxOffsetY);
+            var maximumRuleReadY =
+                (long)rule.Definition.MaxY + templateReach + 1L;
+            maximumReadWorldY = Math.Max(maximumReadWorldY, maximumRuleReadY);
+        }
+
+        var maximumSectionOffset = (int)Math.Min(
+            int.MaxValue,
+            maximumReadWorldY / Chunk.Size);
+        var readEnvelope = new ChunkGenerationDependencyEnvelope(
+            horizontalRadius: 1,
+            minimumSectionOffset: 0,
+            maximumSectionOffset: maximumSectionOffset);
+
+        return new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            new ChunkCoord(coord.X, 0, coord.Z),
+            ChunkGenerationStepId.VolumeStructurePlacements,
+            readEnvelope);
     }
 
     /// <summary>
@@ -140,44 +194,35 @@ public sealed class VolumeStructureField
     /// budgets: a large blueprint cannot monopolize a worker slice, and a
     /// column containing no valid formations still yields after bounded tests.
     /// </summary>
+    /// <summary>
+    /// Resumable section rasterizer over one completed column anchor product.
+    /// Candidate discovery and support-Y resolution happen once per X/Z column;
+    /// this cursor only selects placements intersecting its 16³ section.
+    /// </summary>
     public sealed class ChunkCursor
     {
-        private readonly VolumeStructureField _owner;
-        private readonly ChunkCoord _coord;
-        private readonly ChunkGenerationAccessRegion? _accessRegion;
+        private readonly ColumnAnchorProduct _columnProduct;
         private readonly int _originX;
         private readonly int _originY;
         private readonly int _originZ;
         private readonly long _right;
         private readonly long _top;
         private readonly long _back;
-        private int _ruleIndex = -1;
-        private Rule? _rule;
-        private int _firstX;
-        private int _lastX;
-        private int _firstZ;
-        private int _lastZ;
-        private int _nextX;
-        private int _nextZ;
+        private int _nextAnchorIndex;
         private Variant? _activeVariant;
-        private AnchorSearch? _pendingAnchorSearch;
-        private Variant? _pendingAnchorVariant;
-        private int _pendingAnchorWorldX;
-        private int _pendingAnchorWorldZ;
         private int _activeVoxelIndex;
-        public int AnchorSearchSlices { get; private set; }
         private int _activeWorldX;
         private int _activeWorldZ;
         private int _activeSupportY;
 
-        internal ChunkCursor(
+        private ChunkCursor(
             VolumeStructureField owner,
             ChunkCoord coord,
-            ChunkGenerationAccessRegion? accessRegion)
+            ColumnAnchorProduct columnProduct)
         {
-            _owner = owner;
-            _coord = coord;
-            _accessRegion = accessRegion;
+            ArgumentNullException.ThrowIfNull(owner);
+            _columnProduct = columnProduct ??
+                throw new ArgumentNullException(nameof(columnProduct));
             var origin = VoxelCoordinates.ChunkOrigin(coord);
             _originX = origin.X;
             _originY = origin.Y;
@@ -185,16 +230,21 @@ public sealed class VolumeStructureField
             _right = (long)origin.X + Chunk.Size - 1;
             _top = (long)origin.Y + Chunk.Size - 1;
             _back = (long)origin.Z + Chunk.Size - 1;
-            IsComplete = owner._rules.Length == 0;
+            IsComplete = !owner.HasRules;
         }
 
         public bool IsComplete { get; private set; }
 
         /// <summary>
-        /// Writes at most <paramref name="voxels"/>.Length intersecting
-        /// voxels and evaluates at most <paramref name="maximumCandidateEvaluations"/>
-        /// candidates. The cursor retains both rule/cell position and any
-        /// partially emitted blueprint between calls.
+        /// Number of bounded support-search slices advanced by this section
+        /// cursor while helping produce its shared column product.
+        /// </summary>
+        public int AnchorSearchSlices { get; private set; }
+
+        /// <summary>
+        /// Writes at most <paramref name="voxels"/>.Length intersecting voxels.
+        /// Column product discovery and support-Y scanning are separately
+        /// budgeted; a section never repeats the column's candidate scan.
         /// </summary>
         public bool Advance(
             Span<VolumeStructureVoxel> voxels,
@@ -217,7 +267,18 @@ public sealed class VolumeStructureField
             if (IsComplete)
                 return true;
 
-            var evaluatedCandidates = 0;
+            if (!_columnProduct.IsComplete)
+            {
+                var productCompleted = _columnProduct.Advance(
+                    maximumCandidateEvaluations,
+                    maximumAnchorSupportSamples,
+                    out var anchorSearchSlices);
+                AnchorSearchSlices += anchorSearchSlices;
+                if (!productCompleted)
+                    return false;
+            }
+
+            var anchors = _columnProduct.Anchors;
             while (!IsComplete && written < voxels.Length)
             {
                 if (_activeVariant is { } activeVariant)
@@ -249,90 +310,200 @@ public sealed class VolumeStructureField
                     continue;
                 }
 
-                if (_pendingAnchorSearch is { } pendingSearch)
-                {
-                    AnchorSearchSlices++;
-                    if (!pendingSearch.Advance(
-                            _owner,
-                            _accessRegion,
-                            maximumAnchorSupportSamples))
-                    {
-                        // Yield the worker operation. The next slice resumes
-                        // the same deterministic candidate and shared search.
-                        return false;
-                    }
-
-                    var pendingVariant = _pendingAnchorVariant ??
-                        throw new InvalidOperationException(
-                            "A pending volume-structure anchor has no selected variant.");
-                    var pendingSupportY = pendingSearch.SupportY;
-                    var pendingWorldX = _pendingAnchorWorldX;
-                    var pendingWorldZ = _pendingAnchorWorldZ;
-                    _pendingAnchorSearch = null;
-                    _pendingAnchorVariant = null;
-
-                    if (pendingSupportY is { } supportY)
-                    {
-                        _activeVariant = pendingVariant;
-                        _activeVoxelIndex = 0;
-                        _activeWorldX = pendingWorldX;
-                        _activeWorldZ = pendingWorldZ;
-                        _activeSupportY = supportY;
-                    }
-                    continue;
-                }
-
-                if (evaluatedCandidates >= maximumCandidateEvaluations)
-                    break;
-
-                if (!TryNextCandidate(
-                        out var rule, out var cellX, out var cellZ))
+                if (_nextAnchorIndex >= anchors.Length)
                 {
                     IsComplete = true;
                     break;
                 }
 
-                evaluatedCandidates++;
-                var hash = WorldGenerationEntropy.Sample2D(
-                    _owner._seed, rule.Domain, cellX, cellZ);
-                if (WorldGenerationEntropy.Unit(hash) >= rule.Definition.Chance)
+                var anchor = anchors[_nextAnchorIndex++];
+                if ((long)anchor.SupportY + anchor.Variant.MinY > _top ||
+                    (long)anchor.SupportY + anchor.Variant.MaxY < _originY)
                     continue;
 
-                // Separate deterministic hashes give independent axes and
-                // family variations without global/random state.
-                var sampleX = WorldGenerationEntropy.Sample2D(
-                    _owner._seed, rule.Domain, cellX + 113, cellZ);
-                var sampleZ = WorldGenerationEntropy.Sample2D(
-                    _owner._seed, rule.Domain, cellX, cellZ + 317);
-                var spacing = rule.Definition.Spacing;
-                var jitter = spacing / 4;
-                var worldX = (long)cellX * spacing + spacing / 2 +
-                             (long)(sampleX % (uint)(2 * jitter + 1)) - jitter;
-                var worldZ = (long)cellZ * spacing + spacing / 2 +
-                             (long)(sampleZ % (uint)(2 * jitter + 1)) - jitter;
-                if (worldX is < int.MinValue or > int.MaxValue ||
-                    worldZ is < int.MinValue or > int.MaxValue)
-                    continue;
-                if (worldX + rule.Radius < _originX ||
-                    worldX - rule.Radius > _right ||
-                    worldZ + rule.Radius < _originZ ||
-                    worldZ - rule.Radius > _back)
-                    continue;
-
-                var variant = rule.Variants[
-                    (int)(WorldGenerationEntropy.Sample2D(
-                        _owner._seed, rule.Domain, cellX + 509, cellZ + 1021) %
-                        (uint)rule.Variants.Count)];
-                _pendingAnchorSearch = _owner._anchorSearches.GetOrAdd(
-                    new CandidateKey(rule.Index, cellX, cellZ),
-                    () => new AnchorSearch(
-                        rule, variant, (int)worldX, (int)worldZ));
-                _pendingAnchorVariant = variant;
-                _pendingAnchorWorldX = (int)worldX;
-                _pendingAnchorWorldZ = (int)worldZ;
+                _activeVariant = anchor.Variant;
+                _activeVoxelIndex = 0;
+                _activeWorldX = anchor.WorldX;
+                _activeWorldZ = anchor.WorldZ;
+                _activeSupportY = anchor.SupportY;
             }
 
             return IsComplete;
+        }
+    }
+
+    /// <summary>
+    /// Mutable only while incrementally resolving one X/Z column. Once complete,
+    /// its placements are frozen in deterministic order and shared read-only by
+    /// all vertical section cursors in that column.
+    /// </summary>
+    private sealed class ColumnAnchorProduct
+    {
+        private readonly object _gate = new();
+        private readonly VolumeStructureField _owner;
+        private readonly ChunkGenerationAccessRegion _accessRegion;
+        private readonly int _originX;
+        private readonly int _originZ;
+        private readonly long _right;
+        private readonly long _back;
+        private readonly List<ResolvedAnchor> _buildingAnchors = [];
+        private ImmutableArray<ResolvedAnchor> _anchors =
+            ImmutableArray<ResolvedAnchor>.Empty;
+        private int _ruleIndex = -1;
+        private Rule? _rule;
+        private int _firstX;
+        private int _lastX;
+        private int _firstZ;
+        private int _lastZ;
+        private int _nextX;
+        private int _nextZ;
+        private AnchorSearch? _pendingAnchorSearch;
+        private Variant? _pendingAnchorVariant;
+        private int _pendingAnchorWorldX;
+        private int _pendingAnchorWorldZ;
+        private bool _completed;
+
+        public ColumnAnchorProduct(
+            VolumeStructureField owner,
+            int columnX,
+            int columnZ,
+            ChunkGenerationAccessRegion accessRegion)
+        {
+            _owner = owner;
+            _accessRegion = accessRegion ??
+                throw new ArgumentNullException(nameof(accessRegion));
+            var origin = VoxelCoordinates.ChunkOrigin(
+                new ChunkCoord(columnX, 0, columnZ));
+            _originX = origin.X;
+            _originZ = origin.Z;
+            _right = (long)origin.X + Chunk.Size - 1;
+            _back = (long)origin.Z + Chunk.Size - 1;
+            _completed = !owner.HasRules;
+        }
+
+        public bool IsComplete
+        {
+            get
+            {
+                lock (_gate)
+                    return _completed;
+            }
+        }
+
+        public ImmutableArray<ResolvedAnchor> Anchors
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    if (!_completed)
+                        throw new InvalidOperationException(
+                            "A volume-structure column product cannot be consumed before completion.");
+                    return _anchors;
+                }
+            }
+        }
+
+        public bool Advance(
+            int maximumCandidateEvaluations,
+            int maximumAnchorSupportSamples,
+            out int anchorSearchSlices)
+        {
+            if (maximumCandidateEvaluations <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maximumCandidateEvaluations));
+            if (maximumAnchorSupportSamples <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maximumAnchorSupportSamples));
+
+            lock (_gate)
+            {
+                anchorSearchSlices = 0;
+                if (_completed)
+                    return true;
+
+                var evaluatedCandidates = 0;
+                while (true)
+                {
+                    if (_pendingAnchorSearch is { } pendingSearch)
+                    {
+                        anchorSearchSlices++;
+                        if (!pendingSearch.Advance(
+                                _owner,
+                                _accessRegion,
+                                maximumAnchorSupportSamples))
+                            return false;
+
+                        var pendingVariant = _pendingAnchorVariant ??
+                            throw new InvalidOperationException(
+                                "A pending volume-structure anchor has no selected variant.");
+                        if (pendingSearch.SupportY is { } supportY)
+                        {
+                            _buildingAnchors.Add(new ResolvedAnchor(
+                                pendingVariant,
+                                _pendingAnchorWorldX,
+                                _pendingAnchorWorldZ,
+                                supportY));
+                        }
+
+                        _pendingAnchorSearch = null;
+                        _pendingAnchorVariant = null;
+                        continue;
+                    }
+
+                    if (evaluatedCandidates >= maximumCandidateEvaluations)
+                        return false;
+
+                    if (!TryNextCandidate(
+                            out var rule,
+                            out var cellX,
+                            out var cellZ))
+                    {
+                        _anchors = _buildingAnchors.ToImmutableArray();
+                        _buildingAnchors.Clear();
+                        _completed = true;
+                        return true;
+                    }
+
+                    evaluatedCandidates++;
+                    var hash = WorldGenerationEntropy.Sample2D(
+                        _owner._seed, rule.Domain, cellX, cellZ);
+                    if (WorldGenerationEntropy.Unit(hash) >= rule.Definition.Chance)
+                        continue;
+
+                    // Independent deterministic hashes avoid global/random state.
+                    var sampleX = WorldGenerationEntropy.Sample2D(
+                        _owner._seed, rule.Domain, cellX + 113, cellZ);
+                    var sampleZ = WorldGenerationEntropy.Sample2D(
+                        _owner._seed, rule.Domain, cellX, cellZ + 317);
+                    var spacing = rule.Definition.Spacing;
+                    var jitter = spacing / 4;
+                    var worldX = (long)cellX * spacing + spacing / 2 +
+                                 (long)(sampleX % (uint)(2 * jitter + 1)) - jitter;
+                    var worldZ = (long)cellZ * spacing + spacing / 2 +
+                                 (long)(sampleZ % (uint)(2 * jitter + 1)) - jitter;
+                    if (worldX is < int.MinValue or > int.MaxValue ||
+                        worldZ is < int.MinValue or > int.MaxValue)
+                        continue;
+                    if (worldX + rule.Radius < _originX ||
+                        worldX - rule.Radius > _right ||
+                        worldZ + rule.Radius < _originZ ||
+                        worldZ - rule.Radius > _back)
+                        continue;
+
+                    var variant = rule.Variants[
+                        (int)(WorldGenerationEntropy.Sample2D(
+                            _owner._seed, rule.Domain, cellX + 509, cellZ + 1021) %
+                            (uint)rule.Variants.Count)];
+                    _pendingAnchorSearch = _owner._anchorSearches.GetOrAdd(
+                        new CandidateKey(rule.Index, cellX, cellZ),
+                        () => new AnchorSearch(
+                            rule, variant, (int)worldX, (int)worldZ));
+                    _pendingAnchorVariant = variant;
+                    _pendingAnchorWorldX = (int)worldX;
+                    _pendingAnchorWorldZ = (int)worldZ;
+                }
+            }
         }
 
         private bool TryNextCandidate(
@@ -367,14 +538,6 @@ public sealed class VolumeStructureField
                 }
 
                 var candidateRule = _owner._rules[_ruleIndex];
-                if (_top < (long)candidateRule.Definition.MinY +
-                        candidateRule.MinOffsetY ||
-                    _originY > (long)candidateRule.Definition.MaxY +
-                        candidateRule.MaxOffsetY)
-                {
-                    continue;
-                }
-
                 var spacing = candidateRule.Definition.Spacing;
                 var radius = candidateRule.Radius + spacing / 4;
                 _firstX = Cell((long)_originX - radius, spacing);
@@ -388,6 +551,11 @@ public sealed class VolumeStructureField
         }
     }
 
+    private readonly record struct ResolvedAnchor(
+        Variant Variant,
+        int WorldX,
+        int WorldZ,
+        int SupportY);
     private bool IsValidAnchorAtSupportY(
         Rule rule,
         Variant variant,
@@ -579,6 +747,8 @@ public sealed class VolumeStructureField
 
     private static int Cell(long coordinate, int spacing) =>
         checked((int)Math.Floor(coordinate / (double)spacing));
+
+    private readonly record struct ColumnKey(int X, int Z);
 
     private readonly record struct CandidateKey(
         int RuleIndex, int CellX, int CellZ);

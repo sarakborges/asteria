@@ -44,28 +44,35 @@ public sealed class ChunkGenerationAccessRegionTests
     }
 
     [Fact]
-    public void VolumeStructureReadsRespectTheDeclaredVerticalSearchRange()
+    public void VolumeStructureColumnProductUsesAnExplicitOneSidedVerticalEnvelope()
     {
-        var target = new ChunkCoord(12, 40, -8);
+        var target = new ChunkCoord(12, 0, -8);
         var origin = VoxelCoordinates.ChunkOrigin(target);
+        var contentEnvelope = new ChunkGenerationDependencyEnvelope(1, 0, 34);
         var region = new ChunkGenerationAccessRegion(
             AsteriaChunkGenerationPlan.Default,
             target,
-            ChunkGenerationStepId.VolumeStructures);
+            ChunkGenerationStepId.VolumeStructurePlacements,
+            contentEnvelope);
 
+        Assert.Equal(
+            ChunkGenerationDependencyEnvelope.None,
+            AsteriaChunkGenerationPlan.Default
+                .GetStep(ChunkGenerationStepId.VolumeStructures)
+                .ReadEnvelope);
+        Assert.Equal(0, region.ReadEnvelope.MinimumSectionOffset);
+        Assert.Equal(34, region.ReadEnvelope.MaximumSectionOffset);
         Assert.True(region.CanReadWorldPosition(
             origin.X + Chunk.Size,
             origin.Y + 34 * Chunk.Size,
             origin.Z - Chunk.Size));
         Assert.True(region.CanReadWorldPosition(
-            origin.X - Chunk.Size,
-            origin.Y - 34 * Chunk.Size,
-            origin.Z + Chunk.Size));
+            origin.X, origin.Y, origin.Z));
 
         Assert.False(region.CanReadWorldPosition(
             origin.X, origin.Y + 35 * Chunk.Size, origin.Z));
         Assert.False(region.CanReadWorldPosition(
-            origin.X, origin.Y - 35 * Chunk.Size, origin.Z));
+            origin.X, -1, origin.Z));
     }
 
     [Fact]

@@ -1404,3 +1404,15 @@ The first enforcement commit renamed the SurfaceDecorations halo and changed its
 - The latest validation run observed before this write-guard commit was run 43917182761 on HEAD fddf2c54a235f206588eef9da32c4b6fe2d5658a: WebUI build, Storybook and rendered screen parity passed; Windows export passed on the same HEAD; Core build/test and fixed-seed terrain A/B were still running when inspected.
 - The write-guard commit supersedes that validation HEAD. Wait for its new workflow run before treating the guard as validated. No A/B performance conclusion is available yet.
 - Next audit target: trace the VolumeStructures cursor's complete read path and determine which field queries can be moved behind a column-scoped immutable anchor product/future. Keep the current horizontal radius 1 / vertical offsets [-34, +34] until that producer boundary is explicit.
+
+---
+
+## Volume-structure column anchor product — 2026-11-16
+
+- VolumeStructureField now resolves candidate X/Z cells and support-Y anchors once per horizontal column into a bounded, resumable product. Vertical section cursors share that product and only rasterize placements intersecting their own 16³ section.
+- The existing per-candidate support search cache remains bounded and deterministic; the new per-column product cache is also bounded. Eviction may cause recomputation but cannot change generated placement results.
+- The column producer has a separate access region anchored at section Y=0. Its vertical maximum is derived from the active volume-biome support range and template reach; it is not constrained by the old section-relative [-34,+34] halo. The section VolumeStructures stage now consumes the immutable product and retains only its local write boundary.
+- The plan now distinguishes VolumeStructurePlacements (column-scoped immutable derivation) from VolumeStructures (section-scoped rasterization). The product's dependencies remain immutable generator data and do not expand holder retention.
+- Regression tests cover cross-section product reuse, section-request-order determinism, the authored access boundary, and the tiny-budget resumable cursor.
+- Validation for the previous HEAD 68d33e3 remains in workflow [#43930507103](https://github.com/sarakborges/asteria/actions/runs/43930507103): Core/native build steps and WebUI passed; the bounded query baseline and fixed-seed terrain A/B were still running at the last inspection. The new implementation requires fresh validation on its own commit. No performance gain is claimed until that A/B evidence completes.
+- This remains an incremental product cache inside the existing column coordinator; it is not yet a separately admitted column future. Cross-column holder dependency admission, holder-owned dispatcher queues and the executable loading pyramid remain open.

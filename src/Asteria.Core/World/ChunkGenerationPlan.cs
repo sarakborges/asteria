@@ -29,6 +29,7 @@ public enum ChunkGenerationStepId : byte
     PendingObjects,
     InitialLighting,
     SectionReady,
+    VolumeStructurePlacements,
 }
 
 /// <summary>Execution ownership required by a generation step.</summary>

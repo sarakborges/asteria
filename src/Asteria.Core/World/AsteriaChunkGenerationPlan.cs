@@ -46,11 +46,11 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope CaveSpikeReadHalo =
         new(horizontalRadius: 0, minimumSectionOffset: -5, maximumSectionOffset: 5);
 
-    // Volume-structure anchor selection scans the authored support range
-    // (at most 512 blocks) plus templates extending at most 16 blocks from
-    // their support face. Horizontal templates are bounded to radius six.
-    private static readonly ChunkGenerationDependencyEnvelope VolumeStructureReadHalo =
-        new(horizontalRadius: 1, minimumSectionOffset: -34, maximumSectionOffset: 34);
+    // Column-scoped volume-structure anchor resolution reads upward from
+    // the world floor. The active field expands this baseline to the exact
+    // maximum Y required by its validated content.
+    private static readonly ChunkGenerationDependencyEnvelope VolumeStructurePlacementReadHalo =
+        new(horizontalRadius: 1, minimumSectionOffset: 0, maximumSectionOffset: 0);
 
     private static readonly ChunkGenerationDependencyEnvelope LowerSupportHalo =
         new(horizontalRadius: 0, minimumSectionOffset: -1, maximumSectionOffset: -1);
@@ -139,8 +139,26 @@ public static class AsteriaChunkGenerationPlan
             ],
             readEnvelope: DirectionalPaletteReadHalo),
 
-        // Anchor selection reads immutable biome/density fields through the
-        // authored vertical support range. It does not require distant holders.
+        // Resolve every authored anchor once for the horizontal column.
+        // VolumeStructureField expands this baseline with the exact content
+        // vertical range and publishes a bounded immutable product.
+        Step(
+            ChunkGenerationStepId.VolumeStructurePlacements,
+            ChunkGenerationWorkScope.Column,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            [
+                Dependency(
+                    ChunkGenerationStepId.ColumnBiomeData,
+                    VolumeStructurePlacementReadHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    HorizontalNeighborHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ],
+            readEnvelope: VolumeStructurePlacementReadHalo),
+
+        // This section stage only rasterizes the resolved column placements.
         Step(
             ChunkGenerationStepId.VolumeStructures,
             ChunkGenerationWorkScope.Section,
@@ -148,11 +166,10 @@ public static class AsteriaChunkGenerationPlan
             [
                 Dependency(ChunkGenerationStepId.DirectionalFacePalettes, NoHalo),
                 Dependency(
-                    ChunkGenerationStepId.ColumnBiomeData,
-                    VolumeStructureReadHalo,
+                    ChunkGenerationStepId.VolumeStructurePlacements,
+                    NoHalo,
                     ChunkGenerationDependencyKind.ImmutableWorldData),
-            ],
-            readEnvelope: VolumeStructureReadHalo),
+            ]),
 
         // Fluid placement consumes only the current section's cached biome,
         // surface-cut and density data. It does not probe neighboring holders.
@@ -530,6 +547,7 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationStepId.SectionTerrainSetup or
             ChunkGenerationStepId.SectionTerrainLayers =>
                 ChunkGenerationStatus.Terrain,
+            ChunkGenerationStepId.VolumeStructurePlacements or
             ChunkGenerationStepId.SurfaceDecorations or
             ChunkGenerationStepId.DirectionalFacePalettes or
             ChunkGenerationStepId.VolumeStructures or

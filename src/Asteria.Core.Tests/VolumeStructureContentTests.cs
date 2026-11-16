@@ -156,7 +156,7 @@ public sealed class VolumeStructureContentTests
                 actual.Add(batch[index]);
 
             advanceCount++;
-            Assert.True(advanceCount < 10_000,
+            Assert.True(advanceCount < 100_000,
                 "The volume-structure cursor did not reach completion.");
         }
 
@@ -166,6 +166,96 @@ public sealed class VolumeStructureContentTests
             "A support-Y search should resume across bounded cursor slices.");
         var expected = field.VoxelsForChunk(coord);
         Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void VolumeStructureAnchorsAreSharedAcrossSectionsAndIndependentOfRequestOrder()
+    {
+        const ulong seed = 181960897289965UL;
+        var field = CreateGenerator(seed).VolumeStructures;
+        var upperCoord = new ChunkCoord(0, 2, 0);
+        var lowerCoord = new ChunkCoord(0, 1, 0);
+
+        var upperCursor = field.CreateChunkCursor(upperCoord);
+        var upper = Drain(upperCursor, maximumAnchorSupportSamples: 1);
+        Assert.True(upperCursor.AnchorSearchSlices > 1);
+
+        // A completed column product is reused by another vertical section.
+        var lowerCursor = field.CreateChunkCursor(lowerCoord);
+        var lower = Drain(lowerCursor);
+        Assert.Equal(0, lowerCursor.AnchorSearchSlices);
+
+        // A fresh field requested in the opposite order produces identical
+        // placements for both sections.
+        var reversedField = CreateGenerator(seed).VolumeStructures;
+        var reversedLower = Drain(reversedField.CreateChunkCursor(lowerCoord));
+        var reversedUpper = Drain(reversedField.CreateChunkCursor(upperCoord));
+        Assert.Equal(lower, reversedLower);
+        Assert.Equal(upper, reversedUpper);
+    }
+
+    [Fact]
+    public void VolumeStructureColumnAccessEnvelopeExpandsToAuthoredVerticalRange()
+    {
+        var field = CreateGenerator(181960897289965UL).VolumeStructures;
+        var target = new ChunkCoord(12, 7, -8);
+        var region = field.CreateColumnAccessRegion(target);
+        var column = new ChunkCoord(target.X, 0, target.Z);
+        var origin = VoxelCoordinates.ChunkOrigin(column);
+        var maximumSectionOffset = region.ReadEnvelope.MaximumSectionOffset;
+
+        Assert.Equal(column, region.TargetSection);
+        Assert.Equal(ChunkGenerationStepId.VolumeStructurePlacements, region.StepId);
+        Assert.Equal(1, region.ReadEnvelope.HorizontalRadius);
+        Assert.Equal(0, region.ReadEnvelope.MinimumSectionOffset);
+        Assert.True(maximumSectionOffset > 0);
+        Assert.True(region.CanReadWorldPosition(
+            origin.X,
+            maximumSectionOffset * Chunk.Size,
+            origin.Z));
+        Assert.False(region.CanReadWorldPosition(
+            origin.X,
+            (maximumSectionOffset + 1) * Chunk.Size,
+            origin.Z));
+        Assert.False(region.CanReadWorldPosition(origin.X, -1, origin.Z));
+    }
+
+    private static BiomeWorldGenerator CreateGenerator(ulong seed)
+    {
+        var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
+        var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
+        var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
+        var structures = StructureRegistry.FromJson(ReadJson("structures"));
+        var structureSets = StructureSetRegistry.FromJson(
+            ReadJson("structure_sets"));
+        var dimension = DimensionRegistry.FromJson(ReadJson("dimensions"))
+            .Get(DimensionId.Overworld);
+        return new BiomeWorldGenerator(
+            seed, dimension, blocks, fluids, biomes, structures, structureSets);
+    }
+
+    private static IReadOnlyList<VolumeStructureVoxel> Drain(
+        VolumeStructureField.ChunkCursor cursor,
+        int maximumAnchorSupportSamples = 16)
+    {
+        var batch = new VolumeStructureVoxel[64];
+        var results = new List<VolumeStructureVoxel>();
+        var advances = 0;
+        while (!cursor.IsComplete)
+        {
+            _ = cursor.Advance(
+                batch,
+                maximumCandidateEvaluations: 4,
+                out var written,
+                maximumAnchorSupportSamples: maximumAnchorSupportSamples);
+            for (var index = 0; index < written; index++)
+                results.Add(batch[index]);
+            advances++;
+            Assert.True(advances < 100_000,
+                "The volume-structure column product did not complete.");
+        }
+
+        return results;
     }
 
     private static IEnumerable<string> ReadJson(string directory)

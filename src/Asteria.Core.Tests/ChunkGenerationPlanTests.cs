@@ -272,10 +272,10 @@ public sealed class ChunkGenerationPlanTests
             4,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
         Assert.Equal(
-            -34,
+            -5,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MinimumSectionOffset);
         Assert.Equal(
-            34,
+            5,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MaximumSectionOffset);
 
         Assert.Equal(
@@ -330,10 +330,10 @@ public sealed class ChunkGenerationPlanTests
             4,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.HorizontalRadius);
         Assert.Equal(
-            -34,
+            -5,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MinimumSectionOffset);
         Assert.Equal(
-            34,
+            5,
             AsteriaChunkGenerationPlan.FullSectionAccessEnvelope.MaximumSectionOffset);
 
         Assert.Equal(
@@ -1043,6 +1043,51 @@ public sealed class ChunkGenerationPlanTests
             () => AsteriaChunkGenerationPlan.GetRequiredStatusAtHorizontalDistance(
                 ChunkGenerationStepId.SectionReady,
                 horizontalDistance: -1));
+    }
+
+    [Fact]
+    public void VolumeStructurePlacementsAreAnImmutableColumnProduct()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        var placementStep = plan.GetStep(
+            ChunkGenerationStepId.VolumeStructurePlacements);
+        var rasterizationStep = plan.GetStep(
+            ChunkGenerationStepId.VolumeStructures);
+
+        Assert.Equal(ChunkGenerationWorkScope.Column, placementStep.WorkScope);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            placementStep.ExecutionPolicy);
+        Assert.Contains(
+            placementStep.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.ColumnBiomeData &&
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData);
+        Assert.Contains(
+            placementStep.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.SurfaceTerrainColumn &&
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData);
+        Assert.Equal(
+            ChunkGenerationDependencyEnvelope.None,
+            rasterizationStep.ReadEnvelope);
+        Assert.Contains(
+            rasterizationStep.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.VolumeStructurePlacements &&
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData);
+        Assert.DoesNotContain(
+            rasterizationStep.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.ColumnBiomeData);
+        Assert.Equal(
+            ChunkGenerationDependencyEnvelope.None,
+            plan.GetHolderDependencyEnvelope(
+                ChunkGenerationStepId.VolumeStructurePlacements));
     }
 
     [Fact]
