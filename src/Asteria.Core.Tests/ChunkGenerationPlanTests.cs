@@ -383,6 +383,30 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void CaveSpikeClearanceUsesImmutableDataWithoutRetainingNeighborHolders()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        var step = plan.GetStep(ChunkGenerationStepId.CaveSpikes);
+        var expected = new ChunkGenerationDependencyEnvelope(0, -5, 5);
+
+        Assert.Equal(expected, step.ReadEnvelope);
+        Assert.Contains(
+            step.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.SurfaceTerrainColumn &&
+                dependency.Kind ==
+                    ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope == expected);
+        Assert.DoesNotContain(
+            plan.GetAccumulatedDependencies(ChunkGenerationStepId.CaveSpikes),
+            dependency =>
+                dependency.Kind == ChunkGenerationDependencyKind.HolderStatus &&
+                (dependency.Envelope.MinimumSectionOffset < 0 ||
+                 dependency.Envelope.MaximumSectionOffset > 0));
+    }
+
+    [Fact]
     public void VerticalDecorationsDeclareVerticalSeamReadsAsImmutableData()
     {
         var step = AsteriaChunkGenerationPlan.Default.GetStep(
