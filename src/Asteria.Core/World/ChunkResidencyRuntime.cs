@@ -1286,7 +1286,7 @@ public sealed class ChunkResidencyRuntime
                     .ToArray();
                 var dependencyClaims = _streaming.DistanceManager.AcquireDependencyClaims(
                     taskSections,
-                    AsteriaChunkGenerationPlan.FullSectionEnvelope);
+                    AsteriaChunkLoadingPlan.FullSectionDependencyEnvelope);
                 var work = new MaterializationWork(
                     taskKey,
                     generation,
