@@ -4,6 +4,9 @@ namespace Asteria.Core.World;
 
 public sealed class BiomeDefinition
 {
+    // The finite surface layers are sampled past the top of a section snapshot.
+    // Keep the limit shared with the generation read envelope.
+    internal const uint MaximumFiniteSurfaceLayerDepth = 64;
     public BiomeDefinition(
         string id,
         BiomeSurfaceLayoutDefinition? surfaceLayout,
@@ -236,10 +239,10 @@ public sealed class BiomeDefinition
                         finiteDepth +
                         depth);
 
-                if (finiteDepth > 64)
+                if (finiteDepth > MaximumFiniteSurfaceLayerDepth)
                 {
                     throw new ArgumentException(
-                        "Biome finite surface-layer depth cannot exceed 64 blocks.",
+                        $"Biome finite surface-layer depth cannot exceed {MaximumFiniteSurfaceLayerDepth} blocks.",
                         nameof(layers));
                 }
             }

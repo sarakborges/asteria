@@ -1393,3 +1393,12 @@ The prior Core run on HEAD `3649fe4795` reported two failures in `OceanObjectGen
 ### Surface-decoration envelope correction — 2026-11-16
 
 The first enforcement commit renamed the SurfaceDecorations halo and changed its expected test values but left the runtime numeric offsets at [0, 0]. The follow-up commit corrects the actual plan declaration to horizontal radius 2 / vertical offsets [-1, +1], with the runtime reason documented above. The failing ocean-decoration tests therefore remain an explicit validation gate until this corrected HEAD passes.
+
+
+---
+
+## TerrainLayers content-derived upper read envelope — 2026-11-16
+
+`BiomeDefinition.ValidateSurfaceLayers` permits a finite surface profile depth up to 64 voxels. `SurfaceChunkMaterializer.AdditiveDepthAt` can read density above the current section snapshot until that finite depth is resolved. With 16 voxels per section, a top-edge voxel plus 64 voxels can reach section offset +4.
+
+The previous TerrainLayers envelope [0, +1] only covered the default pack's current maximum finite depth (6), not the full validated content contract. The maximum is now a single `BiomeDefinition.MaximumFiniteSurfaceLayerDepth` constant shared by content validation and `AsteriaChunkGenerationPlan`; TerrainLayers derives its upper offset as `ceil(maxDepth / Chunk.Size)`, currently +4. The regression test checks both the stage read envelope and the accumulated immutable-data dependency, while existing holder-envelope assertions ensure this does not request neighboring holders.

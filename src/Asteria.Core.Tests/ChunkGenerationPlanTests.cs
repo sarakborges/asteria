@@ -244,6 +244,7 @@ public sealed class ChunkGenerationPlanTests
         var plan = AsteriaChunkGenerationPlan.Default;
         var expectedReads = new[]
         {
+            (ChunkGenerationStepId.SectionTerrainLayers, 0, 0, 4),
             (ChunkGenerationStepId.SurfaceDecorations, 2, -1, 1),
             (ChunkGenerationStepId.DirectionalFacePalettes, 4, -4, 4),
             (ChunkGenerationStepId.WallLayers, 1, 0, 0),
@@ -265,7 +266,9 @@ public sealed class ChunkGenerationPlanTests
                         ChunkGenerationStepId.SurfaceTerrainColumn &&
                     dependency.Kind ==
                         ChunkGenerationDependencyKind.ImmutableWorldData &&
-                    dependency.Envelope.HorizontalRadius >= horizontalRadius);
+                    dependency.Envelope.HorizontalRadius >= horizontalRadius &&
+                    dependency.Envelope.MinimumSectionOffset <= minimumSectionOffset &&
+                    dependency.Envelope.MaximumSectionOffset >= maximumSectionOffset);
         }
 
         Assert.Equal(
