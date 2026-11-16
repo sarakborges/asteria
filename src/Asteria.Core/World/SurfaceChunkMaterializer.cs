@@ -432,9 +432,7 @@ public sealed partial class SurfaceChunkMaterializer
                     job.Coord,
                     ChunkGenerationStepId.SurfaceStructures,
                     _structures.AccessReadEnvelope);
-                MaterializeStructures(
-                    job.Chunk, job.Coord, job.OriginY, job.TopExclusive,
-                    job.SupportMaterializationColumns, accessRegion);
+                MaterializeStructures(job, accessRegion);
                 job.Stage = ChunkMaterializationStage.CaveSpikes;
                 break;
             }
@@ -546,7 +544,7 @@ public sealed partial class SurfaceChunkMaterializer
                     AsteriaChunkGenerationPlan.Default,
                     job.Coord,
                     ChunkGenerationStepId.StructureObjects);
-                MaterializeStructureObjects(job.Chunk, job.Coord, accessRegion);
+                MaterializeStructureObjects(job, accessRegion);
                 job.Stage = ChunkMaterializationStage.PendingObjects;
                 break;
             }
@@ -1500,10 +1498,11 @@ public sealed partial class SurfaceChunkMaterializer
 
         var worldX = supportJob.OriginX + localX;
         var worldZ = supportJob.OriginZ + localZ;
+        var structurePlacements = RequiredSurfaceStructurePlacements(supportJob);
         if (HasSurfaceStructurePayloadAt(
-                supportJob.Coord, worldX, topWorldY, worldZ) ||
+                structurePlacements, worldX, topWorldY, worldZ) ||
             HasSurfaceStructurePayloadAt(
-                supportJob.Coord, worldX, belowWorldY, worldZ))
+                structurePlacements, worldX, belowWorldY, worldZ))
             return false;
 
         return true;
@@ -1541,16 +1540,19 @@ public sealed partial class SurfaceChunkMaterializer
             !isSphereShellBoundaryOrLining;
     }
 
-    private bool HasSurfaceStructurePayloadAt(
-        ChunkCoord coord,
+    private static IReadOnlyList<SurfaceStructurePlacement>
+        RequiredSurfaceStructurePlacements(MaterializationJob job) =>
+        job.SurfaceStructurePlacements ??
+        throw new InvalidOperationException(
+            $"Section {job.Coord} reached a structure consumer before SurfaceStructures.");
+
+    private static bool HasSurfaceStructurePayloadAt(
+        IReadOnlyList<SurfaceStructurePlacement> placements,
         int worldX,
         int worldY,
         int worldZ)
     {
-        if (!_structures.HasRules)
-            return false;
-
-        foreach (var placement in _structures.PlacementsForChunk(coord.X, coord.Z))
+        foreach (var placement in placements)
         {
             if (worldY < placement.MinimumY ||
                 worldY > placement.MaximumY)
@@ -1866,6 +1868,16 @@ public sealed partial class SurfaceChunkMaterializer
         public bool[]? SupportChunkFallbackColumns { get; set; }
 
         public List<(int X, int Y, int Z)>? GravityPositions { get; set; }
+
+        /// <summary>
+        /// Immutable placements produced by SurfaceStructures and consumed by
+        /// later stages without re-running the placement resolver.
+        /// </summary>
+        public IReadOnlyList<SurfaceStructurePlacement>? SurfaceStructurePlacements
+        {
+            get;
+            set;
+        }
 
         public MaterializationJob? SupportChunkJob { get; set; }
 
@@ -2211,13 +2223,14 @@ public sealed partial class SurfaceChunkMaterializer
     /// or fluid occupying the adjacent Object cell.
     /// </summary>
     private void MaterializeStructureObjects(
-        Chunk chunk,
-        ChunkCoord coord,
+        MaterializationJob job,
         ChunkGenerationAccessRegion accessRegion)
     {
-        if (!_structures.HasRules) return;
+        var chunk = job.Chunk;
+        var coord = job.Coord;
         var origin = VoxelCoordinates.ChunkOrigin(coord);
-        foreach (var placement in _structures.PlacementsForChunk(coord.X, coord.Z))
+        var placements = RequiredSurfaceStructurePlacements(job);
+        foreach (var placement in placements)
         foreach (var obj in placement.Objects)
         {
             var support = obj.SupportPosition;
@@ -2371,15 +2384,17 @@ public sealed partial class SurfaceChunkMaterializer
     }
 
     private void MaterializeStructures(
-        Chunk chunk,
-        ChunkCoord coord,
-        int originY,
-        int topExclusive,
-        bool[]? columnMask,
+        MaterializationJob job,
         ChunkGenerationAccessRegion accessRegion)
     {
+        var chunk = job.Chunk;
+        var coord = job.Coord;
+        var originY = job.OriginY;
+        var topExclusive = job.TopExclusive;
+        var columnMask = job.SupportMaterializationColumns;
         if (!_structures.HasRules)
         {
+            job.SurfaceStructurePlacements = Array.Empty<SurfaceStructurePlacement>();
             return;
         }
 
@@ -2391,6 +2406,7 @@ public sealed partial class SurfaceChunkMaterializer
                 coord.X,
                 coord.Z,
                 accessRegion);
+        job.SurfaceStructurePlacements = placements;
 
         // Placement bounds include blocks, fluids and explicit clears.
         // Surface structures must not scan underground occupancy or
