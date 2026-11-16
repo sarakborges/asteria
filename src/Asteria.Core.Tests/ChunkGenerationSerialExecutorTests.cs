@@ -57,15 +57,15 @@ public sealed class ChunkGenerationSerialExecutorTests
         Assert.True(executor.TryScheduleDependency(
             Request(task, 91, _ => "sky-block-light"),
             externalMailbox));
-        Assert.True(SpinWait.SpinUntil(
-            () => externalMailbox.PendingCount == 1,
-            TimeSpan.FromSeconds(5)));
         Assert.True(executor.HasInFlightTask);
         Assert.False(executor.TryCollectDependency(
             dispatcherMailbox, out _));
 
-        Assert.True(executor.TryCollectDependency(
-            externalMailbox, out var completion));
+        ChunkGenerationDependencyCompletion completion = default;
+        Assert.True(SpinWait.SpinUntil(
+            () => executor.TryCollectDependency(
+                externalMailbox, out completion),
+            TimeSpan.FromSeconds(5)));
         Assert.Equal(task, completion.Task);
         Assert.Equal(1UL, completion.WaitToken);
         Assert.Equal(91UL, completion.DependencyId);
