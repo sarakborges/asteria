@@ -514,16 +514,28 @@ public sealed partial class SurfaceChunkMaterializer
                 break;
 
             case ChunkMaterializationStage.StructureObjects:
-                MaterializeStructureObjects(job.Chunk, job.Coord);
+            {
+                var accessRegion = new ChunkGenerationAccessRegion(
+                    AsteriaChunkGenerationPlan.Default,
+                    job.Coord,
+                    ChunkGenerationStepId.StructureObjects);
+                MaterializeStructureObjects(job.Chunk, job.Coord, accessRegion);
                 job.Stage = ChunkMaterializationStage.PendingObjects;
                 break;
+            }
 
             case ChunkMaterializationStage.PendingObjects:
-                MaterializePendingObjects(job);
+            {
+                var accessRegion = new ChunkGenerationAccessRegion(
+                    AsteriaChunkGenerationPlan.Default,
+                    job.Coord,
+                    ChunkGenerationStepId.PendingObjects);
+                MaterializePendingObjects(job, accessRegion);
                 ValidateGravitySupportBeforePublication(job);
                 job.Result = job.Chunk;
                 job.Stage = ChunkMaterializationStage.Complete;
                 break;
+            }
 
             case ChunkMaterializationStage.ProviderFallback:
             case ChunkMaterializationStage.Complete:
@@ -1629,10 +1641,12 @@ public sealed partial class SurfaceChunkMaterializer
         return surfaceBiome;
     }
 
-    private void MaterializePendingObjects(MaterializationJob job)
+    private void MaterializePendingObjects(
+        MaterializationJob job,
+        ChunkGenerationAccessRegion accessRegion)
     {
         var chunk = job.Chunk;
-        var coord = job.Coord;
+        var origin = VoxelCoordinates.ChunkOrigin(job.Coord);
         var originY = job.OriginY;
         var pendingObjects = job.PendingObjects;
         // The supporting block owns an Object, never its adjacent fluid cell.
@@ -1663,6 +1677,10 @@ public sealed partial class SurfaceChunkMaterializer
                          chunk.GetFluid(target.X, target.Y, target.Z).IsEmpty))
                         continue;
                 }
+                accessRegion.EnsureCanWriteWorldPosition(
+                    checked(origin.X + obj.X),
+                    checked(origin.Y + obj.Y),
+                    checked(origin.Z + obj.Z));
                 chunk.AddObject(obj.X, obj.Y, obj.Z,
                     new ObjectCell(obj.Id, obj.Face));
             }
@@ -2137,7 +2155,10 @@ public sealed partial class SurfaceChunkMaterializer
     /// This pass observes final structures/caves/shell, and never replaces blocks
     /// or fluid occupying the adjacent Object cell.
     /// </summary>
-    private void MaterializeStructureObjects(Chunk chunk, ChunkCoord coord)
+    private void MaterializeStructureObjects(
+        Chunk chunk,
+        ChunkCoord coord,
+        ChunkGenerationAccessRegion accessRegion)
     {
         if (!_structures.HasRules) return;
         var origin = VoxelCoordinates.ChunkOrigin(coord);
@@ -2169,6 +2190,10 @@ public sealed partial class SurfaceChunkMaterializer
                 !chunk.GetCell((int)targetX, (int)targetY, (int)targetZ).IsEmpty)
                 continue;
 
+            accessRegion.EnsureCanWriteWorldPosition(
+                checked(origin.X + sx),
+                checked(origin.Y + sy),
+                checked(origin.Z + sz));
             chunk.AddObject(sx, sy, sz, obj.Cell);
         }
     }
