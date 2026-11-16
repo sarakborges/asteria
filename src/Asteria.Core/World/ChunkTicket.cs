@@ -71,7 +71,7 @@ public static class ChunkLevel
             return ChunkGenerationStatus.Full;
 
         var horizontalDistance = level - Full;
-        if (horizontalDistance > AsteriaChunkGenerationPlan.MaximumHorizontalDependencyRadius)
+        if (horizontalDistance > AsteriaChunkLoadingPlan.MaximumHorizontalDependencyRadius)
             return ChunkGenerationStatus.Unloaded;
 
         return AsteriaChunkGenerationPlan.GetRequiredStatusAtHorizontalDistance(
