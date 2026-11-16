@@ -44,7 +44,10 @@ public sealed class ChunkColumnMaterializationGenerationTask :
     private readonly Func<ChunkGenerationSectionRequirement,
         Task<ChunkGenerationFutureResult>>? _getHolderStatusFuture;
     private readonly Action<ChunkGenerationSectionRequirement>? _requestHolderProducer;
+    private readonly object _targetStatusGate = new();
     private readonly SortedSet<int> _readySections = [];
+    private ChunkGenerationStatus _targetStatus;
+    private TargetUpgradeWait? _targetUpgradeWait;
     private ulong _nextDependencyId = 1;
     private ChunkGenerationStatus _lastPublishedProgressStatus =
         ChunkGenerationStatus.Unloaded;
@@ -62,7 +65,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             IReadOnlyList<ChunkGenerationSectionRequirement>>? getHolderStatusRequirements = null,
         Func<ChunkGenerationSectionRequirement,
             Task<ChunkGenerationFutureResult>>? getHolderStatusFuture = null,
-        Action<ChunkGenerationSectionRequirement>? requestHolderProducer = null)
+        Action<ChunkGenerationSectionRequirement>? requestHolderProducer = null,
+        ChunkGenerationStatus targetStatus = ChunkGenerationStatus.Full)
     {
         ArgumentNullException.ThrowIfNull(sectionJobs);
         ArgumentNullException.ThrowIfNull(initializeLighting);
@@ -71,6 +75,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 "Cross-column holder status futures and producer admission must be configured together.");
 
         _column = column;
+        _targetStatus = NormalizeTargetStatus(targetStatus);
         _getHolderStatusRequirements = getHolderStatusRequirements ??
             ((targetStep, coord) =>
                 AsteriaChunkLoadingPlan.GetHolderStatusRequirements(
@@ -124,6 +129,45 @@ public sealed class ChunkColumnMaterializationGenerationTask :
 
     public ChunkColumnCoord Column => _column;
 
+    /// <summary>
+    /// Highest generation stage this column task is currently asked to
+    /// produce. InitializeLight is promoted to Light because its light-executor
+    /// operation is part of the same resumable materialization job.
+    /// </summary>
+    public ChunkGenerationStatus TargetStatus
+    {
+        get
+        {
+            lock (_targetStatusGate)
+                return _targetStatus;
+        }
+    }
+
+    /// <summary>
+    /// Raises the target without replacing the in-flight task. A task parked at
+    /// an achieved status is resumed through its own non-blocking status future.
+    /// Lowering demand is a cancellation/invalidation operation, not a target
+    /// downgrade, because achieved immutable progress cannot be rolled back.
+    /// </summary>
+    public bool TryUpgradeTargetStatus(ChunkGenerationStatus requestedStatus)
+    {
+        var target = NormalizeTargetStatus(requestedStatus);
+        lock (_targetStatusGate)
+        {
+            if (target < _targetStatus)
+                throw new ArgumentOutOfRangeException(
+                    nameof(requestedStatus),
+                    "A column generation target can only be upgraded.");
+            if (target == _targetStatus)
+                return false;
+
+            _targetStatus = target;
+            _targetUpgradeWait?.Completion.TrySetResult(
+                ChunkGenerationFutureResult.Success(target));
+            return true;
+        }
+    }
+
     public ChunkGenerationTaskAdvanceResult Advance(
         IReadOnlyList<ChunkGenerationDependencyCompletion> completedDependencies,
         CancellationToken cancellationToken)
@@ -162,6 +206,17 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 if (!_activeWaitDependencyIds.Remove(completion.DependencyId))
                     throw new InvalidOperationException(
                         $"Unknown or stale column dependency {completion.DependencyId} in {_column}.");
+                if (IsTargetUpgradeCompletion(completion.DependencyId))
+                {
+                    if (completion.Error is not null ||
+                        completion.Result is not ChunkGenerationFutureResult targetResult ||
+                        !targetResult.Succeeded)
+                        throw new InvalidOperationException(
+                            $"Column {_column} received an invalid target-upgrade signal.",
+                            completion.Error);
+                    CompleteTargetUpgradeWait(completion.DependencyId);
+                    continue;
+                }
                 if (completion.Error is not null)
                     throw new InvalidOperationException(
                         $"A generation dependency failed in column {_column}.",
@@ -232,6 +287,11 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             foreach (var sectionIndex in readyBatch)
             {
                 var sectionTask = _sectionTasks[sectionIndex];
+                if (HasSectionReachedTarget(sectionIndex))
+                {
+                    _readySections.Add(sectionIndex);
+                    continue;
+                }
                 if (WaitForPlanHolderRequirements(sectionIndex, nextFutureOperations))
                     continue;
 
@@ -270,6 +330,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         }
 
         var progressStatus = AdvanceAggregateProgress();
+        if (TryCreateTargetUpgradeWait(out var targetUpgradeOperation))
+            nextFutureOperations.Add(targetUpgradeOperation);
 
         if (nextFutureOperations.Count > 0)
         {
@@ -281,7 +343,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 nextFutureOperations.Select(operation => operation.DependencyId));
             return AttachSectionProgress(
                 ChunkGenerationTaskAdvanceResult.WaitForFutures(
-                    nextFutureOperations));
+                    nextFutureOperations,
+                    progressStatus));
         }
 
         if (_deferredWorkerOperations.Count > 0)
@@ -344,6 +407,14 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         _activeWaitDependencyIds.Clear();
         _deferredWorkerOperations.Clear();
         _readySections.Clear();
+        lock (_targetStatusGate)
+        {
+            _targetUpgradeWait?.Completion.TrySetResult(
+                ChunkGenerationFutureResult.Unloaded(
+                    _targetStatus,
+                    "Column generation task was disposed."));
+            _targetUpgradeWait = null;
+        }
         foreach (var future in _sectionGenerationFutures.Values)
         {
             future.WaitingSections.Clear();
@@ -354,16 +425,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
 
     private ChunkGenerationStatus? AdvanceAggregateProgress()
     {
-        if (_requiredSectionCount == 0)
-            return null;
-
-        var aggregate = _sectionProgressStatuses[0];
-        for (var index = 1; index < _requiredSectionCount; index++)
-        {
-            if (_sectionProgressStatuses[index] < aggregate)
-                aggregate = _sectionProgressStatuses[index];
-        }
-
+        var aggregate = GetAggregateProgressStatus();
         if (aggregate <= _lastPublishedProgressStatus)
             return null;
 
@@ -610,6 +672,93 @@ public sealed class ChunkColumnMaterializationGenerationTask :
 
         return waiting;
     }
+
+    private bool HasSectionReachedTarget(int sectionIndex)
+    {
+        lock (_targetStatusGate)
+            return _targetStatus < ChunkGenerationStatus.Full &&
+                _sectionProgressStatuses[sectionIndex] >= _targetStatus;
+    }
+
+    private bool TryCreateTargetUpgradeWait(
+        out ChunkGenerationFutureOperation operation)
+    {
+        lock (_targetStatusGate)
+        {
+            var aggregateStatus = GetAggregateProgressStatus();
+            if (_targetStatus >= ChunkGenerationStatus.Full ||
+                aggregateStatus < _targetStatus)
+            {
+                operation = default;
+                return false;
+            }
+
+            if (_targetUpgradeWait is null)
+            {
+                var dependencyId = NextDependencyId();
+                var completion = new TaskCompletionSource<ChunkGenerationFutureResult>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _targetUpgradeWait = new TargetUpgradeWait(
+                    dependencyId, completion);
+            }
+
+            operation = new ChunkGenerationFutureOperation(
+                _targetUpgradeWait.DependencyId,
+                _targetUpgradeWait.Completion.Task);
+            return true;
+        }
+    }
+
+    private bool IsTargetUpgradeCompletion(ulong dependencyId)
+    {
+        lock (_targetStatusGate)
+            return _targetUpgradeWait?.DependencyId == dependencyId;
+    }
+
+    private void CompleteTargetUpgradeWait(ulong dependencyId)
+    {
+        lock (_targetStatusGate)
+        {
+            if (_targetUpgradeWait?.DependencyId != dependencyId)
+                throw new InvalidOperationException(
+                    $"Column {_column} resumed from an obsolete target-upgrade signal.");
+            _targetUpgradeWait = null;
+        }
+    }
+
+    private ChunkGenerationStatus GetAggregateProgressStatus()
+    {
+        var aggregate = _sectionProgressStatuses[0];
+        for (var index = 1; index < _requiredSectionCount; index++)
+        {
+            if (_sectionProgressStatuses[index] < aggregate)
+                aggregate = _sectionProgressStatuses[index];
+        }
+        return aggregate;
+    }
+
+    private static ChunkGenerationStatus NormalizeTargetStatus(
+        ChunkGenerationStatus status)
+    {
+        if (!Enum.IsDefined(status) || status == ChunkGenerationStatus.Unloaded)
+            throw new ArgumentOutOfRangeException(nameof(status));
+
+        return status switch
+        {
+            ChunkGenerationStatus.StructureStarts or
+            ChunkGenerationStatus.StructureReferences =>
+                ChunkGenerationStatus.Biomes,
+            ChunkGenerationStatus.InitializeLight =>
+                ChunkGenerationStatus.Light,
+            ChunkGenerationStatus.Spawn =>
+                ChunkGenerationStatus.Full,
+            _ => status,
+        };
+    }
+
+    private sealed record TargetUpgradeWait(
+        ulong DependencyId,
+        TaskCompletionSource<ChunkGenerationFutureResult> Completion);
 
     private void RegisterActiveWaitDependencies(IEnumerable<ulong> dependencyIds)
     {

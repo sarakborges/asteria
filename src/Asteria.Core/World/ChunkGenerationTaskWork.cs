@@ -194,7 +194,8 @@ public sealed class ChunkGenerationTaskAdvanceResult
             progressStatus);
 
     public static ChunkGenerationTaskAdvanceResult WaitForFutures(
-        IEnumerable<ChunkGenerationFutureOperation> futureOperations)
+        IEnumerable<ChunkGenerationFutureOperation> futureOperations,
+        ChunkGenerationStatus? progressStatus = null)
     {
         ArgumentNullException.ThrowIfNull(futureOperations);
         var operations = futureOperations.ToImmutableArray();
@@ -221,6 +222,7 @@ public sealed class ChunkGenerationTaskAdvanceResult
             ChunkGenerationTaskAdvanceKind.WaitForFutures,
             ImmutableArray<ChunkGenerationWorkerOperation>.Empty,
             null,
+            progressStatus,
             futureOperations: operations);
     }
 

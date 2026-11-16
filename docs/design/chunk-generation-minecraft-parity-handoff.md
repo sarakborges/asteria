@@ -1466,3 +1466,14 @@ The producer-admission callback is guarded: if the coordinator cannot admit a pr
 A focused test injects one cross-column status requirement for two vertical section consumers and verifies they share a single future and one producer admission before both sections resume.
 
 **Runtime integration boundary:** the default Asteria DAG currently has no cross-column `HolderStatus` dependency; its horizontal procedural read halos are immutable field data and should not retain chunk holders. `ChunkResidencyRuntime` does not yet inject the status-future resolver/producer callback into this task. A future plan that adds a true cross-column holder dependency must supply those two delegates from its active `ChunkDependencyClaim` and status-target producer coordinator. The task layer now supports that contract and fails fast if the producer resolver is absent.
+
+
+## Target-status parking and promotion on one column task — 2026-11-16
+
+`ChunkColumnMaterializationGenerationTask` now accepts an initial generation target rather than assuming every logical request is FULL. It stops advancing each section once that section has reached the requested stage and parks non-blockingly on a task-owned status-upgrade future. `TryUpgradeTargetStatus` raises the target without replacing the holder task; completing the internal future resumes the same task and preserves its section jobs, completed products and progress revisions.
+
+Status thresholds are normalized to Asteria's actual stage boundaries: structure-start/reference requests can be satisfied at Biomes, InitializeLight continues through Light because Asteria's light-executor operation is part of the same resumable job, and Spawn is satisfied at Full. The task's progress future can now carry a status transition while it parks.
+
+A regression test requests Biomes, verifies the materializer does not advance beyond terrain setup, upgrades the same task to Full, and verifies it resumes and completes without reconstructing the job.
+
+**Runtime boundary:** `ChunkResidencyRuntime` still creates FULL-target tasks from player-loading admissions. Wiring non-FULL holder ticket levels into this target API and reusing an active task when target changes is the next integration step; this commit establishes the task-level lifecycle without claiming runtime pyramid completion.

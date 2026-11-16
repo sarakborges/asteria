@@ -158,6 +158,58 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void ColumnTaskParksAtAchievedStatusAndResumesAfterTargetUpgrade()
+    {
+        var column = new ChunkColumnCoord(12, -3);
+        var coord = new ChunkCoord(12, 0, -3);
+        var job = new FakeMaterializationJob(
+            coord,
+            sliceCount: 1,
+            ChunkMaterializationStage.TerrainSetup);
+        var lightOperations = 0;
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [job],
+            _ => lightOperations++,
+            targetStatus: ChunkGenerationStatus.Biomes);
+
+        var initial = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, initial.Kind);
+        var terrainSetup = Assert.Single(initial.WorkerOperations);
+        var setupCompletion = Completion(
+            column,
+            terrainSetup.DependencyId,
+            terrainSetup.Execute(CancellationToken.None));
+
+        var biomes = task.Advance([setupCompletion], CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForFutures, biomes.Kind);
+        Assert.Equal(ChunkGenerationStatus.Biomes, biomes.ProgressStatus);
+        var upgrade = Assert.Single(biomes.FutureOperations);
+        Assert.Equal(1, job.AdvanceCount);
+        Assert.Equal(ChunkGenerationStatus.Biomes, task.TargetStatus);
+        Assert.Equal(0, lightOperations);
+
+        Assert.True(task.TryUpgradeTargetStatus(ChunkGenerationStatus.Full));
+        var upgradeCompletion = Completion(
+            column,
+            upgrade.DependencyId,
+            upgrade.Future.GetAwaiter().GetResult());
+        var resumed = task.Advance(
+            [upgradeCompletion],
+            CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, resumed.Kind);
+        Assert.Equal(ChunkGenerationStatus.Full, task.TargetStatus);
+
+        var final = CompleteColumn(
+            task, column, resumed, ref lightOperations);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+        Assert.Equal(1, lightOperations);
+    }
+
+    [Fact]
     public void ColumnSharesCrossColumnHolderFutureAcrossSectionConsumers()
     {
         var column = new ChunkColumnCoord(4, -2);
