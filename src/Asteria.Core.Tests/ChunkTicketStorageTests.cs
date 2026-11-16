@@ -556,9 +556,9 @@ public sealed class ChunkTicketStorageTests
         IReadOnlyList<ChunkHolderTicketLevelChange>? lastChanges = null;
         manager.HolderTicketLevelsChanged += changes => lastChanges = changes;
 
-        Assert.True(manager.AddTicket(near, nearTicket));
+        Assert.True(manager.AddTicket(near, nearTicket, currentTick: 0));
         var nearHolder = Assert.IsType<ChunkHolder>(manager.GetHolder(near));
-        Assert.True(manager.AddTicket(far, farTicket));
+        Assert.True(manager.AddTicket(far, farTicket, currentTick: 0));
 
         Assert.Same(nearHolder, manager.GetHolder(near));
         Assert.Equal(ChunkLevel.EntityTicking, nearHolder.TicketLevel);
