@@ -359,14 +359,14 @@ public sealed class ChunkResidencyRuntime
             MarkMaterializedSectionFull(section);
 
         _playerTicketAdmissions.RetainDesiredSections(
-            _streaming.RequestedSections);
+            _streaming.DesiredSections);
     }
 
     private void MarkMaterializedSectionFull(ChunkCoord section)
     {
         _playerTicketAdmissions.MarkSectionFull(section);
         var column = ChunkColumnCoord.FromChunk(section);
-        if (_playerTicketAdmissions.HasPendingAdmission(column))
+        if (_playerTicketAdmissions.HasUnmaterializedAdmissionSections(column))
             return;
 
         var requested = _streaming.RequestedSectionsInColumn(column);
@@ -380,6 +380,10 @@ public sealed class ChunkResidencyRuntime
         var permittedFullStatus = distanceManager.GetFullStatus(column);
         if (permittedFullStatus >= ChunkFullStatus.Full)
             distanceManager.CompleteFullStatus(column, permittedFullStatus);
+
+        if (distanceManager.GetHolder(column)?.CompletedFullStatus >=
+            ChunkFullStatus.EntityTicking)
+            _playerTicketAdmissions.CompleteAdmission(column);
     }
 
     private void PublishPersistentChunkTickets(ulong currentTick)
@@ -627,7 +631,7 @@ public sealed class ChunkResidencyRuntime
         }
 
         _playerTicketAdmissions.RetainDesiredSections(
-            _streaming.RequestedSections);
+            _streaming.DesiredSections);
         CancelMaterializationsOutsideResidency();
         _center = center;
         _retentionRadius =

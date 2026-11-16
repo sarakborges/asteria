@@ -2,10 +2,10 @@ namespace Asteria.Core.World;
 
 /// <summary>
 /// Throttles new player-loading ticket additions independently of worker
-/// capacity. Vanilla Minecraft admits four new player tickets at a time.
-/// Asteria releases each slot when the sections requested by the player have
-/// materialized. Holder FULL promotion belongs to the residency runtime and
-/// waits for every active vertical target in that column.
+/// capacity. Vanilla Minecraft admits four new player tickets at a time and
+/// releases each slot when the holder's ENTITY_TICKING future completes.
+/// Asteria keeps the slot through materialization and holder promotion; the
+/// residency runtime confirms that future after every active vertical target arrives.
 /// </summary>
 public sealed class ChunkTicketAdmissionController
 {
@@ -31,6 +31,17 @@ public sealed class ChunkTicketAdmissionController
 
     public bool HasPendingAdmission(ChunkColumnCoord column) =>
         _sectionsAwaitingFullStatus.ContainsKey(column);
+
+    public bool HasUnmaterializedAdmissionSections(ChunkColumnCoord column) =>
+        _sectionsAwaitingFullStatus.TryGetValue(column, out var pending) &&
+        pending.Count > 0;
+
+    /// <summary>
+    /// Releases the player's admission slot after the holder's
+    /// ENTITY_TICKING promotion future has completed.
+    /// </summary>
+    public bool CompleteAdmission(ChunkColumnCoord column) =>
+        _sectionsAwaitingFullStatus.Remove(column);
 
     public bool HasLoadingTicket(ChunkColumnCoord column) =>
         _distanceManager.HasPlayerLoadingTicket(column);
@@ -84,18 +95,13 @@ public sealed class ChunkTicketAdmissionController
             }
 
             pending.RemoveWhere(section => resident.Contains(section));
-            if (pending.Count == 0)
-                ReleaseAdmissionSlot(column);
             return true;
         }
 
         if (_distanceManager.HasPlayerLoadingTicket(column))
         {
             if (missing.Count == 0)
-            {
-                ReleaseAdmissionSlot(column);
                 return true;
-            }
 
             if (_sectionsAwaitingFullStatus.Count >= MaximumConcurrentPlayerTicketAdds)
                 return false;
@@ -110,16 +116,10 @@ public sealed class ChunkTicketAdmissionController
             return false;
 
         _distanceManager.AddPlayerLoadingTicket(column);
-        if (missing.Count > 0)
-            _sectionsAwaitingFullStatus.Add(column, missing);
-        else
-            ReleaseAdmissionSlot(column);
+        _sectionsAwaitingFullStatus.Add(column, missing);
 
         return true;
     }
-
-    private void ReleaseAdmissionSlot(ChunkColumnCoord column) =>
-        _sectionsAwaitingFullStatus.Remove(column);
 
     /// <summary>
     /// Reports that one vertical section reached full materialization. The
@@ -134,9 +134,6 @@ public sealed class ChunkTicketAdmissionController
         if (!_sectionsAwaitingFullStatus.TryGetValue(column, out var pending) ||
             !pending.Remove(section))
             return completedSection;
-
-        if (pending.Count == 0)
-            ReleaseAdmissionSlot(column);
 
         return true;
     }
@@ -169,7 +166,8 @@ public sealed class ChunkTicketAdmissionController
         foreach (var (column, pending) in _sectionsAwaitingFullStatus.ToArray())
         {
             pending.RemoveWhere(section => !desiredSections.Contains(section));
-            if (pending.Count == 0)
+            if (!desiredSections.Any(section =>
+                    ChunkColumnCoord.FromChunk(section) == column))
             {
                 _sectionsAwaitingFullStatus.Remove(column);
                 released++;
