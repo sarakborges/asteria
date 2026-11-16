@@ -25,6 +25,8 @@ public sealed class ChunkHolderMap
     public IReadOnlyCollection<ChunkColumnCoord> PendingUnloadColumns =>
         _pendingUnloads.ToArray();
 
+    public int PendingUnloadCount => _pendingUnloads.Count;
+
     public bool IsPendingUnload(ChunkColumnCoord column) =>
         _pendingUnloads.Contains(column);
 

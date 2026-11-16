@@ -204,6 +204,40 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void TicketRemovalArchivesResidentColumnBeforeCompletingHolderUnload()
+    {
+        using var fixture = CreateFixture(new StagedChunkProvider());
+        var coord = new ChunkCoord(24, 6, -17);
+        var column = ChunkColumnCoord.FromChunk(coord);
+        var ticket = new ChunkTicket(ChunkTicketType.Forced, Level: 30);
+
+        fixture.Runtime.SyncSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord>(),
+            presented: Array.Empty<ChunkCoord>());
+        Assert.True(fixture.Runtime.AddTicket(coord, ticket));
+
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        var generated = CollectUntilMaterializationResult(fixture.Runtime);
+        Assert.Empty(generated.Failures);
+        Assert.True(fixture.World.ContainsChunk(coord));
+        Assert.Equal(0, fixture.Runtime.PendingHolderUnloadCount);
+
+        Assert.True(fixture.Runtime.RemoveTicket(coord, ticket));
+        Assert.Equal(1, fixture.Runtime.PendingHolderUnloadCount);
+        Assert.True(fixture.World.HasResidentChunksInColumn(column));
+
+        var retired = fixture.Runtime.RetireDistantChunks(GenerousBudget());
+        Assert.Contains(retired, item => item.Coord == coord);
+        Assert.False(fixture.World.HasResidentChunksInColumn(column));
+        Assert.True(fixture.World.HasArchivedChunk(coord));
+        Assert.Equal(0, fixture.Runtime.PendingHolderUnloadCount);
+    }
+
+    [Fact]
     public void NewTicketTargetRejectsAndRequeuesInFlightHolderGeneration()
     {
         using var provider = new BlockingChunkProvider();

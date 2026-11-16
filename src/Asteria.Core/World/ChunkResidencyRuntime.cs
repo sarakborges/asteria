@@ -466,6 +466,9 @@ public sealed class ChunkResidencyRuntime
     public int DesiredMaterializingCount =>
         _streaming.DesiredMaterializingCount;
 
+    public int PendingHolderUnloadCount =>
+        _streaming.DistanceManager.PendingUnloadCount;
+
     /// <summary>Background tasks currently admitted by this dimension's shared worker adapter.</summary>
     public int ActiveWorkerCount =>
         _generationWorkerPool.InFlightWorkCount +
