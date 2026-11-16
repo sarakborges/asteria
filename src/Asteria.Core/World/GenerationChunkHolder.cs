@@ -324,6 +324,25 @@ public abstract class GenerationChunkHolder
     }
 
     /// <summary>
+    /// Invalidates the current generation request even when no stage has
+    /// completed yet. In-flight tasks capture this revision at admission, so
+    /// changing the holder's required target set must stale those tasks too.
+    /// </summary>
+    public bool InvalidateGenerationRequest(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        if (ResetGenerationProgressCore(reason))
+            return true;
+
+        if (GenerationProgressRevision == ulong.MaxValue)
+            throw new InvalidOperationException(
+                $"Generation request revision space was exhausted: {Position}");
+
+        GenerationProgressRevision++;
+        return true;
+    }
+
+    /// <summary>
     /// Invalidates partial products discarded after a failed/cancelled
     /// generation attempt. Existing waiters are released with a failed result;
     /// future requests receive fresh tasks under the new progress revision.

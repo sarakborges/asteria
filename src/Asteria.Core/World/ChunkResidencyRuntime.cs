@@ -345,7 +345,7 @@ public sealed class ChunkResidencyRuntime
             .ToArray();
 
         foreach (var column in newlyRequiredColumns)
-            _streaming.DistanceManager.ResetGenerationProgress(
+            _streaming.DistanceManager.InvalidateGenerationRequest(
                 column,
                 "A new vertical FULL target changed the holder's required section set.");
 

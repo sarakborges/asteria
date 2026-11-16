@@ -244,6 +244,12 @@ public sealed class ChunkHolderMap
         _holders.TryGetValue(column, out var holder) &&
         holder.ResetGenerationProgress(reason);
 
+    public bool InvalidateGenerationRequest(
+        ChunkColumnCoord column,
+        string reason) =>
+        _holders.TryGetValue(column, out var holder) &&
+        holder.InvalidateGenerationRequest(reason);
+
     public bool FailPendingPromotions(
         ChunkColumnCoord column,
         string reason) =>

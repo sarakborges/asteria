@@ -324,3 +324,5 @@ A touched area must be reviewed for architecture debt. Refactor or isolate the d
 - tests require large unrelated setup because responsibilities are coupled.
 
 New features do not preserve old architecture merely for compatibility unless the user explicitly requests it.
+
+A changed FULL target set increments the holder's generation-request revision even before any stage completes, so detached in-flight work is rejected.

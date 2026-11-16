@@ -327,6 +327,23 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void NewGenerationRequirementsInvalidateAnInFlightRevisionBeforeProgressCompletes()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(5, -2);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        var initialRevision = holder.GenerationProgressRevision;
+
+        Assert.True(manager.InvalidateGenerationRequest(
+            column, "A new vertical FULL target was added."));
+
+        Assert.Equal(initialRevision + 1, holder.GenerationProgressRevision);
+        Assert.Equal(ChunkGenerationStatus.Unloaded, holder.CompletedGenerationStatus);
+        Assert.False(holder.FullChunkFuture.IsCompleted);
+    }
+
+    [Fact]
     public void GenerationAndFullStatusFuturesAreIndependent()
     {
         var manager = new ChunkDistanceManager();

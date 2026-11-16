@@ -276,6 +276,11 @@ public sealed class ChunkDistanceManager
         string reason) =>
         _holders.ResetGenerationProgress(column, reason);
 
+    public bool InvalidateGenerationRequest(
+        ChunkColumnCoord column,
+        string reason) =>
+        _holders.InvalidateGenerationRequest(column, reason);
+
     public bool FailPendingPromotions(
         ChunkColumnCoord column,
         string reason) =>
