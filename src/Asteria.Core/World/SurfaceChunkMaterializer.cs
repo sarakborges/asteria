@@ -368,7 +368,12 @@ public sealed partial class SurfaceChunkMaterializer
                 break;
 
             case ChunkMaterializationStage.TerrainLayer:
-                MaterializeTerrainLayer(job);
+            {
+                var accessRegion = new ChunkGenerationAccessRegion(
+                    AsteriaChunkGenerationPlan.Default,
+                    job.Coord,
+                    ChunkGenerationStepId.SectionTerrainLayers);
+                MaterializeTerrainLayer(job, accessRegion);
                 if (job.NextTerrainLocalY > job.LastTerrainWorldY - job.OriginY)
                 {
                     CompleteInitialBlockWrites(job);
@@ -383,6 +388,7 @@ public sealed partial class SurfaceChunkMaterializer
                     }
                 }
                 break;
+            }
 
             case ChunkMaterializationStage.SurfaceDecorations:
                 MaterializeSurfaceDecorations(job, job.SupportOutputColumns);
@@ -621,10 +627,16 @@ public sealed partial class SurfaceChunkMaterializer
 
     private void BeginTerrainSetup(MaterializationJob job)
     {
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            job.Coord,
+            ChunkGenerationStepId.SectionTerrainSetup);
         var coord = job.Coord;
         var originX = job.OriginX;
         var originY = job.OriginY;
         var originZ = job.OriginZ;
+        accessRegion.EnsureCanReadColumnData(originX, originZ);
+        accessRegion.EnsureCanReadWorldPosition(originX, originY, originZ);
         var column = job.Column = _columns.Get(coord.X, coord.Z);
         var densityVolume = job.DensityVolume =
             job.SupportFaceFastPath || job.IsSparseSupportFallback
@@ -656,6 +668,10 @@ public sealed partial class SurfaceChunkMaterializer
 
     private void CompleteTerrainSetup(MaterializationJob job)
     {
+        var accessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            job.Coord,
+            ChunkGenerationStepId.SectionTerrainSetup);
         var originX = job.OriginX;
         var originY = job.OriginY;
         var originZ = job.OriginZ;
@@ -681,6 +697,8 @@ public sealed partial class SurfaceChunkMaterializer
         for (var localX = 0; localX < Chunk.Size; localX++)
         {
             var index = localX + Chunk.Size * localZ;
+            accessRegion.EnsureCanReadColumnData(
+                checked(originX + localX), checked(originZ + localZ));
             if (job.SupportMaterializationColumns is { } supportColumns &&
                 !supportColumns[index])
                 continue;
@@ -701,9 +719,11 @@ public sealed partial class SurfaceChunkMaterializer
             if (!_shellBlock.IsAir)
             {
                 SetShellIfInChunk(
-                    initialBlocks, localX, localZ, originY, topExclusive, _floorY);
+                    initialBlocks, localX, localZ, originY, topExclusive, _floorY,
+                    accessRegion);
                 SetShellIfInChunk(
-                    initialBlocks, localX, localZ, originY, topExclusive, _roofY);
+                    initialBlocks, localX, localZ, originY, topExclusive, _roofY,
+                    accessRegion);
             }
         }
 
@@ -725,7 +745,9 @@ public sealed partial class SurfaceChunkMaterializer
         job.NextTerrainLocalZ = 0;
     }
 
-    private void MaterializeTerrainLayer(MaterializationJob job)
+    private void MaterializeTerrainLayer(
+        MaterializationJob job,
+        ChunkGenerationAccessRegion accessRegion)
     {
         var originX = job.OriginX;
         var originY = job.OriginY;
@@ -779,6 +801,7 @@ public sealed partial class SurfaceChunkMaterializer
                 continue;
 
             ref var state = ref columnMaterializationCaches[columnIndex];
+            accessRegion.EnsureCanReadColumnData(state.WorldX, state.WorldZ);
             var surfaceY = state.SurfaceY;
             if (worldY > surfaceY ||
                 (columnSolidMasks is null
@@ -949,6 +972,8 @@ public sealed partial class SurfaceChunkMaterializer
             }
 
             var voxelIndex = columnIndex + Chunk.Area * localY;
+            accessRegion.EnsureCanWriteWorldPosition(
+                worldX, worldY, worldZ);
             if (initialBlocks.SetBlockAtLinearIndexFreshUnchecked(voxelIndex, block) &&
                 !block.IsAir &&
                 directionalMasks is not null &&
@@ -4884,7 +4909,8 @@ public sealed partial class SurfaceChunkMaterializer
         int localZ,
         int originY,
         int topExclusive,
-        int? shellY)
+        int? shellY,
+        ChunkGenerationAccessRegion accessRegion)
     {
         if (shellY is not { } y ||
             y < originY ||
@@ -4893,6 +4919,9 @@ public sealed partial class SurfaceChunkMaterializer
             return;
         }
 
+        var origin = VoxelCoordinates.ChunkOrigin(accessRegion.TargetSection);
+        accessRegion.EnsureCanWriteWorldPosition(
+            checked(origin.X + localX), y, checked(origin.Z + localZ));
         initialBlocks.SetBlockAtLinearIndex(
             localX + Chunk.Size * localZ + Chunk.Area * (y - originY),
             _shellBlock);
