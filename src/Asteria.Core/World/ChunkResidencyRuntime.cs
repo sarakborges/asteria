@@ -1475,15 +1475,18 @@ public sealed class ChunkResidencyRuntime
 
     private ChunkGenerationTaskPriority GenerationPriority(ChunkCoord coord)
     {
+        var column = ChunkColumnCoord.FromChunk(coord);
         var priority = ChunkStreamingState.StreamingPriority(
-            coord, _center, _streaming.MovementDirection);
-        return new ChunkGenerationTaskPriority(
-            _streaming.GetLoadingLevel(coord),
-            priority.HorizontalDistanceSquared,
-            priority.TotalDistanceSquared,
-            coord.Y,
-            coord.Z,
-            coord.X);
+            coord,
+            _center,
+            _streaming.MovementDirection,
+            _streaming.GetLoadingLevel(coord));
+        var holder = _streaming.DistanceManager.GetHolder(column);
+        if (holder is null)
+            return priority;
+
+        _streaming.DistanceManager.UpdateQueuePriority(column, priority);
+        return holder.QueuePriority;
     }
 
     private void HandleHolderTicketLevelsChanged(
@@ -1549,7 +1552,12 @@ public sealed class ChunkResidencyRuntime
     }
 
     private WorldWorkerPriority StreamingWorkerPriority(ChunkCoord coord) =>
-        WorldWorkerPriority.FromGenerationTicket(GenerationPriority(coord));
+        WorldWorkerPriority.FromGenerationTicket(
+            ChunkStreamingState.StreamingPriority(
+                coord,
+                _center,
+                _streaming.MovementDirection,
+                _streaming.GetLoadingLevel(coord)));
 
     private void StartArrivalReconciliationWorker(
         WorldFrameWorkBudget budget,

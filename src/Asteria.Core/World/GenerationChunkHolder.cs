@@ -186,6 +186,13 @@ public abstract class GenerationChunkHolder
         ValidateTicketLevel(ticketLevel);
         Position = position;
         TicketLevel = ticketLevel;
+        QueuePriority = new ChunkGenerationTaskPriority(
+            ticketLevel,
+            long.MaxValue,
+            long.MaxValue,
+            0,
+            position.Z,
+            position.X);
         HighestAllowedGenerationStatus =
             ChunkLevel.GetGenerationStatus(ticketLevel);
         TicketLevelRevision = 1;
@@ -195,6 +202,17 @@ public abstract class GenerationChunkHolder
     public ChunkColumnCoord Position { get; }
 
     public int TicketLevel { get; private set; }
+
+    /// <summary>
+    /// Holder-owned effective scheduling key shared by worldgen and lighting
+    /// dispatch. It includes ticket urgency and deterministic spatial ordering;
+    /// the initial max-distance sentinel is replaced when residency admits work.
+    /// </summary>
+    public ChunkGenerationTaskPriority QueuePriority { get; private set; }
+
+    public bool HasQueuePriorityContext { get; private set; }
+
+    public ulong QueuePriorityRevision { get; private set; } = 1;
 
     public ChunkGenerationStatus HighestAllowedGenerationStatus { get; private set; }
 
@@ -215,6 +233,8 @@ public abstract class GenerationChunkHolder
             return false;
 
         TicketLevel = ticketLevel;
+        QueuePriority = QueuePriority with { TicketLevel = ticketLevel };
+        AdvanceQueuePriorityRevision();
         HighestAllowedGenerationStatus =
             ChunkLevel.GetGenerationStatus(ticketLevel);
         TicketLevelRevision++;
@@ -223,6 +243,38 @@ public abstract class GenerationChunkHolder
         foreach (var section in _sectionGenerationProgress.Values)
             section.Reconcile(HighestAllowedGenerationStatus, TicketLevel);
         return true;
+    }
+
+    /// <summary>
+    /// Replaces the holder's live queue key after the residency scheduler
+    /// supplies the current spatial context. Ticket urgency must match the
+    /// holder's authoritative ticket level.
+    /// </summary>
+    internal bool UpdateQueuePriority(ChunkGenerationTaskPriority priority)
+    {
+        if (priority.TicketLevel != TicketLevel)
+            throw new ArgumentException(
+                "Queue priority ticket level must match the holder ticket level.",
+                nameof(priority));
+        if (priority.HorizontalDistanceSquared < 0 ||
+            priority.TotalDistanceSquared < 0)
+            throw new ArgumentOutOfRangeException(nameof(priority));
+
+        if (HasQueuePriorityContext && QueuePriority == priority)
+            return false;
+
+        QueuePriority = priority;
+        HasQueuePriorityContext = true;
+        AdvanceQueuePriorityRevision();
+        return true;
+    }
+
+    private void AdvanceQueuePriorityRevision()
+    {
+        if (QueuePriorityRevision == ulong.MaxValue)
+            throw new InvalidOperationException(
+                "Chunk holder queue priority revision space was exhausted.");
+        QueuePriorityRevision++;
     }
 
     /// <summary>

@@ -61,6 +61,11 @@ public sealed class ChunkDistanceManager
     public ChunkHolder? GetHolder(ChunkColumnCoord column) =>
         _holders.Get(column);
 
+    internal bool UpdateQueuePriority(
+        ChunkColumnCoord column,
+        ChunkGenerationTaskPriority priority) =>
+        _holders.UpdateQueuePriority(column, priority);
+
     public bool TryGetHolder(
         ChunkColumnCoord column,
         out ChunkHolder holder) =>

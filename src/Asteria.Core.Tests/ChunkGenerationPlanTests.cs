@@ -919,6 +919,41 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
+    public void HolderOwnsQueuePriorityAndTicketChangesPreserveSpatialContext()
+    {
+        var column = new ChunkColumnCoord(23, -9);
+        var holder = new ChunkHolder(
+            column, ChunkLevel.Full + 3);
+
+        Assert.False(holder.HasQueuePriorityContext);
+        Assert.Equal(ChunkLevel.Full + 3, holder.QueuePriority.TicketLevel);
+        Assert.Equal(long.MaxValue,
+            holder.QueuePriority.HorizontalDistanceSquared);
+
+        var priority = new ChunkGenerationTaskPriority(
+            holder.TicketLevel,
+            horizontalDistanceSquared: 25,
+            totalDistanceSquared: 29,
+            y: 2,
+            z: column.Z,
+            x: column.X);
+        Assert.True(holder.UpdateQueuePriority(priority));
+        Assert.True(holder.HasQueuePriorityContext);
+        Assert.Equal(priority, holder.QueuePriority);
+        Assert.False(holder.UpdateQueuePriority(priority));
+
+        Assert.True(holder.UpdateTicketLevel(ChunkLevel.Full + 2));
+        Assert.Equal(
+            priority with { TicketLevel = ChunkLevel.Full + 2 },
+            holder.QueuePriority);
+        Assert.Equal(3UL, holder.QueuePriorityRevision);
+
+        Assert.Throws<ArgumentException>(() =>
+            holder.UpdateQueuePriority(
+                priority with { TicketLevel = ChunkLevel.Full + 1 }));
+    }
+
+    [Fact]
     public void ResetGenerationProgressInvalidatesOldRevisionAndRearmsPromotionFutures()
     {
         var column = new ChunkColumnCoord(-15, 9);

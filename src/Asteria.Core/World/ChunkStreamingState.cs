@@ -38,35 +38,6 @@ public readonly record struct ChunkLoadPriority(
     }
 }
 
-public readonly record struct ChunkStreamingPriority(
-    int TicketLevel,
-    long HorizontalDistanceSquared,
-    long TotalDistanceSquared,
-    int Y,
-    int Z,
-    int X) : IComparable<ChunkStreamingPriority>
-{
-    public int CompareTo(ChunkStreamingPriority other)
-    {
-        var result = TicketLevel.CompareTo(other.TicketLevel);
-        if (result != 0) return result;
-
-        result = HorizontalDistanceSquared.CompareTo(
-            other.HorizontalDistanceSquared);
-        if (result != 0) return result;
-
-        result = TotalDistanceSquared.CompareTo(
-            other.TotalDistanceSquared);
-        if (result != 0) return result;
-
-        result = Y.CompareTo(other.Y);
-        if (result != 0) return result;
-
-        result = Z.CompareTo(other.Z);
-        return result != 0 ? result : X.CompareTo(other.X);
-    }
-}
-
 public sealed class ChunkStreamingState
 {
     private readonly HashSet<ChunkCoord> _desired = [];
@@ -658,10 +629,11 @@ public sealed class ChunkStreamingState
             coord.X);
     }
 
-    public static ChunkStreamingPriority StreamingPriority(
+    public static ChunkGenerationTaskPriority StreamingPriority(
         ChunkCoord coord,
         ChunkCoord center,
-        ChunkMovementDirection movementDirection)
+        ChunkMovementDirection movementDirection,
+        int? authoritativeTicketLevel = null)
     {
         var dx = (long)coord.X - center.X;
         var dy = (long)coord.Y - center.Y;
@@ -676,10 +648,10 @@ public sealed class ChunkStreamingState
         // Estimate the same level for domains that do not own a holder handle;
         // residency materialization replaces this estimate with the graph's
         // authoritative level before dispatch.
-        var ticketLevel = (int)Math.Min(
+        var ticketLevel = authoritativeTicketLevel ?? (int)Math.Min(
             ChunkLevel.Unloaded,
             ChunkLevel.EntityTicking + chebyshevDistance);
-        return new ChunkStreamingPriority(
+        return new ChunkGenerationTaskPriority(
             ticketLevel,
             horizontalDistance,
             totalDistance,

@@ -51,6 +51,12 @@ public sealed class ChunkHolderMap
         !_holders.TryGetValue(column, out var holder) ||
         holder.IsReadyForSaving;
 
+    internal bool UpdateQueuePriority(
+        ChunkColumnCoord column,
+        ChunkGenerationTaskPriority priority) =>
+        _holders.TryGetValue(column, out var holder) &&
+        holder.UpdateQueuePriority(priority);
+
     /// <summary>
     /// Reconciles holder membership and ticket-derived generation ceilings
     /// with the settled loading graph. Dependency-only holders remain present

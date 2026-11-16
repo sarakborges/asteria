@@ -373,37 +373,25 @@ internal sealed class ChunkColumnPendingQueue
         ChunkColumnCoord column,
         IEnumerable<ChunkPendingDispatch> sections)
     {
-        ChunkStreamingPriority? best = null;
+        ChunkGenerationTaskPriority? best = null;
         foreach (var section in sections)
         {
-            var distancePriority = StreamingPriority(section.Coord);
-            var candidate = new ChunkStreamingPriority(
-                _ticketLevelProvider?.Invoke(section.Coord) ??
-                    distancePriority.TicketLevel,
-                distancePriority.HorizontalDistanceSquared,
-                distancePriority.TotalDistanceSquared,
-                distancePriority.Y,
-                distancePriority.Z,
-                distancePriority.X);
+            var candidate = StreamingPriority(section.Coord);
             if (best is null || candidate.CompareTo(best.Value) < 0)
                 best = candidate;
         }
 
-        var priority = best ??
+        return best ??
             throw new InvalidOperationException(
                 $"Cannot prioritize a column without pending sections: {column}");
-        return new ChunkGenerationTaskPriority(
-            priority.TicketLevel,
-            priority.HorizontalDistanceSquared,
-            priority.TotalDistanceSquared,
-            priority.Y,
-            priority.Z,
-            priority.X);
     }
 
-    private ChunkStreamingPriority StreamingPriority(ChunkCoord coord) =>
+    private ChunkGenerationTaskPriority StreamingPriority(ChunkCoord coord) =>
         ChunkStreamingState.StreamingPriority(
-            coord, _center, _movementDirection);
+            coord,
+            _center,
+            _movementDirection,
+            _ticketLevelProvider?.Invoke(coord));
 
     private static int Compare(
         ChunkGenerationQueuedTask left,
