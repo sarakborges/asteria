@@ -1452,3 +1452,8 @@ Asteria's dispatcher already supported non-blocking `WaitForFutures`, but `Chunk
 A regression test now has one column task request a status future, admit a second column's producer through the same dispatcher, and complete only when that producer runs. It verifies the producer request occurs exactly once on the owner thread, both tasks complete, and no worker remains occupied by the parked wait.
 
 **Boundary:** this installs the producer-admission contract at the dispatcher. The residency runtime still needs to provide a concrete status-target producer factory and the column task must translate cross-column `HolderStatus` requirements into these operations. Same-column section dependencies remain locally coordinated to avoid parent/child scheduler deadlocks.
+
+
+### Producer-admission failure path
+
+The producer-admission callback is guarded: if the coordinator cannot admit a producer, the dependent task transitions to Failed, its active queue entry and future waits are cleared, and it is retired when no worker/future operations remain. Added a regression test with an incomplete future and a throwing admission callback to verify there is no orphaned waiting task.

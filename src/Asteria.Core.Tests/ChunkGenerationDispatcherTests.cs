@@ -194,6 +194,35 @@ public sealed class ChunkGenerationDispatcherTests
     }
 
     [Fact]
+    public async Task ProducerAdmissionFailureFailsAndRetiresDependentFutureWait()
+    {
+        var mailbox = new ChunkGenerationCompletionMailbox();
+        await using var pool = new ChunkGenerationWorkerPool(1, mailbox);
+        var dispatcher = new ChunkGenerationDispatcher(mailbox, pool);
+        var source = new TaskCompletionSource<ChunkGenerationFutureResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var error = new InvalidOperationException("producer admission rejected");
+        var task = new ProducerAdmissionFutureWaitTask(
+            source.Task,
+            () => throw error);
+
+        Assert.True(dispatcher.TryEnqueue(
+            Key(45), 1, Priority(0), 45, task));
+
+        PumpUntilIdle(dispatcher);
+
+        Assert.Equal(1, dispatcher.FailedTaskCount);
+        Assert.Equal(0, dispatcher.ActiveTaskCount);
+        Assert.Equal(0, dispatcher.RetiringTaskCount);
+        Assert.Equal(0, dispatcher.WaitingTaskCount);
+        Assert.Equal(0, pool.InFlightWorkCount);
+        Assert.True(dispatcher.TryDequeueOutcome(out var outcome));
+        Assert.Equal(ChunkGenerationTaskOutcomeKind.Failed, outcome.Kind);
+        Assert.Same(error, outcome.Error);
+        Assert.False(dispatcher.TryDequeueOutcome(out _));
+    }
+
+    [Fact]
     public async Task CancellingHolderFutureWaitReleasesTaskWithoutWaitingForFuture()
     {
         var mailbox = new ChunkGenerationCompletionMailbox();
