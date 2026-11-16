@@ -1172,6 +1172,37 @@ public sealed class ChunkGenerationPlanTests
                 ]));
     }
 
+    [Fact]
+    public void SurfaceStructurePlacementsAreAnImmutableColumnProduct()
+    {
+        var plan = AsteriaChunkGenerationPlan.Default;
+        var placementStep = plan.GetStep(
+            ChunkGenerationStepId.SurfaceStructurePlacements);
+        var surfaceStep = plan.GetStep(
+            ChunkGenerationStepId.SurfaceStructures);
+
+        Assert.Equal(ChunkGenerationWorkScope.Column, placementStep.WorkScope);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            placementStep.ExecutionPolicy);
+        Assert.Contains(
+            placementStep.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.SurfaceTerrainColumn &&
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData);
+        Assert.Contains(
+            surfaceStep.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.SurfaceStructurePlacements &&
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData);
+        Assert.Equal(
+            ChunkGenerationDependencyEnvelope.None,
+            plan.GetHolderDependencyEnvelope(
+                ChunkGenerationStepId.SurfaceStructurePlacements));
+    }
+
     private static ChunkGenerationStepDefinition Step(
         ChunkGenerationStepId id,
         IEnumerable<ChunkGenerationStepDependency>? dependencies = null) =>

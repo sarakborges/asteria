@@ -16,6 +16,7 @@ public enum ChunkGenerationStepId : byte
     DirectionalFacePalettes,
     VolumeStructures,
     GeneratedFluids,
+    SurfaceStructurePlacements,
     SurfaceStructures,
     CaveSpikes,
     VerticalDecorations,

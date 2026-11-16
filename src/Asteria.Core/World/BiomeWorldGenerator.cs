@@ -545,10 +545,16 @@ public sealed class BiomeWorldGenerator :
                     chunkX,
                     chunkZ);
 
+        var structureAccessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            new ChunkCoord(chunkX, 0, chunkZ),
+            ChunkGenerationStepId.SurfaceStructurePlacements,
+            _surfaceStructures.AccessReadEnvelope);
         return _surfaceStructures
             .ExpandSurfaceRange(
                 withFluid,
                 chunkX,
-                chunkZ);
+                chunkZ,
+                structureAccessRegion);
     }
 }

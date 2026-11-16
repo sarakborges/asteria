@@ -170,28 +170,24 @@ public sealed class ChunkGenerationAccessRegionTests
     [Fact]
     public void RuntimeReadEnvelopeExpandsImmutableReadsWithoutExpandingWrites()
     {
-        var target = new ChunkCoord(12, 5, -8);
+        var target = new ChunkCoord(12, 0, -8);
         var origin = VoxelCoordinates.ChunkOrigin(target);
-        var configured = new ChunkGenerationDependencyEnvelope(3, -2, 2);
+        var configured = new ChunkGenerationDependencyEnvelope(3, 0, 0);
         var region = new ChunkGenerationAccessRegion(
             AsteriaChunkGenerationPlan.Default,
             target,
-            ChunkGenerationStepId.SurfaceStructures,
+            ChunkGenerationStepId.SurfaceStructurePlacements,
             configured);
 
         Assert.Equal(configured, region.ReadEnvelope);
         Assert.True(region.CanReadColumnData(
             origin.X + 3 * Chunk.Size,
             origin.Z - 3 * Chunk.Size));
-        Assert.True(region.CanReadWorldPosition(
-            origin.X + 3 * Chunk.Size,
-            origin.Y + 2 * Chunk.Size,
+        Assert.False(region.CanReadColumnData(
+            origin.X + 4 * Chunk.Size,
             origin.Z));
-        Assert.False(region.CanReadWorldPosition(
-            origin.X,
-            origin.Y + 3 * Chunk.Size,
-            origin.Z));
-        Assert.False(region.CanWrite(new ChunkCoord(13, 5, -8)));
+        Assert.True(region.CanReadGeneratorData(target));
+        Assert.False(region.CanWrite(new ChunkCoord(13, 0, -8)));
         Assert.True(region.CanWrite(target));
     }
 

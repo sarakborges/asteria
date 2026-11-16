@@ -430,8 +430,7 @@ public sealed partial class SurfaceChunkMaterializer
                 var accessRegion = new ChunkGenerationAccessRegion(
                     AsteriaChunkGenerationPlan.Default,
                     job.Coord,
-                    ChunkGenerationStepId.SurfaceStructures,
-                    _structures.AccessReadEnvelope);
+                    ChunkGenerationStepId.SurfaceStructures);
                 MaterializeStructures(job, accessRegion);
                 job.Stage = ChunkMaterializationStage.CaveSpikes;
                 break;
@@ -2401,11 +2400,16 @@ public sealed partial class SurfaceChunkMaterializer
         var origin =
             VoxelCoordinates.ChunkOrigin(
                 coord);
+        var placementAccessRegion = new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            new ChunkCoord(coord.X, 0, coord.Z),
+            ChunkGenerationStepId.SurfaceStructurePlacements,
+            _structures.AccessReadEnvelope);
         var placements =
-            _structures.PlacementsForChunk(
+            _structures.GetPlacementsForColumn(
                 coord.X,
                 coord.Z,
-                accessRegion);
+                placementAccessRegion);
         job.SurfaceStructurePlacements = placements;
 
         // Placement bounds include blocks, fluids and explicit clears.

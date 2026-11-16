@@ -851,18 +851,19 @@ public sealed class SurfaceStructureField
     }
 
     internal IReadOnlyList<SurfaceStructurePlacement>
-        PlacementsForChunk(
+        GetPlacementsForColumn(
             int chunkX,
             int chunkZ,
-            ChunkGenerationAccessRegion? accessRegion = null)
+            ChunkGenerationAccessRegion accessRegion)
     {
-        if (accessRegion is not null &&
-            (accessRegion.StepId != ChunkGenerationStepId.SurfaceStructures ||
-             accessRegion.TargetSection.X != chunkX ||
-             accessRegion.TargetSection.Z != chunkZ))
+        ArgumentNullException.ThrowIfNull(accessRegion);
+        if (accessRegion.StepId != ChunkGenerationStepId.SurfaceStructurePlacements ||
+            accessRegion.TargetSection.X != chunkX ||
+            accessRegion.TargetSection.Y != 0 ||
+            accessRegion.TargetSection.Z != chunkZ)
         {
             throw new ArgumentException(
-                "Surface structure placement queries require a matching SurfaceStructures access region.",
+                "Surface structure placement discovery requires its matching column-scoped access region.",
                 nameof(accessRegion));
         }
 
@@ -878,7 +879,8 @@ public sealed class SurfaceStructureField
     public ChunkSurfaceRange ExpandSurfaceRange(
         ChunkSurfaceRange terrainRange,
         int chunkX,
-        int chunkZ)
+        int chunkZ,
+        ChunkGenerationAccessRegion accessRegion)
     {
         var minimum =
             terrainRange.MinimumWorldY;
@@ -886,9 +888,10 @@ public sealed class SurfaceStructureField
             terrainRange.MaximumWorldY;
 
         foreach (var placement in
-                 PlacementsForChunk(
+                 GetPlacementsForColumn(
                      chunkX,
-                     chunkZ))
+                     chunkZ,
+                     accessRegion))
         {
             minimum =
                 Math.Min(

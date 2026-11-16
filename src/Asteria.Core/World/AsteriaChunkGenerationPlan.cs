@@ -161,13 +161,31 @@ public static class AsteriaChunkGenerationPlan
             readEnvelope: NoHalo,
             writeEnvelope: NoHalo),
 
+        // Placement discovery is a column-scoped immutable product. The
+        // content-derived read envelope is enforced by SurfaceStructureField
+        // because it depends on the active dimension's authored rules.
+        Step(
+            ChunkGenerationStepId.SurfaceStructurePlacements,
+            ChunkGenerationWorkScope.Column,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            [
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    NoHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ]),
+
+        // This section stage only applies the already-resolved column product.
         Step(
             ChunkGenerationStepId.SurfaceStructures,
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.OrderedMutation,
             [
                 Dependency(ChunkGenerationStepId.VolumeStructures, NoHalo),
-                Dependency(ChunkGenerationStepId.ColumnBiomeData, NoHalo),
+                Dependency(
+                    ChunkGenerationStepId.SurfaceStructurePlacements,
+                    NoHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
             ]),
 
         Step(
@@ -507,6 +525,7 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationStepId.DirectionalFacePalettes or
             ChunkGenerationStepId.VolumeStructures or
             ChunkGenerationStepId.GeneratedFluids or
+            ChunkGenerationStepId.SurfaceStructurePlacements or
             ChunkGenerationStepId.SurfaceStructures or
             ChunkGenerationStepId.CaveSpikes or
             ChunkGenerationStepId.VerticalDecorations or
