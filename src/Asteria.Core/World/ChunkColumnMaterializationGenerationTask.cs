@@ -30,6 +30,20 @@ public sealed class ChunkColumnMaterializationGenerationTask :
     private readonly Dictionary<ChunkCoord, int> _sectionTaskIndices = [];
     private readonly Dictionary<ChunkCoord, SectionGenerationFuture> _sectionGenerationFutures = [];
     private readonly Dictionary<ulong, PendingSectionOperation> _pendingOperations = [];
+    private readonly Dictionary<ulong, PendingHolderStatusOperation>
+        _pendingHolderStatusOperations = [];
+    private readonly Dictionary<HolderStatusRequirementKey, ulong>
+        _pendingHolderStatusRequirementIds = [];
+    private readonly HashSet<HolderStatusRequirementKey>
+        _completedHolderStatusRequirements = [];
+    private readonly HashSet<ulong> _activeWaitDependencyIds = [];
+    private readonly List<ChunkGenerationWorkerOperation>
+        _deferredWorkerOperations = [];
+    private readonly Func<ChunkGenerationStepId, ChunkCoord,
+        IReadOnlyList<ChunkGenerationSectionRequirement>> _getHolderStatusRequirements;
+    private readonly Func<ChunkGenerationSectionRequirement,
+        Task<ChunkGenerationFutureResult>>? _getHolderStatusFuture;
+    private readonly Action<ChunkGenerationSectionRequirement>? _requestHolderProducer;
     private readonly SortedSet<int> _readySections = [];
     private ulong _nextDependencyId = 1;
     private ChunkGenerationStatus _lastPublishedProgressStatus =
@@ -43,12 +57,26 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         ChunkColumnCoord column,
         IEnumerable<IChunkMaterializationJob> sectionJobs,
         Action<Chunk> initializeLighting,
-        long dispatchTimestamp = 0)
+        long dispatchTimestamp = 0,
+        Func<ChunkGenerationStepId, ChunkCoord,
+            IReadOnlyList<ChunkGenerationSectionRequirement>>? getHolderStatusRequirements = null,
+        Func<ChunkGenerationSectionRequirement,
+            Task<ChunkGenerationFutureResult>>? getHolderStatusFuture = null,
+        Action<ChunkGenerationSectionRequirement>? requestHolderProducer = null)
     {
         ArgumentNullException.ThrowIfNull(sectionJobs);
         ArgumentNullException.ThrowIfNull(initializeLighting);
+        if ((getHolderStatusFuture is null) != (requestHolderProducer is null))
+            throw new ArgumentException(
+                "Cross-column holder status futures and producer admission must be configured together.");
 
         _column = column;
+        _getHolderStatusRequirements = getHolderStatusRequirements ??
+            ((targetStep, coord) =>
+                AsteriaChunkLoadingPlan.GetHolderStatusRequirements(
+                    targetStep, coord));
+        _getHolderStatusFuture = getHolderStatusFuture;
+        _requestHolderProducer = requestHolderProducer;
         var jobs = sectionJobs
             .OrderBy(job => job.Coord.Y)
             .ToArray();
@@ -108,6 +136,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         cancellationToken.ThrowIfCancellationRequested();
 
         var nextOperations = new List<ChunkGenerationWorkerOperation>();
+        var nextFutureOperations = new List<ChunkGenerationFutureOperation>();
         var advanceReadySections = false;
         if (!_started)
         {
@@ -122,37 +151,63 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         }
         else if (completedDependencies.Count > 0)
         {
-            if (completedDependencies.Count != _pendingOperations.Count)
+            if (completedDependencies.Count != _activeWaitDependencyIds.Count)
                 throw new InvalidOperationException(
-                    $"Column {_column} expected {_pendingOperations.Count} worker completions, " +
+                    $"Column {_column} expected {_activeWaitDependencyIds.Count} active dependency completions, " +
                     $"received {completedDependencies.Count}.");
 
+            var sectionsReadyAfterHolderWait = new HashSet<int>();
             foreach (var completion in completedDependencies)
             {
+                if (!_activeWaitDependencyIds.Remove(completion.DependencyId))
+                    throw new InvalidOperationException(
+                        $"Unknown or stale column dependency {completion.DependencyId} in {_column}.");
                 if (completion.Error is not null)
                     throw new InvalidOperationException(
-                        $"A section operation failed in column {_column}.",
+                        $"A generation dependency failed in column {_column}.",
                         completion.Error);
 
-                if (!_pendingOperations.Remove(
-                        completion.DependencyId, out var pending))
-                    throw new InvalidOperationException(
-                        $"Unknown section dependency {completion.DependencyId} in column {_column}.");
+                if (_pendingOperations.Remove(
+                        completion.DependencyId, out var pendingWorker))
+                {
+                    var childCompletion = new ChunkGenerationDependencyCompletion(
+                        completion.Task,
+                        WaitToken: 1,
+                        pendingWorker.ChildDependencyId,
+                        completion.Result);
+                    var childAdvance = _sectionTasks[pendingWorker.SectionIndex].Advance(
+                        [childCompletion],
+                        cancellationToken);
+                    CollectChildAdvance(
+                        pendingWorker.SectionIndex,
+                        childAdvance,
+                        nextOperations,
+                        cancellationToken);
+                    continue;
+                }
 
-                var childCompletion = new ChunkGenerationDependencyCompletion(
-                    completion.Task,
-                    WaitToken: 1,
-                    pending.ChildDependencyId,
-                    completion.Result);
-                var childAdvance = _sectionTasks[pending.SectionIndex].Advance(
-                    [childCompletion],
-                    cancellationToken);
-                CollectChildAdvance(
-                    pending.SectionIndex,
-                    childAdvance,
-                    nextOperations,
-                    cancellationToken);
+                if (!_pendingHolderStatusOperations.Remove(
+                        completion.DependencyId, out var pendingHolderStatus))
+                    throw new InvalidOperationException(
+                        $"Column {_column} has no owner for dependency {completion.DependencyId}.");
+
+                _pendingHolderStatusRequirementIds.Remove(pendingHolderStatus.Key);
+                if (completion.Result is not ChunkGenerationFutureResult holderResult)
+                    throw new InvalidOperationException(
+                        $"Holder status dependency {completion.DependencyId} returned an invalid result.");
+                ValidateHolderStatusResult(
+                    pendingHolderStatus.Key,
+                    holderResult);
+                _completedHolderStatusRequirements.Add(pendingHolderStatus.Key);
+                sectionsReadyAfterHolderWait.Add(pendingHolderStatus.Key.SectionIndex);
             }
+
+            if (_activeWaitDependencyIds.Count != 0)
+                throw new InvalidOperationException(
+                    $"Column {_column} resumed before every dependency completed.");
+
+            foreach (var sectionIndex in sectionsReadyAfterHolderWait)
+                AddReadySection(sectionIndex);
         }
         else
         {
@@ -176,7 +231,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             foreach (var sectionIndex in readyBatch)
             {
                 var sectionTask = _sectionTasks[sectionIndex];
-                if (WaitForPlanHolderRequirements(sectionIndex))
+                if (WaitForPlanHolderRequirements(sectionIndex, nextFutureOperations))
                     continue;
 
                 var policy = sectionTask.NextExecutionPolicy;
@@ -215,15 +270,40 @@ public sealed class ChunkColumnMaterializationGenerationTask :
 
         var progressStatus = AdvanceAggregateProgress();
 
+        if (nextFutureOperations.Count > 0)
+        {
+            // Future waits take precedence over CPU forks from other ready
+            // sections. Preserve those forks and dispatch them immediately
+            // after the external holder prerequisites resume this column.
+            _deferredWorkerOperations.AddRange(nextOperations);
+            RegisterActiveWaitDependencies(
+                nextFutureOperations.Select(operation => operation.DependencyId));
+            return AttachSectionProgress(
+                ChunkGenerationTaskAdvanceResult.WaitForFutures(
+                    nextFutureOperations));
+        }
+
+        if (_deferredWorkerOperations.Count > 0)
+        {
+            nextOperations.InsertRange(0, _deferredWorkerOperations);
+            _deferredWorkerOperations.Clear();
+        }
+
         if (nextOperations.Count > 0)
+        {
+            RegisterActiveWaitDependencies(
+                nextOperations.Select(operation => operation.DependencyId));
             return AttachSectionProgress(
                 ChunkGenerationTaskAdvanceResult.WaitForWorkers(
                     nextOperations,
                     progressStatus));
+        }
 
-        if (_pendingOperations.Count > 0)
+        if (_pendingOperations.Count > 0 ||
+            _pendingHolderStatusOperations.Count > 0 ||
+            _deferredWorkerOperations.Count > 0)
             throw new InvalidOperationException(
-                $"Column {_column} has outstanding operations without a wait result.");
+                $"Column {_column} has outstanding dependencies without a wait result.");
 
         if (_readySections.Count > 0)
             return AttachSectionProgress(
@@ -257,6 +337,11 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         foreach (var task in _sectionTasks)
             task.Dispose();
         _pendingOperations.Clear();
+        _pendingHolderStatusOperations.Clear();
+        _pendingHolderStatusRequirementIds.Clear();
+        _completedHolderStatusRequirements.Clear();
+        _activeWaitDependencyIds.Clear();
+        _deferredWorkerOperations.Clear();
         _readySections.Clear();
         foreach (var future in _sectionGenerationFutures.Values)
         {
@@ -337,12 +422,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
             case ChunkGenerationTaskAdvanceKind.WaitForWorkers:
                 foreach (var operation in result.WorkerOperations)
                 {
-                    if (_nextDependencyId == 0 ||
-                        _nextDependencyId == ulong.MaxValue)
-                        throw new InvalidOperationException(
-                            $"Column worker dependency ID space was exhausted: {_column}");
-
-                    var dependencyId = _nextDependencyId++;
+                    var dependencyId = NextDependencyId();
                     if (!_pendingOperations.TryAdd(
                             dependencyId,
                             new PendingSectionOperation(
@@ -427,31 +507,75 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         return result.WithSectionProgress(updates);
     }
 
-    private bool WaitForPlanHolderRequirements(int sectionIndex)
+    private bool WaitForPlanHolderRequirements(
+        int sectionIndex,
+        List<ChunkGenerationFutureOperation> nextFutureOperations)
     {
         var sectionTask = _sectionTasks[sectionIndex];
         if (sectionTask.NextGenerationStep is not { } targetStep)
             return false;
 
         var waiting = false;
-        foreach (var requirement in AsteriaChunkLoadingPlan
-                     .GetHolderStatusRequirements(targetStep, sectionTask.Coord))
+        foreach (var requirement in _getHolderStatusRequirements(
+                     targetStep, sectionTask.Coord))
         {
             // Same-section requirements are completed by this section task's
-            // own ordered plan. Current Asteria holder-status dependencies are
-            // confined to this horizontal column; a future DAG change that adds
-            // a cross-column holder dependency must first add runtime admission
-            // for its producer instead of silently waiting on an idle holder.
+            // own ordered plan.
             if (requirement.Coord == sectionTask.Coord)
                 continue;
 
             if (requirement.Coord.X != sectionTask.Coord.X ||
                 requirement.Coord.Z != sectionTask.Coord.Z)
             {
-                throw new InvalidOperationException(
-                    $"Generation step {targetStep} for {sectionTask.Coord} requires " +
-                    $"holder status {requirement.Status} from {requirement.Coord}, " +
-                    "but cross-column dependency admission is not configured.");
+                var key = new HolderStatusRequirementKey(
+                    sectionIndex,
+                    requirement.Coord,
+                    requirement.Status);
+                if (_completedHolderStatusRequirements.Contains(key))
+                    continue;
+                if (_pendingHolderStatusRequirementIds.ContainsKey(key))
+                {
+                    waiting = true;
+                    continue;
+                }
+
+                var getFuture = _getHolderStatusFuture ??
+                    throw new InvalidOperationException(
+                        $"Generation step {targetStep} for {sectionTask.Coord} requires " +
+                        $"holder status {requirement.Status} from {requirement.Coord}, " +
+                        "but no cross-column future resolver is configured.");
+                var requestProducer = _requestHolderProducer ??
+                    throw new InvalidOperationException(
+                        $"Generation step {targetStep} for {sectionTask.Coord} requires " +
+                        $"holder status {requirement.Status} from {requirement.Coord}, " +
+                        "but no cross-column producer admission is configured.");
+                var future = getFuture(requirement) ??
+                    throw new InvalidOperationException(
+                        $"No holder status future was returned for {requirement.Coord}.");
+
+                if (future.IsCompletedSuccessfully)
+                {
+                    ValidateHolderStatusResult(key, future.Result);
+                    _completedHolderStatusRequirements.Add(key);
+                    continue;
+                }
+
+                var dependencyId = NextDependencyId();
+                var operation = new ChunkGenerationFutureOperation(
+                    dependencyId,
+                    future,
+                    () => requestProducer(requirement));
+                if (!_pendingHolderStatusOperations.TryAdd(
+                        dependencyId,
+                        new PendingHolderStatusOperation(key)))
+                    throw new InvalidOperationException(
+                        $"Duplicate cross-column holder dependency ID {dependencyId}: {_column}");
+                if (!_pendingHolderStatusRequirementIds.TryAdd(key, dependencyId))
+                    throw new InvalidOperationException(
+                        $"Cross-column holder dependency {requirement.Coord} was registered twice for {sectionTask.Coord}.");
+                nextFutureOperations.Add(operation);
+                waiting = true;
+                continue;
             }
 
             // A lower section outside the initial vertical batch is created as
@@ -482,6 +606,36 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         }
 
         return waiting;
+    }
+
+    private void RegisterActiveWaitDependencies(IEnumerable<ulong> dependencyIds)
+    {
+        _activeWaitDependencyIds.Clear();
+        foreach (var dependencyId in dependencyIds)
+        {
+            if (!_activeWaitDependencyIds.Add(dependencyId))
+                throw new InvalidOperationException(
+                    $"Column {_column} registered dependency {dependencyId} twice in one wait.");
+        }
+    }
+
+    private ulong NextDependencyId()
+    {
+        if (_nextDependencyId == 0 || _nextDependencyId == ulong.MaxValue)
+            throw new InvalidOperationException(
+                $"Column dependency ID space was exhausted: {_column}");
+        return _nextDependencyId++;
+    }
+
+    private static void ValidateHolderStatusResult(
+        HolderStatusRequirementKey requirement,
+        ChunkGenerationFutureResult result)
+    {
+        if (!result.Succeeded || result.Status < requirement.RequiredStatus)
+            throw new InvalidOperationException(
+                $"Holder {requirement.Coord} completed at {result.Status}, " +
+                $"below required status {requirement.RequiredStatus}. " +
+                $"{result.FailureReason}");
     }
 
     private void CompleteSectionStatusFuture(ChunkCoord section)
@@ -573,4 +727,12 @@ public sealed class ChunkColumnMaterializationGenerationTask :
     private readonly record struct PendingSectionOperation(
         int SectionIndex,
         ulong ChildDependencyId);
+
+    private readonly record struct HolderStatusRequirementKey(
+        int SectionIndex,
+        ChunkCoord Coord,
+        ChunkGenerationStatus RequiredStatus);
+
+    private readonly record struct PendingHolderStatusOperation(
+        HolderStatusRequirementKey Key);
 }
