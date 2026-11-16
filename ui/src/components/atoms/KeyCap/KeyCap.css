@@ -1,0 +1,16 @@
+.ui-key-cap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  height: 36px;
+  padding-inline: 10px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 0;
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: var(--ui-font-size-button);
+  font-weight: 500;
+  background: var(--ui-color-surface-inset);
+  box-shadow: none;
+}

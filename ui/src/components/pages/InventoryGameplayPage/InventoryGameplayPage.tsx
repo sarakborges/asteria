@@ -1,0 +1,237 @@
+import { useMemo, useRef, useState, type PointerEvent } from "react";
+import { inventorySearchMatches } from "../../../presentation/inventoryLabels";
+import { useLocalization } from "../../../localization/LocalizationProvider";
+import type {
+  GameplayInventoryState, InventoryCatalogEntry, VitalValue,
+} from "../../../state/uiState";
+import {
+  inventoryItemView, sameInventoryMetadata, type CreativeScrollMemory,
+} from "../../../presentation/inventoryModels";
+import { Button } from "../../atoms/Button/Button";
+import { Text } from "../../atoms/Text/Text";
+import { InventoryCursorOverlay } from "../../molecules/InventoryCursorOverlay/InventoryCursorOverlay";
+import type { InventorySlotAction } from "../../molecules/InventorySlot/InventorySlot";
+import { CharacterInfoPanel } from "../../organisms/CharacterInfoPanel/CharacterInfoPanel";
+import { CraftingPanel } from "../../organisms/CraftingPanel/CraftingPanel";
+import { CreativeInventoryPanel } from "../../organisms/CreativeInventoryPanel/CreativeInventoryPanel";
+import { CurrentStationPanel } from "../../organisms/CurrentStationPanel/CurrentStationPanel";
+import { PlayerInventoryPanel } from "../../organisms/PlayerInventoryPanel/PlayerInventoryPanel";
+import { InventoryWorkspace } from "../../templates/InventoryWorkspace/InventoryWorkspace";
+import "./InventoryGameplayPage.css";
+
+export type InventoryGameplayPageProps = {
+  state: GameplayInventoryState;
+  health?: VitalValue | null;
+  onClose(): void;
+  onSlotClick(index: number, action: InventorySlotAction): void;
+  onEquipmentClick(index: number): void;
+  onSort(): void;
+  onDiscardCursor(): void;
+  onClearInventory(): void;
+  onDropCursor(): void;
+  onCreativePick(choice: InventoryCatalogEntry, fillStack: boolean): void;
+  onCraft(recipeId: string): void;
+  onRotatePortrait(deltaX: number): void;
+};
+
+/**
+ * In-game inventory and Storybook use the same panel composition.
+ * Only Godot-sourced slots and vitals are displayed as gameplay facts.
+ */
+export function InventoryGameplayPage({
+  state, health, onClose, onSlotClick, onEquipmentClick, onSort,
+  onDiscardCursor, onClearInventory, onDropCursor, onCreativePick, onCraft,
+  onRotatePortrait,
+}: InventoryGameplayPageProps) {
+  const { t, contentName, categoryName } = useLocalization();
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const creativeScroll = useRef<CreativeScrollMemory>({
+    categoryOffset: 0, catalogOffsets: new Map(),
+  });
+  const [creativeTab, setCreativeTab] = useState(false);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [creativeSearch, setCreativeSearch] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+  const categories = useMemo(
+    () => [...state.categories]
+      .sort((left, right) => left.order - right.order ||
+        left.id.localeCompare(right.id))
+      .map(definition => ({
+      id: definition.id,
+      label: categoryName(definition.id),
+      iconUrl: definition.iconUrl,
+    })),
+    [state.categories, categoryName],
+  );
+  const selectedCategory = category !== null &&
+    state.categories.some(definition => definition.id === category) ? category : null;
+  const creative = state.creativeAvailable && creativeTab;
+  const creativeItems = useMemo(
+    () => state.catalog.filter(item =>
+      (selectedCategory === null || item.category === selectedCategory) &&
+      inventorySearchMatches(item, creativeSearch, contentName),
+    ).map(item => ({
+      ...item,
+      quantity: 1,
+      name: item.name !== item.id ? item.name : contentName(item.id),
+    })),
+    [state.catalog, selectedCategory, creativeSearch, contentName],
+  );
+  const hasPossessions = state.cursor !== null ||
+    state.backpack.some(slot => slot !== null) ||
+    state.hotbar.some(slot => slot !== null);
+  const trashAction = hasPossessions
+    ? (clearAll: boolean) => {
+        if (clearAll) onClearInventory();
+        else if (state.cursor) onDiscardCursor();
+      }
+    : undefined;
+  const { backpack, hotbar, cursor } = useMemo(() => ({
+    backpack: state.backpack.map(slot => inventoryItemView(slot, state.catalog)),
+    hotbar: state.hotbar.map(slot => inventoryItemView(slot, state.catalog)),
+    cursor: inventoryItemView(state.cursor, state.catalog),
+  }), [state.backpack, state.hotbar, state.cursor, state.catalog]);
+
+  const recipes = useMemo(() => state.recipes.map(recipe => {
+    const result = state.catalog.find(item =>
+      item.id === recipe.resultId && Object.keys(item.metadata).length === 0);
+    return {
+      id: recipe.id,
+      result: {
+        id: recipe.resultId,
+        kind: result?.kind,
+        iconUrl: result?.iconUrl,
+        blockPreview: result?.blockPreview,
+      },
+      outputQuantity: recipe.outputQuantity,
+      ingredients: recipe.ingredients.map(ingredient => {
+        const item = state.catalog.find(choice =>
+          choice.id === ingredient.id && choice.kind === "item" &&
+          Object.keys(choice.metadata).length === 0);
+        return {
+          item: {
+            id: ingredient.id, kind: "item" as const, iconUrl: item?.iconUrl,
+            blockPreview: item?.blockPreview,
+          },
+          required: ingredient.required,
+          available: ingredient.available,
+        };
+      }),
+      craftable: recipe.craftable,
+      unavailableReason: recipe.unavailableReason,
+    };
+  }), [state.recipes, state.catalog]);
+  const selectedRecipe = recipes.some(recipe => recipe.id === selectedRecipeId)
+    ? selectedRecipeId : recipes[0]?.id ?? null;
+  const status = state.craftingStatus?.recipeId === selectedRecipe
+    ? state.craftingStatus.code === "Crafted"
+      ? t("crafting.crafted", {
+        item: contentName(state.recipes.find(
+          recipe => recipe.id === state.craftingStatus?.recipeId,
+        )?.resultId ?? state.craftingStatus.recipeId),
+      })
+      : t({
+        UnknownRecipe: "crafting.recipeUnavailable",
+        MissingIngredients: "crafting.missingIngredients",
+        InventoryFull: "crafting.inventoryFull",
+      }[state.craftingStatus.code])
+    : undefined;
+
+  const followPointer = (event: PointerEvent<HTMLElement>) => {
+    const overlay = cursorRef.current;
+    if (!overlay) return;
+    overlay.style.left = event.clientX - 20 + "px";
+    overlay.style.top = event.clientY - 20 + "px";
+    overlay.style.visibility = "visible";
+  };
+
+  return (
+    <main className="inventory-gameplay"
+      onClick={event => {
+        // Blank inventory surfaces drop the cursor stack. Slots,
+        // buttons and other interactive controls keep their own actions.
+        if (!cursor || event.button !== 0) return;
+        if (event.target instanceof Element &&
+            event.target.closest(
+              "button, input, textarea, select, a, label, " +
+              "[role='button'], [contenteditable='true']"))
+          return;
+        onDropCursor();
+      }}
+      onPointerMove={followPointer}
+      onPointerLeave={() => {
+        if (cursorRef.current) cursorRef.current.style.visibility = "hidden";
+      }}>
+      <div className="inventory-gameplay__actions">
+        <Button label={t("inventory.close")} onClick={onClose} />
+      </div>
+      <div className="inventory-gameplay__workspace">
+        <InventoryWorkspace
+          creativeAvailable={state.creativeAvailable}
+          creativeVisible={creative}
+          onViewChange={setCreativeTab}
+          character={<CharacterInfoPanel
+            onEquipmentClick={onEquipmentClick}
+            portraitUrl={state.portraitUrl}
+            onRotatePortrait={onRotatePortrait}
+            state={health ? {
+            name: t("ui.player"),
+            healthCurrent: health.current,
+            healthMaximum: health.maximum,
+            equipment: ["helmet", "chest", "legs", "boots"].map((slot, index) => ({
+              slot,
+              item: inventoryItemView(state.equipment[index], state.catalog),
+              emptyLabel: t(`inventory.equipment.${slot}`),
+            })),
+          } : null} />}
+          crafting={<CraftingPanel
+            recipes={recipes} selectedRecipeId={selectedRecipe}
+            status={status} onSelectRecipe={setSelectedRecipeId}
+            onCraft={onCraft} />}
+          inventory={<PlayerInventoryPanel
+            state={{ searchQuery: search, backpack, hotbar }}
+            onSearchChange={setSearch}
+            onSort={onSort}
+            onTrash={trashAction}
+            onSlotClick={(index, _item, action) => onSlotClick(index, action)}
+          />}
+          station={<CurrentStationPanel station={{
+            eyebrow: t("crafting.baseStation"),
+            name: t("ui.inventory"),
+            description: t("crafting.personalCrafting"),
+            iconUrl: state.categories.find(category =>
+              category.id === "materials_crafting")?.iconUrl,
+          }} />}
+          creative={<CreativeInventoryPanel
+            state={{
+              searchQuery: creativeSearch,
+              selectedCategoryId: selectedCategory,
+              categories,
+              everythingIconUrl: state.everythingIconUrl,
+              items: creativeItems,
+            }}
+            hotbar={hotbar}
+            scrollMemory={creativeScroll.current}
+            onHotbarSlotClick={(index, _item, action) => onSlotClick(index, action)}
+            onTrash={trashAction}
+            onSearchChange={setCreativeSearch}
+            onCategoryChange={setCategory}
+            onItemClick={(item, fillStack) => {
+              const choice = state.catalog.find(entry =>
+                entry.id === item.id && entry.kind === item.kind &&
+                sameInventoryMetadata(entry.metadata, item.metadata ?? {}));
+              if (choice) onCreativePick(choice, fillStack);
+            }}
+          />}
+        />
+      </div>
+      {cursor && <InventoryCursorOverlay ref={cursorRef} item={cursor} />}
+      {state.errorKey && (
+        <aside className="inventory-gameplay__cursor-status" role="status">
+          <Text text={t(state.errorKey)} variant="caption" />
+        </aside>
+      )}
+    </main>
+  );
+}

@@ -1,0 +1,63 @@
+.item-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  object-fit: contain;
+  color: var(--ui-color-text);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.item-glyph--slot {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+
+.item-glyph--recipe {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.item-glyph--result {
+  width: 54px;
+  height: 54px;
+  font-size: 18px;
+}
+
+.item-glyph--station {
+  width: 112px;
+  height: 112px;
+  font-size: 28px;
+}
+
+.item-glyph--cube {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.item-glyph__cube-face {
+  position: absolute;
+  inset: 2%;
+  background-position: center;
+  background-size: cover;
+  image-rendering: pixelated;
+}
+
+.item-glyph__cube-top {
+  clip-path: polygon(50% 0, 98% 24%, 50% 49%, 2% 24%);
+  filter: brightness(1.13);
+}
+
+.item-glyph__cube-left {
+  clip-path: polygon(2% 24%, 50% 49%, 50% 99%, 2% 74%);
+  filter: brightness(0.83);
+}
+
+.item-glyph__cube-right {
+  clip-path: polygon(98% 24%, 50% 49%, 50% 99%, 98% 74%);
+  filter: brightness(0.65);
+}

@@ -1,0 +1,284 @@
+{
+  "asteria:crystal_core_aether": {
+    "/name": "Núcleo de Cristal Etéreo"
+  },
+  "asteria:crystal_azure": {
+    "/name": "Cristal Azul"
+  },
+  "asteria:basalt": {
+    "/name": "Basalto"
+  },
+  "asteria:bricks_basalt": {
+    "/name": "Tijolos de Basalto"
+  },
+  "asteria:cobble_basalt": {
+    "/name": "Basalto Bruto"
+  },
+  "asteria:basalt_polished": {
+    "/name": "Basalto Polido"
+  },
+  "asteria:spike_basalt": {
+    "/name": "Espigão de Basalto"
+  },
+  "asteria:tiles_basalt": {
+    "/name": "Ladrilhos de Basalto"
+  },
+  "asteria:bricks": {
+    "/name": "Tijolos"
+  },
+  "asteria:cactus_barrel": {
+    "/name": "Cacto Barril"
+  },
+  "asteria:cactus_column": {
+    "/name": "Cacto Colunar"
+  },
+  "asteria:flower_cactus_pink": {
+    "/name": "Flor Rosa de Cacto"
+  },
+  "asteria:flower_cactus_yellow": {
+    "/name": "Flor Amarela de Cacto"
+  },
+  "asteria:clay": {
+    "/name": "Argila"
+  },
+  "asteria:lichen_cliff": {
+    "/name": "Líquen de Penhasco"
+  },
+  "asteria:coral_blue": {
+    "/name": "Coral Azul"
+  },
+  "asteria:coral_lime": {
+    "/name": "Coral Verde-limão"
+  },
+  "asteria:coral_orange": {
+    "/name": "Coral Laranja"
+  },
+  "asteria:coral_pink": {
+    "/name": "Coral Rosa"
+  },
+  "asteria:coral_teal": {
+    "/name": "Coral Verde-azulado"
+  },
+  "asteria:coral_violet": {
+    "/name": "Coral Violeta"
+  },
+  "asteria:coral_yellow": {
+    "/name": "Coral Amarelo"
+  },
+  "asteria:dirt": {
+    "/name": "Terra"
+  },
+  "asteria:lichen_dry": {
+    "/name": "Líquen Seco"
+  },
+  "asteria:tuft_dry": {
+    "/name": "Tufo Seco"
+  },
+  "asteria:bone_fossil": {
+    "/name": "Osso Fóssil"
+  },
+  "asteria:lichen_frost": {
+    "/name": "Líquen Gelado"
+  },
+  "asteria:glass": {
+    "/name": "Vidro"
+  },
+  "asteria:mushroom_cap_glow": {
+    "/name": "Chapéu de Cogumelo Luminoso"
+  },
+  "asteria:mushroom_stem_glow": {
+    "/name": "Caule de Cogumelo Luminoso"
+  },
+  "asteria:block_grass": {
+    "/name": "Bloco de Grama"
+  },
+  "asteria:gravel": {
+    "/name": "Cascalho"
+  },
+  "asteria:moss_hanging": {
+    "/name": "Musgo Pendente"
+  },
+  "asteria:ice": {
+    "/name": "Gelo"
+  },
+  "asteria:bricks_ice": {
+    "/name": "Tijolos de Gelo"
+  },
+  "asteria:ice_polished": {
+    "/name": "Gelo Polido"
+  },
+  "asteria:spike_ice": {
+    "/name": "Espigão de Gelo"
+  },
+  "asteria:tiles_ice": {
+    "/name": "Ladrilhos de Gelo"
+  },
+  "asteria:lamp": {
+    "/name": "Lâmpada"
+  },
+  "asteria:leaf_oak": {
+    "/name": "Folhas de Carvalho"
+  },
+  "asteria:leaf_willow": {
+    "/name": "Folhas de Salgueiro"
+  },
+  "asteria:log_oak": {
+    "/name": "Tronco de Carvalho"
+  },
+  "asteria:log_oak_hollow": {
+    "/name": "Tronco de Carvalho Oco"
+  },
+  "asteria:log_oak_stripped": {
+    "/name": "Tronco de Carvalho Descascado"
+  },
+  "asteria:log_oak_stripped_hollow": {
+    "/name": "Tronco de Carvalho Oco Descascado"
+  },
+  "asteria:log_willow": {
+    "/name": "Tronco de Salgueiro"
+  },
+  "asteria:log_willow_hollow": {
+    "/name": "Tronco de Salgueiro Oco"
+  },
+  "asteria:log_willow_stripped": {
+    "/name": "Tronco de Salgueiro Descascado"
+  },
+  "asteria:log_willow_stripped_hollow": {
+    "/name": "Tronco de Salgueiro Oco Descascado"
+  },
+  "asteria:fungus_cap_luminous_giant": {
+    "/name": "Chapéu de Fungo Gigante Luminoso"
+  },
+  "asteria:fungus_stem_luminous_giant": {
+    "/name": "Haste de Fungo Gigante Luminoso"
+  },
+  "asteria:fern_marsh": {
+    "/name": "Samambaia do Brejo"
+  },
+  "asteria:mushroom_cap_marsh_giant": {
+    "/name": "Chapéu de Cogumelo Gigante do Brejo"
+  },
+  "asteria:mushroom_stem_marsh_giant": {
+    "/name": "Caule de Cogumelo Gigante do Brejo"
+  },
+  "asteria:mud": {
+    "/name": "Lama"
+  },
+  "asteria:bricks_mud": {
+    "/name": "Tijolos de Lama"
+  },
+  "asteria:bloom_pink": {
+    "/name": "Flor Rosa"
+  },
+  "asteria:planks_oak": {
+    "/name": "Tábuas de Carvalho"
+  },
+  "asteria:planks_willow": {
+    "/name": "Tábuas de Salgueiro"
+  },
+  "asteria:portal": {
+    "/name": "Portal"
+  },
+  "asteria:lichen_rock": {
+    "/name": "Líquen de Rocha"
+  },
+  "asteria:sand": {
+    "/name": "Areia"
+  },
+  "asteria:sand_layer": {
+    "/name": "Camada de Areia"
+  },
+  "asteria:sandstone": {
+    "/name": "Arenito"
+  },
+  "asteria:bricks_sandstone": {
+    "/name": "Tijolos de Arenito"
+  },
+  "asteria:sandstone_polished": {
+    "/name": "Arenito Polido"
+  },
+  "asteria:spike_sandstone": {
+    "/name": "Espigão de Arenito"
+  },
+  "asteria:tiles_sandstone": {
+    "/name": "Ladrilhos de Arenito"
+  },
+  "asteria:lichen_scree": {
+    "/name": "Líquen de Pedregal"
+  },
+  "asteria:snow": {
+    "/name": "Neve"
+  },
+  "asteria:bricks_snow": {
+    "/name": "Tijolos de Neve"
+  },
+  "asteria:layer_snow": {
+    "/name": "Camada de Neve"
+  },
+  "asteria:tiles_snow": {
+    "/name": "Ladrilhos de Neve"
+  },
+  "asteria:lichen_soot": {
+    "/name": "Líquen de Fuligem"
+  },
+  "asteria:shell_sphere": {
+    "/name": "Casca da Esfera"
+  },
+  "asteria:starflower": {
+    "/name": "Flor-estrela"
+  },
+  "asteria:stone": {
+    "/name": "Pedra"
+  },
+  "asteria:bricks_stone": {
+    "/name": "Tijolos de Pedra"
+  },
+  "asteria:cobble_stone": {
+    "/name": "Pedra Bruta"
+  },
+  "asteria:stone_polished": {
+    "/name": "Pedra Polida"
+  },
+  "asteria:spike_stone": {
+    "/name": "Espigão de Pedra"
+  },
+  "asteria:tiles_stone": {
+    "/name": "Ladrilhos de Pedra"
+  },
+  "asteria:box_storage": {
+    "/name": "Caixa de armazenamento"
+  },
+  "asteria:terracotta": {
+    "/name": "Terracota"
+  },
+  "asteria:thornbush": {
+    "/name": "Arbusto Espinhoso"
+  },
+  "asteria:moss_wall": {
+    "/name": "Musgo de Parede"
+  },
+  "asteria:mushroom_cap_blue": {
+    "/name": "Chapéu de Cogumelo Azul"
+  },
+  "asteria:mushroom_cap_brown": {
+    "/name": "Chapéu de Cogumelo Marrom"
+  },
+  "asteria:mushroom_cap_green": {
+    "/name": "Chapéu de Cogumelo Verde"
+  },
+  "asteria:mushroom_cap_pink": {
+    "/name": "Chapéu de Cogumelo Rosa"
+  },
+  "asteria:mushroom_cap_purple": {
+    "/name": "Chapéu de Cogumelo Roxo"
+  },
+  "asteria:mushroom_cap_red": {
+    "/name": "Chapéu de Cogumelo Vermelho"
+  },
+  "asteria:mushroom_cap_yellow": {
+    "/name": "Chapéu de Cogumelo Amarelo"
+  },
+  "asteria:portal_frame": {
+    "/name": "Moldura do Portal"
+  }
+}

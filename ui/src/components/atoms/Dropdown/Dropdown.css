@@ -1,0 +1,103 @@
+.ui-dropdown {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: var(--ui-control-height-compact);
+}
+
+.ui-dropdown__control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 2px solid var(--ui-color-border);
+  border-radius: 0;
+  color: var(--ui-color-text);
+  background: var(--ui-color-hud-surface);
+  font: inherit;
+  font-size: var(--ui-font-size-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-dropdown__control:hover:not(:disabled) {
+  border-color: var(--ui-color-border-strong);
+  background: var(--ui-color-surface-elevated);
+}
+
+.ui-dropdown__control:focus-visible,
+.ui-dropdown__control[aria-expanded="true"] {
+  outline: none;
+  border-color: var(--ui-color-border-focus);
+}
+
+.ui-dropdown__control:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ui-dropdown__label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ui-dropdown__chevron {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  margin-right: 2px;
+  margin-top: -5px;
+  border-right: 2px solid var(--ui-color-muted);
+  border-bottom: 2px solid var(--ui-color-muted);
+  transform: rotate(45deg);
+}
+
+.ui-dropdown__panel {
+  position: fixed;
+  z-index: 200;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: min(340px, 60vh);
+  padding: 6px;
+  overflow-y: auto;
+  border: 2px solid var(--ui-color-border);
+  border-radius: 0;
+  background: var(--ui-color-hud-surface);
+  box-shadow: 0 8px 18px var(--ui-color-shadow);
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-color-subtle) transparent;
+}
+
+.ui-dropdown__option {
+  flex: 0 0 40px;
+  min-height: 40px;
+  width: 100%;
+  padding: 0 10px;
+  border: 2px solid transparent;
+  border-radius: 0;
+  color: var(--ui-color-text);
+  background: var(--ui-color-hud-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-dropdown__option:hover,
+.ui-dropdown__option:focus-visible {
+  outline: none;
+  border-color: var(--ui-color-border-strong);
+  background: var(--ui-color-surface-elevated);
+}
+
+.ui-dropdown__option--selected,
+.ui-dropdown__option--selected:hover,
+.ui-dropdown__option--selected:focus-visible {
+  border-color: var(--ui-color-border-focus);
+  background: var(--ui-color-accent-soft);
+}

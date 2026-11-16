@@ -1,0 +1,141 @@
+# Progressive block mining
+
+Reference: MineClone `world-systems-rebuild`, `src/targeting/mining.rs` and `src/targeting/mining_visual.rs`, alongside `src/content/block.rs` and `src/content/tool.rs`.
+
+## Active contract
+
+- Core `BlockMiningRuntime` owns ongoing Survival mining only within the current Sphere. Progress is accumulated from `WorldTickClock.TicksThisFrame`, using `200 × hardness` logical work ticks, matching MineClone's default work baseline. This means authored world ticks per second affect duration in real time.
+- `ToolGameplayRuntime.EffectiveMiningSpeed` is the single eligibility/speed calculation. Mining requires an `asteria:mine` left behavior for equipped tools. `requiredTools` blocks unsupported tool categories. `preferredTools` multiplies work per tick by the matching tool's authored positive `mining.speed`; bare hands and unrelated items mine non-required blocks at speed 1. Category mismatches cannot gradually wear down protected blocks.
+- Accumulated work resets on input release, target loss, player mode changes, target voxel-state change, hotbar slot change or item identity change. A target may be mined only through loaded voxel content. `unbreakable` always wins.
+- Completion invokes the existing `BlockInteractionRuntime.Break` mutation and loot path, avoiding a duplicate voxel writer. Creative retains one-click breaking; spectator cannot interact; special left-hand carpenter/other authored actions are not misinterpreted as mining.
+- Godot `FpsPlayer` owns mouse-button press/release and modal/capture cleanup. `Main` only orchestrates the target query and Core invocation. React's Target HUD renders ten discrete progress stages received from `game.hud.mining`; it does not own mining timing, input, or block state.
+- `MiningCrackPresentation` owns a single transient 3D mesh instance per active Sphere. For host blocks, `BlockStateMeshBuilder` reproduces the authored mesh and microblock occupancy. For interactive attached layers, it instead selects the exact Core-targeted top layer face/rotation and reuses `ChunkMeshDataBuilder` to draw **only that face's current layer geometry**, with the same shape projection and stack offset as terrain. The 10 original staged 64×64 PNGs live in the default pack. The layer-specific crack shader additionally masks fragment alpha by its original layer texture, so cracks do not paint transparent moss/ore holes or the host block. Shader stages change only on progress steps; a lost, changed or completed target hides the overlay. No per-block scene nodes or pack import sidecars.
+- Core tests cover logical progress, required/preferred categories, speed, zero hardness, unbreakable content, target/tool/slot change and cancellation.
+
+## Still pending
+
+- Mining visual feedback now includes an 8-tick fast-swing cadence, existing world-space crack stages and short-lived voxel chips. **Audio is explicitly out of scope**. Native visual QA is pending.
+- Architect's Compass, structure-tool behaviors and further consumable item use. Brush, Shears, Artisan's Kit and Bucket are integrated through their scoped runtimes.
+- Normal block loot tables are now data-driven, with deterministic rolls, validation and authored MineClone recipes. Spike formation drops and object-specific loot remain specialized; visual Godot QA is still pending.
+
+The native input, mutation, content and Sphere boundaries remain unchanged: no UI-side key capture, no negative Y, and no pack-owned Godot resource imports.
+
+## Bucket source-fluid use (2026-10-08)
+
+- Ported the MineClone `src/tools/bucket.rs` contract to Core `BucketGameplayRuntime` using `FluidRegistry`, `VoxelWorld`, `VoxelMutationRuntime` and the existing player inventory. Godot only forwards a native right-click camera ray and block target. No duplicate fluid simulation owner is created.
+- An empty authored `asteria:bucket/use` tool uses a loaded-world block-occluded DDA to collect a **source** fluid cell, excluding spreading fluid. The resulting single bucket is tagged `contained_fluid` with the loaded fluid definition ID. A filled bucket places one full source cell in an adjacent loaded, empty voxel, checking Y≥0 and rejecting occupied fluid/block positions.
+- `PlayerInventory.TryReplaceSelected` permits only a one-item same-ID/same-kind/same-stack-limit metadata transition. The world mutation rolls back if the inventory transition is rejected; failed/invalid uses do not consume inventory or fluid.
+- This covers the fluid flow and metadata contract only. The current authored bucket entry retains its default icon when filled; variant icons and audible/visual use feedback can be authored later. Existing fluid simulation remains authoritative for spread.
+
+## Artisan's Kit microblock editing (2026-10-08)
+
+- Reference: MineClone `world-systems-rebuild/src/tools/artisans_kit.rs`. `ArtisansKitRuntime` belongs to the active Sphere, alongside `BlockMiningRuntime` and `BucketGameplayRuntime`.
+- Authored `asteria:kit_artisans/remove` (native left click) and `asteria:kit_artisans/restore` (right click) change occupancy on existing `fragmentable` cube blocks only. It never creates a parent in an empty voxel, alters an unbreakable block or silently mutates unsupported hollow/layer shapes.
+- Core resolves the targeted occupied 1/8-cell with a bounded ray scan and snaps edits to resolutions 4/2/1 microcells per edge (in-world size 1/2, 1/4 and 1/8 block). Tool Action cycles resolution in Godot and WebUI displays the current scale next to the selected block with localization. Browser input is never used for the action.
+- Edits use `MicroblockMask.Edit`, `BlockStateSnapshot` and `VoxelMutationRuntime` to ensure mesh/lighting/physics/fluids stay invalidated through the canonical owner. Full occupancy reverts to a normal voxel, and removing all occupancy clears it. Restoration is rejected when the candidate sub-volume would intersect the player's authoritative collision AABB.
+- Focused tests validate partial removal/restore, block identity/state preservation, protected blocks, tool validation, cycling and collision rejection.
+
+### Remaining parity
+
+- The current tools have no durability wear or inventory rewards from cutting fragments; neither is invented as a side effect.
+- Brush and Shears now use authored dye and attached-layer state; layer placement is an inventory action backed by canonical mutations. Visual validation inside a running Godot client is still required.
+- Architect's Compass and structure tool require their own authored world placement/collision policies.
+
+## Block surface state contract (2026-10-08)
+
+- Added chunk-owned sparse, immutable `BlockSurfaceState`: an optional namespaced dye ID plus up to 16 ordered `AttachedBlockLayer` records, each bound to one of the six faces. Attached layers are separate from intrinsic block texture layers; Shears remove only the final attached layer on the hit face.
+- Layer order, duplicate face/layer rejection, no-op semantics, world/chunk revision updates, worker snapshot cloning and portable `BlockStateSnapshot` transfer are defined in Core. Replacing/removing the host block clears its attached surface state. Artisan's Kit preserves surface state when editing that host.
+- `VoxelMutationRuntime.SetBlockSurfaceStateAt` owns presentation invalidation and dirtiness; color/layer-only changes enqueue priority terrain remesh without waking fluid topology, lighting or block physics.
+- This state contract is now consumed by the authored layer registry, per-face placement, Shears removal, the Brush dye palette and Core terrain meshing; all changes are derived from the same sparse authoritative state.
+
+## Authored attached layer content (2026-10-08)
+
+- `AttachedLayerRegistry` and `AttachedLayerDefinition` validate optional pack-authored `data/layers/*.json` definitions (safe relative texture, supported faces, tint, bounded offset, alpha mode and shadows).
+- `TerrainTextureCatalog` deterministically includes these texture paths in the shared array, without a new Godot texture manager or layer nodes.
+- The default `asteria:layer_foliage` reuses the authored grass overlay texture. `asteria:moss` uses the original MineClone moss PNG, imported without modifications. The portal bitmap remains separate/pending.
+
+
+## Surface layer mesh projection (2026-10-08)
+
+- A Sphere's terrain mesh worker now receives the immutable `AttachedLayerRegistry` and resolves attached layers from chunk snapshots. `ChunkMeshDataBuilder` projects offset non-colliding quads onto exposed cube faces and onto exposed fine-geometry surfaces of sculpted hosts.
+- Existing greedy terrain and fine geometry paths retain their collision contract. Per-layer rotation, face selection, layered offset and authored tint/render/shadow policy are applied by the existing texture-array mesh data pipeline.
+- Shears removes attached layers via native right-click; an inventory-selected layer places onto a supported face, and Brush paints opted-in host blocks. Their visuals are generated by Core mesh workers; only the MineClone portal bitmap remains pending.
+
+## Brush tintura (2026-10-08)
+
+- Cores HSI do MineClone são authored em `packs/default/data/dyes/*.json`; `DyeRegistry` valida cores, IDs e ordena a paleta.
+- `secondaryProperties: ["dyed"]` opta um bloco à pintura. `ToolGameplayRuntime` mantém a seleção por sessão, inicialmente como modo limpar, e grava a tintura somente via mutação canônica de `BlockSurfaceState`.
+- Pintura rejeita IDs desconhecidos, blocos incompatíveis, invioláveis e no-ops. O mesher consulta a tintura do estado autoritativo: blocos pintados substituem biome tint apenas nas texturas dyable, e o greedy mesher não mescla faces com cores diferentes.
+- Clique direito nativo do Brush abre a paleta mesmo sem alvo; Godot suspende o input do jogador enquanto aberta, e Escape/fechar restauram a captura. A WebUI React apenas exibe as 16 cores e envia seleção/limpeza sem capturar controles globais de gameplay.
+- A interface segue Atomic Design e preserva o font family da Asteria; Storybook e traduções inglês, português brasileiro e espanhol foram acrescentados.
+
+## Creative layer inventory / Shears (2026-10-08)
+
+- The authored `Layer` entry kind is a fourth inventory identity (blocks/items/tools/layers). Creative inventory is populated from selected-pack `AttachedLayerRegistry`, with resource-path-derived icons and category, not browser-fabricated items.
+- Native right-click with a selected layer places it onto the hit block face; `AttachedLayerPlacementRuntime` validates layer definition, face, loaded host, geometry kind, unbreakable guard, duplicate/16-layer limit and then asks `VoxelMutationRuntime` to update the sparse state. Survival consumes exactly one selected layer after acceptance; Creative is non-consuming.
+- The existing Shears right-click removes the most recently attached layer on the target face. Layers are rendered through the same Core worker mesh path, without collision or per-voxel nodes.
+- `asteria:layer_foliage` and `asteria:moss` appear as independent creative catalog choices. The former uses the existing grass overlay; the latter uses the exact original MineClone asset under `resources/textures/layers/moss.png`.
+
+## Original moss PNG provenance (2026-10-08)
+
+- MineClone source: `sarakborges/mineclone`, branch `world-systems-rebuild`, `assets/textures/layers/moss.png`.
+- Default pack asset: `packs/default/resources/textures/layers/moss.png`; byte-for-byte original, Git blob SHA-1 `8662adb0a4c3a2be39aedda0f666a25d80e85e1d` (8,211 bytes). No image regeneration, palette changes, engine-specific import sidecars or resampling in the stored PNG.
+- `packs/default/data/layers/moss.json` ports the MineClone `asteria:moss` layer definition: `blocks_natural` category, foliage tint, 0.001 offset, 0.5 alpha cutoff, all six faces by default and no layer shadows. Runtime terrain array normalization is independent from the original pack file.
+- The original PNG was transferred with a temporary checksum-verified CI operation; the temporary transfer step is removed from the final PR tree. This is a static pack addition, not a new runtime loader.
+
+ 
+## Architect's Compass selection/export (2026-10-08)
+
+- MineClone reference: `data/tools/compass_architects.json`, `src/tools/structure_tool.rs`. Authored `asteria:compass_architects` is the Structure Tool: right-click one adjacent loaded empty voxel to set the first corner, then right-click a second to export an axis-aligned selection.
+- `ArchitectsCompassRuntime` owns session-scoped selection and tool/slot identity; an equipment change clears it. `StructureSelectionBounds` limits height, width, depth and total scanned volume before any world scan; no negative Y, no hidden chunk loading, and no world mutations are introduced.
+- `StructureSelectionExporter` deterministically samples only loaded-world voxels (Y/Z/X), generates Asteria's existing `palette` + `layers` JSON, and validates it with `StructureDefinitionJson` and `StructureRegistry`. An all-air selection, unloaded cells, unsupported fluids and nonrepresentable per-block state/sculpting/dyes/layers are rejected rather than silently exported with data loss. A Sphere-scoped `StructureSelectionPresentation` draws only one change-driven outline.
+- The Godot adapter saves successful JSON outside authored packs under `user://exports/structures/`; export IDs are unique GUIDs chosen by the adapter, not nondeterministic Core gameplay. WebUI receives ordinary semantic toast notifications. Preview requires a real native target, never browser-captured world input. Export limit is 16,384 voxels per operation to bound synchronous latency.
+
+## Extended structure voxel palette state (2026-10-08)
+
+- Asteria extends the existing structure palette entry schema with optional `textureRotation`, `facing`, `state`, `microblocks`, `dye`, and ordered `attachments`. Without these fields, old structures parse identically.
+- Sculpted geometry uses a canonical eight-slice, 128-character hexadecimal mask (partial occupancy only). `attachments` records each face, layer ID and rotation; attachment order is retained for Shears. All properties round-trip from authoritative loaded voxel snapshots through the Compass exporter and `StructureDefinitionJson`.
+- `StructureRegistry.ValidateBlocks` rejects masks on non-fragmentable hosts, unsupported dyes, and invalid layer definitions/face permissions when registries are supplied. `SurfaceStructureField` carries the immutable state in placements; `SurfaceChunkMaterializer` restores microblock palette IDs and sparse surface state when writing generated structures. There is no second procedural writer.
+- Rotation-aware structure placement now transforms the 8×8×8 sculpted mask about Y, horizontal facing, attached face direction and per-face UV rotation, preserving dye and ordered layers. Top and bottom attached UVs counterrotate differently; lateral UV orientations remain stable. Rotated layer face permissions are validated for all four angles. Authored `rotation: true` is permitted with detailed blocks, and new Compass exports enable it. Fluids are still excluded from Compass export. Base block texture-rotation metadata is preserved unchanged as an authored per-cell value (the current voxel model does not store separate rotation for six intrinsic faces).
+
+
+## Visual mining feedback — 2026-10-11
+
+References checked: MineClone `main` and `world-systems-rebuild` `src/targeting/mining.rs`, `mining_visual.rs` and `src/player/viewmodel/animation.rs`.
+
+- The original crack-overlay system and first/third-person arm models were already ported. MineClone emits the fast break pose on valid targeting, repeats it every **8 world ticks**, and plays a finishing swing. The Asteria `BlockMiningRuntime` now emits a monotonic transient feedback revision and last-hit event only after authoritative tool, block and face/layer checks. Cancel/re-target resets swing phase. Tick batches coalesce intermediate pulses to bound presentation work.
+- Godot consumes the Core pulse in `AdvanceSurvivalMining`: both visual player models play the **8-tick** fast break action rather than replaying a 22-tick normal one on each click. Invalid Survival mining does not animate; Creative retains existing single-click action.
+- `MiningParticleRuntime` is an additional Asteria-only visual enhancement (not an original MineClone mining feature): emits 3 small cubes along the hit face for ordinary swings and 11 at completion; gravity/fade is deterministic and capped to 96 active particles per Sphere. `MiningParticlePresentation` publishes them in one `MultiMesh`, never one node per fragment. The chip presentation now uses the existing terrain Texture2DArray, per-instance authored face/base-overlay texture indices and biome/dye tint; neutral is only a fallback for textureless content. Particle effects never damage, collide, create items or mutate blocks. Retiring a Sphere clears them.
+- Core tests cover interval threshold, coalesced large tick batches, finish/reset/invalid-tool behavior, hit-face emission, bounded allocation, TTL cleanup and invalid-time rejection. The native Godot/WRY visual pass is still required for crack/arm/particle appearance at varying tick rates.
+- **No audio work** was performed or planned.
+
+## Loot-table and layer-drop parity — 2026-10-11
+
+Compared MineClone `main` `src/content/loot.rs`, `src/targeting/mining.rs` and every original `data/blocks/*.json` with Asteria's authored content.
+
+- `BlockLootTable` is an optional array of `{ "item": "asteria:...", "chance": 0..1, "quantity": 1..256 }`. Missing chance/quantity default to 1. A present empty array means intentionally no drops. An **absent** table keeps legacy `dropsSelf` (full portable voxel snapshot), so existing unported blocks remain usable. The 16-entry/256-unit per-entry ceilings bound emitted physical entities.
+- `InventoryContentCatalog` validates every loot table and attached-layer drop at content load and resolves untyped original entries in item, block, layer, tool order. This reuses authored stack limits and prevents unknown item identities from reaching dropped entities.
+- `BlockInteractionRuntime` rolls each table entry independently in stable JSON order, with a position/world-tick xorshift seed adapted from MineClone. `BlockMiningRuntime` forwards authoritative current tick; React never draws random numbers or mutates inventory. Successful normal-voxel mutations alone publish physical rewards, and a self-reference preserves complete portable voxel state. Quantities are split according to the resolved item/tool stack limit.
+- Creative's suppression policy still produces no drops. An authored table overrides `dropsSelf` rather than duplicating it. For a full physical-drop pool, normal block and layer mining with authored rewards reject **before** mutating the voxel/layer. Existing spike cascade drops retain their specialized handling; other systems still use the preexisting bounded drop-eviction policy.
+- Nine MineClone JSON recipes were ported exactly: stone → 4 pebble, grass_block → 1 dirt, oak/willow/enchanted/world-tree leaves → stick at 60%, and dirt/gravel/mud → themselves. Existing iron/copper/lead/silver/tin/zinc/nickel/gold ore **layers** already author one raw item each and continue to remove only the top interactive layer according to its face/voxel scope; no new ore blocks or gem ores were created.
+- Focused regression tests cover content parsing, authored-pack tables, randomized repeatability, zero-chance/empty tables, quantities/stack limits, multi-drop once-only semantics, no loot in Creative, state preservation, invalid content, and capacity rejection without a destructive mutation.
+- No audio work.
+
+## Material-correct mining fragments — 2026-10-11
+
+- Added Core `MiningFragmentAppearance.Resolve` to select the real authored visual for the struck **world face**, transformed into the source block face for rotated/facing blocks. It uses `BlockTextureSet.ResolveForFace` (base + overlay) or the authored ground/cross sprite texture. If an interactive attached layer occupies that face, the **last/top layer** takes precedence, including ore and moss, with its own texture and tint rather than the host block's.
+- `BlockMiningRuntime` captures the selected material in the authoritative `MiningFeedbackEvent` **before calling the successful mutation**. The finishing burst retains the removed layer/block material, even after that voxel becomes air; ordinary repeating swings also carry the same lookup. This is a transient visual reference, never persistent block state.
+- The Sphere adapter reuses the exact per-chunk biome tint sample grid from terrain meshing (cached for repeated hits in the same chunk), or the explicit authored dye when supported. `BlockTint.None` never applies biome tint; unmarked intrinsic texture layers remain untinted; ore overlay tint remains independent from underlying stone. The resolved RGB and appearance are retained on each Core particle through its TTL.
+- `MiningParticlePresentation` reuses `VoxelTerrainMaterialSet.TextureArray` in a single unshaded `MultiMesh`. Each instance carries two signed indexed base/overlay layers in custom data (negative = dyable) and the sampled RGB tint in instance color. The shader alpha-composites the overlay and samples varying nearest-neighbor source texel patches. Each particle carries a stable, transient patch seed, preventing visual flicker when other particles expire or the GPU instance array compacts. A neutral fallback is used only for authored content with no applicable texture.
+- The existing 96-particle Sphere cap, lifespan, motion, one draw batch, no gameplay collision/damage, lifecycle cleanup and audio exclusion are unchanged. The appearance lookup is only on feedback, not every simulation tick; the renderer bounds the small appearance-to-atlas cache.
+- Core regression tests cover face-specific textures, two-layer compositing descriptors, top ore/moss precedence, biome/dye metadata, pre-mutation completion snapshots and particle retention.
+- **Native Godot QA still required:** shader compilation/render mode, nearest-neighbor alpha/scissor, color parity with terrain in several biomes, player distance/camera and chunk/Sphere transitions. Automated Core/build/WebUI CI does not establish a rendered side-by-side screenshot signoff.
+
+## Attached-layer crack overlay parity — 2026-10-11
+
+- `BlockMiningRuntime.TargetLayer` exposes only the already-validated current **uppermost** layer on the struck world face, including authored rotation; it returns null when mining the host or after cancellation/completion. The Core remains authoritative for which entity receives work, hardness and drops.
+- `ChunkMeshDataBuilder.BuildMeshlet` now has an optional `selectedLayer` filter used only by decals. It suppresses host cube/fine/spike output, but reuses **existing** `EmitAttachedLayers` fine-mask projection, face orientation, UV rotation, material and positional offset. All earlier attachments still contribute to the face's authored z-offset, while only the target is emitted. Collision triangles stay empty; normal terrain output is unchanged without a filter.
+- `BlockStateMeshBuilder.BuildAttachedLayer` uses a temporary portable snapshot containing exactly the host cell, microblock mask and its original attachment stack. It validates the requested top attachment, then delegates to the same terrain builder instead of inventing a second layer mesh algorithm.
+- The Godot `MiningCrackPresentation` has one world-space decal MeshInstance3D: attached layers get a stage shader which samples the pack's original layer alpha with canonical rotated face UVs, while normal blocks keep the pre-existing shape-aligned 3D crack overlay. Material/mesh switching resets the stage cache on face, target, attachment or host snapshot change. Texture masks are loaded lazily and shared across all ten stages for that layer path.
+- New Core tests cover stacked moss/ore layers, right-angle rotations, two independent hit faces, sculpted microblock masks, chunk-Y seams, progress cancellation and next-layer transition. Godot/WRY rendering (alpha, facing, mesh offset, chunk transitions) remains to be verified in a native playtest.
+- No audio changes and no duplicate world mutation/loot path.

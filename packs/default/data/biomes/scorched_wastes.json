@@ -1,0 +1,120 @@
+{
+  "id": "asteria:overworld/scorched_wastes",
+  "surfaceLayout": {
+    "weight": 1,
+    "spawnWeight": 0.5,
+    "regionSize": {
+      "min": 384,
+      "max": 576
+    },
+    "cannotBorder": [
+      "asteria:overworld/mountains",
+      "asteria:overworld/gorge",
+      "asteria:overworld/alps",
+      "asteria:overworld/mountain_belt"
+    ]
+  },
+  "surfaceTerrain": {
+    "type": "rolling",
+    "baseHeight": 5,
+    "amplitude": 2.5,
+    "scale": 0.009,
+    "detailAmplitude": 1,
+    "detailScale": 0.027
+  },
+  "surfaceHabitats": {
+    "scale": 122,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "ash_aprons",
+        "maximum": -0.21
+      },
+      {
+        "id": "fractured_flanks",
+        "maximum": 0.19
+      },
+      {
+        "id": "hardened_highlands",
+        "maximum": 1
+      }
+    ]
+  },
+  "decorations": [
+    {
+      "object": "asteria:pebble",
+      "chance": 0.015,
+      "surfaceBlocks": [
+        "asteria:basalt",
+        "asteria:cobble_basalt",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 19,
+        "threshold": -0.17,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "minY": 90,
+        "maxSlope": 6
+      },
+      "habitatWeights": {
+        "ash_aprons": 0.34,
+        "fractured_flanks": 1.75,
+        "hardened_highlands": 1.14
+      }
+    },
+    {
+      "block": "asteria:lichen_soot",
+      "chance": 0.0216,
+      "surfaceBlocks": [
+        "asteria:basalt",
+        "asteria:cobble_basalt"
+      ],
+      "cluster": {
+        "scale": 31,
+        "threshold": -0.21,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 90,
+        "maxY": 197,
+        "maxSlope": 5
+      },
+      "habitatWeights": {
+        "ash_aprons": 0.45,
+        "fractured_flanks": 1.75,
+        "hardened_highlands": 1.75
+      }
+    }
+  ],
+  "geology": {
+    "baseBlock": "asteria:basalt",
+    "blocks": [
+      "asteria:cobble_basalt",
+      "asteria:gravel",
+      "asteria:stone"
+    ],
+    "scale": 82,
+    "verticalScale": 53,
+    "detailScale": 17,
+    "selectionScale": 62,
+    "coverage": 0.62,
+    "roughness": 0.3,
+    "weights": {
+      "asteria:cobble_basalt": 4,
+      "asteria:gravel": 2,
+      "asteria:stone": 1
+    },
+    "surfaceCoverDepth": 0
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:basalt"
+      }
+    ]
+  }
+}

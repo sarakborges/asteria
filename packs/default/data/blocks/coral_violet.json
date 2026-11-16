@@ -1,0 +1,24 @@
+{
+  "id": "asteria:coral_violet",
+  "category": "foliage",
+  "textures": {
+    "top": "textures/blocks/coral_violet.png",
+    "bottom": "textures/blocks/coral_violet.png",
+    "left": "textures/blocks/coral_violet.png",
+    "right": "textures/blocks/coral_violet.png",
+    "front": "textures/blocks/coral_violet.png",
+    "back": "textures/blocks/coral_violet.png"
+  },
+  "tags": [
+    "fragmentable"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.65,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "a476bc"
+}

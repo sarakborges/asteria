@@ -1,0 +1,20 @@
+.numeric-stepper {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+}
+
+.numeric-stepper > .ui-button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+.numeric-stepper > .ui-text-input {
+  width: 180px;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: center;
+}

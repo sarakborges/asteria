@@ -1,0 +1,20 @@
+{
+  "id": "asteria:water",
+  "color": "4f9fd6",
+  "opacity": 0.72,
+  "roughness": 0.15,
+  "texture": "textures/fluids/water.png",
+  "lightDampening": 1,
+  "spreadSpeed": 5,
+  "maxSpread": 7,
+  "motion": {
+    "horizontalSpeedMultiplier": 1,
+    "horizontalAcceleration": 28,
+    "sinkSpeed": 3,
+    "passiveSinkSpeed": 0.6,
+    "ascendSpeed": 3.8,
+    "surfaceExitSpeed": 7,
+    "verticalAcceleration": 12,
+    "surfaceExitMargin": 0.35
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "asteria:coral_yellow",
+  "category": "foliage",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/coral_yellow.png",
+    "bottom": "textures/blocks/coral_yellow.png",
+    "left": "textures/blocks/coral_yellow.png",
+    "right": "textures/blocks/coral_yellow.png",
+    "front": "textures/blocks/coral_yellow.png",
+    "back": "textures/blocks/coral_yellow.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.8,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "d4a75b"
+}

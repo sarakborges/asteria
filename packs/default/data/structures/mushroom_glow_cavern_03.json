@@ -1,0 +1,140 @@
+{
+  "id": "asteria:mushroom_glow_cavern_03",
+  "groupId": "mushroom_glow_cavern",
+  "rotation": false,
+  "locatable": false,
+  "conflictGroups": [
+    "volume_landmark"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:stone",
+      "asteria:cobble_stone",
+      "asteria:gravel",
+      "asteria:dirt",
+      "asteria:clay"
+    ],
+    "maxSlope": 1,
+    "requiredBiomeCoverage": 1,
+    "requiresDryGround": true
+  },
+  "generation": {
+    "replacePolicy": "air_only",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "M": {
+      "block": "asteria:mushroom_stem_glow"
+    },
+    "H": {
+      "block": "asteria:mushroom_cap_glow"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....M....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....M....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....M....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....M....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".........",
+        "..HHHHH..",
+        ".HHHHHHH.",
+        ".HHHHHHH.",
+        ".HHHMHHH.",
+        ".HHHHHHH.",
+        ".HHHHHHH.",
+        "..HHHHH..",
+        "........."
+      ]
+    },
+    {
+      "y": 6,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "...HHH...",
+        "...HHH...",
+        "...HHH...",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 7,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....H....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ]
+}

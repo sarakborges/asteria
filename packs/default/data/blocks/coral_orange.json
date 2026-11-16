@@ -1,0 +1,24 @@
+{
+  "id": "asteria:coral_orange",
+  "category": "foliage",
+  "textures": {
+    "top": "textures/blocks/coral_orange.png",
+    "bottom": "textures/blocks/coral_orange.png",
+    "left": "textures/blocks/coral_orange.png",
+    "right": "textures/blocks/coral_orange.png",
+    "front": "textures/blocks/coral_orange.png",
+    "back": "textures/blocks/coral_orange.png"
+  },
+  "tags": [
+    "fragmentable"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.65,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "dd955e"
+}

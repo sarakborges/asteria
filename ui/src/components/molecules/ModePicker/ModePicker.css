@@ -1,0 +1,13 @@
+.mode-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
+.mode-picker > .ui-button {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+}

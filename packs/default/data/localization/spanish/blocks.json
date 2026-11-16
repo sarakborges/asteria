@@ -1,0 +1,284 @@
+{
+  "asteria:crystal_core_aether": {
+    "/name": "Núcleo de Cristal Etéreo"
+  },
+  "asteria:crystal_azure": {
+    "/name": "Cristal Azul"
+  },
+  "asteria:basalt": {
+    "/name": "Basalto"
+  },
+  "asteria:bricks_basalt": {
+    "/name": "Ladrillos de Basalto"
+  },
+  "asteria:cobble_basalt": {
+    "/name": "Basalto Rústico"
+  },
+  "asteria:basalt_polished": {
+    "/name": "Basalto Pulido"
+  },
+  "asteria:spike_basalt": {
+    "/name": "Pico de Basalto"
+  },
+  "asteria:tiles_basalt": {
+    "/name": "Baldosas de Basalto"
+  },
+  "asteria:bricks": {
+    "/name": "Ladrillos"
+  },
+  "asteria:cactus_barrel": {
+    "/name": "Cactus Barril"
+  },
+  "asteria:cactus_column": {
+    "/name": "Cactus Columnar"
+  },
+  "asteria:flower_cactus_pink": {
+    "/name": "Flor Rosa de Cactus"
+  },
+  "asteria:flower_cactus_yellow": {
+    "/name": "Flor Amarilla de Cactus"
+  },
+  "asteria:clay": {
+    "/name": "Arcilla"
+  },
+  "asteria:lichen_cliff": {
+    "/name": "Liquen de Acantilado"
+  },
+  "asteria:coral_blue": {
+    "/name": "Coral Azul"
+  },
+  "asteria:coral_lime": {
+    "/name": "Coral Verde Lima"
+  },
+  "asteria:coral_orange": {
+    "/name": "Coral Naranja"
+  },
+  "asteria:coral_pink": {
+    "/name": "Coral Rosa"
+  },
+  "asteria:coral_teal": {
+    "/name": "Coral Verde Azulado"
+  },
+  "asteria:coral_violet": {
+    "/name": "Coral Violeta"
+  },
+  "asteria:coral_yellow": {
+    "/name": "Coral Amarillo"
+  },
+  "asteria:dirt": {
+    "/name": "Tierra"
+  },
+  "asteria:lichen_dry": {
+    "/name": "Liquen Seco"
+  },
+  "asteria:tuft_dry": {
+    "/name": "Mata Seca"
+  },
+  "asteria:bone_fossil": {
+    "/name": "Hueso Fósil"
+  },
+  "asteria:lichen_frost": {
+    "/name": "Liquen Helado"
+  },
+  "asteria:glass": {
+    "/name": "Vidrio"
+  },
+  "asteria:mushroom_cap_glow": {
+    "/name": "Sombrero de Seta Luminosa"
+  },
+  "asteria:mushroom_stem_glow": {
+    "/name": "Tallo de Seta Luminosa"
+  },
+  "asteria:block_grass": {
+    "/name": "Bloque de Césped"
+  },
+  "asteria:gravel": {
+    "/name": "Grava"
+  },
+  "asteria:moss_hanging": {
+    "/name": "Musgo Colgante"
+  },
+  "asteria:ice": {
+    "/name": "Hielo"
+  },
+  "asteria:bricks_ice": {
+    "/name": "Ladrillos de Hielo"
+  },
+  "asteria:ice_polished": {
+    "/name": "Hielo Pulido"
+  },
+  "asteria:spike_ice": {
+    "/name": "Pico de Hielo"
+  },
+  "asteria:tiles_ice": {
+    "/name": "Baldosas de Hielo"
+  },
+  "asteria:lamp": {
+    "/name": "Lámpara"
+  },
+  "asteria:leaf_oak": {
+    "/name": "Hojas de Roble"
+  },
+  "asteria:leaf_willow": {
+    "/name": "Hojas de Sauce"
+  },
+  "asteria:log_oak": {
+    "/name": "Tronco de Roble"
+  },
+  "asteria:log_oak_hollow": {
+    "/name": "Tronco de Roble Hueco"
+  },
+  "asteria:log_oak_stripped": {
+    "/name": "Tronco de Roble Descortezado"
+  },
+  "asteria:log_oak_stripped_hollow": {
+    "/name": "Tronco de Roble Hueco Descortezado"
+  },
+  "asteria:log_willow": {
+    "/name": "Tronco de Sauce"
+  },
+  "asteria:log_willow_hollow": {
+    "/name": "Tronco de Sauce Hueco"
+  },
+  "asteria:log_willow_stripped": {
+    "/name": "Tronco de Sauce Descortezado"
+  },
+  "asteria:log_willow_stripped_hollow": {
+    "/name": "Tronco de Sauce Hueco Descortezado"
+  },
+  "asteria:fungus_cap_luminous_giant": {
+    "/name": "Sombrero de Hongo Gigante Luminoso"
+  },
+  "asteria:fungus_stem_luminous_giant": {
+    "/name": "Tallo de Hongo Gigante Luminoso"
+  },
+  "asteria:fern_marsh": {
+    "/name": "Helecho de Marisma"
+  },
+  "asteria:mushroom_cap_marsh_giant": {
+    "/name": "Sombrero de Seta Gigante de Marisma"
+  },
+  "asteria:mushroom_stem_marsh_giant": {
+    "/name": "Tallo de Seta Gigante de Marisma"
+  },
+  "asteria:mud": {
+    "/name": "Barro"
+  },
+  "asteria:bricks_mud": {
+    "/name": "Ladrillos de Barro"
+  },
+  "asteria:bloom_pink": {
+    "/name": "Flor Rosa"
+  },
+  "asteria:planks_oak": {
+    "/name": "Tablones de Roble"
+  },
+  "asteria:planks_willow": {
+    "/name": "Tablones de Sauce"
+  },
+  "asteria:portal": {
+    "/name": "Portal"
+  },
+  "asteria:lichen_rock": {
+    "/name": "Liquen de Roca"
+  },
+  "asteria:sand": {
+    "/name": "Arena"
+  },
+  "asteria:sand_layer": {
+    "/name": "Capa de Arena"
+  },
+  "asteria:sandstone": {
+    "/name": "Arenisca"
+  },
+  "asteria:bricks_sandstone": {
+    "/name": "Ladrillos de Arenisca"
+  },
+  "asteria:sandstone_polished": {
+    "/name": "Arenisca Pulida"
+  },
+  "asteria:spike_sandstone": {
+    "/name": "Pico de Arenisca"
+  },
+  "asteria:tiles_sandstone": {
+    "/name": "Baldosas de Arenisca"
+  },
+  "asteria:lichen_scree": {
+    "/name": "Liquen de Pedregal"
+  },
+  "asteria:snow": {
+    "/name": "Nieve"
+  },
+  "asteria:bricks_snow": {
+    "/name": "Ladrillos de Nieve"
+  },
+  "asteria:layer_snow": {
+    "/name": "Capa de Nieve"
+  },
+  "asteria:tiles_snow": {
+    "/name": "Baldosas de Nieve"
+  },
+  "asteria:lichen_soot": {
+    "/name": "Liquen de Hollín"
+  },
+  "asteria:shell_sphere": {
+    "/name": "Corteza de Esfera"
+  },
+  "asteria:starflower": {
+    "/name": "Flor Estelar"
+  },
+  "asteria:stone": {
+    "/name": "Piedra"
+  },
+  "asteria:bricks_stone": {
+    "/name": "Ladrillos de Piedra"
+  },
+  "asteria:cobble_stone": {
+    "/name": "Piedra Rústica"
+  },
+  "asteria:stone_polished": {
+    "/name": "Piedra Pulida"
+  },
+  "asteria:spike_stone": {
+    "/name": "Pico de Piedra"
+  },
+  "asteria:tiles_stone": {
+    "/name": "Baldosas de Piedra"
+  },
+  "asteria:box_storage": {
+    "/name": "Caja de almacenamiento"
+  },
+  "asteria:terracotta": {
+    "/name": "Terracota"
+  },
+  "asteria:thornbush": {
+    "/name": "Arbusto Espinoso"
+  },
+  "asteria:moss_wall": {
+    "/name": "Musgo de Pared"
+  },
+  "asteria:mushroom_cap_blue": {
+    "/name": "Sombrero de Champiñón Azul"
+  },
+  "asteria:mushroom_cap_brown": {
+    "/name": "Sombrero de Champiñón Marrón"
+  },
+  "asteria:mushroom_cap_green": {
+    "/name": "Sombrero de Champiñón Verde"
+  },
+  "asteria:mushroom_cap_pink": {
+    "/name": "Sombrero de Champiñón Rosa"
+  },
+  "asteria:mushroom_cap_purple": {
+    "/name": "Sombrero de Champiñón Morado"
+  },
+  "asteria:mushroom_cap_red": {
+    "/name": "Sombrero de Champiñón Rojo"
+  },
+  "asteria:mushroom_cap_yellow": {
+    "/name": "Sombrero de Champiñón Amarillo"
+  },
+  "asteria:portal_frame": {
+    "/name": "Marco del Portal"
+  }
+}

@@ -1,0 +1,37 @@
+.interaction-prompt {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-space-1);
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-detail);
+  text-align: center;
+  text-shadow: 0 1px 5px var(--ui-color-shadow);
+  pointer-events: none;
+}
+
+.interaction-prompt[hidden] {
+  display: none;
+}
+
+.interaction-prompt__key {
+  padding: 0;
+  border: 0;
+  color: var(--ui-color-text);
+  font: inherit;
+  font-weight: 700;
+  background: transparent;
+}
+
+.interaction-prompt__key:not(:empty)::after {
+  content: " ·";
+  color: var(--ui-color-muted);
+}
+
+.interaction-prompt__text {
+  color: var(--ui-color-text);
+  font-weight: 500;
+}

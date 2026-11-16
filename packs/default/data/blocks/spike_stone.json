@@ -1,0 +1,31 @@
+{
+  "id": "asteria:spike_stone",
+  "category": "blocks_natural",
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.42,
+    "tipRadius": 0.025,
+    "taperPower": 1.2
+  },
+  "placementFaces": [
+    "top",
+    "bottom"
+  ],
+  "textures": {
+    "top": "textures/blocks/stone.png",
+    "bottom": "textures/blocks/stone.png",
+    "left": "textures/blocks/stone.png",
+    "right": "textures/blocks/stone.png",
+    "front": "textures/blocks/stone.png",
+    "back": "textures/blocks/stone.png"
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1.5,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "8b9199"
+}

@@ -1,0 +1,727 @@
+namespace Asteria.Core.World;
+
+internal readonly record struct GeneratedFluidColumnPlan(
+    FluidRuntimeId SurfaceFluid,
+    FluidRuntimeId MosaicFluid,
+    FluidRuntimeId OceanFluid);
+
+/// <summary>
+/// Immutable generation-time fluid placement policy. It owns authored ocean
+/// fill, terrain-driven surface fluids and optional bounded local surface
+/// fluid patches. Runtime fluid simulation remains the owner after residency.
+/// </summary>
+public sealed class GeneratedFluidField
+{
+    private readonly ulong _seed;
+    private readonly OceanRule? _ocean;
+    private readonly IReadOnlyDictionary<string, SurfaceRule> _surface;
+    private readonly HashSet<string> _staticSeaBiomes;
+    private readonly SurfaceMosaicField? _mosaic;
+    private readonly int _minimumInteriorY;
+    private readonly int _maximumInteriorY;
+
+    public GeneratedFluidField(
+        ulong seed,
+        DimensionDefinition dimension,
+        FluidRegistry fluids)
+        : this(
+            seed,
+            dimension,
+            fluids,
+            Array.Empty<BiomeDefinition>())
+    {
+    }
+
+    public GeneratedFluidField(
+        ulong seed,
+        DimensionDefinition dimension,
+        FluidRegistry fluids,
+        IEnumerable<BiomeDefinition> surfaceDefinitions,
+        bool spawnOceans = true,
+        bool generatedFluidsEnabled = true,
+        SurfaceMosaicField? mosaic = null)
+    {
+        ArgumentNullException.ThrowIfNull(
+            dimension);
+        ArgumentNullException.ThrowIfNull(
+            fluids);
+        ArgumentNullException.ThrowIfNull(
+            surfaceDefinitions);
+
+        _seed = seed;
+        _mosaic = generatedFluidsEnabled ? mosaic : null;
+        _minimumInteriorY =
+            dimension.Shell?.FloorY is { } floorY
+                ? checked(
+                    floorY +
+                    1)
+                : 0;
+        _maximumInteriorY =
+            dimension.Shell?.RoofY is { } roofY
+                ? checked(
+                    roofY -
+                    1)
+                : int.MaxValue;
+
+        _surface =
+            (generatedFluidsEnabled
+                ? dimension.GeneratedSurfaceFluids
+                : Array.Empty<DimensionGeneratedSurfaceFluidDefinition>())
+                .OrderBy(
+                    definition =>
+                        definition.Biome,
+                    StringComparer.Ordinal)
+                .ToDictionary(
+                    definition =>
+                        definition.Biome,
+                    definition =>
+                        new SurfaceRule(
+                            definition,
+                            fluids.GetId(
+                                definition.Fluid)),
+                    StringComparer.Ordinal);
+
+        var definitions =
+            surfaceDefinitions
+                .OrderBy(
+                    definition =>
+                        definition.Id,
+                    StringComparer.Ordinal)
+                .ToArray();
+
+        _staticSeaBiomes =
+            definitions
+                .Where(
+                    definition =>
+                        generatedFluidsEnabled &&
+                        definition.SurfaceTerrain?.FillToSeaLevel == true)
+                .Select(
+                    definition =>
+                        definition.Id)
+                .ToHashSet(
+                    StringComparer.Ordinal);
+
+        if (!generatedFluidsEnabled || !spawnOceans || dimension.GeneratedOcean is not
+            { } ocean)
+        {
+            return;
+        }
+
+        var maximumY =
+            Math.Min(
+                dimension.SeaLevel,
+                _maximumInteriorY);
+
+        _ocean = new OceanRule(
+            ocean.Biome,
+            fluids.GetId(
+                ocean.Fluid),
+            _minimumInteriorY,
+            maximumY);
+    }
+
+    public bool HasRules =>
+        _ocean is not null ||
+        _surface.Count > 0 ||
+        _mosaic?.HasRules == true;
+
+    public int SurfaceCutDepthAt(
+        BiomeSample sample,
+        int worldX,
+        int worldZ)
+    {
+        ArgumentNullException.ThrowIfNull(
+            sample);
+
+        var cut = _surface.TryGetValue(
+                      sample.Primary,
+                      out var rule) &&
+                  rule.Contains(_seed, worldX, worldZ)
+            ? rule.Depth : 0;
+        return _mosaic?.Sample(sample, worldX, worldZ).IsFluid == true
+            ? Math.Max(1, cut) : cut;
+    }
+
+    public bool TryGetColumnBounds(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        out int minimumY,
+        out int maximumY) =>
+        TryGetColumnBounds(
+            sample,
+            baseSurfaceY,
+            surfaceCutDepth,
+            0,
+            0,
+            out minimumY,
+            out maximumY);
+
+    public bool TryGetColumnBounds(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldZ,
+        out int minimumY,
+        out int maximumY) =>
+        TryResolveColumn(
+            sample,
+            baseSurfaceY,
+            surfaceCutDepth,
+            worldX,
+            worldZ,
+            out _,
+            out minimumY,
+            out maximumY);
+
+    /// <summary>
+    /// Resolves the fluid policies and vertical bounds for one X/Z column.
+    /// The returned policy can be reused for every voxel in that column.
+    /// </summary>
+    internal bool TryResolveColumn(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldZ,
+        out GeneratedFluidColumnPlan plan,
+        out int minimumY,
+        out int maximumY)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+
+        minimumY = int.MaxValue;
+        maximumY = int.MinValue;
+
+        var surfaceFluid = FluidRuntimeId.None;
+        if (surfaceCutDepth > 0 &&
+            _surface.TryGetValue(sample.Primary, out var surfaceRule))
+        {
+            surfaceFluid = surfaceRule.Fluid;
+            AddBounds(
+                checked(baseSurfaceY + 1),
+                checked(baseSurfaceY + surfaceCutDepth),
+                ref minimumY,
+                ref maximumY);
+        }
+
+        var mosaicFluid = FluidRuntimeId.None;
+        if (surfaceCutDepth > 0 && _mosaic is not null)
+        {
+            var mosaic = _mosaic.Sample(sample, worldX, worldZ);
+            if (mosaic.IsFluid)
+            {
+                mosaicFluid = mosaic.Fluid;
+                AddBounds(
+                    checked(baseSurfaceY + 1),
+                    checked(baseSurfaceY + 1),
+                    ref minimumY,
+                    ref maximumY);
+            }
+        }
+
+        var oceanFluid = FluidRuntimeId.None;
+        if (_ocean is { } ocean &&
+            UsesStaticSea(sample, ocean) &&
+            baseSurfaceY < ocean.MaximumY)
+        {
+            oceanFluid = ocean.Fluid;
+            AddBounds(
+                Math.Max(
+                    ocean.MinimumY,
+                    checked(baseSurfaceY + 1)),
+                ocean.MaximumY,
+                ref minimumY,
+                ref maximumY);
+        }
+
+        plan = new GeneratedFluidColumnPlan(
+            surfaceFluid,
+            mosaicFluid,
+            oceanFluid);
+
+        if (minimumY <= maximumY)
+            return true;
+
+        minimumY = 0;
+        maximumY = -1;
+        return false;
+    }
+
+    /// <summary>
+    /// Evaluates an already-resolved column policy without biome, mosaic,
+    /// surface-rule or static-sea lookups for each voxel.
+    /// </summary>
+    internal FluidCell FluidAtResolvedColumn(
+        GeneratedFluidColumnPlan plan,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldY,
+        bool terrainSolid)
+    {
+        if (terrainSolid ||
+            worldY < _minimumInteriorY ||
+            worldY > _maximumInteriorY)
+        {
+            return FluidCell.Empty;
+        }
+
+        if (surfaceCutDepth > 0 &&
+            !plan.SurfaceFluid.IsNone &&
+            worldY > baseSurfaceY &&
+            (long)worldY <= (long)baseSurfaceY + surfaceCutDepth)
+        {
+            return FluidCell.Source(plan.SurfaceFluid);
+        }
+
+        if (surfaceCutDepth > 0 &&
+            !plan.MosaicFluid.IsNone &&
+            worldY == (long)baseSurfaceY + 1L)
+        {
+            return FluidCell.Source(plan.MosaicFluid);
+        }
+
+        if (!plan.OceanFluid.IsNone &&
+            _ocean is { } ocean &&
+            worldY >= ocean.MinimumY &&
+            worldY <= ocean.MaximumY &&
+            worldY > baseSurfaceY)
+        {
+            return FluidCell.Source(plan.OceanFluid);
+        }
+
+        return FluidCell.Empty;
+    }
+
+    public FluidCell FluidAtEmptyVoxel(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldY) =>
+        FluidAtEmptyVoxel(
+            sample,
+            baseSurfaceY,
+            surfaceCutDepth,
+            0,
+            worldY,
+            0);
+
+    public FluidCell FluidAtEmptyVoxel(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        ArgumentNullException.ThrowIfNull(
+            sample);
+
+        if (worldY <
+                _minimumInteriorY ||
+            worldY >
+                _maximumInteriorY)
+        {
+            return FluidCell.Empty;
+        }
+
+        if (surfaceCutDepth > 0 &&
+            _surface.TryGetValue(
+                sample.Primary,
+                out var local) &&
+            worldY >
+                baseSurfaceY &&
+            (long)worldY <=
+                (long)baseSurfaceY +
+                surfaceCutDepth)
+        {
+            return FluidCell.Source(
+                local.Fluid);
+        }
+
+        if (surfaceCutDepth > 0 &&
+            worldY == (long)baseSurfaceY + 1 &&
+            _mosaic?.Sample(sample, worldX, worldZ) is
+                { IsFluid: true } selected)
+            return FluidCell.Source(selected.Fluid);
+
+        if (_ocean is not
+                { } ocean ||
+            !UsesStaticSea(
+                sample,
+                ocean) ||
+            worldY <
+                ocean.MinimumY ||
+            worldY >
+                ocean.MaximumY ||
+            worldY <=
+                baseSurfaceY)
+        {
+            return FluidCell.Empty;
+        }
+
+        return FluidCell.Source(
+            ocean.Fluid);
+    }
+
+    public FluidCell FluidAt(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldY,
+        double terrainDensity) =>
+        FluidAt(
+            sample,
+            baseSurfaceY,
+            surfaceCutDepth,
+            0,
+            worldY,
+            0,
+            terrainDensity);
+
+    public FluidCell FluidAt(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldY,
+        int worldZ,
+        double terrainDensity) =>
+        terrainDensity >= 0d
+            ? FluidCell.Empty
+            : FluidAtEmptyVoxel(
+                sample,
+                baseSurfaceY,
+                surfaceCutDepth,
+                worldX,
+                worldY,
+                worldZ);
+
+    /// <summary>
+    /// Resolves fluid occupancy from a precomputed terrain solidity bit,
+    /// avoiding expansion of the full numeric density volume.
+    /// </summary>
+    public FluidCell FluidAt(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldY,
+        int worldZ,
+        bool terrainSolid) =>
+        terrainSolid
+            ? FluidCell.Empty
+            : FluidAtEmptyVoxel(
+                sample,
+                baseSurfaceY,
+                surfaceCutDepth,
+                worldX,
+                worldY,
+                worldZ);
+
+    public ChunkSurfaceRange ExpandSurfaceRange(
+        SurfaceTerrainColumn column) =>
+        ExpandSurfaceRange(
+            column,
+            0,
+            0);
+
+    public ChunkSurfaceRange ExpandSurfaceRange(
+        SurfaceTerrainColumn column,
+        int chunkX,
+        int chunkZ)
+    {
+        ArgumentNullException.ThrowIfNull(
+            column);
+
+        if (!HasRules)
+        {
+            return column.Range;
+        }
+
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(
+                new ChunkCoord(
+                    chunkX,
+                    0,
+                    chunkZ));
+        var maximum =
+            column.Range.MaximumWorldY;
+
+        for (var z = 0;
+             z < Chunk.Size;
+             z++)
+        {
+            for (var x = 0;
+                 x < Chunk.Size;
+                 x++)
+            {
+                var baseY =
+                    column.BaseHeightAt(
+                        x,
+                        z);
+                var cutDepth =
+                    column.SurfaceFluidCutDepthAt(
+                        x,
+                        z);
+
+                if (TryGetColumnBounds(
+                        column.BiomeAt(
+                            x,
+                            z),
+                        baseY,
+                        cutDepth,
+                        checked(
+                            originX +
+                            x),
+                        checked(
+                            originZ +
+                            z),
+                        out _,
+                        out var fluidMaximum))
+                {
+                    maximum =
+                        Math.Max(
+                            maximum,
+                            fluidMaximum);
+                }
+            }
+        }
+
+        return maximum ==
+               column.Range.MaximumWorldY
+            ? column.Range
+            : new ChunkSurfaceRange(
+                column.Range.MinimumWorldY,
+                maximum);
+    }
+
+    private bool UsesStaticSea(
+        BiomeSample sample,
+        OceanRule ocean) =>
+        string.Equals(
+            sample.Primary,
+            ocean.Biome,
+            StringComparison.Ordinal) ||
+        _staticSeaBiomes.Contains(
+            sample.Primary);
+
+    private static void AddBounds(
+        int minimum,
+        int maximum,
+        ref int currentMinimum,
+        ref int currentMaximum)
+    {
+        if (minimum >
+            maximum)
+        {
+            return;
+        }
+
+        currentMinimum =
+            Math.Min(
+                currentMinimum,
+                minimum);
+        currentMaximum =
+            Math.Max(
+                currentMaximum,
+                maximum);
+    }
+
+    private sealed class SurfaceRule
+    {
+        private readonly int _spacing;
+        private readonly long _radius;
+        private readonly int _jitter;
+        private readonly double _chance;
+        private readonly GenerationDomain _presenceDomain;
+        private readonly GenerationDomain _jitterXDomain;
+        private readonly GenerationDomain _jitterZDomain;
+
+        public SurfaceRule(
+            DimensionGeneratedSurfaceFluidDefinition definition,
+            FluidRuntimeId fluid)
+        {
+            Fluid = fluid;
+            _spacing =
+                definition.Spacing;
+            _radius =
+                definition.Radius;
+            _jitter =
+                definition.Jitter;
+            _chance =
+                definition.Chance;
+            Depth =
+                definition.Depth;
+            _presenceDomain =
+                GenerationDomain.Named(
+                    $"generated-fluid/surface/presence/v1/{definition.Biome}");
+            _jitterXDomain =
+                GenerationDomain.Named(
+                    $"generated-fluid/surface/jitter-x/v1/{definition.Biome}");
+            _jitterZDomain =
+                GenerationDomain.Named(
+                    $"generated-fluid/surface/jitter-z/v1/{definition.Biome}");
+        }
+
+        public FluidRuntimeId Fluid { get; }
+
+        public int Depth { get; }
+
+        public bool Contains(
+            ulong seed,
+            int worldX,
+            int worldZ)
+        {
+            var centerCellX =
+                FloorDiv(
+                    worldX,
+                    _spacing);
+            var centerCellZ =
+                FloorDiv(
+                    worldZ,
+                    _spacing);
+            var radiusSquared =
+                (Int128)_radius *
+                _radius;
+
+            for (var deltaZ = -1;
+                 deltaZ <= 1;
+                 deltaZ++)
+            {
+                var cellZLong =
+                    (long)centerCellZ +
+                    deltaZ;
+                if (cellZLong is <
+                        int.MinValue or >
+                        int.MaxValue)
+                {
+                    continue;
+                }
+
+                var cellZ =
+                    (int)cellZLong;
+
+                for (var deltaX = -1;
+                     deltaX <= 1;
+                     deltaX++)
+                {
+                    var cellXLong =
+                        (long)centerCellX +
+                        deltaX;
+                    if (cellXLong is <
+                            int.MinValue or >
+                            int.MaxValue)
+                    {
+                        continue;
+                    }
+
+                    var cellX =
+                        (int)cellXLong;
+                    if (UnitProbability(
+                            WorldGenerationEntropy.Sample2D(
+                                seed,
+                                _presenceDomain,
+                                cellX,
+                                cellZ)) >
+                        _chance)
+                    {
+                        continue;
+                    }
+
+                    var patchX =
+                        (long)cellX *
+                        _spacing +
+                        _spacing /
+                        2L +
+                        JitterOffset(
+                            WorldGenerationEntropy.Sample2D(
+                                seed,
+                                _jitterXDomain,
+                                cellX,
+                                cellZ),
+                            _jitter);
+                    var patchZ =
+                        (long)cellZ *
+                        _spacing +
+                        _spacing /
+                        2L +
+                        JitterOffset(
+                            WorldGenerationEntropy.Sample2D(
+                                seed,
+                                _jitterZDomain,
+                                cellX,
+                                cellZ),
+                            _jitter);
+                    var deltaWorldX =
+                        (Int128)(
+                            (long)worldX -
+                            patchX);
+                    var deltaWorldZ =
+                        (Int128)(
+                            (long)worldZ -
+                            patchZ);
+
+                    if (deltaWorldX *
+                            deltaWorldX +
+                        deltaWorldZ *
+                            deltaWorldZ <=
+                        radiusSquared)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static int FloorDiv(
+            int value,
+            int divisor)
+        {
+            var quotient =
+                Math.DivRem(
+                    value,
+                    divisor,
+                    out var remainder);
+            return remainder < 0
+                ? quotient - 1
+                : quotient;
+        }
+
+        private static double UnitProbability(
+            ulong value) =>
+            value /
+            (double)ulong.MaxValue;
+
+        private static long JitterOffset(
+            ulong value,
+            int jitter)
+        {
+            if (jitter == 0)
+            {
+                return 0L;
+            }
+
+            var span =
+                checked(
+                    (ulong)(
+                        jitter *
+                        2 +
+                        1));
+            return checked(
+                (long)(
+                    value %
+                    span) -
+                jitter);
+        }
+    }
+
+    private sealed record OceanRule(
+        string Biome,
+        FluidRuntimeId Fluid,
+        int MinimumY,
+        int MaximumY);
+}

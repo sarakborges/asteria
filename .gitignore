@@ -1,0 +1,45 @@
+# Godot-generated caches and sidecar metadata
+**/.godot/
+**/.mono/
+addons/godot_wry/
+*.translation
+*.uid
+*.import
+
+# .NET build output
+**/bin/
+**/obj/
+**/TestResults/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# WebUI
+ui/node_modules/
+ui/dist/
+/webui-dist/
+ui/storybook-static/
+ui/test-results/
+ui/playwright-report/
+ui/coverage/
+
+# Project-local DLL mods, configs, and their private dependencies
+/mods/*
+!/mods/.gdignore
+
+# Project-local runtime world saves (only keep Godot ignore marker)
+/worlds/*
+!/worlds/.gdignore
+
+# Runtime logs and generated worldgen diagnostic fixtures
+*.log
+/worldgen-benchmark.json
+/biome-map-*.svg
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

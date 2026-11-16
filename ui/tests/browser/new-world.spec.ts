@@ -1,0 +1,226 @@
+import { test, expect, type Page } from "@playwright/test";
+
+const STORY = "/iframe.html?id=pages-newworldpage--";
+const shell = ".new-world .settings-page";
+const sections = ".settings-page__section";
+
+async function expectActualWorldSettings(page: Page) {
+  await expect(page.locator(shell)).toBeVisible();
+
+  const nav = page.locator(".new-world .settings-page__navigation");
+  const content = page.locator(".new-world .settings-page__sections");
+  await expect(nav).toBeVisible();
+  await expect(content).toBeVisible();
+  await expect(nav.locator("button")).toHaveCount(3);
+  await expect(page.locator(sections)).toHaveCount(3);
+
+  const worldSettings = page.locator(sections).first();
+  const worldGeneration = page.locator(sections).nth(1);
+  const gameRules = page.locator(sections).last();
+  const labels = nav.locator("button");
+  await expect(worldSettings.locator(".ui-text--heading").first()).toHaveText(
+    (await labels.nth(0).innerText()).trim(),
+  );
+  await expect(worldGeneration.locator(".ui-text--heading").first()).toHaveText(
+    (await labels.nth(1).innerText()).trim(),
+  );
+  await expect(gameRules.locator(".ui-text--heading").first()).toHaveText(
+    (await labels.nth(2).innerText()).trim(),
+  );
+
+  // Exact MineClone hierarchy: new_world_settings_section() contains
+  // world_name_setting, seed_setting, world_settings_section (game mode).
+  const nameInput = worldSettings.locator(".setting-row input").first();
+  const seed = worldSettings.locator("#world-seed");
+  const mode = worldSettings.locator(".game-mode-picker");
+  await expect(nameInput).toBeVisible();
+  await expect(seed).toBeVisible();
+  await expect(mode).toBeVisible();
+  await expect(gameRules.locator("#world-seed")).toHaveCount(0);
+  await expect(worldGeneration.locator("#world-seed")).toHaveCount(0);
+  await expect(worldGeneration.getByRole("switch")).toHaveCount(4);
+  await expect(worldGeneration.getByRole("button", { name: /Normal|Flat|Void/ })).toHaveCount(3);
+
+  const nameRect = await nameInput.boundingBox();
+  const seedRect = await seed.boundingBox();
+  const modeRect = await mode.boundingBox();
+  expect(nameRect && seedRect && modeRect).toBeTruthy();
+  expect(nameRect!.y).toBeLessThan(seedRect!.y);
+  expect(seedRect!.y).toBeLessThan(modeRect!.y);
+
+  await expect(gameRules.locator(".numeric-stepper")).toHaveCount(1);
+  await expect(gameRules.getByRole("switch")).toHaveCount(3);
+
+  return { nav, content, worldSettings, worldGeneration, gameRules };
+}
+
+test("Create New World preserves the MineClone sidebar and section ownership", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto(STORY + "ready&viewMode=story");
+  const { nav, content } = await expectActualWorldSettings(page);
+
+  const navRect = await nav.boundingBox();
+  const panelRect = await content.boundingBox();
+  expect(navRect && panelRect).toBeTruthy();
+  expect(navRect!.width).toBeGreaterThanOrEqual(275);
+  expect(navRect!.x + navRect!.width).toBeLessThan(panelRect!.x);
+
+  await page.screenshot({ path: "test-results/new-world-desktop.png", fullPage: true });
+});
+
+test("actual pre-world App navigation reaches the full new-world screen", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto(STORY + "real-navigation&viewMode=story");
+  await expect(page.locator(".starting-screen__button").first()).toBeVisible();
+  await page.locator(".starting-screen__button").first().click();
+  await expect(page.locator(".world-selection-screen")).toBeVisible();
+  await page.locator(".world-selection__footer-button").last().click();
+  const { nav, content } = await expectActualWorldSettings(page);
+
+  const navRect = await nav.boundingBox();
+  const panelRect = await content.boundingBox();
+  expect(navRect && panelRect).toBeTruthy();
+  expect(navRect!.x + navRect!.width).toBeLessThan(panelRect!.x);
+
+  await page.screenshot({ path: "test-results/new-world-real-navigation.png", fullPage: true });
+});
+
+test("seed accepts uint64 maximum without Number precision loss", async ({ page }) => {
+  await page.goto(STORY + "ready&viewMode=story");
+  const seed = page.locator("#world-seed");
+  await expect(seed).toBeVisible();
+  await seed.fill("18446744073709551615");
+  await expect(seed).toHaveValue("18446744073709551615");
+  await seed.fill("18446744073709551616");
+  await expect(seed).toHaveValue("18446744073709551615");
+});
+
+test("640px game window retains MineClone left navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 900 });
+  await page.goto(STORY + "ready&viewMode=story");
+  const { nav, content } = await expectActualWorldSettings(page);
+  const navRect = await nav.boundingBox();
+  const panelRect = await content.boundingBox();
+  expect(navRect && panelRect).toBeTruthy();
+  expect(navRect!.x + navRect!.width).toBeLessThan(panelRect!.x);
+  await page.screenshot({ path: "test-results/new-world-narrow.png", fullPage: true });
+});
+
+test("Game Rules respects the existing Spawn Creatures flag", async ({ page }) => {
+  await page.goto(STORY + "no-creature-spawning&viewMode=story");
+  const { gameRules } = await expectActualWorldSettings(page);
+  await expect(gameRules.getByRole("switch", { name: "Spawn Creatures" }))
+    .toHaveAttribute("aria-checked", "false");
+  await expect(gameRules.getByRole("switch", { name: "Keep Inventory" }))
+    .toHaveAttribute("aria-checked", "true");
+});
+
+test("Peaceful mode is independent from creature spawning", async ({ page }) => {
+  await page.goto(STORY + "peaceful&viewMode=story");
+  const { gameRules } = await expectActualWorldSettings(page);
+  const peaceful = gameRules.getByRole("switch", { name: "Peaceful Mode" });
+  await expect(peaceful).toHaveAttribute("aria-checked", "true");
+  await expect(gameRules.getByRole("switch", { name: "Spawn Creatures" }))
+    .toHaveAttribute("aria-checked", "true");
+  await peaceful.click();
+  await expect(peaceful).toHaveAttribute("aria-checked", "false");
+  await peaceful.click();
+  await expect(peaceful).toHaveAttribute("aria-checked", "true");
+});
+
+test("initial menu contains no language selector", async ({ page }) => {
+  await page.goto(STORY + "real-navigation&viewMode=story");
+  await expect(page.locator(".starting-screen")).toBeVisible();
+  await expect(page.locator(".starting-screen__language")).toHaveCount(0);
+  await expect(page.locator(".starting-screen select")).toHaveCount(0);
+});
+
+test("Flat and Void create clicks transmit the selected mode", async ({ page }) => {
+  for (const mode of ["Flat", "Void"] as const) {
+    await page.goto(STORY + "creation-request&viewMode=story");
+    const { worldGeneration } = await expectActualWorldSettings(page);
+    await worldGeneration.getByRole("button", { name: mode, exact: true }).click();
+    await page.locator(".new-world__create[type=submit]").click();
+    const value = page.getByTestId("world-creation-request");
+    await expect(value).not.toBeEmpty();
+    const request = JSON.parse((await value.textContent())!);
+    expect(request.generation.mode).toBe(mode);
+    expect(request.generation.spawnCaves).toBe(false);
+    expect(request.generation.spawnOceans).toBe(false);
+    expect(request.generation.spawnStructures).toBe(false);
+  }
+});
+
+test("Selecting Flat defaults to a clear plane, with structures optional", async ({ page }) => {
+  await page.goto(STORY + "ready&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  const flat = worldGeneration.getByRole("button", { name: "Flat", exact: true });
+  await flat.click();
+  await expect(flat).toHaveAttribute("aria-pressed", "true");
+  for (const name of ["Spawn Structures", "Spawn Caves", "Spawn Oceans"]) {
+    await expect(worldGeneration.getByRole("switch", { name }))
+      .toHaveAttribute("aria-checked", "false");
+  }
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Oceans" }))
+    .toBeEnabled();
+  await worldGeneration.getByRole("switch", { name: "Spawn Structures" }).click();
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Structures" }))
+    .toHaveAttribute("aria-checked", "true");
+});
+
+test("World Generation respects Void cave/ocean disabling and Single Biome validation", async ({ page }) => {
+  await page.goto(STORY + "ready&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  await worldGeneration.getByRole("button", { name: "Void" }).click();
+  const cave = worldGeneration.getByRole("switch", { name: "Spawn Caves" });
+  const ocean = worldGeneration.getByRole("switch", { name: "Spawn Oceans" });
+  await expect(cave).toBeDisabled();
+  await expect(ocean).toBeDisabled();
+  await expect(cave).toHaveAttribute("aria-checked", "false");
+  await expect(ocean).toHaveAttribute("aria-checked", "false");
+
+  await worldGeneration.getByRole("switch", { name: "Single Biome" }).click();
+  await page.locator(".new-world__create[type=submit]").click();
+  await expect(worldGeneration.getByRole("alert")).toBeVisible();
+});
+
+test("Spawn Biome options support focused search and exact selection", async ({ page }) => {
+  await page.goto(STORY + "ready&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  await worldGeneration.getByRole("button", { name: "Spawn Biome" }).click();
+  await page.getByRole("textbox", { name: "Search biomes..." }).fill("swa");
+  await page.getByRole("option", { name: "Swamp" }).click();
+  await expect(worldGeneration.getByRole("button", { name: "Spawn Biome" })).toContainText("Swamp");
+});
+
+test("Flat can explicitly enable oceans while retaining planar generation", async ({ page }) => {
+  await page.goto(STORY + "creation-request&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  await worldGeneration.getByRole("button", { name: "Flat", exact: true }).click();
+  const oceans = worldGeneration.getByRole("switch", { name: "Spawn Oceans" });
+  await expect(oceans).toBeEnabled();
+  await expect(oceans).toHaveAttribute("aria-checked", "false");
+  await oceans.click();
+  await expect(oceans).toHaveAttribute("aria-checked", "true");
+  await page.locator(".new-world__create[type=submit]").click();
+  const out = page.getByTestId("world-creation-request");
+  await expect(out).not.toBeEmpty();
+  const request = JSON.parse((await out.textContent())!);
+  expect(request.generation.mode).toBe("Flat");
+  expect(request.generation.spawnOceans).toBe(true);
+  expect(request.generation.spawnCaves).toBe(false);
+});
+
+test("Void still disables caves and oceans after toggling Flat oceans on", async ({ page }) => {
+  await page.goto(STORY + "ready&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  await worldGeneration.getByRole("button", { name: "Flat", exact: true }).click();
+  await worldGeneration.getByRole("switch", { name: "Spawn Oceans" }).click();
+  await worldGeneration.getByRole("button", { name: "Void", exact: true }).click();
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Oceans" }))
+    .toHaveAttribute("aria-checked", "false");
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Oceans" }))
+    .toBeDisabled();
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Caves" }))
+    .toBeDisabled();
+});

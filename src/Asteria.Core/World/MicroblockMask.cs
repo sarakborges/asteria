@@ -1,0 +1,245 @@
+using System.Numerics;
+using System.Globalization;
+
+namespace Asteria.Core.World;
+
+public enum MicroblockResolution : byte
+{
+    Thick = 4,
+    Thin = 2,
+    ExtraThin = 1,
+}
+
+public readonly struct MicroblockMask : IEquatable<MicroblockMask>
+{
+    public const int Edge = 8;
+    public const int CellCount = Edge * Edge * Edge;
+
+    private readonly ulong _layer0;
+    private readonly ulong _layer1;
+    private readonly ulong _layer2;
+    private readonly ulong _layer3;
+    private readonly ulong _layer4;
+    private readonly ulong _layer5;
+    private readonly ulong _layer6;
+    private readonly ulong _layer7;
+
+    private MicroblockMask(
+        ulong layer0,
+        ulong layer1,
+        ulong layer2,
+        ulong layer3,
+        ulong layer4,
+        ulong layer5,
+        ulong layer6,
+        ulong layer7)
+    {
+        _layer0 = layer0;
+        _layer1 = layer1;
+        _layer2 = layer2;
+        _layer3 = layer3;
+        _layer4 = layer4;
+        _layer5 = layer5;
+        _layer6 = layer6;
+        _layer7 = layer7;
+    }
+
+    public static MicroblockMask Empty => default;
+
+    public static MicroblockMask Full => new(
+        ulong.MaxValue,
+        ulong.MaxValue,
+        ulong.MaxValue,
+        ulong.MaxValue,
+        ulong.MaxValue,
+        ulong.MaxValue,
+        ulong.MaxValue,
+        ulong.MaxValue);
+
+    public bool IsEmpty => Equals(Empty);
+
+    public bool IsFull => Equals(Full);
+
+    public string ToHexString()
+    {
+        Span<ulong> layers = stackalloc ulong[Edge];
+        CopyLayersTo(layers);
+        return string.Concat(layers.ToArray().Select(
+            slice => slice.ToString("x16", CultureInfo.InvariantCulture)));
+    }
+
+    public static MicroblockMask ParseHexString(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.Length != 128)
+            throw new FormatException("Microblock mask requires exactly 128 hexadecimal characters.");
+        Span<ulong> layers = stackalloc ulong[Edge];
+        for (var z = 0; z < Edge; z++)
+            if (!ulong.TryParse(value.AsSpan(z * 16, 16), NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture, out layers[z]))
+                throw new FormatException("Invalid microblock mask hexadecimal character.");
+        var mask = FromLayers(layers);
+        if (mask.IsEmpty || mask.IsFull)
+            throw new FormatException("A stored microblock mask must be partially occupied.");
+        return mask;
+    }
+
+    /// <summary>Rotate occupancy around the local vertical voxel axis.</summary>
+    public MicroblockMask RotateAroundY(StructureRotation rotation)
+    {
+        if (!Enum.IsDefined(rotation))
+            throw new ArgumentOutOfRangeException(nameof(rotation));
+        if (rotation == StructureRotation.Degrees0 || IsEmpty || IsFull)
+            return this;
+
+        Span<ulong> output = stackalloc ulong[Edge];
+        output.Clear();
+        for (var z = 0; z < Edge; z++)
+        for (var y = 0; y < Edge; y++)
+        for (var x = 0; x < Edge; x++)
+        {
+            if (!Contains(x, y, z))
+                continue;
+            var (rotatedX, rotatedZ) = rotation switch
+            {
+                StructureRotation.Degrees90 => (Edge - 1 - z, x),
+                StructureRotation.Degrees180 => (Edge - 1 - x, Edge - 1 - z),
+                StructureRotation.Degrees270 => (z, Edge - 1 - x),
+                _ => throw new ArgumentOutOfRangeException(nameof(rotation))
+            };
+            output[rotatedZ] |= 1UL << (rotatedX + y * Edge);
+        }
+        return FromLayers(output);
+    }
+
+    public int OccupiedCount =>
+        BitOperations.PopCount(_layer0) +
+        BitOperations.PopCount(_layer1) +
+        BitOperations.PopCount(_layer2) +
+        BitOperations.PopCount(_layer3) +
+        BitOperations.PopCount(_layer4) +
+        BitOperations.PopCount(_layer5) +
+        BitOperations.PopCount(_layer6) +
+        BitOperations.PopCount(_layer7);
+
+    public bool Contains(int x, int y, int z)
+    {
+        if ((uint)x >= Edge || (uint)y >= Edge || (uint)z >= Edge)
+        {
+            return false;
+        }
+
+        return (GetLayer(z) & (1UL << (x + y * Edge))) != 0;
+    }
+
+    public byte LightDampening(byte fullDampening)
+    {
+        if (fullDampening > 15)
+        {
+            throw new ArgumentOutOfRangeException(nameof(fullDampening));
+        }
+
+        return (byte)((fullDampening * OccupiedCount + CellCount - 1) / CellCount);
+    }
+
+    public MicroblockMask Edit(
+        int x,
+        int y,
+        int z,
+        MicroblockResolution resolution,
+        bool occupied)
+    {
+        if ((uint)x >= Edge || (uint)y >= Edge || (uint)z >= Edge)
+        {
+            throw new ArgumentOutOfRangeException(nameof(x), "Microblock coordinates must be within 0..7.");
+        }
+
+        var width = (int)resolution;
+        if (width is not (1 or 2 or 4))
+        {
+            throw new ArgumentOutOfRangeException(nameof(resolution));
+        }
+
+        Span<ulong> layers = stackalloc ulong[Edge];
+        CopyLayersTo(layers);
+
+        var originX = x / width * width;
+        var originY = y / width * width;
+        var originZ = z / width * width;
+
+        for (var editZ = originZ; editZ < originZ + width; editZ++)
+        {
+            for (var editY = originY; editY < originY + width; editY++)
+            {
+                for (var editX = originX; editX < originX + width; editX++)
+                {
+                    var bit = 1UL << (editX + editY * Edge);
+                    if (occupied)
+                    {
+                        layers[editZ] |= bit;
+                    }
+                    else
+                    {
+                        layers[editZ] &= ~bit;
+                    }
+                }
+            }
+        }
+
+        return FromLayers(layers);
+    }
+
+    public bool Equals(MicroblockMask other) =>
+        _layer0 == other._layer0 &&
+        _layer1 == other._layer1 &&
+        _layer2 == other._layer2 &&
+        _layer3 == other._layer3 &&
+        _layer4 == other._layer4 &&
+        _layer5 == other._layer5 &&
+        _layer6 == other._layer6 &&
+        _layer7 == other._layer7;
+
+    public override bool Equals(object? obj) => obj is MicroblockMask other && Equals(other);
+
+    public override int GetHashCode() =>
+        HashCode.Combine(_layer0, _layer1, _layer2, _layer3, _layer4, _layer5, _layer6, _layer7);
+
+    public static bool operator ==(MicroblockMask left, MicroblockMask right) => left.Equals(right);
+
+    public static bool operator !=(MicroblockMask left, MicroblockMask right) => !left.Equals(right);
+
+    private ulong GetLayer(int z) => z switch
+    {
+        0 => _layer0,
+        1 => _layer1,
+        2 => _layer2,
+        3 => _layer3,
+        4 => _layer4,
+        5 => _layer5,
+        6 => _layer6,
+        7 => _layer7,
+        _ => 0,
+    };
+
+    private void CopyLayersTo(Span<ulong> layers)
+    {
+        layers[0] = _layer0;
+        layers[1] = _layer1;
+        layers[2] = _layer2;
+        layers[3] = _layer3;
+        layers[4] = _layer4;
+        layers[5] = _layer5;
+        layers[6] = _layer6;
+        layers[7] = _layer7;
+    }
+
+    private static MicroblockMask FromLayers(ReadOnlySpan<ulong> layers) => new(
+        layers[0],
+        layers[1],
+        layers[2],
+        layers[3],
+        layers[4],
+        layers[5],
+        layers[6],
+        layers[7]);
+}

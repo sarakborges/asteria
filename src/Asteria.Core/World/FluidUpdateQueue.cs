@@ -1,0 +1,584 @@
+namespace Asteria.Core.World;
+
+public readonly record struct FluidTickKey(
+    FluidRuntimeId Fluid,
+    WorldVoxelCoord Position);
+
+public sealed record FluidWorkBatch(
+    IReadOnlyList<WorldVoxelCoord> TopologyPositions,
+    IReadOnlyList<FluidTickKey> DueTicks)
+{
+    public bool IsEmpty =>
+        TopologyPositions.Count == 0 &&
+        DueTicks.Count == 0;
+
+    public IEnumerable<WorldVoxelCoord> Positions =>
+        TopologyPositions.Concat(
+            DueTicks.Select(tick => tick.Position));
+}
+
+public sealed class FluidUpdateQueue
+{
+    private static readonly IComparer<FluidTopologyKey>
+        TopologyComparer =
+            Comparer<FluidTopologyKey>.Create(
+                static (left, right) =>
+                {
+                    var comparison =
+                        left.Chunk.Y.CompareTo(
+                            right.Chunk.Y);
+                    if (comparison != 0)
+                    {
+                        return comparison;
+                    }
+
+                    comparison =
+                        left.Chunk.Z.CompareTo(
+                            right.Chunk.Z);
+                    if (comparison != 0)
+                    {
+                        return comparison;
+                    }
+
+                    comparison =
+                        left.Chunk.X.CompareTo(
+                            right.Chunk.X);
+                    if (comparison != 0)
+                    {
+                        return comparison;
+                    }
+
+                    comparison =
+                        left.Position.Y.CompareTo(
+                            right.Position.Y);
+                    if (comparison != 0)
+                    {
+                        return comparison;
+                    }
+
+                    comparison =
+                        left.Position.Z.CompareTo(
+                            right.Position.Z);
+                    return comparison != 0
+                        ? comparison
+                        : left.Position.X.CompareTo(
+                            right.Position.X);
+                });
+
+    private static readonly (int X, int Y, int Z)[] Neighborhood =
+    [
+        (0, 0, 0),
+        (0, 1, 0),
+        (0, -1, 0),
+        (1, 0, 0),
+        (-1, 0, 0),
+        (0, 0, 1),
+        (0, 0, -1),
+    ];
+
+    private static readonly IComparer<FluidTickKey> DormantComparer =
+        Comparer<FluidTickKey>.Create(
+            static (left, right) =>
+            {
+                var comparison = left.Position.Y.CompareTo(right.Position.Y);
+                if (comparison != 0) return comparison;
+
+                comparison = left.Position.Z.CompareTo(right.Position.Z);
+                if (comparison != 0) return comparison;
+
+                comparison = left.Position.X.CompareTo(right.Position.X);
+                return comparison != 0
+                    ? comparison
+                    : left.Fluid.Value.CompareTo(right.Fluid.Value);
+            });
+
+    private readonly SortedSet<FluidTopologyKey> _topology =
+        new(TopologyComparer);
+    private readonly SortedDictionary<ulong, ScheduledBucket> _scheduled = [];
+    private readonly Dictionary<FluidTickKey, ulong> _scheduledDue = [];
+    private readonly Dictionary<ChunkCoord, SortedSet<FluidTickKey>> _dormant = [];
+    // Loaded chunks outside simulation distance retain their scheduled fluid
+    // work separately from unloaded-chunk work. They are reactivated when the
+    // simulation distance graph makes the holder tickable again.
+    private readonly Dictionary<ChunkCoord, HashSet<WorldVoxelCoord>>
+        _simulationDormantTopology = [];
+    private readonly Dictionary<ChunkCoord, SortedSet<FluidTickKey>>
+        _simulationDormantTicks = [];
+
+    public FluidUpdateQueue(FluidUpdateQueueSnapshot? restore = null)
+    {
+        if (restore is null) return;
+        RequeueTopology(restore.Topology);
+        foreach (var entry in restore.Scheduled)
+            ScheduleAt(entry.Tick, entry.DueTick);
+        foreach (var key in restore.Dormant)
+            DeferUnloaded(key);
+    }
+
+    public FluidUpdateQueueSnapshot CaptureState() =>
+        new(
+            _topology.Select(entry => entry.Position)
+                .Concat(_simulationDormantTopology.Values.SelectMany(entries => entries))
+                .OrderBy(position => position.Y)
+                .ThenBy(position => position.Z)
+                .ThenBy(position => position.X),
+            _scheduledDue.Select(entry =>
+                new ScheduledFluidTick(entry.Key, entry.Value))
+                .OrderBy(entry => entry.DueTick)
+                .ThenBy(entry => entry.Tick.Position.Y)
+                .ThenBy(entry => entry.Tick.Position.Z)
+                .ThenBy(entry => entry.Tick.Position.X)
+                .ThenBy(entry => entry.Tick.Fluid.Value),
+            _dormant.Values.SelectMany(entries => entries)
+                .Concat(_simulationDormantTicks.Values.SelectMany(entries => entries))
+                .OrderBy(entry => entry.Position.Y)
+                .ThenBy(entry => entry.Position.Z)
+                .ThenBy(entry => entry.Position.X)
+                .ThenBy(entry => entry.Fluid.Value));
+
+    public int Count =>
+        _topology.Count +
+        _scheduledDue.Count +
+        _simulationDormantTopology.Values.Sum(entries => entries.Count) +
+        _simulationDormantTicks.Values.Sum(entries => entries.Count);
+
+    public int TopologyCount => _topology.Count;
+
+    public int ScheduledCount => _scheduledDue.Count;
+
+    public int DormantChunkCount => _dormant.Count;
+
+    public ulong? NextDueTick =>
+        _scheduled.Count == 0
+            ? null
+            : _scheduled.First().Key;
+
+    public bool HasReadyWork(ulong currentTick) =>
+        _topology.Count > 0 ||
+        (NextDueTick is { } due &&
+         due <= currentTick);
+
+    public void EnqueueTopology(
+        WorldVoxelCoord position)
+    {
+        if (position.Y >= 0)
+        {
+            _topology.Add(
+                FluidTopologyKey.From(position));
+        }
+    }
+
+    public void EnqueueTopologyNeighborhood(
+        WorldVoxelCoord position)
+    {
+        foreach (var offset in Neighborhood)
+        {
+            EnqueueTopology(position + offset);
+        }
+    }
+
+    public void ScheduleAt(
+        FluidTickKey key,
+        ulong dueTick)
+    {
+        if (key.Fluid.IsNone ||
+            key.Position.Y < 0)
+        {
+            return;
+        }
+
+        if (_scheduledDue.TryGetValue(
+                key,
+                out var existing) &&
+            existing <= dueTick)
+        {
+            return;
+        }
+
+        _scheduledDue[key] = dueTick;
+
+        if (!_scheduled.TryGetValue(
+                dueTick,
+                out var bucket))
+        {
+            bucket = new ScheduledBucket();
+            _scheduled.Add(dueTick, bucket);
+        }
+
+        bucket.Push(key);
+    }
+
+    public void ScheduleNeighborhood(
+        FluidRuntimeId fluid,
+        WorldVoxelCoord position,
+        ulong dueTick)
+    {
+        ScheduleAt(
+            new FluidTickKey(fluid, position),
+            dueTick);
+        ScheduleAt(
+            new FluidTickKey(
+                fluid,
+                position + (0, -1, 0)),
+            dueTick);
+
+        foreach (var offset in Neighborhood.AsSpan(3))
+        {
+            ScheduleAt(
+                new FluidTickKey(
+                    fluid,
+                    position + offset),
+                dueTick);
+        }
+    }
+
+    public FluidWorkBatch DrainReady(
+        ulong currentTick,
+        int maximumItems)
+    {
+        if (maximumItems <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumItems));
+        }
+
+        var dueReady =
+            NextDueTick is { } next &&
+            next <= currentTick;
+
+        var topologyBudget =
+            dueReady
+                ? Math.Min(
+                    _topology.Count,
+                    Math.Max(1, maximumItems / 2))
+                : Math.Min(
+                    _topology.Count,
+                    maximumItems);
+
+        var topology =
+            new List<WorldVoxelCoord>(
+                topologyBudget);
+
+        while (topology.Count < topologyBudget &&
+               _topology.Count > 0)
+        {
+            var first =
+                _topology.Min;
+
+            if (!_topology.Remove(first))
+            {
+                throw new InvalidOperationException(
+                    "Fluid topology queue minimum must be removable.");
+            }
+
+            topology.Add(
+                first.Position);
+        }
+
+        var remaining =
+            maximumItems - topology.Count;
+        var due = new List<FluidTickKey>(
+            remaining);
+
+        while (remaining > 0 &&
+               _scheduled.Count > 0)
+        {
+            var first =
+                _scheduled.First();
+
+            if (first.Key > currentTick)
+            {
+                break;
+            }
+
+            var key =
+                first.Value.Pop();
+
+            if (first.Value.IsEmpty)
+            {
+                _scheduled.Remove(first.Key);
+            }
+
+            if (key is null)
+            {
+                continue;
+            }
+
+            if (!_scheduledDue.TryGetValue(
+                    key.Value,
+                    out var authoritativeDue) ||
+                authoritativeDue != first.Key)
+            {
+                continue;
+            }
+
+            _scheduledDue.Remove(key.Value);
+            due.Add(key.Value);
+            remaining--;
+        }
+
+        return new FluidWorkBatch(
+            topology,
+            due);
+    }
+
+    public void RequeueTopology(
+        IEnumerable<WorldVoxelCoord> positions)
+    {
+        ArgumentNullException.ThrowIfNull(positions);
+
+        foreach (var position in positions)
+        {
+            EnqueueTopology(position);
+        }
+    }
+
+    public void RequeueDue(
+        IEnumerable<FluidTickKey> ticks,
+        ulong dueTick)
+    {
+        ArgumentNullException.ThrowIfNull(ticks);
+
+        foreach (var tick in ticks)
+        {
+            ScheduleAt(tick, dueTick);
+        }
+    }
+
+    public void DeferSimulationTopology(WorldVoxelCoord position)
+    {
+        if (position.Y < 0)
+            return;
+
+        var coord = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z).Chunk;
+        if (!_simulationDormantTopology.TryGetValue(coord, out var positions))
+        {
+            positions = [];
+            _simulationDormantTopology.Add(coord, positions);
+        }
+
+        positions.Add(position);
+    }
+
+    public void DeferSimulation(FluidTickKey tick)
+    {
+        if (tick.Fluid.IsNone || tick.Position.Y < 0)
+            return;
+
+        var coord = VoxelCoordinates.FromWorld(
+            tick.Position.X, tick.Position.Y, tick.Position.Z).Chunk;
+        if (!_simulationDormantTicks.TryGetValue(coord, out var ticks))
+        {
+            ticks = new SortedSet<FluidTickKey>(DormantComparer);
+            _simulationDormantTicks.Add(coord, ticks);
+        }
+
+        ticks.Add(tick);
+    }
+
+    /// <summary>
+    /// Re-activates dormant work only when its resident holder is admitted to
+    /// the block-ticking graph. Unready chunks never keep the ready queue busy.
+    /// </summary>
+    public int ReactivateSimulationWork(
+        Func<ChunkCoord, bool> isBlockTicking,
+        ulong currentTick,
+        int maximumItems)
+    {
+        ArgumentNullException.ThrowIfNull(isBlockTicking);
+        if (maximumItems <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumItems));
+
+        var reactivated = 0;
+        foreach (var coord in _simulationDormantTopology.Keys
+                     .OrderBy(coord => coord.Y)
+                     .ThenBy(coord => coord.Z)
+                     .ThenBy(coord => coord.X)
+                     .ToArray())
+        {
+            if (reactivated >= maximumItems ||
+                !isBlockTicking(coord) ||
+                !_simulationDormantTopology.TryGetValue(coord, out var positions))
+                continue;
+
+            foreach (var position in positions
+                         .OrderBy(position => position.Y)
+                         .ThenBy(position => position.Z)
+                         .ThenBy(position => position.X)
+                         .Take(maximumItems - reactivated)
+                         .ToArray())
+            {
+                positions.Remove(position);
+                EnqueueTopology(position);
+                reactivated++;
+            }
+
+            if (positions.Count == 0)
+                _simulationDormantTopology.Remove(coord);
+        }
+
+        foreach (var coord in _simulationDormantTicks.Keys
+                     .OrderBy(coord => coord.Y)
+                     .ThenBy(coord => coord.Z)
+                     .ThenBy(coord => coord.X)
+                     .ToArray())
+        {
+            if (reactivated >= maximumItems ||
+                !isBlockTicking(coord) ||
+                !_simulationDormantTicks.TryGetValue(coord, out var ticks))
+                continue;
+
+            foreach (var tick in ticks
+                         .Take(maximumItems - reactivated)
+                         .ToArray())
+            {
+                ticks.Remove(tick);
+                ScheduleAt(tick, currentTick);
+                reactivated++;
+            }
+
+            if (ticks.Count == 0)
+                _simulationDormantTicks.Remove(coord);
+        }
+
+        return reactivated;
+    }
+
+    public void DeferUnloaded(
+        FluidTickKey tick)
+    {
+        var coord =
+            VoxelCoordinates.FromWorld(
+                tick.Position.X,
+                tick.Position.Y,
+                tick.Position.Z).Chunk;
+
+        if (!_dormant.TryGetValue(
+                coord,
+                out var ticks))
+        {
+            ticks = new SortedSet<FluidTickKey>(DormantComparer);
+            _dormant.Add(coord, ticks);
+        }
+
+        ticks.Add(tick);
+    }
+
+    public int ReactivateLoadedChunk(
+        ChunkCoord coord,
+        ulong currentTick,
+        int maximumItems,
+        out bool complete)
+    {
+        if (maximumItems <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumItems));
+        }
+
+        if (!_dormant.TryGetValue(coord, out var ticks))
+        {
+            complete = true;
+            return 0;
+        }
+
+        var processed = 0;
+        while (processed < maximumItems && ticks.Count > 0)
+        {
+            var tick = ticks.Min;
+            ticks.Remove(tick);
+            ScheduleAt(tick, currentTick);
+            processed++;
+        }
+
+        if (ticks.Count == 0)
+        {
+            _dormant.Remove(coord);
+            complete = true;
+        }
+        else
+        {
+            complete = false;
+        }
+
+        return processed;
+    }
+
+    private readonly record struct FluidTopologyKey(
+        ChunkCoord Chunk,
+        WorldVoxelCoord Position)
+    {
+        public static FluidTopologyKey From(
+            WorldVoxelCoord position) =>
+            new(
+                VoxelCoordinates.FromWorld(
+                    position.X,
+                    position.Y,
+                    position.Z).Chunk,
+                position);
+    }
+
+    private sealed class ScheduledBucket
+    {
+        private readonly Dictionary<ChunkCoord, Queue<FluidTickKey>>
+            _byChunk = [];
+        private readonly DeduplicatedQueue<ChunkCoord>
+            _activeChunks = new();
+
+        public bool IsEmpty =>
+            _activeChunks.Count == 0;
+
+        public void Push(FluidTickKey key)
+        {
+            var coord =
+                VoxelCoordinates.FromWorld(
+                    key.Position.X,
+                    key.Position.Y,
+                    key.Position.Z).Chunk;
+
+            if (!_byChunk.TryGetValue(
+                    coord,
+                    out var queue))
+            {
+                queue = new Queue<FluidTickKey>();
+                _byChunk.Add(coord, queue);
+            }
+
+            queue.Enqueue(key);
+
+            _activeChunks.Enqueue(coord);
+        }
+
+        public FluidTickKey? Pop()
+        {
+            while (_activeChunks.TryDequeue(
+                       out var coord))
+            {
+
+                if (!_byChunk.TryGetValue(
+                        coord,
+                        out var queue) ||
+                    queue.Count == 0)
+                {
+                    _byChunk.Remove(coord);
+                    continue;
+                }
+
+                var key = queue.Dequeue();
+
+                if (queue.Count > 0)
+                {
+                    _activeChunks.Enqueue(coord);
+                }
+                else
+                {
+                    _byChunk.Remove(coord);
+                }
+
+                return key;
+            }
+
+            return null;
+        }
+    }
+}

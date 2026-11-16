@@ -1,0 +1,142 @@
+{
+  "id": "asteria:overworld/wasteland",
+  "surfaceLayout": {
+    "weight": 1.3,
+    "spawnWeight": 1,
+    "regionSize": {
+      "min": 224,
+      "max": 448
+    },
+    "cannotBorder": [
+      "asteria:overworld/arctic"
+    ]
+  },
+  "surfaceTerrain": {
+    "type": "rolling",
+    "baseHeight": 4,
+    "amplitude": 3,
+    "scale": 0.012,
+    "detailAmplitude": 1,
+    "detailScale": 0.045
+  },
+  "tints": {
+    "grass": "8C4F2E",
+    "leaf": "8C4F2E",
+    "foliage": "8C4F2E"
+  },
+  "decorations": [
+    {
+      "object": "asteria:pebble",
+      "chance": 0.0216,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "cluster": {
+        "scale": 14,
+        "threshold": -0.24,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "habitatWeights": {
+        "barren_flats": 0.42,
+        "deadwood_pockets": 0.33,
+        "rocky_scrub": 2.15
+      }
+    },
+    {
+      "object": "asteria:stick",
+      "chance": 0.0102,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.14,
+        "octaves": 4,
+        "transitionWidth": 0.11
+      },
+      "habitatWeights": {
+        "barren_flats": 0.2,
+        "deadwood_pockets": 2,
+        "rocky_scrub": 0.15
+      }
+    },
+    {
+      "block": "asteria:lichen_dry",
+      "chance": 0.0162,
+      "surfaceBlocks": [
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "cluster": {
+        "scale": 27,
+        "threshold": -0.17,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 116,
+        "maxSlope": 4
+      },
+      "habitatWeights": {
+        "barren_flats": 0.15,
+        "deadwood_pockets": 0.31,
+        "rocky_scrub": 1.9
+      }
+    }
+  ],
+  "surfaceHabitats": {
+    "scale": 142,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "barren_flats",
+        "maximum": -0.17
+      },
+      {
+        "id": "deadwood_pockets",
+        "maximum": 0.2
+      },
+      {
+        "id": "rocky_scrub",
+        "maximum": 1
+      }
+    ]
+  },
+  "geology": {
+    "baseBlock": "asteria:stone",
+    "blocks": [
+      "asteria:dirt",
+      "asteria:gravel",
+      "asteria:sandstone"
+    ],
+    "scale": 66,
+    "verticalScale": 43,
+    "detailScale": 15,
+    "selectionScale": 50,
+    "coverage": 0.58,
+    "roughness": 0.3,
+    "weights": {
+      "asteria:dirt": 2,
+      "asteria:gravel": 4,
+      "asteria:sandstone": 1
+    },
+    "surfaceCoverDepth": 2
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:dirt",
+        "depth": 2
+      },
+      {
+        "block": "asteria:stone"
+      }
+    ]
+  }
+}

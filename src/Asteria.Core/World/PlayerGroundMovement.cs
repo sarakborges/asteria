@@ -1,0 +1,120 @@
+namespace Asteria.Core.World;
+
+/// <summary>
+/// Pure transient input/posture state for native player movement. Running
+/// uses the same 12-world-tick double-forward window as MineClone. It owns
+/// neither collision geometry nor player inventory/session persistence.
+/// </summary>
+public sealed class PlayerGroundMovement
+{
+    public const ulong RunDoubleTapWindowTicks = 12;
+    public const float RunSpeedMultiplier = 1.5f;
+    public const float CrouchSpeedMultiplier = 0.3f;
+
+    private bool _forwardHeld;
+    private ulong? _runDeadlineTick;
+    private bool _groundJumpPending;
+
+    public bool IsRunning { get; private set; }
+    public bool IsCrouching { get; private set; }
+
+    public void ForwardChanged(bool pressed, ulong currentWorldTick)
+    {
+        // A release stops an active run without clearing an unfinished
+        // double-tap window (a tap necessarily contains a release).
+        if (!pressed)
+        {
+            _forwardHeld = false;
+            IsRunning = false;
+            return;
+        }
+
+        if (_forwardHeld) return;
+        _forwardHeld = true;
+
+        if (IsCrouching)
+        {
+            CancelRunning();
+            return;
+        }
+
+        if (_runDeadlineTick is { } deadline &&
+            currentWorldTick <= deadline)
+        {
+            IsRunning = true;
+            _runDeadlineTick = null;
+            return;
+        }
+
+        IsRunning = false;
+        _runDeadlineTick =
+            ulong.MaxValue - currentWorldTick < RunDoubleTapWindowTicks
+                ? ulong.MaxValue
+                : currentWorldTick + RunDoubleTapWindowTicks;
+    }
+
+    /// <summary>
+    /// Physical clearance comes from Godot's actual collision shapes.
+    /// Crouching wins over running; standing is forbidden under a low roof.
+    /// </summary>
+    public bool UpdateCrouch(bool requested, bool hasStandingClearance)
+    {
+        var before = IsCrouching;
+        if (requested)
+        {
+            IsCrouching = true;
+            CancelRunning();
+        }
+        else if (hasStandingClearance)
+        {
+            IsCrouching = false;
+        }
+
+        return before != IsCrouching;
+    }
+
+    public float SpeedMultiplier(bool flying, bool immersed)
+    {
+        // Swim speed is definition-owned and creative/spectator flight
+        // retains its own movement response.
+        if (flying || immersed) return 1f;
+        return IsCrouching ? CrouchSpeedMultiplier :
+            IsRunning ? RunSpeedMultiplier : 1f;
+    }
+
+    /// <summary>
+    /// A physical jump press is eligible on at most one physics step.
+    /// Godot handles key repeat and flight double-tap; held keys never re-jump.
+    /// </summary>
+    public void QueueGroundJump() => _groundJumpPending = true;
+
+    public bool ConsumeGroundJump()
+    {
+        var pending = _groundJumpPending;
+        _groundJumpPending = false;
+        return pending;
+    }
+
+    public void CancelRunning()
+    {
+        IsRunning = false;
+        _runDeadlineTick = null;
+    }
+
+    /// <summary>
+    /// Releasing capture/buttons cancels a run, but must not artificially
+    /// stand up under a low ceiling. Posture changes require physics clearance.
+    /// </summary>
+    public void ReleaseInput()
+    {
+        _forwardHeld = false;
+        _groundJumpPending = false;
+        CancelRunning();
+    }
+
+    public void Reset()
+    {
+        ReleaseInput();
+        IsCrouching = false;
+    }
+}

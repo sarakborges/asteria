@@ -1,0 +1,24 @@
+{
+  "id": "asteria:portal_frame",
+  "category": "blocks_crafted",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/portal_frame/top.png",
+    "bottom": "textures/blocks/portal_frame/top.png",
+    "left": "textures/blocks/portal_frame/side.png",
+    "right": "textures/blocks/portal_frame/side.png",
+    "front": "textures/blocks/portal_frame/side.png",
+    "back": "textures/blocks/portal_frame/side.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 3,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "776b89"
+}

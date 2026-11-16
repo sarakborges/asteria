@@ -1,0 +1,24 @@
+{
+  "id": "asteria:coral_blue",
+  "category": "foliage",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/coral_blue.png",
+    "bottom": "textures/blocks/coral_blue.png",
+    "left": "textures/blocks/coral_blue.png",
+    "right": "textures/blocks/coral_blue.png",
+    "front": "textures/blocks/coral_blue.png",
+    "back": "textures/blocks/coral_blue.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.8,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "41a8b7"
+}

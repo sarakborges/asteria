@@ -1,0 +1,29 @@
+{
+  "name": "asteria-webui",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && npm run check:localization && vite build && node scripts/write-source-manifest.mjs",
+    "preview": "vite preview",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "npm run check:localization && storybook build",
+    "test:screen-parity": "playwright test",
+    "check:localization": "node scripts/check-localizations.mjs"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@fontsource-variable/winky-rough": "5.3.0",
+    "@playwright/test": "1.56.1",
+    "@storybook/react-vite": "10.6.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "storybook": "10.6.1",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0"
+  }
+}

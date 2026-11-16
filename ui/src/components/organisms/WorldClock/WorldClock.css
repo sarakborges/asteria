@@ -1,0 +1,11 @@
+.world-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-detail);
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 0 1px 5px var(--ui-color-shadow);
+  pointer-events: none;
+}

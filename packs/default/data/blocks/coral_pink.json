@@ -1,0 +1,24 @@
+{
+  "id": "asteria:coral_pink",
+  "category": "foliage",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/coral_pink.png",
+    "bottom": "textures/blocks/coral_pink.png",
+    "left": "textures/blocks/coral_pink.png",
+    "right": "textures/blocks/coral_pink.png",
+    "front": "textures/blocks/coral_pink.png",
+    "back": "textures/blocks/coral_pink.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.8,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "c66791"
+}

@@ -1,0 +1,4506 @@
+namespace Asteria.Core.World;
+
+/// <summary>
+/// Deterministic generated surface-structure placement. This owner decides
+/// logical placements only; SurfaceChunkMaterializer remains the single
+/// procedural voxel writer.
+/// </summary>
+public readonly record struct SurfaceStructureQueryResult(
+    string Reference,
+    int PlacementAnchorX,
+    int PlacementAnchorZ,
+    string StructureId,
+    int AnchorX,
+    int AnchorY,
+    int AnchorZ,
+    StructureRotation Rotation,
+    int MinimumX,
+    int MaximumX,
+    int MinimumY,
+    int MaximumY,
+    int MinimumZ,
+    int MaximumZ);
+
+/// <summary>Complete field-approved manual expansion and its one reservation.</summary>
+internal sealed record ManualStructurePlacementPlan(
+    IReadOnlyList<SurfaceStructurePlacement> Pieces,
+    ManualStructurePlacementFootprint Footprint);
+
+public sealed class SurfaceStructureField
+{
+    private const int PlacementCacheCapacity = 128;
+    private const int CandidateCacheCapacity = 8192;
+    private const int MarginSampleDivisions = 16;
+    private const int MaximumManualPayloadCount = 4096;
+    private const int MaximumManualHorizontalSpan = 64;
+
+    private readonly ulong _seed;
+    private readonly BiomeField _biomes;
+    private readonly SurfaceTerrainField _terrain;
+    private readonly BiomeSurfaceMaterialField _materials;
+    private readonly GeneratedFluidField _generatedFluids;
+    private readonly ConnectorGraph _connectors;
+    private readonly StructureRegistry _structures;
+    private readonly StructureSetRegistry _structureSets;
+    private readonly BlockRegistry _blocks;
+    private readonly FluidRegistry _fluids;
+    private readonly SurfaceHabitatField _habitats;
+    private readonly RootRule[] _rules;
+    private readonly int _seaLevel;
+    private readonly int? _floorY;
+    private readonly int? _roofY;
+    private readonly BoundedMemoCache<
+        StructureChunkKey,
+        IReadOnlyList<SurfaceStructurePlacement>>
+        _placements =
+            new(
+                PlacementCacheCapacity);
+    private readonly BoundedMemoCache<
+        StructureCandidateKey,
+        StructureCandidate?> _candidates =
+            new(
+                CandidateCacheCapacity);
+    private readonly BoundedMemoCache<
+        StructureCandidateKey,
+        bool> _candidateAcceptance =
+            new(
+                CandidateCacheCapacity);
+
+    private readonly BoundedMemoCache<
+        (int X, int Z),
+        SurfaceSample> _surfaceSamples =
+            new(8192);
+
+    private readonly BoundedMemoCache<
+        (int X, int Z),
+        BiomeSample> _surfaceBiomes =
+            new(8192);
+
+    // A sampler belongs to the synchronous placement query on the current
+    // worker thread. It is installed only while resolving an uncached chunk
+    // and cleared afterward, so parallel chunk generation never shares it.
+    private readonly ThreadLocal<BiomeField.Sampler?> _activeBiomeSampler =
+        new();
+
+    public SurfaceStructureField(
+        ulong seed,
+        DimensionDefinition dimension,
+        StructureRegistry structures,
+        StructureSetRegistry structureSets,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        BiomeField biomes,
+        SurfaceTerrainField terrain,
+        BiomeSurfaceMaterialField materials,
+        GeneratedFluidField generatedFluids,
+        SurfaceHabitatField? habitats = null,
+        bool spawnStructures = true)
+    {
+        ArgumentNullException.ThrowIfNull(
+            dimension);
+        ArgumentNullException.ThrowIfNull(
+            structures);
+        ArgumentNullException.ThrowIfNull(
+            structureSets);
+        ArgumentNullException.ThrowIfNull(
+            blocks);
+        ArgumentNullException.ThrowIfNull(
+            fluids);
+        _biomes =
+            biomes ??
+            throw new ArgumentNullException(
+                nameof(biomes));
+        _terrain =
+            terrain ??
+            throw new ArgumentNullException(
+                nameof(terrain));
+        _materials =
+            materials ??
+            throw new ArgumentNullException(
+                nameof(materials));
+        _generatedFluids =
+            generatedFluids ??
+            throw new ArgumentNullException(
+                nameof(generatedFluids));
+
+        _structures = structures;
+        _structureSets = structureSets;
+        _blocks = blocks;
+        _fluids = fluids;
+        _seed = seed;
+        _habitats = habitats ?? new SurfaceHabitatField(
+            seed, Array.Empty<BiomeDefinition>());
+        foreach (var rule in dimension.GeneratedSurfaceStructures)
+            _habitats.Validate(rule.Biome, rule.HabitatWeights);
+        _seaLevel =
+            dimension.SeaLevel;
+        _floorY =
+            dimension.Shell?.FloorY;
+        _roofY =
+            dimension.Shell?.RoofY;
+        _connectors =
+            new ConnectorGraph(
+                structures,
+                blocks,
+                fluids);
+
+        _rules =
+            (spawnStructures
+                ? dimension.GeneratedSurfaceStructures
+                : Array.Empty<DimensionGeneratedSurfaceStructureDefinition>())
+                .OrderBy(
+                    generated =>
+                        generated.Biome,
+                    StringComparer.Ordinal)
+                .ThenBy(
+                    generated =>
+                        generated.Structure,
+                    StringComparer.Ordinal)
+                .Select(
+                    generated =>
+                        RootRule.Create(
+                            generated,
+                            structures,
+                            structureSets,
+                            blocks,
+                            fluids,
+                            _connectors))
+                .ToArray();
+    }
+
+    public bool HasRules =>
+        _rules.Length > 0;
+
+    /// <summary>
+    /// Resolves manual root, connector graph and StructureSet using the
+    /// authored worldgen expansion algorithms and conflict owner.
+    /// No voxel is modified by this query.
+    /// </summary>
+    internal bool TryPrepareManualPlacement(
+        string reference, int? variation, int anchorX, int anchorZ,
+        ManualStructurePlacementLedger committed,
+        out ManualStructurePlacementPlan? plan)
+    {
+        ArgumentNullException.ThrowIfNull(committed);
+        plan = null;
+        var biome = SurfaceBiomeAt(anchorX, anchorZ).Primary;
+        var members = Array.Empty<RuntimeStructure>();
+        RuntimeStructureSet? set = null;
+        if (_structureSets.TryGet(reference, out var setDefinition))
+        {
+            if (variation is not null) return false;
+            // A manual operation is bounded before any set element loop.
+            // Compound definitions with excessive maximum counts must not
+            // schedule unbounded retries or build unbounded candidate lists.
+            if (setDefinition.Elements.Sum(element =>
+                    (long)element.Count.Max) > MaximumManualPayloadCount)
+                return false;
+            set = new RuntimeStructureSet(
+                setDefinition, _structures, _blocks, _fluids, biome, _connectors);
+        }
+        else
+        {
+            if (!_structures.ResolvesReference(reference)) return false;
+            var definitions = _structures.ResolveReference(reference);
+            var index = (variation ?? 1) - 1;
+            if (index < 0 || index >= definitions.Count) return false;
+            members =
+            [
+                new RuntimeStructure(definitions[index], _blocks, _fluids),
+            ];
+        }
+
+        // The manual anchor replaces a procedural grid candidate. All child
+        // placement and connector rules remain authored/worldgen owned.
+        var rule = new RootRule(
+            biome, reference, spacing: 1, chance: 1f, jitter: 0,
+            placement: DimensionGeneratedSurfaceStructurePlacement.BiomeInterior,
+            habitatWeights: null, members: members, set: set,
+            maximumHorizontalRadius: set?.MaximumHorizontalRadius ??
+                _connectors.MaximumHorizontalRadiusForReference(reference));
+
+        IReadOnlyList<SurfaceStructurePlacement> pieces;
+        if (set is not null)
+        {
+            var candidate = ResolveSetCandidate(
+                -1, rule, anchorX, anchorZ, anchorX, anchorZ);
+            if (candidate is null) return false;
+            pieces = candidate.Placements;
+        }
+        else
+        {
+            var member = members[0];
+            if (!TryResolvePlacement(
+                    member, reference, biome, anchorX, anchorZ,
+                    StructureRotation.Degrees0, out var root))
+                return false;
+            pieces = ExpandConnectors(
+                rule, [root], MaximumManualPayloadCount);
+        }
+
+        return TryFinalizeExplicitPlacement(reference, anchorX, anchorZ,
+            pieces, committed, out plan);
+    }
+
+    /// <summary>
+    /// Prepare an authored Structure at the exact X/Y/Z entry of a portal.
+    /// Unlike world-generated placement, the root is deliberately not
+    /// surface-fitted: its authored clear/floor payload owns safe arrival.
+    /// Connector expansion, conflicts and bounds use the existing field.
+    /// </summary>
+    internal bool TryPrepareExactPlacement(
+        string reference, int anchorX, int anchorY, int anchorZ,
+        ManualStructurePlacementLedger committed,
+        out ManualStructurePlacementPlan? plan)
+    {
+        plan = null;
+        ArgumentNullException.ThrowIfNull(committed);
+        if (anchorY < 1 || !_structures.ResolvesReference(reference))
+            return false;
+        var definitions = _structures.ResolveReference(reference);
+        // An exact arrival must resolve one unambiguous root; a Structure
+        // can still expand its normal authored connector graph.
+        if (definitions.Count != 1)
+            return false;
+        var biome = SurfaceBiomeAt(anchorX, anchorZ).Primary;
+        var member = new RuntimeStructure(definitions[0], _blocks, _fluids);
+        var root = member.Place(reference, anchorX, anchorY, anchorZ,
+            StructureRotation.Degrees0);
+        var rule = new RootRule(
+            biome, reference, spacing: 1, chance: 1f, jitter: 0,
+            placement: DimensionGeneratedSurfaceStructurePlacement.BiomeInterior,
+            habitatWeights: null, members: [member], set: null,
+            maximumHorizontalRadius:
+                _connectors.MaximumHorizontalRadiusForReference(reference));
+        var pieces = ExpandConnectors(rule, [root], MaximumManualPayloadCount);
+        // A surface-bound connector is a required completed route, not a
+        // best-effort dead end when strength, budget or child fit runs out.
+        if (definitions[0].Connectors.Any(connector => connector.StopAtSurface) &&
+            !pieces.Any(piece =>
+                _structures.Get(piece.StructureId).Connectors.Any(connector =>
+                    HasReachedSurface(piece, connector))))
+            return false;
+        if (pieces.Any(piece => piece.MinimumY < 0 ||
+            (_floorY is { } floorY && piece.MinimumY <= floorY) ||
+            (_roofY is { } roofY && piece.MaximumY >= roofY)))
+            return false;
+        return TryFinalizeExplicitPlacement(reference, anchorX, anchorZ,
+            pieces, committed, out plan);
+    }
+
+    private bool TryFinalizeExplicitPlacement(
+        string reference, int anchorX, int anchorZ,
+        IReadOnlyList<SurfaceStructurePlacement> pieces,
+        ManualStructurePlacementLedger committed,
+        out ManualStructurePlacementPlan? plan)
+    {
+        plan = null;
+        if (pieces.Count == 0) return false;
+        var minX = pieces.Min(piece => piece.MinimumX);
+        var maxX = pieces.Max(piece => piece.MaximumX);
+        var minY = pieces.Min(piece => piece.MinimumY);
+        var maxY = pieces.Max(piece => piece.MaximumY);
+        var minZ = pieces.Min(piece => piece.MinimumZ);
+        var maxZ = pieces.Max(piece => piece.MaximumZ);
+        if ((long)maxX - minX > MaximumManualHorizontalSpan ||
+            (long)maxZ - minZ > MaximumManualHorizontalSpan ||
+            (long)maxX - minX + 1 > int.MaxValue ||
+            (long)maxZ - minZ + 1 > int.MaxValue)
+            return false;
+
+        var count = 0;
+        foreach (var piece in pieces)
+        {
+            foreach (var _ in piece.PayloadPositions())
+            {
+                if (++count > MaximumManualPayloadCount) return false;
+            }
+        }
+
+        // The generated field remains the exclusive logical conflict owner,
+        // including reserveSpace and candidate acceptance/precedence.
+        if (PlacementsIntersecting(
+                minX, minZ, maxX - minX + 1, maxZ - minZ + 1)
+            .Any(existing => existing.MinimumY <= maxY &&
+                             existing.MaximumY >= minY))
+            return false;
+
+        var footprint = new ManualStructurePlacementFootprint(
+            reference, anchorX, anchorZ,
+            minX, maxX, minY, maxY, minZ, maxZ);
+        if (committed.Overlaps(footprint))
+            return false;
+
+        plan = new ManualStructurePlacementPlan(pieces, footprint);
+        return true;
+    }
+
+    public bool HasReference(
+        string reference)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(
+            reference);
+
+        return _rules.Any(rule =>
+            string.Equals(
+                rule.Reference,
+                reference,
+                StringComparison.Ordinal));
+    }
+
+    public IReadOnlyList<SurfaceStructureQueryResult>
+        PlacementsIntersecting(
+            int originX,
+            int originZ,
+            int width,
+            int depth)
+    {
+        if (width <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(width),
+                "Structure query width must be positive.");
+        }
+
+        if (depth <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(depth),
+                "Structure query depth must be positive.");
+        }
+
+        var maximumX =
+            (long)originX +
+            width -
+            1L;
+        var maximumZ =
+            (long)originZ +
+            depth -
+            1L;
+        if (maximumX > int.MaxValue ||
+            maximumZ > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(width),
+                "Structure query area exceeds world coordinate range.");
+        }
+
+        return WithBiomeSampler(() =>
+            PlacementsIntersectingCore(
+                originX,
+                originZ,
+                (int)maximumX,
+                (int)maximumZ));
+    }
+
+    private IReadOnlyList<SurfaceStructureQueryResult>
+        PlacementsIntersectingCore(
+            int originX,
+            int originZ,
+            int maximumX,
+            int maximumZ)
+    {
+        var results =
+            new List<SurfaceStructureQueryResult>();
+        foreach (var candidate in
+                 ResolveConflicts(
+                     CollectCandidatesIntersectingBounds(
+                         originX,
+                         originZ,
+                         (int)maximumX,
+                         (int)maximumZ)))
+        {
+            foreach (var placement in
+                     candidate.Placements)
+            {
+                if (!placement.IntersectsHorizontal(
+                        originX,
+                        originZ,
+                        (int)maximumX,
+                        (int)maximumZ))
+                {
+                    continue;
+                }
+
+                results.Add(
+                    ToQueryResult(
+                        placement,
+                        candidate.PlacementAnchorX,
+                        candidate.PlacementAnchorZ));
+            }
+        }
+
+        results.Sort(
+            CompareQueryResults);
+        return Array.AsReadOnly(
+            results.ToArray());
+    }
+
+    public SurfaceStructureQueryResult?
+        FindNearest(
+            string reference,
+            int originX,
+            int originZ,
+            int maxDistance,
+            string? structureId = null,
+            CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(
+            reference);
+        if (maxDistance < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxDistance));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return WithBiomeSampler(() =>
+            FindNearestCore(
+                reference,
+                originX,
+                originZ,
+                maxDistance,
+                structureId,
+                cancellationToken));
+    }
+
+    private SurfaceStructureQueryResult?
+        FindNearestCore(
+            string reference,
+            int originX,
+            int originZ,
+            int maxDistance,
+            string? structureId,
+            CancellationToken cancellationToken)
+    {
+        StructureCandidate? best = null;
+        long bestDistanceSquared = long.MaxValue;
+        var maximumDistanceSquared =
+            (long)maxDistance * maxDistance;
+
+        for (var ruleIndex = 0;
+             ruleIndex < _rules.Length;
+             ruleIndex++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var rule = _rules[ruleIndex];
+            if (!string.Equals(
+                    rule.Reference,
+                    reference,
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var reach = (long)maxDistance;
+            var minimumCellX =
+                FloorDiv((long)originX - reach, rule.Spacing) - 1L;
+            var maximumCellX =
+                FloorDiv((long)originX + reach, rule.Spacing) + 1L;
+            var minimumCellZ =
+                FloorDiv((long)originZ - reach, rule.Spacing) - 1L;
+            var maximumCellZ =
+                FloorDiv((long)originZ + reach, rule.Spacing) + 1L;
+
+            // Search nearby cells first so most of the large search area
+            // can be eliminated before any expensive terrain/biome/structure
+            // candidate generation. This changes traversal order only.
+            var centerCellX =
+                FloorDiv(originX, rule.Spacing);
+            var centerCellZ =
+                FloorDiv(originZ, rule.Spacing);
+
+            void Consider(long cellX, long cellZ)
+            {
+                if (cellX is < int.MinValue or > int.MaxValue ||
+                    cellZ is < int.MinValue or > int.MaxValue ||
+                    !CellCanBeatNearest(
+                        rule,
+                        cellX,
+                        cellZ,
+                        originX,
+                        originZ,
+                        maxDistance,
+                        best is null
+                            ? maximumDistanceSquared
+                            : bestDistanceSquared))
+                {
+                    return;
+                }
+
+                var candidate = ResolveCandidate(
+                    ruleIndex,
+                    rule,
+                    (int)cellX,
+                    (int)cellZ);
+                if (candidate is null)
+                {
+                    return;
+                }
+
+                var dx =
+                    (long)candidate.PlacementAnchorX - originX;
+                var dz =
+                    (long)candidate.PlacementAnchorZ - originZ;
+                // Reject out-of-radius coordinates before squaring: a
+                // difference between two int world coordinates can be
+                // larger than int.MaxValue.
+                if (Math.Abs(dx) > maxDistance ||
+                    Math.Abs(dz) > maxDistance)
+                {
+                    return;
+                }
+
+                var distanceSquared = dx * dx + dz * dz;
+                if (distanceSquared > maximumDistanceSquared ||
+                    (best is not null &&
+                     distanceSquared > bestDistanceSquared) ||
+                    (structureId is not null &&
+                     !candidate.Placements.Any(placement =>
+                         string.Equals(placement.StructureId, structureId,
+                             StringComparison.Ordinal))) ||
+                    !CandidateIsAccepted(candidate))
+                {
+                    return;
+                }
+
+                if (best is null ||
+                    distanceSquared < bestDistanceSquared ||
+                    (distanceSquared == bestDistanceSquared &&
+                     CompareCandidates(candidate, best) < 0))
+                {
+                    best = candidate;
+                    bestDistanceSquared = distanceSquared;
+                }
+            }
+
+            for (var z = centerCellZ - 1L;
+                 z <= centerCellZ + 1L;
+                 z++)
+            {
+                for (var x = centerCellX - 1L;
+                     x <= centerCellX + 1L;
+                     x++)
+                {
+                    if (x >= minimumCellX && x <= maximumCellX &&
+                        z >= minimumCellZ && z <= maximumCellZ)
+                    {
+                        Consider(x, z);
+                    }
+                }
+            }
+
+            for (var cellZ = minimumCellZ;
+                 cellZ <= maximumCellZ;
+                 cellZ++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                for (var cellX = minimumCellX;
+                     cellX <= maximumCellX;
+                     cellX++)
+                {
+                    if (Math.Abs(cellX - centerCellX) <= 1L &&
+                        Math.Abs(cellZ - centerCellZ) <= 1L)
+                    {
+                        continue;
+                    }
+
+                    Consider(cellX, cellZ);
+                }
+            }
+        }
+
+        if (best is null) return null;
+        var placement = structureId is null
+            ? best.Representative
+            : best.Placements.First(piece =>
+                string.Equals(piece.StructureId, structureId,
+                    StringComparison.Ordinal));
+        return ToQueryResult(
+            placement,
+            best.PlacementAnchorX,
+            best.PlacementAnchorZ);
+    }
+
+    // Lower bound on the possible horizontal anchor distance for a
+    // placement cell. Interior anchors vary only by authored jitter;
+    // biome-margin anchors are located somewhere inside the cell.
+    // Equality must remain eligible for deterministic tie-breaking.
+    private static bool CellCanBeatNearest(
+        RootRule rule,
+        long cellX,
+        long cellZ,
+        int originX,
+        int originZ,
+        int maxDistance,
+        long bestDistanceSquared)
+    {
+        var minX = cellX * rule.Spacing;
+        var minZ = cellZ * rule.Spacing;
+        long maxX;
+        long maxZ;
+        if (rule.Placement ==
+            DimensionGeneratedSurfaceStructurePlacement.BiomeMargin)
+        {
+            maxX = minX + rule.Spacing - 1L;
+            maxZ = minZ + rule.Spacing - 1L;
+        }
+        else
+        {
+            var offset = rule.Spacing / 2L;
+            minX += offset - rule.Jitter;
+            minZ += offset - rule.Jitter;
+            maxX = cellX * rule.Spacing + offset + rule.Jitter;
+            maxZ = cellZ * rule.Spacing + offset + rule.Jitter;
+        }
+
+        var dx = DistanceToInterval(originX, minX, maxX);
+        var dz = DistanceToInterval(originZ, minZ, maxZ);
+        return dx <= maxDistance &&
+               dz <= maxDistance &&
+               dx * dx + dz * dz <= bestDistanceSquared;
+    }
+
+    private static long DistanceToInterval(
+        long point,
+        long minimum,
+        long maximum) =>
+        point < minimum
+            ? minimum - point
+            : point > maximum
+                ? point - maximum
+                : 0L;
+
+    private bool CandidateBoundsIntersect(
+        RootRule rule,
+        int cellX,
+        int cellZ,
+        int minimumX,
+        int minimumZ,
+        int maximumX,
+        int maximumZ)
+    {
+        if (rule.Chance <= 0f)
+            return false;
+
+        var anchorX = CandidateAxis(
+            cellX,
+            rule.Spacing,
+            rule.Jitter,
+            WorldGenerationEntropy.Sample2D(
+                _seed,
+                rule.JitterXDomain,
+                cellX,
+                cellZ));
+        var anchorZ = CandidateAxis(
+            cellZ,
+            rule.Spacing,
+            rule.Jitter,
+            WorldGenerationEntropy.Sample2D(
+                _seed,
+                rule.JitterZDomain,
+                cellX,
+                cellZ));
+        if (anchorX is null || anchorZ is null)
+            return false;
+
+        var radius = (long)rule.MaximumHorizontalRadius;
+        return (long)anchorX.Value + radius >= minimumX &&
+               (long)anchorX.Value - radius <= maximumX &&
+               (long)anchorZ.Value + radius >= minimumZ &&
+               (long)anchorZ.Value - radius <= maximumZ;
+    }
+
+    private bool CandidateIsAccepted(
+        StructureCandidate candidate)
+    {
+        var key = new StructureCandidateKey(
+            candidate.RuleIndex,
+            candidate.CellX,
+            candidate.CellZ);
+        if (_candidateAcceptance.TryGet(key, out var cached))
+            return cached;
+
+        var relevantConflictGroups =
+            candidate.ConflictGroups.ToHashSet(StringComparer.Ordinal);
+        return _candidateAcceptance.GetOrAdd(
+            key,
+            () =>
+                !CollectCandidatesIntersectingBounds(
+                        candidate.MinimumX,
+                        candidate.MinimumZ,
+                        candidate.MaximumX,
+                        candidate.MaximumZ,
+                        candidate.Priority,
+                        relevantConflictGroups)
+                    .Any(other =>
+                        !SameCandidate(other, candidate) &&
+                        CandidateOutranks(other, candidate) &&
+                        CandidatesConflict(other, candidate)));
+    }
+
+    private static SurfaceStructureQueryResult
+        ToQueryResult(
+            SurfaceStructurePlacement placement,
+            int placementAnchorX,
+            int placementAnchorZ) =>
+        new(
+            placement.Reference,
+            placementAnchorX,
+            placementAnchorZ,
+            placement.StructureId,
+            placement.AnchorX,
+            placement.AnchorY,
+            placement.AnchorZ,
+            placement.Rotation,
+            placement.MinimumX,
+            placement.MaximumX,
+            placement.MinimumY,
+            placement.MaximumY,
+            placement.MinimumZ,
+            placement.MaximumZ);
+
+    private static int CompareQueryResults(
+        SurfaceStructureQueryResult left,
+        SurfaceStructureQueryResult right)
+    {
+        var byReference =
+            string.CompareOrdinal(
+                left.Reference,
+                right.Reference);
+        if (byReference != 0)
+        {
+            return byReference;
+        }
+
+        var byRootX =
+            left.PlacementAnchorX.CompareTo(
+                right.PlacementAnchorX);
+        if (byRootX != 0)
+        {
+            return byRootX;
+        }
+
+        var byRootZ =
+            left.PlacementAnchorZ.CompareTo(
+                right.PlacementAnchorZ);
+        if (byRootZ != 0)
+        {
+            return byRootZ;
+        }
+
+        var byStructure =
+            string.CompareOrdinal(
+                left.StructureId,
+                right.StructureId);
+        if (byStructure != 0)
+        {
+            return byStructure;
+        }
+
+        var byX =
+            left.AnchorX.CompareTo(
+                right.AnchorX);
+        if (byX != 0)
+        {
+            return byX;
+        }
+
+        var byZ =
+            left.AnchorZ.CompareTo(
+                right.AnchorZ);
+        return byZ != 0
+            ? byZ
+            : left.AnchorY.CompareTo(
+                right.AnchorY);
+    }
+
+    internal IReadOnlyList<SurfaceStructurePlacement>
+        PlacementsForChunk(
+            int chunkX,
+            int chunkZ)
+    {
+        var key = new StructureChunkKey(chunkX, chunkZ);
+        if (_placements.TryGet(key, out var cached))
+            return cached;
+
+        return _placements.GetOrAdd(
+            key,
+            () => ResolvePlacements(chunkX, chunkZ));
+    }
+
+    public ChunkSurfaceRange ExpandSurfaceRange(
+        ChunkSurfaceRange terrainRange,
+        int chunkX,
+        int chunkZ)
+    {
+        var minimum =
+            terrainRange.MinimumWorldY;
+        var maximum =
+            terrainRange.MaximumWorldY;
+
+        foreach (var placement in
+                 PlacementsForChunk(
+                     chunkX,
+                     chunkZ))
+        {
+            minimum =
+                Math.Min(
+                    minimum,
+                    placement.MinimumY);
+            maximum =
+                Math.Max(
+                    maximum,
+                    placement.MaximumY);
+        }
+
+        return new ChunkSurfaceRange(
+            Math.Max(
+                0,
+                minimum),
+            maximum);
+    }
+
+    private IReadOnlyList<SurfaceStructurePlacement>
+        ResolvePlacements(
+            int chunkX,
+            int chunkZ)
+    {
+        if (_rules.Length == 0)
+        {
+            return Array.Empty<
+                SurfaceStructurePlacement>();
+        }
+
+        return WithBiomeSampler(() =>
+            ResolvePlacementsCore(chunkX, chunkZ));
+    }
+
+    private IReadOnlyList<SurfaceStructurePlacement>
+        ResolvePlacementsCore(
+            int chunkX,
+            int chunkZ)
+    {
+        var originX =
+            checked(
+                chunkX *
+                Chunk.Size);
+        var originZ =
+            checked(
+                chunkZ *
+                Chunk.Size);
+        var maximumX =
+            checked(
+                originX +
+                Chunk.Size -
+                1);
+        var maximumZ =
+            checked(
+                originZ +
+                Chunk.Size -
+                1);
+        var direct =
+            CollectCandidatesIntersectingBounds(
+                originX,
+                originZ,
+                maximumX,
+                maximumZ);
+        var placements =
+            ResolveConflicts(
+                    direct)
+                .SelectMany(
+                    candidate =>
+                        candidate.Placements)
+                .Where(
+                    placement =>
+                        placement.IntersectsHorizontal(
+                            originX,
+                            originZ,
+                            maximumX,
+                            maximumZ))
+                .ToArray();
+
+        Array.Sort(
+            placements,
+            SurfaceStructurePlacement
+                .CompareDeterministically);
+        return Array.AsReadOnly(
+            placements);
+    }
+
+    private List<StructureCandidate>
+        CollectCandidatesIntersectingBounds(
+            int minimumX,
+            int minimumZ,
+            int maximumX,
+            int maximumZ,
+            int? minimumPotentialPriority = null,
+            IReadOnlySet<string>? relevantConflictGroups = null)
+    {
+        var candidates =
+            new List<StructureCandidate>();
+
+        for (var ruleIndex = 0;
+             ruleIndex < _rules.Length;
+             ruleIndex++)
+        {
+            var rule =
+                _rules[ruleIndex];
+            if (minimumPotentialPriority is { } priority &&
+                rule.MaximumPriority < priority)
+            {
+                continue;
+            }
+
+            if (relevantConflictGroups is not null &&
+                !rule.MayReserveSpace &&
+                !rule.MightConflictWith(relevantConflictGroups))
+            {
+                continue;
+            }
+
+            long minimumCellX;
+            long maximumCellX;
+            long minimumCellZ;
+            long maximumCellZ;
+            if (rule.Placement ==
+                DimensionGeneratedSurfaceStructurePlacement.BiomeInterior)
+            {
+                // A biomeInterior anchor is exactly cell * spacing +
+                // spacing/2 + jitter in [-Jitter, Jitter]. Solve those
+                // inequalities directly so irrelevant cells never need a
+                // candidate lookup or structure expansion.
+                var radius = (long)rule.MaximumHorizontalRadius;
+                var halfSpacing = rule.Spacing / 2L;
+                var jitter = (long)rule.Jitter;
+                minimumCellX = CeilingDiv(
+                    (long)minimumX - radius - halfSpacing - jitter,
+                    rule.Spacing);
+                maximumCellX = FloorDiv(
+                    (long)maximumX + radius - halfSpacing + jitter,
+                    rule.Spacing);
+                minimumCellZ = CeilingDiv(
+                    (long)minimumZ - radius - halfSpacing - jitter,
+                    rule.Spacing);
+                maximumCellZ = FloorDiv(
+                    (long)maximumZ + radius - halfSpacing + jitter,
+                    rule.Spacing);
+            }
+            else
+            {
+                // biomeMargin roots may move to a discovered biome edge, so
+                // retain the conservative padded range for those placements.
+                var padding =
+                    checked(
+                        rule.MaximumHorizontalRadius +
+                        1);
+                minimumCellX =
+                    FloorDiv(
+                        (long)minimumX -
+                        padding,
+                        rule.Spacing) -
+                    1;
+                maximumCellX =
+                    FloorDiv(
+                        (long)maximumX +
+                        padding,
+                        rule.Spacing) +
+                    1;
+                minimumCellZ =
+                    FloorDiv(
+                        (long)minimumZ -
+                        padding,
+                        rule.Spacing) -
+                    1;
+                maximumCellZ =
+                    FloorDiv(
+                        (long)maximumZ +
+                        padding,
+                        rule.Spacing) +
+                    1;
+            }
+
+            for (var cellZ =
+                     minimumCellZ;
+                 cellZ <=
+                     maximumCellZ;
+                 cellZ++)
+            {
+                for (var cellX =
+                         minimumCellX;
+                     cellX <=
+                     maximumCellX;
+                     cellX++)
+                {
+                    if (cellX is <
+                            int.MinValue or
+                            > int.MaxValue ||
+                        cellZ is <
+                            int.MinValue or
+                            > int.MaxValue)
+                    {
+                        continue;
+                    }
+
+                    var candidateCellX = (int)cellX;
+                    var candidateCellZ = (int)cellZ;
+                    // Most rules are biomeInterior roots. If the root's
+                    // deterministic anchor plus the compiled maximum radius
+                    // cannot intersect this query, don't construct its full
+                    // structure payload just to reject it afterward.
+                    // biomeMargin roots are excluded because they may move
+                    // their root anchor while finding the biome boundary.
+                    if (rule.Placement ==
+                            DimensionGeneratedSurfaceStructurePlacement.BiomeInterior &&
+                        !CandidateBoundsIntersect(
+                            rule,
+                            candidateCellX,
+                            candidateCellZ,
+                            minimumX,
+                            minimumZ,
+                            maximumX,
+                            maximumZ))
+                    {
+                        continue;
+                    }
+
+                    var candidate =
+                        ResolveCandidate(
+                            ruleIndex,
+                            rule,
+                            candidateCellX,
+                            candidateCellZ);
+
+                    if (candidate is null ||
+                        !candidate.IntersectsHorizontal(
+                            minimumX,
+                            minimumZ,
+                            maximumX,
+                            maximumZ))
+                    {
+                        continue;
+                    }
+
+                    candidates.Add(
+                        candidate);
+                }
+            }
+        }
+
+        return candidates;
+    }
+
+    private IReadOnlyList<StructureCandidate>
+        ResolveConflicts(
+            IReadOnlyList<StructureCandidate> direct)
+    {
+        if (direct.Count == 0)
+        {
+            return Array.Empty<StructureCandidate>();
+        }
+
+        // Every direct candidate intersects the chunk being materialized.
+        // Their union is therefore bounded by that chunk plus the largest
+        // intersecting structure. Any candidate that can conflict with a
+        // direct candidate must intersect this union, so resolve the broad
+        // phase once rather than rescanning the root grid for every candidate.
+        var minimumX = int.MaxValue;
+        var minimumZ = int.MaxValue;
+        var maximumX = int.MinValue;
+        var maximumZ = int.MinValue;
+        foreach (var candidate in direct)
+        {
+            minimumX = Math.Min(minimumX, candidate.MinimumX);
+            minimumZ = Math.Min(minimumZ, candidate.MinimumZ);
+            maximumX = Math.Max(maximumX, candidate.MaximumX);
+            maximumZ = Math.Max(maximumZ, candidate.MaximumZ);
+        }
+
+        // Only a candidate that outranks at least one direct candidate
+        // and can share a conflict rule can remove it. Filter impossible
+        // contenders before expanding their full structures/connectors.
+        var minimumDirectPriority =
+            direct.Min(candidate => candidate.Priority);
+        var relevantConflictGroups =
+            direct.SelectMany(candidate => candidate.ConflictGroups)
+                .ToHashSet(StringComparer.Ordinal);
+        var possibleConflicts = CollectCandidatesIntersectingBounds(
+            minimumX,
+            minimumZ,
+            maximumX,
+            maximumZ,
+            minimumDirectPriority,
+            relevantConflictGroups);
+        var accepted = new List<StructureCandidate>(direct.Count);
+
+        foreach (var candidate in direct)
+        {
+            var blocked = false;
+            foreach (var other in possibleConflicts)
+            {
+                if (SameCandidate(other, candidate) ||
+                    !CandidateOutranks(other, candidate) ||
+                    !CandidatesConflict(other, candidate))
+                {
+                    continue;
+                }
+
+                blocked = true;
+                break;
+            }
+
+            if (!blocked)
+            {
+                accepted.Add(candidate);
+            }
+        }
+
+        return accepted;
+    }
+
+    private StructureCandidate?
+        ResolveCandidate(
+            int ruleIndex,
+            RootRule rule,
+            int cellX,
+            int cellZ)
+    {
+        var key = new StructureCandidateKey(ruleIndex, cellX, cellZ);
+        if (_candidates.TryGet(key, out var cached))
+            return cached;
+
+        return _candidates.GetOrAdd(
+            key,
+            () => ResolveCandidateUncached(
+                ruleIndex, rule, cellX, cellZ));
+    }
+
+    private StructureCandidate?
+        ResolveCandidateUncached(
+            int ruleIndex,
+            RootRule rule,
+            int cellX,
+            int cellZ)
+    {
+        if (rule.Chance <= 0f)
+        {
+            return null;
+        }
+
+        if (rule.HabitatWeights is null &&
+            rule.Chance < 1f &&
+            WorldGenerationEntropy.Unit(
+                WorldGenerationEntropy.Sample2D(
+                    _seed,
+                    rule.PresenceDomain,
+                    cellX,
+                    cellZ)) >=
+            rule.Chance)
+        {
+            return null;
+        }
+
+        var anchorX =
+            CandidateAxis(
+                cellX,
+                rule.Spacing,
+                rule.Jitter,
+                WorldGenerationEntropy.Sample2D(
+                    _seed,
+                    rule.JitterXDomain,
+                    cellX,
+                    cellZ));
+        var anchorZ =
+            CandidateAxis(
+                cellZ,
+                rule.Spacing,
+                rule.Jitter,
+                WorldGenerationEntropy.Sample2D(
+                    _seed,
+                    rule.JitterZDomain,
+                    cellX,
+                    cellZ));
+
+        if (anchorX is null ||
+            anchorZ is null)
+        {
+            return null;
+        }
+
+        RootAnchor? root =
+            rule.Placement switch
+            {
+                DimensionGeneratedSurfaceStructurePlacement.BiomeInterior =>
+                    string.Equals(
+                        SurfaceBiomeAt(
+                            anchorX.Value,
+                            anchorZ.Value)
+                        .Primary,
+                        rule.Biome,
+                        StringComparison.Ordinal)
+                        ? new RootAnchor(
+                            anchorX.Value,
+                            anchorZ.Value,
+                            null,
+                            null)
+                        : null,
+                DimensionGeneratedSurfaceStructurePlacement.BiomeMargin =>
+                    FindBiomeMarginAnchor(
+                        rule,
+                        cellX,
+                        cellZ,
+                        anchorX.Value,
+                        anchorZ.Value),
+                _ =>
+                    throw new InvalidOperationException(
+                        $"Unknown generated Structure placement {rule.Placement}."),
+            };
+
+        if (root is null)
+        {
+            return null;
+        }
+
+        if (rule.HabitatWeights is not null)
+        {
+            var effectiveChance = Math.Min(1d,
+                rule.Chance * _habitats.Weight(
+                    rule.Biome, rule.HabitatWeights, root.Value.X, root.Value.Z));
+            if (WorldGenerationEntropy.Unit(
+                    WorldGenerationEntropy.Sample2D(
+                        _seed, rule.PresenceDomain, cellX, cellZ)) >= effectiveChance)
+                return null;
+        }
+
+        if (rule.Set is not null)
+        {
+            return ResolveSetCandidate(
+                ruleIndex,
+                rule,
+                cellX,
+                cellZ,
+                root.Value.X,
+                root.Value.Z);
+        }
+
+        var memberHash =
+            WorldGenerationEntropy.Sample2D(
+                _seed,
+                rule.VariantDomain,
+                cellX,
+                cellZ);
+        var member =
+            rule.Members[
+                checked((int)(
+                    memberHash %
+                    (ulong)rule.Members.Length))];
+        var rotation =
+            root.Value.ForcedRotation ??
+            member.Definition
+                .RotationForHash(
+                    WorldGenerationEntropy.Sample2D(
+                        _seed,
+                        rule.RotationDomain,
+                        cellX,
+                        cellZ));
+
+        int? rootYOverride = null;
+        if (root.Value.MarginInside is
+                { } marginInside)
+        {
+            var insideSurface =
+                SurfaceAt(
+                    marginInside.X,
+                    marginInside.Z);
+            var insideFluid =
+                _generatedFluids.FluidAtEmptyVoxel(
+                    insideSurface.Biome,
+                    insideSurface.BaseY,
+                    insideSurface.SurfaceFluidCutDepth,
+                    _seaLevel);
+            if (!insideFluid.IsEmpty)
+            {
+                rootYOverride =
+                    checked(
+                        _seaLevel -
+                        member.Definition
+                            .GroundAnchorYOffset);
+            }
+        }
+
+        if (!TryResolvePlacement(
+                member,
+                rule.Reference,
+                rule.Biome,
+                root.Value.X,
+                root.Value.Z,
+                rotation,
+                out var placement,
+                rootYOverride))
+        {
+            return null;
+        }
+
+        var pieces =
+            ExpandConnectors(
+                rule,
+                [
+                    placement,
+                ]);
+        if (pieces.Count < member.Definition.Generation.MinimumPieces)
+            return null;
+
+        return CreateCandidate(
+            ruleIndex,
+            cellX,
+            cellZ,
+            root.Value.X,
+            root.Value.Z,
+            member.Definition.Priority,
+            member.Definition.Generation.ReserveSpace,
+            member.Definition.ConflictGroups,
+            pieces);
+    }
+
+    private StructureCandidate?
+        ResolveSetCandidate(
+            int ruleIndex,
+            RootRule rule,
+            int cellX,
+            int cellZ,
+            int rootX,
+            int rootZ)
+    {
+        var set =
+            rule.Set ??
+            throw new InvalidOperationException(
+                "StructureSet candidate requires a compiled set.");
+        var pieces =
+            new List<SurfaceStructurePlacement>();
+        var anchorsByElement =
+            new Dictionary<
+                string,
+                List<(int X, int Z)>>(
+                StringComparer.Ordinal);
+        var allAnchors =
+            new List<(int X, int Z)>();
+
+        for (var elementIndex = 0;
+             elementIndex < set.Elements.Length;
+             elementIndex++)
+        {
+            var element =
+                set.Elements[elementIndex];
+            var elementHash =
+                Avalanche(
+                    WorldGenerationEntropy.Sample2D(
+                        _seed,
+                        element.EntropyDomain,
+                        cellX,
+                        cellZ) ^
+                    (ulong)elementIndex *
+                    SetElementHashSalt);
+
+            if (element.Chance < 1f &&
+                UnitProbability(
+                    elementHash) >=
+                element.Chance)
+            {
+                if (element.Required &&
+                    element.Count.Min > 0)
+                {
+                    return null;
+                }
+
+                anchorsByElement.Add(
+                    element.Id,
+                    []);
+                continue;
+            }
+
+            var targetCount =
+                ChooseCount(
+                    element.Count,
+                    elementHash);
+            var placedForElement =
+                new List<(int X, int Z)>();
+
+            for (var instance = 0;
+                 instance < targetCount;
+                 instance++)
+            {
+                var instanceHash =
+                    Avalanche(
+                        elementHash ^
+                        (ulong)(instance + 1) *
+                        SetInstanceHashSalt);
+                var member =
+                    element.Members[
+                        checked((int)(
+                            instanceHash %
+                            (ulong)element.Members.Length))];
+                var rotation =
+                    member.Definition
+                        .RotationForHash(
+                            RotateLeft(
+                                instanceHash,
+                                23));
+                SurfaceStructurePlacement? placed = null;
+
+                for (var attempt = 0;
+                     attempt < element.Placement.Attempts;
+                     attempt++)
+                {
+                    var attemptHash =
+                        Avalanche(
+                            instanceHash ^
+                            (ulong)(attempt + 1) *
+                            SetAttemptHashSalt);
+                    var referenceAnchor =
+                        ResolveReferenceAnchor(
+                            element.Placement.RelativeTo,
+                            (rootX, rootZ),
+                            allAnchors,
+                            anchorsByElement,
+                            attemptHash);
+                    if (referenceAnchor is null ||
+                        !TryAnnulusOffset(
+                            RotateLeft(
+                                attemptHash,
+                                13),
+                            element.Placement.MinDistance,
+                            element.Placement.MaxDistance,
+                            out var offset))
+                    {
+                        continue;
+                    }
+
+                    var candidateX =
+                        (long)referenceAnchor.Value.X +
+                        offset.X;
+                    var candidateZ =
+                        (long)referenceAnchor.Value.Z +
+                        offset.Z;
+                    if (candidateX is < int.MinValue or > int.MaxValue ||
+                        candidateZ is < int.MinValue or > int.MaxValue)
+                    {
+                        continue;
+                    }
+
+                    var pieceAnchor =
+                        (
+                            X: (int)candidateX,
+                            Z: (int)candidateZ);
+                    if (!SeparationSatisfied(
+                            pieceAnchor,
+                            allAnchors,
+                            element.Placement.MinSeparation) ||
+                        !TryResolvePlacement(
+                            member,
+                            rule.Reference,
+                            rule.Biome,
+                            pieceAnchor.X,
+                            pieceAnchor.Z,
+                            rotation,
+                            out var candidatePlacement))
+                    {
+                        continue;
+                    }
+
+                    if (!element.Placement.AllowOverlap &&
+                        pieces.Any(existing =>
+                            RectanglesOverlap(
+                                candidatePlacement.MinimumX,
+                                candidatePlacement.MinimumZ,
+                                candidatePlacement.MaximumX,
+                                candidatePlacement.MaximumZ,
+                                existing.MinimumX,
+                                existing.MinimumZ,
+                                existing.MaximumX,
+                                existing.MaximumZ)))
+                    {
+                        continue;
+                    }
+
+                    placed =
+                        candidatePlacement;
+                    break;
+                }
+
+                if (placed is null)
+                {
+                    continue;
+                }
+
+                placedForElement.Add(
+                    (
+                        placed.AnchorX,
+                        placed.AnchorZ));
+                allAnchors.Add(
+                    (
+                        placed.AnchorX,
+                        placed.AnchorZ));
+                pieces.Add(
+                    placed);
+            }
+
+            if (element.Required &&
+                placedForElement.Count <
+                element.Count.Min)
+            {
+                return null;
+            }
+
+            anchorsByElement.Add(
+                element.Id,
+                placedForElement);
+        }
+
+        if (pieces.Count == 0)
+        {
+            return null;
+        }
+
+        var expanded =
+            ExpandConnectors(
+                rule,
+                pieces);
+
+        return CreateCandidate(
+            ruleIndex,
+            cellX,
+            cellZ,
+            rootX,
+            rootZ,
+            set.Priority,
+            set.ReserveSpace,
+            set.ConflictGroups,
+            expanded);
+    }
+
+    private IReadOnlyList<SurfaceStructurePlacement>
+        ExpandConnectors(
+            RootRule rule,
+            IReadOnlyList<SurfaceStructurePlacement> roots,
+            int maximumPayloadCount = int.MaxValue) =>
+        _connectors.Expand(
+            _seed,
+            roots,
+            (
+                member,
+                rotation,
+                originX,
+                originY,
+                originZ) =>
+            {
+                var preserveConnectorY =
+                    member.Definition.GroundAnchorY is null &&
+                    member.AllowedGroundBlocks.Count ==
+                    0;
+                return TryResolvePlacement(
+                    member,
+                    rule.Reference,
+                    rule.Biome,
+                    originX,
+                    originZ,
+                    rotation,
+                    out var placement,
+                    preserveConnectorY
+                        ? originY
+                        : null)
+                    ? placement
+                    : null;
+            },
+            HasReachedSurface,
+            maximumPayloadCount);
+
+    private bool HasReachedSurface(
+        SurfaceStructurePlacement piece,
+        StructureConnectorDefinition connector)
+    {
+        if (!connector.StopAtSurface)
+            return false;
+        var offset = StructureDefinition.RotateOffset(
+            piece.Rotation, connector.X, connector.Y, connector.Z);
+        var worldX = (long)piece.AnchorX + offset.X;
+        var worldY = (long)piece.AnchorY + offset.Y;
+        var worldZ = (long)piece.AnchorZ + offset.Z;
+        if (worldX is < int.MinValue or > int.MaxValue ||
+            worldZ is < int.MinValue or > int.MaxValue)
+            return false;
+        // The passage reaches the open surface at its actual connector
+        // mouth, not at an unrelated (possibly much taller) voxel in the
+        // same authored piece. Checking MaximumY could stop expansion
+        // underground with no climbable exit.
+        var surfaceY = SurfaceAt((int)worldX, (int)worldZ).BaseY;
+        return worldY >= (long)surfaceY + connector.SurfaceClearance;
+    }
+
+    private bool TryResolvePlacement(
+        RuntimeStructure member,
+        string reference,
+        string biome,
+        int anchorX,
+        int anchorZ,
+        StructureRotation rotation,
+        out SurfaceStructurePlacement placement,
+        int? anchorYOverride = null)
+    {
+        placement = null!;
+        var footprint =
+            member.HorizontalFootprint(
+                rotation);
+        var supportOffsets =
+            member.Definition.GroundAnchorY is not null
+                ? footprint
+                : member.SupportOffsets(
+                    rotation);
+        if (supportOffsets.Count == 0)
+        {
+            return false;
+        }
+
+        var matchingBiome =
+            0;
+        foreach (var offset in
+                 footprint)
+        {
+            var x =
+                checked(
+                    anchorX +
+                    offset.X);
+            var z =
+                checked(
+                    anchorZ +
+                    offset.Z);
+            if (string.Equals(
+                    SurfaceBiomeAt(
+                        x,
+                        z)
+                    .Primary,
+                    biome,
+                    StringComparison.Ordinal))
+            {
+                matchingBiome++;
+            }
+        }
+
+        var coverage =
+            matchingBiome /
+            (float)Math.Max(
+                1,
+                footprint.Count);
+        if (coverage +
+                1e-6f <
+            member.Definition
+                .Restrictions
+                .RequiredBiomeCoverage)
+        {
+            return false;
+        }
+
+        if (member.AllowedGroundBlocks.Count >
+            0)
+        {
+            foreach (var offset in
+                     member.SupportOffsets(
+                         rotation))
+            {
+                var x =
+                    checked(
+                        anchorX +
+                        offset.X);
+                var z =
+                    checked(
+                        anchorZ +
+                        offset.Z);
+                var surfaceBiome =
+                    SurfaceBiomeAt(
+                        x,
+                        z);
+                var groundBlock =
+                    _materials.BlockAt(
+                        surfaceBiome,
+                        x,
+                        z,
+                        0);
+
+                if (!member.AllowedGroundBlocks.Contains(
+                        groundBlock))
+                {
+                    return false;
+                }
+            }
+        }
+
+        var minimumGroundY =
+            int.MaxValue;
+        var maximumGroundY =
+            int.MinValue;
+        foreach (var offset in
+                 supportOffsets)
+        {
+            var x =
+                checked(
+                    anchorX +
+                    offset.X);
+            var z =
+                checked(
+                    anchorZ +
+                    offset.Z);
+            var surface =
+                SurfaceAt(
+                    x,
+                    z);
+
+            minimumGroundY =
+                Math.Min(
+                    minimumGroundY,
+                    surface.BaseY);
+            maximumGroundY =
+                Math.Max(
+                    maximumGroundY,
+                    surface.BaseY);
+
+            if (member.Definition
+                    .Restrictions
+                    .RequiresDryGround &&
+                IsGeneratedFluidAbove(
+                    surface))
+            {
+                return false;
+            }
+        }
+
+        var slope =
+            (long)maximumGroundY -
+            minimumGroundY;
+        if (slope <
+                member.Definition
+                    .Restrictions
+                    .MinSlope ||
+            slope >
+                member.Definition
+                    .Restrictions
+                    .MaxSlope)
+        {
+            return false;
+        }
+
+        if (member.Proximity.Any(rule =>
+                !ProximityRuleSatisfied(
+                    anchorX,
+                    anchorZ,
+                    rule)))
+        {
+            return false;
+        }
+
+        var anchorY =
+            anchorYOverride ??
+            checked(
+                minimumGroundY -
+                member.Definition
+                    .GroundAnchorYOffset);
+        placement =
+            member.Place(
+                reference,
+                anchorX,
+                anchorY,
+                anchorZ,
+                rotation);
+
+        if (placement.MinimumY < 0 ||
+            (_floorY is { } floorY &&
+             placement.MinimumY <=
+             floorY) ||
+            (_roofY is { } roofY &&
+             placement.MaximumY >=
+             roofY))
+        {
+            return false;
+        }
+
+        if (member.Definition
+                .Generation
+                .FluidPolicy ==
+            StructureFluidPolicy.Forbid &&
+            placement.PayloadPositions()
+                .Any(position =>
+                    GeneratedFluidExistsAt(
+                        position.X,
+                        position.Y,
+                        position.Z)))
+        {
+            return false;
+        }
+
+        // Requiring water at the root alone is insufficient: a tall
+        // reef near the shore could otherwise protrude above sea level.
+        // Resolve every emitted block against the authoritative generated
+        // fluid field before accepting the complete structure.
+        if (member.Definition.Restrictions.RequiredFluid is { } requiredFluid)
+        {
+            var required = _fluids.GetId(requiredFluid);
+            foreach (var voxel in placement.Voxels)
+            {
+                var surface = SurfaceAt(voxel.X, voxel.Z);
+                var fluid = _generatedFluids.FluidAtEmptyVoxel(
+                    surface.Biome, surface.BaseY, surface.SurfaceFluidCutDepth,
+                    voxel.X, voxel.Y, voxel.Z);
+                if (fluid.Fluid != required)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static StructureCandidate
+        CreateCandidate(
+            int ruleIndex,
+            int cellX,
+            int cellZ,
+            int placementAnchorX,
+            int placementAnchorZ,
+            int priority,
+            bool reserveSpace,
+            IReadOnlyList<string> conflictGroups,
+            IReadOnlyList<SurfaceStructurePlacement> placements)
+    {
+        if (placements.Count == 0)
+        {
+            throw new ArgumentException(
+                "Structure candidate must contain at least one placement.",
+                nameof(placements));
+        }
+
+        return new StructureCandidate(
+            ruleIndex,
+            cellX,
+            cellZ,
+            placementAnchorX,
+            placementAnchorZ,
+            priority,
+            reserveSpace,
+            conflictGroups,
+            placements,
+            placements.Min(value => value.MinimumX),
+            placements.Max(value => value.MaximumX),
+            placements.Min(value => value.MinimumY),
+            placements.Max(value => value.MaximumY),
+            placements.Min(value => value.MinimumZ),
+            placements.Max(value => value.MaximumZ));
+    }
+
+    private bool GeneratedFluidExistsAt(
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        var surface =
+            SurfaceAt(
+                worldX,
+                worldZ);
+
+        return !_generatedFluids
+            .FluidAtEmptyVoxel(
+                surface.Biome,
+                surface.BaseY,
+                surface.SurfaceFluidCutDepth,
+                worldY)
+            .IsEmpty;
+    }
+
+    private bool ProximityRuleSatisfied(
+        int anchorX,
+        int anchorZ,
+        RuntimeProximityRule rule)
+    {
+        var minimumSquared =
+            (long)rule.MinimumDistance *
+            rule.MinimumDistance;
+        var maximumSquared =
+            (long)rule.MaximumDistance *
+            rule.MaximumDistance;
+        var found =
+            false;
+
+        for (var offsetZ =
+                 -rule.MaximumDistance;
+             offsetZ <=
+                 rule.MaximumDistance;
+             offsetZ++)
+        {
+            for (var offsetX =
+                     -rule.MaximumDistance;
+                 offsetX <=
+                     rule.MaximumDistance;
+                 offsetX++)
+            {
+                var squared =
+                    (long)offsetX *
+                    offsetX +
+                    (long)offsetZ *
+                    offsetZ;
+
+                if (squared <
+                        minimumSquared ||
+                    squared >
+                        maximumSquared)
+                {
+                    continue;
+                }
+
+                var worldX =
+                    (long)anchorX +
+                    offsetX;
+                var worldZ =
+                    (long)anchorZ +
+                    offsetZ;
+
+                if (worldX is <
+                        int.MinValue or >
+                        int.MaxValue ||
+                    worldZ is <
+                        int.MinValue or >
+                        int.MaxValue)
+                {
+                    continue;
+                }
+
+                if (!ProximityTargetMatches(
+                        (int)worldX,
+                        (int)worldZ,
+                        rule))
+                {
+                    continue;
+                }
+
+                found =
+                    true;
+
+                if (rule.Mode ==
+                    StructureProximityMode.Required)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        return rule.Mode switch
+        {
+            StructureProximityMode.Required =>
+                found,
+            StructureProximityMode.Forbidden =>
+                true,
+            _ =>
+                throw new InvalidOperationException(
+                    $"Unknown structure proximity mode {rule.Mode}."),
+        };
+    }
+
+    private bool ProximityTargetMatches(
+        int worldX,
+        int worldZ,
+        RuntimeProximityRule rule)
+    {
+        var surface =
+            SurfaceAt(
+                worldX,
+                worldZ);
+
+        if (!rule.Block.IsAir)
+        {
+            return _materials.BlockAt(
+                       surface.Biome,
+                       worldX,
+                       worldZ,
+                       0) ==
+                   rule.Block;
+        }
+
+        if (!rule.Fluid.IsNone)
+        {
+            var aboveY =
+                (long)surface.BaseY +
+                1L;
+
+            if (aboveY is <
+                    int.MinValue or >
+                    int.MaxValue)
+            {
+                return false;
+            }
+
+            return _generatedFluids
+                       .FluidAtEmptyVoxel(
+                           surface.Biome,
+                           surface.BaseY,
+                           surface.SurfaceFluidCutDepth,
+                           (int)aboveY)
+                       .Fluid ==
+                   rule.Fluid;
+        }
+
+        throw new InvalidOperationException(
+            "Validated structure proximity rule has no runtime target.");
+    }
+
+    private bool CandidateOutranks(
+        StructureCandidate left,
+        StructureCandidate right) =>
+        CompareCandidates(
+            left,
+            right) < 0;
+
+    private int CompareCandidates(
+        StructureCandidate left,
+        StructureCandidate right)
+    {
+        var leftRule =
+            _rules[left.RuleIndex];
+        var rightRule =
+            _rules[right.RuleIndex];
+
+        var priority =
+            right.Priority.CompareTo(
+                left.Priority);
+        if (priority != 0)
+        {
+            return priority;
+        }
+
+        var reference =
+            string.Compare(
+                leftRule.Reference,
+                rightRule.Reference,
+                StringComparison.Ordinal);
+        if (reference != 0)
+        {
+            return reference;
+        }
+
+        var biome =
+            string.Compare(
+                leftRule.Biome,
+                rightRule.Biome,
+                StringComparison.Ordinal);
+        if (biome != 0)
+        {
+            return biome;
+        }
+
+        var x =
+            left.PlacementAnchorX.CompareTo(
+                right.PlacementAnchorX);
+        if (x != 0)
+        {
+            return x;
+        }
+
+        var z =
+            left.PlacementAnchorZ.CompareTo(
+                right.PlacementAnchorZ);
+        if (z != 0)
+        {
+            return z;
+        }
+
+        return left.MinimumY.CompareTo(
+            right.MinimumY);
+    }
+
+    private static bool CandidatesConflict(
+        StructureCandidate higher,
+        StructureCandidate lower)
+    {
+        if (!higher.IntersectsHorizontal(
+                lower.MinimumX,
+                lower.MinimumZ,
+                lower.MaximumX,
+                lower.MaximumZ) ||
+            higher.MaximumY <
+                lower.MinimumY ||
+            higher.MinimumY >
+                lower.MaximumY)
+        {
+            return false;
+        }
+
+        return higher.ReserveSpace ||
+               higher.ConflictGroups.Any(group =>
+                   lower.ConflictGroups.Contains(
+                       group,
+                       StringComparer.Ordinal));
+    }
+
+    private static bool SameCandidate(
+        StructureCandidate left,
+        StructureCandidate right) =>
+        CandidateIdentity(
+            left) ==
+        CandidateIdentity(
+            right);
+
+    private static (
+        int RuleIndex,
+        int CellX,
+        int CellZ)
+        CandidateIdentity(
+            StructureCandidate candidate) =>
+        (
+            candidate.RuleIndex,
+            candidate.CellX,
+            candidate.CellZ);
+
+    private RootAnchor?
+        FindBiomeMarginAnchor(
+            RootRule rule,
+            int cellX,
+            int cellZ,
+            int hintX,
+            int hintZ)
+    {
+        var minimumX =
+            (long)cellX *
+            rule.Spacing;
+        var minimumZ =
+            (long)cellZ *
+            rule.Spacing;
+        var maximumX =
+            minimumX +
+            rule.Spacing -
+            1L;
+        var maximumZ =
+            minimumZ +
+            rule.Spacing -
+            1L;
+        if (minimumX is < int.MinValue or > int.MaxValue ||
+            minimumZ is < int.MinValue or > int.MaxValue ||
+            maximumX is < int.MinValue or > int.MaxValue ||
+            maximumZ is < int.MinValue or > int.MaxValue)
+        {
+            return null;
+        }
+
+        var side =
+            MarginSampleDivisions +
+            1;
+        var positions =
+            new (int X, int Z)[
+                side *
+                side];
+        var target =
+            new bool[
+                positions.Length];
+
+        for (var zIndex = 0;
+             zIndex <= MarginSampleDivisions;
+             zIndex++)
+        {
+            var z =
+                SampleCellAxis(
+                    (int)minimumZ,
+                    (int)maximumZ,
+                    zIndex);
+            for (var xIndex = 0;
+                 xIndex <= MarginSampleDivisions;
+                 xIndex++)
+            {
+                var x =
+                    SampleCellAxis(
+                        (int)minimumX,
+                        (int)maximumX,
+                        xIndex);
+                var index =
+                    zIndex *
+                    side +
+                    xIndex;
+                positions[index] =
+                    (
+                        x,
+                        z);
+                target[index] =
+                    string.Equals(
+                        SurfaceBiomeAt(
+                            x,
+                            z)
+                        .Primary,
+                        rule.Biome,
+                        StringComparison.Ordinal);
+            }
+        }
+
+        (long Distance, int OutsideX, int OutsideZ, int OutwardX, int OutwardZ)?
+            best = null;
+
+        void Consider(
+            (int X, int Z) left,
+            (int X, int Z) right)
+        {
+            var refined =
+                RefineBiomeMargin(
+                    rule.Biome,
+                    left,
+                    right);
+            if (refined is null)
+            {
+                return;
+            }
+
+            var inside =
+                refined.Value.Inside;
+            var outside =
+                refined.Value.Outside;
+            var outward =
+                (
+                    X: outside.X -
+                       inside.X,
+                    Z: outside.Z -
+                       inside.Z);
+            var dx =
+                (long)outside.X -
+                hintX;
+            var dz =
+                (long)outside.Z -
+                hintZ;
+            var candidate =
+                (
+                    Distance:
+                        dx * dx +
+                        dz * dz,
+                    OutsideX:
+                        outside.X,
+                    OutsideZ:
+                        outside.Z,
+                    OutwardX:
+                        outward.X,
+                    OutwardZ:
+                        outward.Z);
+
+            if (best is null ||
+                CompareMarginCandidate(
+                    candidate,
+                    best.Value) < 0)
+            {
+                best =
+                    candidate;
+            }
+        }
+
+        for (var zIndex = 0;
+             zIndex <= MarginSampleDivisions;
+             zIndex++)
+        {
+            for (var xIndex = 0;
+                 xIndex < MarginSampleDivisions;
+                 xIndex++)
+            {
+                var leftIndex =
+                    zIndex *
+                    side +
+                    xIndex;
+                var rightIndex =
+                    leftIndex +
+                    1;
+                if (target[leftIndex] !=
+                    target[rightIndex])
+                {
+                    Consider(
+                        positions[leftIndex],
+                        positions[rightIndex]);
+                }
+            }
+        }
+
+        for (var zIndex = 0;
+             zIndex < MarginSampleDivisions;
+             zIndex++)
+        {
+            for (var xIndex = 0;
+                 xIndex <= MarginSampleDivisions;
+                 xIndex++)
+            {
+                var topIndex =
+                    zIndex *
+                    side +
+                    xIndex;
+                var bottomIndex =
+                    topIndex +
+                    side;
+                if (target[topIndex] !=
+                    target[bottomIndex])
+                {
+                    Consider(
+                        positions[topIndex],
+                        positions[bottomIndex]);
+                }
+            }
+        }
+
+        if (best is not
+            { } selected)
+        {
+            return null;
+        }
+
+        var rotation =
+            RotationForOutwardNormal(
+                selected.OutwardX,
+                selected.OutwardZ);
+        return rotation is null
+            ? null
+            : new RootAnchor(
+                selected.OutsideX,
+                selected.OutsideZ,
+                rotation,
+                (
+                    selected.OutsideX -
+                    selected.OutwardX,
+                    selected.OutsideZ -
+                    selected.OutwardZ));
+    }
+
+    private ((
+        int X,
+        int Z) Inside,
+        (
+        int X,
+        int Z) Outside)?
+        RefineBiomeMargin(
+            string biome,
+            (int X, int Z) left,
+            (int X, int Z) right)
+    {
+        var leftIsTarget =
+            string.Equals(
+                SurfaceBiomeAt(
+                    left.X,
+                    left.Z)
+                .Primary,
+                biome,
+                StringComparison.Ordinal);
+        var rightIsTarget =
+            string.Equals(
+                SurfaceBiomeAt(
+                    right.X,
+                    right.Z)
+                .Primary,
+                biome,
+                StringComparison.Ordinal);
+        if (leftIsTarget ==
+            rightIsTarget)
+        {
+            return null;
+        }
+
+        while (Math.Max(
+                   Math.Abs(
+                       (long)right.X -
+                       left.X),
+                   Math.Abs(
+                       (long)right.Z -
+                       left.Z)) >
+               1L)
+        {
+            var middle =
+                (
+                    X: checked(
+                        (int)(
+                            ((long)left.X +
+                             right.X) /
+                            2L)),
+                    Z: checked(
+                        (int)(
+                            ((long)left.Z +
+                             right.Z) /
+                            2L)));
+            if (middle == left ||
+                middle == right)
+            {
+                break;
+            }
+
+            var middleIsTarget =
+                string.Equals(
+                    SurfaceBiomeAt(
+                        middle.X,
+                        middle.Z)
+                    .Primary,
+                    biome,
+                    StringComparison.Ordinal);
+            if (middleIsTarget ==
+                leftIsTarget)
+            {
+                left =
+                    middle;
+                leftIsTarget =
+                    middleIsTarget;
+            }
+            else
+            {
+                right =
+                    middle;
+            }
+        }
+
+        var inside =
+            leftIsTarget
+                ? left
+                : right;
+        var outside =
+            leftIsTarget
+                ? right
+                : left;
+        var manhattan =
+            Math.Abs(
+                (long)outside.X -
+                inside.X) +
+            Math.Abs(
+                (long)outside.Z -
+                inside.Z);
+        return manhattan == 1L
+            ? (
+                inside,
+                outside)
+            : null;
+    }
+
+    private static int SampleCellAxis(
+        int minimum,
+        int maximum,
+        int index)
+    {
+        var span =
+            (long)maximum -
+            minimum;
+        return checked(
+            (int)(
+                minimum +
+                span *
+                index /
+                MarginSampleDivisions));
+    }
+
+    private static int CompareMarginCandidate(
+        (
+            long Distance,
+            int OutsideX,
+            int OutsideZ,
+            int OutwardX,
+            int OutwardZ) left,
+        (
+            long Distance,
+            int OutsideX,
+            int OutsideZ,
+            int OutwardX,
+            int OutwardZ) right)
+    {
+        var distance =
+            left.Distance.CompareTo(
+                right.Distance);
+        if (distance != 0)
+        {
+            return distance;
+        }
+
+        var z =
+            left.OutsideZ.CompareTo(
+                right.OutsideZ);
+        if (z != 0)
+        {
+            return z;
+        }
+
+        var x =
+            left.OutsideX.CompareTo(
+                right.OutsideX);
+        if (x != 0)
+        {
+            return x;
+        }
+
+        var outwardZ =
+            left.OutwardZ.CompareTo(
+                right.OutwardZ);
+        return outwardZ != 0
+            ? outwardZ
+            : left.OutwardX.CompareTo(
+                right.OutwardX);
+    }
+
+    private static StructureRotation?
+        RotationForOutwardNormal(
+            int outwardX,
+            int outwardZ) =>
+        (
+            outwardX,
+            outwardZ) switch
+        {
+            (0, 1) =>
+                StructureRotation.Degrees0,
+            (-1, 0) =>
+                StructureRotation.Degrees90,
+            (0, -1) =>
+                StructureRotation.Degrees180,
+            (1, 0) =>
+                StructureRotation.Degrees270,
+            _ =>
+                null,
+        };
+
+    private TResult WithBiomeSampler<TResult>(
+        Func<TResult> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        var previousSampler = _activeBiomeSampler.Value;
+        _activeBiomeSampler.Value =
+            previousSampler ?? _terrain.CreateBiomeSampler();
+        try
+        {
+            return query();
+        }
+        finally
+        {
+            _activeBiomeSampler.Value = previousSampler;
+        }
+    }
+
+    private BiomeSample SurfaceBiomeAt(
+        int worldX,
+        int worldZ)
+    {
+        var key = (X: worldX, Z: worldZ);
+        if (_surfaceSamples.TryGet(key, out var cachedSurface))
+            return cachedSurface.Biome;
+        if (_surfaceBiomes.TryGet(key, out var cachedBiome))
+            return cachedBiome;
+
+        var sampler = _activeBiomeSampler.Value;
+        var biome = sampler is null
+            ? _biomes.Sample(worldX, worldZ)
+            : sampler.Sample(worldX, worldZ);
+        return _surfaceBiomes.GetOrAdd(
+            key,
+            () => biome);
+    }
+
+    private SurfaceSample SurfaceAt(
+        int worldX,
+        int worldZ)
+    {
+        var key = (X: worldX, Z: worldZ);
+        if (_surfaceSamples.TryGet(key, out var cached))
+            return cached;
+
+        return _surfaceSamples.GetOrAdd(
+            key,
+            () =>
+            {
+                var surface = _surfaceBiomes.TryGet(key, out var cachedBiome)
+                    ? _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                        cachedBiome, worldX, worldZ)
+                    : _activeBiomeSampler.Value is { } sampler
+                        ? _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                            sampler, worldX, worldZ)
+                        : _terrain.SampleBaseSurfaceWithGeneratedFluid(
+                            worldX, worldZ);
+
+                return new SurfaceSample(
+                    surface.Biome,
+                    surface.BaseY,
+                    surface.SurfaceFluidCutDepth,
+                    worldX,
+                    worldZ);
+            });
+    }
+
+    private bool IsGeneratedFluidAbove(
+        SurfaceSample surface)
+    {
+        if (!_generatedFluids
+                .TryGetColumnBounds(
+                    surface.Biome,
+                    surface.BaseY,
+                    surface.SurfaceFluidCutDepth,
+                    surface.X,
+                    surface.Z,
+                    out var minimumY,
+                    out var maximumY))
+        {
+            return false;
+        }
+
+        var above =
+            (long)surface.BaseY +
+            1L;
+        return above >= minimumY &&
+               above <= maximumY;
+    }
+
+    private const ulong SetElementHashSalt =
+        0x9e37_79b1_85eb_ca87UL;
+    private const ulong SetInstanceHashSalt =
+        0xc2b2_ae3d_27d4_eb4fUL;
+    private const ulong SetAttemptHashSalt =
+        0x1656_67b1_9e37_79f9UL;
+
+    private static int ChooseCount(
+        StructureSetCount count,
+        ulong hash)
+    {
+        if (count.Min ==
+            count.Max)
+        {
+            return count.Min;
+        }
+
+        var span =
+            (ulong)(
+                count.Max -
+                count.Min +
+                1);
+        return checked(
+            count.Min +
+            (int)(
+                Avalanche(
+                    RotateLeft(
+                        hash,
+                        31)) %
+                span));
+    }
+
+    private static (int X, int Z)?
+        ResolveReferenceAnchor(
+            string relativeTo,
+            (int X, int Z) root,
+            IReadOnlyList<(int X, int Z)> allAnchors,
+            IReadOnlyDictionary<
+                string,
+                List<(int X, int Z)>> anchorsByElement,
+            ulong hash)
+    {
+        if (string.Equals(
+                relativeTo,
+                "origin",
+                StringComparison.Ordinal))
+        {
+            return root;
+        }
+
+        if (string.Equals(
+                relativeTo,
+                "any",
+                StringComparison.Ordinal))
+        {
+            return allAnchors.Count == 0
+                ? root
+                : allAnchors[
+                    checked((int)(
+                        hash %
+                        (ulong)allAnchors.Count))];
+        }
+
+        if (!anchorsByElement.TryGetValue(
+                relativeTo,
+                out var anchors) ||
+            anchors.Count == 0)
+        {
+            return null;
+        }
+
+        return anchors[
+            checked((int)(
+                hash %
+                (ulong)anchors.Count))];
+    }
+
+    private static bool TryAnnulusOffset(
+        ulong hash,
+        int minimumDistance,
+        int maximumDistance,
+        out (int X, int Z) offset)
+    {
+        offset = default;
+        if (maximumDistance == 0)
+        {
+            return minimumDistance == 0;
+        }
+
+        var diameter =
+            (long)maximumDistance *
+            2L +
+            1L;
+        var x =
+            (long)(
+                hash %
+                (ulong)diameter) -
+            maximumDistance;
+        var zHash =
+            Avalanche(
+                RotateLeft(
+                    hash,
+                    29));
+        var z =
+            (long)(
+                zHash %
+                (ulong)diameter) -
+            maximumDistance;
+        var distanceSquared =
+            x * x +
+            z * z;
+        var minimumSquared =
+            (long)minimumDistance *
+            minimumDistance;
+        var maximumSquared =
+            (long)maximumDistance *
+            maximumDistance;
+
+        if (distanceSquared <
+                minimumSquared ||
+            distanceSquared >
+                maximumSquared)
+        {
+            return false;
+        }
+
+        offset =
+            (
+                checked((int)x),
+                checked((int)z));
+        return true;
+    }
+
+    private static bool SeparationSatisfied(
+        (int X, int Z) anchor,
+        IReadOnlyList<(int X, int Z)> existing,
+        int minimumSeparation)
+    {
+        if (minimumSeparation == 0)
+        {
+            return true;
+        }
+
+        var minimumSquared =
+            (long)minimumSeparation *
+            minimumSeparation;
+        return existing.All(other =>
+        {
+            var dx =
+                (long)anchor.X -
+                other.X;
+            var dz =
+                (long)anchor.Z -
+                other.Z;
+            return dx * dx +
+                   dz * dz >=
+                   minimumSquared;
+        });
+    }
+
+    private static bool RectanglesOverlap(
+        int leftMinimumX,
+        int leftMinimumZ,
+        int leftMaximumX,
+        int leftMaximumZ,
+        int rightMinimumX,
+        int rightMinimumZ,
+        int rightMaximumX,
+        int rightMaximumZ) =>
+        leftMinimumX <= rightMaximumX &&
+        leftMaximumX >= rightMinimumX &&
+        leftMinimumZ <= rightMaximumZ &&
+        leftMaximumZ >= rightMinimumZ;
+
+    private static double UnitProbability(
+        ulong value) =>
+        value /
+        (double)ulong.MaxValue;
+
+    private static ulong RotateLeft(
+        ulong value,
+        int amount) =>
+        value <<
+            amount |
+        value >>
+            (64 -
+             amount);
+
+    private static ulong Avalanche(
+        ulong value)
+    {
+        value ^=
+            value >>
+            30;
+        value *=
+            0xbf58_476d_1ce4_e5b9UL;
+        value ^=
+            value >>
+            27;
+        value *=
+            0x94d0_49bb_1331_11ebUL;
+        return value ^
+               value >>
+               31;
+    }
+
+    private static int? CandidateAxis(
+        int cell,
+        int spacing,
+        int jitter,
+        ulong hash)
+    {
+        var offset =
+            jitter == 0
+                ? 0
+                : checked(
+                    (int)(
+                        hash %
+                        (ulong)(
+                            jitter *
+                            2 +
+                            1)) -
+                    jitter);
+        var value =
+            (long)cell *
+            spacing +
+            spacing /
+            2L +
+            offset;
+
+        return value is
+            < int.MinValue or
+            > int.MaxValue
+            ? null
+            : (int)value;
+    }
+
+    private static long CeilingDiv(
+        long value,
+        int divisor) =>
+        -FloorDiv(-value, divisor);
+
+    private static long FloorDiv(
+        long value,
+        int divisor)
+    {
+        var quotient =
+            Math.DivRem(
+                value,
+                divisor,
+                out var remainder);
+        return remainder < 0
+            ? quotient - 1
+            : quotient;
+    }
+
+    private readonly record struct StructureChunkKey(
+        int X,
+        int Z);
+
+    private readonly record struct StructureCandidateKey(
+        int RuleIndex,
+        int CellX,
+        int CellZ);
+
+    private readonly record struct SurfaceSample(
+        BiomeSample Biome,
+        int BaseY,
+        int SurfaceFluidCutDepth,
+        int X,
+        int Z);
+
+    private readonly record struct RootAnchor(
+        int X,
+        int Z,
+        StructureRotation? ForcedRotation,
+        (int X, int Z)? MarginInside);
+
+    private sealed class RootRule
+    {
+        public RootRule(
+            string biome,
+            string reference,
+            int spacing,
+            float chance,
+            int jitter,
+            DimensionGeneratedSurfaceStructurePlacement placement,
+            SurfaceHabitatWeights? habitatWeights,
+            RuntimeStructure[] members,
+            RuntimeStructureSet? set,
+            int maximumHorizontalRadius)
+        {
+            Biome = biome;
+            Reference = reference;
+            Spacing = spacing;
+            Chance = chance;
+            Jitter = jitter;
+            HabitatWeights = habitatWeights;
+            Placement = placement;
+            Members = members;
+            Set = set;
+            MaximumHorizontalRadius =
+                maximumHorizontalRadius;
+            MaximumPriority = set is not null
+                ? set.Priority
+                : members.Max(member => member.Definition.Priority);
+            MayReserveSpace = set is not null
+                ? set.ReserveSpace
+                : members.Any(member => member.Definition.Generation.ReserveSpace);
+            ConflictGroups = set is not null
+                ? set.ConflictGroups
+                : members.SelectMany(member => member.Definition.ConflictGroups)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+            var prefix =
+                $"surface-structure/{biome}/{reference}/v1/";
+            PresenceDomain =
+                GenerationDomain.Named(
+                    prefix +
+                    "presence");
+            VariantDomain =
+                GenerationDomain.Named(
+                    prefix +
+                    "variant");
+            RotationDomain =
+                GenerationDomain.Named(
+                    prefix +
+                    "rotation");
+            JitterXDomain =
+                GenerationDomain.Named(
+                    prefix +
+                    "jitter-x");
+            JitterZDomain =
+                GenerationDomain.Named(
+                    prefix +
+                    "jitter-z");
+        }
+
+        public string Biome { get; }
+
+        public string Reference { get; }
+
+        public int Spacing { get; }
+
+        public float Chance { get; }
+
+        public SurfaceHabitatWeights? HabitatWeights { get; }
+
+        public int Jitter { get; }
+
+        public DimensionGeneratedSurfaceStructurePlacement Placement { get; }
+
+        public RuntimeStructure[] Members { get; }
+
+        public RuntimeStructureSet? Set { get; }
+
+        public int MaximumHorizontalRadius { get; }
+
+        public int MaximumPriority { get; }
+
+        public bool MayReserveSpace { get; }
+
+        public IReadOnlyList<string> ConflictGroups { get; }
+
+        public bool MightConflictWith(IReadOnlySet<string> groups)
+        {
+            foreach (var group in ConflictGroups)
+            {
+                if (groups.Contains(group))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public GenerationDomain PresenceDomain { get; }
+
+        public GenerationDomain VariantDomain { get; }
+
+        public GenerationDomain RotationDomain { get; }
+
+        public GenerationDomain JitterXDomain { get; }
+
+        public GenerationDomain JitterZDomain { get; }
+
+        public static RootRule Create(
+            DimensionGeneratedSurfaceStructureDefinition generated,
+            StructureRegistry structures,
+            StructureSetRegistry structureSets,
+            BlockRegistry blocks,
+            FluidRegistry fluids,
+            ConnectorGraph connectors)
+        {
+            if (structureSets.TryGet(
+                    generated.Structure,
+                    out var setDefinition))
+            {
+                if (generated.Placement ==
+                    DimensionGeneratedSurfaceStructurePlacement.BiomeMargin)
+                {
+                    throw new ArgumentException(
+                        $"Generated biomeMargin root {generated.Structure} cannot reference a StructureSet.");
+                }
+
+                var set =
+                    new RuntimeStructureSet(
+                        setDefinition,
+                        structures,
+                        blocks,
+                        fluids,
+                        generated.Biome,
+                        connectors);
+                return new RootRule(
+                    generated.Biome,
+                    generated.Structure,
+                    generated.Spacing,
+                    generated.Chance,
+                    generated.Jitter,
+                    generated.Placement,
+                    generated.HabitatWeights,
+                    Array.Empty<RuntimeStructure>(),
+                    set,
+                    set.MaximumHorizontalRadius);
+            }
+
+            var members =
+                structures
+                    .ResolveReference(
+                        generated.Structure)
+                    .Select(
+                        definition =>
+                            new RuntimeStructure(
+                                definition,
+                                blocks,
+                                fluids))
+                    .ToArray();
+
+            return new RootRule(
+                generated.Biome,
+                generated.Structure,
+                generated.Spacing,
+                generated.Chance,
+                generated.Jitter,
+                generated.Placement,
+                generated.HabitatWeights,
+                members,
+                null,
+                connectors.MaximumHorizontalRadiusForReference(
+                    generated.Structure));
+        }
+    }
+
+    private sealed record StructureCandidate(
+        int RuleIndex,
+        int CellX,
+        int CellZ,
+        int PlacementAnchorX,
+        int PlacementAnchorZ,
+        int Priority,
+        bool ReserveSpace,
+        IReadOnlyList<string> ConflictGroups,
+        IReadOnlyList<SurfaceStructurePlacement> Placements,
+        int MinimumX,
+        int MaximumX,
+        int MinimumY,
+        int MaximumY,
+        int MinimumZ,
+        int MaximumZ)
+    {
+        public SurfaceStructurePlacement Representative =>
+            Placements[0];
+
+        public bool IntersectsHorizontal(
+            int minimumX,
+            int minimumZ,
+            int maximumX,
+            int maximumZ) =>
+            MinimumX <= maximumX &&
+            MaximumX >= minimumX &&
+            MinimumZ <= maximumZ &&
+            MaximumZ >= minimumZ;
+    }
+
+    private sealed class RuntimeStructureSet
+    {
+        public RuntimeStructureSet(
+            StructureSetDefinition definition,
+            StructureRegistry structures,
+            BlockRegistry blocks,
+            FluidRegistry fluids,
+            string biome,
+            ConnectorGraph connectors)
+        {
+            Priority = definition.Priority;
+            ReserveSpace = definition.ReserveSpace;
+            ConflictGroups =
+                definition.ConflictGroups;
+            Elements =
+                definition.Elements
+                    .Select(element =>
+                        new RuntimeSetElement(
+                            element,
+                            structures
+                                .ResolveReference(
+                                    element.Structure)
+                                .Select(value =>
+                                    new RuntimeStructure(
+                                        value,
+                                        blocks,
+                                        fluids))
+                                .ToArray(),
+                            GenerationDomain.Named(
+                                $"structure/set/element/v1/{biome}/{definition.Id}/{element.Id}")))
+                    .ToArray();
+
+            var anchorRadii =
+                new Dictionary<string, long>(
+                    StringComparer.Ordinal);
+            long maximumPriorRadius = 0;
+            long maximumExtent = 0;
+
+            foreach (var element in
+                     Elements)
+            {
+                var baseRadius =
+                    element.Placement.RelativeTo switch
+                    {
+                        "origin" => 0L,
+                        "any" => maximumPriorRadius,
+                        var id => anchorRadii[id],
+                    };
+                var anchorRadius =
+                    baseRadius +
+                    element.Placement.MaxDistance;
+                anchorRadii.Add(
+                    element.Id,
+                    anchorRadius);
+                maximumPriorRadius =
+                    Math.Max(
+                        maximumPriorRadius,
+                        anchorRadius);
+                var memberRadius =
+                    element.Members.Max(value =>
+                        (long)connectors
+                            .MaximumHorizontalRadiusForDefinition(
+                                value.Definition.Id));
+                maximumExtent =
+                    Math.Max(
+                        maximumExtent,
+                        anchorRadius +
+                        memberRadius);
+            }
+
+            MaximumHorizontalRadius =
+                maximumExtent >= int.MaxValue
+                    ? int.MaxValue
+                    : (int)maximumExtent;
+        }
+
+        public int Priority { get; }
+
+        public bool ReserveSpace { get; }
+
+        public IReadOnlyList<string> ConflictGroups { get; }
+
+        public RuntimeSetElement[] Elements { get; }
+
+        public int MaximumHorizontalRadius { get; }
+    }
+
+    private sealed record RuntimeSetElement(
+        string Id,
+        StructureSetCount Count,
+        float Chance,
+        bool Required,
+        StructureSetElementPlacementDefinition Placement,
+        RuntimeStructure[] Members,
+        GenerationDomain EntropyDomain)
+    {
+        public RuntimeSetElement(
+            StructureSetElementDefinition definition,
+            RuntimeStructure[] members,
+            GenerationDomain entropyDomain)
+            : this(
+                definition.Id,
+                definition.Count,
+                definition.Chance,
+                definition.Required,
+                definition.Placement,
+                members,
+                entropyDomain)
+        {
+            if (members.Length == 0)
+            {
+                throw new ArgumentException(
+                    "StructureSet element must resolve at least one Structure.",
+                    nameof(members));
+            }
+        }
+    }
+
+    private sealed class ConnectorGraph
+    {
+        private const ulong ConnectorIndexSalt =
+            0x9e37_79b1_85eb_ca87UL;
+        private const ulong ConnectorDepthSalt =
+            0xc2b2_ae3d_27d4_eb4fUL;
+        private const ulong ConnectorRotationSalt =
+            0x1656_67b1_9e37_79f9UL;
+
+        private readonly StructureRegistry _structures;
+        private readonly BlockRegistry _blocks;
+        private readonly FluidRegistry _fluids;
+        private readonly Dictionary<string, RuntimeStructure>
+            _byId =
+                new(
+                    StringComparer.Ordinal);
+        private readonly Dictionary<string, RuntimeStructure[]>
+            _byReference =
+                new(
+                    StringComparer.Ordinal);
+        private readonly GenerationDomain _entropyDomain =
+            GenerationDomain.Named(
+                "structure/connector/expansion/v1");
+
+        public ConnectorGraph(
+            StructureRegistry structures,
+            BlockRegistry blocks,
+            FluidRegistry fluids)
+        {
+            _structures = structures;
+            _blocks = blocks;
+            _fluids = fluids;
+
+            foreach (var definition in
+                     structures.Definitions())
+            {
+                _byId.Add(
+                    definition.Id,
+                    new RuntimeStructure(
+                        definition,
+                        blocks,
+                        fluids));
+            }
+        }
+
+        public int MaximumHorizontalRadiusForReference(
+            string reference)
+        {
+            var memo =
+                new Dictionary<(
+                    string Id,
+                    StructureRotation Rotation,
+                    int StrengthBits),
+                    int>();
+            var active =
+                new HashSet<(
+                    string Id,
+                    StructureRotation Rotation,
+                    int StrengthBits)>();
+            var maximum = 0;
+
+            foreach (var member in
+                     Members(
+                         reference))
+            {
+                foreach (var rotation in
+                         member.Definition
+                             .SupportedRotations())
+                {
+                    maximum =
+                        Math.Max(
+                            maximum,
+                            MaximumHorizontalRadiusForPiece(
+                                member,
+                                rotation,
+                                1f,
+                                memo,
+                                active));
+                }
+            }
+
+            return maximum;
+        }
+
+        public int MaximumHorizontalRadiusForDefinition(
+            string id)
+        {
+            var member =
+                _byId[id];
+            var memo =
+                new Dictionary<(
+                    string Id,
+                    StructureRotation Rotation,
+                    int StrengthBits),
+                    int>();
+            var active =
+                new HashSet<(
+                    string Id,
+                    StructureRotation Rotation,
+                    int StrengthBits)>();
+            var maximum = 0;
+
+            foreach (var rotation in
+                     member.Definition
+                         .SupportedRotations())
+            {
+                maximum =
+                    Math.Max(
+                        maximum,
+                        MaximumHorizontalRadiusForPiece(
+                            member,
+                            rotation,
+                            1f,
+                            memo,
+                            active));
+            }
+
+            return maximum;
+        }
+
+        private int MaximumHorizontalRadiusForPiece(
+            RuntimeStructure member,
+            StructureRotation rotation,
+            float remainingStrength,
+            Dictionary<(
+                string Id,
+                StructureRotation Rotation,
+                int StrengthBits),
+                int> memo,
+            HashSet<(
+                string Id,
+                StructureRotation Rotation,
+                int StrengthBits)> active)
+        {
+            var key =
+                (
+                    member.Definition.Id,
+                    rotation,
+                    BitConverter.SingleToInt32Bits(
+                        remainingStrength));
+            if (memo.TryGetValue(
+                    key,
+                    out var known))
+            {
+                return known;
+            }
+
+            var maximum =
+                member.MaximumHorizontalRadius;
+            if (remainingStrength <= 0f)
+            {
+                memo.Add(
+                    key,
+                    maximum);
+                return maximum;
+            }
+
+            if (!active.Add(
+                    key))
+            {
+                throw new InvalidOperationException(
+                    $"Structure connector graph reaches {member.Definition.Id} with unchanged strength; recursive connector cycles must lose strength.");
+            }
+
+            foreach (var output in
+                     member.Definition
+                         .Connectors
+                         .Where(value =>
+                             value.Target is not null))
+            {
+                var effective =
+                    Math.Min(
+                        remainingStrength,
+                        output.Strength);
+                if (effective <= 0f)
+                {
+                    continue;
+                }
+
+                var target =
+                    output.Target!;
+                var rotatedOutput =
+                    StructureDefinition.RotateOffset(
+                        rotation,
+                        output.X,
+                        output.Y,
+                        output.Z);
+                var outputRadius =
+                    Math.Max(
+                        Math.Abs(
+                            (long)rotatedOutput.X),
+                        Math.Abs(
+                            (long)rotatedOutput.Z));
+                var worldFace =
+                    StructureDefinition.RotateConnectorFace(
+                        rotation,
+                        output.Face);
+                var requiredInput =
+                    StructureDefinition.OppositeConnectorFace(
+                        worldFace);
+                var nextStrength =
+                    Math.Max(
+                        0f,
+                        effective -
+                        output.StrengthLossOnEachLoop);
+
+                foreach (var child in
+                         Members(
+                             target))
+                {
+                    foreach (var childRotation in
+                             child.Definition
+                                 .SupportedRotations())
+                    {
+                        foreach (var input in
+                                 child.Definition
+                                     .Connectors
+                                     .Where(value =>
+                                         value.Target is null &&
+                                         StructureDefinition
+                                             .RotateConnectorFace(
+                                                 childRotation,
+                                                 value.Face) ==
+                                         requiredInput))
+                        {
+                            var rotatedInput =
+                                StructureDefinition.RotateOffset(
+                                    childRotation,
+                                    input.X,
+                                    input.Y,
+                                    input.Z);
+                            var inputRadius =
+                                Math.Max(
+                                    Math.Abs(
+                                        (long)rotatedInput.X),
+                                    Math.Abs(
+                                        (long)rotatedInput.Z));
+                            var childRadius =
+                                MaximumHorizontalRadiusForPiece(
+                                    child,
+                                    childRotation,
+                                    nextStrength,
+                                    memo,
+                                    active);
+                            var candidate =
+                                outputRadius +
+                                output.MaxDistance +
+                                inputRadius +
+                                childRadius;
+                            maximum =
+                                Math.Max(
+                                    maximum,
+                                    candidate >= int.MaxValue
+                                        ? int.MaxValue
+                                        : (int)candidate);
+                        }
+                    }
+                }
+            }
+
+            active.Remove(
+                key);
+            memo.Add(
+                key,
+                maximum);
+            return maximum;
+        }
+
+        public IReadOnlyList<SurfaceStructurePlacement>
+            Expand(
+                ulong seed,
+                IReadOnlyList<SurfaceStructurePlacement> roots,
+                Func<
+                    RuntimeStructure,
+                    StructureRotation,
+                    int,
+                    int,
+                    int,
+                    SurfaceStructurePlacement?> resolveChild,
+                Func<SurfaceStructurePlacement, StructureConnectorDefinition, bool>
+                    stopExpansion,
+                int maximumPayloadCount = int.MaxValue)
+        {
+            if (roots.Count == 0)
+            {
+                return roots;
+            }
+
+            var payloadCount = 0L;
+            foreach (var root in roots)
+            {
+                payloadCount += root.PayloadPositions().LongCount();
+                if (payloadCount > maximumPayloadCount)
+                    return Array.Empty<SurfaceStructurePlacement>();
+            }
+            var pieces =
+                roots.ToList();
+            var occupied =
+                pieces
+                    .SelectMany(value =>
+                        value.PayloadPositions())
+                    .ToHashSet();
+            var pending =
+                new Queue<(
+                    int Index,
+                    float? RemainingStrength,
+                    int Depth)>();
+
+            for (var index = 0;
+                 index < pieces.Count;
+                 index++)
+            {
+                pending.Enqueue(
+                    (
+                        index,
+                        null,
+                        0));
+            }
+
+            while (pending.Count > 0)
+            {
+                var state =
+                    pending.Dequeue();
+                var parent =
+                    pieces[state.Index];
+                var parentRuntime =
+                    _byId[
+                        parent.StructureId];
+
+                for (var connectorIndex = 0;
+                     connectorIndex <
+                     parentRuntime.Definition
+                         .Connectors.Count;
+                     connectorIndex++)
+                {
+                    var output =
+                        parentRuntime.Definition
+                            .Connectors[
+                                connectorIndex];
+                    if (output.Target is null ||
+                        stopExpansion(parent, output))
+                    {
+                        continue;
+                    }
+
+                    var effective =
+                        state.RemainingStrength
+                            .HasValue
+                            ? Math.Min(
+                                state.RemainingStrength.Value,
+                                output.Strength)
+                            : output.Strength;
+                    if (effective <= 0f)
+                    {
+                        continue;
+                    }
+
+                    var hash =
+                        ConnectorHash(
+                            seed,
+                            parent,
+                            connectorIndex,
+                            state.Depth);
+                    var variants =
+                        Members(
+                            output.Target);
+                    var child =
+                        variants[
+                            checked((int)(
+                                hash %
+                                (ulong)variants.Length))];
+                    var worldFace =
+                        StructureDefinition.RotateConnectorFace(
+                            parent.Rotation,
+                            output.Face);
+                    var distance =
+                        ConnectorDistance(
+                            RotateLeft(
+                                hash,
+                                11),
+                            output.MinDistance,
+                            output.MaxDistance);
+                    var outputOffset =
+                        StructureDefinition.RotateOffset(
+                            parent.Rotation,
+                            output.X,
+                            output.Y,
+                            output.Z);
+                    var faceOffset =
+                        StructureDefinition.ConnectorFaceOffset(
+                            worldFace);
+                    var worldX =
+                        (long)parent.AnchorX +
+                        outputOffset.X +
+                        (long)faceOffset.X *
+                        distance;
+                    var worldY =
+                        (long)parent.AnchorY +
+                        outputOffset.Y +
+                        (long)faceOffset.Y *
+                        distance;
+                    var worldZ =
+                        (long)parent.AnchorZ +
+                        outputOffset.Z +
+                        (long)faceOffset.Z *
+                        distance;
+                    if (worldX is < int.MinValue or > int.MaxValue ||
+                        worldY is < int.MinValue or > int.MaxValue ||
+                        worldZ is < int.MinValue or > int.MaxValue)
+                    {
+                        continue;
+                    }
+
+                    var attachment =
+                        child.Definition.ResolveInputAttachment(
+                            (int)worldX,
+                            (int)worldY,
+                            (int)worldZ,
+                            StructureDefinition.OppositeConnectorFace(
+                                worldFace),
+                            RotateLeft(
+                                hash,
+                                23));
+                    if (attachment is null)
+                    {
+                        continue;
+                    }
+
+                    var childPiece =
+                        resolveChild(
+                            child,
+                            attachment.Value.Rotation,
+                            attachment.Value.OriginX,
+                            attachment.Value.OriginY,
+                            attachment.Value.OriginZ);
+                    if (childPiece is null)
+                    {
+                        continue;
+                    }
+
+                    // Bound manual expansion before reserving or allocating
+                    // additional connector descendants.
+                    var childPositions =
+                        childPiece.PayloadPositions()
+                            .Take(maximumPayloadCount == int.MaxValue
+                                ? int.MaxValue : maximumPayloadCount + 1)
+                            .ToArray();
+                    if (payloadCount + childPositions.Length >
+                            maximumPayloadCount)
+                        return Array.Empty<SurfaceStructurePlacement>();
+                    if (childPositions.Any(
+                            occupied.Contains))
+                    {
+                        continue;
+                    }
+
+                    foreach (var position in
+                             childPositions)
+                    {
+                        occupied.Add(
+                            position);
+                    }
+
+                    var pieceIndex =
+                        pieces.Count;
+                    pieces.Add(
+                        childPiece);
+                    payloadCount += childPositions.Length;
+
+                    var nextStrength =
+                        effective -
+                        output.StrengthLossOnEachLoop;
+                    if (nextStrength > 0f)
+                    {
+                        pending.Enqueue(
+                            (
+                                pieceIndex,
+                                nextStrength,
+                                state.Depth + 1));
+                    }
+                }
+            }
+
+            return Array.AsReadOnly(
+                pieces.ToArray());
+        }
+
+        private RuntimeStructure[] Members(
+            string reference)
+        {
+            if (_byReference.TryGetValue(
+                    reference,
+                    out var known))
+            {
+                return known;
+            }
+
+            var members =
+                _structures
+                    .ResolveReference(
+                        reference)
+                    .Select(definition =>
+                        _byId[
+                            definition.Id])
+                    .ToArray();
+            _byReference.Add(
+                reference,
+                members);
+            return members;
+        }
+
+        private ulong ConnectorHash(
+            ulong seed,
+            SurfaceStructurePlacement parent,
+            int connectorIndex,
+            int depth)
+        {
+            var hash =
+                WorldGenerationEntropy.Sample3D(
+                    seed,
+                    _entropyDomain,
+                    parent.AnchorX,
+                    parent.AnchorY,
+                    parent.AnchorZ);
+            hash ^=
+                GenerationDomain.Named(
+                    parent.StructureId)
+                    .Key;
+            hash ^=
+                (ulong)(connectorIndex + 1) *
+                ConnectorIndexSalt;
+            hash ^=
+                (ulong)(depth + 1) *
+                ConnectorDepthSalt;
+            hash ^=
+                (ulong)((int)parent.Rotation + 1) *
+                ConnectorRotationSalt;
+            return Avalanche(
+                hash);
+        }
+
+        private static int ConnectorDistance(
+            ulong hash,
+            int minimum,
+            int maximum)
+        {
+            if (minimum ==
+                maximum)
+            {
+                return minimum;
+            }
+
+            var span =
+                (ulong)(
+                    maximum -
+                    minimum +
+                    1);
+            return checked(
+                minimum +
+                (int)(
+                    hash %
+                    span));
+        }
+    }
+
+    private sealed record RuntimeProximityRule(
+        StructureProximityMode Mode,
+        int MinimumDistance,
+        int MaximumDistance,
+        BlockRuntimeId Block,
+        FluidRuntimeId Fluid);
+
+    private sealed class RuntimeStructure
+    {
+        private readonly RuntimeVoxel[] _voxels;
+        private readonly RuntimeFluidVoxel[] _fluidVoxels;
+        private readonly RuntimeObjectVoxel[] _objectVoxels;
+        private readonly RuntimeClearVoxel[] _clearVoxels;
+        private readonly (int X, int Z)[] _footprint;
+        private readonly (int X, int Z)[] _supports;
+        private readonly IReadOnlyList<(int X, int Z)>[] _rotatedFootprints;
+        private readonly IReadOnlyList<(int X, int Z)>[] _rotatedSupports;
+        private readonly RuntimeColumn[] _columns;
+
+        public RuntimeStructure(
+            StructureDefinition definition,
+            BlockRegistry blocks,
+            FluidRegistry fluids)
+        {
+            Definition =
+                definition ??
+                throw new ArgumentNullException(
+                    nameof(definition));
+
+            _voxels =
+                definition.Voxels
+                    .Select(voxel =>
+                        new RuntimeVoxel(
+                            voxel.X,
+                            voxel.Y,
+                            voxel.Z,
+                            new VoxelCell(
+                                blocks.GetId(
+                                    voxel.Block),
+                                textureRotation: voxel.Detail?.TextureRotation ??
+                                    TextureRotation.Degrees0,
+                                orientation: voxel.Orientation,
+                                facing: voxel.Detail?.Facing ??
+                                    HorizontalFacing.South,
+                                state: voxel.Detail?.State ?? 0),
+                            voxel.Detail?.Mask ?? MicroblockMask.Empty,
+                            voxel.Detail?.Surface ?? BlockSurfaceState.Empty))
+                    .ToArray();
+            _fluidVoxels =
+                definition.FluidVoxels
+                    .Select(voxel =>
+                        new RuntimeFluidVoxel(
+                            voxel.X,
+                            voxel.Y,
+                            voxel.Z,
+                            FluidCell.Source(
+                                fluids.GetId(
+                                    voxel.Fluid))))
+                    .ToArray();
+            _objectVoxels = definition.Objects
+                .Select(obj => new RuntimeObjectVoxel(
+                    obj.X, obj.Y, obj.Z, obj.Object, obj.Face))
+                .ToArray();
+            _clearVoxels =
+                definition.ClearVoxels
+                    .Select(voxel =>
+                        new RuntimeClearVoxel(
+                            voxel.X,
+                            voxel.Y,
+                            voxel.Z))
+                    .ToArray();
+
+            var payloadOffsets =
+                _voxels
+                    .Select(value =>
+                        (
+                            value.X,
+                            value.Y,
+                            value.Z))
+                    .Concat(
+                        _fluidVoxels.Select(value =>
+                            (
+                                value.X,
+                                value.Y,
+                                value.Z)))
+                    .Concat(
+                        _clearVoxels.Select(value =>
+                            (value.X, value.Y, value.Z)))
+                    .Concat(_objectVoxels.Select(value =>
+                        (value.X, value.Y, value.Z)))
+                    .ToArray();
+
+            _footprint =
+                payloadOffsets.Length == 0
+                    ? [
+                        (
+                            0,
+                            0),
+                    ]
+                    : payloadOffsets
+                        .Select(value =>
+                            (
+                                value.X,
+                                value.Z))
+                        .Distinct()
+                        .OrderBy(value =>
+                            value.X)
+                        .ThenBy(value =>
+                            value.Z)
+                        .ToArray();
+            _supports =
+                payloadOffsets.Length == 0
+                    ? _footprint
+                    : payloadOffsets
+                        .Where(value =>
+                            value.Y ==
+                            definition.MinimumY)
+                        .Select(value =>
+                            (
+                                value.X,
+                                value.Z))
+                        .Distinct()
+                        .OrderBy(value =>
+                            value.X)
+                        .ThenBy(value =>
+                            value.Z)
+                        .ToArray();
+
+            // Footprints and supports are immutable for a compiled runtime
+            // structure. Precompute the four rotations once instead of running
+            // LINQ, Distinct and ToArray for every candidate placement.
+            var rotations = Enum.GetValues<StructureRotation>();
+            _rotatedFootprints =
+                new IReadOnlyList<(int X, int Z)>[rotations.Length];
+            _rotatedSupports =
+                new IReadOnlyList<(int X, int Z)>[rotations.Length];
+            foreach (var rotation in rotations)
+            {
+                var rotationIndex = (int)rotation;
+                _rotatedFootprints[rotationIndex] =
+                    RotateOffsets(_footprint, rotation);
+                _rotatedSupports[rotationIndex] =
+                    RotateOffsets(_supports, rotation);
+            }
+
+            _columns =
+                payloadOffsets
+                    .GroupBy(value =>
+                        (
+                            value.X,
+                            value.Z))
+                    .Select(group =>
+                        new RuntimeColumn(
+                            group.Key.X,
+                            group.Key.Z,
+                            group.Max(value =>
+                                value.Y)))
+                    .OrderBy(value =>
+                        value.X)
+                    .ThenBy(value =>
+                        value.Z)
+                    .ToArray();
+
+            AllowedGroundBlocks =
+                definition.Restrictions
+                    .GroundBlocks
+                    .Select(
+                        blocks.GetId)
+                    .ToHashSet();
+            Proximity =
+                definition.Restrictions
+                    .Proximity
+                    .Select(rule =>
+                        new RuntimeProximityRule(
+                            rule.Mode,
+                            rule.MinDistance ??
+                            0,
+                            rule.MaxDistance,
+                            rule.Target.Block is
+                                { } block
+                                ? blocks.GetId(
+                                    block)
+                                : BlockRuntimeId.Air,
+                            rule.Target.Fluid is
+                                { } fluid
+                                ? fluids.GetId(
+                                    fluid)
+                                : FluidRuntimeId.None))
+                    .ToArray();
+
+            var maximumRadius =
+                _footprint
+                    .Select(offset =>
+                        Math.Max(
+                            Math.Abs(
+                                (long)offset.X),
+                            Math.Abs(
+                                (long)offset.Z)))
+                    .DefaultIfEmpty(
+                        0L)
+                    .Max();
+            MaximumHorizontalRadius =
+                maximumRadius >
+                int.MaxValue
+                    ? int.MaxValue
+                    : checked(
+                        (int)maximumRadius);
+        }
+
+        public StructureDefinition Definition { get; }
+
+        public HashSet<BlockRuntimeId> AllowedGroundBlocks { get; }
+
+        public RuntimeProximityRule[] Proximity { get; }
+
+        public int MaximumHorizontalRadius { get; }
+
+        public IReadOnlyList<(int X, int Z)>
+            HorizontalFootprint(
+                StructureRotation rotation) =>
+            _rotatedFootprints[(int)rotation];
+
+        public IReadOnlyList<(int X, int Z)>
+            SupportOffsets(
+                StructureRotation rotation) =>
+            _rotatedSupports[(int)rotation];
+
+        private static IReadOnlyList<(int X, int Z)>
+            RotateOffsets(
+                IEnumerable<(int X, int Z)> offsets,
+                StructureRotation rotation) =>
+            offsets
+                .Select(offset =>
+                {
+                    var rotated =
+                        StructureDefinition.RotateOffset(
+                            rotation,
+                            offset.X,
+                            0,
+                            offset.Z);
+                    return (
+                        rotated.X,
+                        rotated.Z);
+                })
+                .Distinct()
+                .ToArray();
+
+        public SurfaceStructurePlacement Place(
+            string reference,
+            int anchorX,
+            int anchorY,
+            int anchorZ,
+            StructureRotation rotation)
+        {
+            var voxels =
+                new PlacedStructureVoxel[
+                    _voxels.Length];
+            var fluids =
+                new PlacedStructureFluidVoxel[
+                    _fluidVoxels.Length];
+            var objects = new PlacedStructureObject[_objectVoxels.Length];
+            var clears =
+                new HashSet<(
+                    int X,
+                    int Y,
+                    int Z)>();
+
+            for (var index = 0;
+                 index < _voxels.Length;
+                 index++)
+            {
+                var voxel =
+                    _voxels[index];
+                var rotated =
+                    StructureDefinition.RotateOffset(
+                        rotation,
+                        voxel.X,
+                        voxel.Y,
+                        voxel.Z);
+                var cell =
+                    StructureVoxelRotation.RotateCell(voxel.Cell, rotation);
+                voxels[index] =
+                    new PlacedStructureVoxel(
+                        checked(
+                            anchorX +
+                            rotated.X),
+                        checked(
+                            anchorY +
+                            rotated.Y),
+                        checked(
+                            anchorZ +
+                            rotated.Z),
+                        cell,
+                        voxel.Mask.RotateAroundY(rotation),
+                        StructureVoxelRotation.RotateSurface(voxel.Surface, rotation));
+            }
+
+            for (var index = 0;
+                 index < _fluidVoxels.Length;
+                 index++)
+            {
+                var voxel =
+                    _fluidVoxels[index];
+                var rotated =
+                    StructureDefinition.RotateOffset(
+                        rotation,
+                        voxel.X,
+                        voxel.Y,
+                        voxel.Z);
+                fluids[index] =
+                    new PlacedStructureFluidVoxel(
+                        checked(
+                            anchorX +
+                            rotated.X),
+                        checked(
+                            anchorY +
+                            rotated.Y),
+                        checked(
+                            anchorZ +
+                            rotated.Z),
+                        voxel.Fluid);
+            }
+
+            for (var i = 0; i < _objectVoxels.Length; i++)
+            {
+                var obj = _objectVoxels[i];
+                var rotated = StructureDefinition.RotateOffset(
+                    rotation, obj.X, obj.Y, obj.Z);
+                var face = StructureVoxelRotation.RotateFace(obj.Face, rotation);
+                objects[i] = new PlacedStructureObject(
+                    checked(anchorX + rotated.X),
+                    checked(anchorY + rotated.Y),
+                    checked(anchorZ + rotated.Z),
+                    new ObjectCell(obj.Id, face));
+            }
+
+            foreach (var voxel in
+                     _clearVoxels)
+            {
+                var rotated =
+                    StructureDefinition.RotateOffset(
+                        rotation,
+                        voxel.X,
+                        voxel.Y,
+                        voxel.Z);
+                clears.Add(
+                    (
+                        checked(
+                            anchorX +
+                            rotated.X),
+                        checked(
+                            anchorY +
+                            rotated.Y),
+                        checked(
+                            anchorZ +
+                            rotated.Z)));
+            }
+
+            if (Definition.ClearAbove > 0)
+            {
+                foreach (var column in
+                         _columns)
+                {
+                    for (var delta = 1;
+                         delta <=
+                         Definition.ClearAbove;
+                         delta++)
+                    {
+                        var rotated =
+                            StructureDefinition.RotateOffset(
+                                rotation,
+                                column.X,
+                                checked(
+                                    column.MaximumY +
+                                    delta),
+                                column.Z);
+                        clears.Add(
+                            (
+                                checked(
+                                    anchorX +
+                                    rotated.X),
+                                checked(
+                                    anchorY +
+                                    rotated.Y),
+                                checked(
+                                    anchorZ +
+                                    rotated.Z)));
+                    }
+                }
+            }
+
+            var clearVoxels =
+                clears
+                    .OrderBy(value =>
+                        value.X)
+                    .ThenBy(value =>
+                        value.Y)
+                    .ThenBy(value =>
+                        value.Z)
+                    .Select(value =>
+                        new PlacedStructureClearVoxel(
+                            value.X,
+                            value.Y,
+                            value.Z))
+                    .ToArray();
+
+            var positions =
+                voxels
+                    .Select(value =>
+                        (
+                            value.X,
+                            value.Y,
+                            value.Z))
+                    .Concat(
+                        fluids.Select(value =>
+                            (
+                                value.X,
+                                value.Y,
+                                value.Z)))
+                    .Concat(
+                        clearVoxels.Select(value =>
+                            (value.X, value.Y, value.Z)))
+                    .Concat(objects.Select(obj => (obj.X, obj.Y, obj.Z)))
+                    .Concat(objects.Select(obj => {
+                        var support = obj.SupportPosition;
+                        return (support.X, support.Y, support.Z);
+                    }))
+                    .ToArray();
+
+            var minimumX =
+                positions.Length == 0
+                    ? anchorX
+                    : positions.Min(value =>
+                        value.X);
+            var maximumX =
+                positions.Length == 0
+                    ? anchorX
+                    : positions.Max(value =>
+                        value.X);
+            var minimumY =
+                positions.Length == 0
+                    ? anchorY
+                    : positions.Min(value =>
+                        value.Y);
+            var maximumY =
+                positions.Length == 0
+                    ? anchorY
+                    : positions.Max(value =>
+                        value.Y);
+            var minimumZ =
+                positions.Length == 0
+                    ? anchorZ
+                    : positions.Min(value =>
+                        value.Z);
+            var maximumZ =
+                positions.Length == 0
+                    ? anchorZ
+                    : positions.Max(value =>
+                        value.Z);
+
+            return new SurfaceStructurePlacement(
+                reference,
+                Definition.Id,
+                anchorX,
+                anchorY,
+                anchorZ,
+                rotation,
+                Definition.Generation,
+                voxels,
+                fluids,
+                clearVoxels,
+                objects,
+                minimumX,
+                maximumX,
+                minimumY,
+                maximumY,
+                minimumZ,
+                maximumZ);
+        }
+
+        private readonly record struct RuntimeVoxel(
+            int X,
+            int Y,
+            int Z,
+            VoxelCell Cell,
+            MicroblockMask Mask,
+            BlockSurfaceState Surface);
+
+        private readonly record struct RuntimeObjectVoxel(
+            int X, int Y, int Z, string Id, BlockFace Face);
+
+        private readonly record struct RuntimeFluidVoxel(
+            int X,
+            int Y,
+            int Z,
+            FluidCell Fluid);
+
+        private readonly record struct RuntimeClearVoxel(
+            int X,
+            int Y,
+            int Z);
+
+        private readonly record struct RuntimeColumn(
+            int X,
+            int Z,
+            int MaximumY);
+    }
+}
+
+internal sealed class SurfaceStructurePlacement
+{
+    public SurfaceStructurePlacement(
+        string reference,
+        string structureId,
+        int anchorX,
+        int anchorY,
+        int anchorZ,
+        StructureRotation rotation,
+        StructureGenerationDefinition generation,
+        IReadOnlyList<PlacedStructureVoxel> voxels,
+        IReadOnlyList<PlacedStructureFluidVoxel> fluidVoxels,
+        IReadOnlyList<PlacedStructureClearVoxel> clearVoxels,
+        IReadOnlyList<PlacedStructureObject> objects,
+        int minimumX,
+        int maximumX,
+        int minimumY,
+        int maximumY,
+        int minimumZ,
+        int maximumZ)
+    {
+        Reference = reference;
+        StructureId = structureId;
+        AnchorX = anchorX;
+        AnchorY = anchorY;
+        AnchorZ = anchorZ;
+        Rotation = rotation;
+        Generation = generation;
+        Voxels = voxels;
+        FluidVoxels = fluidVoxels;
+        ClearVoxels = clearVoxels;
+        Objects = objects;
+        MinimumX = minimumX;
+        MaximumX = maximumX;
+        MinimumY = minimumY;
+        MaximumY = maximumY;
+        MinimumZ = minimumZ;
+        MaximumZ = maximumZ;
+    }
+
+    public string Reference { get; }
+
+    public string StructureId { get; }
+
+    public int AnchorX { get; }
+
+    public int AnchorY { get; }
+
+    public int AnchorZ { get; }
+
+    public StructureRotation Rotation { get; }
+
+    public StructureGenerationDefinition Generation { get; }
+
+    public IReadOnlyList<PlacedStructureVoxel> Voxels { get; }
+
+    public IReadOnlyList<PlacedStructureFluidVoxel> FluidVoxels { get; }
+
+    public IReadOnlyList<PlacedStructureClearVoxel> ClearVoxels { get; }
+
+    public IReadOnlyList<PlacedStructureObject> Objects { get; }
+
+    public int MinimumX { get; }
+
+    public int MaximumX { get; }
+
+    public int MinimumY { get; }
+
+    public int MaximumY { get; }
+
+    public int MinimumZ { get; }
+
+    public int MaximumZ { get; }
+
+    public IEnumerable<(int X, int Y, int Z)>
+        PayloadPositions()
+    {
+        foreach (var voxel in
+                 Voxels)
+        {
+            yield return (
+                voxel.X,
+                voxel.Y,
+                voxel.Z);
+        }
+
+        foreach (var voxel in
+                 FluidVoxels)
+        {
+            yield return (
+                voxel.X,
+                voxel.Y,
+                voxel.Z);
+        }
+
+        foreach (var voxel in
+                 ClearVoxels)
+        {
+            yield return (voxel.X, voxel.Y, voxel.Z);
+        }
+
+        foreach (var obj in Objects)
+            yield return (obj.X, obj.Y, obj.Z);
+    }
+
+    public bool IntersectsHorizontal(
+        int minimumX,
+        int minimumZ,
+        int maximumX,
+        int maximumZ) =>
+        MinimumX <= maximumX &&
+        MaximumX >= minimumX &&
+        MinimumZ <= maximumZ &&
+        MaximumZ >= minimumZ;
+
+    public static int CompareDeterministically(
+        SurfaceStructurePlacement left,
+        SurfaceStructurePlacement right)
+    {
+        var byReference =
+            string.CompareOrdinal(
+                left.Reference,
+                right.Reference);
+        if (byReference != 0)
+        {
+            return byReference;
+        }
+
+        var byStructure =
+            string.CompareOrdinal(
+                left.StructureId,
+                right.StructureId);
+        if (byStructure != 0)
+        {
+            return byStructure;
+        }
+
+        var byX =
+            left.AnchorX.CompareTo(
+                right.AnchorX);
+        if (byX != 0)
+        {
+            return byX;
+        }
+
+        var byZ =
+            left.AnchorZ.CompareTo(
+                right.AnchorZ);
+        return byZ != 0
+            ? byZ
+            : left.AnchorY.CompareTo(
+                right.AnchorY);
+    }
+}
+
+internal readonly record struct PlacedStructureObject(
+    int X, int Y, int Z, ObjectCell Cell)
+{
+    public WorldVoxelCoord SupportPosition => Cell.Face switch
+    {
+        BlockFace.Top => new(X, Y - 1, Z),
+        BlockFace.Bottom => new(X, Y + 1, Z),
+        BlockFace.Right => new(X - 1, Y, Z),
+        BlockFace.Left => new(X + 1, Y, Z),
+        BlockFace.Front => new(X, Y, Z - 1),
+        BlockFace.Back => new(X, Y, Z + 1),
+        _ => throw new ArgumentOutOfRangeException(nameof(Cell)),
+    };
+}
+
+internal readonly record struct PlacedStructureVoxel(
+    int X,
+    int Y,
+    int Z,
+    VoxelCell Cell,
+    MicroblockMask Mask,
+    BlockSurfaceState Surface);
+
+internal readonly record struct PlacedStructureFluidVoxel(
+    int X,
+    int Y,
+    int Z,
+    FluidCell Fluid);
+
+internal readonly record struct PlacedStructureClearVoxel(
+    int X,
+    int Y,
+    int Z);

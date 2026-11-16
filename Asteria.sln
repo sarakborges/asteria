@@ -1,0 +1,50 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Asteria", "Asteria.csproj", "{A7C6B309-EF3B-43F0-A1B8-7B1303A8BB19}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Asteria.Core", "src\Asteria.Core\Asteria.Core.csproj", "{C98A471D-6253-4D88-A9B4-1E811D61D2A5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Asteria.ModAPI", "src\Asteria.ModAPI\Asteria.ModAPI.csproj", "{D6EA2F2C-917A-42B9-8DF7-378E78DA13F4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A7C6B309-EF3B-43F0-A1B8-7B1303A8BB19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7C6B309-EF3B-43F0-A1B8-7B1303A8BB19}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7C6B309-EF3B-43F0-A1B8-7B1303A8BB19}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{A7C6B309-EF3B-43F0-A1B8-7B1303A8BB19}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{A7C6B309-EF3B-43F0-A1B8-7B1303A8BB19}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{A7C6B309-EF3B-43F0-A1B8-7B1303A8BB19}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{A7C6B309-EF3B-43F0-A1B8-7B1303A8BB19}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7C6B309-EF3B-43F0-A1B8-7B1303A8BB19}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C98A471D-6253-4D88-A9B4-1E811D61D2A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C98A471D-6253-4D88-A9B4-1E811D61D2A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C98A471D-6253-4D88-A9B4-1E811D61D2A5}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{C98A471D-6253-4D88-A9B4-1E811D61D2A5}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{C98A471D-6253-4D88-A9B4-1E811D61D2A5}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{C98A471D-6253-4D88-A9B4-1E811D61D2A5}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{C98A471D-6253-4D88-A9B4-1E811D61D2A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C98A471D-6253-4D88-A9B4-1E811D61D2A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6EA2F2C-917A-42B9-8DF7-378E78DA13F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6EA2F2C-917A-42B9-8DF7-378E78DA13F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6EA2F2C-917A-42B9-8DF7-378E78DA13F4}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{D6EA2F2C-917A-42B9-8DF7-378E78DA13F4}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{D6EA2F2C-917A-42B9-8DF7-378E78DA13F4}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{D6EA2F2C-917A-42B9-8DF7-378E78DA13F4}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{D6EA2F2C-917A-42B9-8DF7-378E78DA13F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6EA2F2C-917A-42B9-8DF7-378E78DA13F4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5AF6A2AE-1AD7-4EE3-93BA-94D2CC9D6E40}
+	EndGlobalSection
+EndGlobal

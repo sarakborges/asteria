@@ -1,0 +1,1007 @@
+[
+  {
+    "path": "objects/grass.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "blocks/aether_crystal.png",
+    "tileable": true,
+    "edge_ratio_x": 0.238,
+    "edge_ratio_y": 0.494,
+    "review_required": false
+  },
+  {
+    "path": "blocks/aether_crystal_core.png",
+    "tileable": true,
+    "edge_ratio_x": 0.22,
+    "edge_ratio_y": 0.566,
+    "review_required": false
+  },
+  {
+    "path": "blocks/azure_crystal.png",
+    "tileable": true,
+    "edge_ratio_x": 0.627,
+    "edge_ratio_y": 0.661,
+    "review_required": false
+  },
+  {
+    "path": "blocks/basalt.png",
+    "tileable": true,
+    "edge_ratio_x": 0.421,
+    "edge_ratio_y": 0.668,
+    "review_required": false
+  },
+  {
+    "path": "blocks/basalt_column.png",
+    "tileable": true,
+    "edge_ratio_x": 0.482,
+    "edge_ratio_y": 0.443,
+    "review_required": false
+  },
+  {
+    "path": "blocks/cactus/barrel/side.png",
+    "tileable": true,
+    "edge_ratio_x": 1.122,
+    "edge_ratio_y": 0.372,
+    "review_required": false
+  },
+  {
+    "path": "blocks/cactus/barrel/top.png",
+    "tileable": true,
+    "edge_ratio_x": 0.033,
+    "edge_ratio_y": 0.046,
+    "review_required": false
+  },
+  {
+    "path": "blocks/cactus/column/side.png",
+    "tileable": true,
+    "edge_ratio_x": 0.985,
+    "edge_ratio_y": 0.737,
+    "review_required": false
+  },
+  {
+    "path": "blocks/cactus/column/top.png",
+    "tileable": true,
+    "edge_ratio_x": 0.518,
+    "edge_ratio_y": 1.114,
+    "review_required": false
+  },
+  {
+    "path": "blocks/cactus/pad.png",
+    "tileable": true,
+    "edge_ratio_x": 0.889,
+    "edge_ratio_y": 0.75,
+    "review_required": false
+  },
+  {
+    "path": "blocks/coral/blue.png",
+    "tileable": true,
+    "edge_ratio_x": 0.344,
+    "edge_ratio_y": 0.684,
+    "review_required": false
+  },
+  {
+    "path": "blocks/coral/lime.png",
+    "tileable": true,
+    "edge_ratio_x": 0.423,
+    "edge_ratio_y": 0.516,
+    "review_required": false
+  },
+  {
+    "path": "blocks/coral/orange.png",
+    "tileable": true,
+    "edge_ratio_x": 0.387,
+    "edge_ratio_y": 0.525,
+    "review_required": false
+  },
+  {
+    "path": "blocks/coral/pink.png",
+    "tileable": true,
+    "edge_ratio_x": 0.446,
+    "edge_ratio_y": 0.575,
+    "review_required": false
+  },
+  {
+    "path": "blocks/coral/teal.png",
+    "tileable": true,
+    "edge_ratio_x": 0.545,
+    "edge_ratio_y": 0.551,
+    "review_required": false
+  },
+  {
+    "path": "blocks/coral/violet.png",
+    "tileable": true,
+    "edge_ratio_x": 0.422,
+    "edge_ratio_y": 0.415,
+    "review_required": false
+  },
+  {
+    "path": "blocks/coral/yellow.png",
+    "tileable": true,
+    "edge_ratio_x": 0.594,
+    "edge_ratio_y": 0.542,
+    "review_required": false
+  },
+  {
+    "path": "blocks/fossil_bone.png",
+    "tileable": true,
+    "edge_ratio_x": 0.304,
+    "edge_ratio_y": 0.385,
+    "review_required": false
+  },
+  {
+    "path": "blocks/glacial_ice_core.png",
+    "tileable": true,
+    "edge_ratio_x": 0.379,
+    "edge_ratio_y": 0.454,
+    "review_required": false
+  },
+  {
+    "path": "blocks/glacial_rime_core.png",
+    "tileable": true,
+    "edge_ratio_x": 0.416,
+    "edge_ratio_y": 0.535,
+    "review_required": false
+  },
+  {
+    "path": "blocks/ice.png",
+    "tileable": true,
+    "edge_ratio_x": 0.246,
+    "edge_ratio_y": 0.612,
+    "review_required": false
+  },
+  {
+    "path": "blocks/kelp/frond.png",
+    "tileable": true,
+    "edge_ratio_x": 0.963,
+    "edge_ratio_y": 0.771,
+    "review_required": false
+  },
+  {
+    "path": "blocks/kelp/stem.png",
+    "tileable": true,
+    "edge_ratio_x": 0.578,
+    "edge_ratio_y": 0.473,
+    "review_required": false
+  },
+  {
+    "path": "blocks/lamp.png",
+    "tileable": true,
+    "edge_ratio_x": 0.622,
+    "edge_ratio_y": 0.535,
+    "review_required": false
+  },
+  {
+    "path": "blocks/luminous_crystal_core.png",
+    "tileable": true,
+    "edge_ratio_x": 0.486,
+    "edge_ratio_y": 0.776,
+    "review_required": false
+  },
+  {
+    "path": "blocks/mud.png",
+    "tileable": true,
+    "edge_ratio_x": 0.328,
+    "edge_ratio_y": 0.296,
+    "review_required": false
+  },
+  {
+    "path": "blocks/mud_dry.png",
+    "tileable": true,
+    "edge_ratio_x": 0.213,
+    "edge_ratio_y": 0.304,
+    "review_required": false
+  },
+  {
+    "path": "blocks/mushrooms/glow/cap.png",
+    "tileable": true,
+    "edge_ratio_x": 0.647,
+    "edge_ratio_y": 0.526,
+    "review_required": false
+  },
+  {
+    "path": "blocks/mushrooms/glow/stem.png",
+    "tileable": true,
+    "edge_ratio_x": 0.596,
+    "edge_ratio_y": 0.735,
+    "review_required": false
+  },
+  {
+    "path": "blocks/mushrooms/luminous_giant/cap.png",
+    "tileable": true,
+    "edge_ratio_x": 0.269,
+    "edge_ratio_y": 0.428,
+    "review_required": false
+  },
+  {
+    "path": "blocks/mushrooms/luminous_giant/stem.png",
+    "tileable": true,
+    "edge_ratio_x": 0.522,
+    "edge_ratio_y": 0.417,
+    "review_required": false
+  },
+  {
+    "path": "blocks/mushrooms/marsh_giant/cap.png",
+    "tileable": true,
+    "edge_ratio_x": 0.22,
+    "edge_ratio_y": 0.314,
+    "review_required": false
+  },
+  {
+    "path": "blocks/mushrooms/marsh_giant/stem.png",
+    "tileable": true,
+    "edge_ratio_x": 0.507,
+    "edge_ratio_y": 0.468,
+    "review_required": false
+  },
+  {
+    "path": "blocks/snow.png",
+    "tileable": true,
+    "edge_ratio_x": 1.005,
+    "edge_ratio_y": 1.207,
+    "review_required": false
+  },
+  {
+    "path": "blocks/stone.png",
+    "tileable": true,
+    "edge_ratio_x": 0.58,
+    "edge_ratio_y": 0.528,
+    "review_required": false
+  },
+  {
+    "path": "blocks/sulfur_crystal.png",
+    "tileable": true,
+    "edge_ratio_x": 0.404,
+    "edge_ratio_y": 0.387,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/charwood/leaf.png",
+    "tileable": true,
+    "edge_ratio_x": 0.756,
+    "edge_ratio_y": 0.635,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/charwood/side.png",
+    "tileable": true,
+    "edge_ratio_x": 0.517,
+    "edge_ratio_y": 0.353,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/juniper/top.png",
+    "tileable": true,
+    "edge_ratio_x": 0.878,
+    "edge_ratio_y": 0.852,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/charwood/stripped.png",
+    "tileable": true,
+    "edge_ratio_x": 0.652,
+    "edge_ratio_y": 0.497,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/frost_wood/leaf.png",
+    "tileable": true,
+    "edge_ratio_x": 0.718,
+    "edge_ratio_y": 0.955,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/charwood/top.png",
+    "tileable": true,
+    "edge_ratio_x": 0.623,
+    "edge_ratio_y": 0.75,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/frost_wood/side.png",
+    "tileable": true,
+    "edge_ratio_x": 0.486,
+    "edge_ratio_y": 0.668,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/frost_wood/leaf_arctic.png",
+    "tileable": true,
+    "edge_ratio_x": 0.615,
+    "edge_ratio_y": 0.911,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/frost_wood/top.png",
+    "tileable": true,
+    "edge_ratio_x": 0.977,
+    "edge_ratio_y": 0.651,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/juniper/side.png",
+    "tileable": true,
+    "edge_ratio_x": 0.451,
+    "edge_ratio_y": 0.567,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/frost_wood/stripped.png",
+    "tileable": true,
+    "edge_ratio_x": 0.46,
+    "edge_ratio_y": 0.599,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/juniper/stripped.png",
+    "tileable": true,
+    "edge_ratio_x": 0.469,
+    "edge_ratio_y": 0.689,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/juniper/leaf.png",
+    "tileable": true,
+    "edge_ratio_x": 0.945,
+    "edge_ratio_y": 0.867,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/rime_deadwood/side.png",
+    "tileable": true,
+    "edge_ratio_x": 0.507,
+    "edge_ratio_y": 0.336,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/rime_deadwood/stripped.png",
+    "tileable": true,
+    "edge_ratio_x": 0.474,
+    "edge_ratio_y": 0.801,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/rime_deadwood/top.png",
+    "tileable": true,
+    "edge_ratio_x": 0.926,
+    "edge_ratio_y": 0.868,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/skywood/leaf.png",
+    "tileable": true,
+    "edge_ratio_x": 0.877,
+    "edge_ratio_y": 0.932,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/skywood/side.png",
+    "tileable": true,
+    "edge_ratio_x": 0.495,
+    "edge_ratio_y": 0.503,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/skywood/stripped.png",
+    "tileable": true,
+    "edge_ratio_x": 0.584,
+    "edge_ratio_y": 0.877,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/skywood/top.png",
+    "tileable": true,
+    "edge_ratio_x": 1.1,
+    "edge_ratio_y": 0.968,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/thornwood/side.png",
+    "tileable": true,
+    "edge_ratio_x": 0.432,
+    "edge_ratio_y": 0.449,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/windwood/leaf.png",
+    "tileable": true,
+    "edge_ratio_x": 0.887,
+    "edge_ratio_y": 0.879,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/thornwood/stripped.png",
+    "tileable": true,
+    "edge_ratio_x": 0.521,
+    "edge_ratio_y": 0.565,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/thornwood/top.png",
+    "tileable": true,
+    "edge_ratio_x": 1.042,
+    "edge_ratio_y": 0.87,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/windwood/side.png",
+    "tileable": true,
+    "edge_ratio_x": 0.41,
+    "edge_ratio_y": 0.502,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/windwood/stripped.png",
+    "tileable": true,
+    "edge_ratio_x": 0.542,
+    "edge_ratio_y": 0.551,
+    "review_required": false
+  },
+  {
+    "path": "blocks/trees/windwood/top.png",
+    "tileable": true,
+    "edge_ratio_x": 0.957,
+    "edge_ratio_y": 0.997,
+    "review_required": false
+  },
+  {
+    "path": "items/wayfarer_boots.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "blocks/volcanic_glass.png",
+    "tileable": true,
+    "edge_ratio_x": 0.562,
+    "edge_ratio_y": 0.4,
+    "review_required": false
+  },
+  {
+    "path": "items/wayfarer_chestplate.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/wayfarer_helmet.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/wayfarer_leggings.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/aether_bloom.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/aether_vines.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/alpine_edelweiss.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/alpine_sedge.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/ash_thorn.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/bleached_roots.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/bone_scatter.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/brittle_tuft.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/bulrush.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/cactus/flower_pink.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/cactus/flower_yellow.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/cattail.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/cliff_rosette.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/cinder_bloom.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/cliff_lichen.png",
+    "tileable": true,
+    "edge_ratio_x": 0.493,
+    "edge_ratio_y": 0.641,
+    "review_required": false
+  },
+  {
+    "path": "objects/cloud_reed.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/clover.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/dead_thistle.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/dry_lichen.png",
+    "tileable": true,
+    "edge_ratio_x": 0.75,
+    "edge_ratio_y": 0.631,
+    "review_required": false
+  },
+  {
+    "path": "objects/daisy.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/dry_tuft.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/dune_grass.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/exposed_roots.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/frost_lichen.png",
+    "tileable": true,
+    "edge_ratio_x": 0.511,
+    "edge_ratio_y": 0.123,
+    "review_required": false
+  },
+  {
+    "path": "objects/frost_shrub.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/glow_fern.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/glow_pod.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/hanging_moss.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/hanging_roots.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/iris.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/kelp.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/lily_pad.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/marsh_fern.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/marsh_orchid.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/meadow_seedheads.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/mushrooms/blue.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/mushrooms/brown.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/mushrooms/glowcap.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/mushrooms/green.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/mushrooms/purple.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/mushrooms/red.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/mushrooms/yellow.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/pass_grass.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/pink_bloom.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/purple_aster.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/sagebrush.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/rock_lichen.png",
+    "tileable": true,
+    "edge_ratio_x": 0.833,
+    "edge_ratio_y": 0.867,
+    "review_required": false
+  },
+  {
+    "path": "objects/saxifrage.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/sea_anemone.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/scree_lichen.png",
+    "tileable": true,
+    "edge_ratio_x": 0.88,
+    "edge_ratio_y": 0.498,
+    "review_required": false
+  },
+  {
+    "path": "objects/seagrass.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/seashell.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/shelf_fungus.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/starfish.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/soot_lichen.png",
+    "tileable": true,
+    "edge_ratio_x": 0.815,
+    "edge_ratio_y": 0.533,
+    "review_required": false
+  },
+  {
+    "path": "objects/starflower.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/stonecrop.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/tall_grass.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/thorn_rosette.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/thornbush.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/violet_fern.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/wall_moss.png",
+    "tileable": true,
+    "edge_ratio_x": 0.52,
+    "edge_ratio_y": 0.713,
+    "review_required": false
+  },
+  {
+    "path": "objects/wall_shelf_fungus.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/wildflower_blue.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/wildflower_yellow.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "objects/yucca.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "layers/cliff_lichen.png",
+    "tileable": true,
+    "edge_ratio_x": 0.493,
+    "edge_ratio_y": 0.641,
+    "review_required": false
+  },
+  {
+    "path": "layers/wall_moss.png",
+    "tileable": true,
+    "edge_ratio_x": 0.52,
+    "edge_ratio_y": 0.713,
+    "review_required": false
+  },
+  {
+    "path": "objects/mushrooms/pink.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/ores/raw_copper.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/ores/raw_gold.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/ores/raw_iron.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/ores/raw_lead.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/ores/raw_nickel.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/ores/raw_silver.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/ores/raw_zinc.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "items/ores/raw_tin.png",
+    "tileable": false,
+    "opaque_border_pixels": 0,
+    "review_required": false
+  },
+  {
+    "path": "layers/ores/copper.png",
+    "tileable": true,
+    "edge_ratio_x": 0.537,
+    "edge_ratio_y": 0.464,
+    "review_required": false
+  },
+  {
+    "path": "layers/ores/gold.png",
+    "tileable": true,
+    "edge_ratio_x": 0.823,
+    "edge_ratio_y": 0.429,
+    "review_required": false
+  },
+  {
+    "path": "layers/ores/lead.png",
+    "tileable": true,
+    "edge_ratio_x": 0.777,
+    "edge_ratio_y": 0.236,
+    "review_required": false
+  },
+  {
+    "path": "layers/ores/iron.png",
+    "tileable": true,
+    "edge_ratio_x": 1.036,
+    "edge_ratio_y": 0.267,
+    "review_required": false
+  },
+  {
+    "path": "layers/ores/nickel.png",
+    "tileable": true,
+    "edge_ratio_x": 0.897,
+    "edge_ratio_y": 0.725,
+    "review_required": false
+  },
+  {
+    "path": "layers/ores/silver.png",
+    "tileable": true,
+    "edge_ratio_x": 0.595,
+    "edge_ratio_y": 0.262,
+    "review_required": false
+  },
+  {
+    "path": "layers/ores/tin.png",
+    "tileable": true,
+    "edge_ratio_x": 0.965,
+    "edge_ratio_y": 0.808,
+    "review_required": false
+  },
+  {
+    "path": "layers/ores/zinc.png",
+    "tileable": true,
+    "edge_ratio_x": 0.773,
+    "edge_ratio_y": 0.372,
+    "review_required": false
+  }
+]

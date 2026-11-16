@@ -1,0 +1,18 @@
+{
+  "id": "asteria:mushroom_stem_glow",
+  "category": "blocks_natural",
+  "textures": {
+    "top": "textures/blocks/mushroom_stem.png",
+    "bottom": "textures/blocks/mushroom_stem.png",
+    "left": "textures/blocks/mushroom_stem.png",
+    "right": "textures/blocks/mushroom_stem.png",
+    "front": "textures/blocks/mushroom_stem.png",
+    "back": "textures/blocks/mushroom_stem.png"
+  },
+  "lightDampening": 7,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.34
+  },
+  "previewColor": "82baa8"
+}
