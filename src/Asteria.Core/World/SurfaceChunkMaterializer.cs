@@ -662,7 +662,8 @@ public sealed partial class SurfaceChunkMaterializer
                     originX,
                     originY,
                     originZ,
-                    densityVolume);
+                    densityVolume,
+                    accessRegion);
         }
     }
 
