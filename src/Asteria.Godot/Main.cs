@@ -6047,8 +6047,7 @@ public partial class Main : Node3D
 			var lane = (firstLane + offset) % WorldWorkerLaneCount;
 			var started = lane switch
 			{
-				0 => _fluidSimulationRuntime.TryStartReadyWork(
-					center, _residency.MovementDirection),
+				0 => _fluidSimulationRuntime.TryStartReadyWork(center),
 				1 => allowPriorityMeshDispatch && _terrainMeshPipeline.TryStartReadyWork(
 					underStreamingPressure, center, _residency.MovementDirection,
 					allowBackgroundMeshDispatch),

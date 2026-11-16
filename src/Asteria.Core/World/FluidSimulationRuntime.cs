@@ -94,8 +94,7 @@ public sealed class FluidSimulationRuntime
     }
 
     public bool TryStartReadyWork(
-        ChunkCoord? center = null,
-        ChunkMovementDirection movement = default)
+        ChunkCoord? center = null)
     {
         if (_inFlightBatch is { } pendingBatch &&
             center is { } currentCenter)
