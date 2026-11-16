@@ -1477,3 +1477,8 @@ Status thresholds are normalized to Asteria's actual stage boundaries: structure
 A regression test requests Biomes, verifies the materializer does not advance beyond terrain setup, upgrades the same task to Full, and verifies it resumes and completes without reconstructing the job.
 
 **Runtime boundary:** `ChunkResidencyRuntime` still creates FULL-target tasks from player-loading admissions. Wiring non-FULL holder ticket levels into this target API and reusing an active task when target changes is the next integration step; this commit establishes the task-level lifecycle without claiming runtime pyramid completion.
+
+
+### Target-promotion test assertion clarification
+
+The first target-promotion test run compiled and reached 1,904/1,905 passing. The only mismatch was test instrumentation: the helper counts one LightExecutor operation and the injected lighting initializer independently incremented the same counter, so one correctly scheduled operation produced a count of two. The test now tracks those two distinct facts separately and asserts one of each.

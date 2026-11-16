@@ -167,10 +167,11 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
             sliceCount: 1,
             ChunkMaterializationStage.TerrainSetup);
         var lightOperations = 0;
+        var lightingInitializationCalls = 0;
         using var task = new ChunkColumnMaterializationGenerationTask(
             column,
             [job],
-            _ => lightOperations++,
+            _ => lightingInitializationCalls++,
             targetStatus: ChunkGenerationStatus.Biomes);
 
         var initial = task.Advance([], CancellationToken.None);
@@ -188,7 +189,7 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
         var upgrade = Assert.Single(biomes.FutureOperations);
         Assert.Equal(1, job.AdvanceCount);
         Assert.Equal(ChunkGenerationStatus.Biomes, task.TargetStatus);
-        Assert.Equal(0, lightOperations);
+        Assert.Equal(0, lightingInitializationCalls);
 
         Assert.True(task.TryUpgradeTargetStatus(ChunkGenerationStatus.Full));
         var upgradeCompletion = Completion(
@@ -207,6 +208,7 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
 
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
         Assert.Equal(1, lightOperations);
+        Assert.Equal(1, lightingInitializationCalls);
     }
 
     [Fact]
