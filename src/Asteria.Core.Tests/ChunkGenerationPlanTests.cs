@@ -369,14 +369,16 @@ public sealed class ChunkGenerationPlanTests
             dependency =>
                 dependency.PrerequisiteStep == ChunkGenerationStepId.ColumnBiomeData &&
                 dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
-                dependency.Envelope == new ChunkGenerationDependencyEnvelope(1, 0, 0));
+                dependency.Envelope == new ChunkGenerationDependencyEnvelope(4, -4, 4));
 
+        // The remaining +/-4 range comes from directional palette preparation;
+        // the removed volume-anchor scan no longer widens this accumulated path.
         Assert.DoesNotContain(
             plan.GetAccumulatedDependencies(ChunkGenerationStepId.VolumeStructures),
             dependency =>
                 dependency.PrerequisiteStep == ChunkGenerationStepId.ColumnBiomeData &&
-                (dependency.Envelope.MinimumSectionOffset < 0 ||
-                 dependency.Envelope.MaximumSectionOffset > 0));
+                (dependency.Envelope.MinimumSectionOffset < -4 ||
+                 dependency.Envelope.MaximumSectionOffset > 4));
 
         Assert.DoesNotContain(
             plan.GetAccumulatedDependencies(ChunkGenerationStepId.VolumeStructures),
@@ -1075,13 +1077,17 @@ public sealed class ChunkGenerationPlanTests
             dependency =>
                 dependency.PrerequisiteStep ==
                     ChunkGenerationStepId.ColumnBiomeData &&
-                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData);
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope ==
+                    new ChunkGenerationDependencyEnvelope(1, 0, 0));
         Assert.Contains(
             placementStep.DirectDependencies,
             dependency =>
                 dependency.PrerequisiteStep ==
                     ChunkGenerationStepId.SurfaceTerrainColumn &&
-                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData);
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope ==
+                    new ChunkGenerationDependencyEnvelope(1, 0, 0));
         Assert.Equal(
             ChunkGenerationDependencyEnvelope.None,
             rasterizationStep.ReadEnvelope);
