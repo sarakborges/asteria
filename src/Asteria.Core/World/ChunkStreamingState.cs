@@ -511,7 +511,7 @@ public sealed class ChunkStreamingState
 
         ChunkCoord? selected = null;
         var selectedPriority =
-            default(ChunkStreamingPriority);
+            default(ChunkGenerationTaskPriority);
 
         foreach (var coord in
                  _presentationPending)

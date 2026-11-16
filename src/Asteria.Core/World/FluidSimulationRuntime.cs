@@ -188,7 +188,7 @@ public sealed class FluidSimulationRuntime
             return WorldWorkerPriority.FromPriorityClass(
                 WorldWorkerPool.BackgroundWorldPriority);
 
-        ChunkStreamingPriority? nearest = null;
+        ChunkGenerationTaskPriority? nearest = null;
         foreach (var position in batch.Positions)
         {
             var coord = VoxelCoordinates.FromWorld(
@@ -202,7 +202,7 @@ public sealed class FluidSimulationRuntime
         }
 
         return nearest is { } ticket
-            ? WorldWorkerPriority.FromStreaming(ticket)
+            ? WorldWorkerPriority.FromGenerationTicket(ticket)
             : WorldWorkerPriority.FromPriorityClass(
                 WorldWorkerPool.BackgroundWorldPriority);
     }

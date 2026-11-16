@@ -234,7 +234,7 @@ public sealed class LightingRuntime
             return WorldWorkerPriority.FromPriorityClass(
                 WorldWorkerPool.BackgroundWorldPriority);
 
-        ChunkStreamingPriority? nearest = null;
+        ChunkGenerationTaskPriority? nearest = null;
         foreach (var position in batch.EditedPositions)
         {
             var coord = VoxelCoordinates.FromWorld(
@@ -248,7 +248,7 @@ public sealed class LightingRuntime
         }
 
         return nearest is { } ticket
-            ? WorldWorkerPriority.FromStreaming(ticket)
+            ? WorldWorkerPriority.FromGenerationTicket(ticket)
             : WorldWorkerPriority.FromPriorityClass(
                 WorldWorkerPool.BackgroundWorldPriority);
     }
