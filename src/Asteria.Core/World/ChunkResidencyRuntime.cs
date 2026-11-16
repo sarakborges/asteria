@@ -905,6 +905,22 @@ public sealed class ChunkResidencyRuntime
         if (!_acceptingMaterializationWork)
             return;
 
+        if (work.HolderProgressRevision !=
+            _streaming.DistanceManager.GetGenerationProgressRevision(column))
+        {
+            // A new section target changed the holder's required FULL set while
+            // this worker was detached. Its products belong to an obsolete
+            // generation revision: discard them and requeue only live demand.
+            foreach (var section in work.Sections)
+            {
+                if (_world.ContainsChunk(section))
+                    MarkMaterializedSectionFull(section);
+                else
+                    RequeueIfDesired(section, work.PendingSinceTimestamp);
+            }
+            return;
+        }
+
         // Publish every still-resident section in the holder batch before
         // presentation/physics work is queued for any of them.
         var sectionsToActivate = new List<ChunkMaterializationTaskOutput>(

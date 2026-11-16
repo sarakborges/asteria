@@ -204,6 +204,67 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void NewTicketTargetRejectsAndRequeuesInFlightHolderGeneration()
+    {
+        using var provider = new BlockingChunkProvider();
+        using var fixture = CreateFixture(provider, maxConcurrentWorkers: 1);
+        var playerSection = new ChunkCoord(1, 0, 0);
+        var ticketSection = new ChunkCoord(1, 1, 0);
+        fixture.Runtime.SyncSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord> { playerSection },
+            presented: Array.Empty<ChunkCoord>());
+
+        var started = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.Equal(1, started.StartedTasks);
+        PumpDispatchUntil(
+            fixture,
+            () => provider.AdvanceStarted.IsSet,
+            "The original holder task did not enter its worker stage.");
+
+        Assert.True(fixture.Runtime.AddTicket(
+            ticketSection,
+            new ChunkTicket(ChunkTicketType.Forced, Level: 30)));
+        provider.ReleaseAdvance.Set();
+
+        var staleDiscarded = SpinWait.SpinUntil(
+            () =>
+            {
+                fixture.Runtime.CollectMaterializationResults(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                return fixture.Runtime.MaterializationJobCount == 0 &&
+                       fixture.Runtime.PendingCount == 2;
+            },
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(staleDiscarded,
+            "The obsolete holder result was not discarded and requeued.");
+        Assert.False(fixture.World.ContainsChunk(playerSection));
+        Assert.False(fixture.World.ContainsChunk(ticketSection));
+
+        var retried = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.Equal(1, retried.StartedTasks);
+
+        var completed = SpinWait.SpinUntil(
+            () =>
+            {
+                fixture.Runtime.CollectMaterializationResults(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                fixture.Runtime.DispatchMaterializationTasks(
+                    GenerousBudget(), Array.Empty<ChunkCoord>());
+                return fixture.World.ContainsChunk(playerSection) &&
+                       fixture.World.ContainsChunk(ticketSection);
+            },
+            TimeSpan.FromSeconds(10));
+
+        Assert.True(completed, "The revised holder request did not complete.");
+    }
+
+    [Fact]
     public void MaterializationIsCancelledWhenChunkLeavesDesiredAndRetentionSets()
     {
         using var provider = new BlockingChunkProvider();
