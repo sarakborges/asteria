@@ -70,6 +70,8 @@ public readonly record struct ChunkStreamingPriority(
 public sealed class ChunkStreamingState
 {
     private readonly HashSet<ChunkCoord> _desired = [];
+    private readonly HashSet<ChunkCoord> _desiredPending = [];
+    private readonly HashSet<ChunkCoord> _desiredMaterializing = [];
     private readonly HashSet<ChunkCoord> _ticketedSections = [];
     // Light snapshots span neighboring horizontal columns at resident Y levels.
     private readonly HashSet<(int X, int Z)> _lightingRelevantColumns = [];
@@ -95,15 +97,13 @@ public sealed class ChunkStreamingState
 
     public int PendingCount => _pending.Count;
 
-    public int DesiredPendingCount =>
-        _desired.Count(_pending.Contains);
+    public int DesiredPendingCount => _desiredPending.Count;
 
     public int PendingColumnCount => _pending.ColumnCount;
 
     public int MaterializingCount => _materializing.Count;
 
-    public int DesiredMaterializingCount =>
-        _desired.Count(_materializing.Contains);
+    public int DesiredMaterializingCount => _desiredMaterializing.Count;
 
     public int PresentationPendingCount => _presentationPending.Count;
 
@@ -313,6 +313,16 @@ public sealed class ChunkStreamingState
 
         _desired.Clear();
         _desired.UnionWith(desired);
+        _desiredPending.RemoveWhere(coord => !_desired.Contains(coord));
+        _desiredMaterializing.RemoveWhere(coord => !_desired.Contains(coord));
+        foreach (var coord in _desired)
+        {
+            if (_pending.Contains(coord))
+                _desiredPending.Add(coord);
+            if (_materializing.Contains(coord))
+                _desiredMaterializing.Add(coord);
+        }
+
         _distanceManager.UpdatePlayerView(
             _desired.Select(ChunkColumnCoord.FromChunk),
             ChunkColumnCoord.FromChunk(center),
@@ -450,6 +460,7 @@ public sealed class ChunkStreamingState
                 maximumHorizontalDistanceSquared, out var dispatch))
             return null;
 
+        _desiredPending.Remove(dispatch.Coord);
         return dispatch;
     }
 
@@ -470,6 +481,8 @@ public sealed class ChunkStreamingState
                 out var dispatch))
             return null;
 
+        foreach (var section in dispatch.Sections)
+            _desiredPending.Remove(section.Coord);
         return dispatch;
     }
 
@@ -481,12 +494,15 @@ public sealed class ChunkStreamingState
                 $"Chunk is already materializing: {coord}");
         }
 
+        if (_desired.Contains(coord))
+            _desiredMaterializing.Add(coord);
         RemovePending(coord);
     }
 
     public void FinishMaterializing(ChunkCoord coord)
     {
         _materializing.Remove(coord);
+        _desiredMaterializing.Remove(coord);
     }
 
     public void EnqueuePresentation(ChunkCoord coord)
@@ -572,6 +588,8 @@ public sealed class ChunkStreamingState
     {
         if (_desired.Remove(coord))
             RebuildLightingRelevantColumns();
+        _desiredPending.Remove(coord);
+        _desiredMaterializing.Remove(coord);
         _ticketedSections.Remove(coord);
         _retained.Remove(coord);
         RemovePending(coord);
@@ -582,16 +600,26 @@ public sealed class ChunkStreamingState
 
     private void EnqueuePendingCore(
         ChunkCoord coord,
-        long? enqueuedTimestamp = null) =>
+        long? enqueuedTimestamp = null)
+    {
         _pending.Enqueue(
             coord,
             enqueuedTimestamp ?? System.Diagnostics.Stopwatch.GetTimestamp());
+        if (_desired.Contains(coord))
+            _desiredPending.Add(coord);
+    }
 
-    private void RemovePending(ChunkCoord coord) =>
+    private void RemovePending(ChunkCoord coord)
+    {
         _pending.Remove(coord);
+        _desiredPending.Remove(coord);
+    }
 
-    private void RemovePendingWhere(Predicate<ChunkCoord> predicate) =>
+    private void RemovePendingWhere(Predicate<ChunkCoord> predicate)
+    {
+        _desiredPending.RemoveWhere(predicate);
         _pending.RemoveWhere(predicate);
+    }
 
     public static ChunkLoadPriority Priority(
         ChunkCoord coord,

@@ -594,6 +594,19 @@ public sealed class ChunkStreamingStateTests
         Assert.Equal(0, state.DesiredPendingCount);
         Assert.Equal(1, state.DesiredMaterializingCount);
         Assert.True(state.KeepsLoaded(ticketedSection));
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord>
+            {
+                playerSection,
+                ticketedSection,
+            });
+
+        Assert.Equal(1, state.DesiredPendingCount);
+        Assert.Equal(1, state.DesiredMaterializingCount);
     }
 
     [Fact]
