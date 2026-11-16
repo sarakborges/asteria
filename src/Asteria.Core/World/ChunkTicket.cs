@@ -46,12 +46,11 @@ public static class ChunkLevel
     public const int Biomes = 36;
     public const int StructureStarts = 37;
 
-    // The loading graph extends only as far as Asteria's transitive holder-
-    // status dependencies require. Immutable generator-field read halos do not
-    // create or retain chunk holders. This is derived from the stage DAG, not
-    // copied from Minecraft's eleven-ring vanilla pyramid.
+    // Loading and generation are represented by separate projections of
+    // the generation DAG. Only HolderStatus requirements extend the holder
+    // loading graph; immutable field-read halos never retain adjacent holders.
     public static int MaximumLoading =>
-        Full + AsteriaChunkGenerationPlan.MaximumHorizontalDependencyRadius;
+        Full + AsteriaChunkLoadingPlan.MaximumHorizontalDependencyRadius;
     public const int Unloaded = 45;
     public const int NoSimulationTicket = 33;
 
