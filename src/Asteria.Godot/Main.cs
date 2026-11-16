@@ -2734,8 +2734,8 @@ public partial class Main : Node3D
 	{
 		_loading.UpdateResidency(
 			_residency.DesiredCount,
-			_residency.PendingCount,
-			_residency.MaterializingCount,
+			_residency.DesiredPendingCount,
+			_residency.DesiredMaterializingCount,
 			_chunkStreaming.IsSelectionRunning);
 
 		var readiness = GetInitialWorldReadiness();

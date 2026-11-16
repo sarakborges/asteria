@@ -567,6 +567,36 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void TicketedWorkDoesNotInflatePlayerBootstrapPendingCounts()
+    {
+        var state = new ChunkStreamingState();
+        var playerSection = new ChunkCoord(1, 0, 0);
+        var ticketedSection = new ChunkCoord(24, 6, -17);
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord> { playerSection });
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+        state.SyncTicketedSections(
+            [ticketedSection],
+            Array.Empty<ChunkCoord>());
+
+        Assert.Equal(2, state.PendingCount);
+        Assert.Equal(1, state.DesiredPendingCount);
+        Assert.Equal(0, state.DesiredMaterializingCount);
+
+        state.MarkMaterializing(playerSection);
+
+        Assert.Equal(1, state.PendingCount);
+        Assert.Equal(0, state.DesiredPendingCount);
+        Assert.Equal(1, state.DesiredMaterializingCount);
+        Assert.True(state.KeepsLoaded(ticketedSection));
+    }
+
+    [Fact]
     public void ChunksLeavingDesiredRadiusRemainRetainedBeforeRetirement()
     {
         var state = new ChunkStreamingState();

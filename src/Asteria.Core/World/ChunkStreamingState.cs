@@ -95,9 +95,15 @@ public sealed class ChunkStreamingState
 
     public int PendingCount => _pending.Count;
 
+    public int DesiredPendingCount =>
+        _desired.Count(_pending.Contains);
+
     public int PendingColumnCount => _pending.ColumnCount;
 
     public int MaterializingCount => _materializing.Count;
+
+    public int DesiredMaterializingCount =>
+        _desired.Count(_materializing.Contains);
 
     public int PresentationPendingCount => _presentationPending.Count;
 
