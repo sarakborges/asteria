@@ -294,6 +294,53 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void HolderIdentitySurvivesPendingUnloadAndIsReusedByANewTicket()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(11, -7);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+
+        Assert.True(manager.RemovePlayerLoadingTicket(column));
+        Assert.Same(holder, manager.GetHolder(column));
+        Assert.True(manager.IsHolderPendingUnload(column));
+        Assert.Contains(column, manager.PendingUnloadColumns);
+
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        Assert.Same(holder, manager.GetHolder(column));
+        Assert.False(manager.IsHolderPendingUnload(column));
+
+        Assert.True(manager.RemovePlayerLoadingTicket(column));
+        Assert.True(manager.IsHolderPendingUnload(column));
+        Assert.True(manager.CompletePendingHolderUnload(column));
+        Assert.Null(manager.GetHolder(column));
+        Assert.False(manager.IsHolderPendingUnload(column));
+    }
+
+    [Fact]
+    public void DependencyClaimDefersHolderPendingUnloadUntilReleased()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(-3, 12);
+        var section = new ChunkCoord(column.X, 4, column.Z);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        var claim = manager.AcquireDependencyClaims(
+            [section], ChunkGenerationDependencyEnvelope.None);
+
+        Assert.True(manager.RemovePlayerLoadingTicket(column));
+        Assert.False(manager.IsHolderPendingUnload(column));
+        Assert.Same(holder, manager.GetHolder(column));
+
+        claim.Dispose();
+
+        Assert.True(manager.IsHolderPendingUnload(column));
+        Assert.Same(holder, manager.GetHolder(column));
+        Assert.True(manager.CompletePendingHolderUnload(column));
+        Assert.Null(manager.GetHolder(column));
+    }
+
+    [Fact]
     public void PlayerAdmissionSlotIsReleasedWhenOnlyForcedTicketRemains()
     {
         var manager = new ChunkDistanceManager();

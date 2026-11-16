@@ -8,6 +8,7 @@ namespace Asteria.Core.World;
 public sealed class ChunkHolderMap
 {
     private readonly Dictionary<ChunkColumnCoord, ChunkHolder> _holders = [];
+    private readonly HashSet<ChunkColumnCoord> _pendingUnloads = [];
     private readonly IReadOnlyDictionary<ChunkColumnCoord, int> _loadingLevels;
 
     internal ChunkHolderMap(
@@ -20,6 +21,12 @@ public sealed class ChunkHolderMap
     public IReadOnlyCollection<ChunkHolder> Values => _holders.Values;
 
     public int Count => _holders.Count;
+
+    public IReadOnlyCollection<ChunkColumnCoord> PendingUnloadColumns =>
+        _pendingUnloads.ToArray();
+
+    public bool IsPendingUnload(ChunkColumnCoord column) =>
+        _pendingUnloads.Contains(column);
 
     public ChunkHolder? Get(ChunkColumnCoord column) =>
         _holders.TryGetValue(column, out var holder) ? holder : null;
@@ -42,6 +49,7 @@ public sealed class ChunkHolderMap
     {
         foreach (var (column, level) in _loadingLevels)
         {
+            _pendingUnloads.Remove(column);
             if (_holders.TryGetValue(column, out var holder))
                 holder.UpdateTicketLevel(level);
             else
@@ -52,13 +60,16 @@ public sealed class ChunkHolderMap
         {
             if (_loadingLevels.TryGetValue(column, out var level))
             {
+                _pendingUnloads.Remove(column);
                 holder.UpdateTicketLevel(level);
                 continue;
             }
 
             holder.UpdateTicketLevel(ChunkLevel.Unloaded);
             if (holder.DependencyClaimCount == 0)
-                _holders.Remove(column);
+                _pendingUnloads.Add(column);
+            else
+                _pendingUnloads.Remove(column);
         }
     }
 
@@ -107,6 +118,7 @@ public sealed class ChunkHolderMap
                 if (!_holders.ContainsKey(column))
                     _holders.Add(column, new ChunkHolder(
                         column, ChunkLevel.Unloaded));
+                _pendingUnloads.Remove(column);
                 columns.Add(column);
 
                 for (var sectionOffset = envelope.MinimumSectionOffset;
@@ -154,8 +166,36 @@ public sealed class ChunkHolderMap
                 continue;
 
             holder.UpdateTicketLevel(ChunkLevel.Unloaded);
-            _holders.Remove(column);
+            _pendingUnloads.Add(column);
         }
+    }
+
+    /// <summary>
+    /// Finishes the deferred unload only after the residency owner has
+    /// archived every section in the column and no generation task retains
+    /// the holder. A ticket arriving first reuses the same holder identity.
+    /// </summary>
+    public bool CompletePendingUnload(ChunkColumnCoord column)
+    {
+        if (!_holders.TryGetValue(column, out var holder))
+        {
+            _pendingUnloads.Remove(column);
+            return false;
+        }
+
+        if (_loadingLevels.TryGetValue(column, out var level))
+        {
+            holder.UpdateTicketLevel(level);
+            _pendingUnloads.Remove(column);
+            return false;
+        }
+
+        if (holder.DependencyClaimCount != 0 ||
+            !_pendingUnloads.Remove(column))
+            return false;
+
+        _holders.Remove(column);
+        return true;
     }
 
     public bool CompleteFullStatus(

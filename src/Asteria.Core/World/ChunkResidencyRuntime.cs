@@ -360,6 +360,7 @@ public sealed class ChunkResidencyRuntime
 
         _playerTicketAdmissions.RetainDesiredSections(
             _streaming.DesiredSections);
+        CompleteReadyPendingHolderUnloads();
     }
 
     private void MarkMaterializedSectionFull(ChunkCoord section)
@@ -637,6 +638,7 @@ public sealed class ChunkResidencyRuntime
         _retentionRadius =
             Math.Max(0, retentionRadius);
         SyncResidentState(presented);
+        CompleteReadyPendingHolderUnloads();
         return true;
     }
 
@@ -1102,6 +1104,7 @@ public sealed class ChunkResidencyRuntime
             workerOperationsStarted == 0)
             return ChunkResidencyUpdate.Empty;
 
+        CompleteReadyPendingHolderUnloads();
         return new ChunkResidencyUpdate(
             activations, failures, stageTimings,
             StartedTasks: 0,
@@ -1401,7 +1404,29 @@ public sealed class ChunkResidencyRuntime
             processed++;
         }
 
+        CompleteReadyPendingHolderUnloads();
         return retired;
+    }
+
+    private void CompleteReadyPendingHolderUnloads()
+    {
+        var pending = _streaming.DistanceManager.PendingUnloadColumns;
+        if (pending.Count == 0)
+            return;
+
+        var residentColumns = _world.LoadedChunkCoords
+            .Select(ChunkColumnCoord.FromChunk)
+            .ToHashSet();
+
+        foreach (var column in pending)
+        {
+            if (residentColumns.Contains(column) ||
+                _materializationTasks.ContainsKey(column) ||
+                _streaming.RequestedSectionsInColumn(column).Count > 0)
+                continue;
+
+            _streaming.DistanceManager.CompletePendingHolderUnload(column);
+        }
     }
 
     private ChunkResidencyActivation ActivateResidentChunk(

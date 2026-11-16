@@ -33,6 +33,15 @@ public sealed class ChunkDistanceManager
 
     public int HolderCount => _holders.Count;
 
+    public IReadOnlyCollection<ChunkColumnCoord> PendingUnloadColumns =>
+        _holders.PendingUnloadColumns;
+
+    public bool IsHolderPendingUnload(ChunkColumnCoord column) =>
+        _holders.IsPendingUnload(column);
+
+    public bool CompletePendingHolderUnload(ChunkColumnCoord column) =>
+        _holders.CompletePendingUnload(column);
+
     public ChunkHolder? GetHolder(ChunkColumnCoord column) =>
         _holders.Get(column);
 
