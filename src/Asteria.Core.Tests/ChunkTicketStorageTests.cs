@@ -589,16 +589,16 @@ public sealed class ChunkTicketStorageTests
         var stronger = new ChunkTicket(ChunkTicketType.Forced, Level: 30);
 
         Assert.True(storage.AddTicket(column, first, currentTick: 0));
-        Assert.Equal([(31, true)], loadingChanges);
-        Assert.Equal([(31, true)], simulationChanges);
+        Assert.Equal(new[] { (31, true) }, loadingChanges);
+        Assert.Equal(new[] { (31, true) }, simulationChanges);
 
         Assert.True(storage.AddTicket(column, weaker, currentTick: 0));
         Assert.Single(loadingChanges);
         Assert.Single(simulationChanges);
 
         Assert.True(storage.AddTicket(column, stronger, currentTick: 0));
-        Assert.Equal([(31, true), (30, true)], loadingChanges);
-        Assert.Equal([(31, true), (30, true)], simulationChanges);
+        Assert.Equal(new[] { (31, true), (30, true) }, loadingChanges);
+        Assert.Equal(new[] { (31, true), (30, true) }, simulationChanges);
 
         Assert.True(storage.RemoveTicket(column, stronger));
         Assert.Equal((31, false), loadingChanges[^1]);
