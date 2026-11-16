@@ -459,6 +459,116 @@ public sealed class ChunkTicketStorageTests
         Assert.True(fullFuture.Result.Succeeded);
     }
 
+    [Fact]
+    public void DistanceTrackerReportsOnlyEffectiveChangesForRemoteTicketUpdates()
+    {
+        var storage = new ChunkTicketStorage();
+        var tracker = new ChunkDistanceTracker();
+        var near = new ChunkColumnCoord(0, 0);
+        var far = new ChunkColumnCoord(100, -100);
+        var nearTicket = new ChunkTicket(
+            ChunkTicketType.PlayerLoading, Level: ChunkLevel.EntityTicking);
+        var farTicket = new ChunkTicket(
+            ChunkTicketType.PlayerLoading, Level: ChunkLevel.BlockTicking);
+
+        Assert.True(storage.AddTicket(near, nearTicket));
+        var initial = tracker.SynchronizeSourcesWithChanges(
+            storage, ChunkTicketFlags.Loading, maximumLevel: 36);
+
+        Assert.Equal(121, tracker.Count);
+        Assert.Equal(121, initial.Count);
+        Assert.Contains(initial, change =>
+            change.Column == near &&
+            change.PreviousLevel is null &&
+            change.Level == ChunkLevel.EntityTicking);
+        Assert.Empty(tracker.SynchronizeSourcesWithChanges(
+            storage, ChunkTicketFlags.Loading, maximumLevel: 36));
+
+        Assert.True(storage.AddTicket(far, farTicket));
+        var addedFar = tracker.SynchronizeSourcesWithChanges(
+            storage, ChunkTicketFlags.Loading, maximumLevel: 36);
+
+        Assert.Equal(169, addedFar.Count);
+        Assert.All(addedFar, change =>
+        {
+            Assert.InRange(change.Column.X, far.X - 6, far.X + 6);
+            Assert.InRange(change.Column.Z, far.Z - 6, far.Z + 6);
+        });
+        Assert.Equal(31, tracker.GetLevel(near, ChunkLevel.Unloaded));
+        Assert.Equal(169 + 121, tracker.Count);
+
+        Assert.True(storage.RemoveTicket(far, farTicket));
+        var removedFar = tracker.SynchronizeSourcesWithChanges(
+            storage, ChunkTicketFlags.Loading, maximumLevel: 36);
+
+        Assert.Equal(169, removedFar.Count);
+        Assert.All(removedFar, change =>
+        {
+            Assert.Equal(ChunkLevel.BlockTicking, change.PreviousLevel);
+            Assert.Null(change.Level);
+        });
+        Assert.Equal(121, tracker.Count);
+        Assert.Equal(31, tracker.GetLevel(near, ChunkLevel.Unloaded));
+        Assert.Empty(tracker.SynchronizeSourcesWithChanges(
+            storage, ChunkTicketFlags.Loading, maximumLevel: 36));
+    }
+
+    [Fact]
+    public void DistanceTrackerReportsRemovedLevelsWhenMaximumLevelShrinks()
+    {
+        var storage = new ChunkTicketStorage();
+        var tracker = new ChunkDistanceTracker();
+        var column = new ChunkColumnCoord(-12, 9);
+        Assert.True(storage.AddTicket(
+            column,
+            new ChunkTicket(
+                ChunkTicketType.PlayerLoading, Level: ChunkLevel.EntityTicking)));
+
+        Assert.Equal(121, tracker.SynchronizeSourcesWithChanges(
+            storage, ChunkTicketFlags.Loading, maximumLevel: 36).Count);
+        var shrunk = tracker.SynchronizeSourcesWithChanges(
+            storage, ChunkTicketFlags.Loading, maximumLevel: 34);
+
+        Assert.Equal(72, shrunk.Count);
+        Assert.All(shrunk, change =>
+        {
+            Assert.InRange(change.Column.X, column.X - 5, column.X + 5);
+            Assert.InRange(change.Column.Z, column.Z - 5, column.Z + 5);
+            Assert.InRange(change.PreviousLevel!.Value, 35, 36);
+            Assert.Null(change.Level);
+        });
+        Assert.Equal(49, tracker.Count);
+    }
+
+    [Fact]
+    public void RemoteTicketUpdatesDoNotReconcileUnchangedHolders()
+    {
+        var manager = new ChunkDistanceManager();
+        var near = new ChunkColumnCoord(0, 0);
+        var far = new ChunkColumnCoord(100, -100);
+        var nearTicket = new ChunkTicket(
+            ChunkTicketType.PlayerLoading, Level: ChunkLevel.EntityTicking);
+        var farTicket = new ChunkTicket(
+            ChunkTicketType.PlayerLoading, Level: ChunkLevel.EntityTicking);
+        IReadOnlyList<ChunkHolderTicketLevelChange>? lastChanges = null;
+        manager.HolderTicketLevelsChanged += changes => lastChanges = changes;
+
+        Assert.True(manager.AddTicket(near, nearTicket));
+        var nearHolder = Assert.IsType<ChunkHolder>(manager.GetHolder(near));
+        Assert.True(manager.AddTicket(far, farTicket));
+
+        Assert.Same(nearHolder, manager.GetHolder(near));
+        Assert.Equal(ChunkLevel.EntityTicking, nearHolder.TicketLevel);
+        Assert.DoesNotContain(lastChanges!, change =>
+            change.Holder.Position == near);
+
+        Assert.True(manager.RemoveTicket(far, farTicket));
+        Assert.Same(nearHolder, manager.GetHolder(near));
+        Assert.Equal(ChunkLevel.EntityTicking, nearHolder.TicketLevel);
+        Assert.DoesNotContain(lastChanges!, change =>
+            change.Holder.Position == near);
+    }
+
     private static void AssertTicket(
         ChunkTicketType type,
         ChunkTicketFlags flags,
