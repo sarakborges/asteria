@@ -100,7 +100,13 @@ public sealed class ChunkTicketStorageTests
         Assert.Equal(
             ChunkTicketFlags.Loading | ChunkTicketFlags.Simulation,
             manager.AdvanceTick(700));
+        Assert.NotNull(manager.GetHolder(column));
+        Assert.True(manager.IsHolderPendingUnload(column));
+        Assert.Equal(1, manager.PendingUnloadCount);
+        Assert.True(manager.CompletePendingHolderUnload(column));
         Assert.Null(manager.GetHolder(column));
+        Assert.False(manager.IsHolderPendingUnload(column));
+        Assert.Equal(0, manager.PendingUnloadCount);
     }
 
     [Fact]
