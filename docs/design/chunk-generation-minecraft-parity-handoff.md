@@ -1,11 +1,11 @@
 # Handoff: Minecraft-style chunk-column generation pipeline
 
-**Status:** per-dimension serial worldgen and lighting continuation lanes, shared physical worker pool, column-level generation tasks, executable stage policies and same-column vertical dependency futures are implemented. General holder-status futures keyed by section Y, fully plan-driven dependency admission, and an executable loading pyramid remain incomplete.  
+**Status:** per-dimension serial worldgen and lighting continuation lanes, shared physical worker pool, column-level generation tasks, executable stage policies, same-column vertical dependency futures, persistent vertical ticket targets, off-view ticket materialization and deferred holder unload lifecycle are implemented. General cross-column holder-status dependency admission, holder-owned dispatch queue-level parity and an executable loading pyramid remain incomplete.  
 **Repository:** sarakborges/asteria  
 **Working branch:** worldgen-perf-fix  
 **Pull request:** [#157 — perf(world): optimize worldgen and voxel rendering](https://github.com/sarakborges/asteria/pull/157)  
 **PR base:** worldgen-remake  
-**Reference snapshot:** Asteria HEAD e84b4bc13af19cbdfc22ef6ec3de1ebc0350244d (2026-11-15)  
+**Reference snapshot:** Asteria implementation HEAD 8f1f5c20b3422cc559b7ccd56c763984c54c6504 (2026-11-15)  
 **Date:** 2026-11-15
 
 This document is the durable restart point for the Minecraft-parity world-generation refactor. Work must proceed in small, independently reviewable commits. Do not merge the PR unless explicitly requested.
@@ -1185,3 +1185,59 @@ The Windows export for the preceding HEAD completed successfully. Its
 validation workflow is still running the Core query baseline and fixed-seed
 terrain A/B checks. This new stage integration requires a fresh full
 validation run; no benchmark improvement is claimed.
+
+---
+
+## Continuation checkpoint — ticketed residency and pending unload — 2026-11-15
+
+### Implementation on worldgen-perf-fix
+
+Current PR: [#157](https://github.com/sarakborges/asteria/pull/157), base worldgen-remake. Do not merge or deploy without an explicit request.
+
+The ticket/holder lifecycle was extended to preserve Asteria's 16³ vertical sections while retaining Minecraft 26.3's horizontal holder identity:
+
+- ChunkTicket now carries optional SectionY. Asteria's ticket identity is (type, level, SectionY) within an X/Z holder column; this intentionally extends vanilla's (type, level) identity because Asteria stores independently materialized vertical sections.
+- Persistent FORCED and PORTAL tickets serialize their vertical targets in gameplay save version 9. Readers continue to accept versions 1–8; version 8 ticket extensions load without a vertical target.
+- ChunkTicketStorage.FullMaterializationTargets derives the exact 3D sections whose loading tickets permit FULL. ChunkResidencyRuntime reconciles those into ChunkStreamingState.TicketedSections.
+- Ticketed sections remain resident and can be materialized outside player view, but do not join player presentation selection. Ticket-only pending/materializing work is excluded from the loading-screen/bootstrap counters; those counters are maintained incrementally.
+- Player-loading admission remains a separate four-slot throttle. Its slots are released when the player's requested sections have reached the holder's ENTITY_TICKING promotion, or when the player no longer requests that column. It does not directly complete holder futures.
+- A changed vertical target set increments the holder's generation-request revision even when no generation stage has completed yet. Detached work carrying the older revision is rejected. Cancellation, invalid results and stale outcomes rebuild the full currently requested section set (Desired + Ticketed) for retry rather than requeueing only the old batch.
+- ChunkHolderMap now retains a holder in PendingUnloadColumns when the last loading source disappears. A returning ticket rescues and reuses the same holder. Dependency claims also defer removal. ChunkResidencyRuntime finalizes removal only after all vertical sections in the column have been archived, no section remains requested and no materialization task still owns the column.
+- VoxelWorld.HasResidentChunksInColumn uses the existing resident-column count index, so pending-unload completion checks residency in O(1) instead of rebuilding a set from all loaded sections.
+
+### Regression coverage added or extended
+
+- Off-view FORCED ticket materializes its exact SectionY and does not enqueue player presentation.
+- A new vertical ticket arriving during a worker slice invalidates the earlier holder generation request; all still-live section demand is retried.
+- A claim released after a loading ticket arrives leaves the same holder alive.
+- A holder survives PendingUnload, is rescued by a returning ticket, and is only removed after its last dependency claim is released.
+- Runtime integration: removing the last ticket leaves a resident section and holder pending; RetireDistantChunks archives the section, then the holder is removed.
+- VoxelWorld resident-column indexing is tested across insert, archive and restore.
+
+### Minecraft 26.3 queue-level audit
+
+Minecraft 26.3's ChunkHolder has distinct ticketLevel and queueLevel state. ChunkHolder.LevelChangeListener.onLevelChange connects level changes to ChunkTaskDispatcher; the worldgen and lighting dispatchers keep per-chunk runnable batches in priority queues keyed by holder queue level. ChunkMap also provides getChunkQueueLevel and owns the dispatchers.
+
+Primary references:
+- [ChunkHolder 26.3](https://aldak0.ru/javadoc/26.3.x/net/minecraft/server/level/ChunkHolder.html) — ticketLevel, queueLevel, getQueueLevel, setQueueLevel, updateFutures.
+- [ChunkHolder.LevelChangeListener 26.3](https://aldak0.ru/javadoc/26.3.x/net/minecraft/server/level/ChunkHolder.LevelChangeListener.html) — callback contract carrying old level, new level and a queue-level setter.
+- [ChunkTaskDispatcher 26.3](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/server/level/chunktaskdispatcher) — onLevelChange, submit/release/poll and per-chunk scheduling.
+- [ChunkMap 26.3](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/server/level/chunkmap) — separate worldgen/light dispatchers and getChunkQueueLevel.
+- [26.3 pipeline walkthrough](https://minecraftdocs.dev/systems/world/chunk-generation-pipeline) — explains live queue rebucketing when holder levels change.
+
+Asteria currently stores the ticket-derived generation ceiling on GenerationChunkHolder; active work stores a composite ChunkGenerationTaskPriority (loading level, horizontal/total distance, and deterministic coordinate tie-breaks). ChunkGenerationDispatcher.UpdatePriority reorders ready and worker-admission queues, while ChunkColumnPendingQueue maintains a separate dynamic priority context for not-yet-admitted columns. Runtime paths that change player view, add/remove/expire tickets, or admit player-loading tickets refresh active work priorities.
+
+This is a deliberate richer adaptation rather than a literal integer QueueLevel field, but it is not yet the same ownership contract as Minecraft's holder-owned queueLevel plus LevelChangeListener. Do not add a shadow integer without a consumer. The next priority pass should decide whether to centralize Asteria's composite priority behind a holder/column level-change notification, and then test that both pending-column and admitted dispatcher work are reprioritized from every source change without preempting an already admitted worker slice.
+
+### Validation on this checkpoint
+
+- Validate run for implementation HEAD 8f1f5c20: [#43783973288](https://github.com/sarakborges/asteria/actions/runs/43783973288). At the last check the Core test step had passed and the build job had advanced to ReadyToRun verification; WebUI Storybook/screen parity and terrain A/B were still running.
+- Windows export: [#43783963371](https://github.com/sarakborges/asteria/actions/runs/43783963371), still running at the last check.
+- No terrain performance improvement is claimed until the fixed-seed A/B report completes on the same HEAD.
+
+### Next ordered work
+
+1. Finish validation for the current HEAD and inspect the terrain A/B artifacts.
+2. Formalize the composite queue-priority/level-change contract against the 26.3 ticketLevel/queueLevel split; preserve a single source of truth and avoid a decorative QueueLevel property.
+3. Continue the bounded generation access-region audit one stage at a time. Cross-column holder-status requirements remain fail-fast until their producer can be admitted/reused non-blockingly with revision-safe future ownership.
+4. After access enforcement, make shared immutable column products (especially volume-structure anchor resolution) explicit column-scoped products/futures; preserve deterministic results and the existing 16³ storage/archive ownership.
