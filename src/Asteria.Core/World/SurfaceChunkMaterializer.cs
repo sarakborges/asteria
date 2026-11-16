@@ -2423,7 +2423,10 @@ public sealed partial class SurfaceChunkMaterializer
         var origin =
             VoxelCoordinates.ChunkOrigin(
                 coord);
-        var placements = ResolveSurfaceStructurePlacementsForColumn(coord);
+        // Gravity-support child jobs inherit the parent's column product.
+        // Only the original SurfaceStructures stage may resolve placements.
+        var placements = job.SurfaceStructurePlacements ??
+            ResolveSurfaceStructurePlacementsForColumn(coord);
         job.SurfaceStructurePlacements = placements;
 
         // Placement bounds include blocks, fluids and explicit clears.
