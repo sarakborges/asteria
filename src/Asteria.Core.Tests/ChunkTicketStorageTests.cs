@@ -572,6 +572,105 @@ public sealed class ChunkTicketStorageTests
             change.Holder.Position == near);
     }
 
+    [Fact]
+    public void TicketStorageNotifiesOnlyWhenMinimumGraphTicketLevelChanges()
+    {
+        var storage = new ChunkTicketStorage();
+        var column = new ChunkColumnCoord(-5, 13);
+        var loadingChanges = new List<(int Level, bool OnlyDecreased)>();
+        var simulationChanges = new List<(int Level, bool OnlyDecreased)>();
+        storage.LoadingChunkUpdated += (_, level, decreased) =>
+            loadingChanges.Add((level, decreased));
+        storage.SimulationChunkUpdated += (_, level, decreased) =>
+            simulationChanges.Add((level, decreased));
+
+        var first = new ChunkTicket(ChunkTicketType.Forced, Level: 31);
+        var weaker = new ChunkTicket(ChunkTicketType.Forced, Level: 32);
+        var stronger = new ChunkTicket(ChunkTicketType.Forced, Level: 30);
+
+        Assert.True(storage.AddTicket(column, first, currentTick: 0));
+        Assert.Equal([(31, true)], loadingChanges);
+        Assert.Equal([(31, true)], simulationChanges);
+
+        Assert.True(storage.AddTicket(column, weaker, currentTick: 0));
+        Assert.Single(loadingChanges);
+        Assert.Single(simulationChanges);
+
+        Assert.True(storage.AddTicket(column, stronger, currentTick: 0));
+        Assert.Equal([(31, true), (30, true)], loadingChanges);
+        Assert.Equal([(31, true), (30, true)], simulationChanges);
+
+        Assert.True(storage.RemoveTicket(column, stronger));
+        Assert.Equal((31, false), loadingChanges[^1]);
+        Assert.Equal((31, false), simulationChanges[^1]);
+
+        Assert.True(storage.RemoveTicket(column, first));
+        Assert.Equal((32, false), loadingChanges[^1]);
+        Assert.Equal((32, false), simulationChanges[^1]);
+
+        Assert.True(storage.RemoveTicket(column, weaker));
+        Assert.Equal((int.MaxValue, false), loadingChanges[^1]);
+        Assert.Equal((int.MaxValue, false), simulationChanges[^1]);
+        Assert.Equal(5, loadingChanges.Count);
+        Assert.Equal(5, simulationChanges.Count);
+    }
+
+    [Fact]
+    public void IncrementalTicketGraphUpdatesMatchFullRebuilds()
+    {
+        var manager = new ChunkDistanceManager();
+        var firstColumn = new ChunkColumnCoord(-40, 12);
+        var secondColumn = new ChunkColumnCoord(35, -27);
+        var playerLoading = new ChunkTicket(
+            ChunkTicketType.PlayerLoading, Level: ChunkLevel.EntityTicking);
+        var forced = new ChunkTicket(ChunkTicketType.Forced, Level: 30);
+        var playerSimulation = new ChunkTicket(
+            ChunkTicketType.PlayerSimulation, Level: 30);
+
+        void AssertGraphsMatchFullRebuild()
+        {
+            var expectedLoading = new ChunkDistanceTracker();
+            expectedLoading.SynchronizeSources(
+                manager.Tickets,
+                ChunkTicketFlags.Loading,
+                ChunkLevel.MaximumLoading);
+            var expectedSimulation = new ChunkDistanceTracker();
+            expectedSimulation.SynchronizeSources(
+                manager.Tickets,
+                ChunkTicketFlags.Simulation,
+                ChunkLevel.BlockTicking);
+
+            Assert.Equal(
+                expectedLoading.Levels.OrderBy(entry => entry.Key.X)
+                    .ThenBy(entry => entry.Key.Z),
+                manager.LoadingTracker.Levels.OrderBy(entry => entry.Key.X)
+                    .ThenBy(entry => entry.Key.Z));
+            Assert.Equal(
+                expectedSimulation.Levels.OrderBy(entry => entry.Key.X)
+                    .ThenBy(entry => entry.Key.Z),
+                manager.SimulationTracker.Levels.OrderBy(entry => entry.Key.X)
+                    .ThenBy(entry => entry.Key.Z));
+        }
+
+        Assert.True(manager.AddTicket(firstColumn, playerLoading, currentTick: 0));
+        AssertGraphsMatchFullRebuild();
+
+        Assert.True(manager.AddTicket(firstColumn, forced, currentTick: 0));
+        AssertGraphsMatchFullRebuild();
+
+        Assert.True(manager.AddTicket(secondColumn, playerSimulation, currentTick: 0));
+        AssertGraphsMatchFullRebuild();
+
+        Assert.True(manager.RemoveTicket(firstColumn, forced));
+        AssertGraphsMatchFullRebuild();
+
+        Assert.True(manager.RemoveTicket(secondColumn, playerSimulation));
+        AssertGraphsMatchFullRebuild();
+
+        Assert.True(manager.RemoveTicket(firstColumn, playerLoading));
+        AssertGraphsMatchFullRebuild();
+    }
+
     private static void AssertTicket(
         ChunkTicketType type,
         ChunkTicketFlags flags,
