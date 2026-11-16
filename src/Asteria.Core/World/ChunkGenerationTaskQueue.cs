@@ -47,8 +47,8 @@ public readonly record struct ChunkGenerationTaskKey
 
 /// <summary>
 /// Lower ticket levels are more urgent. Horizontal distance is a deterministic
-/// secondary key; the dispatcher may derive a new value when player tickets
-/// or movement change.
+/// secondary key; the dispatcher derives a new value when ticket state or the
+/// player center changes.
 /// </summary>
 public readonly record struct ChunkGenerationTaskPriority(
     int TicketLevel,

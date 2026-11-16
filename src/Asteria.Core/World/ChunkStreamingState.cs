@@ -282,8 +282,7 @@ public sealed class ChunkStreamingState
         }
 
         UpdateMovementDirection(center);
-        _pending.UpdatePriorityContext(
-            center, MovementDirection, GetLoadingLevel);
+        _pending.UpdatePriorityContext(center, GetLoadingLevel);
 
         var previousInterest = _desired
             .Concat(_retained)
@@ -632,7 +631,6 @@ public sealed class ChunkStreamingState
     public static ChunkGenerationTaskPriority StreamingPriority(
         ChunkCoord coord,
         ChunkCoord center,
-        ChunkMovementDirection movementDirection,
         int? authoritativeTicketLevel = null)
     {
         var dx = (long)coord.X - center.X;
@@ -641,8 +639,6 @@ public sealed class ChunkStreamingState
         var chebyshevDistance = Math.Max(Math.Abs(dx), Math.Abs(dz));
         var horizontalDistance = dx * dx + dz * dz;
         var totalDistance = horizontalDistance + dy * dy;
-        _ = movementDirection;
-
         // PLAYER_LOADING starts at level 31. The loading graph increments
         // exactly one level per Chebyshev ring across the eight neighbours.
         // Estimate the same level for domains that do not own a holder handle;

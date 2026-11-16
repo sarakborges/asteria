@@ -559,18 +559,17 @@ public sealed class ChunkStreamingStateTests
     public void StreamingPriorityUsesTicketLevelThenHorizontalDistance()
     {
         var center = ChunkCoord.Zero;
-        var movement = new ChunkMovementDirection(1, 0);
 
         var localBehind = ChunkStreamingState.StreamingPriority(
-            new ChunkCoord(-1, 0, 0), center, movement);
+            new ChunkCoord(-1, 0, 0), center);
         var forward = ChunkStreamingState.StreamingPriority(
-            new ChunkCoord(4, 0, 0), center, movement);
+            new ChunkCoord(4, 0, 0), center);
         var lateral = ChunkStreamingState.StreamingPriority(
-            new ChunkCoord(0, 0, 3), center, movement);
+            new ChunkCoord(0, 0, 3), center);
         var behind = ChunkStreamingState.StreamingPriority(
-            new ChunkCoord(-4, 0, 0), center, movement);
+            new ChunkCoord(-4, 0, 0), center);
         var outsideCorridor = ChunkStreamingState.StreamingPriority(
-            new ChunkCoord(3, 0, 4), center, movement);
+            new ChunkCoord(3, 0, 4), center);
 
         Assert.True(localBehind.CompareTo(lateral) < 0);
         Assert.True(lateral.CompareTo(behind) < 0);

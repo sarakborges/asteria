@@ -25,7 +25,6 @@ internal sealed class ChunkColumnPendingQueue
         SortedDictionary<int, ChunkPendingDispatch>> _sectionsByColumn = [];
 
     private ChunkCoord _center;
-    private ChunkMovementDirection _movementDirection;
     private Func<ChunkCoord, int>? _ticketLevelProvider;
     private bool _hasPriorityContext;
 
@@ -41,17 +40,15 @@ internal sealed class ChunkColumnPendingQueue
         sections.ContainsKey(coord.Y);
 
     /// <summary>
-    /// Recomputes every queued column's key after the player center or movement
-    /// direction changes. ChunkGenerationTaskQueue preserves the original
-    /// enqueue timestamp and FIFO sequence while reordering the columns.
+    /// Recomputes every queued column's key after the player center changes.
+    /// ChunkGenerationTaskQueue preserves the original enqueue timestamp and
+    /// FIFO sequence while reordering the columns.
     /// </summary>
     public void UpdatePriorityContext(
         ChunkCoord center,
-        ChunkMovementDirection movementDirection,
         Func<ChunkCoord, int> ticketLevelProvider)
     {
         _center = center;
-        _movementDirection = movementDirection;
         _ticketLevelProvider = ticketLevelProvider ??
             throw new ArgumentNullException(nameof(ticketLevelProvider));
         _hasPriorityContext = true;
@@ -390,7 +387,6 @@ internal sealed class ChunkColumnPendingQueue
         ChunkStreamingState.StreamingPriority(
             coord,
             _center,
-            _movementDirection,
             _ticketLevelProvider?.Invoke(coord));
 
     private static int Compare(

@@ -621,7 +621,6 @@ public sealed class ChunkResidencyRuntime
         ArgumentNullException.ThrowIfNull(presented);
 
         var previousCenter = _center;
-        var previousMovementDirection = _streaming.MovementDirection;
         var changed =
             _streaming.RebuildSelection(
                 center,
@@ -648,8 +647,7 @@ public sealed class ChunkResidencyRuntime
         SyncResidentState(presented);
         CompleteReadyPendingHolderUnloads();
 
-        if (previousCenter != center ||
-            previousMovementDirection != _streaming.MovementDirection)
+        if (previousCenter != center)
             ReprioritizeActiveWorldWork();
         ApplyPendingHolderPriorityChanges();
         return true;
@@ -759,7 +757,7 @@ public sealed class ChunkResidencyRuntime
         var completedReconciliations = _directionalFaceReconciliationTasks
             .Where(entry => entry.Value.Operation.IsCompleted)
             .OrderBy(entry => ChunkStreamingState.StreamingPriority(
-                entry.Key, _center, _streaming.MovementDirection))
+                entry.Key, _center))
             .ToArray();
 
         foreach (var (coord, work) in completedReconciliations)
@@ -1479,7 +1477,6 @@ public sealed class ChunkResidencyRuntime
         var priority = ChunkStreamingState.StreamingPriority(
             coord,
             _center,
-            _streaming.MovementDirection,
             _streaming.GetLoadingLevel(coord));
         var holder = _streaming.DistanceManager.GetHolder(column);
         if (holder is null)
