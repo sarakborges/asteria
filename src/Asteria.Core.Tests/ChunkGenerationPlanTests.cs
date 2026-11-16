@@ -348,23 +348,35 @@ public sealed class ChunkGenerationPlanTests
     }
 
     [Fact]
-    public void VolumeStructuresDeclareTheirFullImmutableAnchorSearchRange()
+    public void VolumeStructuresConsumeTheColumnScopedImmutableAnchorProduct()
     {
         var plan = AsteriaChunkGenerationPlan.Default;
         var step = plan.GetStep(ChunkGenerationStepId.VolumeStructures);
 
-        Assert.Equal(1, step.ReadEnvelope.HorizontalRadius);
-        Assert.Equal(-34, step.ReadEnvelope.MinimumSectionOffset);
-        Assert.Equal(34, step.ReadEnvelope.MaximumSectionOffset);
+        Assert.Equal(
+            ChunkGenerationDependencyEnvelope.None,
+            step.ReadEnvelope);
+        Assert.Contains(
+            step.DirectDependencies,
+            dependency =>
+                dependency.PrerequisiteStep ==
+                    ChunkGenerationStepId.VolumeStructurePlacements &&
+                dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
+                dependency.Envelope == ChunkGenerationDependencyEnvelope.None);
 
         Assert.Contains(
             plan.GetAccumulatedDependencies(ChunkGenerationStepId.VolumeStructures),
             dependency =>
                 dependency.PrerequisiteStep == ChunkGenerationStepId.ColumnBiomeData &&
                 dependency.Kind == ChunkGenerationDependencyKind.ImmutableWorldData &&
-                dependency.Envelope.HorizontalRadius >= 1 &&
-                dependency.Envelope.MinimumSectionOffset <= -34 &&
-                dependency.Envelope.MaximumSectionOffset >= 34);
+                dependency.Envelope == new ChunkGenerationDependencyEnvelope(1, 0, 0));
+
+        Assert.DoesNotContain(
+            plan.GetAccumulatedDependencies(ChunkGenerationStepId.VolumeStructures),
+            dependency =>
+                dependency.PrerequisiteStep == ChunkGenerationStepId.ColumnBiomeData &&
+                (dependency.Envelope.MinimumSectionOffset < 0 ||
+                 dependency.Envelope.MaximumSectionOffset > 0));
 
         Assert.DoesNotContain(
             plan.GetAccumulatedDependencies(ChunkGenerationStepId.VolumeStructures),
