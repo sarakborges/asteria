@@ -1412,3 +1412,28 @@ A second consumer of `AdditiveDepthAt` is ceiling-decoration placement: when an 
 ### Surface-decoration fluid occupancy guard — 2026-11-16
 
 The water-top decoration branch queried generated fluid at the support voxel and the air voxel immediately above it without first passing those world positions through the stage's `ChunkGenerationAccessRegion`. It now validates both reads before calling `FluidAtEmptyVoxel`. This makes the existing [-1, +1] SurfaceDecorations read envelope cover both the terrain and fluid occupancy paths, rather than only the density branch.
+
+
+---
+
+## Holder-owned queue-level change propagation — Minecraft 26.3 reference — 2026-11-16
+
+The 26.3 reference implementation confirms the exact missing seam for Asteria's remaining scheduling-parity work:
+
+- `ChunkHolder` stores `ticketLevel` and `queueLevel` separately, exposes `getQueueLevel()`, and owns the setter.
+- `ChunkHolder.LevelChangeListener` receives `(pos, oldLevelSupplier, newLevel, setQueueLevel)`. Both `ChunkTaskDispatcher` and `ThrottlingChunkTaskDispatcher` implement this listener.
+- `ChunkTaskDispatcher.onLevelChange` serializes the change through its priority executor, calls `queue.resortChunkTasks(oldLevel, pos, newLevel)`, then invokes the supplied setter. Task submission receives an `IntSupplier` for the current level instead of copying a stale level into every queued item.
+
+Asteria already stores the live composite `QueuePriority` and revision on `GenerationChunkHolder`, but pending-column ordering still recomputes from `center + ticket-level provider`, while active generation and reconciliation tasks are reprioritized through separate `ChunkResidencyRuntime` loops. That is still a duplicated propagation path, not a holder-owned level-change listener.
+
+### Next implementation boundary
+
+1. Define the semantics of Asteria's queue level before changing the queues. The current composite priority includes ticket urgency, horizontal/total distance and stable coordinate tie-breaks; Minecraft's holder queue level is an integer ticket-derived value. Do not silently collapse the extra spatial ordering into the ticket level.
+2. Add a holder-owned change contract that supplies the previous and new queue keys and lets each registered queue update its own index before the holder publishes the new key. Keep enqueue age/FIFO sequence stable during re-bucketing.
+3. Register pending-column admission and active generation dispatch as consumers of that contract. Remove the current independent recomputation/notification paths only once both consumers use the holder-owned change.
+4. Preserve directional intake policy where it actually affects a worker's dequeue choice; it is not part of the composite generation priority key and was removed from that unused calculation in the prior checkpoint.
+
+Reference material used for the parity check:
+- Minecraft 26.3 `ChunkHolder` API: https://aldak0.ru/javadoc/26.3.x/net/minecraft/server/level/ChunkHolder.html
+- Minecraft 26.3 `ChunkHolder.LevelChangeListener`: https://aldak0.ru/javadoc/26.3.x/net/minecraft/server/level/ChunkHolder.LevelChangeListener.html
+- Decompiled `ChunkTaskDispatcher.onLevelChange`: https://mc-packet-reference.netlify.app/26.x/source/net/minecraft/server/level/chunktaskdispatcher/
