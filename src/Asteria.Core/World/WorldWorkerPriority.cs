@@ -16,16 +16,6 @@ public readonly record struct WorldWorkerPriority(
     public static WorldWorkerPriority FromPriorityClass(int priorityClass) =>
         new(priorityClass, 0, 0, 0, 0, 0);
 
-    public static WorldWorkerPriority FromStreaming(
-        ChunkStreamingPriority priority) =>
-        new(
-            PriorityBandForTicketLevel(priority.TicketLevel),
-            priority.HorizontalDistanceSquared,
-            priority.TotalDistanceSquared,
-            priority.Y,
-            priority.Z,
-            priority.X);
-
     public static WorldWorkerPriority FromGenerationTicket(
         ChunkGenerationTaskPriority priority) =>
         new(

@@ -931,12 +931,12 @@ public sealed class ChunkGenerationPlanTests
             holder.QueuePriority.HorizontalDistanceSquared);
 
         var priority = new ChunkGenerationTaskPriority(
-            holder.TicketLevel,
-            horizontalDistanceSquared: 25,
-            totalDistanceSquared: 29,
-            y: 2,
-            z: column.Z,
-            x: column.X);
+            TicketLevel: holder.TicketLevel,
+            HorizontalDistanceSquared: 25,
+            TotalDistanceSquared: 29,
+            CoordinateY: 2,
+            CoordinateZ: column.Z,
+            CoordinateX: column.X);
         Assert.True(holder.UpdateQueuePriority(priority));
         Assert.True(holder.HasQueuePriorityContext);
         Assert.Equal(priority, holder.QueuePriority);
