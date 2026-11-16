@@ -27,6 +27,9 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope HorizontalPaletteHalo =
         new(horizontalRadius: 1, minimumSectionOffset: -1, maximumSectionOffset: 1);
 
+    private static readonly ChunkGenerationDependencyEnvelope VerticalDecorationReadHalo =
+        new(horizontalRadius: 0, minimumSectionOffset: -1, maximumSectionOffset: 1);
+
     // Volume-structure anchor selection scans the authored support range
     // (at most 512 blocks) plus templates extending at most 16 blocks from
     // their support face. Horizontal templates are bounded to radius six.
@@ -159,7 +162,14 @@ public static class AsteriaChunkGenerationPlan
             ChunkGenerationStepId.VerticalDecorations,
             ChunkGenerationWorkScope.Section,
             ChunkGenerationExecutionPolicy.OrderedMutation,
-            DependsOn(ChunkGenerationStepId.CaveSpikes)),
+            [
+                Dependency(ChunkGenerationStepId.CaveSpikes, NoHalo),
+                Dependency(
+                    ChunkGenerationStepId.SurfaceTerrainColumn,
+                    VerticalDecorationReadHalo,
+                    ChunkGenerationDependencyKind.ImmutableWorldData),
+            ],
+            readEnvelope: VerticalDecorationReadHalo),
 
         Step(
             ChunkGenerationStepId.Veins,
