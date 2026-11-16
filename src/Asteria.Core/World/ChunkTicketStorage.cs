@@ -2,8 +2,8 @@ namespace Asteria.Core.World;
 
 /// <summary>
 /// Authoritative set of ticket reasons per horizontal chunk column.
-/// Re-adding an identical (type, level) ticket is a no-op, matching vanilla's
-/// TicketStorage identity and replacement behavior.
+/// The 2D ticket identity (type, level) is extended with SectionY so one
+/// Sphere column can retain independent requests at distinct vertical sections.
 /// </summary>
 public sealed class ChunkTicketStorage
 {

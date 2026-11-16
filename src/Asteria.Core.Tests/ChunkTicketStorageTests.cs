@@ -148,12 +148,16 @@ public sealed class ChunkTicketStorageTests
         Assert.True(storage.AddTicket(column,
             new ChunkTicket(ChunkTicketType.Forced, Level: 30, SectionY: 7)));
         Assert.True(storage.AddTicket(column,
+            new ChunkTicket(ChunkTicketType.Forced, Level: 30, SectionY: 8)));
+        Assert.True(storage.AddTicket(column,
             new ChunkTicket(ChunkTicketType.Portal, Level: 30, SectionY: 12)));
         Assert.True(storage.AddTicket(column,
             new ChunkTicket(ChunkTicketType.PlayerSimulation, Level: 31, SectionY: 15)));
+        Assert.Equal(4, storage.TicketCount);
 
         Assert.Collection(storage.FullMaterializationTargets,
             section => Assert.Equal(new ChunkCoord(4, 7, -3), section),
+            section => Assert.Equal(new ChunkCoord(4, 8, -3), section),
             section => Assert.Equal(new ChunkCoord(4, 12, -3), section));
     }
 
