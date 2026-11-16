@@ -199,7 +199,8 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     pendingHolderStatus.Key,
                     holderResult);
                 _completedHolderStatusRequirements.Add(pendingHolderStatus.Key);
-                sectionsReadyAfterHolderWait.Add(pendingHolderStatus.Key.SectionIndex);
+                foreach (var waitingSection in pendingHolderStatus.WaitingSections)
+                    sectionsReadyAfterHolderWait.Add(waitingSection);
             }
 
             if (_activeWaitDependencyIds.Count != 0)
@@ -207,7 +208,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     $"Column {_column} resumed before every dependency completed.");
 
             foreach (var sectionIndex in sectionsReadyAfterHolderWait)
-                AddReadySection(sectionIndex);
+                AddReadySectionIfMissing(sectionIndex);
         }
         else
         {
@@ -528,13 +529,15 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 requirement.Coord.Z != sectionTask.Coord.Z)
             {
                 var key = new HolderStatusRequirementKey(
-                    sectionIndex,
                     requirement.Coord,
                     requirement.Status);
                 if (_completedHolderStatusRequirements.Contains(key))
                     continue;
-                if (_pendingHolderStatusRequirementIds.ContainsKey(key))
+                if (_pendingHolderStatusRequirementIds.TryGetValue(
+                        key, out var existingDependencyId))
                 {
+                    _pendingHolderStatusOperations[existingDependencyId]
+                        .WaitingSections.Add(sectionIndex);
                     waiting = true;
                     continue;
                 }
@@ -567,7 +570,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                     () => requestProducer(requirement));
                 if (!_pendingHolderStatusOperations.TryAdd(
                         dependencyId,
-                        new PendingHolderStatusOperation(key)))
+                        new PendingHolderStatusOperation(key, sectionIndex)))
                     throw new InvalidOperationException(
                         $"Duplicate cross-column holder dependency ID {dependencyId}: {_column}");
                 if (!_pendingHolderStatusRequirementIds.TryAdd(key, dependencyId))
@@ -682,6 +685,9 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 $"Section task {sectionIndex} in {_column} was queued to resume twice.");
     }
 
+    private void AddReadySectionIfMissing(int sectionIndex) =>
+        _readySections.Add(sectionIndex);
+
     private void AddDependencySectionTask(
         int waitingSection,
         IChunkMaterializationJob dependencyJob)
@@ -729,10 +735,15 @@ public sealed class ChunkColumnMaterializationGenerationTask :
         ulong ChildDependencyId);
 
     private readonly record struct HolderStatusRequirementKey(
-        int SectionIndex,
         ChunkCoord Coord,
         ChunkGenerationStatus RequiredStatus);
 
-    private readonly record struct PendingHolderStatusOperation(
-        HolderStatusRequirementKey Key);
+    private sealed class PendingHolderStatusOperation(
+        HolderStatusRequirementKey key,
+        int initialSectionIndex)
+    {
+        public HolderStatusRequirementKey Key { get; } = key;
+
+        public HashSet<int> WaitingSections { get; } = [initialSectionIndex];
+    }
 }
