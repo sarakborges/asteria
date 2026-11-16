@@ -34,13 +34,17 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope DirectionalPaletteReadHalo =
         new(horizontalRadius: 4, minimumSectionOffset: -4, maximumSectionOffset: 4);
 
-    // Ceiling decorators may resolve an additive support palette up to
-    // the same finite surface-layer depth above the target section.
+    // Ceiling decorators may begin resolving an additive support palette
+    // one voxel above the target section's top face, then read its full finite
+    // surface depth. This can reach one section farther than TerrainLayers.
+    private static readonly int MaximumVerticalDecorationReadSectionOffset =
+        checked(MaximumFiniteSurfaceLayerSectionOffset + 1);
+
     private static readonly ChunkGenerationDependencyEnvelope VerticalDecorationReadHalo =
         new(
             horizontalRadius: 0,
             minimumSectionOffset: -1,
-            maximumSectionOffset: MaximumFiniteSurfaceLayerSectionOffset);
+            maximumSectionOffset: MaximumVerticalDecorationReadSectionOffset);
 
     // Surface profiles allow up to 64 finite voxels. AdditiveDepthAt may
     // continue density queries beyond the section snapshot's top face, so the
