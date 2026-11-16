@@ -1498,28 +1498,33 @@ public sealed class ChunkResidencyRuntime
         if (_pendingHolderPriorityChanges.Count == 0)
             return;
 
-        foreach (var column in _pendingHolderPriorityChanges
+        var changedColumns = _pendingHolderPriorityChanges;
+        foreach (var column in changedColumns
                      .OrderBy(column => column.X)
                      .ThenBy(column => column.Z))
         {
+            if (!_materializationTasks.TryGetValue(column, out var work))
+                continue;
+
             var coord = new ChunkCoord(column.X, _center.Y, column.Z);
-            if (_materializationTasks.TryGetValue(column, out var generationWork))
-                _generationDispatcher.UpdatePriority(
-                    generationWork.TaskKey, GenerationPriority(coord));
+            _generationDispatcher.UpdatePriority(
+                work.TaskKey, GenerationPriority(coord));
+        }
 
-            foreach (var (section, work) in _chunkLightingReconciliationTasks)
-            {
-                if (section.X == column.X && section.Z == column.Z)
-                    _generationDispatcher.LightingExecutor.TryUpdatePriority(
-                        work.TaskInstance, StreamingWorkerPriority(section));
-            }
+        // Reconcile each active section worker once. Iterating the worker sets
+        // once avoids O(changed holders × all reconciliation tasks) behavior.
+        foreach (var (section, work) in _chunkLightingReconciliationTasks)
+        {
+            if (changedColumns.Contains(ChunkColumnCoord.FromChunk(section)))
+                _generationDispatcher.LightingExecutor.TryUpdatePriority(
+                    work.TaskInstance, StreamingWorkerPriority(section));
+        }
 
-            foreach (var (section, work) in _directionalFaceReconciliationTasks)
-            {
-                if (section.X == column.X && section.Z == column.Z)
-                    _worldWorkerPool.TryUpdatePriority(
-                        work.Operation, StreamingWorkerPriority(section));
-            }
+        foreach (var (section, work) in _directionalFaceReconciliationTasks)
+        {
+            if (changedColumns.Contains(ChunkColumnCoord.FromChunk(section)))
+                _worldWorkerPool.TryUpdatePriority(
+                    work.Operation, StreamingWorkerPriority(section));
         }
 
         _pendingHolderPriorityChanges.Clear();
