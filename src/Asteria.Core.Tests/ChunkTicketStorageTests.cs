@@ -493,7 +493,10 @@ public sealed class ChunkTicketStorageTests
         {
             Assert.InRange(change.Column.X, far.X - 6, far.X + 6);
             Assert.InRange(change.Column.Z, far.Z - 6, far.Z + 6);
+            Assert.Null(change.PreviousLevel);
+            Assert.InRange(change.Level!.Value, 30, 36);
         });
+        Assert.Equal(30, tracker.GetLevel(far, ChunkLevel.Unloaded));
         Assert.Equal(31, tracker.GetLevel(near, ChunkLevel.Unloaded));
         Assert.Equal(169 + 121, tracker.Count);
 
@@ -504,7 +507,7 @@ public sealed class ChunkTicketStorageTests
         Assert.Equal(169, removedFar.Count);
         Assert.All(removedFar, change =>
         {
-            Assert.Equal(ChunkLevel.EntityTicking - 1, change.PreviousLevel);
+            Assert.InRange(change.PreviousLevel!.Value, 30, 36);
             Assert.Null(change.Level);
         });
         Assert.Equal(121, tracker.Count);
