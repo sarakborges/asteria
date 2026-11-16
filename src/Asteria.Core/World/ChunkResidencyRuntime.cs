@@ -1506,12 +1506,13 @@ public sealed class ChunkResidencyRuntime
                      .OrderBy(column => column.X)
                      .ThenBy(column => column.Z))
         {
-            if (!_materializationTasks.TryGetValue(column, out var work))
-                continue;
-
             var coord = new ChunkCoord(column.X, _center.Y, column.Z);
-            _generationDispatcher.UpdatePriority(
-                work.TaskKey, GenerationPriority(coord));
+            var priority = GenerationPriority(coord);
+            if (_materializationTasks.TryGetValue(column, out var work))
+            {
+                _generationDispatcher.UpdatePriority(
+                    work.TaskKey, priority);
+            }
         }
 
         // Reconcile each active section worker once. Iterating the worker sets
@@ -1552,12 +1553,7 @@ public sealed class ChunkResidencyRuntime
     }
 
     private WorldWorkerPriority StreamingWorkerPriority(ChunkCoord coord) =>
-        WorldWorkerPriority.FromGenerationTicket(
-            ChunkStreamingState.StreamingPriority(
-                coord,
-                _center,
-                _streaming.MovementDirection,
-                _streaming.GetLoadingLevel(coord)));
+        WorldWorkerPriority.FromGenerationTicket(GenerationPriority(coord));
 
     private void StartArrivalReconciliationWorker(
         WorldFrameWorkBudget budget,
