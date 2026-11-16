@@ -246,6 +246,7 @@ public sealed class ChunkGenerationPlanTests
         {
             (ChunkGenerationStepId.SectionTerrainLayers, 0, 0, 4),
             (ChunkGenerationStepId.SurfaceDecorations, 2, -1, 1),
+            (ChunkGenerationStepId.VerticalDecorations, 0, -1, 4),
             (ChunkGenerationStepId.DirectionalFacePalettes, 4, -4, 4),
             (ChunkGenerationStepId.WallLayers, 1, 0, 0),
             (ChunkGenerationStepId.WallObjects, 1, 0, 0),

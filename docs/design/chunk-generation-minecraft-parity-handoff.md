@@ -1402,3 +1402,8 @@ The first enforcement commit renamed the SurfaceDecorations halo and changed its
 `BiomeDefinition.ValidateSurfaceLayers` permits a finite surface profile depth up to 64 voxels. `SurfaceChunkMaterializer.AdditiveDepthAt` can read density above the current section snapshot until that finite depth is resolved. With 16 voxels per section, a top-edge voxel plus 64 voxels can reach section offset +4.
 
 The previous TerrainLayers envelope [0, +1] only covered the default pack's current maximum finite depth (6), not the full validated content contract. The maximum is now a single `BiomeDefinition.MaximumFiniteSurfaceLayerDepth` constant shared by content validation and `AsteriaChunkGenerationPlan`; TerrainLayers derives its upper offset as `ceil(maxDepth / Chunk.Size)`, currently +4. The regression test checks both the stage read envelope and the accumulated immutable-data dependency, while existing holder-envelope assertions ensure this does not request neighboring holders.
+
+
+### VerticalDecorations content-derived upper read envelope — 2026-11-16
+
+A second consumer of `AdditiveDepthAt` is ceiling-decoration placement: when an additive support sits across the upper section seam, the stage resolves its palette from density above the target section. The loop also explicitly considers the target immediately below the section (`localY = -1`). Therefore `VerticalDecorations` requires offsets [-1, +4], not [-1, +1]. Both `TerrainLayers` and `VerticalDecorations` now use the same section-offset constant derived from the validated 64-voxel content limit. Tests assert both stage envelopes and their immutable-data dependencies.

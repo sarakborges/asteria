@@ -34,19 +34,27 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope DirectionalPaletteReadHalo =
         new(horizontalRadius: 4, minimumSectionOffset: -4, maximumSectionOffset: 4);
 
+    // Ceiling decorators may resolve an additive support palette up to
+    // the same finite surface-layer depth above the target section.
     private static readonly ChunkGenerationDependencyEnvelope VerticalDecorationReadHalo =
-        new(horizontalRadius: 0, minimumSectionOffset: -1, maximumSectionOffset: 1);
+        new(
+            horizontalRadius: 0,
+            minimumSectionOffset: -1,
+            maximumSectionOffset: MaximumFiniteSurfaceLayerSectionOffset);
 
     // Surface profiles allow up to 64 finite voxels. AdditiveDepthAt may
     // continue density queries beyond the section snapshot's top face, so the
     // read envelope derives its upper section count from the same content cap.
+    private static readonly int MaximumFiniteSurfaceLayerSectionOffset =
+        checked((int)(
+            (BiomeDefinition.MaximumFiniteSurfaceLayerDepth +
+             (uint)Chunk.Size - 1u) / (uint)Chunk.Size));
+
     private static readonly ChunkGenerationDependencyEnvelope TerrainLayerReadHalo =
         new(
             horizontalRadius: 0,
             minimumSectionOffset: 0,
-            maximumSectionOffset: checked((int)(
-                (BiomeDefinition.MaximumFiniteSurfaceLayerDepth +
-                 (uint)Chunk.Size - 1u) / (uint)Chunk.Size)));
+            maximumSectionOffset: MaximumFiniteSurfaceLayerSectionOffset);
 
     // Cave-spike anchors can extend 16 blocks beyond the target section, and
     // each placement may inspect up to 64 blocks of clearance. This remains
