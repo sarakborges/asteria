@@ -1470,6 +1470,8 @@ public sealed partial class SurfaceChunkMaterializer
 
             // SetBlock replaces the full VoxelCell (including sculpt mask,
             // facing and state) and clears any attached face-layer state.
+            accessRegion.EnsureCanWriteWorldPosition(
+                worldX, worldY, worldZ);
             job.Chunk.SetBlock(x, y, z, stableBlock);
         }
 
