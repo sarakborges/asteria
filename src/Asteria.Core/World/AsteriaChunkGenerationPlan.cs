@@ -24,8 +24,11 @@ public static class AsteriaChunkGenerationPlan
     private static readonly ChunkGenerationDependencyEnvelope HorizontalDecorationReadHalo =
         new(horizontalRadius: 2, minimumSectionOffset: 0, maximumSectionOffset: 0);
 
-    private static readonly ChunkGenerationDependencyEnvelope HorizontalPaletteHalo =
-        new(horizontalRadius: 1, minimumSectionOffset: -1, maximumSectionOffset: 1);
+    // Directional face paint can inspect up to 64 voxels across horizontal
+    // and vertical seams. At 16 voxels per section this requires four
+    // neighboring columns/sections in each direction.
+    private static readonly ChunkGenerationDependencyEnvelope DirectionalPaletteReadHalo =
+        new(horizontalRadius: 4, minimumSectionOffset: -4, maximumSectionOffset: 4);
 
     private static readonly ChunkGenerationDependencyEnvelope VerticalDecorationReadHalo =
         new(horizontalRadius: 0, minimumSectionOffset: -1, maximumSectionOffset: 1);
@@ -73,9 +76,10 @@ public static class AsteriaChunkGenerationPlan
             [
                 Dependency(
                     ChunkGenerationStepId.SurfaceTerrainColumn,
-                    NoHalo,
+                    DirectionalPaletteReadHalo,
                     ChunkGenerationDependencyKind.ImmutableWorldData),
-            ]),
+            ],
+            readEnvelope: DirectionalPaletteReadHalo),
 
         Step(
             ChunkGenerationStepId.SectionTerrainLayers,
@@ -121,10 +125,10 @@ public static class AsteriaChunkGenerationPlan
                     NoHalo),
                 Dependency(
                     ChunkGenerationStepId.SurfaceTerrainColumn,
-                    HorizontalPaletteHalo,
+                    DirectionalPaletteReadHalo,
                     ChunkGenerationDependencyKind.ImmutableWorldData),
             ],
-            readEnvelope: HorizontalPaletteHalo),
+            readEnvelope: DirectionalPaletteReadHalo),
 
         // Anchor selection reads immutable biome/density fields through the
         // authored vertical support range. It does not require distant holders.
