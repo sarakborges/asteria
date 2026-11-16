@@ -156,7 +156,6 @@ public sealed class ChunkResidencyRuntime
     // vertical section jobs fork to the shared executor and publish together.
     private readonly Dictionary<ChunkColumnCoord, MaterializationWork>
         _materializationTasks = [];
-    private readonly HashSet<ChunkColumnCoord> _pendingHolderPriorityChanges = [];
     private readonly ChunkGenerationCompletionMailbox _generationCompletionMailbox;
     private readonly ChunkGenerationWorkerPool _generationWorkerPool;
     private readonly WorldWorkerPool _worldWorkerPool;
@@ -259,8 +258,8 @@ public sealed class ChunkResidencyRuntime
             HandleGenerationStatusAdvanced;
         _generationDispatcher.SectionGenerationStatusAdvanced +=
             HandleSectionGenerationStatusAdvanced;
-        _streaming.DistanceManager.HolderTicketLevelsChanged +=
-            HandleHolderTicketLevelsChanged;
+        _streaming.DistanceManager.HolderQueuePriorityChanged +=
+            HandleHolderQueuePriorityChanged;
         _objects = objects;
         _directionalFacePaletteUpdater =
             chunkProvider as IChunkDirectionalFacePaletteUpdater;
@@ -293,7 +292,6 @@ public sealed class ChunkResidencyRuntime
             return false;
 
         SyncTicketDemands();
-        ApplyPendingHolderPriorityChanges();
         if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
             PublishPersistentChunkTickets(_worldTicks.CurrentTick);
         return true;
@@ -310,7 +308,6 @@ public sealed class ChunkResidencyRuntime
             return false;
 
         SyncTicketDemands();
-        ApplyPendingHolderPriorityChanges();
         if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
             PublishPersistentChunkTickets(_worldTicks.CurrentTick);
         return true;
@@ -324,8 +321,7 @@ public sealed class ChunkResidencyRuntime
         if (changed != ChunkTicketFlags.None)
         {
             SyncTicketDemands();
-            ApplyPendingHolderPriorityChanges();
-        }
+            }
         if (hadPersistentTimedTickets &&
             currentTick != _lastPersistentTicketSnapshotTick)
             PublishPersistentChunkTickets(currentTick);
@@ -649,7 +645,6 @@ public sealed class ChunkResidencyRuntime
 
         if (previousCenter != center)
             ReprioritizeActiveWorldWork();
-        ApplyPendingHolderPriorityChanges();
         return true;
     }
 
@@ -1270,8 +1265,7 @@ public sealed class ChunkResidencyRuntime
                 var taskKey = new ChunkGenerationTaskKey(
                     column,
                     ChunkGenerationStepId.SectionReady);
-                var columnCenter = new ChunkCoord(column.X, _center.Y, column.Z);
-                var taskPriority = GenerationPriority(columnCenter);
+                var taskPriority = GenerationPriority(column);
                 var generationTask = new ChunkColumnMaterializationGenerationTask(
                     column,
                     sectionJobs,
@@ -1329,7 +1323,6 @@ public sealed class ChunkResidencyRuntime
         if (restored > 0)
             SyncResidentState(presented);
 
-        ApplyPendingHolderPriorityChanges();
         var dispatchReport = _generationDispatcher.Pump(
             budget, int.MaxValue);
 
@@ -1471,9 +1464,9 @@ public sealed class ChunkResidencyRuntime
             interSliceWaitMilliseconds);
     }
 
-    private ChunkGenerationTaskPriority GenerationPriority(ChunkCoord coord)
+    private ChunkGenerationTaskPriority GenerationPriority(ChunkColumnCoord column)
     {
-        var column = ChunkColumnCoord.FromChunk(coord);
+        var coord = new ChunkCoord(column.X, _center.Y, column.Z);
         var priority = ChunkStreamingState.StreamingPriority(
             coord,
             _center,
@@ -1486,60 +1479,55 @@ public sealed class ChunkResidencyRuntime
         return holder.QueuePriority;
     }
 
-    private void HandleHolderTicketLevelsChanged(
-        IReadOnlyList<ChunkHolderTicketLevelChange> changes)
+    /// <summary>
+    /// Applies holder-originated priority changes directly to every active
+    /// dispatch lane for that column. Pending admission is updated separately
+    /// by ChunkStreamingState from the settled ticket-level transition.
+    /// </summary>
+    private void HandleHolderQueuePriorityChanged(
+        ChunkHolderQueuePriorityChange change)
     {
-        foreach (var change in changes)
-            _pendingHolderPriorityChanges.Add(change.Holder.Position);
-    }
+        var column = change.Holder.Position;
+        if (_materializationTasks.TryGetValue(column, out var work))
+            _generationDispatcher.UpdatePriority(work.TaskKey, change.Priority);
 
-    private void ApplyPendingHolderPriorityChanges()
-    {
-        if (_pendingHolderPriorityChanges.Count == 0)
-            return;
-
-        var changedColumns = _pendingHolderPriorityChanges;
-        foreach (var column in changedColumns
-                     .OrderBy(column => column.X)
-                     .ThenBy(column => column.Z))
+        // Reconciliation jobs are section-addressed. Preserve their exact
+        // vertical distance while adopting the holder's new ticket urgency.
+        foreach (var (section, lightingWork) in _chunkLightingReconciliationTasks)
         {
-            var coord = new ChunkCoord(column.X, _center.Y, column.Z);
-            var priority = GenerationPriority(coord);
-            if (_materializationTasks.TryGetValue(column, out var work))
-            {
-                _generationDispatcher.UpdatePriority(
-                    work.TaskKey, priority);
-            }
-        }
-
-        // Reconcile each active section worker once. Iterating the worker sets
-        // once avoids O(changed holders × all reconciliation tasks) behavior.
-        foreach (var (section, work) in _chunkLightingReconciliationTasks)
-        {
-            if (changedColumns.Contains(ChunkColumnCoord.FromChunk(section)))
+            if (ChunkColumnCoord.FromChunk(section) == column)
                 _generationDispatcher.LightingExecutor.TryUpdatePriority(
-                    work.TaskInstance, StreamingWorkerPriority(section));
+                    lightingWork.TaskInstance,
+                    StreamingWorkerPriority(section));
         }
 
-        foreach (var (section, work) in _directionalFaceReconciliationTasks)
+        foreach (var (section, directionalWork) in _directionalFaceReconciliationTasks)
         {
-            if (changedColumns.Contains(ChunkColumnCoord.FromChunk(section)))
+            if (ChunkColumnCoord.FromChunk(section) == column)
                 _worldWorkerPool.TryUpdatePriority(
-                    work.Operation, StreamingWorkerPriority(section));
+                    directionalWork.Operation,
+                    StreamingWorkerPriority(section));
         }
-
-        _pendingHolderPriorityChanges.Clear();
     }
 
     private void ReprioritizeActiveWorldWork()
     {
-        foreach (var (column, work) in _materializationTasks)
+        // Recompute each active holder once. Its priority-change event updates
+        // the column dispatcher and all other work sharing that holder.
+        foreach (var column in _materializationTasks.Keys
+                     .Concat(_chunkLightingReconciliationTasks.Keys
+                         .Select(ChunkColumnCoord.FromChunk))
+                     .Concat(_directionalFaceReconciliationTasks.Keys
+                         .Select(ChunkColumnCoord.FromChunk))
+                     .Distinct()
+                     .OrderBy(column => column.X)
+                     .ThenBy(column => column.Z))
         {
-            var coord = new ChunkCoord(column.X, _center.Y, column.Z);
-            _generationDispatcher.UpdatePriority(
-                work.TaskKey, GenerationPriority(coord));
+            GenerationPriority(column);
         }
 
+        // A player Y change affects section-local worker distances even when
+        // the horizontal holder key itself remains unchanged.
         foreach (var (coord, work) in _chunkLightingReconciliationTasks)
             _generationDispatcher.LightingExecutor.TryUpdatePriority(
                 work.TaskInstance, StreamingWorkerPriority(coord));
@@ -1550,7 +1538,11 @@ public sealed class ChunkResidencyRuntime
     }
 
     private WorldWorkerPriority StreamingWorkerPriority(ChunkCoord coord) =>
-        WorldWorkerPriority.FromGenerationTicket(GenerationPriority(coord));
+        WorldWorkerPriority.FromGenerationTicket(
+            ChunkStreamingState.StreamingPriority(
+                coord,
+                _center,
+                _streaming.GetLoadingLevel(coord)));
 
     private void StartArrivalReconciliationWorker(
         WorldFrameWorkBudget budget,

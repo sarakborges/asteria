@@ -10,6 +10,16 @@ public readonly record struct ChunkHolderTicketLevelChange(
     int TicketLevel);
 
 /// <summary>
+/// A holder's effective generation queue key changed. The revision lets
+/// dispatch owners reject stale notifications without polling the holder map.
+/// </summary>
+public readonly record struct ChunkHolderQueuePriorityChange(
+    ChunkHolder Holder,
+    ChunkGenerationTaskPriority PreviousPriority,
+    ChunkGenerationTaskPriority Priority,
+    ulong Revision);
+
+/// <summary>
 /// Owns the identity and lifetime of horizontal chunk holders. Loading graph
 /// updates are applied here; generation tasks retain holders through explicit
 /// dependency claims until their work reaches a terminal state.
@@ -51,11 +61,33 @@ public sealed class ChunkHolderMap
         !_holders.TryGetValue(column, out var holder) ||
         holder.IsReadyForSaving;
 
+    public event Action<ChunkHolderQueuePriorityChange>? QueuePriorityChanged;
+
     internal bool UpdateQueuePriority(
         ChunkColumnCoord column,
-        ChunkGenerationTaskPriority priority) =>
-        _holders.TryGetValue(column, out var holder) &&
-        holder.UpdateQueuePriority(priority);
+        ChunkGenerationTaskPriority priority)
+    {
+        if (!_holders.TryGetValue(column, out var holder))
+            return false;
+
+        var previousPriority = holder.QueuePriority;
+        if (!holder.UpdateQueuePriority(priority))
+            return false;
+
+        PublishQueuePriorityChanged(holder, previousPriority);
+        return true;
+    }
+
+    private void PublishQueuePriorityChanged(
+        ChunkHolder holder,
+        ChunkGenerationTaskPriority previousPriority)
+    {
+        QueuePriorityChanged?.Invoke(new ChunkHolderQueuePriorityChange(
+            holder,
+            previousPriority,
+            holder.QueuePriority,
+            holder.QueuePriorityRevision));
+    }
 
     /// <summary>
     /// Reconciles holder membership and ticket-derived generation ceilings
@@ -79,10 +111,12 @@ public sealed class ChunkHolderMap
                 if (_holders.TryGetValue(column, out var holder))
                 {
                     var previousLevel = holder.TicketLevel;
+                    var previousPriority = holder.QueuePriority;
                     if (holder.UpdateTicketLevel(level))
                     {
                         changes.Add(new ChunkHolderTicketLevelChange(
                             holder, previousLevel, level));
+                        PublishQueuePriorityChanged(holder, previousPriority);
                     }
                 }
                 else
@@ -100,10 +134,12 @@ public sealed class ChunkHolderMap
                 continue;
 
             var previousTicketLevel = unloadedHolder.TicketLevel;
+            var previousPriority = unloadedHolder.QueuePriority;
             if (unloadedHolder.UpdateTicketLevel(ChunkLevel.Unloaded))
             {
                 changes.Add(new ChunkHolderTicketLevelChange(
                     unloadedHolder, previousTicketLevel, ChunkLevel.Unloaded));
+                PublishQueuePriorityChanged(unloadedHolder, previousPriority);
             }
             _pendingUnloads.Add(column);
         }

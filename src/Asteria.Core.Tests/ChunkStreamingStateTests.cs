@@ -161,6 +161,44 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void HolderQueuePriorityChangesArePublishedForSpatialAndTicketUpdates()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(3, -2);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        var changes = new List<ChunkHolderQueuePriorityChange>();
+        manager.HolderQueuePriorityChanged += changes.Add;
+
+        var spatialPriority = new ChunkGenerationTaskPriority(
+            holder.TicketLevel,
+            HorizontalDistanceSquared: 9,
+            TotalDistanceSquared: 9,
+            CoordinateY: 0,
+            CoordinateZ: column.Z,
+            CoordinateX: column.X);
+        Assert.True(manager.UpdateQueuePriority(column, spatialPriority));
+        Assert.False(manager.UpdateQueuePriority(column, spatialPriority));
+
+        var spatialChange = Assert.Single(changes);
+        Assert.Same(holder, spatialChange.Holder);
+        Assert.Equal(spatialPriority, spatialChange.Priority);
+        Assert.Equal(holder.QueuePriorityRevision, spatialChange.Revision);
+        Assert.True(spatialChange.Revision > 1);
+
+        Assert.True(manager.RemovePlayerLoadingTicket(column));
+
+        Assert.Equal(2, changes.Count);
+        var ticketChange = changes[1];
+        Assert.Same(holder, ticketChange.Holder);
+        Assert.Equal(ChunkLevel.Unloaded, ticketChange.Priority.TicketLevel);
+        Assert.Equal(ticketChange.Priority, holder.QueuePriority);
+        Assert.Equal(holder.QueuePriorityRevision, ticketChange.Revision);
+        Assert.Equal(spatialPriority.HorizontalDistanceSquared,
+            ticketChange.Priority.HorizontalDistanceSquared);
+    }
+
+    [Fact]
     public void PressuredPendingSelectionKeepsDistantWorkQueued()
     {
         var state = new ChunkStreamingState();

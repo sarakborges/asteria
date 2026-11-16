@@ -18,6 +18,8 @@ public sealed class ChunkDistanceManager
     public ChunkDistanceManager()
     {
         _holders = new ChunkHolderMap(_loading.Levels);
+        _holders.QueuePriorityChanged += change =>
+            HolderQueuePriorityChanged?.Invoke(change);
         _tickets.LoadingChunkUpdated +=
             (column, level, _) => _pendingLoadingSourceChanges[column] = level;
         _tickets.SimulationChunkUpdated +=
@@ -31,6 +33,12 @@ public sealed class ChunkDistanceManager
     /// </summary>
     public event Action<IReadOnlyList<ChunkHolderTicketLevelChange>>?
         HolderTicketLevelsChanged;
+
+    /// <summary>
+    /// Forwards effective holder-priority changes to dispatch owners. Ticket
+    /// changes and player-view changes share this path.
+    /// </summary>
+    public event Action<ChunkHolderQueuePriorityChange>? HolderQueuePriorityChanged;
 
     public ChunkTicketStorage Tickets => _tickets;
 

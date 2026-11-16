@@ -1416,3 +1416,18 @@ The first enforcement commit renamed the SurfaceDecorations halo and changed its
 - Regression tests cover cross-section product reuse, section-request-order determinism, the authored access boundary, and the tiny-budget resumable cursor.
 - Validation for the previous HEAD 68d33e3 remains in workflow [#43930507103](https://github.com/sarakborges/asteria/actions/runs/43930507103): Core/native build steps and WebUI passed; the bounded query baseline and fixed-seed terrain A/B were still running at the last inspection. The new implementation requires fresh validation on its own commit. No performance gain is claimed until that A/B evidence completes.
 - This remains an incremental product cache inside the existing column coordinator; it is not yet a separately admitted column future. Cross-column holder dependency admission, holder-owned dispatcher queues and the executable loading pyramid remain open.
+
+
+## Holder-driven queue reprioritization — 2026-11-16
+
+**Implementation commit:** pending validation on `worldgen-perf-fix`.
+
+Minecraft Java Edition 26.3's `ChunkTaskDispatcher` is a `ChunkHolder.LevelChangeListener`; its `onLevelChange` path updates the task queue when the holder's effective level changes. The 26.3 API reference is [ChunkTaskDispatcher](https://aldak0.ru/javadoc/26.3.x/net/minecraft/server/level/ChunkTaskDispatcher.html).
+
+Asteria previously stored the composite key on `GenerationChunkHolder`, but `ChunkResidencyRuntime` collected ticket-level changes into a `HashSet` and later scanned active worldgen, lighting and directional-reconciliation maps to propagate them. The holder map now emits `ChunkHolderQueuePriorityChange` with the new composite priority and monotonic revision whenever either ticket urgency or spatial priority changes. `ChunkDistanceManager` forwards the event directly to the residency coordinator.
+
+The residency coordinator immediately applies the event to the matching column task in `ChunkGenerationDispatcher` and to section-local lighting/reconciliation operations for that holder. The pending-column queue continues to consume the settled ticket-level change event in `ChunkStreamingState`, while player-center changes rebuild its distance ordering. The intermediate `_pendingHolderPriorityChanges` set and its second-pass scan were removed.
+
+The active worker priority calculation is now section-local and side-effect free. Only the horizontal column generation task updates the holder's canonical composite key; lighting and reconciliation workers no longer overwrite that holder key with a different vertical section's Y-distance.
+
+**Validation required:** focused Core tests, the full Core suite, Windows export and fixed-seed A/B must complete on the exact new HEAD. This change does not implement cross-column producer admission or the full loading/generation pyramids; those remain separate architecture gaps.
