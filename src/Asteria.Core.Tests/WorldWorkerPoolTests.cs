@@ -154,19 +154,19 @@ public sealed class WorldWorkerPoolTests
 
         var far = Schedule(
             "far",
-            new ChunkStreamingPriority(1, 4, 4, 0, 0, 0));
+            new ChunkGenerationTaskPriority(1, 4, 4, 0, 0, 0));
         var nearHigherTotal = Schedule(
             "near-higher-total",
-            new ChunkStreamingPriority(1, 1, 3, 0, 0, 5));
+            new ChunkGenerationTaskPriority(1, 1, 3, 0, 0, 5));
         var nearCoordinateHigh = Schedule(
             "near-coordinate-high",
-            new ChunkStreamingPriority(1, 1, 2, 0, 0, 5));
+            new ChunkGenerationTaskPriority(1, 1, 2, 0, 0, 5));
         var nearCoordinateLow = Schedule(
             "near-coordinate-low",
-            new ChunkStreamingPriority(1, 1, 2, 0, 0, 1));
+            new ChunkGenerationTaskPriority(1, 1, 2, 0, 0, 1));
         var exactTieFifo = Schedule(
             "near-coordinate-low-fifo",
-            new ChunkStreamingPriority(1, 1, 2, 0, 0, 1));
+            new ChunkGenerationTaskPriority(1, 1, 2, 0, 0, 1));
 
         releaseWorker.Set();
         var all = new[]
@@ -193,7 +193,7 @@ public sealed class WorldWorkerPoolTests
 
         WorldWorkerOperation<string> Schedule(
             string label,
-            ChunkStreamingPriority ticket)
+            ChunkGenerationTaskPriority ticket)
         {
             Assert.True(pool.TrySchedule(
                 _ =>
@@ -203,7 +203,7 @@ public sealed class WorldWorkerPoolTests
                 },
                 CancellationToken.None,
                 out var operation,
-                WorldWorkerPriority.FromStreaming(ticket)));
+                WorldWorkerPriority.FromGenerationTicket(ticket)));
             return operation!;
         }
     }
@@ -230,14 +230,14 @@ public sealed class WorldWorkerPoolTests
         Assert.True(workerStarted.Wait(TimeSpan.FromSeconds(5)));
 
         var movingChunk = Schedule(
-            "moving", new ChunkStreamingPriority(3, 100, 100, 0, 0, 0));
+            "moving", new ChunkGenerationTaskPriority(3, 100, 100, 0, 0, 0));
         var nearChunk = Schedule(
-            "near", new ChunkStreamingPriority(1, 2, 2, 0, 0, 0));
+            "near", new ChunkGenerationTaskPriority(1, 2, 2, 0, 0, 0));
 
         Assert.True(pool.TryUpdatePriority(
             movingChunk,
-            WorldWorkerPriority.FromStreaming(
-                new ChunkStreamingPriority(1, 1, 1, 0, 0, 0))));
+            WorldWorkerPriority.FromGenerationTicket(
+                new ChunkGenerationTaskPriority(1, 1, 1, 0, 0, 0))));
 
         releaseWorker.Set();
         var all = new[] { blocker!, movingChunk, nearChunk };
@@ -252,7 +252,7 @@ public sealed class WorldWorkerPoolTests
 
         WorldWorkerOperation<string> Schedule(
             string label,
-            ChunkStreamingPriority ticket)
+            ChunkGenerationTaskPriority ticket)
         {
             Assert.True(pool.TrySchedule(
                 _ =>
@@ -262,7 +262,7 @@ public sealed class WorldWorkerPoolTests
                 },
                 CancellationToken.None,
                 out var operation,
-                WorldWorkerPriority.FromStreaming(ticket)));
+                WorldWorkerPriority.FromGenerationTicket(ticket)));
             return operation!;
         }
     }
