@@ -552,13 +552,13 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                         $"Generation step {targetStep} for {sectionTask.Coord} requires " +
                         $"holder status {requirement.Status} from {requirement.Coord}, " +
                         "but no cross-column producer admission is configured.");
-                var future = getFuture(requirement) ??
+                var holderFuture = getFuture(requirement) ??
                     throw new InvalidOperationException(
                         $"No holder status future was returned for {requirement.Coord}.");
 
-                if (future.IsCompletedSuccessfully)
+                if (holderFuture.IsCompletedSuccessfully)
                 {
-                    ValidateHolderStatusResult(key, future.Result);
+                    ValidateHolderStatusResult(key, holderFuture.Result);
                     _completedHolderStatusRequirements.Add(key);
                     continue;
                 }
@@ -566,7 +566,7 @@ public sealed class ChunkColumnMaterializationGenerationTask :
                 var dependencyId = NextDependencyId();
                 var operation = new ChunkGenerationFutureOperation(
                     dependencyId,
-                    future,
+                    holderFuture,
                     () => requestProducer(requirement));
                 if (!_pendingHolderStatusOperations.TryAdd(
                         dependencyId,
