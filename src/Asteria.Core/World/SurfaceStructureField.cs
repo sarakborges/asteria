@@ -195,6 +195,7 @@ public sealed class SurfaceStructureField
             var worldRadius =
                 3L * rule.MaximumHorizontalRadius +
                 2L * rule.Spacing +
+                2L * rule.Jitter +
                 rule.MaximumProximityRadius +
                 1L;
             maximumWorldRadius = Math.Max(maximumWorldRadius, worldRadius);
