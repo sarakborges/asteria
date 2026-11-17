@@ -14,6 +14,7 @@ public sealed class ChunkDistanceManager
     private readonly ChunkHolderMap _holders;
     private readonly Dictionary<ChunkColumnCoord, int> _pendingLoadingSourceChanges = [];
     private readonly Dictionary<ChunkColumnCoord, int> _pendingSimulationSourceChanges = [];
+    private ChunkColumnCoord? _playerColumn;
 
     public ChunkDistanceManager()
     {
@@ -127,6 +128,11 @@ public sealed class ChunkDistanceManager
             throw new ArgumentOutOfRangeException(nameof(simulationDistance));
 
         var desired = desiredColumns.ToHashSet();
+        var playerMoved = _playerColumn != playerColumn;
+        _playerColumn = playerColumn;
+        if (playerMoved)
+            _holders.UpdateQueuePriorities(CreateQueuePriority);
+
         var naturalSpawnChanged = _naturalSpawn.UpdateCenter(playerColumn);
         var loadingChanged = _tickets.RemoveTicketsWhere(
             ChunkTicketType.PlayerLoading,
@@ -143,7 +149,7 @@ public sealed class ChunkDistanceManager
         if (loadingChanged || simulationChanged)
             RebuildDistanceGraphs(loadingChanged, simulationChanged);
 
-        return loadingChanged || simulationChanged || naturalSpawnChanged;
+        return playerMoved || loadingChanged || simulationChanged || naturalSpawnChanged;
     }
 
     public bool AddPlayerLoadingTicket(ChunkColumnCoord column)
@@ -310,9 +316,32 @@ public sealed class ChunkDistanceManager
     private void SynchronizeHolders(
         IReadOnlyList<ChunkDistanceLevelChange> graphChanges)
     {
-        var changes = _holders.SynchronizeLoadingLevels(graphChanges);
+        var changes = _holders.SynchronizeLoadingLevels(
+            graphChanges, CreateQueuePriority);
         if (changes.Count > 0)
             HolderTicketLevelsChanged?.Invoke(changes);
+    }
+
+    private ChunkGenerationTaskPriority? CreateQueuePriority(
+        ChunkHolder holder)
+    {
+        if (_playerColumn is not { } playerColumn)
+            return null;
+
+        var dx = (long)holder.Position.X - playerColumn.X;
+        var dz = (long)holder.Position.Z - playerColumn.Z;
+        var squaredDistance = (double)dx * dx + (double)dz * dz;
+        var horizontalDistanceSquared = squaredDistance >= long.MaxValue
+            ? long.MaxValue
+            : (long)squaredDistance;
+
+        return new ChunkGenerationTaskPriority(
+            holder.TicketLevel,
+            horizontalDistanceSquared,
+            horizontalDistanceSquared,
+            CoordinateY: 0,
+            CoordinateZ: holder.Position.Z,
+            CoordinateX: holder.Position.X);
     }
 
     public int PersistentTicketCount =>

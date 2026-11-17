@@ -26,6 +26,8 @@ internal sealed class ChunkColumnPendingQueue
 
     private ChunkCoord _center;
     private Func<ChunkCoord, int>? _ticketLevelProvider;
+    private Func<ChunkColumnCoord, ChunkGenerationTaskPriority?>?
+        _holderPriorityProvider;
     private bool _hasPriorityContext;
 
     public int Count { get; private set; }
@@ -46,54 +48,45 @@ internal sealed class ChunkColumnPendingQueue
     /// </summary>
     public void UpdatePriorityContext(
         ChunkCoord center,
-        Func<ChunkCoord, int> ticketLevelProvider)
+        Func<ChunkCoord, int> ticketLevelProvider,
+        Func<ChunkColumnCoord, ChunkGenerationTaskPriority?> holderPriorityProvider)
     {
         _center = center;
         _ticketLevelProvider = ticketLevelProvider ??
             throw new ArgumentNullException(nameof(ticketLevelProvider));
+        _holderPriorityProvider = holderPriorityProvider ??
+            throw new ArgumentNullException(nameof(holderPriorityProvider));
         _hasPriorityContext = true;
         ReprioritizeColumns();
     }
 
     /// <summary>
-    /// Reclassifies all not-yet-admitted columns after the loading graph changes
-    /// holder ticket levels. Distance and stable coordinate tie-breaks remain
-    /// secondary to the authoritative ticket level.
+    /// Applies the holder's canonical queue key to a pending column. Active
+    /// dispatch and pending admission now consume the same priority revision.
     /// </summary>
-    public void UpdateTicketLevels(
-        IReadOnlyList<ChunkHolderTicketLevelChange> changes)
+    public void UpdateHolderPriority(
+        ChunkColumnCoord column,
+        ChunkGenerationTaskPriority priority)
     {
-        ArgumentNullException.ThrowIfNull(changes);
-        if (!_hasPriorityContext || changes.Count == 0)
+        if (!_sectionsByColumn.ContainsKey(column))
             return;
 
-        foreach (var column in changes
-                     .Select(change => change.Holder.Position)
-                     .Distinct()
-                     .OrderBy(column => column.X)
-                     .ThenBy(column => column.Z))
+        if (!_columns.UpdatePriority(Key(column), priority))
         {
-            if (!_sectionsByColumn.TryGetValue(column, out var sections))
-                continue;
-
-            if (!_columns.UpdatePriority(
-                    Key(column),
-                    CalculatePriority(column, sections.Values)))
-            {
-                throw new InvalidOperationException(
-                    $"Pending column is missing from its priority index: {column}");
-            }
+            throw new InvalidOperationException(
+                $"Pending column is missing from its priority index: {column}");
         }
     }
 
     private void ReprioritizeColumns()
     {
-        foreach (var (column, sections) in _sectionsByColumn
-                     .OrderBy(entry => entry.Key))
+        foreach (var column in _sectionsByColumn.Keys
+                     .OrderBy(column => column.X)
+                     .ThenBy(column => column.Z))
         {
             if (!_columns.UpdatePriority(
                     Key(column),
-                    CalculatePriority(column, sections.Values)))
+                    CalculatePriority(column)))
             {
                 throw new InvalidOperationException(
                     $"Pending column is missing from its priority index: {column}");
@@ -134,7 +127,7 @@ internal sealed class ChunkColumnPendingQueue
         };
         if (!_columns.Enqueue(
                 Key(column),
-                CalculatePriority(column, sections.Values),
+                CalculatePriority(column),
                 enqueuedTimestamp))
         {
             throw new InvalidOperationException(
@@ -167,7 +160,7 @@ internal sealed class ChunkColumnPendingQueue
         }
         else if (!_columns.UpdatePriority(
                      Key(column),
-                     CalculatePriority(column, sections.Values)))
+                     CalculatePriority(column)))
         {
             throw new InvalidOperationException(
                 $"Pending column is missing from its priority index: {column}");
@@ -237,7 +230,7 @@ internal sealed class ChunkColumnPendingQueue
         }
         else if (!_columns.UpdatePriority(
                      queued.Key,
-                     CalculatePriority(column, sections.Values)))
+                     CalculatePriority(column)))
         {
             throw new InvalidOperationException(
                 $"Pending column is missing from its priority index: {column}");
@@ -308,7 +301,7 @@ internal sealed class ChunkColumnPendingQueue
         }
         else if (!_columns.UpdatePriority(
                      queued.Key,
-                     CalculatePriority(column, sections.Values)))
+                     CalculatePriority(column)))
         {
             throw new InvalidOperationException(
                 $"Pending column is missing from its priority index: {column}");
@@ -367,20 +360,15 @@ internal sealed class ChunkColumnPendingQueue
     }
 
     private ChunkGenerationTaskPriority CalculatePriority(
-        ChunkColumnCoord column,
-        IEnumerable<ChunkPendingDispatch> sections)
+        ChunkColumnCoord column)
     {
-        ChunkGenerationTaskPriority? best = null;
-        foreach (var section in sections)
-        {
-            var candidate = StreamingPriority(section.Coord);
-            if (best is null || candidate.CompareTo(best.Value) < 0)
-                best = candidate;
-        }
+        if (_holderPriorityProvider?.Invoke(column) is { } holderPriority)
+            return holderPriority;
 
-        return best ??
-            throw new InvalidOperationException(
-                $"Cannot prioritize a column without pending sections: {column}");
+        // Until a holder exists, use the same horizontal key the holder will
+        // publish once the loading graph admits this column.
+        return StreamingPriority(new ChunkCoord(
+            column.X, _center.Y, column.Z));
     }
 
     private ChunkGenerationTaskPriority StreamingPriority(ChunkCoord coord) =>

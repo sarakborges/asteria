@@ -55,8 +55,9 @@ public sealed class ChunkStreamingState
 
     public ChunkStreamingState()
     {
-        _distanceManager.HolderTicketLevelsChanged +=
-            changes => _pending.UpdateTicketLevels(changes);
+        _distanceManager.HolderQueuePriorityChanged += change =>
+            _pending.UpdateHolderPriority(
+                change.Holder.Position, change.Priority);
     }
 
     public ChunkCoord? Center { get; private set; }
@@ -107,6 +108,15 @@ public sealed class ChunkStreamingState
 
     public int GetLoadingLevel(ChunkCoord coord) =>
         _distanceManager.GetLoadingLevel(ChunkColumnCoord.FromChunk(coord));
+
+    private ChunkGenerationTaskPriority? GetHolderQueuePriority(
+        ChunkColumnCoord column)
+    {
+        var holder = _distanceManager.GetHolder(column);
+        return holder is { HasQueuePriorityContext: true }
+            ? holder.QueuePriority
+            : null;
+    }
 
     public int GetSimulationLevel(ChunkCoord coord) =>
         _distanceManager.GetSimulationLevel(ChunkColumnCoord.FromChunk(coord));
@@ -282,7 +292,6 @@ public sealed class ChunkStreamingState
         }
 
         UpdateMovementDirection(center);
-        _pending.UpdatePriorityContext(center, GetLoadingLevel);
 
         var previousInterest = _desired
             .Concat(_retained)
@@ -304,6 +313,8 @@ public sealed class ChunkStreamingState
             _desired.Select(ChunkColumnCoord.FromChunk),
             ChunkColumnCoord.FromChunk(center),
             simulationDistanceChunks);
+        _pending.UpdatePriorityContext(
+            center, GetLoadingLevel, GetHolderQueuePriority);
         SimulationDistanceChunks = simulationDistanceChunks;
         RebuildLightingRelevantColumns();
         _retained.Clear();

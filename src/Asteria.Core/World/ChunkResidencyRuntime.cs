@@ -1644,7 +1644,8 @@ public sealed class ChunkResidencyRuntime
         if (holder is null)
             return priority;
 
-        _streaming.DistanceManager.UpdateQueuePriority(column, priority);
+        if (!holder.HasQueuePriorityContext)
+            _streaming.DistanceManager.UpdateQueuePriority(column, priority);
         return holder.QueuePriority;
     }
 

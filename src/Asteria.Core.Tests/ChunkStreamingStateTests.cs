@@ -1042,4 +1042,50 @@ public sealed class ChunkStreamingStateTests
         Assert.True(state.IsLightingRelevant(new ChunkCoord(0, 100, 0)));
         Assert.False(state.IsLightingRelevant(new ChunkCoord(2, 0, 0)));
     }
+    [Fact]
+    public void PendingColumnsFollowHolderPriorityWhenPlayerMoves()
+    {
+        var state = new ChunkStreamingState();
+        var near = new ChunkCoord(1, 0, 0);
+        var far = new ChunkCoord(3, 0, 0);
+        var desired = new HashSet<ChunkCoord> { near, far };
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 4,
+            retentionRadius: 5,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var distanceManager = state.DistanceManager;
+        Assert.True(distanceManager.AddPlayerLoadingTicket(
+            ChunkColumnCoord.FromChunk(near)));
+        Assert.True(distanceManager.AddPlayerLoadingTicket(
+            ChunkColumnCoord.FromChunk(far)));
+        distanceManager.RunDistanceUpdates(int.MaxValue);
+
+        var nearHolder = Assert.IsType<ChunkHolder>(
+            distanceManager.GetHolder(ChunkColumnCoord.FromChunk(near)));
+        var farHolder = Assert.IsType<ChunkHolder>(
+            distanceManager.GetHolder(ChunkColumnCoord.FromChunk(far)));
+        Assert.True(nearHolder.HasQueuePriorityContext);
+        Assert.True(farHolder.HasQueuePriorityContext);
+        Assert.Equal(1, nearHolder.QueuePriority.HorizontalDistanceSquared);
+        Assert.Equal(9, farHolder.QueuePriority.HorizontalDistanceSquared);
+        Assert.Equal(near, state.PopPendingByPriority());
+
+        state.EnqueuePending(near);
+        state.RebuildSelection(
+            new ChunkCoord(3, 0, 0),
+            horizontalRadius: 4,
+            retentionRadius: 5,
+            desired);
+
+        Assert.Equal(4, nearHolder.QueuePriority.HorizontalDistanceSquared);
+        Assert.Equal(0, farHolder.QueuePriority.HorizontalDistanceSquared);
+        Assert.Equal(far, state.PopPendingByPriority());
+        Assert.Equal(near, state.PopPendingByPriority());
+    }
+
 }

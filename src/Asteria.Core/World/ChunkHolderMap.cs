@@ -78,6 +78,23 @@ public sealed class ChunkHolderMap
         return true;
     }
 
+    internal void UpdateQueuePriorities(
+        Func<ChunkHolder, ChunkGenerationTaskPriority?> priorityFactory)
+    {
+        ArgumentNullException.ThrowIfNull(priorityFactory);
+        foreach (var holder in _holders.Values
+                     .OrderBy(holder => holder.Position.X)
+                     .ThenBy(holder => holder.Position.Z))
+        {
+            if (priorityFactory(holder) is not { } priority)
+                continue;
+
+            var previousPriority = holder.QueuePriority;
+            if (holder.UpdateQueuePriority(priority))
+                PublishQueuePriorityChanged(holder, previousPriority);
+        }
+    }
+
     private void PublishQueuePriorityChanged(
         ChunkHolder holder,
         ChunkGenerationTaskPriority previousPriority)
@@ -95,9 +112,11 @@ public sealed class ChunkHolderMap
     /// but are demoted to UNLOADED until a graph ticket promotes them again.
     /// </summary>
     internal IReadOnlyList<ChunkHolderTicketLevelChange> SynchronizeLoadingLevels(
-        IReadOnlyList<ChunkDistanceLevelChange> graphChanges)
+        IReadOnlyList<ChunkDistanceLevelChange> graphChanges,
+        Func<ChunkHolder, ChunkGenerationTaskPriority?> priorityFactory)
     {
         ArgumentNullException.ThrowIfNull(graphChanges);
+        ArgumentNullException.ThrowIfNull(priorityFactory);
         if (graphChanges.Count == 0)
             return Array.Empty<ChunkHolderTicketLevelChange>();
 
@@ -114,6 +133,8 @@ public sealed class ChunkHolderMap
                     var previousHolderPriority = holder.QueuePriority;
                     if (holder.UpdateTicketLevel(level))
                     {
+                        if (priorityFactory(holder) is { } priority)
+                            holder.UpdateQueuePriority(priority);
                         changes.Add(new ChunkHolderTicketLevelChange(
                             holder, previousLevel, level));
                         PublishQueuePriorityChanged(holder, previousHolderPriority);
@@ -123,6 +144,13 @@ public sealed class ChunkHolderMap
                 {
                     var createdHolder = new ChunkHolder(column, level);
                     _holders.Add(column, createdHolder);
+                    if (priorityFactory(createdHolder) is { } priority)
+                    {
+                        var previousPriority = createdHolder.QueuePriority;
+                        createdHolder.UpdateQueuePriority(priority);
+                        PublishQueuePriorityChanged(
+                            createdHolder, previousPriority);
+                    }
                     changes.Add(new ChunkHolderTicketLevelChange(
                         createdHolder, ChunkLevel.Unloaded, level));
                 }
@@ -137,6 +165,8 @@ public sealed class ChunkHolderMap
             var previousUnloadedPriority = unloadedHolder.QueuePriority;
             if (unloadedHolder.UpdateTicketLevel(ChunkLevel.Unloaded))
             {
+                if (priorityFactory(unloadedHolder) is { } priority)
+                    unloadedHolder.UpdateQueuePriority(priority);
                 changes.Add(new ChunkHolderTicketLevelChange(
                     unloadedHolder, previousTicketLevel, ChunkLevel.Unloaded));
                 PublishQueuePriorityChanged(unloadedHolder, previousUnloadedPriority);
