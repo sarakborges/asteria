@@ -545,7 +545,7 @@ public sealed class ChunkTicketStorageTests
             holder.HighestPendingGenerationStatus);
         Assert.True(manager.RemovePlayerLoadingTicket(column));
 
-        Assert.False(full.IsCompletedSuccessfully);
+        Assert.True(full.IsCompletedSuccessfully);
         Assert.False(full.Result.Succeeded);
         Assert.Equal(
             ChunkGenerationStatus.Unloaded,
