@@ -4,9 +4,8 @@ using System.Threading;
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Worker-to-coordinator result of one serial task-advance continuation.
-/// Exactly one advance may be in flight per dimension, so this mailbox is
-/// deliberately bounded to one published completion.
+/// Worker-to-coordinator result of one bounded task-advance continuation.
+/// Independent task instances may publish completions concurrently.
 /// </summary>
 public readonly record struct ChunkGenerationTaskAdvanceCompletion(
     ChunkGenerationTaskInstance Task,
@@ -23,10 +22,8 @@ public readonly record struct ChunkGenerationTaskAdvanceCompletion(
 }
 
 /// <summary>
-/// Single-slot mailbox for the dimension's serial worldgen executor. The
-/// dispatcher does not schedule another task advance until it consumes the
-/// previous completion, making a one-result bound an invariant rather than
-/// a best-effort queue limit.
+/// Multi-producer mailbox for independent task advances. Only the owning
+/// dispatcher consumes results and applies task lifecycle transitions.
 /// </summary>
 public sealed class ChunkGenerationTaskAdvanceMailbox
 {
@@ -38,10 +35,7 @@ public sealed class ChunkGenerationTaskAdvanceMailbox
     public void Publish(ChunkGenerationTaskAdvanceCompletion completion)
     {
         completion.Validate();
-        if (Interlocked.CompareExchange(ref _pending, 1, 0) != 0)
-            throw new InvalidOperationException(
-                "A dimension cannot publish a second task advance before the first is collected.");
-
+        Interlocked.Increment(ref _pending);
         _queue.Enqueue(completion);
     }
 
@@ -50,7 +44,7 @@ public sealed class ChunkGenerationTaskAdvanceMailbox
         if (!_queue.TryDequeue(out completion))
             return false;
 
-        Volatile.Write(ref _pending, 0);
+        Interlocked.Decrement(ref _pending);
         return true;
     }
 }

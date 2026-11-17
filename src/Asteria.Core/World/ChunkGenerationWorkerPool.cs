@@ -83,6 +83,9 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 
     public int WorkerCount => _workerPool.WorkerCount;
 
+    public int AvailableWorkerSlots =>
+        Math.Max(0, _workerPool.WorkerCount - _workerPool.InFlightWorkCount);
+
     public int PendingWorkCount => Volatile.Read(ref _pendingWorkCount);
 
     public int ActiveWorkerCount => Volatile.Read(ref _activeWorkerCount);
@@ -138,9 +141,9 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
     }
 
     /// <summary>
-    /// Submits one logical task advance to the serial worldgen lane. The
-    /// dispatcher guarantees only one such operation is in flight per
-    /// dimension; its result returns through the dedicated single-slot mailbox.
+    /// Submits one logical task advance. The dispatcher guarantees at most
+    /// one advance per task instance; independent tasks may share the worker
+    /// pool and publish to the multi-producer completion mailbox.
     /// </summary>
     internal bool TryScheduleTaskAdvance(
         ChunkGenerationTaskInstance task,

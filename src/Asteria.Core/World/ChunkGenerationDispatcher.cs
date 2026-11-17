@@ -47,7 +47,8 @@ public sealed class ChunkGenerationDispatcher
             throw new ArgumentNullException(nameof(completionMailbox));
         _workerPool = workerPool ??
             throw new ArgumentNullException(nameof(workerPool));
-        _worldgenExecutor = new ChunkGenerationSerialExecutor(_workerPool);
+        _worldgenExecutor = new ChunkGenerationSerialExecutor(
+            _workerPool, _workerPool.WorkerCount);
         _lightingExecutor = new ChunkGenerationSerialExecutor(_workerPool);
         _coordinatorThreadId = Environment.CurrentManagedThreadId;
     }
@@ -67,7 +68,7 @@ public sealed class ChunkGenerationDispatcher
 
     public int PendingOutcomeCount => _outcomes.Count;
 
-    /// <summary>Whether this dimension currently owns its single serial task-advance slot.</summary>
+    /// <summary>Whether any task advance is awaiting coordinator collection.</summary>
     public bool HasTaskAdvanceInFlight => _worldgenExecutor.HasInFlightTask;
 
     public bool HasLightingOperationInFlight => _lightingExecutor.HasInFlightTask;
@@ -273,14 +274,17 @@ public sealed class ChunkGenerationDispatcher
                 budget, out var staleCompletions,
                 out var dependencyTasksFailed, out var tasksCancelled);
 
-            // One logical task advance per dimension is admitted to the shared
-            // pool. Its callback is short and serial; dependency forks from
-            // earlier advances remain independently parallel.
+            // Resume already-waiting generation forks first, then use any
+            // remaining physical capacity for independent task advances.
+            var workerStarts = DispatchPendingWorkerOperations(
+                budget,
+                Math.Min(maximumWorkerStarts, _workerPool.AvailableWorkerSlots));
             var tasksAdvanced = ScheduleReadyTaskAdvance(
-                budget, maximumWorkerStarts);
-            var workerStarts = tasksAdvanced;
-            workerStarts += DispatchPendingWorkerOperations(
-                budget, maximumWorkerStarts - workerStarts);
+                budget,
+                Math.Min(
+                    maximumWorkerStarts - workerStarts,
+                    _workerPool.AvailableWorkerSlots));
+            workerStarts += tasksAdvanced;
 
             return new ChunkGenerationDispatchReport(
                 completionsProcessed + advanceCompletionsProcessed,
@@ -310,88 +314,91 @@ public sealed class ChunkGenerationDispatcher
         staleCompletions = 0;
         tasksCompleted = 0;
         tasksFailed = 0;
+        var processed = 0;
 
-        if (budget.Exhausted(Stopwatch.GetTimestamp()) ||
-            !_worldgenExecutor.TryCollect(out var completion))
-            return 0;
-
-        if (!_allTasks.TryGetValue(completion.Task, out var entry) ||
-            entry.InFlightOperations <= 0)
+        while (!budget.Exhausted(Stopwatch.GetTimestamp()) &&
+               _worldgenExecutor.TryCollect(out var completion))
         {
-            throw new InvalidOperationException(
-                $"Task-advance completion did not match the active generation: {completion.Task}");
-        }
-
-        entry.InFlightOperations--;
-
-        if (IsTerminal(entry.Lifecycle.State))
-        {
-            staleCompletions++;
-            if (entry.InFlightOperations == 0)
-                RetireEntry(entry);
-            return 1;
-        }
-
-        if (completion.Error is not null)
-        {
-            FailEntry(entry, completion.Error);
-            tasksFailed++;
-            if (entry.InFlightOperations == 0)
-                RetireEntry(entry);
-            return 1;
-        }
-
-        var result = completion.Result ??
-            throw new InvalidOperationException(
-                $"Task advance completed without a result: {entry.Instance}");
-        foreach (var sectionProgress in result.SectionProgress)
-        {
-            sectionProgress.Validate();
-            if (ChunkColumnCoord.FromChunk(sectionProgress.Coord) !=
-                entry.Instance.Key.Column)
+            processed++;
+            if (!_allTasks.TryGetValue(completion.Task, out var entry) ||
+                entry.InFlightOperations <= 0)
             {
                 throw new InvalidOperationException(
-                    $"Generation task {entry.Instance} published progress for an unrelated section: {sectionProgress.Coord}");
+                    $"Task-advance completion did not match the active generation: {completion.Task}");
             }
 
-            SectionGenerationStatusAdvanced?.Invoke(
-                entry.Instance,
-                sectionProgress);
-        }
+            entry.InFlightOperations--;
 
-        if (result.ProgressStatus is { } progressStatus &&
-            progressStatus > entry.HighestReportedStatus)
-        {
-            entry.HighestReportedStatus = progressStatus;
-            GenerationStatusAdvanced?.Invoke(entry.Instance, progressStatus);
-        }
-        switch (result.Kind)
-        {
-            case ChunkGenerationTaskAdvanceKind.Completed:
-                CompleteEntry(entry, result.CompletionPayload);
-                tasksCompleted++;
-                break;
+            if (IsTerminal(entry.Lifecycle.State))
+            {
+                staleCompletions++;
+                if (entry.InFlightOperations == 0)
+                    RetireEntry(entry);
+                continue;
+            }
 
-            case ChunkGenerationTaskAdvanceKind.Yield:
-                if (!entry.Lifecycle.TryYieldForMoreWork())
+            if (completion.Error is not null)
+            {
+                FailEntry(entry, completion.Error);
+                tasksFailed++;
+                if (entry.InFlightOperations == 0)
+                    RetireEntry(entry);
+                continue;
+            }
+
+            var result = completion.Result ??
+                throw new InvalidOperationException(
+                    $"Task advance completed without a result: {entry.Instance}");
+            foreach (var sectionProgress in result.SectionProgress)
+            {
+                sectionProgress.Validate();
+                if (ChunkColumnCoord.FromChunk(sectionProgress.Coord) !=
+                    entry.Instance.Key.Column)
+                {
                     throw new InvalidOperationException(
-                        $"Generation task could not yield: {entry.Instance}");
-                EnqueueReadyAgain(entry);
-                break;
+                        $"Generation task {entry.Instance} published progress for an unrelated section: {sectionProgress.Coord}");
+                }
 
-            case ChunkGenerationTaskAdvanceKind.WaitForWorkers:
-                BeginWorkerWait(entry, result.WorkerOperations);
-                break;
+                SectionGenerationStatusAdvanced?.Invoke(
+                    entry.Instance,
+                    sectionProgress);
+            }
 
-            case ChunkGenerationTaskAdvanceKind.WaitForFutures:
-                BeginFutureWait(entry, result.FutureOperations);
-                break;
+            if (result.ProgressStatus is { } progressStatus &&
+                progressStatus > entry.HighestReportedStatus)
+            {
+                entry.HighestReportedStatus = progressStatus;
+                GenerationStatusAdvanced?.Invoke(entry.Instance, progressStatus);
+            }
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(result));
+            switch (result.Kind)
+            {
+                case ChunkGenerationTaskAdvanceKind.Completed:
+                    CompleteEntry(entry, result.CompletionPayload);
+                    tasksCompleted++;
+                    break;
+
+                case ChunkGenerationTaskAdvanceKind.Yield:
+                    if (!entry.Lifecycle.TryYieldForMoreWork())
+                        throw new InvalidOperationException(
+                            $"Generation task could not yield: {entry.Instance}");
+                    EnqueueReadyAgain(entry);
+                    break;
+
+                case ChunkGenerationTaskAdvanceKind.WaitForWorkers:
+                    BeginWorkerWait(entry, result.WorkerOperations);
+                    break;
+
+                case ChunkGenerationTaskAdvanceKind.WaitForFutures:
+                    BeginFutureWait(entry, result.FutureOperations);
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(result));
+            }
         }
 
-        return 1;
+        return processed;
     }
 
     private int CollectCompletions(
@@ -593,11 +600,15 @@ public sealed class ChunkGenerationDispatcher
         int maximumStarts)
     {
         if (maximumStarts <= 0 ||
-            _worldgenExecutor.HasInFlightTask ||
+            _worldgenExecutor.AvailableTaskAdvanceSlots == 0 ||
             budget.Exhausted(Stopwatch.GetTimestamp()))
             return 0;
 
-        while (_readyTasks.TryDequeue(out var queued))
+        var started = 0;
+        while (started < maximumStarts &&
+               _worldgenExecutor.AvailableTaskAdvanceSlots > 0 &&
+               !budget.Exhausted(Stopwatch.GetTimestamp()) &&
+               _readyTasks.TryDequeue(out var queued))
         {
             if (!_currentTasks.TryGetValue(queued.Key, out var entry) ||
                 !entry.Lifecycle.TryBeginExecution())
@@ -621,18 +632,18 @@ public sealed class ChunkGenerationDispatcher
                     WorldWorkerPriority.FromGenerationTicket(entry.Priority)))
             {
                 var error = new InvalidOperationException(
-                    $"The shared worker pool rejected a serial task advance: {entry.Instance}");
+                    $"The shared worker pool rejected a task advance: {entry.Instance}");
                 FailEntry(entry, error);
                 if (entry.InFlightOperations == 0)
                     RetireEntry(entry);
-                return 0;
+                break;
             }
 
             entry.InFlightOperations++;
-            return 1;
+            started++;
         }
 
-        return 0;
+        return started;
     }
 
     private void BeginWorkerWait(
