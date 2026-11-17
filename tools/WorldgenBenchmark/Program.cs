@@ -7,7 +7,27 @@ using Asteria.Core.Diagnostics;
 using Asteria.Core.World;
 
 var options = Arguments.Parse(args);
+var traceMaterializationProgress =
+    Environment.GetEnvironmentVariable("ASTERIA_WORLDGEN_PROGRESS") == "1";
 var selection = new PackSelection(options.Pack);
+
+void TraceMaterializationProgress(
+    string pass,
+    ChunkCoord coord,
+    ChunkMaterializationStage stage,
+    string transition,
+    int stageAdvanceCount,
+    double lastAdvanceMilliseconds = 0d,
+    ChunkMaterializationStage? nextStage = null)
+{
+    if (!traceMaterializationProgress)
+        return;
+
+    Console.Error.WriteLine(
+        $"[worldgen-progress] pass={pass} section={coord.X},{coord.Y},{coord.Z} " +
+        $"stage={stage} transition={transition} calls={stageAdvanceCount} " +
+        $"lastAdvanceMs={lastAdvanceMilliseconds:F3} next={nextStage?.ToString() ?? "complete"}");
+}
 var root = Path.Combine(options.ProjectRoot, "packs", selection.Name, "data");
 
 static IEnumerable<string> Documents(string root, string kind) =>
@@ -503,15 +523,49 @@ metrics.Add("initialAreaSynthesis", Measure(
             Chunk chunk;
             using (var job = generator.BeginMaterialization(coord))
             {
+                ChunkMaterializationStage? tracedStage = null;
+                var advancesInStage = 0;
                 while (!job.IsComplete)
                 {
                     var stage = job.ActiveWorkStage;
                     var stageIndex = (int)stage;
+                    if (tracedStage != stage)
+                    {
+                        tracedStage = stage;
+                        advancesInStage = 0;
+                        TraceMaterializationProgress(
+                            $"initial-area-{invocation}", coord, stage, "enter", advancesInStage);
+                    }
+                    else if (advancesInStage > 0 && advancesInStage % 16 == 0)
+                    {
+                        TraceMaterializationProgress(
+                            $"initial-area-{invocation}", coord, stage, "heartbeat", advancesInStage);
+                    }
+
                     var stageStartedAt = Stopwatch.GetTimestamp();
                     job.Advance();
-                    stageElapsedMilliseconds[stageIndex] +=
+                    var advanceMilliseconds =
                         Stopwatch.GetElapsedTime(stageStartedAt).TotalMilliseconds;
+                    stageElapsedMilliseconds[stageIndex] += advanceMilliseconds;
                     stageAdvanceCounts[stageIndex]++;
+                    advancesInStage++;
+
+                    var nextStage = job.IsComplete
+                        ? (ChunkMaterializationStage?)null
+                        : job.ActiveWorkStage;
+                    if (job.IsComplete || nextStage != stage)
+                    {
+                        TraceMaterializationProgress(
+                            $"initial-area-{invocation}", coord, stage, "exit",
+                            advancesInStage, advanceMilliseconds, nextStage);
+                        tracedStage = null;
+                    }
+                    else if (advancesInStage % 16 == 0)
+                    {
+                        TraceMaterializationProgress(
+                            $"initial-area-{invocation}", coord, stage, "progress",
+                            advancesInStage, advanceMilliseconds, nextStage);
+                    }
                 }
 
                 chunk = job.Result ??
@@ -522,6 +576,9 @@ metrics.Add("initialAreaSynthesis", Measure(
             var chunkMs = chunkTimer.Elapsed.TotalMilliseconds;
             var chunkBytes = checked(
                 GC.GetAllocatedBytesForCurrentThread() - beforeChunkBytes);
+            TraceMaterializationProgress(
+                $"initial-area-{invocation}", coord, ChunkMaterializationStage.Complete,
+                "chunk-complete", 0, chunkMs);
             totalMaterializeMs += chunkMs;
             totalMaterializeBytes += chunkBytes;
             materializeMsByY[coord.Y] =
@@ -700,14 +757,46 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     foreach (var coord in desired)
     {
         using var job = generator.BeginMaterialization(coord);
+        ChunkMaterializationStage? tracedStage = null;
+        var advancesInStage = 0;
         while (!job.IsComplete)
         {
             var stage = job.ActiveWorkStage;
             var stageIndex = (int)stage;
+            if (tracedStage != stage)
+            {
+                tracedStage = stage;
+                advancesInStage = 0;
+                TraceMaterializationProgress(
+                    "stage-profile", coord, stage, "enter", advancesInStage);
+            }
+            else if (advancesInStage > 0 && advancesInStage % 16 == 0)
+            {
+                TraceMaterializationProgress(
+                    "stage-profile", coord, stage, "heartbeat", advancesInStage);
+            }
+
             var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
             var startedAt = Stopwatch.GetTimestamp();
             job.Advance();
             var advanceMilliseconds = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
+            advancesInStage++;
+            var nextStage = job.IsComplete
+                ? (ChunkMaterializationStage?)null
+                : job.ActiveWorkStage;
+            if (job.IsComplete || nextStage != stage)
+            {
+                TraceMaterializationProgress(
+                    "stage-profile", coord, stage, "exit",
+                    advancesInStage, advanceMilliseconds, nextStage);
+                tracedStage = null;
+            }
+            else if (advancesInStage % 16 == 0)
+            {
+                TraceMaterializationProgress(
+                    "stage-profile", coord, stage, "progress",
+                    advancesInStage, advanceMilliseconds, nextStage);
+            }
             elapsedMsByStage[stageIndex] += advanceMilliseconds;
             maximumElapsedMsByStage[stageIndex] = Math.Max(
                 maximumElapsedMsByStage[stageIndex],
@@ -765,6 +854,9 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             storageDiagnosticsAvailable = false;
         }
 
+        TraceMaterializationProgress(
+            "stage-profile", coord, ChunkMaterializationStage.Complete,
+            "chunk-complete", 0);
         var materializedChunk = job.Result ??
             throw new InvalidOperationException(
                 $"Chunk {coord} completed without a materialized result.");

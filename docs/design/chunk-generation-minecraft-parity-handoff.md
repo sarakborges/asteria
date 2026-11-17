@@ -1550,3 +1550,14 @@ Regression coverage compares repeated source additions, removals and
 ticket-strength changes against a fresh full graph rebuild, verifies
 source-batch order independence, and checks that bounded batches converge to
 the same settled graph.
+
+
+## Worldgen benchmark progress diagnostics — 2026-11-17
+
+The fixed-seed WorldgenBenchmark can now emit opt-in per-section stage-entry,
+stage-exit and 16-advance heartbeat messages when
+ASTERIA_WORLDGEN_PROGRESS=1. The PR A/B workflow captures these in separate
+baseline/candidate logs and applies a 15-minute process timeout to each
+WorldgenBenchmark and WorldStreamingBenchmark invocation. This is diagnostic
+only: the environment variable is unset for ordinary gameplay and does not
+alter generation output.

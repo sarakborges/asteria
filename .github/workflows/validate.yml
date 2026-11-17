@@ -182,8 +182,11 @@ jobs:
             --script res://tests/godot/native_presentation_smoke.gd
 
       - name: Record bounded worldgen query baseline
+        timeout-minutes: 15
+        env:
+          ASTERIA_WORLDGEN_PROGRESS: "1"
         run: |
-          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+          timeout 900s dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
             --seed 181960897289965 --dimension asteria:overworld \
             --samples 2 --area-size 4 --chunks 1 \
             --enforce-ci-budgets true \
@@ -321,6 +324,7 @@ jobs:
   terrain-ab:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - name: Checkout pull request head and history
@@ -438,25 +442,27 @@ jobs:
             local log="$root/results/$version/$repetition.log"
             # Match the game's Asteria.runtimeconfig.json for both revisions.
             # Compile each IL method once with full optimization on first use.
-            if ! env DOTNET_TieredCompilation=0 dotnet run \
+            printf 'Starting %s repetition %s WorldgenBenchmark\n' "$version" "$repetition" > "$log"
+            if ! timeout 900s env DOTNET_TieredCompilation=0 ASTERIA_WORLDGEN_PROGRESS=1 dotnet run \
               --project "$project_root/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
               --configuration Release --no-build -- \
               --project-root "$project_root" \
               --seed 181960897289965 --dimension asteria:overworld \
               --samples 2 --area-size 4 --chunks 1 \
-              --output "$output" > "$log" 2>&1; then
+              --output "$output" >> "$log" 2>&1; then
               cat "$log"
               return 1
             fi
 
             local route_output="$root/route-results/$version/$repetition.json"
-            if ! env DOTNET_TieredCompilation=0 dotnet run \
+            printf 'Starting %s repetition %s WorldStreamingBenchmark\n' "$version" "$repetition" > "$log.route"
+            if ! timeout 900s env DOTNET_TieredCompilation=0 dotnet run \
               --project "$project_root/tools/WorldStreamingBenchmark/WorldStreamingBenchmark.csproj" \
               --configuration Release --no-build -- \
               --project-root "$project_root" \
               --seed 181960897289965 --dimension asteria:overworld \
               --route-steps 8 --radius 4 \
-              --output "$route_output" > "$log.route" 2>&1; then
+              --output "$route_output" >> "$log.route" 2>&1; then
               cat "$log.route"
               return 1
             fi
@@ -505,13 +511,14 @@ jobs:
             local project_root="$2"
             local output="$root/results/profiles/$version.json"
             local log="$root/results/profiles/$version.log"
-            if ! dotnet run \
+            printf 'Starting %s Debug profile\n' "$version" > "$log"
+            if ! timeout 900s env ASTERIA_WORLDGEN_PROGRESS=1 dotnet run \
               --project "$project_root/tools/WorldgenBenchmark/WorldgenBenchmark.csproj" \
               --configuration Debug --no-build -- \
               --project-root "$project_root" \
               --seed 181960897289965 --dimension asteria:overworld \
               --samples 2 --area-size 4 --chunks 1 \
-              --output "$output" > "$log" 2>&1; then
+              --output "$output" >> "$log" 2>&1; then
               cat "$log"
               return 1
             fi
