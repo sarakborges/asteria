@@ -210,6 +210,7 @@ public sealed class ChunkTicketStorageTests
 
         var manager = new ChunkDistanceManager();
         manager.RestorePersistentTickets(snapshot, currentTick: 900);
+        DrainDistanceUpdates(manager);
 
         Assert.Contains(portal, manager.Tickets.GetTickets(column));
         Assert.Equal(30, manager.GetLoadingLevel(column));
