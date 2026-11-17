@@ -1521,3 +1521,10 @@ This prepares the holder for vanilla-style rescheduling to the highest still-req
 Minecraft 26.3's `GenerationChunkHolder.scheduleChunkGenerationTask(status, scheduler)` obtains the future for the requested status before admitting/rescheduling the task. Asteria's `TryRegisterGenerationTask` now applies the same contract: successful task admission creates/reuses the matching lazy holder future, so `HighestPendingGenerationStatus` reflects actual scheduled work instead of remaining an observational property. If that status is already completed, admission is rejected because no generation producer is needed.
 
 The column-task registration test verifies the target becomes the holder's highest pending request, completion resolves that exact future, and the pending target disappears when the generation reaches the requested status.
+
+
+### Status futures use one synchronized slot per status — 2026-11-17
+
+Minecraft Java Edition 26.3 stores status futures in a fixed `AtomicReferenceArray` indexed by `ChunkStatus`, rather than a dynamically growing map. Asteria's holder now uses the equivalent fixed status-indexed slots and one narrow state gate to serialize get-or-create, status completion, ticket-ceiling reconciliation, active-task identity and section-progress mutation. The section-local progress states remain keyed by exact 3D section, but access to that holder-owned map is covered by the same gate.
+
+Regression tests issue concurrent requests for one status and require every caller to receive the same future. A second race test overlaps a status request with ticket demotion and verifies that no incomplete future remains orphaned. This mirrors the synchronization contract of the 26.3 holder while using .NET primitives and preserving Asteria's separate vertical-section state. See [GenerationChunkHolder 26.3](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/server/level/generationchunkholder).

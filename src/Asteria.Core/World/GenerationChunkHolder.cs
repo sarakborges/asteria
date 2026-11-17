@@ -173,13 +173,20 @@ internal sealed class ChunkSectionGenerationProgressState
 /// </summary>
 public abstract class GenerationChunkHolder
 {
-    private readonly Dictionary<ChunkGenerationStatus,
-        TaskCompletionSource<ChunkGenerationFutureResult>> _generationFutures = [];
+    // Minecraft 26.3 uses an AtomicReferenceArray indexed by ChunkStatus.
+    // The holder gate supplies the same atomic get-or-create semantics while
+    // also coordinating ticket ceilings, task ownership and section progress.
+    private readonly object _stateGate = new();
+    private readonly TaskCompletionSource<ChunkGenerationFutureResult>?[]
+        _generationFutures =
+            new TaskCompletionSource<ChunkGenerationFutureResult>?[
+                Enum.GetValues<ChunkGenerationStatus>().Length];
     private readonly Dictionary<ChunkCoord, ChunkSectionGenerationProgressState>
         _sectionGenerationProgress = [];
     private ChunkGenerationTaskInstance? _generationTask;
     private ChunkGenerationStatus _generationTaskTargetStatus =
         ChunkGenerationStatus.Unloaded;
+    private ulong _generationProgressRevision = 1;
 
     protected GenerationChunkHolder(
         ChunkColumnCoord position,
@@ -223,11 +230,24 @@ public abstract class GenerationChunkHolder
     /// Minecraft 26.3 GenerationChunkHolder.task. Auxiliary lighting and
     /// reconciliation operations are not generation tasks owned here.
     /// </summary>
-    public ChunkGenerationTaskInstance? GenerationTask => _generationTask;
+    public ChunkGenerationTaskInstance? GenerationTask
+    {
+        get
+        {
+            lock (_stateGate)
+                return _generationTask;
+        }
+    }
 
     /// <summary>Immutable target captured when the active generation task was admitted.</summary>
-    public ChunkGenerationStatus? GenerationTaskTargetStatus =>
-        _generationTask is null ? null : _generationTaskTargetStatus;
+    public ChunkGenerationStatus? GenerationTaskTargetStatus
+    {
+        get
+        {
+            lock (_stateGate)
+                return _generationTask is null ? null : _generationTaskTargetStatus;
+        }
+    }
 
     public ChunkGenerationStatus CompletedGenerationStatus { get; private set; }
 
@@ -240,16 +260,21 @@ public abstract class GenerationChunkHolder
     {
         get
         {
-            ChunkGenerationStatus? highest = null;
-            foreach (var (status, future) in _generationFutures)
+            lock (_stateGate)
             {
-                if (status > HighestAllowedGenerationStatus || future.Task.IsCompleted)
-                    continue;
-                if (highest is null || status > highest.Value)
-                    highest = status;
-            }
+                for (var index = _generationFutures.Length - 1; index > 0; index--)
+                {
+                    var future = _generationFutures[index];
+                    if (future is null ||
+                        index > (int)HighestAllowedGenerationStatus ||
+                        future.Task.IsCompleted)
+                        continue;
 
-            return highest;
+                    return (ChunkGenerationStatus)index;
+                }
+
+                return null;
+            }
         }
     }
 
@@ -257,27 +282,37 @@ public abstract class GenerationChunkHolder
     /// Revision of the currently retained generation products. Dependents must
     /// reject a successful future result when its revision no longer matches.
     /// </summary>
-    public ulong GenerationProgressRevision { get; private set; } = 1;
+    public ulong GenerationProgressRevision
+    {
+        get
+        {
+            lock (_stateGate)
+                return _generationProgressRevision;
+        }
+    }
 
     public ulong TicketLevelRevision { get; private set; }
 
     internal virtual bool UpdateTicketLevel(int ticketLevel)
     {
         ValidateTicketLevel(ticketLevel);
-        if (TicketLevel == ticketLevel && TicketLevelRevision != 0)
-            return false;
+        lock (_stateGate)
+        {
+            if (TicketLevel == ticketLevel && TicketLevelRevision != 0)
+                return false;
 
-        TicketLevel = ticketLevel;
-        QueuePriority = QueuePriority with { TicketLevel = ticketLevel };
-        AdvanceQueuePriorityRevision();
-        HighestAllowedGenerationStatus =
-            ChunkLevel.GetGenerationStatus(ticketLevel);
-        TicketLevelRevision++;
+            TicketLevel = ticketLevel;
+            QueuePriority = QueuePriority with { TicketLevel = ticketLevel };
+            AdvanceQueuePriorityRevision();
+            HighestAllowedGenerationStatus =
+                ChunkLevel.GetGenerationStatus(ticketLevel);
+            TicketLevelRevision++;
 
-        ReconcileGenerationFutures();
-        foreach (var section in _sectionGenerationProgress.Values)
-            section.Reconcile(HighestAllowedGenerationStatus, TicketLevel);
-        return true;
+            ReconcileGenerationFutures();
+            foreach (var section in _sectionGenerationProgress.Values)
+                section.Reconcile(HighestAllowedGenerationStatus, TicketLevel);
+            return true;
+        }
     }
 
     /// <summary>
@@ -298,20 +333,23 @@ public abstract class GenerationChunkHolder
                 nameof(task));
 
         ValidateGenerationStatus(targetStatus);
-        if (targetStatus > HighestAllowedGenerationStatus ||
-            _generationTask is not null)
-            return false;
+        lock (_stateGate)
+        {
+            if (targetStatus > HighestAllowedGenerationStatus ||
+                _generationTask is not null)
+                return false;
 
-        // Scheduling a holder task is itself a status request, just as
-        // scheduleChunkGenerationTask calls getOrCreateFuture in Minecraft.
-        var targetFuture = GetOrCreateGenerationFuture(targetStatus);
-        if (targetFuture.Task.IsCompletedSuccessfully &&
-            targetFuture.Task.Result.Succeeded)
-            return false;
+            // Scheduling a holder task is itself a status request, just as
+            // scheduleChunkGenerationTask calls getOrCreateFuture in Minecraft.
+            var targetFuture = GetOrCreateGenerationFuture(targetStatus);
+            if (targetFuture.Task.IsCompletedSuccessfully &&
+                targetFuture.Task.Result.Succeeded)
+                return false;
 
-        _generationTask = task;
-        _generationTaskTargetStatus = targetStatus;
-        return true;
+            _generationTask = task;
+            _generationTaskTargetStatus = targetStatus;
+            return true;
+        }
     }
 
     /// <summary>
@@ -325,12 +363,15 @@ public abstract class GenerationChunkHolder
             throw new ArgumentException(
                 "Generation task belongs to a different holder column.",
                 nameof(task));
-        if (_generationTask != task)
-            return false;
+        lock (_stateGate)
+        {
+            if (_generationTask != task)
+                return false;
 
-        _generationTask = null;
-        _generationTaskTargetStatus = ChunkGenerationStatus.Unloaded;
-        return true;
+            _generationTask = null;
+            _generationTaskTargetStatus = ChunkGenerationStatus.Unloaded;
+            return true;
+        }
     }
 
     /// <summary>
@@ -373,15 +414,18 @@ public abstract class GenerationChunkHolder
         ChunkGenerationStatus requestedStatus)
     {
         ValidateGenerationStatus(requestedStatus);
-        if (requestedStatus > HighestAllowedGenerationStatus)
+        lock (_stateGate)
         {
-            return Task.FromResult(ChunkGenerationFutureResult.Unloaded(
-                requestedStatus,
-                $"Ticket level {TicketLevel} does not permit {requestedStatus}.",
-                GenerationProgressRevision));
-        }
+            if (requestedStatus > HighestAllowedGenerationStatus)
+            {
+                return Task.FromResult(ChunkGenerationFutureResult.Unloaded(
+                    requestedStatus,
+                    $"Ticket level {TicketLevel} does not permit {requestedStatus}.",
+                    _generationProgressRevision));
+            }
 
-        return GetOrCreateGenerationFuture(requestedStatus).Task;
+            return GetOrCreateGenerationFuture(requestedStatus).Task;
+        }
     }
 
     /// <summary>Gets the status future for one exact vertical section in this holder.</summary>
@@ -391,10 +435,11 @@ public abstract class GenerationChunkHolder
     {
         ValidateSection(section);
         ValidateGenerationStatus(requestedStatus);
-        return GetOrCreateSectionProgress(section).GetFuture(
-            requestedStatus,
-            HighestAllowedGenerationStatus,
-            TicketLevel);
+        lock (_stateGate)
+            return GetOrCreateSectionProgress(section).GetFuture(
+                requestedStatus,
+                HighestAllowedGenerationStatus,
+                TicketLevel);
     }
 
     /// <summary>Highest achieved generation status retained for one exact section.</summary>
@@ -402,17 +447,19 @@ public abstract class GenerationChunkHolder
         ChunkCoord section)
     {
         ValidateSection(section);
-        return _sectionGenerationProgress.TryGetValue(section, out var progress)
-            ? progress.CompletedStatus
-            : ChunkGenerationStatus.Unloaded;
+        lock (_stateGate)
+            return _sectionGenerationProgress.TryGetValue(section, out var progress)
+                ? progress.CompletedStatus
+                : ChunkGenerationStatus.Unloaded;
     }
 
     public ulong GetSectionGenerationRevision(ChunkCoord section)
     {
         ValidateSection(section);
-        return _sectionGenerationProgress.TryGetValue(section, out var progress)
-            ? progress.Revision
-            : 1UL;
+        lock (_stateGate)
+            return _sectionGenerationProgress.TryGetValue(section, out var progress)
+                ? progress.Revision
+                : 1UL;
     }
 
     public bool CompleteSectionGenerationStatus(
@@ -422,11 +469,12 @@ public abstract class GenerationChunkHolder
     {
         ValidateSection(section);
         ValidateGenerationStatus(completedStatus);
-        return GetOrCreateSectionProgress(section).Complete(
-            completedStatus,
-            HighestAllowedGenerationStatus,
-            TicketLevel,
-            product);
+        lock (_stateGate)
+            return GetOrCreateSectionProgress(section).Complete(
+                completedStatus,
+                HighestAllowedGenerationStatus,
+                TicketLevel,
+                product);
     }
 
     public bool ResetSectionGenerationProgress(
@@ -434,12 +482,15 @@ public abstract class GenerationChunkHolder
         string reason)
     {
         ValidateSection(section);
-        if (!_sectionGenerationProgress.TryGetValue(section, out var progress) ||
-            !progress.HasProgressOrCompletedFuture)
-            return false;
+        lock (_stateGate)
+        {
+            if (!_sectionGenerationProgress.TryGetValue(section, out var progress) ||
+                !progress.HasProgressOrCompletedFuture)
+                return false;
 
-        progress.Reset(reason);
-        return true;
+            progress.Reset(reason);
+            return true;
+        }
     }
 
     /// <summary>
@@ -450,12 +501,14 @@ public abstract class GenerationChunkHolder
         ChunkGenerationStatus completedStatus)
     {
         ValidateGenerationStatus(completedStatus);
+        lock (_stateGate)
+        {
+            if (completedStatus > CompletedGenerationStatus)
+                CompletedGenerationStatus = completedStatus;
 
-        if (completedStatus > CompletedGenerationStatus)
-            CompletedGenerationStatus = completedStatus;
-
-        ReconcileGenerationFutures();
-        return completedStatus <= HighestAllowedGenerationStatus;
+            ReconcileGenerationFutures();
+            return completedStatus <= HighestAllowedGenerationStatus;
+        }
     }
 
     /// <summary>
@@ -466,15 +519,18 @@ public abstract class GenerationChunkHolder
     public bool InvalidateGenerationRequest(string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
-        if (ResetGenerationProgressCore(reason))
+        lock (_stateGate)
+        {
+            if (ResetGenerationProgressCore(reason))
+                return true;
+
+            if (_generationProgressRevision == ulong.MaxValue)
+                throw new InvalidOperationException(
+                    $"Generation request revision space was exhausted: {Position}");
+
+            _generationProgressRevision++;
             return true;
-
-        if (GenerationProgressRevision == ulong.MaxValue)
-            throw new InvalidOperationException(
-                $"Generation request revision space was exhausted: {Position}");
-
-        GenerationProgressRevision++;
-        return true;
+        }
     }
 
     /// <summary>
@@ -485,39 +541,52 @@ public abstract class GenerationChunkHolder
     protected bool ResetGenerationProgressCore(string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
-        if (CompletedGenerationStatus == ChunkGenerationStatus.Unloaded &&
-            _generationFutures.Values.All(future => !future.Task.IsCompleted) &&
-            _sectionGenerationProgress.Values.All(progress =>
-                !progress.HasProgressOrCompletedFuture))
-            return false;
-        if (GenerationProgressRevision == ulong.MaxValue)
-            throw new InvalidOperationException(
-                $"Generation progress revision space was exhausted: {Position}");
+        lock (_stateGate)
+        {
+            if (CompletedGenerationStatus == ChunkGenerationStatus.Unloaded &&
+                _generationFutures.All(future =>
+                    future is null || !future.Task.IsCompleted) &&
+                _sectionGenerationProgress.Values.All(progress =>
+                    !progress.HasProgressOrCompletedFuture))
+                return false;
+            if (_generationProgressRevision == ulong.MaxValue)
+                throw new InvalidOperationException(
+                    $"Generation progress revision space was exhausted: {Position}");
 
-        var failedRevision = GenerationProgressRevision;
-        GenerationProgressRevision++;
-        CompletedGenerationStatus = ChunkGenerationStatus.Unloaded;
-        foreach (var (status, future) in _generationFutures)
-            future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
-                status, reason, failedRevision));
-        _generationFutures.Clear();
-        foreach (var section in _sectionGenerationProgress.Values)
-            section.Reset(reason);
+            var failedRevision = _generationProgressRevision;
+            _generationProgressRevision++;
+            CompletedGenerationStatus = ChunkGenerationStatus.Unloaded;
+            for (var index = 1; index < _generationFutures.Length; index++)
+            {
+                var future = _generationFutures[index];
+                if (future is null)
+                    continue;
+                future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
+                    (ChunkGenerationStatus)index, reason, failedRevision));
+                _generationFutures[index] = null;
+            }
+            foreach (var section in _sectionGenerationProgress.Values)
+                section.Reset(reason);
 
-        return true;
+            return true;
+        }
     }
 
+    // Caller holds _stateGate. Each status has one stable slot, matching the
+    // status-indexed AtomicReferenceArray used by GenerationChunkHolder 26.3.
     private TaskCompletionSource<ChunkGenerationFutureResult>
         GetOrCreateGenerationFuture(ChunkGenerationStatus status)
     {
-        if (_generationFutures.TryGetValue(status, out var future))
+        var index = (int)status;
+        var future = _generationFutures[index];
+        if (future is not null)
             return future;
 
         future = NewGenerationFuture();
         if (status <= CompletedGenerationStatus)
             future.TrySetResult(ChunkGenerationFutureResult.Success(
-                status, GenerationProgressRevision));
-        _generationFutures.Add(status, future);
+                status, _generationProgressRevision));
+        _generationFutures[index] = future;
         return future;
     }
 
@@ -559,35 +628,42 @@ public abstract class GenerationChunkHolder
 
     private void ReconcileGenerationFutures()
     {
-        foreach (var status in _generationFutures.Keys.ToArray())
+        lock (_stateGate)
         {
-            var future = _generationFutures[status];
-            if (status > HighestAllowedGenerationStatus)
+            for (var index = 1; index < _generationFutures.Length; index++)
             {
-                future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
-                    status,
-                    $"Ticket level {TicketLevel} does not permit {status}.",
-                    GenerationProgressRevision));
-                _generationFutures.Remove(status);
-                continue;
-            }
+                var future = _generationFutures[index];
+                if (future is null)
+                    continue;
 
-            if (status <= CompletedGenerationStatus)
-            {
-                if (future.Task.IsCompletedSuccessfully &&
-                    !future.Task.Result.Succeeded)
+                var status = (ChunkGenerationStatus)index;
+                if (status > HighestAllowedGenerationStatus)
                 {
-                    future = NewGenerationFuture();
-                    _generationFutures[status] = future;
+                    future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
+                        status,
+                        $"Ticket level {TicketLevel} does not permit {status}.",
+                        _generationProgressRevision));
+                    _generationFutures[index] = null;
+                    continue;
                 }
 
-                future.TrySetResult(ChunkGenerationFutureResult.Success(
-                    status, GenerationProgressRevision));
-            }
-            else if (future.Task.IsCompletedSuccessfully &&
-                     !future.Task.Result.Succeeded)
-            {
-                _generationFutures[status] = NewGenerationFuture();
+                if (status <= CompletedGenerationStatus)
+                {
+                    if (future.Task.IsCompletedSuccessfully &&
+                        !future.Task.Result.Succeeded)
+                    {
+                        future = NewGenerationFuture();
+                        _generationFutures[index] = future;
+                    }
+
+                    future.TrySetResult(ChunkGenerationFutureResult.Success(
+                        status, _generationProgressRevision));
+                }
+                else if (future.Task.IsCompletedSuccessfully &&
+                         !future.Task.Result.Succeeded)
+                {
+                    _generationFutures[index] = NewGenerationFuture();
+                }
             }
         }
     }

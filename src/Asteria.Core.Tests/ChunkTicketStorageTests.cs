@@ -574,6 +574,60 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public async Task ConcurrentHolderFutureRequestsShareOneStatusSlot()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(21, -9);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+
+        var requests = await Task.WhenAll(Enumerable.Range(0, 32)
+            .Select(_ => Task.Run(() =>
+                holder.GetGenerationFuture(ChunkGenerationStatus.Biomes))));
+
+        Assert.All(requests, future => Assert.Same(requests[0], future));
+        Assert.Equal(
+            ChunkGenerationStatus.Biomes,
+            holder.HighestPendingGenerationStatus);
+
+        Assert.True(holder.CompleteGenerationStatus(ChunkGenerationStatus.Biomes));
+        Assert.All(requests, future =>
+        {
+            Assert.True(future.IsCompletedSuccessfully);
+            Assert.True(future.Result.Succeeded);
+        });
+        Assert.Null(holder.HighestPendingGenerationStatus);
+    }
+
+    [Fact]
+    public async Task ConcurrentFutureRequestAndTicketDemotionCannotLeaveAnOrphanWait()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(-22, 11);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        using var barrier = new Barrier(2);
+
+        var request = Task.Run(() =>
+        {
+            barrier.SignalAndWait();
+            return holder.GetGenerationFuture(ChunkGenerationStatus.Full);
+        });
+        var demotion = Task.Run(() =>
+        {
+            barrier.SignalAndWait();
+            Assert.True(manager.RemovePlayerLoadingTicket(column));
+        });
+
+        var future = await request;
+        await demotion;
+        var result = await future;
+
+        Assert.False(result.Succeeded);
+        Assert.Null(holder.HighestPendingGenerationStatus);
+    }
+
+    [Fact]
     public void CompletedStatusesSatisfyLaterHolderFutureRequestsImmediately()
     {
         var manager = new ChunkDistanceManager();
