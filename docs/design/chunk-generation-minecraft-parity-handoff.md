@@ -1539,3 +1539,13 @@ Asteria's `ChunkDistanceTracker` now uses the same min-plus neighbor propagation
 The public ticket-mutation path still drains the queue to quiescence before publishing holder changes, preserving its existing synchronous contract. A separate bounded per-tick pump corresponding to `LoadingChunkTracker.runDistanceUpdates(count)` remains an integration step; this commit replaces the bespoke affected-region rebuild without changing when holder changes become visible.
 
 Regression coverage compares repeated source additions, removals and ticket-strength changes against a fresh full graph rebuild, and verifies source-batch order cannot change settled results.
+
+
+## Bounded ticket-distance propagation
+
+The loading and simulation graphs now separate ticket-source mutation from
+graph propagation. Ticket events enqueue affected columns; the runtime drains a
+bounded number of leveled updates per dispatch frame (default: 4,096). Loading
+updates are applied before simulation updates because they own holder admission
+and generation ceilings. A player-loading admission is not dispatched until its
+source level has reached the owning holder; any remaining work stays queued.

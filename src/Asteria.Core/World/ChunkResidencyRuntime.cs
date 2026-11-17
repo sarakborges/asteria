@@ -8,17 +8,21 @@ public sealed class ChunkResidencySettings
     public ChunkResidencySettings(
         int maxConcurrentWorkers,
         int maxEvictionsPerFrame,
-        WorldGameRules gameRules)
+        WorldGameRules gameRules,
+        int maximumDistanceUpdatesPerFrame = 4096)
     {
         if (maxConcurrentWorkers <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxConcurrentWorkers));
         if (maxEvictionsPerFrame <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxEvictionsPerFrame));
+        if (maximumDistanceUpdatesPerFrame <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumDistanceUpdatesPerFrame));
 
         GameRules = gameRules ??
             throw new ArgumentNullException(nameof(gameRules));
         MaxConcurrentWorkers = maxConcurrentWorkers;
         MaxEvictionsPerFrame = maxEvictionsPerFrame;
+        MaximumDistanceUpdatesPerFrame = maximumDistanceUpdatesPerFrame;
     }
 
     /// <summary>
@@ -27,6 +31,9 @@ public sealed class ChunkResidencySettings
     public int MaxConcurrentWorkers { get; }
 
     public int MaxEvictionsPerFrame { get; }
+
+    /// <summary>Maximum loading/simulation distance-graph nodes processed by one dispatch frame.</summary>
+    public int MaximumDistanceUpdatesPerFrame { get; }
 
     public WorldGameRules GameRules { get; }
 }
@@ -471,6 +478,21 @@ public sealed class ChunkResidencyRuntime
 
     public int PendingHolderUnloadCount =>
         _streaming.DistanceManager.PendingUnloadCount;
+
+    public int PendingDistanceUpdateCount =>
+        _streaming.DistanceManager.PendingDistanceUpdateCount;
+
+    /// <summary>
+    /// Advances ticket distance graphs within the caller's node budget and
+    /// finalizes holder unloads only after the loading graph has settled them.
+    /// </summary>
+    public int RunDistanceUpdates(int maximumUpdates)
+    {
+        var processed = _streaming.DistanceManager.RunDistanceUpdates(maximumUpdates);
+        if (processed > 0)
+            CompleteReadyPendingHolderUnloads();
+        return processed;
+    }
 
     /// <summary>Background tasks currently admitted by this dimension's shared worker adapter.</summary>
     public int ActiveWorkerCount =>
@@ -1137,6 +1159,9 @@ public sealed class ChunkResidencyRuntime
         if (!_acceptingMaterializationWork)
             return ChunkResidencyUpdate.Empty;
 
+        var remainingDistanceUpdates = _settings.MaximumDistanceUpdatesPerFrame;
+        remainingDistanceUpdates -= RunDistanceUpdates(remainingDistanceUpdates);
+
         var activations = new List<ChunkResidencyActivation>();
         var failures = new List<ChunkMaterializationFailure>();
         var startedTasks = 0;
@@ -1154,11 +1179,20 @@ public sealed class ChunkResidencyRuntime
                 _streaming.DesiredSectionsInColumn(column).Count > 0;
             var hasPendingAdmission =
                 _playerTicketAdmissions.HasPendingAdmission(column);
+            var hadPlayerLoadingTicket =
+                _streaming.DistanceManager.HasPlayerLoadingTicket(column);
             var admitted = (!hasPlayerDemand && !hasPendingAdmission) ||
                 _playerTicketAdmissions.TryAdmit(
                     column,
                     _streaming.DesiredSectionsInColumn(column),
                     _world.LoadedChunkCoords);
+
+            if (admitted && hasPlayerDemand && !hadPlayerLoadingTicket &&
+                remainingDistanceUpdates > 0)
+            {
+                var processed = RunDistanceUpdates(remainingDistanceUpdates);
+                remainingDistanceUpdates -= processed;
+            }
 
             var sections = pendingSections
                 .Where(section =>
@@ -1175,6 +1209,25 @@ public sealed class ChunkResidencyRuntime
             }
             if (sections.Length == 0)
                 continue;
+
+            // A new PLAYER_LOADING ticket may still be waiting in the leveled
+            // graph queue. Do not register generation against the old ticket
+            // ceiling; preserve its pending sections for the next frame.
+            if (hasPlayerDemand &&
+                _streaming.DistanceManager.GetLoadingLevel(column) >
+                    ChunkLevel.EntityTicking)
+            {
+                foreach (var section in sections)
+                    RequeueIfDesired(section.Coord, section.EnqueuedTimestamp);
+                break;
+            }
+
+            if (_streaming.DistanceManager.GetHolder(column) is null)
+            {
+                foreach (var section in sections)
+                    RequeueIfDesired(section.Coord, section.EnqueuedTimestamp);
+                break;
+            }
 
             // One holder owns one active FULL request. If a previous column
             // batch is still running, keep unstarted sections pending and let

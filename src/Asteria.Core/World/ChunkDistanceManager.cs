@@ -17,13 +17,21 @@ public sealed class ChunkDistanceManager
 
     public ChunkDistanceManager()
     {
-        _holders = new ChunkHolderMap(_loading.Levels);
-        _holders.QueuePriorityChanged += change =>
-            HolderQueuePriorityChanged?.Invoke(change);
         _tickets.LoadingChunkUpdated +=
             (column, level, _) => _pendingLoadingSourceChanges[column] = level;
         _tickets.SimulationChunkUpdated +=
             (column, level, _) => _pendingSimulationSourceChanges[column] = level;
+
+        // Fix the graph ceilings before the first ticket mutation so even the
+        // initial player view enters the same incremental update path.
+        _loading.Rebuild(
+            _tickets, ChunkTicketFlags.Loading, ChunkLevel.MaximumLoading);
+        _simulation.Rebuild(
+            _tickets, ChunkTicketFlags.Simulation, ChunkLevel.BlockTicking);
+
+        _holders = new ChunkHolderMap(_loading.Levels);
+        _holders.QueuePriorityChanged += change =>
+            HolderQueuePriorityChanged?.Invoke(change);
     }
 
     /// <summary>
@@ -54,6 +62,28 @@ public sealed class ChunkDistanceManager
     public IReadOnlyCollection<ChunkHolder> Holders => _holders.Values;
 
     public int HolderCount => _holders.Count;
+
+    public int PendingDistanceUpdateCount =>
+        _loading.PendingUpdateCount + _simulation.PendingUpdateCount;
+
+    /// <summary>
+    /// Runs the loading graph first because it controls holder admission and
+    /// generation priority, then spends any remaining budget on simulation
+    /// eligibility. Unprocessed nodes remain queued for the next frame.
+    /// </summary>
+    public int RunDistanceUpdates(int maximumUpdates)
+    {
+        if (maximumUpdates < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumUpdates));
+
+        var loading = _loading.RunUpdates(maximumUpdates);
+        if (loading.Changes.Count > 0)
+            SynchronizeHolders(loading.Changes);
+
+        var remaining = maximumUpdates - loading.ProcessedUpdates;
+        var simulation = _simulation.RunUpdates(remaining);
+        return loading.ProcessedUpdates + simulation.ProcessedUpdates;
+    }
 
     public IReadOnlyCollection<ChunkColumnCoord> PendingUnloadColumns =>
         _holders.PendingUnloadColumns;
@@ -224,16 +254,21 @@ public sealed class ChunkDistanceManager
     {
         if (loadingChanged)
         {
-            var changes = _loading.MaximumLevel != ChunkLevel.MaximumLoading
-                ? _loading.SynchronizeSourcesWithChanges(
+            if (_loading.MaximumLevel != ChunkLevel.MaximumLoading)
+            {
+                var changes = _loading.SynchronizeSourcesWithChanges(
                     _tickets,
                     ChunkTicketFlags.Loading,
-                    ChunkLevel.MaximumLoading)
-                : _loading.ApplySourceChanges(
+                    ChunkLevel.MaximumLoading);
+                _pendingLoadingSourceChanges.Clear();
+                SynchronizeHolders(changes);
+            }
+            else
+            {
+                _loading.EnqueueSourceChanges(
                     DrainSourceChanges(_pendingLoadingSourceChanges),
                     ChunkLevel.MaximumLoading);
-            _pendingLoadingSourceChanges.Clear();
-            SynchronizeHolders(changes);
+            }
         }
 
         if (simulationChanged)
@@ -248,7 +283,7 @@ public sealed class ChunkDistanceManager
             }
             else
             {
-                _simulation.ApplySourceChanges(
+                _simulation.EnqueueSourceChanges(
                     DrainSourceChanges(_pendingSimulationSourceChanges),
                     ChunkLevel.BlockTicking);
             }

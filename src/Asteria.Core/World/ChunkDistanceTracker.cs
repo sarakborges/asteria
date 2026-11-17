@@ -5,6 +5,10 @@ public readonly record struct ChunkDistanceLevelChange(
     int? PreviousLevel,
     int? Level);
 
+public readonly record struct ChunkDistanceUpdateBatch(
+    int ProcessedUpdates,
+    IReadOnlyList<ChunkDistanceLevelChange> Changes);
+
 /// <summary>
 /// Propagates the minimum ticket level outwards through the eight neighboring
 /// columns. The priority queue is ordered by level then coordinates, so graph
@@ -27,6 +31,8 @@ public sealed class ChunkDistanceTracker
     private int _firstPendingLevel;
 
     public int Count => _levels.Count;
+
+    public int PendingUpdateCount => _pendingUpdates.Count;
 
     public IReadOnlyDictionary<ChunkColumnCoord, int> Levels => _levels;
 
@@ -82,6 +88,19 @@ public sealed class ChunkDistanceTracker
         IEnumerable<KeyValuePair<ChunkColumnCoord, int>> changedSources,
         int maximumLevel)
     {
+        EnqueueSourceChanges(changedSources, maximumLevel);
+        return RunUpdates(int.MaxValue).Changes;
+    }
+
+    /// <summary>
+    /// Updates the authoritative ticket-source set and queues every affected
+    /// node without propagating the graph. The caller controls when, and how
+    /// many, queued nodes are processed through RunUpdates.
+    /// </summary>
+    public void EnqueueSourceChanges(
+        IEnumerable<KeyValuePair<ChunkColumnCoord, int>> changedSources,
+        int maximumLevel)
+    {
         ArgumentNullException.ThrowIfNull(changedSources);
         if (maximumLevel < 0)
             throw new ArgumentOutOfRangeException(nameof(maximumLevel));
@@ -104,11 +123,19 @@ public sealed class ChunkDistanceTracker
             sourceChanges[column] = level == int.MaxValue ? null : level;
         }
 
-        return ApplySourceChangesCore(
-            sourceChanges,
-            maximumLevel,
-            captureChanges: true,
-            previousFullGraph: null);
+        QueueSourceChangesCore(sourceChanges, maximumLevel);
+    }
+
+    /// <summary>
+    /// Processes at most maximumUpdates nodes from the leveled queue. Any
+    /// remaining work stays queued for a later world tick/frame.
+    /// </summary>
+    public ChunkDistanceUpdateBatch RunUpdates(int maximumUpdates)
+    {
+        if (maximumUpdates < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumUpdates));
+
+        return RunPendingUpdates(maximumUpdates);
     }
 
     private IReadOnlyList<ChunkDistanceLevelChange> SynchronizeSourcesCore(
@@ -159,20 +186,20 @@ public sealed class ChunkDistanceTracker
             sourceChanges[column] = hasSource ? newLevel : null;
         }
 
-        return ApplySourceChangesCore(
-            sourceChanges,
-            maximumLevel,
-            captureChanges,
-            previousFullGraph);
+        QueueSourceChangesCore(sourceChanges, maximumLevel);
+        var batch = RunUpdates(int.MaxValue);
+
+        if (previousFullGraph is not null)
+            return CreateChanges(previousFullGraph, _levels);
+        return captureChanges
+            ? batch.Changes
+            : Array.Empty<ChunkDistanceLevelChange>();
     }
 
-    private IReadOnlyList<ChunkDistanceLevelChange> ApplySourceChangesCore(
+    private void QueueSourceChangesCore(
         IReadOnlyDictionary<ChunkColumnCoord, int?> sourceChanges,
-        int maximumLevel,
-        bool captureChanges,
-        IReadOnlyDictionary<ChunkColumnCoord, int>? previousFullGraph)
+        int maximumLevel)
     {
-        var changedSources = new List<ChunkColumnCoord>();
         foreach (var (column, proposedLevel) in sourceChanges
                      .OrderBy(entry => entry.Key.X)
                      .ThenBy(entry => entry.Key.Z))
@@ -185,36 +212,13 @@ public sealed class ChunkDistanceTracker
                 (!hadSource || oldLevel == newLevel))
                 continue;
 
-            changedSources.Add(column);
             if (hasSource)
                 _sources[column] = newLevel;
             else
                 _sources.Remove(column);
-        }
 
-        if (changedSources.Count == 0)
-            return previousFullGraph is null
-                ? Array.Empty<ChunkDistanceLevelChange>()
-                : CreateChanges(previousFullGraph, _levels);
-
-        // DynamicGraphMinFixedPoint recalculates only nodes reached by a
-        // changed edge. ChunkTracker supplies the min-plus neighbor rule;
-        // LeveledPriorityQueue schedules the earliest affected level first.
-        // Keep the before-value only for nodes whose effective level changes.
-        var previousLevels = captureChanges && previousFullGraph is null
-            ? new Dictionary<ChunkColumnCoord, int?>()
-            : null;
-
-        foreach (var column in changedSources)
             EnqueueIfChanged(column);
-
-        RunPendingUpdates(previousLevels);
-
-        if (previousFullGraph is not null)
-            return CreateChanges(previousFullGraph, _levels);
-        return previousLevels is null
-            ? Array.Empty<ChunkDistanceLevelChange>()
-            : CreateChanges(previousLevels, _levels);
+        }
     }
 
     private void ConfigurePendingQueue(int maximumLevel)
@@ -270,17 +274,21 @@ public sealed class ChunkDistanceTracker
         _pendingByLevel[update.PriorityLevel].Remove(column);
     }
 
-    private void RunPendingUpdates(
-        Dictionary<ChunkColumnCoord, int?>? previousLevels)
+    private ChunkDistanceUpdateBatch RunPendingUpdates(int maximumUpdates)
     {
-        while (TryDequeuePendingUpdate(out var column))
+        var previousLevels = new Dictionary<ChunkColumnCoord, int?>();
+        var processedUpdates = 0;
+
+        while (processedUpdates < maximumUpdates &&
+               TryDequeuePendingUpdate(out var column))
         {
+            processedUpdates++;
             var currentLevel = GetTrackedLevel(column);
             var computedLevel = CalculateLevel(column);
             if (currentLevel == computedLevel)
                 continue;
 
-            previousLevels?.TryAdd(
+            previousLevels.TryAdd(
                 column,
                 currentLevel <= MaximumLevel ? currentLevel : null);
 
@@ -293,9 +301,9 @@ public sealed class ChunkDistanceTracker
                 EnqueueIfChanged(neighbor);
         }
 
-        if (_pendingUpdates.Count != 0)
-            throw new InvalidOperationException(
-                "Distance propagation stopped before its leveled queue became empty.");
+        return new ChunkDistanceUpdateBatch(
+            processedUpdates,
+            CreateChanges(previousLevels, _levels));
     }
 
     private bool TryDequeuePendingUpdate(out ChunkColumnCoord column)

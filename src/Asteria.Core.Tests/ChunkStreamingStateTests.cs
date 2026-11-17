@@ -166,6 +166,8 @@ public sealed class ChunkStreamingStateTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(3, -2);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+        Assert.True(manager.RunDistanceUpdates(int.MaxValue) > 0);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         var changes = new List<ChunkHolderQueuePriorityChange>();
         manager.HolderQueuePriorityChanged += changes.Add;
@@ -187,6 +189,8 @@ public sealed class ChunkStreamingStateTests
         Assert.True(spatialChange.Revision > 1);
 
         Assert.True(manager.RemovePlayerLoadingTicket(column));
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+        Assert.True(manager.RunDistanceUpdates(int.MaxValue) > 0);
 
         var holderChanges = changes
             .Where(change => ReferenceEquals(change.Holder, holder))
@@ -374,8 +378,52 @@ public sealed class ChunkStreamingStateTests
             ChunkTicketType.Forced, Level: 30, SectionY: forcedFar.Y);
         Assert.True(withTicket.DistanceManager.AddTicket(
             ChunkColumnCoord.FromChunk(forcedFar), ticket, currentTick: 0));
+        Assert.True(withTicket.DistanceManager.RunDistanceUpdates(int.MaxValue) > 0);
 
         Assert.Equal(forcedFar, withTicket.PopPendingByPriority());
+    }
+
+    [Fact]
+    public void TicketDistancePropagationRespectsNodeBudgetAndConvergesToFullRebuild()
+    {
+        var manager = new ChunkDistanceManager();
+        var center = new ChunkColumnCoord(0, 0);
+        var neighbor = new ChunkColumnCoord(1, 0);
+        Assert.True(manager.AddPlayerLoadingTicket(center));
+
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+        Assert.Equal(1, manager.RunDistanceUpdates(1));
+        Assert.Equal(ChunkLevel.EntityTicking, manager.GetLoadingLevel(center));
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+
+        DrainDistanceUpdates(manager, maximumBatch: 128);
+        var expected = new ChunkDistanceTracker();
+        expected.Rebuild(
+            manager.Tickets,
+            ChunkTicketFlags.Loading,
+            ChunkLevel.MaximumLoading);
+        Assert.Equal(
+            expected.Levels.OrderBy(entry => entry.Key.X).ThenBy(entry => entry.Key.Z),
+            manager.LoadingTracker.Levels.OrderBy(entry => entry.Key.X).ThenBy(entry => entry.Key.Z));
+        Assert.Equal(ChunkLevel.EntityTicking + 1, manager.GetLoadingLevel(neighbor));
+
+        Assert.True(manager.RemovePlayerLoadingTicket(center));
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+        Assert.Equal(ChunkLevel.EntityTicking, manager.GetLoadingLevel(center));
+
+        DrainDistanceUpdates(manager, maximumBatch: 128);
+        Assert.Empty(manager.LoadingTracker.Levels);
+    }
+
+    private static void DrainDistanceUpdates(
+        ChunkDistanceManager manager,
+        int maximumBatch)
+    {
+        var processed = 0;
+        while (manager.PendingDistanceUpdateCount > 0 && processed < 100_000)
+            processed += manager.RunDistanceUpdates(maximumBatch);
+
+        Assert.Equal(0, manager.PendingDistanceUpdateCount);
     }
 
     [Fact]

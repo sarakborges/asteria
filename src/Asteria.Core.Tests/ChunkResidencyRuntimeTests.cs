@@ -227,6 +227,8 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(0, fixture.Runtime.PendingHolderUnloadCount);
 
         Assert.True(fixture.Runtime.RemoveTicket(coord, ticket));
+        Assert.True(fixture.Runtime.PendingDistanceUpdateCount > 0);
+        fixture.Runtime.RunDistanceUpdates(int.MaxValue);
         Assert.Equal(1, fixture.Runtime.PendingHolderUnloadCount);
         Assert.True(fixture.World.HasResidentChunksInColumn(column));
 
@@ -1307,7 +1309,8 @@ public sealed class ChunkResidencyRuntimeTests
                 new ChunkResidencySettings(
                     maxConcurrentWorkers,
                     maxEvictionsPerFrame: 2,
-                    gameRules: rules));
+                    gameRules: rules,
+                    maximumDistanceUpdatesPerFrame: 100_000));
 
         return new RuntimeFixture(
             world,
