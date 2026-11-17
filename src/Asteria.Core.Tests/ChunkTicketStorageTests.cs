@@ -4,6 +4,9 @@ namespace Asteria.Core.Tests;
 
 public sealed class ChunkTicketStorageTests
 {
+    private static void DrainDistanceUpdates(ChunkDistanceManager manager) =>
+        manager.RunDistanceUpdates(int.MaxValue);
+
     [Fact]
     public void TicketFlagsAndLifetimesMatchMinecraft263Definitions()
     {
@@ -91,15 +94,18 @@ public sealed class ChunkTicketStorageTests
         var column = new ChunkColumnCoord(6, -2);
         var portal = new ChunkTicket(ChunkTicketType.Portal, Level: 30);
         Assert.True(manager.AddTicket(column, portal, currentTick: 100));
+        DrainDistanceUpdates(manager);
         Assert.NotNull(manager.GetHolder(column));
 
         Assert.Equal(ChunkTicketFlags.None, manager.AdvanceTick(400));
+        DrainDistanceUpdates(manager);
         Assert.NotNull(manager.GetHolder(column));
 
         Assert.True(manager.CompleteFullStatus(column, ChunkFullStatus.Full));
         Assert.Equal(
             ChunkTicketFlags.Loading | ChunkTicketFlags.Simulation,
             manager.AdvanceTick(700));
+        DrainDistanceUpdates(manager);
         Assert.NotNull(manager.GetHolder(column));
         Assert.True(manager.IsHolderPendingUnload(column));
         Assert.Contains(column, manager.PendingUnloadColumns);
@@ -266,6 +272,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(3, -4);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         Assert.False(holder.IsReadyForSaving);
 
@@ -287,6 +294,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(6, -3);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         var key = new ChunkGenerationTaskKey(
             column, ChunkGenerationStepId.SectionReady);
@@ -335,6 +343,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(2, 9);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
 
         var otherColumnTask = new ChunkGenerationTaskInstance(
@@ -378,6 +387,7 @@ public sealed class ChunkTicketStorageTests
             manager.GetHolder(column));
 
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         Assert.Same(retainedHolder, manager.GetHolder(column));
 
         claim.Dispose();
@@ -399,6 +409,7 @@ public sealed class ChunkTicketStorageTests
             column,
             new ChunkTicket(ChunkTicketType.Forced, Level: 30),
             currentTick: 0));
+        DrainDistanceUpdates(manager);
 
         Assert.NotNull(observed);
         var change = Assert.Single(observed.Where(
@@ -410,6 +421,7 @@ public sealed class ChunkTicketStorageTests
         Assert.True(manager.RemoveTicket(
             column,
             new ChunkTicket(ChunkTicketType.Forced, Level: 30)));
+        DrainDistanceUpdates(manager);
 
         Assert.NotNull(observed);
         var demotion = Assert.Single(observed.Where(
@@ -424,18 +436,22 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(11, -7);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
 
         Assert.True(manager.RemovePlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         Assert.Same(holder, manager.GetHolder(column));
         Assert.True(manager.IsHolderPendingUnload(column));
         Assert.Contains(column, manager.PendingUnloadColumns);
 
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         Assert.Same(holder, manager.GetHolder(column));
         Assert.False(manager.IsHolderPendingUnload(column));
 
         Assert.True(manager.RemovePlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         Assert.True(manager.IsHolderPendingUnload(column));
         Assert.True(manager.CompletePendingHolderUnload(column));
         Assert.Null(manager.GetHolder(column));
@@ -449,11 +465,13 @@ public sealed class ChunkTicketStorageTests
         var column = new ChunkColumnCoord(-3, 12);
         var section = new ChunkCoord(column.X, 4, column.Z);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         var claim = manager.AcquireDependencyClaims(
             [section], ChunkGenerationDependencyEnvelope.None);
 
         Assert.True(manager.RemovePlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         Assert.True(manager.IsHolderPendingUnload(column));
         Assert.Same(holder, manager.GetHolder(column));
         Assert.False(manager.CompletePendingHolderUnload(column));
@@ -488,6 +506,7 @@ public sealed class ChunkTicketStorageTests
             Array.Empty<ChunkColumnCoord>(),
             playerColumn,
             simulationDistance: 2);
+        DrainDistanceUpdates(manager);
         Assert.False(manager.HasPlayerLoadingTicket(column));
 
         admission.RetainDesiredSections(new HashSet<ChunkCoord>());
@@ -506,6 +525,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(5, -2);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         var initialRevision = holder.GenerationProgressRevision;
 
@@ -523,6 +543,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(14, -6);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
 
         Assert.Null(holder.HighestPendingGenerationStatus);
@@ -552,6 +573,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(-12, 5);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         var full = holder.GetGenerationFuture(ChunkGenerationStatus.Full);
 
@@ -559,6 +581,7 @@ public sealed class ChunkTicketStorageTests
             ChunkGenerationStatus.Full,
             holder.HighestPendingGenerationStatus);
         Assert.True(manager.RemovePlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
 
         Assert.True(full.IsCompletedSuccessfully);
         Assert.False(full.Result.Succeeded);
@@ -579,6 +602,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(21, -9);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
 
         var requests = new Task<ChunkGenerationFutureResult>[32];
@@ -606,6 +630,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(-22, 11);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         using var barrier = new Barrier(2);
 
@@ -618,6 +643,7 @@ public sealed class ChunkTicketStorageTests
         {
             barrier.SignalAndWait();
             Assert.True(manager.RemovePlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         });
 
         var future = await request;
@@ -634,6 +660,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(4, 8);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
 
         Assert.True(holder.CompleteGenerationStatus(ChunkGenerationStatus.Biomes));
@@ -651,6 +678,7 @@ public sealed class ChunkTicketStorageTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(2, -5);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
 
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         Assert.IsAssignableFrom<GenerationChunkHolder>(holder);
@@ -856,8 +884,10 @@ public sealed class ChunkTicketStorageTests
         manager.HolderTicketLevelsChanged += changes => lastChanges = changes;
 
         Assert.True(manager.AddTicket(near, nearTicket, currentTick: 0));
+        DrainDistanceUpdates(manager);
         var nearHolder = Assert.IsType<ChunkHolder>(manager.GetHolder(near));
         Assert.True(manager.AddTicket(far, farTicket, currentTick: 0));
+        DrainDistanceUpdates(manager);
 
         Assert.Same(nearHolder, manager.GetHolder(near));
         Assert.Equal(ChunkLevel.EntityTicking, nearHolder.TicketLevel);
@@ -865,6 +895,7 @@ public sealed class ChunkTicketStorageTests
             change.Holder.Position == near);
 
         Assert.True(manager.RemoveTicket(far, farTicket));
+        DrainDistanceUpdates(manager);
         Assert.Same(nearHolder, manager.GetHolder(near));
         Assert.Equal(ChunkLevel.EntityTicking, nearHolder.TicketLevel);
         Assert.DoesNotContain(lastChanges!, change =>
@@ -928,6 +959,7 @@ public sealed class ChunkTicketStorageTests
 
         void AssertGraphsMatchFullRebuild()
         {
+            DrainDistanceUpdates(manager);
             var expectedLoading = new ChunkDistanceTracker();
             expectedLoading.SynchronizeSources(
                 manager.Tickets,
