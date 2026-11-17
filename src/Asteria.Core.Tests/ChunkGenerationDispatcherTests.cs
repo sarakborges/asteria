@@ -386,7 +386,7 @@ public sealed class ChunkGenerationDispatcherTests
     }
 
     [Fact]
-    public async Task IndependentTaskAdvancesUseAvailableSharedWorkerSlots()
+    public async Task TaskAdvancesUseOneSerialLaneOnTheSharedWorkerPool()
     {
         var mailbox = new ChunkGenerationCompletionMailbox();
         await using var pool = new ChunkGenerationWorkerPool(2, mailbox);
@@ -404,30 +404,28 @@ public sealed class ChunkGenerationDispatcherTests
             new SerialLaneTask(probe, null, null)));
 
         var initial = dispatcher.Pump(GenerousBudget(), 2);
-        Assert.Equal(2, initial.TasksAdvanced);
+        Assert.Equal(1, initial.TasksAdvanced);
         Assert.True(firstStarted.Wait(TimeSpan.FromSeconds(5)));
-        Assert.True(SpinWait.SpinUntil(
-            () => probe.AdvanceCount == 2,
-            TimeSpan.FromSeconds(5)));
-        Assert.Equal(2, probe.MaximumConcurrentAdvances);
         Assert.True(dispatcher.HasTaskAdvanceInFlight);
 
-        // The second task can finish and publish while the first is blocked.
-        Assert.True(PumpUntilCondition(
-            dispatcher, () => dispatcher.CompletedTaskCount == 1));
-        Assert.True(dispatcher.HasTaskAdvanceInFlight);
+        // A spare physical worker must not allow a second advance for this
+        // dimension while the first continuation still owns the serial lane.
+        var whileBlocked = dispatcher.Pump(GenerousBudget(), 2);
+        Assert.Equal(0, whileBlocked.TasksAdvanced);
+        Assert.Equal(1, probe.AdvanceCount);
 
-        // Cancellation invalidates only the blocked task's result. Its task
-        // instance remains owned until its already-started advance returns.
+        // Cancellation invalidates the result but cannot dispose the task or
+        // free the serial slot until its already-running advance returns.
         Assert.True(dispatcher.TryCancel(Key(20)));
         var whileCancelling = dispatcher.Pump(GenerousBudget(), 2);
         Assert.Equal(0, whileCancelling.TasksAdvanced);
+        Assert.Equal(1, probe.AdvanceCount);
 
         releaseFirst.Set();
         PumpUntilIdle(dispatcher, maximumWorkerStarts: 4);
 
         Assert.Equal(2, probe.AdvanceCount);
-        Assert.Equal(2, probe.MaximumConcurrentAdvances);
+        Assert.Equal(1, probe.MaximumConcurrentAdvances);
         Assert.Equal(1, dispatcher.CancelledTaskCount);
         Assert.Equal(1, dispatcher.CompletedTaskCount);
         Assert.All(probe.ThreadIds, threadId => Assert.NotEqual(ownerThread, threadId));

@@ -1,57 +1,42 @@
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Per-dimension task-advance lane backed by the shared physical worker pool.
-/// Independent task instances may advance concurrently, but a task instance
-/// is never advanced twice before its previous result is collected. The
-/// optional dependency lane remains serial for operations such as lighting.
+/// Per-dimension serial continuation lane backed by the shared physical worker
+/// pool. It admits one task advance at a time; consecutive advances may execute
+/// on different CLR ThreadPool workers. Dependency forks are scheduled through
+/// the same pool by the owning ChunkGenerationDispatcher.
 /// </summary>
 public sealed class ChunkGenerationSerialExecutor
 {
     private readonly ChunkGenerationWorkerPool _workerPool;
     private readonly ChunkGenerationTaskAdvanceMailbox _completionMailbox = new();
     private readonly ChunkGenerationCompletionMailbox _dependencyCompletionMailbox = new();
-    private readonly int _maximumConcurrentTaskAdvances;
-    private readonly Dictionary<
-        ChunkGenerationTaskInstance,
-        WorldWorkerOperation<ChunkGenerationTaskAdvanceResult>>
-        _activeTaskOperations = [];
+    private ChunkGenerationTaskInstance? _activeTask;
+    private WorldWorkerOperation<ChunkGenerationTaskAdvanceResult>? _activeOperation;
     private ChunkGenerationWorkerRequest? _activeDependency;
     private ChunkGenerationCompletionMailbox? _activeDependencyMailbox;
     private WorldWorkerOperation<object?>? _activeDependencyOperation;
 
-    public ChunkGenerationSerialExecutor(
-        ChunkGenerationWorkerPool workerPool,
-        int maximumConcurrentTaskAdvances = 1)
+    public ChunkGenerationSerialExecutor(ChunkGenerationWorkerPool workerPool)
     {
         _workerPool = workerPool ??
             throw new ArgumentNullException(nameof(workerPool));
-        if (maximumConcurrentTaskAdvances <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumConcurrentTaskAdvances));
-        _maximumConcurrentTaskAdvances = maximumConcurrentTaskAdvances;
     }
 
     /// <summary>
-    /// True while at least one task advance or serial dependency awaits
-    /// collection by its owning coordinator.
+    /// True from admission until the owning dispatcher consumes the completion.
+    /// A published completion does not free the lane until its task transition
+    /// has been applied by the authoritative dispatcher.
     /// </summary>
     public bool HasInFlightTask =>
-        _activeTaskOperations.Count > 0 || _activeDependency is not null;
-
-    public int ActiveTaskCount => _activeTaskOperations.Count;
-
-    public int AvailableTaskAdvanceSlots =>
-        Math.Max(0, _maximumConcurrentTaskAdvances - _activeTaskOperations.Count);
+        _activeTask is not null || _activeDependency is not null;
 
     public ChunkGenerationTaskInstance? ActiveTask =>
-        _activeTaskOperations.Count > 0
-            ? _activeTaskOperations.Keys.First()
-            : _activeDependency?.Task;
+        _activeTask ?? _activeDependency?.Task;
 
     /// <summary>
-    /// Admits one bounded task advance when capacity remains. At most one
-    /// advance per task instance may be in flight; independent tasks can use
-    /// separate worker slots.
+    /// Admits one bounded task advance if this dimension's serial lane is free.
+    /// The callback runs on the shared worker pool, not on the world/main thread.
     /// </summary>
     public bool TrySchedule(
         ChunkGenerationTaskInstance task,
@@ -61,9 +46,7 @@ public sealed class ChunkGenerationSerialExecutor
     {
         task.Validate();
         ArgumentNullException.ThrowIfNull(execute);
-        if (_activeDependency is not null ||
-            AvailableTaskAdvanceSlots == 0 ||
-            _activeTaskOperations.ContainsKey(task))
+        if (HasInFlightTask)
             return false;
 
         if (!_workerPool.TryScheduleTaskAdvance(
@@ -75,10 +58,10 @@ public sealed class ChunkGenerationSerialExecutor
                 out var operation))
             return false;
 
-        _activeTaskOperations.Add(
-            task,
-            operation ?? throw new InvalidOperationException(
-                "Task-advance admission returned no worker operation handle."));
+        _activeTask = task;
+        _activeOperation = operation ??
+            throw new InvalidOperationException(
+                "Serial executor admission returned no worker operation handle.");
         return true;
     }
 
@@ -102,7 +85,7 @@ public sealed class ChunkGenerationSerialExecutor
     {
         request.Validate();
         ArgumentNullException.ThrowIfNull(completionMailbox);
-        if (_activeTaskOperations.Count > 0 || _activeDependency is not null)
+        if (HasInFlightTask)
             return false;
 
         if (!_workerPool.TrySchedule(
@@ -165,12 +148,16 @@ public sealed class ChunkGenerationSerialExecutor
         if (!_completionMailbox.TryDequeue(out completion))
             return false;
 
-        if (!_activeTaskOperations.Remove(completion.Task, out _))
+        if (_activeTask is not { } activeTask ||
+            activeTask != completion.Task ||
+            _activeOperation is null)
         {
             throw new InvalidOperationException(
-                $"Task-advance completion does not match an active task: {completion.Task}");
+                $"Serial executor completion does not match its active task: {completion.Task}");
         }
 
+        _activeTask = null;
+        _activeOperation = null;
         return true;
     }
 
@@ -179,8 +166,8 @@ public sealed class ChunkGenerationSerialExecutor
         ChunkGenerationTaskInstance task,
         WorldWorkerPriority priority)
     {
-        if (_activeTaskOperations.TryGetValue(task, out var operation))
-            return _workerPool.TryUpdatePriority(operation, priority);
+        if (_activeTask == task && _activeOperation is not null)
+            return _workerPool.TryUpdatePriority(_activeOperation, priority);
 
         if (_activeDependency is { } dependency &&
             dependency.Task == task &&

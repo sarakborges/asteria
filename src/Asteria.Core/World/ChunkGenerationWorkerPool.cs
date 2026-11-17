@@ -138,9 +138,9 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
     }
 
     /// <summary>
-    /// Submits one logical task advance. The dispatcher guarantees at most
-    /// one advance per task instance; independent tasks may share the worker
-    /// pool and publish to the multi-producer completion mailbox.
+    /// Submits one logical task advance to the serial worldgen lane. The
+    /// dispatcher guarantees only one such operation is in flight per
+    /// dimension; its result returns through the dedicated single-slot mailbox.
     /// </summary>
     internal bool TryScheduleTaskAdvance(
         ChunkGenerationTaskInstance task,
