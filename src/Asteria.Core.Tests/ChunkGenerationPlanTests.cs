@@ -761,6 +761,7 @@ public sealed class ChunkGenerationPlanTests
         var column = new ChunkColumnCoord(12, -7);
         Assert.True(manager.AddPlayerLoadingTicket(column));
         DrainDistanceUpdates(manager);
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
 
         using (var claim = manager.AcquireDependencyClaims(
@@ -792,6 +793,7 @@ public sealed class ChunkGenerationPlanTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(-13, 6);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         var targets = new[]
         {
@@ -842,6 +844,7 @@ public sealed class ChunkGenerationPlanTests
         var manager = new ChunkDistanceManager();
         var column = ChunkColumnCoord.FromChunk(target);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         var negativeSection = new ChunkCoord(target.X, -1, target.Z);
         Assert.Throws<ArgumentOutOfRangeException>(() =>
@@ -895,6 +898,7 @@ public sealed class ChunkGenerationPlanTests
         var manager = new ChunkDistanceManager();
         var column = ChunkColumnCoord.FromChunk(target);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         using var claim = manager.AcquireDependencyClaims(
             target,
             AsteriaChunkGenerationPlan.FullSectionEnvelope);
