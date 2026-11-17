@@ -1129,22 +1129,11 @@ public sealed class ChunkGenerationPlanTests
             AsteriaChunkGenerationPlan.GetStepId(
                 ChunkMaterializationStage.TerrainLayer));
 
-        Assert.Equal(
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
-            AsteriaChunkGenerationPlan.GetExecutionPolicy(
-                ChunkMaterializationStage.TerrainSetup));
-        Assert.Equal(
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
-            AsteriaChunkGenerationPlan.GetExecutionPolicy(
-                ChunkMaterializationStage.TerrainLayer));
-
-        Assert.Equal(
-            ChunkGenerationExecutionPolicy.SharedWorkerPool,
-            AsteriaChunkGenerationPlan.GetExecutionPolicy(
-                ChunkMaterializationStage.SurfaceDecorations));
-
-        var orderedStages = new[]
+        var independentSectionStages = new[]
         {
+            ChunkMaterializationStage.TerrainSetup,
+            ChunkMaterializationStage.TerrainLayer,
+            ChunkMaterializationStage.SurfaceDecorations,
             ChunkMaterializationStage.DirectionalFacePalettes,
             ChunkMaterializationStage.VolumeStructures,
             ChunkMaterializationStage.GeneratedFluids,
@@ -1160,10 +1149,10 @@ public sealed class ChunkGenerationPlanTests
             ChunkMaterializationStage.PendingObjects,
         };
 
-        foreach (var stage in orderedStages)
+        foreach (var stage in independentSectionStages)
         {
             Assert.Equal(
-                ChunkGenerationExecutionPolicy.OrderedMutation,
+                ChunkGenerationExecutionPolicy.SharedWorkerPool,
                 AsteriaChunkGenerationPlan.GetExecutionPolicy(stage));
         }
 

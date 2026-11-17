@@ -70,7 +70,7 @@ public sealed class ChunkMaterializationGenerationTaskTests
     }
 
     [Fact]
-    public void OrderedMutationStageRunsInlineOnSerialContinuation()
+    public void SurfaceDecorationStageRunsOnTheSharedWorkerPool()
     {
         var job = new FakeMaterializationJob(
             sliceCount: 2,
@@ -78,22 +78,31 @@ public sealed class ChunkMaterializationGenerationTaskTests
         using var task = new ChunkMaterializationGenerationTask(job, _ => { });
 
         var first = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, first.Kind);
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            Assert.Single(first.WorkerOperations).ExecutionPolicy);
+        Assert.Equal(0, job.AdvanceCount);
 
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, first.Kind);
-        Assert.Empty(first.WorkerOperations);
+        var firstProgress = RunSlice(task, first, job, waitToken: 1);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, firstProgress.Kind);
         Assert.Equal(1, job.AdvanceCount);
+
+        var second = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, second.Kind);
+        var secondProgress = RunSlice(task, second, job, waitToken: 2);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, secondProgress.Kind);
+        Assert.Equal(2, job.AdvanceCount);
 
         var featureProgress = task.Advance([], CancellationToken.None);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, featureProgress.Kind);
-        Assert.Equal(2, job.AdvanceCount);
-
         var lighting = task.Advance([], CancellationToken.None);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, lighting.Kind);
         Assert.Equal(
             ChunkGenerationExecutionPolicy.LightExecutor,
             Assert.Single(lighting.WorkerOperations).ExecutionPolicy);
 
-        var final = RunSlice(task, lighting, job, waitToken: 1);
+        var final = RunSlice(task, lighting, job, waitToken: 3);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
     }
 

@@ -131,7 +131,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.DirectionalFacePalettes,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(
                     ChunkGenerationStepId.SurfaceDecorations,
@@ -166,7 +166,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.VolumeStructures,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.DirectionalFacePalettes, NoHalo),
                 Dependency(
@@ -180,7 +180,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.GeneratedFluids,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.VolumeStructures, NoHalo),
                 Dependency(
@@ -209,7 +209,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.SurfaceStructures,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.VolumeStructures, NoHalo),
                 Dependency(
@@ -221,7 +221,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.CaveSpikes,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.SurfaceStructures, NoHalo),
                 Dependency(ChunkGenerationStepId.SectionTerrainLayers, NoHalo),
@@ -235,7 +235,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.VerticalDecorations,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.CaveSpikes, NoHalo),
                 Dependency(
@@ -248,13 +248,13 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.Veins,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             DependsOn(ChunkGenerationStepId.VerticalDecorations)),
 
         Step(
             ChunkGenerationStepId.WallLayers,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.Veins, NoHalo),
                 Dependency(
@@ -267,7 +267,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.WallObjects,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.WallLayers, NoHalo),
                 Dependency(
@@ -280,7 +280,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.ShellFinalization,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             DependsOn(ChunkGenerationStepId.WallObjects)),
 
         // Gravity support can cross the lower section boundary. Deeper
@@ -289,7 +289,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.GravitySupport,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.ShellFinalization, NoHalo),
                 Dependency(
@@ -301,7 +301,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.StructureObjects,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.GravitySupport, NoHalo),
                 Dependency(ChunkGenerationStepId.SurfaceStructures, NoHalo),
@@ -310,7 +310,7 @@ public static class AsteriaChunkGenerationPlan
         Step(
             ChunkGenerationStepId.PendingObjects,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             DependsOn(ChunkGenerationStepId.StructureObjects)),
 
         Step(

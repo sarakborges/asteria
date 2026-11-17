@@ -5,56 +5,57 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkColumnMaterializationGenerationTaskTests
 {
     [Fact]
-    public void ColumnResumesYieldedSectionsWhileOtherSectionsAwaitWorkerForks()
+    public void ColumnResumesIndependentSectionForksAfterEachWorkerQuantum()
     {
         var column = new ChunkColumnCoord(4, -2);
-        var orderedSection = new FakeMaterializationJob(
+        var lower = new FakeMaterializationJob(
             new ChunkCoord(4, 0, -2),
             sliceCount: 2,
             ChunkMaterializationStage.SurfaceDecorations);
-        var terrainSection = new FakeMaterializationJob(
+        var upper = new FakeMaterializationJob(
             new ChunkCoord(4, 1, -2),
-            sliceCount: 1,
-            ChunkMaterializationStage.TerrainLayer);
+            sliceCount: 2,
+            ChunkMaterializationStage.SurfaceDecorations);
         using var task = new ChunkColumnMaterializationGenerationTask(
             column,
-            [orderedSection, terrainSection],
+            [lower, upper],
             initializeLighting: _ => { });
 
-        var initial = task.Advance([], CancellationToken.None);
+        var firstBatch = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, firstBatch.Kind);
+        Assert.Equal(2, firstBatch.WorkerOperations.Length);
+        Assert.Equal(0, lower.AdvanceCount);
+        Assert.Equal(0, upper.AdvanceCount);
 
-        Assert.Equal(1, orderedSection.AdvanceCount);
-        Assert.Equal(0, terrainSection.AdvanceCount);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, initial.Kind);
-        var terrainOperation = Assert.Single(initial.WorkerOperations);
+        var firstCompletions = firstBatch.WorkerOperations
+            .Select(operation => Completion(
+                column,
+                operation.DependencyId,
+                operation.Execute(CancellationToken.None)))
+            .ToArray();
+        var firstProgress = task.Advance(firstCompletions, CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, firstProgress.Kind);
+        Assert.Equal(1, lower.AdvanceCount);
+        Assert.Equal(1, upper.AdvanceCount);
 
-        var workerResult = terrainOperation.Execute(CancellationToken.None);
-        var completion = Completion(
-            column,
-            terrainOperation.DependencyId,
-            workerResult);
+        var secondBatch = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, secondBatch.Kind);
+        Assert.Equal(2, secondBatch.WorkerOperations.Length);
 
-        var afterTerrain = task.Advance([completion], CancellationToken.None);
-
-        Assert.Equal(1, terrainSection.AdvanceCount);
-        Assert.Equal(1, orderedSection.AdvanceCount);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, afterTerrain.Kind);
-        Assert.Equal(ChunkGenerationStatus.Terrain, afterTerrain.ProgressStatus);
-        Assert.Empty(afterTerrain.WorkerOperations);
-
-        // The aggregate status is published on the same coordinator turn that
-        // processes the final section's Terrain completion, not one yield later.
-        var aggregateTerrain = task.Advance([], CancellationToken.None);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, aggregateTerrain.Kind);
-        Assert.Null(aggregateTerrain.ProgressStatus);
-        Assert.Empty(aggregateTerrain.WorkerOperations);
+        var secondCompletions = secondBatch.WorkerOperations
+            .Select(operation => Completion(
+                column,
+                operation.DependencyId,
+                operation.Execute(CancellationToken.None)))
+            .ToArray();
+        var afterSecondBatch = task.Advance(secondCompletions, CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, afterSecondBatch.Kind);
+        Assert.Equal(2, lower.AdvanceCount);
+        Assert.Equal(2, upper.AdvanceCount);
 
         var lightOperations = 0;
         var final = CompleteColumn(
-            task, column, aggregateTerrain, ref lightOperations);
-
-        Assert.Equal(2, orderedSection.AdvanceCount);
-        Assert.Equal(1, terrainSection.AdvanceCount);
+            task, column, afterSecondBatch, ref lightOperations);
         Assert.Equal(2, lightOperations);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
         var output = Assert.IsType<ChunkColumnMaterializationTaskOutput>(
@@ -471,7 +472,7 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
-    public void OrderedMutationAdvancesRotateAcrossReadyVerticalSections()
+    public void SharedWorkerSectionsAreRedispatchedTogetherAcrossQuanta()
     {
         var column = new ChunkColumnCoord(9, -6);
         var lower = new FakeMaterializationJob(
@@ -487,20 +488,22 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
             [lower, upper],
             initializeLighting: _ => { });
 
-        var first = task.Advance([], CancellationToken.None);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, first.Kind);
-        Assert.Equal(1, lower.AdvanceCount);
-        Assert.Equal(0, upper.AdvanceCount);
-
-        var second = task.Advance([], CancellationToken.None);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, second.Kind);
+        var firstBatch = task.Advance([], CancellationToken.None);
+        Assert.Equal(2, firstBatch.WorkerOperations.Length);
+        CompleteWorkerBatch(task, column, firstBatch);
         Assert.Equal(1, lower.AdvanceCount);
         Assert.Equal(1, upper.AdvanceCount);
 
-        var third = task.Advance([], CancellationToken.None);
-        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, third.Kind);
+        var secondBatch = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, secondBatch.Kind);
+        Assert.Equal(2, secondBatch.WorkerOperations.Length);
+        CompleteWorkerBatch(task, column, secondBatch);
         Assert.Equal(2, lower.AdvanceCount);
-        Assert.Equal(1, upper.AdvanceCount);
+        Assert.Equal(2, upper.AdvanceCount);
+
+        var thirdBatch = task.Advance([], CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, thirdBatch.Kind);
+        Assert.Equal(2, thirdBatch.WorkerOperations.Length);
     }
 
     [Fact]
@@ -528,6 +531,22 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
 
         Assert.Equal(2, lightOperations);
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, final.Kind);
+    }
+
+    private static void CompleteWorkerBatch(
+        ChunkColumnMaterializationGenerationTask task,
+        ChunkColumnCoord column,
+        ChunkGenerationTaskAdvanceResult batch)
+    {
+        var completions = batch.WorkerOperations
+            .Select(operation => Completion(
+                column,
+                operation.DependencyId,
+                operation.Execute(CancellationToken.None)))
+            .ToArray();
+        var progress = task.Advance(completions, CancellationToken.None);
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.Yield, progress.Kind);
+        Assert.Null(progress.ProgressStatus);
     }
 
     private static ChunkGenerationTaskAdvanceResult CompleteColumn(
