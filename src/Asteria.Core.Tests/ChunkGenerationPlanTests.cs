@@ -4,6 +4,9 @@ namespace Asteria.Core.Tests;
 
 public sealed class ChunkGenerationPlanTests
 {
+    private static void DrainDistanceUpdates(ChunkDistanceManager manager) =>
+        manager.RunDistanceUpdates(int.MaxValue);
+
     [Fact]
     public void DependencyEnvelopeComposesHorizontalAndVerticalOffsets()
     {
@@ -629,6 +632,7 @@ public sealed class ChunkGenerationPlanTests
         var neighbor = new ChunkColumnCoord(15, -7);
 
         Assert.True(manager.AddPlayerLoadingTicket(target));
+        DrainDistanceUpdates(manager);
         // A ticket at level 31 propagates through level 33 (two 8-neighbor
         // rings), creating the expected 5x5 holder area.
         Assert.Equal(25, manager.HolderCount);
@@ -756,6 +760,7 @@ public sealed class ChunkGenerationPlanTests
         var manager = new ChunkDistanceManager();
         var column = new ChunkColumnCoord(12, -7);
         Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
 
         using (var claim = manager.AcquireDependencyClaims(
@@ -1004,6 +1009,7 @@ public sealed class ChunkGenerationPlanTests
         var newlyRequired = new ChunkCoord(6, 1, 8);
 
         Assert.True(admission.TryAdmit(column, [existing], []));
+        DrainDistanceUpdates(manager);
         Assert.True(admission.MarkSectionFull(existing));
         Assert.Equal(1, admission.PendingAdmissionCount);
 
