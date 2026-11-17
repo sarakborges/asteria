@@ -1598,3 +1598,10 @@ its graph source to FULL so its own holder exists, but it does not widen the
 graph or create neighbour holders. The exact section/status target remains
 separate and is what the column task parks at. Player-loading tickets continue
 to request FULL and can upgrade that same task in place.
+
+
+## Section-local surface decoration worker fork — 2026-11-17
+
+SurfaceDecorations is admitted to the shared worker pool rather than the ordered-mutation lane. The stage's write envelope is section-local: it mutates only its detached chunk and its own pending-object list. Terrain, biome, and generated-fluid probes use immutable generator fields; the terrain-sampling context and per-section column cache are task-local, while shared deterministic memoization is synchronized and bounded. Its radius-2 read envelope remains enforced independently from the write envelope.
+
+The column coordinator still advances serially and only admits the stage after its terrain prerequisites. It may now fork the same step for independent vertical sections, while separate columns can also use available worker capacity. This is the intended Minecraft-style split: serial task/dependency coordination, parallel independent chunk-step work. No other OrderedMutation stage is reclassified by this change; each requires its own read/write and shared-state audit.

@@ -111,6 +111,36 @@ public sealed class ChunkColumnMaterializationGenerationTaskTests
     }
 
     [Fact]
+    public void ColumnBatchesIndependentSurfaceDecorationStagesForEveryReadyVerticalSection()
+    {
+        var column = new ChunkColumnCoord(8, -5);
+        var lower = new FakeMaterializationJob(
+            new ChunkCoord(8, 0, -5),
+            sliceCount: 1,
+            ChunkMaterializationStage.SurfaceDecorations);
+        var upper = new FakeMaterializationJob(
+            new ChunkCoord(8, 1, -5),
+            sliceCount: 1,
+            ChunkMaterializationStage.SurfaceDecorations);
+        using var task = new ChunkColumnMaterializationGenerationTask(
+            column,
+            [lower, upper],
+            initializeLighting: _ => { });
+
+        var advance = task.Advance([], CancellationToken.None);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForWorkers, advance.Kind);
+        Assert.Equal(2, advance.WorkerOperations.Length);
+        Assert.All(
+            advance.WorkerOperations,
+            operation => Assert.Equal(
+                ChunkGenerationExecutionPolicy.SharedWorkerPool,
+                operation.ExecutionPolicy));
+        Assert.Equal(0, lower.AdvanceCount);
+        Assert.Equal(0, upper.AdvanceCount);
+    }
+
+    [Fact]
     public void GravitySupportWaitsForLowerSectionTerrainStatusFromThePlan()
     {
         var column = new ChunkColumnCoord(7, -4);

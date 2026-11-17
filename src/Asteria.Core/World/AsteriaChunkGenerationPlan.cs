@@ -107,10 +107,14 @@ public static class AsteriaChunkGenerationPlan
         // Surface decorators sample cardinal slope columns and nearby
         // fluids. The authored swamp cattail rule reaches two columns, but all
         // such probes are immutable column data rather than holder-status reads.
+        // Surface decorations write only to this detached section chunk and
+        // its task-local pending-object list. Terrain/biome/fluid probes are
+        // immutable field reads guarded by the stage's radius-2 access envelope,
+        // so independent sections may execute this step on the shared pool.
         Step(
             ChunkGenerationStepId.SurfaceDecorations,
             ChunkGenerationWorkScope.Section,
-            ChunkGenerationExecutionPolicy.OrderedMutation,
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
             [
                 Dependency(ChunkGenerationStepId.SectionTerrainLayers, NoHalo),
                 Dependency(

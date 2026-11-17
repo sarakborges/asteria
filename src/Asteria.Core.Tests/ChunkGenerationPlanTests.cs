@@ -1138,9 +1138,13 @@ public sealed class ChunkGenerationPlanTests
             AsteriaChunkGenerationPlan.GetExecutionPolicy(
                 ChunkMaterializationStage.TerrainLayer));
 
+        Assert.Equal(
+            ChunkGenerationExecutionPolicy.SharedWorkerPool,
+            AsteriaChunkGenerationPlan.GetExecutionPolicy(
+                ChunkMaterializationStage.SurfaceDecorations));
+
         var orderedStages = new[]
         {
-            ChunkMaterializationStage.SurfaceDecorations,
             ChunkMaterializationStage.DirectionalFacePalettes,
             ChunkMaterializationStage.VolumeStructures,
             ChunkMaterializationStage.GeneratedFluids,
