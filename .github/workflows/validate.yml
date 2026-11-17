@@ -402,8 +402,18 @@ jobs:
           mkdir -p "$baseline/packs"
           cp -a "$candidate/packs/default" "$baseline/packs/default"
 
+          # Use one identical streaming-selection workload in both revisions.
+          # The desired footprint changed from a circular to a square radius in
+          # the candidate. That is a streaming policy change, not terrain cost;
+          # normalize the harness to the candidate footprint so both sides
+          # materialize the same 137-section fixture while keeping their own
+          # terrain/materialization implementation.
+          cp "$candidate/src/Asteria.Core/World/ChunkStreamingSelection.cs" \
+            "$baseline/src/Asteria.Core/World/ChunkStreamingSelection.cs"
+
           # Overlay the identical route-harness sources on the baseline worktree.
-          # Core and the ordinary worldgen benchmark remain at their own commits.
+          # Core terrain/materialization sources and the ordinary worldgen
+          # benchmark remain at their respective commits.
           mkdir -p "$baseline/tools/WorldStreamingBenchmark"
           cp -a "$candidate/tools/WorldStreamingBenchmark/." \
             "$baseline/tools/WorldStreamingBenchmark/"
@@ -499,7 +509,7 @@ jobs:
           python3 tools/perf/compare_worldgen_ab.py \
             --baseline-dir "$root/results/baseline" \
             --candidate-dir "$root/results/candidate" \
-            --repetitions 4 --expected-chunks 67 \
+            --repetitions 4 --expected-chunks 137 \
             --baseline-sha "$BASELINE_SHA" \
             --candidate-sha "$CANDIDATE_SHA" \
             --json-output "$root/results/summary.json" \
