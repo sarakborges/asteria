@@ -174,8 +174,7 @@ internal sealed class ChunkSectionGenerationProgressState
 public abstract class GenerationChunkHolder
 {
     private readonly Dictionary<ChunkGenerationStatus,
-        TaskCompletionSource<ChunkGenerationFutureResult>> _generationFutures =
-        CreateGenerationFutures();
+        TaskCompletionSource<ChunkGenerationFutureResult>> _generationFutures = [];
     private readonly Dictionary<ChunkCoord, ChunkSectionGenerationProgressState>
         _sectionGenerationProgress = [];
     private ChunkGenerationTaskInstance? _generationTask;
@@ -231,6 +230,28 @@ public abstract class GenerationChunkHolder
         _generationTask is null ? null : _generationTaskTargetStatus;
 
     public ChunkGenerationStatus CompletedGenerationStatus { get; private set; }
+
+    /// <summary>
+    /// Highest incomplete generation status explicitly requested from this
+    /// holder and still permitted by its current ticket ceiling.
+    /// Unrequested statuses never create producer demand.
+    /// </summary>
+    public ChunkGenerationStatus? HighestPendingGenerationStatus
+    {
+        get
+        {
+            ChunkGenerationStatus? highest = null;
+            foreach (var (status, future) in _generationFutures)
+            {
+                if (status > HighestAllowedGenerationStatus || future.Task.IsCompleted)
+                    continue;
+                if (highest is null || status > highest.Value)
+                    highest = status;
+            }
+
+            return highest;
+        }
+    }
 
     /// <summary>
     /// Revision of the currently retained generation products. Dependents must
@@ -353,7 +374,7 @@ public abstract class GenerationChunkHolder
                 GenerationProgressRevision));
         }
 
-        return _generationFutures[requestedStatus].Task;
+        return GetOrCreateGenerationFuture(requestedStatus).Task;
     }
 
     /// <summary>Gets the status future for one exact vertical section in this holder.</summary>
@@ -427,12 +448,7 @@ public abstract class GenerationChunkHolder
             CompletedGenerationStatus = completedStatus;
 
         ReconcileGenerationFutures();
-        return completedStatus <= HighestAllowedGenerationStatus &&
-            _generationFutures.Any(entry =>
-                entry.Key <= completedStatus &&
-                entry.Value.Task.IsCompletedSuccessfully &&
-                entry.Value.Task.Result.Succeeded &&
-                entry.Value.Task.Result.Revision == GenerationProgressRevision);
+        return completedStatus <= HighestAllowedGenerationStatus;
     }
 
     /// <summary>
@@ -474,16 +490,28 @@ public abstract class GenerationChunkHolder
         var failedRevision = GenerationProgressRevision;
         GenerationProgressRevision++;
         CompletedGenerationStatus = ChunkGenerationStatus.Unloaded;
-        foreach (var (status, future) in _generationFutures.ToArray())
-        {
+        foreach (var (status, future) in _generationFutures)
             future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
                 status, reason, failedRevision));
-            _generationFutures[status] = NewGenerationFuture();
-        }
+        _generationFutures.Clear();
         foreach (var section in _sectionGenerationProgress.Values)
             section.Reset(reason);
 
         return true;
+    }
+
+    private TaskCompletionSource<ChunkGenerationFutureResult>
+        GetOrCreateGenerationFuture(ChunkGenerationStatus status)
+    {
+        if (_generationFutures.TryGetValue(status, out var future))
+            return future;
+
+        future = NewGenerationFuture();
+        if (status <= CompletedGenerationStatus)
+            future.TrySetResult(ChunkGenerationFutureResult.Success(
+                status, GenerationProgressRevision));
+        _generationFutures.Add(status, future);
+        return future;
     }
 
     private ChunkSectionGenerationProgressState GetOrCreateSectionProgress(
@@ -529,23 +557,11 @@ public abstract class GenerationChunkHolder
             var future = _generationFutures[status];
             if (status > HighestAllowedGenerationStatus)
             {
-                if (future.Task.IsCompletedSuccessfully &&
-                    future.Task.Result.Succeeded)
-                {
-                    var demoted = NewGenerationFuture();
-                    demoted.TrySetResult(ChunkGenerationFutureResult.Unloaded(
-                        status,
-                        $"Ticket level {TicketLevel} no longer permits {status}.",
-                        GenerationProgressRevision));
-                    _generationFutures[status] = demoted;
-                }
-                else
-                {
-                    future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
-                        status,
-                        $"Ticket level {TicketLevel} does not permit {status}.",
-                        GenerationProgressRevision));
-                }
+                future.TrySetResult(ChunkGenerationFutureResult.Unloaded(
+                    status,
+                    $"Ticket level {TicketLevel} does not permit {status}.",
+                    GenerationProgressRevision));
+                _generationFutures.Remove(status);
                 continue;
             }
 
@@ -568,12 +584,6 @@ public abstract class GenerationChunkHolder
             }
         }
     }
-
-    private static Dictionary<ChunkGenerationStatus,
-        TaskCompletionSource<ChunkGenerationFutureResult>> CreateGenerationFutures() =>
-        Enum.GetValues<ChunkGenerationStatus>()
-            .Where(status => status != ChunkGenerationStatus.Unloaded)
-            .ToDictionary(status => status, _ => NewGenerationFuture());
 
     private static TaskCompletionSource<ChunkGenerationFutureResult>
         NewGenerationFuture() =>

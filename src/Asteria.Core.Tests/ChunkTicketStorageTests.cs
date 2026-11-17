@@ -503,6 +503,79 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void HolderTracksOnlyRequestedIncompleteGenerationStatuses()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(14, -6);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+
+        Assert.Null(holder.HighestPendingGenerationStatus);
+
+        var biomes = holder.GetGenerationFuture(ChunkGenerationStatus.Biomes);
+        Assert.Equal(
+            ChunkGenerationStatus.Biomes,
+            holder.HighestPendingGenerationStatus);
+
+        var full = holder.GetGenerationFuture(ChunkGenerationStatus.Full);
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            holder.HighestPendingGenerationStatus);
+
+        Assert.True(holder.CompleteGenerationStatus(ChunkGenerationStatus.Biomes));
+        Assert.True(biomes.IsCompletedSuccessfully);
+        Assert.True(biomes.Result.Succeeded);
+        Assert.False(full.IsCompleted);
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            holder.HighestPendingGenerationStatus);
+    }
+
+    [Fact]
+    public void HolderTicketDemotionFailsAndClearsDisallowedPendingStatusFuture()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(-12, 5);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        var full = holder.GetGenerationFuture(ChunkGenerationStatus.Full);
+
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            holder.HighestPendingGenerationStatus);
+        Assert.True(manager.RemovePlayerLoadingTicket(column));
+
+        Assert.False(full.IsCompletedSuccessfully);
+        Assert.False(full.Result.Succeeded);
+        Assert.Equal(
+            ChunkGenerationStatus.Unloaded,
+            holder.HighestAllowedGenerationStatus);
+        Assert.Null(holder.HighestPendingGenerationStatus);
+
+        var rejected = holder.GetGenerationFuture(ChunkGenerationStatus.Full);
+        Assert.True(rejected.IsCompletedSuccessfully);
+        Assert.False(rejected.Result.Succeeded);
+        Assert.Null(holder.HighestPendingGenerationStatus);
+    }
+
+    [Fact]
+    public void CompletedStatusesSatisfyLaterHolderFutureRequestsImmediately()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(4, 8);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+
+        Assert.True(holder.CompleteGenerationStatus(ChunkGenerationStatus.Biomes));
+        Assert.Null(holder.HighestPendingGenerationStatus);
+
+        var future = holder.GetGenerationFuture(ChunkGenerationStatus.Biomes);
+        Assert.True(future.IsCompletedSuccessfully);
+        Assert.True(future.Result.Succeeded);
+        Assert.Null(holder.HighestPendingGenerationStatus);
+    }
+
+    [Fact]
     public void GenerationAndFullStatusFuturesAreIndependent()
     {
         var manager = new ChunkDistanceManager();

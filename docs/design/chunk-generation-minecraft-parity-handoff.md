@@ -1499,3 +1499,18 @@ Asteria now mirrors the holder ownership boundary for its column-scoped `Section
 `_materializationTasks` remains runtime bookkeeping for pending timestamps, section sets, dependency claims and result publication; the authoritative active-task identity now lives on the holder, as in Minecraft.
 
 **Remaining boundary:** the default Asteria generation DAG deliberately has no cross-column `HolderStatus` dependency because horizontal terrain/biome/structure reads use immutable generator fields. Consequently, no neighboring holder needs an earlier generation task today. Full future-driven producer scheduling and rescheduling to the highest still-requested status remain unimplemented; do not create artificial resident dependencies merely to imitate Minecraft's 2D chunk terrain reads.
+
+
+## Lazy holder status futures — 2026-11-17
+
+Minecraft Java Edition 26.3 stores nullable per-status futures. `GenerationChunkHolder.getOrCreateFuture` creates a future only when a consumer requests that status; `findHighestStatusWithPendingFuture` derives the next generation target from incomplete requests. When the ticket ceiling drops, `failAndClearPendingFuturesBetween` completes and removes requests above that ceiling. A later ticket promotion does not resurrect those requests: consumers must request the status again. See the 26.3 [GenerationChunkHolder API](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/server/level/generationchunkholder).
+
+Asteria now follows the same demand semantics for its column-level status futures:
+
+- Holder construction creates no generation-status futures.
+- `GetGenerationFuture(status)` creates only that requested status, or returns immediate success when that status has already been achieved.
+- `HighestPendingGenerationStatus` reports the highest incomplete, permitted request. Unrequested statuses are invisible to scheduling.
+- Ticket demotion completes and removes pending futures above the new ceiling; a later promotion does not recreate them without another request.
+- Generation-progress invalidation fails current waiters and clears old requests so future consumers receive fresh futures under the new revision.
+
+This prepares the holder for vanilla-style rescheduling to the highest still-requested status rather than inferring work from every possible status or ticket level alone. **The producer/scheduler integration is still pending:** `GetGenerationFuture` does not automatically admit a producer yet, and the default Asteria DAG deliberately has no cross-column `HolderStatus` prerequisites while horizontal procedural reads are supplied by immutable generator fields. Do not create artificial resident dependencies to imitate Minecraft's terrain-field reads.
