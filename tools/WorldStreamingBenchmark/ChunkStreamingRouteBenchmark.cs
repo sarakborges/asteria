@@ -805,10 +805,22 @@ internal static class ChunkStreamingRouteBenchmark
         if (sharedWorkerPool is not null)
             arguments.Add(sharedWorkerPool);
 
+        // Keep one route harness compatible with both the historical
+        // baseline constructor and the current runtime, whose trailing worker
+        // pool and persistent-ticket dependencies are optional.
         var constructor = typeof(ChunkResidencyRuntime).GetConstructors()
             .Single(candidate =>
-                candidate.GetParameters().Length == arguments.Count);
-        return (ChunkResidencyRuntime)(constructor.Invoke(arguments.ToArray()) ??
+            {
+                var parameters = candidate.GetParameters();
+                return parameters.Length >= arguments.Count &&
+                    parameters.Skip(arguments.Count).All(parameter =>
+                        parameter.IsOptional);
+            });
+        var invocationArguments = arguments.ToList();
+        foreach (var parameter in constructor.GetParameters().Skip(arguments.Count))
+            invocationArguments.Add(parameter.DefaultValue);
+
+        return (ChunkResidencyRuntime)(constructor.Invoke(invocationArguments.ToArray()) ??
             throw new InvalidOperationException(
                 "Chunk residency constructor returned null."));
     }
