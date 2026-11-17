@@ -318,6 +318,8 @@ public sealed class ChunkMaterializationGenerationTaskTests
                 ? ChunkMaterializationStage.Complete
                 : _stage;
 
+        public ChunkMaterializationStage ActiveWorkStage => Stage;
+
         public bool IsComplete => AdvanceCount >= _sliceCount;
 
         public Chunk? Result { get; }

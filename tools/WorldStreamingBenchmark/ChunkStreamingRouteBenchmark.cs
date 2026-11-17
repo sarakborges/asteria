@@ -871,10 +871,27 @@ internal static class ChunkStreamingRouteBenchmark
             typeof(int),
             typeof(int),
             typeof(WorldGameRules),
+            typeof(int),
         ]);
         if (currentConstructor is not null)
         {
             return (ChunkResidencySettings)(currentConstructor.Invoke(
+                [maximumWorldWorkers, 2, rules, 4096]) ??
+                throw new InvalidOperationException(
+                    "Chunk residency settings constructor returned null."));
+        }
+
+        // Some intermediate candidates exposed the same three-argument
+        // constructor without the bounded loading-distance budget.
+        var legacyCurrentConstructor = settingsType.GetConstructor(
+        [
+            typeof(int),
+            typeof(int),
+            typeof(WorldGameRules),
+        ]);
+        if (legacyCurrentConstructor is not null)
+        {
+            return (ChunkResidencySettings)(legacyCurrentConstructor.Invoke(
                 [maximumWorldWorkers, 2, rules]) ??
                 throw new InvalidOperationException(
                     "Chunk residency settings constructor returned null."));
