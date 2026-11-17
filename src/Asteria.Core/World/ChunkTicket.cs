@@ -80,7 +80,7 @@ public static class ChunkLevel
             return ChunkGenerationStatus.Light;
         if (ticketLevel <= Terrain)
             return ChunkGenerationStatus.Terrain;
-        if (ticketLevel <= StructureStarts)
+        if (ticketLevel < Unloaded)
             return ChunkGenerationStatus.Biomes;
         return ChunkGenerationStatus.Unloaded;
     }
