@@ -1534,15 +1534,17 @@ Regression tests issue concurrent requests for one status and require every call
 
 Minecraft Java Edition 26.3 implements loading and simulation levels as `ChunkTracker` specializations of `DynamicGraphMinFixedPoint`. The base owns the current computed levels and a `LeveledPriorityQueue`; source changes enter through `ChunkTracker.update`, neighboring values are recalculated through `getComputedLevel` / `computeLevelFromNeighbor`, and work is drained through `runUpdates(count)`. `LoadingChunkTracker.runDistanceUpdates(int)` exposes the bounded pump. See the 26.3 [DynamicGraphMinFixedPoint API](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/world/level/lighting/dynamicgraphminfixedpoint), [ChunkTracker API](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/server/level/chunktracker), [LeveledPriorityQueue API](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/world/level/lighting/leveledpriorityqueue), and [LoadingChunkTracker API](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/server/level/loadingchunktracker).
 
-Asteria's `ChunkDistanceTracker` now uses the same min-plus neighbor propagation model and a deduplicated queue bucketed by effective level. A changed source recalculates only itself; each effective level transition recalculates its eight neighbors. Removing or weakening a source therefore propagates increases through the graph instead of clearing and rebuilding the complete affected square. Queue order is stable by level, then X/Z, preserving Asteria's deterministic scheduling requirement.
+Asteria's `ChunkDistanceTracker` now uses the same min-plus neighbor propagation model and a deduplicated queue bucketed by effective level. A changed source recalculates only itself; each effective level transition recalculates its eight neighbors. Removing or weakening a source therefore propagates increases through the graph instead of clearing and rebuilding the complete affected square. Each level bucket is FIFO, matching the insertion-ordered linked sets in Minecraft's `LeveledPriorityQueue`; level remains the primary priority.
 
-Ticket mutations now update the authoritative source set and enqueue
-affected columns. The runtime drains a bounded number of leveled updates per
-dispatch frame (default: 4,096); holder changes are published incrementally as
-the queue advances. Loading and simulation graphs share the budget so neither
-starves while both are active. A player-loading admission is not dispatched
-until its source level has reached the owning holder; unprocessed work remains
-queued for the next frame.
+Ticket mutations update the authoritative source set and enqueue affected
+columns. Each distance update phase follows the 26.3 order: simulation graph
+updates settle first, then the loading graph processes a bounded number of
+nodes per dispatch frame (default: 4,096), matching
+`SimulationChunkTracker.runAllUpdates()` followed by
+`LoadingChunkTracker.runDistanceUpdates(count)`. Holder changes are published
+incrementally as loading propagation advances. A player-loading admission is
+not dispatched until its source level has reached the owning holder;
+unprocessed loading work remains queued for the next frame.
 
 Regression coverage compares repeated source additions, removals and
 ticket-strength changes against a fresh full graph rebuild, verifies

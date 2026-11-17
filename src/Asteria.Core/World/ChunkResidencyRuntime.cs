@@ -9,20 +9,20 @@ public sealed class ChunkResidencySettings
         int maxConcurrentWorkers,
         int maxEvictionsPerFrame,
         WorldGameRules gameRules,
-        int maximumDistanceUpdatesPerFrame = 4096)
+        int maximumLoadingDistanceUpdatesPerFrame = 4096)
     {
         if (maxConcurrentWorkers <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxConcurrentWorkers));
         if (maxEvictionsPerFrame <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxEvictionsPerFrame));
-        if (maximumDistanceUpdatesPerFrame <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumDistanceUpdatesPerFrame));
+        if (maximumLoadingDistanceUpdatesPerFrame <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumLoadingDistanceUpdatesPerFrame));
 
         GameRules = gameRules ??
             throw new ArgumentNullException(nameof(gameRules));
         MaxConcurrentWorkers = maxConcurrentWorkers;
         MaxEvictionsPerFrame = maxEvictionsPerFrame;
-        MaximumDistanceUpdatesPerFrame = maximumDistanceUpdatesPerFrame;
+        MaximumLoadingDistanceUpdatesPerFrame = maximumLoadingDistanceUpdatesPerFrame;
     }
 
     /// <summary>
@@ -32,8 +32,8 @@ public sealed class ChunkResidencySettings
 
     public int MaxEvictionsPerFrame { get; }
 
-    /// <summary>Maximum loading/simulation distance-graph nodes processed by one dispatch frame.</summary>
-    public int MaximumDistanceUpdatesPerFrame { get; }
+    /// <summary>Maximum loading-graph nodes processed by one dispatch frame.</summary>
+    public int MaximumLoadingDistanceUpdatesPerFrame { get; }
 
     public WorldGameRules GameRules { get; }
 }
@@ -483,12 +483,12 @@ public sealed class ChunkResidencyRuntime
         _streaming.DistanceManager.PendingDistanceUpdateCount;
 
     /// <summary>
-    /// Advances ticket distance graphs within the caller's node budget and
-    /// finalizes holder unloads only after the loading graph has settled them.
+    /// Settles the simulation graph, advances bounded loading propagation, and
+    /// finalizes holder unloads after loading-level changes are published.
     /// </summary>
-    public int RunDistanceUpdates(int maximumUpdates)
+    public int RunDistanceUpdates(int maximumLoadingUpdates)
     {
-        var processed = _streaming.DistanceManager.RunDistanceUpdates(maximumUpdates);
+        var processed = _streaming.DistanceManager.RunDistanceUpdates(maximumLoadingUpdates);
         if (processed > 0)
             CompleteReadyPendingHolderUnloads();
         return processed;
@@ -1159,8 +1159,8 @@ public sealed class ChunkResidencyRuntime
         if (!_acceptingMaterializationWork)
             return ChunkResidencyUpdate.Empty;
 
-        var remainingDistanceUpdates = _settings.MaximumDistanceUpdatesPerFrame;
-        remainingDistanceUpdates -= RunDistanceUpdates(remainingDistanceUpdates);
+        var remainingLoadingUpdates = _settings.MaximumLoadingDistanceUpdatesPerFrame;
+        remainingLoadingUpdates -= RunDistanceUpdates(remainingLoadingUpdates);
 
         var activations = new List<ChunkResidencyActivation>();
         var failures = new List<ChunkMaterializationFailure>();
@@ -1188,10 +1188,10 @@ public sealed class ChunkResidencyRuntime
                     _world.LoadedChunkCoords);
 
             if (admitted && hasPlayerDemand && !hadPlayerLoadingTicket &&
-                remainingDistanceUpdates > 0)
+                remainingLoadingUpdates > 0)
             {
-                var processed = RunDistanceUpdates(remainingDistanceUpdates);
-                remainingDistanceUpdates -= processed;
+                var processed = RunDistanceUpdates(remainingLoadingUpdates);
+                remainingLoadingUpdates -= processed;
             }
 
             var sections = pendingSections

@@ -14,7 +14,6 @@ public sealed class ChunkDistanceManager
     private readonly ChunkHolderMap _holders;
     private readonly Dictionary<ChunkColumnCoord, int> _pendingLoadingSourceChanges = [];
     private readonly Dictionary<ChunkColumnCoord, int> _pendingSimulationSourceChanges = [];
-    private bool _preferLoadingGraphOnOddBudget = true;
 
     public ChunkDistanceManager()
     {
@@ -68,53 +67,24 @@ public sealed class ChunkDistanceManager
         _loading.PendingUpdateCount + _simulation.PendingUpdateCount;
 
     /// <summary>
-    /// Shares the node budget between loading and simulation graphs. Loading
-    /// receives the first odd node, then the extra node alternates so neither
-    /// graph starves while both remain active. Unprocessed nodes stay queued.
+    /// Mirrors the 26.3 graph phase order: simulation levels settle first,
+    /// then loading propagation is bounded by the caller's update budget.
+    /// The loading graph owns holder creation and status reconciliation.
     /// </summary>
-    public int RunDistanceUpdates(int maximumUpdates)
+    public int RunDistanceUpdates(int maximumLoadingUpdates)
     {
-        if (maximumUpdates < 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumUpdates));
+        if (maximumLoadingUpdates < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumLoadingUpdates));
 
-        var loadingBudget = maximumUpdates / 2;
-        var simulationBudget = maximumUpdates / 2;
-        if ((maximumUpdates & 1) != 0)
-        {
-            if (_preferLoadingGraphOnOddBudget)
-                loadingBudget++;
-            else
-                simulationBudget++;
-            _preferLoadingGraphOnOddBudget = !_preferLoadingGraphOnOddBudget;
-        }
+        _simulation.RunUpdates(int.MaxValue);
 
-        var loading = _loading.RunUpdates(loadingBudget);
+        var loading = _loading.RunUpdates(maximumLoadingUpdates);
         if (loading.Changes.Count > 0)
             SynchronizeHolders(loading.Changes);
 
-        var simulation = _simulation.RunUpdates(simulationBudget);
-        var processed = loading.ProcessedUpdates + simulation.ProcessedUpdates;
-        var remaining = maximumUpdates - processed;
-
-        // Reassign unused capacity when one graph has already settled. When
-        // both are active, the split above prevents simulation starvation.
-        if (remaining > 0)
-        {
-            if (_loading.PendingUpdateCount > 0 ||
-                _simulation.PendingUpdateCount == 0)
-            {
-                var additionalLoading = _loading.RunUpdates(remaining);
-                if (additionalLoading.Changes.Count > 0)
-                    SynchronizeHolders(additionalLoading.Changes);
-                processed += additionalLoading.ProcessedUpdates;
-            }
-            else
-            {
-                processed += _simulation.RunUpdates(remaining).ProcessedUpdates;
-            }
-        }
-
-        return processed;
+        // This count matches LoadingChunkTracker.runDistanceUpdates(count);
+        // simulation updates are intentionally drained as a separate phase.
+        return loading.ProcessedUpdates;
     }
 
     public IReadOnlyCollection<ChunkColumnCoord> PendingUnloadColumns =>

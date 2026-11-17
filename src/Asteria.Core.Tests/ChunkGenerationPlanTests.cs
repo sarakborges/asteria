@@ -761,7 +761,6 @@ public sealed class ChunkGenerationPlanTests
         var column = new ChunkColumnCoord(12, -7);
         Assert.True(manager.AddPlayerLoadingTicket(column));
         DrainDistanceUpdates(manager);
-        DrainDistanceUpdates(manager);
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
 
         using (var claim = manager.AcquireDependencyClaims(

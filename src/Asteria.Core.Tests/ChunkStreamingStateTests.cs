@@ -384,7 +384,7 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
-    public void LoadingAndSimulationGraphsBothProgressUnderAnOddSharedBudget()
+    public void SimulationGraphSettlesBeforeBoundedLoadingPropagation()
     {
         var manager = new ChunkDistanceManager();
         var loadingColumn = new ChunkColumnCoord(0, 0);
@@ -399,15 +399,42 @@ public sealed class ChunkStreamingStateTests
             currentTick: 0));
 
         Assert.Equal(1, manager.RunDistanceUpdates(1));
-        Assert.True(manager.LoadingTracker.PendingUpdateCount > 0);
-        Assert.Equal(1, manager.SimulationTracker.PendingUpdateCount);
-
-        Assert.Equal(1, manager.RunDistanceUpdates(1));
         Assert.Equal(
             ChunkLevel.EntityTicking,
             manager.GetSimulationLevel(simulationColumn));
-        Assert.True(manager.SimulationTracker.PendingUpdateCount > 0);
+        Assert.Equal(0, manager.SimulationTracker.PendingUpdateCount);
         Assert.True(manager.LoadingTracker.PendingUpdateCount > 0);
+
+        Assert.Equal(1, manager.RunDistanceUpdates(1));
+        Assert.Equal(0, manager.SimulationTracker.PendingUpdateCount);
+        Assert.True(manager.LoadingTracker.PendingUpdateCount > 0);
+    }
+
+    [Fact]
+    public void EqualPriorityDistanceUpdatesPreserveFifoEnqueueOrder()
+    {
+        var tracker = new ChunkDistanceTracker();
+        var tickets = new ChunkTicketStorage();
+        var source = new ChunkColumnCoord(0, 0);
+        tracker.Rebuild(
+            tickets,
+            ChunkTicketFlags.Loading,
+            ChunkLevel.MaximumLoading);
+
+        tracker.EnqueueSourceChanges(
+            [new KeyValuePair<ChunkColumnCoord, int>(
+                source, ChunkLevel.EntityTicking)],
+            ChunkLevel.MaximumLoading);
+
+        var sourceUpdate = tracker.RunUpdates(1);
+        Assert.Equal(1, sourceUpdate.ProcessedUpdates);
+        Assert.Equal(source, Assert.Single(sourceUpdate.Changes).Column);
+
+        var neighborUpdate = tracker.RunUpdates(1);
+        Assert.Equal(1, neighborUpdate.ProcessedUpdates);
+        Assert.Equal(
+            new ChunkColumnCoord(-1, -1),
+            Assert.Single(neighborUpdate.Changes).Column);
     }
 
     [Fact]

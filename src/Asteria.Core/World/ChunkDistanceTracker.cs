@@ -11,23 +11,16 @@ public readonly record struct ChunkDistanceUpdateBatch(
 
 /// <summary>
 /// Propagates the minimum ticket level outwards through the eight neighboring
-/// columns. The priority queue is ordered by level then coordinates, so graph
-/// results are deterministic regardless of dictionary enumeration order.
+/// columns. Pending nodes use level buckets with FIFO order within each level,
+/// matching the leveled linked-set queue used by Minecraft's distance tracker.
 /// </summary>
 public sealed class ChunkDistanceTracker
 {
-    private static readonly IComparer<ChunkColumnCoord> ColumnOrder =
-        Comparer<ChunkColumnCoord>.Create((left, right) =>
-        {
-            var result = left.X.CompareTo(right.X);
-            return result != 0 ? result : left.Z.CompareTo(right.Z);
-        });
-
     private readonly Dictionary<ChunkColumnCoord, int> _levels = [];
     private readonly Dictionary<ChunkColumnCoord, int> _sources = [];
     private readonly Dictionary<ChunkColumnCoord, PendingDistanceUpdate>
         _pendingUpdates = [];
-    private SortedSet<ChunkColumnCoord>[] _pendingByLevel = [];
+    private LinkedList<ChunkColumnCoord>[] _pendingByLevel = [];
     private int _firstPendingLevel;
 
     public int Count => _levels.Count;
@@ -55,6 +48,7 @@ public sealed class ChunkDistanceTracker
         _levels.Clear();
         _sources.Clear();
         _pendingUpdates.Clear();
+        _pendingByLevel = [];
         MaximumLevel = maximumLevel;
         ConfigurePendingQueue(maximumLevel);
         SynchronizeSources(tickets, graphFlag, maximumLevel);
@@ -158,6 +152,7 @@ public sealed class ChunkDistanceTracker
             _levels.Clear();
             _sources.Clear();
             _pendingUpdates.Clear();
+            _pendingByLevel = [];
             MaximumLevel = maximumLevel;
         }
         ConfigurePendingQueue(maximumLevel);
@@ -234,7 +229,7 @@ public sealed class ChunkDistanceTracker
                 "Cannot resize the distance queue while graph updates are pending.");
 
         _pendingByLevel = Enumerable.Range(0, maximumLevel + 1)
-            .Select(_ => new SortedSet<ChunkColumnCoord>(ColumnOrder))
+            .Select(_ => new LinkedList<ChunkColumnCoord>())
             .ToArray();
         _firstPendingLevel = maximumLevel + 1;
     }
@@ -256,14 +251,14 @@ public sealed class ChunkDistanceTracker
                 existing.PriorityLevel == priorityLevel)
                 return;
 
-            _pendingByLevel[existing.PriorityLevel].Remove(column);
+            _pendingByLevel[existing.PriorityLevel].Remove(existing.Node);
             _pendingUpdates.Remove(column);
         }
 
+        var node = _pendingByLevel[priorityLevel].AddLast(column);
         _pendingUpdates.Add(
             column,
-            new PendingDistanceUpdate(computedLevel, priorityLevel));
-        _pendingByLevel[priorityLevel].Add(column);
+            new PendingDistanceUpdate(computedLevel, priorityLevel, node));
         _firstPendingLevel = Math.Min(_firstPendingLevel, priorityLevel);
     }
 
@@ -271,7 +266,7 @@ public sealed class ChunkDistanceTracker
     {
         if (!_pendingUpdates.Remove(column, out var update))
             return;
-        _pendingByLevel[update.PriorityLevel].Remove(column);
+        _pendingByLevel[update.PriorityLevel].Remove(update.Node);
     }
 
     private ChunkDistanceUpdateBatch RunPendingUpdates(int maximumUpdates)
@@ -311,14 +306,15 @@ public sealed class ChunkDistanceTracker
         while (_firstPendingLevel < _pendingByLevel.Length)
         {
             var level = _pendingByLevel[_firstPendingLevel];
-            if (level.Count == 0)
+            var first = level.First;
+            if (first is null)
             {
                 _firstPendingLevel++;
                 continue;
             }
 
-            column = level.Min;
-            level.Remove(column);
+            column = first.Value;
+            level.RemoveFirst();
             if (!_pendingUpdates.Remove(column))
                 throw new InvalidOperationException(
                     $"Pending distance update lost its queue entry: {column}.");
@@ -374,7 +370,8 @@ public sealed class ChunkDistanceTracker
 
     private readonly record struct PendingDistanceUpdate(
         int ComputedLevel,
-        int PriorityLevel);
+        int PriorityLevel,
+        LinkedListNode<ChunkColumnCoord> Node);
 
     private static IReadOnlyList<ChunkDistanceLevelChange> CreateChanges(
         IReadOnlyDictionary<ChunkColumnCoord, int?> previous,

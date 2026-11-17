@@ -1310,7 +1310,7 @@ public sealed class ChunkResidencyRuntimeTests
                     maxConcurrentWorkers,
                     maxEvictionsPerFrame: 2,
                     gameRules: rules,
-                    maximumDistanceUpdatesPerFrame: 100_000));
+                    maximumLoadingDistanceUpdatesPerFrame: 100_000));
 
         return new RuntimeFixture(
             world,
