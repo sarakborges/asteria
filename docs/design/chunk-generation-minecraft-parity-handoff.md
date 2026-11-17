@@ -1566,7 +1566,7 @@ alter generation output.
 ## Synchronous materialization dependency advancement — 2026-11-17
 
 Synchronous materialization consumers now use
-`IChunkMaterializationJob.AdvanceDeepestPendingDependency()`. A composite
+`ChunkMaterializationJobExtensions.AdvanceDeepestPendingDependency()`. A composite
 materialization job can expose a lower-section support job through
 `PendingDependency`; its parent intentionally does no work until that child
 finishes. The dispatcher schedules the child independently in production, while

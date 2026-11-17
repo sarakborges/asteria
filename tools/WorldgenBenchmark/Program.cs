@@ -524,22 +524,25 @@ metrics.Add("initialAreaSynthesis", Measure(
             using (var job = generator.BeginMaterialization(coord))
             {
                 ChunkMaterializationStage? tracedStage = null;
+                ChunkCoord? tracedCoord = null;
                 var advancesInStage = 0;
                 while (!job.IsComplete)
                 {
                     var stage = job.ActiveWorkStage;
+                    var activeCoord = job.ActiveWorkCoord;
                     var stageIndex = (int)stage;
-                    if (tracedStage != stage)
+                    if (tracedStage != stage || tracedCoord != activeCoord)
                     {
                         tracedStage = stage;
+                        tracedCoord = activeCoord;
                         advancesInStage = 0;
                         TraceMaterializationProgress(
-                            $"initial-area-{invocation}", coord, stage, "enter", advancesInStage);
+                            $"initial-area-{invocation}", activeCoord, stage, "enter", advancesInStage);
                     }
                     else if (advancesInStage > 0 && advancesInStage % 65_536 == 0)
                     {
                         TraceMaterializationProgress(
-                            $"initial-area-{invocation}", coord, stage, "heartbeat", advancesInStage);
+                            $"initial-area-{invocation}", activeCoord, stage, "heartbeat", advancesInStage);
                     }
 
                     var stageStartedAt = Stopwatch.GetTimestamp();
@@ -553,17 +556,21 @@ metrics.Add("initialAreaSynthesis", Measure(
                     var nextStage = job.IsComplete
                         ? (ChunkMaterializationStage?)null
                         : job.ActiveWorkStage;
-                    if (job.IsComplete || nextStage != stage)
+                    var nextCoord = job.IsComplete
+                        ? (ChunkCoord?)null
+                        : job.ActiveWorkCoord;
+                    if (job.IsComplete || nextStage != stage || nextCoord != activeCoord)
                     {
                         TraceMaterializationProgress(
-                            $"initial-area-{invocation}", coord, stage, "exit",
+                            $"initial-area-{invocation}", activeCoord, stage, "exit",
                             advancesInStage, advanceMilliseconds, nextStage);
                         tracedStage = null;
+                        tracedCoord = null;
                     }
                     else if (advancesInStage % 65_536 == 0)
                     {
                         TraceMaterializationProgress(
-                            $"initial-area-{invocation}", coord, stage, "progress",
+                            $"initial-area-{invocation}", activeCoord, stage, "progress",
                             advancesInStage, advanceMilliseconds, nextStage);
                     }
                 }
@@ -758,22 +765,25 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
     {
         using var job = generator.BeginMaterialization(coord);
         ChunkMaterializationStage? tracedStage = null;
+        ChunkCoord? tracedCoord = null;
         var advancesInStage = 0;
         while (!job.IsComplete)
         {
             var stage = job.ActiveWorkStage;
+            var activeCoord = job.ActiveWorkCoord;
             var stageIndex = (int)stage;
-            if (tracedStage != stage)
+            if (tracedStage != stage || tracedCoord != activeCoord)
             {
                 tracedStage = stage;
+                tracedCoord = activeCoord;
                 advancesInStage = 0;
                 TraceMaterializationProgress(
-                    "stage-profile", coord, stage, "enter", advancesInStage);
+                    "stage-profile", activeCoord, stage, "enter", advancesInStage);
             }
             else if (advancesInStage > 0 && advancesInStage % 65_536 == 0)
             {
                 TraceMaterializationProgress(
-                    "stage-profile", coord, stage, "heartbeat", advancesInStage);
+                    "stage-profile", activeCoord, stage, "heartbeat", advancesInStage);
             }
 
             var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
@@ -784,17 +794,21 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
             var nextStage = job.IsComplete
                 ? (ChunkMaterializationStage?)null
                 : job.ActiveWorkStage;
-            if (job.IsComplete || nextStage != stage)
+            var nextCoord = job.IsComplete
+                ? (ChunkCoord?)null
+                : job.ActiveWorkCoord;
+            if (job.IsComplete || nextStage != stage || nextCoord != activeCoord)
             {
                 TraceMaterializationProgress(
-                    "stage-profile", coord, stage, "exit",
+                    "stage-profile", activeCoord, stage, "exit",
                     advancesInStage, advanceMilliseconds, nextStage);
                 tracedStage = null;
+                tracedCoord = null;
             }
             else if (advancesInStage % 65_536 == 0)
             {
                 TraceMaterializationProgress(
-                    "stage-profile", coord, stage, "progress",
+                    "stage-profile", activeCoord, stage, "progress",
                     advancesInStage, advanceMilliseconds, nextStage);
             }
             elapsedMsByStage[stageIndex] += advanceMilliseconds;

@@ -5,6 +5,24 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMaterializationGenerationTaskTests
 {
     [Fact]
+    public void SynchronousAdvancementDescendsIntoThePendingDependency()
+    {
+        var dependency = new FakeMaterializationJob(
+            sliceCount: 2,
+            stage: ChunkMaterializationStage.TerrainSetup);
+        var parent = new DependentMaterializationJob(dependency);
+
+        Assert.Equal(dependency.Coord, parent.ActiveWorkCoord);
+        Assert.Equal(dependency.ActiveWorkStage, parent.ActiveWorkStage);
+
+        while (!parent.IsComplete)
+            parent.AdvanceDeepestPendingDependency();
+
+        Assert.Equal(2, dependency.AdvanceCount);
+        Assert.Equal(1, parent.AdvanceCount);
+    }
+
+    [Fact]
     public void WorkerForkAdvancesExactlyOneTerrainQuantum()
     {
         var job = new FakeMaterializationJob(sliceCount: 100);
@@ -239,6 +257,43 @@ public sealed class ChunkMaterializationGenerationTaskTests
             operation.DependencyId,
             result);
         return task.Advance([completion], CancellationToken.None);
+    }
+
+    private sealed class DependentMaterializationJob(
+        IChunkMaterializationJob dependency) : IChunkMaterializationJob
+    {
+        private int _advanceCount;
+
+        public ChunkCoord Coord { get; } = new(2, 2, -3);
+
+        public ChunkMaterializationStage Stage =>
+            ChunkMaterializationStage.GravitySupport;
+
+        public ChunkCoord ActiveWorkCoord =>
+            PendingDependency?.ActiveWorkCoord ?? Coord;
+
+        public ChunkMaterializationStage ActiveWorkStage =>
+            PendingDependency?.ActiveWorkStage ?? Stage;
+
+        public IChunkMaterializationJob? PendingDependency =>
+            dependency.IsComplete ? null : dependency;
+
+        public bool IsComplete => dependency.IsComplete && _advanceCount > 0;
+
+        public Chunk? Result => IsComplete ? dependency.Result : null;
+
+        public int AdvanceCount => _advanceCount;
+
+        public void Advance()
+        {
+            if (PendingDependency is not null)
+                throw new InvalidOperationException("Cannot advance a parent with a pending dependency.");
+            if (IsComplete)
+                throw new InvalidOperationException("already complete");
+            _advanceCount++;
+        }
+
+        public void Dispose() => dependency.Dispose();
     }
 
     private sealed class FakeMaterializationJob : IChunkMaterializationJob
