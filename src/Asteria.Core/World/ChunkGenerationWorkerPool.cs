@@ -83,9 +83,6 @@ public sealed class ChunkGenerationWorkerPool : IAsyncDisposable
 
     public int WorkerCount => _workerPool.WorkerCount;
 
-    public int AvailableWorkerSlots =>
-        Math.Max(0, _workerPool.WorkerCount - _workerPool.InFlightWorkCount);
-
     public int PendingWorkCount => Volatile.Read(ref _pendingWorkCount);
 
     public int ActiveWorkerCount => Volatile.Read(ref _activeWorkerCount);

@@ -274,16 +274,13 @@ public sealed class ChunkGenerationDispatcher
                 budget, out var staleCompletions,
                 out var dependencyTasksFailed, out var tasksCancelled);
 
-            // Resume already-waiting generation forks first, then use any
-            // remaining physical capacity for independent task advances.
+            // Resume already-waiting generation forks first. Then admit a
+            // bounded number of independent task advances into the same
+            // priority queue; the shared pool still caps physical concurrency.
             var workerStarts = DispatchPendingWorkerOperations(
-                budget,
-                Math.Min(maximumWorkerStarts, _workerPool.AvailableWorkerSlots));
+                budget, maximumStarts: maximumWorkerStarts);
             var tasksAdvanced = ScheduleReadyTaskAdvance(
-                budget,
-                Math.Min(
-                    maximumWorkerStarts - workerStarts,
-                    _workerPool.AvailableWorkerSlots));
+                budget, maximumWorkerStarts - workerStarts);
             workerStarts += tasksAdvanced;
 
             return new ChunkGenerationDispatchReport(
