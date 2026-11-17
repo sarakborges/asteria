@@ -112,7 +112,7 @@ internal sealed class ChunkColumnPendingQueue
             Count++;
             if (!_columns.UpdatePriority(
                     Key(column),
-                    CalculatePriority(column, existing.Values)))
+                    CalculatePriority(column)))
             {
                 throw new InvalidOperationException(
                     $"Pending column is missing from its priority index: {column}");
