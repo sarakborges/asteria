@@ -1561,3 +1561,15 @@ baseline/candidate logs and applies a 15-minute process timeout to each
 WorldgenBenchmark and WorldStreamingBenchmark invocation. This is diagnostic
 only: the environment variable is unset for ordinary gameplay and does not
 alter generation output.
+
+
+## Synchronous materialization dependency advancement — 2026-11-17
+
+Synchronous materialization consumers now use
+`IChunkMaterializationJob.AdvanceDeepestPendingDependency()`. A composite
+materialization job can expose a lower-section support job through
+`PendingDependency`; its parent intentionally does no work until that child
+finishes. The dispatcher schedules the child independently in production, while
+synchronous consumers must descend to and advance the leaf job. Calling
+`Advance()` on the suspended parent repeatedly is a no-op and can otherwise
+produce an unbounded benchmark loop.

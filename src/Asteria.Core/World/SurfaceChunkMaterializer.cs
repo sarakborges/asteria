@@ -312,7 +312,7 @@ public sealed partial class SurfaceChunkMaterializer
     {
         using var job = BeginMaterialization(coord);
         while (!job.IsComplete)
-            AdvanceDeepestPendingDependency(job);
+            job.AdvanceDeepestPendingDependency();
 
         return job.Result ??
             throw new InvalidOperationException(
@@ -321,19 +321,6 @@ public sealed partial class SurfaceChunkMaterializer
 
     public IChunkMaterializationJob BeginMaterialization(ChunkCoord coord) =>
         new MaterializationJob(this, coord);
-
-    // Compatibility path for callers that request one synchronous Chunk.
-    // The production residency path does not use this helper: its generation
-    // task suspends on PendingDependency and admits the child through the
-    // shared dispatcher.
-    private static void AdvanceDeepestPendingDependency(
-        IChunkMaterializationJob root)
-    {
-        var current = root;
-        while (current.PendingDependency is { IsComplete: false } dependency)
-            current = dependency;
-        current.Advance();
-    }
 
     private void Advance(MaterializationJob job)
     {

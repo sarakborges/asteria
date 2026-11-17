@@ -543,7 +543,7 @@ metrics.Add("initialAreaSynthesis", Measure(
                     }
 
                     var stageStartedAt = Stopwatch.GetTimestamp();
-                    job.Advance();
+                    job.AdvanceDeepestPendingDependency();
                     var advanceMilliseconds =
                         Stopwatch.GetElapsedTime(stageStartedAt).TotalMilliseconds;
                     stageElapsedMilliseconds[stageIndex] += advanceMilliseconds;
@@ -778,7 +778,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
 
             var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
             var startedAt = Stopwatch.GetTimestamp();
-            job.Advance();
+            job.AdvanceDeepestPendingDependency();
             var advanceMilliseconds = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
             advancesInStage++;
             var nextStage = job.IsComplete
@@ -1382,7 +1382,7 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
                 {
                     var beforeBytes = GC.GetAllocatedBytesForCurrentThread();
                     var startedAt = Stopwatch.GetTimestamp();
-                    job.Advance();
+                    job.AdvanceDeepestPendingDependency();
                     terrainLayerMilliseconds +=
                         Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
                     terrainLayerAllocatedBytes +=
@@ -1390,7 +1390,7 @@ object CaptureTerrainLayerGeologyModeDiagnostics()
                 }
                 else
                 {
-                    job.Advance();
+                    job.AdvanceDeepestPendingDependency();
                 }
             }
 

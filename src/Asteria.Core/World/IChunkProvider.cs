@@ -144,6 +144,26 @@ public interface IChunkMaterializationJob : IDisposable
 /// Allows a materialization job to consume a completed sibling-section result
 /// instead of running a duplicate support-only materialization job.
 /// </summary>
+/// <summary>
+/// Synchronously advances the leaf job in a composite materialization chain.
+/// The world-generation dispatcher uses the same PendingDependency contract
+/// to schedule these jobs separately; synchronous consumers must advance the
+/// deepest pending child rather than repeatedly advancing a suspended parent.
+/// </summary>
+public static class ChunkMaterializationJobExtensions
+{
+    public static void AdvanceDeepestPendingDependency(
+        this IChunkMaterializationJob root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        var current = root;
+        while (current.PendingDependency is { IsComplete: false } dependency)
+            current = dependency;
+
+        current.Advance();
+    }
+}
+
 public interface IChunkMaterializationDependencyReceiver
 {
     void ResolveDependency(ChunkCoord dependencyCoord, Chunk completedChunk);
