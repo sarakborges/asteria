@@ -68,9 +68,9 @@ public sealed class ChunkDistanceManager
         _loading.PendingUpdateCount + _simulation.PendingUpdateCount;
 
     /// <summary>
-    /// Runs the loading graph first because it controls holder admission and
-    /// generation priority, then spends any remaining budget on simulation
-    /// eligibility. Unprocessed nodes remain queued for the next frame.
+    /// Shares the node budget between loading and simulation graphs. Loading
+    /// receives the first odd node, then the extra node alternates so neither
+    /// graph starves while both remain active. Unprocessed nodes stay queued.
     /// </summary>
     public int RunDistanceUpdates(int maximumUpdates)
     {

@@ -384,6 +384,33 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void LoadingAndSimulationGraphsBothProgressUnderAnOddSharedBudget()
+    {
+        var manager = new ChunkDistanceManager();
+        var loadingColumn = new ChunkColumnCoord(0, 0);
+        var simulationColumn = new ChunkColumnCoord(100, -100);
+
+        Assert.True(manager.AddPlayerLoadingTicket(loadingColumn));
+        Assert.True(manager.AddTicket(
+            simulationColumn,
+            new ChunkTicket(
+                ChunkTicketType.PlayerSimulation,
+                ChunkLevel.EntityTicking),
+            currentTick: 0));
+
+        Assert.Equal(1, manager.RunDistanceUpdates(1));
+        Assert.True(manager.LoadingTracker.PendingUpdateCount > 0);
+        Assert.Equal(1, manager.SimulationTracker.PendingUpdateCount);
+
+        Assert.Equal(1, manager.RunDistanceUpdates(1));
+        Assert.Equal(
+            ChunkLevel.EntityTicking,
+            manager.GetSimulationLevel(simulationColumn));
+        Assert.True(manager.SimulationTracker.PendingUpdateCount > 0);
+        Assert.True(manager.LoadingTracker.PendingUpdateCount > 0);
+    }
+
+    [Fact]
     public void TicketDistancePropagationRespectsNodeBudgetAndConvergesToFullRebuild()
     {
         var manager = new ChunkDistanceManager();
