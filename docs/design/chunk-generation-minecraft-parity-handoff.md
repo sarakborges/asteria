@@ -1482,3 +1482,20 @@ A regression test requests Biomes, verifies the materializer does not advance be
 ### Target-promotion test assertion clarification
 
 The first target-promotion test run compiled and reached 1,904/1,905 passing. The only mismatch was test instrumentation: the helper counts one LightExecutor operation and the injected lighting initializer independently incremented the same counter, so one correctly scheduled operation produced a count of two. The test now tracks those two distinct facts separately and asserts one of each.
+
+
+## Holder-owned generation task identity — 2026-11-16
+
+Minecraft Java Edition 26.3's `GenerationChunkHolder` owns one active `ChunkGenerationTask` reference. `scheduleChunkGenerationTask` admits work against the holder's ticket-derived ceiling; `removeTask` clears that reference only for the task being retired. A ticket-level change updates the ceiling and the generation scheduler retires work whose target is no longer permitted. See the 26.3 [GenerationChunkHolder API](https://aldak.netlify.app/javadoc/26.3.x/net/minecraft/server/level/generationchunkholder) and [chunk generation pipeline](https://minecraftdocs.dev/systems/world/chunk-generation-pipeline).
+
+Asteria now mirrors the holder ownership boundary for its column-scoped `SectionReady` task:
+
+- `GenerationChunkHolder` stores the active `ChunkGenerationTaskInstance` and its admitted target status.
+- Admission validates that the task belongs to that holder, is the column-level generation lane, and does not exceed `HighestAllowedGenerationStatus`.
+- The runtime registers the task before dispatcher admission and rolls that registration back if the dispatcher rejects it.
+- Terminal collection removes holder ownership using the exact task generation. A stale result cannot clear a newer retry.
+- When a settled ticket update lowers the holder ceiling below the active task target, the runtime cancels that task. Its holder reference remains until the dispatcher drains and publishes the terminal outcome.
+
+`_materializationTasks` remains runtime bookkeeping for pending timestamps, section sets, dependency claims and result publication; the authoritative active-task identity now lives on the holder, as in Minecraft.
+
+**Remaining boundary:** the default Asteria generation DAG deliberately has no cross-column `HolderStatus` dependency because horizontal terrain/biome/structure reads use immutable generator fields. Consequently, no neighboring holder needs an earlier generation task today. Full future-driven producer scheduling and rescheduling to the highest still-requested status remain unimplemented; do not create artificial resident dependencies merely to imitate Minecraft's 2D chunk terrain reads.

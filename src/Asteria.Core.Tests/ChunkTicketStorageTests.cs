@@ -282,6 +282,76 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void HolderOwnsOneColumnGenerationTaskAndIgnoresStaleRemoval()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(6, -3);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        var key = new ChunkGenerationTaskKey(
+            column, ChunkGenerationStepId.SectionReady);
+        var first = new ChunkGenerationTaskInstance(key, Generation: 1);
+        var replacement = new ChunkGenerationTaskInstance(key, Generation: 2);
+
+        Assert.True(holder.TryRegisterGenerationTask(
+            first, ChunkGenerationStatus.Full));
+        Assert.Equal(first, holder.GenerationTask);
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            holder.GenerationTaskTargetStatus);
+
+        Assert.False(holder.TryRegisterGenerationTask(
+            replacement, ChunkGenerationStatus.Full));
+        Assert.False(holder.RemoveGenerationTask(replacement));
+        Assert.Equal(first, holder.GenerationTask);
+
+        Assert.True(holder.RemoveGenerationTask(first));
+        Assert.Null(holder.GenerationTask);
+        Assert.Null(holder.GenerationTaskTargetStatus);
+
+        Assert.True(holder.TryRegisterGenerationTask(
+            replacement, ChunkGenerationStatus.Full));
+        Assert.Equal(replacement, holder.GenerationTask);
+    }
+
+    [Fact]
+    public void HolderRejectsGenerationTaskFromAnotherColumnOrExecutionLane()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(2, 9);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+
+        var otherColumnTask = new ChunkGenerationTaskInstance(
+            new ChunkGenerationTaskKey(
+                new ChunkColumnCoord(3, 9),
+                ChunkGenerationStepId.SectionReady),
+            Generation: 1);
+        var sectionTask = new ChunkGenerationTaskInstance(
+            new ChunkGenerationTaskKey(
+                column,
+                ChunkGenerationStepId.SectionReady,
+                sectionY: 4),
+            Generation: 2);
+        var auxiliaryTask = new ChunkGenerationTaskInstance(
+            new ChunkGenerationTaskKey(
+                column,
+                ChunkGenerationStepId.InitialLighting),
+            Generation: 3);
+
+        Assert.Throws<ArgumentException>(() =>
+            holder.TryRegisterGenerationTask(
+                otherColumnTask, ChunkGenerationStatus.Full));
+        Assert.Throws<ArgumentException>(() =>
+            holder.TryRegisterGenerationTask(
+                sectionTask, ChunkGenerationStatus.Full));
+        Assert.Throws<ArgumentException>(() =>
+            holder.TryRegisterGenerationTask(
+                auxiliaryTask, ChunkGenerationStatus.Full));
+        Assert.Null(holder.GenerationTask);
+    }
+
+    [Fact]
     public void DependencyClaimReleasedAfterTicketArrivalKeepsHolder()
     {
         var manager = new ChunkDistanceManager();

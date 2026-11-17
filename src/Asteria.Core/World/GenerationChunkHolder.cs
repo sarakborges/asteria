@@ -178,6 +178,9 @@ public abstract class GenerationChunkHolder
         CreateGenerationFutures();
     private readonly Dictionary<ChunkCoord, ChunkSectionGenerationProgressState>
         _sectionGenerationProgress = [];
+    private ChunkGenerationTaskInstance? _generationTask;
+    private ChunkGenerationStatus _generationTaskTargetStatus =
+        ChunkGenerationStatus.Unloaded;
 
     protected GenerationChunkHolder(
         ChunkColumnCoord position,
@@ -216,6 +219,17 @@ public abstract class GenerationChunkHolder
 
     public ChunkGenerationStatus HighestAllowedGenerationStatus { get; private set; }
 
+    /// <summary>
+    /// The one active column-generation task owned by this holder, matching
+    /// Minecraft 26.3 GenerationChunkHolder.task. Auxiliary lighting and
+    /// reconciliation operations are not generation tasks owned here.
+    /// </summary>
+    public ChunkGenerationTaskInstance? GenerationTask => _generationTask;
+
+    /// <summary>Immutable target captured when the active generation task was admitted.</summary>
+    public ChunkGenerationStatus? GenerationTaskTargetStatus =>
+        _generationTask is null ? null : _generationTaskTargetStatus;
+
     public ChunkGenerationStatus CompletedGenerationStatus { get; private set; }
 
     /// <summary>
@@ -242,6 +256,52 @@ public abstract class GenerationChunkHolder
         ReconcileGenerationFutures();
         foreach (var section in _sectionGenerationProgress.Values)
             section.Reconcile(HighestAllowedGenerationStatus, TicketLevel);
+        return true;
+    }
+
+    /// <summary>
+    /// Registers the sole active, column-scoped generation task. The holder
+    /// rejects tasks outside its column, section-scoped/auxiliary tasks, work
+    /// above its ticket-derived ceiling, and concurrent replacement tasks.
+    /// </summary>
+    public bool TryRegisterGenerationTask(
+        ChunkGenerationTaskInstance task,
+        ChunkGenerationStatus targetStatus)
+    {
+        task.Validate();
+        if (task.Key.Column != Position ||
+            task.Key.TargetStep != ChunkGenerationStepId.SectionReady ||
+            task.Key.SectionY is not null)
+            throw new ArgumentException(
+                "A holder can own only its column-scoped SectionReady generation task.",
+                nameof(task));
+
+        ValidateGenerationStatus(targetStatus);
+        if (targetStatus > HighestAllowedGenerationStatus ||
+            _generationTask is not null)
+            return false;
+
+        _generationTask = task;
+        _generationTaskTargetStatus = targetStatus;
+        return true;
+    }
+
+    /// <summary>
+    /// Releases the active task only when the exact execution identity matches.
+    /// A late completion from a retired generation cannot clear its replacement.
+    /// </summary>
+    public bool RemoveGenerationTask(ChunkGenerationTaskInstance task)
+    {
+        task.Validate();
+        if (task.Key.Column != Position)
+            throw new ArgumentException(
+                "Generation task belongs to a different holder column.",
+                nameof(task));
+        if (_generationTask != task)
+            return false;
+
+        _generationTask = null;
+        _generationTaskTargetStatus = ChunkGenerationStatus.Unloaded;
         return true;
     }
 

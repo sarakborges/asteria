@@ -419,7 +419,8 @@ public sealed class ChunkResidencyRuntime
         // collects a detached task-advance result. Ignore progress from a
         // materialization batch whose required vertical-section set changed
         // after it was admitted.
-        if (!_materializationTasks.TryGetValue(task.Key.Column, out var work) ||
+        if (_streaming.DistanceManager.GetHolder(task.Key.Column)?.GenerationTask != task ||
+            !_materializationTasks.TryGetValue(task.Key.Column, out var work) ||
             work.Generation != task.Generation ||
             work.HolderProgressRevision !=
                 _streaming.DistanceManager.GetGenerationProgressRevision(task.Key.Column))
@@ -438,6 +439,7 @@ public sealed class ChunkResidencyRuntime
         // exact vertical coordinate. Publish only while this section remains
         // part of the same admitted generation revision.
         if (ChunkColumnCoord.FromChunk(section) != task.Key.Column ||
+            _streaming.DistanceManager.GetHolder(task.Key.Column)?.GenerationTask != task ||
             !_materializationTasks.TryGetValue(task.Key.Column, out var work) ||
             work.Generation != task.Generation ||
             work.HolderProgressRevision !=
@@ -862,6 +864,13 @@ public sealed class ChunkResidencyRuntime
             work.Generation != outcome.Task.Generation)
             return;
 
+        var holder = _streaming.DistanceManager.GetHolder(column) ??
+            throw new InvalidOperationException(
+                $"Generation holder disappeared before its task was retired: {column}.");
+        if (!holder.RemoveGenerationTask(outcome.Task))
+            throw new InvalidOperationException(
+                $"Terminal generation outcome does not own the holder task: {outcome.Task}.");
+
         _materializationTasks.Remove(column);
         if (outcome.Kind is ChunkGenerationTaskOutcomeKind.Cancelled or
             ChunkGenerationTaskOutcomeKind.Failed)
@@ -1281,6 +1290,20 @@ public sealed class ChunkResidencyRuntime
                 var dependencyClaims = _streaming.DistanceManager.AcquireDependencyClaims(
                     taskSections,
                     AsteriaChunkLoadingPlan.FullSectionDependencyEnvelope);
+                var taskInstance = new ChunkGenerationTaskInstance(taskKey, generation);
+                var holder = _streaming.DistanceManager.GetHolder(column) ??
+                    throw new InvalidOperationException(
+                        $"A FULL generation request has no owning chunk holder: {column}.");
+                if (!holder.TryRegisterGenerationTask(
+                        taskInstance, generationTask.TargetStatus))
+                {
+                    dependencyClaims.Dispose();
+                    generationTask.Dispose();
+                    throw new InvalidOperationException(
+                        $"Chunk holder already owns a generation task or its ticket ceiling " +
+                        $"does not permit {generationTask.TargetStatus}: {column}.");
+                }
+
                 var work = new MaterializationWork(
                     taskKey,
                     generation,
@@ -1302,6 +1325,9 @@ public sealed class ChunkResidencyRuntime
                         generationTask))
                 {
                     _materializationTasks.Remove(column);
+                    if (!holder.RemoveGenerationTask(taskInstance))
+                        throw new InvalidOperationException(
+                            $"Could not release rejected generation task ownership: {taskInstance}.");
                     work.DependencyClaims.Dispose();
                     generationTask.Dispose();
                     foreach (var coord in taskSections)
@@ -1509,6 +1535,15 @@ public sealed class ChunkResidencyRuntime
     {
         if (changes.Count == 0)
             return;
+
+        foreach (var change in changes)
+        {
+            var holder = change.Holder;
+            if (holder.GenerationTask is { } task &&
+                holder.GenerationTaskTargetStatus is { } targetStatus &&
+                targetStatus > holder.HighestAllowedGenerationStatus)
+                _generationDispatcher.TryCancel(task.Key);
+        }
 
         var changedColumns = changes
             .Select(change => change.Holder.Position)
