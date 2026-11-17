@@ -14,6 +14,7 @@ public sealed class ChunkDistanceManager
     private readonly ChunkHolderMap _holders;
     private readonly Dictionary<ChunkColumnCoord, int> _pendingLoadingSourceChanges = [];
     private readonly Dictionary<ChunkColumnCoord, int> _pendingSimulationSourceChanges = [];
+    private bool _preferLoadingGraphOnOddBudget = true;
 
     public ChunkDistanceManager()
     {
@@ -76,13 +77,44 @@ public sealed class ChunkDistanceManager
         if (maximumUpdates < 0)
             throw new ArgumentOutOfRangeException(nameof(maximumUpdates));
 
-        var loading = _loading.RunUpdates(maximumUpdates);
+        var loadingBudget = maximumUpdates / 2;
+        var simulationBudget = maximumUpdates / 2;
+        if ((maximumUpdates & 1) != 0)
+        {
+            if (_preferLoadingGraphOnOddBudget)
+                loadingBudget++;
+            else
+                simulationBudget++;
+            _preferLoadingGraphOnOddBudget = !_preferLoadingGraphOnOddBudget;
+        }
+
+        var loading = _loading.RunUpdates(loadingBudget);
         if (loading.Changes.Count > 0)
             SynchronizeHolders(loading.Changes);
 
-        var remaining = maximumUpdates - loading.ProcessedUpdates;
-        var simulation = _simulation.RunUpdates(remaining);
-        return loading.ProcessedUpdates + simulation.ProcessedUpdates;
+        var simulation = _simulation.RunUpdates(simulationBudget);
+        var processed = loading.ProcessedUpdates + simulation.ProcessedUpdates;
+        var remaining = maximumUpdates - processed;
+
+        // Reassign unused capacity when one graph has already settled. When
+        // both are active, the split above prevents simulation starvation.
+        if (remaining > 0)
+        {
+            if (_loading.PendingUpdateCount > 0 ||
+                _simulation.PendingUpdateCount == 0)
+            {
+                var additionalLoading = _loading.RunUpdates(remaining);
+                if (additionalLoading.Changes.Count > 0)
+                    SynchronizeHolders(additionalLoading.Changes);
+                processed += additionalLoading.ProcessedUpdates;
+            }
+            else
+            {
+                processed += _simulation.RunUpdates(remaining).ProcessedUpdates;
+            }
+        }
+
+        return processed;
     }
 
     public IReadOnlyCollection<ChunkColumnCoord> PendingUnloadColumns =>

@@ -1536,16 +1536,15 @@ Minecraft Java Edition 26.3 implements loading and simulation levels as `ChunkTr
 
 Asteria's `ChunkDistanceTracker` now uses the same min-plus neighbor propagation model and a deduplicated queue bucketed by effective level. A changed source recalculates only itself; each effective level transition recalculates its eight neighbors. Removing or weakening a source therefore propagates increases through the graph instead of clearing and rebuilding the complete affected square. Queue order is stable by level, then X/Z, preserving Asteria's deterministic scheduling requirement.
 
-The public ticket-mutation path still drains the queue to quiescence before publishing holder changes, preserving its existing synchronous contract. A separate bounded per-tick pump corresponding to `LoadingChunkTracker.runDistanceUpdates(count)` remains an integration step; this commit replaces the bespoke affected-region rebuild without changing when holder changes become visible.
+Ticket mutations now update the authoritative source set and enqueue
+affected columns. The runtime drains a bounded number of leveled updates per
+dispatch frame (default: 4,096); holder changes are published incrementally as
+the queue advances. Loading and simulation graphs share the budget so neither
+starves while both are active. A player-loading admission is not dispatched
+until its source level has reached the owning holder; unprocessed work remains
+queued for the next frame.
 
-Regression coverage compares repeated source additions, removals and ticket-strength changes against a fresh full graph rebuild, and verifies source-batch order cannot change settled results.
-
-
-## Bounded ticket-distance propagation
-
-The loading and simulation graphs now separate ticket-source mutation from
-graph propagation. Ticket events enqueue affected columns; the runtime drains a
-bounded number of leveled updates per dispatch frame (default: 4,096). Loading
-updates are applied before simulation updates because they own holder admission
-and generation ceilings. A player-loading admission is not dispatched until its
-source level has reached the owning holder; any remaining work stays queued.
+Regression coverage compares repeated source additions, removals and
+ticket-strength changes against a fresh full graph rebuild, verifies
+source-batch order independence, and checks that bounded batches converge to
+the same settled graph.
