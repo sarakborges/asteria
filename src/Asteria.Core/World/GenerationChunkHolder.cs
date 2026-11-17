@@ -353,6 +353,34 @@ public abstract class GenerationChunkHolder
     }
 
     /// <summary>
+    /// Updates the target recorded by the holder after its column task has
+    /// accepted an in-place upgrade. The stronger target must remain within
+    /// the current ticket ceiling and have its lazy status future registered.
+    /// </summary>
+    public bool TryUpgradeGenerationTaskTargetStatus(
+        ChunkGenerationTaskInstance task,
+        ChunkGenerationStatus targetStatus)
+    {
+        task.Validate();
+        ValidateGenerationStatus(targetStatus);
+        lock (_stateGate)
+        {
+            if (_generationTask != task ||
+                targetStatus <= _generationTaskTargetStatus ||
+                targetStatus > HighestAllowedGenerationStatus)
+                return false;
+
+            var targetFuture = GetOrCreateGenerationFuture(targetStatus);
+            if (targetFuture.Task.IsCompletedSuccessfully &&
+                targetFuture.Task.Result.Succeeded)
+                return false;
+
+            _generationTaskTargetStatus = targetStatus;
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Releases the active task only when the exact execution identity matches.
     /// A late completion from a retired generation cannot clear its replacement.
     /// </summary>

@@ -8,6 +8,49 @@ public sealed class ChunkTicketStorageTests
         manager.RunDistanceUpdates(int.MaxValue);
 
     [Fact]
+    public void GenerationTargetsIncludeIntermediateStatusesAndCollapseToStrongestTicket()
+    {
+        var storage = new ChunkTicketStorage();
+        var column = new ChunkColumnCoord(7, -4);
+        var section = new ChunkCoord(7, 3, -4);
+        var firstStatus = ChunkLevel.GetGenerationStatus(ChunkLevel.Full + 1);
+        var strongerStatus = ChunkLevel.GetGenerationStatus(ChunkLevel.Full + 2);
+
+        Assert.NotEqual(ChunkGenerationStatus.Unloaded, firstStatus);
+        Assert.NotEqual(ChunkGenerationStatus.Unloaded, strongerStatus);
+        Assert.True(storage.AddTicket(
+            column,
+            new ChunkTicket(
+                ChunkTicketType.SpawnSearch,
+                ChunkLevel.Full + 1,
+                SectionY: section.Y)));
+        Assert.True(storage.AddTicket(
+            column,
+            new ChunkTicket(
+                ChunkTicketType.Unknown,
+                ChunkLevel.Full + 2,
+                SectionY: section.Y)));
+
+        var partial = Assert.Single(storage.GenerationMaterializationTargets);
+        Assert.Equal(section, partial.Section);
+        Assert.Equal(
+            firstStatus > strongerStatus ? firstStatus : strongerStatus,
+            partial.Status);
+        Assert.Empty(storage.FullMaterializationTargets);
+
+        Assert.True(storage.AddTicket(
+            column,
+            new ChunkTicket(
+                ChunkTicketType.PlayerSpawn,
+                ChunkLevel.Full,
+                SectionY: section.Y)));
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            Assert.Single(storage.GenerationMaterializationTargets).Status);
+        Assert.Equal(section, Assert.Single(storage.FullMaterializationTargets));
+    }
+
+    [Fact]
     public void TicketFlagsAndLifetimesMatchMinecraft263Definitions()
     {
         AssertTicket(

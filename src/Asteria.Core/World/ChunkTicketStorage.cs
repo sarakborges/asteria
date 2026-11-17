@@ -1,6 +1,14 @@
 namespace Asteria.Core.World;
 
 /// <summary>
+/// One exact vertical section requested by a loading ticket and the highest
+/// generation status that the ticket permits at that section.
+/// </summary>
+public readonly record struct ChunkTicketGenerationTarget(
+    ChunkCoord Section,
+    ChunkGenerationStatus Status);
+
+/// <summary>
 /// Authoritative set of ticket reasons per horizontal chunk column.
 /// The 2D ticket identity (type, level) is extended with SectionY so one
 /// Sphere column can retain independent requests at distinct vertical sections.
@@ -36,22 +44,47 @@ public sealed class ChunkTicketStorage
             entry.Value.Select(ticket => (entry.Key, ticket)));
 
     /// <summary>
-    /// Exact vertical targets whose loading tickets permit FULL materialization.
-    /// Distance propagation remains keyed by the horizontal X/Z column.
+    /// Exact vertical targets requested by loading tickets. A horizontal
+    /// holder can request an intermediate status before it becomes FULL;
+    /// multiple tickets for one section collapse to their strongest status.
     /// </summary>
+    public IReadOnlyList<ChunkTicketGenerationTarget> GenerationMaterializationTargets
+    {
+        get
+        {
+            var targets = new Dictionary<ChunkCoord, ChunkGenerationStatus>();
+            foreach (var (column, tickets) in _tickets)
+            foreach (var ticket in tickets)
+            {
+                if (ticket.SectionY is not { } sectionY ||
+                    (ticket.Flags & ChunkTicketFlags.Loading) == 0)
+                    continue;
+
+                var status = ChunkLevel.GetGenerationStatus(ticket.Level);
+                if (status == ChunkGenerationStatus.Unloaded)
+                    continue;
+
+                var section = new ChunkCoord(column.X, sectionY, column.Z);
+                if (!targets.TryGetValue(section, out var previous) ||
+                    status > previous)
+                    targets[section] = status;
+            }
+
+            return targets
+                .OrderBy(entry => entry.Key.Y)
+                .ThenBy(entry => entry.Key.Z)
+                .ThenBy(entry => entry.Key.X)
+                .Select(entry => new ChunkTicketGenerationTarget(
+                    entry.Key, entry.Value))
+                .ToArray();
+        }
+    }
+
+    /// <summary>Exact vertical targets whose loading tickets require FULL materialization.</summary>
     public IReadOnlyList<ChunkCoord> FullMaterializationTargets =>
-        _tickets
-            .SelectMany(entry => entry.Value
-                .Where(ticket =>
-                    ticket.SectionY.HasValue &&
-                    ticket.Level <= ChunkLevel.Full &&
-                    (ticket.Flags & ChunkTicketFlags.Loading) != 0)
-                .Select(ticket => new ChunkCoord(
-                    entry.Key.X, ticket.SectionY.GetValueOrDefault(), entry.Key.Z)))
-            .Distinct()
-            .OrderBy(coord => coord.Y)
-            .ThenBy(coord => coord.Z)
-            .ThenBy(coord => coord.X)
+        GenerationMaterializationTargets
+            .Where(target => target.Status == ChunkGenerationStatus.Full)
+            .Select(target => target.Section)
             .ToArray();
 
     public IReadOnlyCollection<ChunkTicket> GetTickets(ChunkColumnCoord column) =>

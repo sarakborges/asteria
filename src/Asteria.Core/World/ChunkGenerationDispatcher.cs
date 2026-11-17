@@ -149,6 +149,23 @@ public sealed class ChunkGenerationDispatcher
     }
 
     /// <summary>
+    /// Raises the target of an in-flight column task without replacing its
+    /// identity. The task resumes from its achieved status when the new target
+    /// is beyond the status at which it was parked.
+    /// </summary>
+    public bool TryUpgradeTargetStatus(
+        ChunkGenerationTaskKey key,
+        ChunkGenerationStatus targetStatus)
+    {
+        EnsureCoordinatorThread();
+        if (!_currentTasks.TryGetValue(key, out var entry) ||
+            entry.Task is not ChunkColumnMaterializationGenerationTask columnTask)
+            return false;
+
+        return columnTask.TryUpgradeTargetStatus(targetStatus);
+    }
+
+    /// <summary>
     /// Updates the current priority of a task in either ready or worker-admission
     /// queues. The task's original enqueue timestamp is preserved.
     /// </summary>

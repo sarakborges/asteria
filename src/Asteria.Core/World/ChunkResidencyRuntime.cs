@@ -339,7 +339,10 @@ public sealed class ChunkResidencyRuntime
 
     private void SyncTicketDemands()
     {
-        var targets = _streaming.DistanceManager.Tickets.FullMaterializationTargets;
+        var targets = _streaming.DistanceManager.Tickets
+            .GenerationMaterializationTargets
+            .Select(target => target.Section)
+            .ToArray();
         var previous = _streaming.TicketedSections;
         var newlyRequiredColumns = targets
             .Where(section =>
@@ -353,9 +356,16 @@ public sealed class ChunkResidencyRuntime
             .ToArray();
 
         foreach (var column in newlyRequiredColumns)
+        {
+            // A parked intermediate-status task owns a fixed vertical target
+            // set. Rebuild it when a new section joins the holder's demand.
+            if (_materializationTasks.TryGetValue(column, out var activeWork))
+                _generationDispatcher?.TryCancel(activeWork.TaskKey);
+
             _streaming.DistanceManager.InvalidateGenerationRequest(
                 column,
-                "A new vertical FULL target changed the holder's required section set.");
+                "A new vertical generation target changed the holder's required section set.");
+        }
 
         _streaming.SyncTicketedSections(targets, _world.LoadedChunkCoords);
         CancelMaterializationsOutsideResidency();
@@ -378,9 +388,13 @@ public sealed class ChunkResidencyRuntime
         if (_playerTicketAdmissions.HasUnmaterializedAdmissionSections(column))
             return;
 
-        var requested = _streaming.RequestedSectionsInColumn(column);
-        if (requested.Count == 0 ||
-            requested.Any(target => !_world.ContainsChunk(target)))
+        var fullTargets = _streaming.DesiredSectionsInColumn(column)
+            .Concat(_streaming.DistanceManager.Tickets.FullMaterializationTargets
+                .Where(target => ChunkColumnCoord.FromChunk(target) == column))
+            .Distinct()
+            .ToArray();
+        if (fullTargets.Length == 0 ||
+            fullTargets.Any(target => !_world.ContainsChunk(target)))
             return;
 
         var distanceManager = _streaming.DistanceManager;
@@ -1330,12 +1344,24 @@ public sealed class ChunkResidencyRuntime
                     column,
                     ChunkGenerationStepId.SectionReady);
                 var taskPriority = GenerationPriority(column);
+                var targetStatus = _streaming.DistanceManager.GetGenerationStatus(column);
+                if (targetStatus == ChunkGenerationStatus.Unloaded)
+                {
+                    foreach (var job in sectionJobs)
+                        job.Dispose();
+                    foreach (var section in sections)
+                        RequeueIfDesired(section.Coord, section.EnqueuedTimestamp);
+                    stopAfterBatch = true;
+                    break;
+                }
+
                 var generationTask = new ChunkColumnMaterializationGenerationTask(
                     column,
                     sectionJobs,
                     chunk => ChunkLightingSolver.Initialize(
                         chunk, _blocks, _fluids, _objects),
-                    dispatchTimestamp);
+                    dispatchTimestamp,
+                    targetStatus: targetStatus);
                 var taskSections = sectionJobs
                     .Select(job => job.Coord)
                     .OrderBy(coord => coord.Y)
@@ -1592,10 +1618,25 @@ public sealed class ChunkResidencyRuntime
         foreach (var change in changes)
         {
             var holder = change.Holder;
-            if (holder.GenerationTask is { } task &&
-                holder.GenerationTaskTargetStatus is { } targetStatus &&
-                targetStatus > holder.HighestAllowedGenerationStatus)
+            if (holder.GenerationTask is not { } task ||
+                holder.GenerationTaskTargetStatus is not { } targetStatus)
+                continue;
+
+            var permittedTarget = holder.HighestAllowedGenerationStatus;
+            if (targetStatus > permittedTarget)
+            {
                 _generationDispatcher.TryCancel(task.Key);
+                continue;
+            }
+
+            if (permittedTarget <= targetStatus ||
+                !holder.TryUpgradeGenerationTaskTargetStatus(task, permittedTarget))
+                continue;
+
+            if (!_generationDispatcher.TryUpgradeTargetStatus(
+                    task.Key, permittedTarget))
+                throw new InvalidOperationException(
+                    $"Holder {holder.Position} upgraded its task target without a live dispatcher task.");
         }
 
         var changedColumns = changes

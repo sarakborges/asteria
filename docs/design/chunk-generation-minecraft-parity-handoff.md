@@ -1573,3 +1573,16 @@ finishes. The dispatcher schedules the child independently in production, while
 synchronous consumers must descend to and advance the leaf job. Calling
 `Advance()` on the suspended parent repeatedly is a no-op and can otherwise
 produce an unbounded benchmark loop.
+
+
+## Intermediate ticket generation targets — 2026-11-17
+
+Loading tickets now expose exact vertical generation targets with their
+ticket-derived status, not only sections that require FULL residency.
+`ChunkResidencyRuntime` submits the holder's permitted status to the existing
+column task. The column task can park at Biomes, Terrain, Features or Light and
+remain owned by its holder; a later stronger ticket upgrades the same task,
+while a new vertical target cancels/rebuilds the fixed section batch. Only FULL
+targets are required when deciding whether the column may be promoted into
+live resident chunks. This keeps partial spawn/search work out of the playable
+world while using the same stage DAG and holder futures.
