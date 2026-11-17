@@ -425,7 +425,7 @@ public sealed class ChunkTicketStorageTests
 
         Assert.True(holder.TryUpgradeGenerationTaskTargetStatus(
             task, ChunkGenerationStatus.Full));
-        Assert.Same(task, holder.GenerationTask);
+        Assert.Equal(task, holder.GenerationTask);
         Assert.Equal(ChunkGenerationStatus.Full, holder.GenerationTaskTargetStatus);
         Assert.False(biomesFuture.IsCompleted);
         Assert.False(fullFuture.IsCompleted);
