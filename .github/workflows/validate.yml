@@ -410,6 +410,13 @@ jobs:
           # terrain/materialization implementation.
           cp "$candidate/src/Asteria.Core/World/ChunkStreamingSelection.cs" \
             "$baseline/src/Asteria.Core/World/ChunkStreamingSelection.cs"
+          # The baseline predates ChunkLevel's named constants. The current
+          # selection's MaximumSimulationDistanceChunks is EntityTicking - 1;
+          # preserve that exact value (30) without importing the candidate's
+          # newer ticket implementation into the baseline worktree.
+          sed -i \
+            's/MaximumSimulationDistanceChunks = ChunkLevel.EntityTicking - 1/MaximumSimulationDistanceChunks = 30/' \
+            "$baseline/src/Asteria.Core/World/ChunkStreamingSelection.cs"
 
           # Overlay the identical route-harness sources on the baseline worktree.
           # Core terrain/materialization sources and the ordinary worldgen
