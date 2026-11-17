@@ -339,10 +339,16 @@ public sealed class ChunkResidencyRuntime
 
     private void SyncTicketDemands()
     {
-        var targets = _streaming.DistanceManager.Tickets
-            .GenerationMaterializationTargets
+        var ticketTargets = _streaming.DistanceManager.Tickets
+            .GenerationMaterializationTargets;
+        var targets = ticketTargets
             .Select(target => target.Section)
             .ToArray();
+        var targetStatusesByColumn = ticketTargets
+            .GroupBy(target => ChunkColumnCoord.FromChunk(target.Section))
+            .ToDictionary(
+                group => group.Key,
+                group => group.Max(target => target.Status));
         var previous = _streaming.TicketedSections;
         var newlyRequiredColumns = targets
             .Where(section =>
@@ -368,6 +374,52 @@ public sealed class ChunkResidencyRuntime
         }
 
         _streaming.SyncTicketedSections(targets, _world.LoadedChunkCoords);
+
+        // The holder graph describes which columns must remain addressable;
+        // the direct ticket set describes how far each requested section must
+        // advance. A stronger ticket for the same section upgrades the parked
+        // column task without rebuilding it. A weaker target cancels/restarts,
+        // since generation progress cannot be rolled back.
+        foreach (var (column, work) in _materializationTasks.ToArray())
+        {
+            if (newlyRequiredColumns.Contains(column))
+                continue;
+
+            var requestedStatus = _streaming.DesiredSectionsInColumn(column).Count > 0
+                ? ChunkGenerationStatus.Full
+                : targetStatusesByColumn.GetValueOrDefault(
+                    column, ChunkGenerationStatus.Unloaded);
+            if (requestedStatus == ChunkGenerationStatus.Unloaded)
+                continue;
+
+            var holder = _streaming.DistanceManager.GetHolder(column);
+            var activeTask = holder?.GenerationTask;
+            if (activeTask is null ||
+                activeTask.Value.Key != work.TaskKey ||
+                activeTask.Value.Generation != work.Generation ||
+                holder!.GenerationTaskTargetStatus is not { } activeTarget)
+                continue;
+
+            if (requestedStatus > activeTarget)
+            {
+                if (!holder.TryUpgradeGenerationTaskTargetStatus(
+                        activeTask.Value, requestedStatus))
+                    throw new InvalidOperationException(
+                        $"Could not update holder target for {column} from {activeTarget} to {requestedStatus}.");
+                if (!_generationDispatcher.TryUpgradeTargetStatus(
+                        work.TaskKey, requestedStatus))
+                    throw new InvalidOperationException(
+                        $"Could not upgrade active generation target for {column}.");
+            }
+            else if (requestedStatus < activeTarget)
+            {
+                _generationDispatcher.TryCancel(work.TaskKey);
+                _streaming.DistanceManager.InvalidateGenerationRequest(
+                    column,
+                    $"Ticket generation target was lowered from {activeTarget} to {requestedStatus}.");
+            }
+        }
+
         CancelMaterializationsOutsideResidency();
         foreach (var section in _streaming.RequestedSections
                      .Where(_world.ContainsChunk)
@@ -692,7 +744,11 @@ public sealed class ChunkResidencyRuntime
     {
         foreach (var (column, work) in _materializationTasks.ToArray())
         {
-            if (!work.Sections.Any(_streaming.KeepsLoaded))
+            // A column task's aggregate target is fixed to the complete batch.
+            // If even one section left residency, rebuild from the remaining
+            // requested set rather than letting an obsolete section hold the
+            // other sections at an earlier generation status.
+            if (work.Sections.Any(section => !_streaming.KeepsLoaded(section)))
                 _generationDispatcher.TryCancel(work.TaskKey);
         }
     }
@@ -1344,7 +1400,13 @@ public sealed class ChunkResidencyRuntime
                     column,
                     ChunkGenerationStepId.SectionReady);
                 var taskPriority = GenerationPriority(column);
-                var targetStatus = _streaming.DistanceManager.GetGenerationStatus(column);
+                var targetStatus = _streaming.DesiredSectionsInColumn(column).Count > 0
+                    ? ChunkGenerationStatus.Full
+                    : _streaming.DistanceManager.Tickets.GenerationMaterializationTargets
+                        .Where(target => ChunkColumnCoord.FromChunk(target.Section) == column)
+                        .Select(target => target.Status)
+                        .DefaultIfEmpty(ChunkGenerationStatus.Unloaded)
+                        .Max();
                 if (targetStatus == ChunkGenerationStatus.Unloaded)
                 {
                     foreach (var job in sectionJobs)

@@ -60,7 +60,7 @@ public sealed class ChunkTicketStorage
                     (ticket.Flags & ChunkTicketFlags.Loading) == 0)
                     continue;
 
-                var status = ChunkLevel.GetGenerationStatus(ticket.Level);
+                var status = ChunkLevel.GetTicketGenerationStatus(ticket.Level);
                 if (status == ChunkGenerationStatus.Unloaded)
                     continue;
 
@@ -102,8 +102,24 @@ public sealed class ChunkTicketStorage
 
         foreach (var ticket in tickets)
         {
-            if ((ticket.Flags & requiredFlags) == requiredFlags)
-                lowest = Math.Min(lowest, ticket.Level);
+            if ((ticket.Flags & requiredFlags) != requiredFlags)
+                continue;
+
+            var graphLevel = ticket.Level;
+            if ((requiredFlags & ChunkTicketFlags.Loading) != 0 &&
+                ticket.SectionY.HasValue &&
+                graphLevel > ChunkLevel.Full &&
+                ChunkLevel.GetTicketGenerationStatus(graphLevel) !=
+                    ChunkGenerationStatus.Unloaded)
+            {
+                // An exact partial-status ticket needs its own holder, but it
+                // does not invent extra horizontal holder dependencies. Keep
+                // the graph node at FULL while the direct target stays on the
+                // ticket and is scheduled by the residency runtime.
+                graphLevel = ChunkLevel.Full;
+            }
+
+            lowest = Math.Min(lowest, graphLevel);
         }
 
         return lowest;

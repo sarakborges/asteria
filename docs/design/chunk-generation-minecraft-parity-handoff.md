@@ -1586,3 +1586,15 @@ while a new vertical target cancels/rebuilds the fixed section batch. Only FULL
 targets are required when deciding whether the column may be promoted into
 live resident chunks. This keeps partial spawn/search work out of the playable
 world while using the same stage DAG and holder futures.
+
+
+## Direct partial-status tickets and holder distance graph
+
+Direct vertical tickets use the 26.3 ticket-level ladder (InitializeLight,
+Terrain, Biomes, StructureStarts) to request a partial generation target.
+These are not horizontal dependency rings. Asteria keeps its loading graph
+ceiling derived from actual HolderStatus dependencies; a partial ticket clamps
+its graph source to FULL so its own holder exists, but it does not widen the
+graph or create neighbour holders. The exact section/status target remains
+separate and is what the column task parks at. Player-loading tickets continue
+to request FULL and can upgrade that same task in place.

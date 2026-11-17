@@ -13,8 +13,8 @@ public sealed class ChunkTicketStorageTests
         var storage = new ChunkTicketStorage();
         var column = new ChunkColumnCoord(7, -4);
         var section = new ChunkCoord(7, 3, -4);
-        var firstStatus = ChunkLevel.GetGenerationStatus(ChunkLevel.Full + 1);
-        var strongerStatus = ChunkLevel.GetGenerationStatus(ChunkLevel.Full + 2);
+        var firstStatus = ChunkLevel.GetTicketGenerationStatus(ChunkLevel.StructureStarts);
+        var strongerStatus = ChunkLevel.GetTicketGenerationStatus(ChunkLevel.Terrain);
 
         Assert.NotEqual(ChunkGenerationStatus.Unloaded, firstStatus);
         Assert.NotEqual(ChunkGenerationStatus.Unloaded, strongerStatus);
@@ -22,21 +22,22 @@ public sealed class ChunkTicketStorageTests
             column,
             new ChunkTicket(
                 ChunkTicketType.SpawnSearch,
-                ChunkLevel.Full + 1,
+                ChunkLevel.StructureStarts,
                 SectionY: section.Y)));
         Assert.True(storage.AddTicket(
             column,
             new ChunkTicket(
                 ChunkTicketType.Unknown,
-                ChunkLevel.Full + 2,
+                ChunkLevel.Terrain,
                 SectionY: section.Y)));
 
         var partial = Assert.Single(storage.GenerationMaterializationTargets);
         Assert.Equal(section, partial.Section);
-        Assert.Equal(
-            firstStatus > strongerStatus ? firstStatus : strongerStatus,
-            partial.Status);
+        Assert.Equal(strongerStatus, partial.Status);
         Assert.Empty(storage.FullMaterializationTargets);
+        Assert.Equal(
+            ChunkLevel.Full,
+            storage.GetLowestLevel(column, ChunkTicketFlags.Loading));
 
         Assert.True(storage.AddTicket(
             column,
@@ -48,6 +49,30 @@ public sealed class ChunkTicketStorageTests
             ChunkGenerationStatus.Full,
             Assert.Single(storage.GenerationMaterializationTargets).Status);
         Assert.Equal(section, Assert.Single(storage.FullMaterializationTargets));
+    }
+
+    [Fact]
+    public void IntermediateTicketCreatesOnlyItsOwnHolderAtFullGraphCeiling()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(14, -9);
+        var section = new ChunkCoord(column.X, 5, column.Z);
+        Assert.True(manager.AddTicket(
+            column,
+            new ChunkTicket(
+                ChunkTicketType.SpawnSearch,
+                ChunkLevel.StructureStarts,
+                SectionY: section.Y),
+            currentTick: 0));
+
+        DrainDistanceUpdates(manager);
+
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        Assert.Equal(ChunkLevel.Full, holder.TicketLevel);
+        Assert.Null(manager.GetHolder(new ChunkColumnCoord(column.X + 1, column.Z)));
+        var target = Assert.Single(manager.Tickets.GenerationMaterializationTargets);
+        Assert.Equal(section, target.Section);
+        Assert.Equal(ChunkGenerationStatus.Biomes, target.Status);
     }
 
     [Fact]
@@ -379,6 +404,31 @@ public sealed class ChunkTicketStorageTests
         Assert.True(fullFuture.Result.Succeeded);
         Assert.Null(holder.HighestPendingGenerationStatus);
         Assert.True(holder.RemoveGenerationTask(replacement));
+    }
+
+    [Fact]
+    public void HolderCanUpgradeItsActiveGenerationTargetWithoutReplacingTask()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(-12, 8);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        DrainDistanceUpdates(manager);
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        var task = new ChunkGenerationTaskInstance(
+            new ChunkGenerationTaskKey(column, ChunkGenerationStepId.SectionReady),
+            Generation: 1);
+
+        Assert.True(holder.TryRegisterGenerationTask(
+            task, ChunkGenerationStatus.Biomes));
+        var biomesFuture = holder.GetGenerationFuture(ChunkGenerationStatus.Biomes);
+        var fullFuture = holder.GetGenerationFuture(ChunkGenerationStatus.Full);
+
+        Assert.True(holder.TryUpgradeGenerationTaskTargetStatus(
+            task, ChunkGenerationStatus.Full));
+        Assert.Same(task, holder.GenerationTask);
+        Assert.Equal(ChunkGenerationStatus.Full, holder.GenerationTaskTargetStatus);
+        Assert.False(biomesFuture.IsCompleted);
+        Assert.False(fullFuture.IsCompleted);
     }
 
     [Fact]

@@ -65,6 +65,31 @@ public static class ChunkLevel
         return ChunkFullStatus.Inaccessible;
     }
 
+    /// <summary>
+    /// Generation target carried by an exact loading ticket. Unlike
+    /// GetGenerationStatus, this does not interpret the level as a distance
+    /// ring: it is the ticket's direct request for one vertical section.
+    /// Statuses unavailable as independent materialization targets are
+    /// normalized to the nearest stage this generation DAG actually publishes.
+    /// </summary>
+    public static ChunkGenerationStatus GetTicketGenerationStatus(int ticketLevel)
+    {
+        if (ticketLevel <= Full)
+            return ChunkGenerationStatus.Full;
+        if (ticketLevel <= InitializeLight)
+            return ChunkGenerationStatus.Light;
+        if (ticketLevel <= Terrain)
+            return ChunkGenerationStatus.Terrain;
+        if (ticketLevel <= StructureStarts)
+            return ChunkGenerationStatus.Biomes;
+        return ChunkGenerationStatus.Unloaded;
+    }
+
+    /// <summary>
+    /// Status ceiling implied by the loading-distance graph. This is derived
+    /// from actual holder prerequisites and must not be used for direct
+    /// section ticket targets.
+    /// </summary>
     public static ChunkGenerationStatus GetGenerationStatus(int level)
     {
         if (level <= Full)
