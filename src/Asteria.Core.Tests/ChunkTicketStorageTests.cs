@@ -581,9 +581,10 @@ public sealed class ChunkTicketStorageTests
         Assert.True(manager.AddPlayerLoadingTicket(column));
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
 
-        var requests = await Task.WhenAll(Enumerable.Range(0, 32)
-            .Select(_ => Task.Run(() =>
-                holder.GetGenerationFuture(ChunkGenerationStatus.Biomes))));
+        var requests = new Task<ChunkGenerationFutureResult>[32];
+        Parallel.For(0, requests.Length, index =>
+            requests[index] =
+                holder.GetGenerationFuture(ChunkGenerationStatus.Biomes));
 
         Assert.All(requests, future => Assert.Same(requests[0], future));
         Assert.Equal(
@@ -608,7 +609,7 @@ public sealed class ChunkTicketStorageTests
         var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
         using var barrier = new Barrier(2);
 
-        var request = Task.Run(() =>
+        var request = Task.Factory.StartNew(() =>
         {
             barrier.SignalAndWait();
             return holder.GetGenerationFuture(ChunkGenerationStatus.Full);
