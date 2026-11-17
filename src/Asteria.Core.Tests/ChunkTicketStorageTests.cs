@@ -730,6 +730,92 @@ public sealed class ChunkTicketStorageTests
     }
 
     [Fact]
+    public void IncrementalDistanceTrackerMatchesFullRebuildAcrossSourceChanges()
+    {
+        const int maximumLevel = 42;
+        var storage = new ChunkTicketStorage();
+        var incremental = new ChunkDistanceTracker();
+
+        void AssertMatchesFullRebuild()
+        {
+            incremental.SynchronizeSources(
+                storage, ChunkTicketFlags.Loading, maximumLevel);
+            var rebuilt = new ChunkDistanceTracker();
+            rebuilt.SynchronizeSources(
+                storage, ChunkTicketFlags.Loading, maximumLevel);
+
+            Assert.Equal(
+                rebuilt.Levels.OrderBy(entry => entry.Key.X)
+                    .ThenBy(entry => entry.Key.Z),
+                incremental.Levels.OrderBy(entry => entry.Key.X)
+                    .ThenBy(entry => entry.Key.Z));
+        }
+
+        var center = new ChunkColumnCoord(0, 0);
+        var west = new ChunkColumnCoord(-8, 3);
+        var east = new ChunkColumnCoord(11, -4);
+        var north = new ChunkColumnCoord(2, 13);
+        var centerTicket = new ChunkTicket(ChunkTicketType.Forced, Level: 31);
+        var westTicket = new ChunkTicket(ChunkTicketType.Forced, Level: 34);
+        var eastTicket = new ChunkTicket(ChunkTicketType.Forced, Level: 29);
+        var northTicket = new ChunkTicket(ChunkTicketType.Forced, Level: 37);
+
+        AssertMatchesFullRebuild();
+        Assert.True(storage.AddTicket(center, centerTicket));
+        AssertMatchesFullRebuild();
+        Assert.True(storage.AddTicket(west, westTicket));
+        AssertMatchesFullRebuild();
+        Assert.True(storage.AddTicket(east, eastTicket));
+        AssertMatchesFullRebuild();
+        Assert.True(storage.AddTicket(north, northTicket));
+        AssertMatchesFullRebuild();
+
+        var strongerCenter = new ChunkTicket(ChunkTicketType.Forced, Level: 28);
+        Assert.True(storage.AddTicket(center, strongerCenter));
+        AssertMatchesFullRebuild();
+        Assert.True(storage.RemoveTicket(center, strongerCenter));
+        AssertMatchesFullRebuild();
+        Assert.True(storage.RemoveTicket(east, eastTicket));
+        AssertMatchesFullRebuild();
+        Assert.True(storage.RemoveTicket(west, westTicket));
+        AssertMatchesFullRebuild();
+        Assert.True(storage.RemoveTicket(center, centerTicket));
+        AssertMatchesFullRebuild();
+        Assert.True(storage.RemoveTicket(north, northTicket));
+        AssertMatchesFullRebuild();
+    }
+
+    [Fact]
+    public void DistanceTrackerBatchSourceOrderDoesNotChangeTheSettledGraph()
+    {
+        const int maximumLevel = 40;
+        var first = new ChunkDistanceTracker();
+        var second = new ChunkDistanceTracker();
+        var initial = new[]
+        {
+            KeyValuePair.Create(new ChunkColumnCoord(-4, 2), 31),
+            KeyValuePair.Create(new ChunkColumnCoord(9, -7), 33)
+        };
+        first.ApplySourceChanges(initial, maximumLevel);
+        second.ApplySourceChanges(initial.Reverse(), maximumLevel);
+
+        var updates = new[]
+        {
+            KeyValuePair.Create(new ChunkColumnCoord(-4, 2), 35),
+            KeyValuePair.Create(new ChunkColumnCoord(9, -7), 28),
+            KeyValuePair.Create(new ChunkColumnCoord(2, 5), 30)
+        };
+        first.ApplySourceChanges(updates, maximumLevel);
+        second.ApplySourceChanges(updates.Reverse(), maximumLevel);
+
+        Assert.Equal(
+            first.Levels.OrderBy(entry => entry.Key.X)
+                .ThenBy(entry => entry.Key.Z),
+            second.Levels.OrderBy(entry => entry.Key.X)
+                .ThenBy(entry => entry.Key.Z));
+    }
+
+    [Fact]
     public void DistanceTrackerReportsRemovedLevelsWhenMaximumLevelShrinks()
     {
         var storage = new ChunkTicketStorage();
