@@ -299,6 +299,12 @@ public sealed class ChunkTicketStorageTests
         Assert.Equal(
             ChunkGenerationStatus.Full,
             holder.GenerationTaskTargetStatus);
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            holder.HighestPendingGenerationStatus);
+
+        var fullFuture = holder.GetGenerationFuture(ChunkGenerationStatus.Full);
+        Assert.False(fullFuture.IsCompleted);
 
         Assert.False(holder.TryRegisterGenerationTask(
             replacement, ChunkGenerationStatus.Full));
@@ -312,6 +318,15 @@ public sealed class ChunkTicketStorageTests
         Assert.True(holder.TryRegisterGenerationTask(
             replacement, ChunkGenerationStatus.Full));
         Assert.Equal(replacement, holder.GenerationTask);
+        Assert.Equal(
+            ChunkGenerationStatus.Full,
+            holder.HighestPendingGenerationStatus);
+
+        Assert.True(holder.CompleteGenerationStatus(ChunkGenerationStatus.Full));
+        Assert.True(fullFuture.IsCompletedSuccessfully);
+        Assert.True(fullFuture.Result.Succeeded);
+        Assert.Null(holder.HighestPendingGenerationStatus);
+        Assert.True(holder.RemoveGenerationTask(replacement));
     }
 
     [Fact]

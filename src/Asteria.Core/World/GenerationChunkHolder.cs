@@ -302,6 +302,13 @@ public abstract class GenerationChunkHolder
             _generationTask is not null)
             return false;
 
+        // Scheduling a holder task is itself a status request, just as
+        // scheduleChunkGenerationTask calls getOrCreateFuture in Minecraft.
+        var targetFuture = GetOrCreateGenerationFuture(targetStatus);
+        if (targetFuture.Task.IsCompletedSuccessfully &&
+            targetFuture.Task.Result.Succeeded)
+            return false;
+
         _generationTask = task;
         _generationTaskTargetStatus = targetStatus;
         return true;

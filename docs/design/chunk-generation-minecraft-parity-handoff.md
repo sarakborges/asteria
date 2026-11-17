@@ -1514,3 +1514,10 @@ Asteria now follows the same demand semantics for its column-level status future
 - Generation-progress invalidation fails current waiters and clears old requests so future consumers receive fresh futures under the new revision.
 
 This prepares the holder for vanilla-style rescheduling to the highest still-requested status rather than inferring work from every possible status or ticket level alone. **The producer/scheduler integration is still pending:** `GetGenerationFuture` does not automatically admit a producer yet, and the default Asteria DAG deliberately has no cross-column `HolderStatus` prerequisites while horizontal procedural reads are supplied by immutable generator fields. Do not create artificial resident dependencies to imitate Minecraft's terrain-field reads.
+
+
+### Task admission creates the holder's requested-status future — 2026-11-17
+
+Minecraft 26.3's `GenerationChunkHolder.scheduleChunkGenerationTask(status, scheduler)` obtains the future for the requested status before admitting/rescheduling the task. Asteria's `TryRegisterGenerationTask` now applies the same contract: successful task admission creates/reuses the matching lazy holder future, so `HighestPendingGenerationStatus` reflects actual scheduled work instead of remaining an observational property. If that status is already completed, admission is rejected because no generation producer is needed.
+
+The column-task registration test verifies the target becomes the holder's highest pending request, completion resolves that exact future, and the pending target disappears when the generation reaches the requested status.
