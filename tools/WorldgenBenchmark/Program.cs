@@ -536,7 +536,7 @@ metrics.Add("initialAreaSynthesis", Measure(
                         TraceMaterializationProgress(
                             $"initial-area-{invocation}", coord, stage, "enter", advancesInStage);
                     }
-                    else if (advancesInStage > 0 && advancesInStage % 16 == 0)
+                    else if (advancesInStage > 0 && advancesInStage % 65_536 == 0)
                     {
                         TraceMaterializationProgress(
                             $"initial-area-{invocation}", coord, stage, "heartbeat", advancesInStage);
@@ -560,7 +560,7 @@ metrics.Add("initialAreaSynthesis", Measure(
                             advancesInStage, advanceMilliseconds, nextStage);
                         tracedStage = null;
                     }
-                    else if (advancesInStage % 16 == 0)
+                    else if (advancesInStage % 65_536 == 0)
                     {
                         TraceMaterializationProgress(
                             $"initial-area-{invocation}", coord, stage, "progress",
@@ -770,7 +770,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                 TraceMaterializationProgress(
                     "stage-profile", coord, stage, "enter", advancesInStage);
             }
-            else if (advancesInStage > 0 && advancesInStage % 16 == 0)
+            else if (advancesInStage > 0 && advancesInStage % 65_536 == 0)
             {
                 TraceMaterializationProgress(
                     "stage-profile", coord, stage, "heartbeat", advancesInStage);
@@ -791,7 +791,7 @@ object CaptureMaterializationStageTimings(BiomeWorldGenerator generator)
                     advancesInStage, advanceMilliseconds, nextStage);
                 tracedStage = null;
             }
-            else if (advancesInStage % 16 == 0)
+            else if (advancesInStage % 65_536 == 0)
             {
                 TraceMaterializationProgress(
                     "stage-profile", coord, stage, "progress",

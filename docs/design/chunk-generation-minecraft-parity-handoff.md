@@ -1555,7 +1555,7 @@ the same settled graph.
 ## Worldgen benchmark progress diagnostics — 2026-11-17
 
 The fixed-seed WorldgenBenchmark can now emit opt-in per-section stage-entry,
-stage-exit and 16-advance heartbeat messages when
+stage-exit and 65,536-advance heartbeat messages when
 ASTERIA_WORLDGEN_PROGRESS=1. The PR A/B workflow captures these in separate
 baseline/candidate logs and applies a 15-minute process timeout to each
 WorldgenBenchmark and WorldStreamingBenchmark invocation. This is diagnostic
