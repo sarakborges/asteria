@@ -163,7 +163,7 @@ public sealed class ChunkPyramidTests
         Assert.Equal(35, ChunkLevel.GetTicketLevel(ChunkStatus.Terrain));
         Assert.Equal(34, ChunkLevel.GetTicketLevel(ChunkStatus.Features));
         Assert.Equal(34, ChunkLevel.GetTicketLevel(ChunkStatus.InitializeLight));
-        Assert.Equal(34, ChunkLevel.GetTicketLevel(ChunkStatus.Light));
+        Assert.Equal(33, ChunkLevel.GetTicketLevel(ChunkStatus.Light));
         Assert.Equal(33, ChunkLevel.GetTicketLevel(ChunkStatus.Spawn));
         Assert.Equal(33, ChunkLevel.GetTicketLevel(ChunkStatus.Full));
     }
