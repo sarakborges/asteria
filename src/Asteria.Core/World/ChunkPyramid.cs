@@ -27,6 +27,8 @@ public enum ChunkHeightmap : byte
 /// </summary>
 public sealed class ChunkStatus
 {
+    public const int MaxStructureDistance = 8;
+
     private static readonly ImmutableArray<ChunkHeightmap> WorldgenHeightmaps =
     [
         ChunkHeightmap.OceanFloorWorldgen,
@@ -387,21 +389,21 @@ public sealed class ChunkPyramid
         Add(ChunkStatus.StructureStarts);
         Add(
             ChunkStatus.StructureReferences,
-            [new ChunkStepRequirement(ChunkStatus.StructureStarts, 8)]);
+            [new ChunkStepRequirement(ChunkStatus.StructureStarts, ChunkStatus.MaxStructureDistance)]);
         Add(
             ChunkStatus.Biomes,
-            [new ChunkStepRequirement(ChunkStatus.StructureStarts, 8)]);
+            [new ChunkStepRequirement(ChunkStatus.StructureStarts, ChunkStatus.MaxStructureDistance)]);
         Add(
             ChunkStatus.Terrain,
             [
-                new ChunkStepRequirement(ChunkStatus.StructureStarts, 8),
+                new ChunkStepRequirement(ChunkStatus.StructureStarts, ChunkStatus.MaxStructureDistance),
                 new ChunkStepRequirement(ChunkStatus.Biomes, 1),
             ],
             blockStateWriteRadius: 0);
         Add(
             ChunkStatus.Features,
             [
-                new ChunkStepRequirement(ChunkStatus.StructureStarts, 8),
+                new ChunkStepRequirement(ChunkStatus.StructureStarts, ChunkStatus.MaxStructureDistance),
                 new ChunkStepRequirement(ChunkStatus.Terrain, 1),
             ],
             blockStateWriteRadius: 1);
