@@ -1759,3 +1759,11 @@ Acceptance for the next slice: focused tests for one task per (column,status), d
 - **Acceptance:** the focused `ChunkGenerationTaskTests` pass; then the full `Asteria.Core.Tests` suite passes. Inspect the diff and confirm the dispatcher continues to observe `UntypedFuture` and retrieve each result through its operation reader. Record the actual commands/results before committing.
 - **Stop condition:** if a local checkout or executable .NET test environment is still unavailable, do not write source code to the branch. Report the environment blocker and leave this exact task pending.
 - **First action:** obtain access to the existing `worldgen-perf-fix` checkout without switching branches or overwriting local state; inspect `git status` before applying the one-line future-boundary correction.
+
+
+### Handoff-only checkpoint commit
+
+- The diagnostic entry above was persisted and read back in commit `7bfeba2b39e9ed65ce0a7c482bff474eb5b792d8` (`docs(worldgen): record future adapter validation blocker`).
+- Final remote state for this session: `worldgen-perf-fix` and PR #157 head both point to `7bfeba2b39e9ed65ce0a7c482bff474eb5b792d8`; PR #157 remains open against `worldgen-remake`.
+- This commit changes only this handoff document. The source-code state remains the code at parent `276d781b0d8993b7eef67e9f35d9b62da37efbcb`; the Core test failure above remains unresolved.
+- Workflow runs returned for this documentation commit: #4465 (in_progress/no conclusion yet).
