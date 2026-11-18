@@ -49,7 +49,12 @@ public static class ChunkLevel
     // Loading and generation are represented by separate projections of
     // the generation DAG. Only HolderStatus requirements extend the holder
     // loading graph; immutable field-read halos never retain adjacent holders.
+    // The active Asteria distance tracker still uses its legacy loading graph.
+    // The Minecraft 26.3 limit is exposed separately until that graph is replaced.
     public static int MaximumLoading =>
+        Full + AsteriaChunkLoadingPlan.MaximumHorizontalDependencyRadius;
+
+    public static int MaximumGenerationTicketLevel =>
         GetTicketLevel(ChunkStatus.Empty);
     public const int Unloaded = 45;
     public const int NoSimulationTicket = 33;

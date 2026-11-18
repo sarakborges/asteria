@@ -155,7 +155,7 @@ public sealed class ChunkPyramidTests
 
         Assert.Equal(0, fullStep.GetAccumulatedRadiusOf(ChunkStatus.Full));
         Assert.Equal(11, fullStep.GetAccumulatedRadiusOf(ChunkStatus.Empty));
-        Assert.Equal(44, ChunkLevel.MaximumLoading);
+        Assert.Equal(44, ChunkLevel.MaximumGenerationTicketLevel);
         Assert.Equal(44, ChunkLevel.GetTicketLevel(ChunkStatus.Empty));
         Assert.Equal(44, ChunkLevel.GetTicketLevel(ChunkStatus.StructureStarts));
         Assert.Equal(36, ChunkLevel.GetTicketLevel(ChunkStatus.StructureReferences));
