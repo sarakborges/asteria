@@ -1763,7 +1763,7 @@ Acceptance for the next slice: focused tests for one task per (column,status), d
 
 ### Handoff-only checkpoint commit
 
-- The diagnostic entry above was persisted and read back in commit `7bfeba2b39e9ed65ce0a7c482bff474eb5b792d8` (`docs(worldgen): record future adapter validation blocker`).
-- Final remote state for this session: `worldgen-perf-fix` and PR #157 head both point to `7bfeba2b39e9ed65ce0a7c482bff474eb5b792d8`; PR #157 remains open against `worldgen-remake`.
-- This commit changes only this handoff document. The source-code state remains the code at parent `276d781b0d8993b7eef67e9f35d9b62da37efbcb`; the Core test failure above remains unresolved.
-- Workflow runs returned for this documentation commit: #4465 (in_progress/no conclusion yet).
+- The diagnostic entry above was first persisted in handoff-only commit `7bfeba2b39e9ed65ce0a7c482bff474eb5b792d8`, then re-persisted with the checkpoint note in `c4fa5c6d76d7953a6e586f92fd1e3853870500e3`.
+- At the start of this correction, `worldgen-perf-fix` and PR #157 both pointed to `c4fa5c6d76d7953a6e586f92fd1e3853870500e3`; PR #157 was still open against `worldgen-remake`. This update is another handoff-only commit on that same branch.
+- All three checkpoint commits change only `docs/design/chunk-generation-minecraft-parity-handoff.md`. The source-code state remains `276d781b0d8993b7eef67e9f35d9b62da37efbcb`; the Core test failure above remains unresolved.
+- Workflow run #4465 was returned for the first handoff-only commit; run #4466 was returned for its follow-up. Both are documentation-triggered runs, not validation of a source-code correction.
