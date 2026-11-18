@@ -40,7 +40,7 @@ public sealed class ChunkGenerationCache2D : IDisposable
 
     public ChunkStep Step { get; }
 
-    public IReadOnlyCollection<ChunkColumnCoord> Columns => _holders.Keys;
+    public IReadOnlyCollection<ChunkColumnCoord> Columns => _holders.Keys.ToArray();
 
     /// <summary>Gets a retained holder by absolute horizontal chunk position.</summary>
     public ChunkHolder GetHolder(ChunkColumnCoord column)
