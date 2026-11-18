@@ -1729,3 +1729,33 @@ Implement the vanilla ownership model rather than adding another parallel Asteri
 5. Only after the new path is connected and tested, remove `ChunkColumnMaterializationGenerationTask`, `ChunkMaterializationGenerationTask`, the Asteria-specific step DAG, section status futures, compatibility code and superseded tests.
 
 Acceptance for the next slice: focused tests for one task per (column,status), dependency-ring scheduling, repeated layer waits/resumes, holder claim/release balance, cancellation/stale completion behavior and no per-section status futures. Do not claim runtime parity until these tests and end-to-end streaming prove the new path is authoritative.
+
+
+
+---
+
+## 12. Session checkpoint — 2026-11-18
+
+### Reconciled repository state
+
+- Repository: `sarakborges/asteria`.
+- Remote branch: `worldgen-perf-fix`, verified at `276d781b0d8993b7eef67e9f35d9b62da37efbcb`.
+- PR #157: open, head `worldgen-perf-fix` at the same SHA, base `worldgen-remake`. No merge, rebase, force-push or base change was performed.
+- This section supersedes the stale restart SHA `1a15f27f4683b5ce566981fb9813b71f6ffdda38` above. Nine later commits now add the 2-D holder cache, ticket/status mapping adjustments, cache-radius handling, the layered `ChunkGenerationTask`, and the legacy-future adapter correction.
+- Local working-tree state is **unverified**. No checkout was present under `/mnt/data`; `git ls-remote` could not resolve `github.com`. The GitHub connector exposes committed remote state only, so do not infer that a user's local working tree is clean or unchanged.
+
+### Current validation blocker
+
+- Current HEAD: `276d781b0d8993b7eef67e9f35d9b62da37efbcb` — `fix(worldgen): preserve legacy future contract in dispatcher`.
+- GitHub Actions `validate`, run #4464 (run ID `44353522511`): `terrain-ab` passed; `webui` passed; `build` failed in the Core test step. Earlier steps in `build` passed: Godot C# Release build, single-tier JIT configuration and ReadyToRun publish/verification.
+- Core tests: 1,934 passed, 3 failed. The failing cases are in `ChunkGenerationTaskTests`; all three throw from `ChunkGenerationFutureOperation.get_Future()`.
+- Root cause found in committed code: `ChunkGenerationFutureOperation.Future` now deliberately throws when the operation wraps a typed non-legacy status future. The shared dispatcher was changed to observe `UntypedFuture`, but `ChunkGenerationTaskAdvanceResult.WaitForFutures` in `src/Asteria.Core/World/ChunkGenerationTaskWork.cs` still validates `operation.Future` (line 256 at this HEAD). The validation path therefore rejects the new `ChunkGenerationFutureOperation.From<T>` shape before it reaches the dispatcher.
+- No source-code correction was committed or claimed. This session could not execute a local .NET test because the repository checkout/network was unavailable. Do not mark the new task lifecycle validated based on this run.
+
+### Exact next bounded task
+
+- **Outcome:** make the wait-result boundary accept both legacy typed futures and new typed status futures without reading the legacy-only `Future` property.
+- **Likely scope:** `src/Asteria.Core/World/ChunkGenerationTaskWork.cs`, focused `ChunkGenerationTaskTests` only if the existing regression coverage is insufficient.
+- **Acceptance:** the focused `ChunkGenerationTaskTests` pass; then the full `Asteria.Core.Tests` suite passes. Inspect the diff and confirm the dispatcher continues to observe `UntypedFuture` and retrieve each result through its operation reader. Record the actual commands/results before committing.
+- **Stop condition:** if a local checkout or executable .NET test environment is still unavailable, do not write source code to the branch. Report the environment blocker and leave this exact task pending.
+- **First action:** obtain access to the existing `worldgen-perf-fix` checkout without switching branches or overwriting local state; inspect `git status` before applying the one-line future-boundary correction.
