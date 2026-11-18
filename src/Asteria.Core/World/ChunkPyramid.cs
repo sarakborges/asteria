@@ -62,6 +62,20 @@ public sealed class ChunkStatus
     public static readonly ChunkStatus Full =
         new(9, "full", Spawn, ChunkType.LevelChunk, FinalHeightmaps);
 
+    public static ImmutableArray<ChunkStatus> All { get; } =
+    [
+        Empty,
+        StructureStarts,
+        StructureReferences,
+        Biomes,
+        Terrain,
+        Features,
+        InitializeLight,
+        Light,
+        Spawn,
+        Full,
+    ];
+
     private static readonly ImmutableDictionary<string, ChunkStatus> ByName =
         All.ToImmutableDictionary(
             static status => status.Name,
@@ -80,20 +94,6 @@ public sealed class ChunkStatus
         ChunkType = chunkType;
         HeightmapsAfter = heightmapsAfter;
     }
-
-    public static ImmutableArray<ChunkStatus> All { get; } =
-    [
-        Empty,
-        StructureStarts,
-        StructureReferences,
-        Biomes,
-        Terrain,
-        Features,
-        InitializeLight,
-        Light,
-        Spawn,
-        Full,
-    ];
 
     public int Index { get; }
 
