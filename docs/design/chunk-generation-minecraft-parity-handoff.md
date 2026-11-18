@@ -5,8 +5,8 @@
 **Working branch:** worldgen-perf-fix  
 **Pull request:** [#157 — perf(world): optimize worldgen and voxel rendering](https://github.com/sarakborges/asteria/pull/157)  
 **PR base:** worldgen-remake  
-**Reference snapshot:** Asteria implementation HEAD 8f1f5c20b3422cc559b7ccd56c763984c54c6504 (2026-11-15)  
-**Date:** 2026-11-15
+**Reference snapshot:** Asteria implementation HEAD 5b2034138c470d764cd2853c0933def452a804ab (2026-11-17; verified against branch and PR #157)  
+**Date:** 2026-11-18
 
 This document is the durable restart point for the Minecraft-parity world-generation refactor. Work must proceed in small, independently reviewable commits. Do not merge the PR unless explicitly requested.
 
@@ -1614,3 +1614,69 @@ All section-scoped materialization stages now use the shared worker pool. This d
 The audit checked the mutation target of each stage: directional palettes, volume structures, generated fluids, surface structures, cave spikes, vertical decorations, veins, wall layers/objects, shell finalization, gravity support, structure objects and pending objects all write to the owning detached section chunk (and task-local products). Cross-section/cross-column reads remain bounded by dependency/read envelopes and are sourced from immutable generation fields or completed holder products. Mutable shared memoization used by these fields is synchronized; the volume-structure anchor product and cave-spike spacing cache have explicit locks. Gravity support retains its lower-section holder-status dependency before its worker fork is admitted.
 
 This matches the ChunkStep model more closely: the dependency graph controls when a chunk step is ready, while unrelated ready chunk steps are not forced through a dimension-wide mutation lane merely because their detached outputs are mutable. The column and dimension coordinators remain serial; only independent step bodies run concurrently.
+
+
+---
+
+## 10. Mandatory session execution protocol — 2026-11-18
+
+This section operationalizes the repository-wide rules in `AGENTS.md` for this long-running parity effort. It exists to prevent stalled sessions, repeated investigations and activity without measurable progress.
+
+### Session start gate
+
+Before any implementation:
+1. Verify repository `sarakborges/asteria`, branch `worldgen-perf-fix`, current HEAD and PR #157 head/base. The branch and PR must agree; PR #157 must remain open against `worldgen-remake`.
+2. Read `AGENTS.md`, `ARCHITECTURE.md`, `ENGINEERING_PRACTICES.md` and this handoff.
+3. Reconcile the latest commits and actual code/tests with the checklist below. A checkbox or narrative status is not proof if the implementation has changed since it was written.
+4. Select exactly one next task from the remaining parity work. Do not restart a completed investigation without new evidence.
+
+### Bounded work loop
+
+For each task, record:
+- **Outcome:** one concrete behavior or architectural contract to deliver.
+- **Scope:** the specific owner/types/files expected to change.
+- **Acceptance:** focused tests, determinism checks and/or benchmark evidence required.
+- **Stop condition:** the failure, uncertainty or time limit that ends the current attempt and triggers a blocker report.
+
+Execute in short slices: inspect → implement → test → inspect diff → commit → update this handoff. Do not accumulate multiple unrelated changes before validating them. If a slice cannot produce a concrete result, stop and report the blocker rather than extending the investigation indefinitely.
+
+### User-facing progress cadence
+
+- Report the branch, current bounded task and acceptance criteria before implementation.
+- Send an evidence-based checkpoint after each stage and at least every 5–10 minutes during continued work when the execution environment permits.
+- Report failed or blocked commands as soon as the failure is known. One retry may be used to diagnose; after a second equivalent failure, stop that path and explain the blocker.
+- Every checkpoint states what changed or was learned, which tests/commands ran and their actual result, and the next bounded action. Never use a generic “still working” update as a substitute.
+- Long benchmarks must emit progress diagnostics and have explicit process timeouts. The established WorldgenBenchmark/WorldStreamingBenchmark timeout is 15 minutes; do not silently extend it.
+
+### Evidence required to close a task
+
+A task is complete only when:
+- its acceptance criteria are met;
+- focused regression tests pass;
+- relevant broader tests/builds are run or explicitly recorded as not run, with reason;
+- the full diff passes the architecture and engineering review;
+- any performance claim has a reproducible baseline/candidate comparison using the same seed, route, configuration and measurement method;
+- the implementation and result are recorded here with commit SHA.
+
+Do not claim Minecraft parity from architectural resemblance alone. Validate the corresponding Minecraft Java Edition 26.3 contract and Asteria behavior. Preserve Asteria's 16³ section storage, deterministic generation, persistence and engine boundaries.
+
+### Current verified restart point
+
+- Repository: `sarakborges/asteria`.
+- Working branch: `worldgen-perf-fix`.
+- Latest branch HEAD verified on 2026-11-18: `5b2034138c470d764cd2853c0933def452a804ab` — `perf(worldgen): parallelize independent chunk steps`.
+- PR: [#157](https://github.com/sarakborges/asteria/pull/157), open, head `worldgen-perf-fix`, base `worldgen-remake`. Do not merge.
+- The latest handoff entries dated 2026-11-17 record parallel worker forks for section-scoped materialization steps, direct partial-status tickets, holder status futures, ticket-distance propagation and benchmark progress diagnostics. These entries must be checked against the actual PR diff/tests at the next session start.
+- The unchecked roadmap remains authoritative as a list of gaps, but contains older phase checklists that overlap newer implementation notes. Reconcile duplicates and stale items against code before selecting work; do not blindly execute the earliest unchecked line.
+- **First action next session:** inspect the changes introduced by HEAD `5b2034138c470d764cd2853c0933def452a804ab` and the PR #157 checks; reconcile the implementation against the incomplete roadmap, then choose one highest-impact remaining Minecraft 26.3 parity gap. Do not begin a fresh broad audit.
+
+### Session close template
+
+Append a short dated entry after each milestone:
+- Branch / HEAD:
+- Task and acceptance criteria:
+- Files/owners changed:
+- Tests/builds/benchmarks actually run and results:
+- Commit SHA:
+- Remaining gap / blocker:
+- Exact next action:
