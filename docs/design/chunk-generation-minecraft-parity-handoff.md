@@ -1680,3 +1680,52 @@ Append a short dated entry after each milestone:
 - Commit SHA:
 - Remaining gap / blocker:
 - Exact next action:
+
+
+---
+
+## 11. Minecraft Java 26.3 runtime reconstruction — 2026-11-18
+
+### User directive — new source of truth
+
+The user explicitly changed the project objective: stop incrementally adapting Asteria's bespoke worldgen architecture. Rebuild the chunk lifecycle and generation/loading pipeline to match Minecraft Java Edition 26.3 in ownership, state transitions, dependencies, scheduling and behavior. Remove the existing worldgen runtime where replacement makes it obsolete. This directive supersedes earlier handoff/architecture wording that treated Minecraft as reference-only or required preserving the current section-centric lifecycle. Do not interpret this as permission to discard unrelated authored biome/feature content that can be reused as step bodies, nor as permission to overwrite uninspected user-local changes.
+
+### Bounded implementation slice
+
+- Branch: `worldgen-perf-fix`.
+- PR: #157 remains open, head `worldgen-perf-fix`, base `worldgen-remake`; do not merge, rebase, retarget or switch branch.
+- HEAD: `1a15f27f4683b5ce566981fb9813b71f6ffdda38`.
+- Added `src/Asteria.Core/World/ChunkPyramid.cs`:
+  - the ten ordered Minecraft 26.3 statuses, parent chain, ProtoChunk/LevelChunk transition and heightmap sets;
+  - direct and accumulated per-distance dependency tables;
+  - generation and loading pyramids kept distinct;
+  - write radii 0 for TERRAIN, 1 for FEATURES, -1 otherwise;
+  - `MAX_STRUCTURE_DISTANCE = 8`.
+- Added `src/Asteria.Core.Tests/ChunkPyramidTests.cs` for status order/identity, heightmaps, direct and accumulated dependencies, FULL's radius-11 dependency envelope, loading pass-through and write radii.
+- These two classes are a dependency/status foundation only. They are not yet wired into `GenerationChunkHolder`, residency, dispatcher or materialization; `ChunkStep` still has no executable step body. The old section-progress and column/section task machinery remains active and is a replacement target, not an accepted final architecture.
+
+### Validation evidence
+
+On HEAD `1a15f27`, the rerun of workflow `validate` (#4455, run `44344999437`) reached and passed:
+- Godot C# Release build;
+- single-tier JIT configuration check;
+- ReadyToRun publish/verification;
+- engine-agnostic Core test suite;
+- Debug directional-palette diagnostics;
+- Godot C# Debug build;
+- Godot 4.7.2 .NET installation;
+- headless scene/shader validation;
+- worldgen query baseline and fixed-seed directional-palette profile.
+
+The Core test suite passed in full on this HEAD; an earlier execution at the immediately preceding code commit showed one timeout in an unchanged legacy dispatcher test, but the rerun on the current HEAD passed. The build job was still processing the remaining geology map/render diagnostic artifacts when this entry was written. The workflow's `terrain-ab` and `webui` jobs were cancelled; no A/B benchmark or WebUI result is claimed for this rerun. No local checkout or local .NET build was available in this session; validation evidence above is from GitHub Actions.
+
+### Required next slice — replace the runtime task/holder ownership
+
+Implement the vanilla ownership model rather than adding another parallel Asteria pipeline:
+1. Replace per-section generation status/future ownership in `GenerationChunkHolder` with the ten `ChunkStatus` futures, a single `startedWork`/active-task claim and generation reference count. Keep the holder keyed by one horizontal X/Z chunk position.
+2. Introduce a real `ChunkGenerationTask` for one `(ChunkPos, target ChunkStatus)`. It must run until it has to wait, schedule the next dependency layer from the appropriate `ChunkStep`, retain a bounded 2-D holder cache, claim/release every referenced holder exactly once, and resume from non-blocking status futures.
+3. Move actual per-status work into executable `ChunkStep` bodies. Route BIOMES/TERRAIN worker work, FEATURES serial worldgen work, lighting work and server/main-thread promotion to their correct lanes. The existing 16³ Asteria chunk storage may remain as section backing inside a horizontal chunk column; it must not own independent generation lifecycle statuses.
+4. Enforce `WorldGenRegion`-equivalent read/status boundaries and write radii. Loading uses the separate loading pyramid.
+5. Only after the new path is connected and tested, remove `ChunkColumnMaterializationGenerationTask`, `ChunkMaterializationGenerationTask`, the Asteria-specific step DAG, section status futures, compatibility code and superseded tests.
+
+Acceptance for the next slice: focused tests for one task per (column,status), dependency-ring scheduling, repeated layer waits/resumes, holder claim/release balance, cancellation/stale completion behavior and no per-section status futures. Do not claim runtime parity until these tests and end-to-end streaming prove the new path is authoritative.
