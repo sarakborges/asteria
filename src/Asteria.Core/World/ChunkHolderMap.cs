@@ -288,7 +288,7 @@ public sealed class ChunkHolderMap
         ChunkStep step)
     {
         ArgumentNullException.ThrowIfNull(step);
-        var radius = Math.Max(0, step.AccumulatedDependencies.Radius);
+        var radius = step.GetAccumulatedRadiusOf(ChunkStatus.Empty);
         var width = checked(radius * 2 + 1);
         var capacity = checked(width * width);
         var holders = new Dictionary<ChunkColumnCoord, ChunkHolder>(capacity);
