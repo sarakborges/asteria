@@ -283,6 +283,82 @@ public sealed class ChunkHolderMap
     /// archived every section in the column and no generation task retains
     /// the holder. A ticket arriving first reuses the same holder identity.
     /// </summary>
+
+    /// <summary>
+    /// Acquires the horizontal holder neighborhood required by one Minecraft
+    /// chunk step. The cache is centered on one X/Z column and retains each
+    /// holder in the accumulated dependency radius exactly once.
+    /// </summary>
+    internal ChunkGenerationCache2D AcquireGenerationCache2D(
+        ChunkColumnCoord center,
+        ChunkStep step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        var radius = Math.Max(0, step.AccumulatedDependencies.Radius);
+        var width = checked(radius * 2 + 1);
+        var capacity = checked(width * width);
+        var holders = new Dictionary<ChunkColumnCoord, ChunkHolder>(capacity);
+        var claimedColumns = new List<ChunkColumnCoord>(capacity);
+        ChunkDependencyClaim? claim = null;
+
+        try
+        {
+            for (var dz = -radius; dz <= radius; dz++)
+            for (var dx = -radius; dx <= radius; dx++)
+            {
+                var x = (long)center.X + dx;
+                var z = (long)center.Z + dz;
+                if (x < int.MinValue || x > int.MaxValue ||
+                    z < int.MinValue || z > int.MaxValue)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(center),
+                        $"The dependency cache around {center} exceeds chunk-coordinate bounds.");
+
+                var column = new ChunkColumnCoord((int)x, (int)z);
+                if (!_holders.TryGetValue(column, out var holder))
+                {
+                    var ticketLevel = _loadingLevels.TryGetValue(column, out var level)
+                        ? level
+                        : ChunkLevel.Unloaded;
+                    holder = new ChunkHolder(column, ticketLevel);
+                    _holders.Add(column, holder);
+                }
+
+                if (_loadingLevels.ContainsKey(column))
+                    _pendingUnloads.Remove(column);
+                else
+                    _pendingUnloads.Add(column);
+
+                holder.AddDependencyClaim();
+                claimedColumns.Add(column);
+                holders.Add(column, holder);
+            }
+
+            claim = new ChunkDependencyClaim(
+                this,
+                claimedColumns
+                    .OrderBy(column => column.X)
+                    .ThenBy(column => column.Z)
+                    .ToArray(),
+                Array.Empty<ChunkCoord>());
+
+            return new ChunkGenerationCache2D(
+                center,
+                radius,
+                step,
+                holders,
+                claim);
+        }
+        catch
+        {
+            if (claim is not null)
+                claim.Dispose();
+            else if (claimedColumns.Count > 0)
+                ReleaseDependencyClaims(claimedColumns);
+            throw;
+        }
+    }
+
     public bool CompletePendingUnload(ChunkColumnCoord column)
     {
         if (!_holders.TryGetValue(column, out var holder))

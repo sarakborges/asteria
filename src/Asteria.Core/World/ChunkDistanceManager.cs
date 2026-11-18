@@ -256,6 +256,16 @@ public sealed class ChunkDistanceManager
         ChunkGenerationDependencyEnvelope envelope) =>
         _holders.AcquireDependencyClaims(targets, envelope);
 
+
+    /// <summary>
+    /// Acquires a 2-D holder cache for a status step. Its radius comes from
+    /// accumulated ChunkStep dependencies, not from Asteria's 3-D section DAG.
+    /// </summary>
+    public ChunkGenerationCache2D AcquireGenerationCache2D(
+        ChunkColumnCoord center,
+        ChunkStep step) =>
+        _holders.AcquireGenerationCache2D(center, step);
+
     private void RebuildDistanceGraphs(
         bool loadingChanged,
         bool simulationChanged)
