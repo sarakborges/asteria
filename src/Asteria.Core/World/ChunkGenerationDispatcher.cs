@@ -736,7 +736,7 @@ public sealed class ChunkGenerationDispatcher
                                 entry.Instance,
                                 waitToken,
                                 operation.DependencyId,
-                                completed.Result));
+                                operation.GetResult()));
                     }
                 },
                 CancellationToken.None,

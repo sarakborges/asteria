@@ -36,22 +36,42 @@ public readonly record struct ChunkSectionGenerationProgress(
 /// </summary>
 public readonly record struct ChunkGenerationFutureOperation
 {
+    private readonly Func<object?>? _readResult;
+
     public ChunkGenerationFutureOperation(
         ulong dependencyId,
         Task<ChunkGenerationFutureResult> future,
         Action? requestProducer = null)
+        : this(
+            dependencyId,
+            future,
+            () => future.GetAwaiter().GetResult(),
+            requestProducer)
+    {
+    }
+
+    private ChunkGenerationFutureOperation(
+        ulong dependencyId,
+        Task future,
+        Func<object?> readResult,
+        Action? requestProducer)
     {
         if (dependencyId == 0)
             throw new ArgumentOutOfRangeException(
                 nameof(dependencyId), "Dependency ID zero is reserved.");
         Future = future ?? throw new ArgumentNullException(nameof(future));
+        _readResult = readResult ?? throw new ArgumentNullException(nameof(readResult));
         DependencyId = dependencyId;
         RequestProducer = requestProducer;
     }
 
     public ulong DependencyId { get; }
 
-    public Task<ChunkGenerationFutureResult> Future { get; }
+    /// <summary>
+    /// Future is intentionally untyped at the dispatcher boundary. Each task
+    /// reads its own immutable result through GetResult after completion.
+    /// </summary>
+    public Task Future { get; }
 
     /// <summary>
     /// Idempotent producer admission request executed by the serial dispatcher
@@ -59,6 +79,21 @@ public readonly record struct ChunkGenerationFutureOperation
     /// raise the target holder's requested status; it must not block.
     /// </summary>
     public Action? RequestProducer { get; }
+
+    public object? GetResult() =>
+        _readResult is null
+            ? throw new InvalidOperationException("The default future operation has no result reader.")
+            : _readResult();
+
+    public static ChunkGenerationFutureOperation From<T>(
+        ulong dependencyId,
+        Task<T> future,
+        Action? requestProducer = null) =>
+        new(
+            dependencyId,
+            future,
+            () => future.GetAwaiter().GetResult(),
+            requestProducer);
 }
 
 /// <summary>
