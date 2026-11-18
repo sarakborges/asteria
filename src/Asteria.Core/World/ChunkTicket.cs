@@ -50,9 +50,41 @@ public static class ChunkLevel
     // the generation DAG. Only HolderStatus requirements extend the holder
     // loading graph; immutable field-read halos never retain adjacent holders.
     public static int MaximumLoading =>
-        Full + AsteriaChunkLoadingPlan.MaximumHorizontalDependencyRadius;
+        GetTicketLevel(ChunkStatus.Empty);
     public const int Unloaded = 45;
     public const int NoSimulationTicket = 33;
+
+
+    /// <summary>
+    /// Minecraft 26.3 generation status permitted by a loading ticket level.
+    /// Levels are measured from FULL_CHUNK_LEVEL using the FULL generation
+    /// step's accumulated dependency pyramid.
+    /// </summary>
+    public static ChunkStatus? GetChunkGenerationStatus(int level) =>
+        GetStatusAroundFullChunk(level - Full, defaultValue: null);
+
+    /// <summary>Returns the required status at a Chebyshev distance from a FULL chunk.</summary>
+    public static ChunkStatus? GetStatusAroundFullChunk(
+        int distanceToFullChunk,
+        ChunkStatus? defaultValue)
+    {
+        if (distanceToFullChunk > ChunkPyramid.Generation.FullStep
+                .GetAccumulatedRadiusOf(ChunkStatus.Empty))
+            return defaultValue;
+
+        if (distanceToFullChunk <= 0)
+            return ChunkStatus.Full;
+
+        return ChunkPyramid.Generation.FullStep.AccumulatedDependencies
+            .GetRequiredStatus(distanceToFullChunk) ?? defaultValue;
+    }
+
+    /// <summary>Returns the generation ticket level required for a status.</summary>
+    public static int GetTicketLevel(ChunkStatus status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        return Full + ChunkPyramid.Generation.FullStep.GetAccumulatedRadiusOf(status);
+    }
 
     public static ChunkFullStatus GetFullStatus(int level)
     {

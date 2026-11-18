@@ -307,6 +307,18 @@ public sealed class ChunkStep
     /// </summary>
     public int BlockStateWriteRadius { get; }
 
+    /// <summary>
+    /// Returns the farthest dependency ring that must satisfy the supplied
+    /// status. The target step itself is always at radius zero.
+    /// </summary>
+    public int GetAccumulatedRadiusOf(ChunkStatus status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        return status == TargetStatus
+            ? 0
+            : AccumulatedDependencies.GetRadiusOf(status);
+    }
+
     private static ChunkDependencies BuildDirectDependencies(
         ChunkStatus? parentStatus,
         IEnumerable<ChunkStepRequirement> additionalRequirements)

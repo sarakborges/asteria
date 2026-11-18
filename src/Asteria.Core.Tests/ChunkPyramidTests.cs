@@ -147,6 +147,44 @@ public sealed class ChunkPyramidTests
         Assert.Equal(1, ChunkPyramid.Loading.FullStep.AccumulatedDependencies.Radius);
     }
 
+
+    [Fact]
+    public void FullChunkStepRadiusMatchesMinecraftTicketLevelMapping()
+    {
+        var fullStep = ChunkPyramid.Generation.FullStep;
+
+        Assert.Equal(0, fullStep.GetAccumulatedRadiusOf(ChunkStatus.Full));
+        Assert.Equal(11, fullStep.GetAccumulatedRadiusOf(ChunkStatus.Empty));
+        Assert.Equal(44, ChunkLevel.MaximumLoading);
+        Assert.Equal(44, ChunkLevel.GetTicketLevel(ChunkStatus.Empty));
+        Assert.Equal(44, ChunkLevel.GetTicketLevel(ChunkStatus.StructureStarts));
+        Assert.Equal(36, ChunkLevel.GetTicketLevel(ChunkStatus.StructureReferences));
+        Assert.Equal(36, ChunkLevel.GetTicketLevel(ChunkStatus.Biomes));
+        Assert.Equal(35, ChunkLevel.GetTicketLevel(ChunkStatus.Terrain));
+        Assert.Equal(34, ChunkLevel.GetTicketLevel(ChunkStatus.Features));
+        Assert.Equal(34, ChunkLevel.GetTicketLevel(ChunkStatus.InitializeLight));
+        Assert.Equal(34, ChunkLevel.GetTicketLevel(ChunkStatus.Light));
+        Assert.Equal(33, ChunkLevel.GetTicketLevel(ChunkStatus.Spawn));
+        Assert.Equal(33, ChunkLevel.GetTicketLevel(ChunkStatus.Full));
+    }
+
+    [Fact]
+    public void TicketLevelsResolveThroughTheFullGenerationDependencyPyramid()
+    {
+        Assert.Same(ChunkStatus.Full, ChunkLevel.GetChunkGenerationStatus(32));
+        Assert.Same(ChunkStatus.Full, ChunkLevel.GetChunkGenerationStatus(33));
+        Assert.Same(ChunkStatus.InitializeLight, ChunkLevel.GetChunkGenerationStatus(34));
+        Assert.Same(ChunkStatus.Terrain, ChunkLevel.GetChunkGenerationStatus(35));
+        Assert.Same(ChunkStatus.Biomes, ChunkLevel.GetChunkGenerationStatus(36));
+
+        for (var level = 37; level <= 44; level++)
+            Assert.Same(
+                ChunkStatus.StructureStarts,
+                ChunkLevel.GetChunkGenerationStatus(level));
+
+        Assert.Null(ChunkLevel.GetChunkGenerationStatus(45));
+    }
+
     [Fact]
     public void OnlyTerrainAndFeaturesMayWriteThroughGenerationRegion()
     {

@@ -279,12 +279,6 @@ public sealed class ChunkHolderMap
     }
 
     /// <summary>
-    /// Finishes the deferred unload only after the residency owner has
-    /// archived every section in the column and no generation task retains
-    /// the holder. A ticket arriving first reuses the same holder identity.
-    /// </summary>
-
-    /// <summary>
     /// Acquires the horizontal holder neighborhood required by one Minecraft
     /// chunk step. The cache is centered on one X/Z column and retains each
     /// holder in the accumulated dependency radius exactly once.
@@ -358,6 +352,12 @@ public sealed class ChunkHolderMap
             throw;
         }
     }
+
+    /// <summary>
+    /// Finishes the deferred unload only after the residency owner has
+    /// archived every section in the column and no generation task retains
+    /// the holder. A ticket arriving first reuses the same holder identity.
+    /// </summary>
 
     public bool CompletePendingUnload(ChunkColumnCoord column)
     {
