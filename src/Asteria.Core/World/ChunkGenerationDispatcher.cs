@@ -683,7 +683,7 @@ public sealed class ChunkGenerationDispatcher
         {
             foreach (var operation in operations)
             {
-                if (!operation.Future.IsCompleted)
+                if (!operation.UntypedFuture.IsCompleted)
                     operation.RequestProducer?.Invoke();
             }
         }
@@ -705,7 +705,7 @@ public sealed class ChunkGenerationDispatcher
             // This continuation only publishes a detached completion message.
             // It never resumes a task or mutates dispatcher/lifecycle state, and
             // it does not occupy a physical worker while the holder future waits.
-            _ = operation.Future.ContinueWith(
+            _ = operation.UntypedFuture.ContinueWith(
                 completed =>
                 {
                     if (completed.IsCanceled)

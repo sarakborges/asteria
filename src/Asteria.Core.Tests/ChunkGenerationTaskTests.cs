@@ -75,7 +75,7 @@ public sealed class ChunkGenerationTaskTests
 
         task.Dispose();
         Assert.All(
-            manager.GetHoldersSnapshot(),
+            manager.Holders,
             holder => Assert.Equal(0, holder.DependencyClaimCount));
     }
 
@@ -109,11 +109,11 @@ public sealed class ChunkGenerationTaskTests
 
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, result.Kind);
         Assert.All(
-            manager.GetHoldersSnapshot(),
+            manager.Holders,
             holder => Assert.Equal(0, holder.DependencyClaimCount));
         task.Dispose();
         Assert.All(
-            manager.GetHoldersSnapshot(),
+            manager.Holders,
             holder => Assert.Equal(0, holder.DependencyClaimCount));
     }
 

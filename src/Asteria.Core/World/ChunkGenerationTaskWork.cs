@@ -36,18 +36,22 @@ public readonly record struct ChunkSectionGenerationProgress(
 /// </summary>
 public readonly record struct ChunkGenerationFutureOperation
 {
+    private readonly Task<ChunkGenerationFutureResult>? _legacyFuture;
     private readonly Func<object?>? _readResult;
 
     public ChunkGenerationFutureOperation(
         ulong dependencyId,
         Task<ChunkGenerationFutureResult> future,
         Action? requestProducer = null)
-        : this(
-            dependencyId,
-            future,
-            () => future.GetAwaiter().GetResult(),
-            requestProducer)
     {
+        if (dependencyId == 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(dependencyId), "Dependency ID zero is reserved.");
+        _legacyFuture = future ?? throw new ArgumentNullException(nameof(future));
+        UntypedFuture = future;
+        _readResult = () => future.GetAwaiter().GetResult();
+        DependencyId = dependencyId;
+        RequestProducer = requestProducer;
     }
 
     private ChunkGenerationFutureOperation(
@@ -59,19 +63,22 @@ public readonly record struct ChunkGenerationFutureOperation
         if (dependencyId == 0)
             throw new ArgumentOutOfRangeException(
                 nameof(dependencyId), "Dependency ID zero is reserved.");
-        Future = future ?? throw new ArgumentNullException(nameof(future));
+        UntypedFuture = future ?? throw new ArgumentNullException(nameof(future));
         _readResult = readResult ?? throw new ArgumentNullException(nameof(readResult));
         DependencyId = dependencyId;
         RequestProducer = requestProducer;
+        _legacyFuture = null;
     }
 
     public ulong DependencyId { get; }
 
-    /// <summary>
-    /// Future is intentionally untyped at the dispatcher boundary. Each task
-    /// reads its own immutable result through GetResult after completion.
-    /// </summary>
-    public Task Future { get; }
+    /// <summary>Strongly typed future retained for legacy materialization steps.</summary>
+    public Task<ChunkGenerationFutureResult> Future =>
+        _legacyFuture ?? throw new InvalidOperationException(
+            "This step uses a typed ChunkStatus future; read it through GetResult after UntypedFuture completes.");
+
+    /// <summary>Untyped completion signal used by the shared dispatcher.</summary>
+    public Task UntypedFuture { get; }
 
     /// <summary>
     /// Idempotent producer admission request executed by the serial dispatcher
