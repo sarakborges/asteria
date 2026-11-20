@@ -1767,3 +1767,27 @@ Acceptance for the next slice: focused tests for one task per (column,status), d
 - At the start of this correction, `worldgen-perf-fix` and PR #157 both pointed to `c4fa5c6d76d7953a6e586f92fd1e3853870500e3`; PR #157 was still open against `worldgen-remake`. This update is another handoff-only commit on that same branch.
 - All three checkpoint commits change only `docs/design/chunk-generation-minecraft-parity-handoff.md`. The source-code state remains `276d781b0d8993b7eef67e9f35d9b62da37efbcb`; the Core test failure above remains unresolved.
 - Workflow run #4465 was returned for the first handoff-only commit; run #4466 was returned for its follow-up. Both are documentation-triggered runs, not validation of a source-code correction.
+
+## 13. Typed status-future wait boundary correction — 2026-11-20
+
+### Bounded task and implementation
+
+- Branch: `worldgen-perf-fix`; PR #157 remains open against `worldgen-remake`.
+- Implementation commit: `b5b5a4eb6795f8e191e3664b8c4c3173d00686b4` — `fix(worldgen): validate typed futures without blocking`.
+- `ChunkGenerationTaskAdvanceResult.WaitForFutures` now validates `operation.UntypedFuture`, not the legacy-only `operation.Future` property. This accepts both the legacy future adapter and generic typed status futures without reading a result before completion.
+- Added `WaitForFuturesAcceptsTypedStatusFutureWithoutReadingItsResult` in `ChunkGenerationTaskAdvanceResultTests`. The regression holds a `Task<ChunkStatus>` incomplete while constructing the wait result, then completes it and verifies the result reader.
+- The dispatcher was inspected and left unchanged: it checks/subscribes to `UntypedFuture` and calls `operation.GetResult()` only from the successful completion continuation.
+
+### Validation evidence
+
+- Before the patch, the focused `ChunkGenerationTaskTests` run reproduced all three failures at `operation.Future`, matching CI run #4467.
+- After the patch, focused task/result tests passed: **9 passed, 0 failed**.
+- Full Core suite: `dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --no-build --no-restore --verbosity minimal` — **1,938 passed, 0 failed, 0 skipped**.
+- `git diff --check` passed.
+- Tests ran in an isolated Vercel Sandbox checkout of this exact branch head with .NET SDK 8.0.428 and ICU 78. No user working tree was modified.
+- GitHub Actions for implementation commit `b5b5a4e` had not yet returned a run at the time this checkpoint was written; local validation is not presented as CI confirmation.
+
+### Next action
+
+- Verify PR checks for `b5b5a4e`.
+- Once CI confirms the correction, continue the Minecraft Java 26.3 lifecycle migration at `GenerationChunkHolder`: status-indexed futures, single `startedWork`/task claim, and reference-count ownership in the base holder. Preserve the current branch and PR target; do not merge or deploy.
