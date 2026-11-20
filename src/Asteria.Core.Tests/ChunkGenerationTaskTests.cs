@@ -27,9 +27,9 @@ public sealed class ChunkGenerationTaskTests
             step => Assert.Same(
                 ChunkPyramid.Loading.GetStep(ChunkStatus.Empty),
                 step.Step));
-        Assert.Equal(1, manager.GetHolder(center)!.DependencyClaimCount);
+        Assert.Equal(1, manager.GetHolder(center)!.GenerationRefCount);
         task.Dispose();
-        Assert.Equal(0, manager.GetHolder(center)!.DependencyClaimCount);
+        Assert.Equal(0, manager.GetHolder(center)!.GenerationRefCount);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public sealed class ChunkGenerationTaskTests
         task.Dispose();
         Assert.All(
             manager.Holders,
-            holder => Assert.Equal(0, holder.DependencyClaimCount));
+            holder => Assert.Equal(0, holder.GenerationRefCount));
     }
 
     [Fact]
@@ -110,11 +110,11 @@ public sealed class ChunkGenerationTaskTests
         Assert.Equal(ChunkGenerationTaskAdvanceKind.Completed, result.Kind);
         Assert.All(
             manager.Holders,
-            holder => Assert.Equal(0, holder.DependencyClaimCount));
+            holder => Assert.Equal(0, holder.GenerationRefCount));
         task.Dispose();
         Assert.All(
             manager.Holders,
-            holder => Assert.Equal(0, holder.DependencyClaimCount));
+            holder => Assert.Equal(0, holder.GenerationRefCount));
     }
 
     private static ChunkGenerationTask CreateTask(

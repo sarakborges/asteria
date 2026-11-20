@@ -487,7 +487,7 @@ public sealed class ChunkTicketStorageTests
         claim.Dispose();
 
         Assert.Same(retainedHolder, manager.GetHolder(column));
-        Assert.Equal(0, retainedHolder.DependencyClaimCount);
+        Assert.Equal(0, retainedHolder.GenerationRefCount);
         Assert.Equal(ChunkLevel.EntityTicking, retainedHolder.TicketLevel);
     }
 

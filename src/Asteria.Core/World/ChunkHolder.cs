@@ -28,7 +28,6 @@ public sealed class ChunkHolder : GenerationChunkHolder
     private TaskCompletionSource<ChunkHolderFutureResult> _fullChunkFuture = NewFuture();
     private TaskCompletionSource<ChunkHolderFutureResult> _blockTickingFuture = NewFuture();
     private TaskCompletionSource<ChunkHolderFutureResult> _entityTickingFuture = NewFuture();
-    private int _dependencyClaimCount;
 
     internal ChunkHolder(ChunkColumnCoord position, int ticketLevel)
         : base(position, ticketLevel)
@@ -59,7 +58,7 @@ public sealed class ChunkHolder : GenerationChunkHolder
     /// promotion has completed and no generation task retains the holder.
     /// </summary>
     public bool IsReadyForSaving =>
-        DependencyClaimCount == 0 &&
+        GenerationRefCount == 0 &&
         CompletedFullStatus >= ChunkFullStatus.Full;
 
     public Task<ChunkHolderFutureResult> FullChunkFuture =>
@@ -72,19 +71,6 @@ public sealed class ChunkHolder : GenerationChunkHolder
         _entityTickingFuture.Task;
 
     public bool IsLoading => TicketLevel < ChunkLevel.Unloaded;
-
-    /// <summary>Generation tasks retaining this holder as a dependency.</summary>
-    public int DependencyClaimCount => Volatile.Read(ref _dependencyClaimCount);
-
-    internal void AddDependencyClaim() =>
-        Interlocked.Increment(ref _dependencyClaimCount);
-
-    internal void RemoveDependencyClaim()
-    {
-        if (Interlocked.Decrement(ref _dependencyClaimCount) < 0)
-            throw new InvalidOperationException(
-                $"Chunk holder dependency claim count underflowed: {Position}");
-    }
 
     internal override bool UpdateTicketLevel(int ticketLevel)
     {

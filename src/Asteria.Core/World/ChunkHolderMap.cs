@@ -243,7 +243,7 @@ public sealed class ChunkHolderMap
         }
 
         foreach (var column in columns)
-            _holders[column].AddDependencyClaim();
+            _holders[column].IncreaseGenerationRefCount();
 
         var orderedColumns = columns
             .OrderBy(column => column.X)
@@ -268,8 +268,8 @@ public sealed class ChunkHolderMap
                 throw new InvalidOperationException(
                     $"Claimed chunk holder was removed before its lease was released: {column}");
 
-            holder.RemoveDependencyClaim();
-            if (holder.DependencyClaimCount != 0 ||
+            holder.DecreaseGenerationRefCount();
+            if (holder.GenerationRefCount != 0 ||
                 _loadingLevels.ContainsKey(column))
                 continue;
 
@@ -323,7 +323,7 @@ public sealed class ChunkHolderMap
                 else
                     _pendingUnloads.Add(column);
 
-                holder.AddDependencyClaim();
+                holder.IncreaseGenerationRefCount();
                 claimedColumns.Add(column);
                 holders.Add(column, holder);
             }
@@ -374,7 +374,7 @@ public sealed class ChunkHolderMap
             return false;
         }
 
-        if (holder.DependencyClaimCount != 0 ||
+        if (holder.GenerationRefCount != 0 ||
             !_pendingUnloads.Remove(column))
             return false;
 

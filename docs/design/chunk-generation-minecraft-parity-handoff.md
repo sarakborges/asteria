@@ -1791,3 +1791,31 @@ Acceptance for the next slice: focused tests for one task per (column,status), d
 
 - Verify PR checks for `b5b5a4e`.
 - Once CI confirms the correction, continue the Minecraft Java 26.3 lifecycle migration at `GenerationChunkHolder`: status-indexed futures, single `startedWork`/task claim, and reference-count ownership in the base holder. Preserve the current branch and PR target; do not merge or deploy.
+
+## 14. Generation reference-count ownership — 2026-11-20
+
+### Bounded task and implementation
+
+- Reference contract: Minecraft Java 26.3 declares `generationRefCount` and its increment/decrement operations on the base `GenerationChunkHolder`, not the gameplay `ChunkHolder` subclass.
+- Moved Asteria's atomic generation-claim counter from `ChunkHolder` into `GenerationChunkHolder` as `GenerationRefCount`, `IncreaseGenerationRefCount()` and `DecreaseGenerationRefCount()`.
+- Updated `ChunkHolderMap` to acquire/release references through the base-holder API. `ChunkHolder.IsReadyForSaving` now reads the inherited base count.
+- Removed the derived-only `DependencyClaimCount`, `AddDependencyClaim()` and `RemoveDependencyClaim()` APIs. Updated all affected tests to assert the base-holder names.
+- The new base-holder test verifies increment/decrement through a `GenerationChunkHolder` reference and confirms underflow throws without mutating the zero count.
+
+### Validation evidence
+
+- Focused holder/cache/plan/task/ticket tests: **88 passed, 0 failed, 0 skipped**.
+- Full Core suite: **1,939 passed, 0 failed, 0 skipped**.
+- `git diff --check` passed; source scan found no remaining `DependencyClaimCount`, `AddDependencyClaim()` or `RemoveDependencyClaim()` usages.
+- These tests were run locally in the isolated validation sandbox. The separate CI run #4469 on parent commit `c8910b0` had already passed its Core test step and WebUI job; its other build/benchmark jobs were still running. That run does not include this reference-count patch.
+
+### Explicit remaining parity gaps
+
+- This slice moves the counter owner and aligns the API shape; it does **not** implement Minecraft's `generationSaveSyncFuture` or its save-dependency callback on the first active reference.
+- The generation-future array is still keyed by Asteria's legacy `ChunkGenerationStatus`; the old `_sectionGenerationProgress` map and section-specific APIs remain during migration.
+- The active task registry is still coordinated by `_stateGate` and constrained to the legacy `SectionReady` key; the atomic `startedWork` status claim is not implemented.
+
+### Next bounded task
+
+- Inspect Asteria's persistence/save eligibility boundary and implement the first-reference save synchronization contract only where a real save dependency owner exists. Do not emulate a future without a corresponding save pipeline.
+- Then migrate holder status futures and task ownership to the Minecraft 26.3 `ChunkStatus` model, removing section-local lifecycle only after the replacement is fully connected and tested.

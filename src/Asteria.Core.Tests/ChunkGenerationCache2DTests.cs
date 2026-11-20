@@ -18,7 +18,7 @@ public sealed class ChunkGenerationCache2DTests
         Assert.Equal(23 * 23, cache.Count);
         Assert.Equal(23 * 23, manager.HolderCount);
         Assert.Same(manager.GetHolder(center), cache.GetHolder(center));
-        Assert.Equal(1, cache.GetHolder(center).DependencyClaimCount);
+        Assert.Equal(1, cache.GetHolder(center).GenerationRefCount);
         Assert.Equal(
             step.AccumulatedDependencies.GetRequiredStatus(0),
             cache.GetRequiredStatus(center));
@@ -45,6 +45,28 @@ public sealed class ChunkGenerationCache2DTests
     }
 
     [Fact]
+    public void GenerationReferenceCountIsOwnedByBaseHolderAndCannotUnderflow()
+    {
+        var manager = new ChunkDistanceManager();
+        var center = new ChunkColumnCoord(3, -9);
+        var cache = manager.AcquireGenerationCache2D(
+            center,
+            ChunkPyramid.Generation.GetStep(ChunkStatus.Empty));
+        GenerationChunkHolder holder = cache.GetHolder(center);
+
+        Assert.Equal(1, holder.GenerationRefCount);
+        holder.IncreaseGenerationRefCount();
+        Assert.Equal(2, holder.GenerationRefCount);
+        holder.DecreaseGenerationRefCount();
+        Assert.Equal(1, holder.GenerationRefCount);
+
+        cache.Dispose();
+        Assert.Equal(0, holder.GenerationRefCount);
+        Assert.Throws<InvalidOperationException>(holder.DecreaseGenerationRefCount);
+        Assert.Equal(0, holder.GenerationRefCount);
+    }
+
+    [Fact]
     public void DisposingCacheReleasesEveryHolderClaimExactlyOnce()
     {
         var manager = new ChunkDistanceManager();
@@ -55,12 +77,12 @@ public sealed class ChunkGenerationCache2DTests
         var columns = cache.Columns.ToArray();
         var holders = columns.Select(column => manager.GetHolder(column)!).ToArray();
 
-        Assert.All(holders, holder => Assert.Equal(1, holder.DependencyClaimCount));
+        Assert.All(holders, holder => Assert.Equal(1, holder.GenerationRefCount));
 
         cache.Dispose();
         cache.Dispose();
 
-        Assert.All(holders, holder => Assert.Equal(0, holder.DependencyClaimCount));
+        Assert.All(holders, holder => Assert.Equal(0, holder.GenerationRefCount));
         Assert.All(columns, column =>
             Assert.True(manager.CompletePendingHolderUnload(column)));
         Assert.Equal(0, manager.HolderCount);

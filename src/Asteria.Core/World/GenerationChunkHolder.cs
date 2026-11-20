@@ -177,6 +177,7 @@ public abstract class GenerationChunkHolder
     // The holder gate supplies the same atomic get-or-create semantics while
     // also coordinating ticket ceilings, task ownership and section progress.
     private readonly object _stateGate = new();
+    private int _generationRefCount;
     private readonly TaskCompletionSource<ChunkGenerationFutureResult>?[]
         _generationFutures =
             new TaskCompletionSource<ChunkGenerationFutureResult>?[
@@ -246,6 +247,43 @@ public abstract class GenerationChunkHolder
         {
             lock (_stateGate)
                 return _generationTask is null ? null : _generationTaskTargetStatus;
+        }
+    }
+
+    /// <summary>
+    /// Number of active generation claims retaining this holder. The lifetime
+    /// count belongs to the generation holder, independently of gameplay
+    /// promotion state in <see cref="ChunkHolder"/>.
+    /// </summary>
+    public int GenerationRefCount => Volatile.Read(ref _generationRefCount);
+
+    /// <summary>Retains this holder for one generation dependency claim.</summary>
+    public void IncreaseGenerationRefCount()
+    {
+        while (true)
+        {
+            var current = Volatile.Read(ref _generationRefCount);
+            if (current == int.MaxValue)
+                throw new InvalidOperationException(
+                    $"Generation reference count overflowed: {Position}");
+            if (Interlocked.CompareExchange(
+                    ref _generationRefCount, current + 1, current) == current)
+                return;
+        }
+    }
+
+    /// <summary>Releases one generation dependency claim.</summary>
+    public void DecreaseGenerationRefCount()
+    {
+        while (true)
+        {
+            var current = Volatile.Read(ref _generationRefCount);
+            if (current == 0)
+                throw new InvalidOperationException(
+                    $"Generation reference count underflowed: {Position}");
+            if (Interlocked.CompareExchange(
+                    ref _generationRefCount, current - 1, current) == current)
+                return;
         }
     }
 

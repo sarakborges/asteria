@@ -645,12 +645,12 @@ public sealed class ChunkGenerationPlanTests
                    new ChunkCoord(target.X, 4, target.Z),
                    AsteriaChunkGenerationPlan.FullSectionEnvelope))
         {
-            Assert.Equal(1, holder.DependencyClaimCount);
+            Assert.Equal(1, holder.GenerationRefCount);
             Assert.Null(manager.GetHolder(neighbor));
             Assert.Equal(25, manager.HolderCount);
         }
 
-        Assert.Equal(0, holder.DependencyClaimCount);
+        Assert.Equal(0, holder.GenerationRefCount);
         Assert.Null(manager.GetHolder(neighbor));
         Assert.Equal(25, manager.HolderCount);
     }
@@ -768,7 +768,7 @@ public sealed class ChunkGenerationPlanTests
                    AsteriaChunkGenerationPlan.FullSectionEnvelope))
         {
             Assert.Single(claim.Columns);
-            Assert.Equal(1, holder.DependencyClaimCount);
+            Assert.Equal(1, holder.GenerationRefCount);
             Assert.Collection(
                 claim.SectionTargets.OrderBy(section => section.Y),
                 section => Assert.Equal(new ChunkCoord(column.X, 3, column.Z), section),
@@ -783,7 +783,7 @@ public sealed class ChunkGenerationPlanTests
             Assert.True(lowerTerrain.Result.Succeeded);
         }
 
-        Assert.Equal(0, holder.DependencyClaimCount);
+        Assert.Equal(0, holder.GenerationRefCount);
     }
 
     [Fact]
@@ -807,7 +807,7 @@ public sealed class ChunkGenerationPlanTests
                    AsteriaChunkGenerationPlan.FullSectionEnvelope))
         {
             Assert.Single(claim.Columns);
-            Assert.Equal(1, holder.DependencyClaimCount);
+            Assert.Equal(1, holder.GenerationRefCount);
             Assert.Collection(
                 claim.SectionTargets.OrderBy(section => section.Y),
                 section => Assert.Equal(4, section.Y),
@@ -817,7 +817,7 @@ public sealed class ChunkGenerationPlanTests
                 section => Assert.Equal(8, section.Y));
         }
 
-        Assert.Equal(0, holder.DependencyClaimCount);
+        Assert.Equal(0, holder.GenerationRefCount);
     }
 
     [Fact]
