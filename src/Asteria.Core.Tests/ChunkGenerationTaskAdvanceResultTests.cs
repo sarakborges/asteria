@@ -33,6 +33,25 @@ public sealed class ChunkGenerationTaskAdvanceResultTests
     }
 
     [Fact]
+    public void WaitForFuturesAcceptsTypedStatusFutureWithoutReadingItsResult()
+    {
+        var completion = new TaskCompletionSource<ChunkStatus>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var operation = ChunkGenerationFutureOperation.From(21, completion.Task);
+
+        var result = ChunkGenerationTaskAdvanceResult.WaitForFutures([operation]);
+
+        Assert.Equal(ChunkGenerationTaskAdvanceKind.WaitForFutures, result.Kind);
+        Assert.Same(completion.Task, Assert.Single(result.FutureOperations).UntypedFuture);
+        Assert.False(completion.Task.IsCompleted);
+
+        completion.SetResult(ChunkStatus.Empty);
+        Assert.Equal(
+            ChunkStatus.Empty,
+            Assert.IsType<ChunkStatus>(result.FutureOperations[0].GetResult()));
+    }
+
+    [Fact]
     public void WaitResultRequiresAtLeastOneWorkerOperation()
     {
         Assert.Throws<ArgumentException>(

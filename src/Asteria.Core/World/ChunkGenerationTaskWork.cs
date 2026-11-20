@@ -253,7 +253,7 @@ public sealed class ChunkGenerationTaskAdvanceResult
                 throw new ArgumentException(
                     "Future dependency ID zero is reserved.",
                     nameof(futureOperations));
-            ArgumentNullException.ThrowIfNull(operation.Future);
+            ArgumentNullException.ThrowIfNull(operation.UntypedFuture);
             if (!dependencyIds.Add(operation.DependencyId))
                 throw new ArgumentException(
                     $"Future dependency ID {operation.DependencyId} is duplicated.",
