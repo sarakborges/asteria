@@ -6,61 +6,34 @@ namespace Asteria.Core.World;
 public sealed class ChunkResidencySettings
 {
     public ChunkResidencySettings(
-        int maxMaterializationsInFlight,
-        int maxDispatchesPerFrame,
-        int maxResultsPerFrame,
+        int maxConcurrentWorkers,
         int maxEvictionsPerFrame,
-        WorldGameRules gameRules)
+        WorldGameRules gameRules,
+        int maximumLoadingDistanceUpdatesPerFrame = 4096)
     {
-        if (maxMaterializationsInFlight <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxMaterializationsInFlight));
-        }
-
-        if (maxDispatchesPerFrame <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxDispatchesPerFrame));
-        }
-
-        if (maxResultsPerFrame <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxResultsPerFrame));
-        }
-
+        if (maxConcurrentWorkers <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxConcurrentWorkers));
         if (maxEvictionsPerFrame <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxEvictionsPerFrame));
-        }
+            throw new ArgumentOutOfRangeException(nameof(maxEvictionsPerFrame));
+        if (maximumLoadingDistanceUpdatesPerFrame <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumLoadingDistanceUpdatesPerFrame));
 
         GameRules = gameRules ??
             throw new ArgumentNullException(nameof(gameRules));
-
-        MaxMaterializationsInFlight =
-            maxMaterializationsInFlight;
-        MaxTerrainMaterializationsInFlight = maxMaterializationsInFlight;
-        MaxDispatchesPerFrame =
-            maxDispatchesPerFrame;
-        MaxResultsPerFrame =
-            maxResultsPerFrame;
-        MaxEvictionsPerFrame =
-            maxEvictionsPerFrame;
+        MaxConcurrentWorkers = maxConcurrentWorkers;
+        MaxEvictionsPerFrame = maxEvictionsPerFrame;
+        MaximumLoadingDistanceUpdatesPerFrame = maximumLoadingDistanceUpdatesPerFrame;
     }
 
-    // Shared hard cap across terrain-generation and initial-light tasks.
-    public int MaxMaterializationsInFlight { get; }
-
-    public int MaxTerrainMaterializationsInFlight { get; }
-
-
-    public int MaxDispatchesPerFrame { get; }
-
-    public int MaxResultsPerFrame { get; }
+    /// <summary>
+    /// Maximum number of physical worker threads in the shared generation pool.
+    /// </summary>
+    public int MaxConcurrentWorkers { get; }
 
     public int MaxEvictionsPerFrame { get; }
+
+    /// <summary>Maximum loading-graph nodes processed by one dispatch frame.</summary>
+    public int MaximumLoadingDistanceUpdatesPerFrame { get; }
 
     public WorldGameRules GameRules { get; }
 }
@@ -75,7 +48,16 @@ public readonly record struct ChunkResidencyActivation(
     ChunkCoord Coord,
     ChunkActivationSource Source,
     double WorkerMilliseconds,
-    double TerrainMilliseconds = 0d);
+    double TerrainMilliseconds = 0d,
+    double ElapsedMilliseconds = 0d,
+    double InitialLightingMilliseconds = 0d,
+    double WorkerQueueWaitMilliseconds = 0d,
+    double WorkerWallMilliseconds = 0d,
+    double ResultCollectionWaitMilliseconds = 0d,
+    double PendingQueueWaitMilliseconds = 0d,
+    double DispatchPreparationMilliseconds = 0d,
+    int WorkerSliceCount = 0,
+    double InterSliceWaitMilliseconds = 0d);
 
 public readonly record struct FluidActivationWorkReport(
     int CompletedChunks,
@@ -95,14 +77,36 @@ public readonly record struct ChunkMaterializationFailure(
     ChunkCoord Coord,
     Exception Error);
 
+public readonly record struct ChunkMaterializationStageTiming(
+    ChunkCoord Coord,
+    ChunkMaterializationStage Stage,
+    double WorkerMilliseconds,
+    DirectionalFacePaletteMetrics? DirectionalFacePaletteMetrics = null,
+    double BoundaryColumnBoundsMilliseconds = 0d,
+    double CaveSamplerBuildMilliseconds = 0d,
+    double BoundaryColumnEvaluationMilliseconds = 0d,
+    bool IsSupportOnly = false,
+    bool IsSupportFaceFastPath = false,
+    bool IsSparseSupportFallback = false,
+    int SupportRequestedColumns = 0,
+    int SupportMaterializationColumns = 0);
+
 public sealed record ChunkResidencyUpdate(
     IReadOnlyList<ChunkResidencyActivation> Activations,
-    IReadOnlyList<ChunkMaterializationFailure> Failures)
+    IReadOnlyList<ChunkMaterializationFailure> Failures,
+    IReadOnlyList<ChunkMaterializationStageTiming>? StageTimings = null,
+    int StartedTasks = 0,
+    int CancelledTasks = 0,
+    int WorkerOperationsStarted = 0)
 {
+    public IReadOnlyList<ChunkMaterializationStageTiming> MaterializationStageTimings =>
+        StageTimings ?? Array.Empty<ChunkMaterializationStageTiming>();
+
     public static ChunkResidencyUpdate Empty { get; } =
         new(
             Array.Empty<ChunkResidencyActivation>(),
-            Array.Empty<ChunkMaterializationFailure>());
+            Array.Empty<ChunkMaterializationFailure>(),
+            Array.Empty<ChunkMaterializationStageTiming>());
 }
 
 public sealed class ChunkResidencyRuntime
@@ -130,6 +134,17 @@ public sealed class ChunkResidencyRuntime
     private readonly FluidRegistry _fluids;
     private readonly PackContentRegistry<ObjectDefinition>? _objects;
     private readonly IChunkProvider _chunkProvider;
+    private readonly IChunkDirectionalFacePaletteUpdater? _directionalFacePaletteUpdater;
+    private bool _directionalFaceChunkEventAttached;
+    private readonly DeduplicatedQueue<ChunkCoord> _pendingDirectionalFaceReconciliations = new();
+    private readonly Dictionary<ChunkCoord, DirectionalFaceReconciliationWork>
+        _directionalFaceReconciliationTasks = [];
+    private readonly DeduplicatedQueue<ChunkCoord> _pendingChunkLightingReconciliations = new();
+    private readonly Dictionary<ChunkCoord, ChunkLightingReconciliationWork>
+        _chunkLightingReconciliationTasks = [];
+    private readonly ChunkGenerationCompletionMailbox _arrivalLightingCompletionMailbox = new();
+    private ulong _nextArrivalLightingGeneration = 1;
+    private bool _preferChunkLightingReconciliation = true;
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates;
@@ -139,11 +154,23 @@ public sealed class ChunkResidencyRuntime
     private readonly WorldTickClock _worldTicks;
     private readonly ChunkResidencySettings _settings;
     private readonly ChunkStreamingState _streaming = new();
+    private readonly ChunkTicketAdmissionController _playerTicketAdmissions;
+    private readonly Action<PersistentChunkTicketSnapshot>?
+        _persistentChunkTicketsChanged;
+    private ulong _lastPersistentTicketSnapshotTick;
     private readonly ChunkPresentationSelection _presentationSelection = new();
-    // Materialization tasks own terrain data generation.
-    private readonly Dictionary<ChunkCoord, Task<GeneratedChunk>>
+    // One logical generation task owns a horizontal column holder. Its
+    // vertical section jobs fork to the shared executor and publish together.
+    private readonly Dictionary<ChunkColumnCoord, MaterializationWork>
         _materializationTasks = [];
-private const int FluidActivationItemsPerSlice = 32;
+    private readonly ChunkGenerationCompletionMailbox _generationCompletionMailbox;
+    private readonly ChunkGenerationWorkerPool _generationWorkerPool;
+    private readonly WorldWorkerPool _worldWorkerPool;
+    private readonly ChunkGenerationDispatcher _generationDispatcher;
+    private Task? _generationWorkerShutdown;
+    private ulong _nextMaterializationGeneration = 1;
+    private bool _acceptingMaterializationWork = true;
+    private const int FluidActivationItemsPerSlice = 32;
     private const int MaximumFluidActivationSlicesPerFrame = 8;
     private readonly DeduplicatedQueue<ChunkCoord> _pendingFluidActivationCoords = new();
     private readonly Dictionary<ChunkCoord, PendingFluidActivation> _pendingFluidActivations = [];
@@ -154,10 +181,6 @@ private const int FluidActivationItemsPerSlice = 32;
 
     private ChunkCoord _center;
     private int _retentionRadius;
-    // Scheduling-only state. Allow one distant launch every eight
-    // pressured frames without modifying the authoritative pending set.
-    private const int DistantDispatchIntervalFrames = 8;
-    private int _pressuredFramesSinceDistantDispatch;
 
     public ChunkResidencyRuntime(
         VoxelWorld world,
@@ -172,7 +195,10 @@ private const int FluidActivationItemsPerSlice = 32;
         MeshletContentRevisions fluidContentRevisions,
         WorldTickClock worldTicks,
         ChunkResidencySettings settings,
-        PackContentRegistry<ObjectDefinition>? objects = null)
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        WorldWorkerPool? worldWorkerPool = null,
+        PersistentChunkTicketSnapshot? persistentChunkTickets = null,
+        Action<PersistentChunkTicketSnapshot>? persistentChunkTicketsChanged = null)
     {
         _world =
             world ??
@@ -198,6 +224,8 @@ private const int FluidActivationItemsPerSlice = 32;
         _blockPhysics =
             blockPhysics ??
             throw new ArgumentNullException(nameof(blockPhysics));
+        _blockPhysics.ChunkReconciliationRequested +=
+            HandleBlockPhysicsReconciliationRequested;
         _terrainContentRevisions =
             terrainContentRevisions ??
             throw new ArgumentNullException(
@@ -212,7 +240,43 @@ private const int FluidActivationItemsPerSlice = 32;
         _settings =
             settings ??
             throw new ArgumentNullException(nameof(settings));
+        _persistentChunkTicketsChanged = persistentChunkTicketsChanged;
+        _lastPersistentTicketSnapshotTick = _worldTicks.CurrentTick;
+        _streaming.DistanceManager.RestorePersistentTickets(
+            persistentChunkTickets ?? PersistentChunkTicketSnapshot.Empty,
+            _worldTicks.CurrentTick);
+        _playerTicketAdmissions =
+            new ChunkTicketAdmissionController(_streaming.DistanceManager);
+        SyncTicketDemands();
+        var generationWorkerCount = _settings.MaxConcurrentWorkers;
+        _generationCompletionMailbox = new ChunkGenerationCompletionMailbox();
+        _generationWorkerPool = worldWorkerPool is null
+            ? new ChunkGenerationWorkerPool(
+                generationWorkerCount,
+                _generationCompletionMailbox)
+            : new ChunkGenerationWorkerPool(
+                worldWorkerPool,
+                _generationCompletionMailbox);
+        _worldWorkerPool = _generationWorkerPool.WorkerPool;
+        _generationDispatcher = new ChunkGenerationDispatcher(
+            _generationCompletionMailbox,
+            _generationWorkerPool);
+        _generationDispatcher.GenerationStatusAdvanced +=
+            HandleGenerationStatusAdvanced;
+        _generationDispatcher.SectionGenerationStatusAdvanced +=
+            HandleSectionGenerationStatusAdvanced;
+        _streaming.DistanceManager.HolderQueuePriorityChanged +=
+            HandleHolderQueuePriorityChanged;
+        _streaming.DistanceManager.HolderTicketLevelsChanged +=
+            HandleHolderTicketLevelsChanged;
         _objects = objects;
+        _directionalFacePaletteUpdater =
+            chunkProvider as IChunkDirectionalFacePaletteUpdater;
+        if (_directionalFacePaletteUpdater is not null)
+        {
+            _world.ChunkBecameResident += HandleDirectionalFaceChunkArrival;
+            _directionalFaceChunkEventAttached = true;
+        }
     }
 
     public ChunkCoord Center => _center;
@@ -224,16 +288,371 @@ private const int FluidActivationItemsPerSlice = 32;
 
     public bool IsDesired(ChunkCoord coord) => _streaming.IsDesired(coord);
 
+    public bool AddTicket(ChunkCoord coord, ChunkTicket ticket)
+    {
+        if (coord.Y < 0)
+            throw new ArgumentOutOfRangeException(nameof(coord));
+        ticket = ticket with { SectionY = coord.Y };
+        var changed = _streaming.DistanceManager.AddTicket(
+            ChunkColumnCoord.FromChunk(coord),
+            ticket,
+            _worldTicks.CurrentTick);
+        if (!changed)
+            return false;
+
+        SyncTicketDemands();
+        if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
+            PublishPersistentChunkTickets(_worldTicks.CurrentTick);
+        return true;
+    }
+
+    public bool RemoveTicket(ChunkCoord coord, ChunkTicket ticket)
+    {
+        if (coord.Y < 0)
+            throw new ArgumentOutOfRangeException(nameof(coord));
+        ticket = ticket with { SectionY = coord.Y };
+        var changed = _streaming.DistanceManager.RemoveTicket(
+            ChunkColumnCoord.FromChunk(coord), ticket);
+        if (!changed)
+            return false;
+
+        SyncTicketDemands();
+        if ((ticket.Flags & ChunkTicketFlags.Persist) != 0)
+            PublishPersistentChunkTickets(_worldTicks.CurrentTick);
+        return true;
+    }
+
+    public ChunkTicketFlags AdvanceTicketLifetimes(ulong currentTick)
+    {
+        var hadPersistentTimedTickets =
+            _streaming.DistanceManager.PersistentTimedTicketCount > 0;
+        var changed = _streaming.DistanceManager.AdvanceTick(currentTick);
+        if (changed != ChunkTicketFlags.None)
+        {
+            SyncTicketDemands();
+        }
+        if (hadPersistentTimedTickets &&
+            currentTick != _lastPersistentTicketSnapshotTick)
+            PublishPersistentChunkTickets(currentTick);
+        return changed;
+    }
+
+    private void SyncTicketDemands()
+    {
+        var ticketTargets = _streaming.DistanceManager.Tickets
+            .GenerationMaterializationTargets;
+        var targets = ticketTargets
+            .Select(target => target.Section)
+            .ToArray();
+        var targetStatusesByColumn = ticketTargets
+            .GroupBy(target => ChunkColumnCoord.FromChunk(target.Section))
+            .ToDictionary(
+                group => group.Key,
+                group => group.Max(target => target.Status));
+        var previous = _streaming.TicketedSections;
+        var newlyRequiredColumns = targets
+            .Where(section =>
+                !previous.Contains(section) &&
+                !_streaming.IsDesired(section) &&
+                !_world.ContainsChunk(section))
+            .Select(ChunkColumnCoord.FromChunk)
+            .Distinct()
+            .OrderBy(column => column.X)
+            .ThenBy(column => column.Z)
+            .ToArray();
+
+        foreach (var column in newlyRequiredColumns)
+        {
+            // A parked intermediate-status task owns a fixed vertical target
+            // set. Rebuild it when a new section joins the holder's demand.
+            if (_materializationTasks.TryGetValue(column, out var activeWork))
+                _generationDispatcher?.TryCancel(activeWork.TaskKey);
+
+            _streaming.DistanceManager.InvalidateGenerationRequest(
+                column,
+                "A new vertical generation target changed the holder's required section set.");
+        }
+
+        _streaming.SyncTicketedSections(targets, _world.LoadedChunkCoords);
+
+        // The holder graph describes which columns must remain addressable;
+        // the direct ticket set describes how far each requested section must
+        // advance. A stronger ticket for the same section upgrades the parked
+        // column task without rebuilding it. A weaker target cancels/restarts,
+        // since generation progress cannot be rolled back.
+        foreach (var (column, work) in _materializationTasks.ToArray())
+        {
+            if (newlyRequiredColumns.Contains(column))
+                continue;
+
+            var requestedStatus = _streaming.DesiredSectionsInColumn(column).Count > 0
+                ? ChunkGenerationStatus.Full
+                : targetStatusesByColumn.GetValueOrDefault(
+                    column, ChunkGenerationStatus.Unloaded);
+            if (requestedStatus == ChunkGenerationStatus.Unloaded)
+                continue;
+
+            var holder = _streaming.DistanceManager.GetHolder(column);
+            var activeTask = holder?.GenerationTask;
+            if (activeTask is null ||
+                activeTask.Value.Key != work.TaskKey ||
+                activeTask.Value.Generation != work.Generation ||
+                holder!.GenerationTaskTargetStatus is not { } activeTarget)
+                continue;
+
+            if (requestedStatus > activeTarget)
+            {
+                if (!holder.TryUpgradeGenerationTaskTargetStatus(
+                        activeTask.Value, requestedStatus))
+                    throw new InvalidOperationException(
+                        $"Could not update holder target for {column} from {activeTarget} to {requestedStatus}.");
+                if (!_generationDispatcher.TryUpgradeTargetStatus(
+                        work.TaskKey, requestedStatus))
+                    throw new InvalidOperationException(
+                        $"Could not upgrade active generation target for {column}.");
+            }
+            else if (requestedStatus < activeTarget)
+            {
+                _generationDispatcher.TryCancel(work.TaskKey);
+                _streaming.DistanceManager.InvalidateGenerationRequest(
+                    column,
+                    $"Ticket generation target was lowered from {activeTarget} to {requestedStatus}.");
+            }
+        }
+
+        CancelMaterializationsOutsideResidency();
+        foreach (var section in _streaming.RequestedSections
+                     .Where(_world.ContainsChunk)
+                     .OrderBy(section => section.Y)
+                     .ThenBy(section => section.Z)
+                     .ThenBy(section => section.X))
+            MarkMaterializedSectionFull(section);
+
+        _playerTicketAdmissions.RetainDesiredSections(
+            _streaming.DesiredSections);
+        CompleteReadyPendingHolderUnloads();
+    }
+
+    private void MarkMaterializedSectionFull(ChunkCoord section)
+    {
+        _playerTicketAdmissions.MarkSectionFull(section);
+        var column = ChunkColumnCoord.FromChunk(section);
+        if (_playerTicketAdmissions.HasUnmaterializedAdmissionSections(column))
+            return;
+
+        var fullTargets = _streaming.DesiredSectionsInColumn(column)
+            .Concat(_streaming.DistanceManager.Tickets.FullMaterializationTargets
+                .Where(target => ChunkColumnCoord.FromChunk(target) == column))
+            .Distinct()
+            .ToArray();
+        if (fullTargets.Length == 0 ||
+            fullTargets.Any(target => !_world.ContainsChunk(target)))
+            return;
+
+        var distanceManager = _streaming.DistanceManager;
+        distanceManager.CompleteGenerationStatus(
+            column, ChunkGenerationStatus.Full);
+        var permittedFullStatus = distanceManager.GetFullStatus(column);
+        if (permittedFullStatus >= ChunkFullStatus.Full)
+            distanceManager.CompleteFullStatus(column, permittedFullStatus);
+
+        if (distanceManager.GetHolder(column)?.CompletedFullStatus >=
+            ChunkFullStatus.EntityTicking)
+            _playerTicketAdmissions.CompleteAdmission(column);
+    }
+
+    private void PublishPersistentChunkTickets(ulong currentTick)
+    {
+        if (_persistentChunkTicketsChanged is null)
+            return;
+
+        _persistentChunkTicketsChanged(
+            _streaming.DistanceManager.CapturePersistentTickets());
+        _lastPersistentTicketSnapshotTick = currentTick;
+    }
+
+    public bool IsBlockTicking(ChunkCoord coord) =>
+        _world.ContainsChunk(coord) &&
+        _streaming.IsBlockTicking(coord);
+
+    public bool IsEntityTicking(ChunkCoord coord) =>
+        _world.ContainsChunk(coord) &&
+        _streaming.IsEntityTicking(coord);
+
+    public bool IsNaturalSpawnCandidate(ChunkCoord coord) =>
+        _world.ContainsChunk(coord) &&
+        _streaming.IsEntityTicking(coord) &&
+        _streaming.IsNaturalSpawnCandidate(coord);
+
+    private void HandleGenerationStatusAdvanced(
+        ChunkGenerationTaskInstance task,
+        ChunkGenerationStatus status)
+    {
+        // Dispatcher events are raised only while the owning world thread
+        // collects a detached task-advance result. Ignore progress from a
+        // materialization batch whose required vertical-section set changed
+        // after it was admitted.
+        if (_streaming.DistanceManager.GetHolder(task.Key.Column)?.GenerationTask != task ||
+            !_materializationTasks.TryGetValue(task.Key.Column, out var work) ||
+            work.Generation != task.Generation ||
+            work.HolderProgressRevision !=
+                _streaming.DistanceManager.GetGenerationProgressRevision(task.Key.Column))
+            return;
+
+        _streaming.DistanceManager.CompleteGenerationStatus(
+            task.Key.Column, status);
+    }
+
+    private void HandleSectionGenerationStatusAdvanced(
+        ChunkGenerationTaskInstance task,
+        ChunkSectionGenerationProgress progress)
+    {
+        var section = progress.Coord;
+        // Per-section futures belong to the horizontal holder but retain the
+        // exact vertical coordinate. Publish only while this section remains
+        // part of the same admitted generation revision.
+        if (ChunkColumnCoord.FromChunk(section) != task.Key.Column ||
+            _streaming.DistanceManager.GetHolder(task.Key.Column)?.GenerationTask != task ||
+            !_materializationTasks.TryGetValue(task.Key.Column, out var work) ||
+            work.Generation != task.Generation ||
+            work.HolderProgressRevision !=
+                _streaming.DistanceManager.GetGenerationProgressRevision(task.Key.Column) ||
+            !work.Sections.Contains(section))
+            return;
+
+        _streaming.DistanceManager.CompleteSectionGenerationStatus(
+            section, progress.Status, progress.Product);
+    }
+
+    public ChunkGenerationSerialExecutor LightingExecutor =>
+        _generationDispatcher.LightingExecutor;
+
+    public bool IsLightingRelevant(ChunkCoord coord) =>
+        _streaming.IsLightingRelevant(coord);
+
     public int RetainedCount => _streaming.RetainedCount;
 
     public int PendingCount => _streaming.PendingCount;
 
+    public int DesiredPendingCount => _streaming.DesiredPendingCount;
+
     public int MaterializingCount =>
         _streaming.MaterializingCount;
 
-    /// <summary>Background tasks currently generating terrain data.</summary>
+    public int DesiredMaterializingCount =>
+        _streaming.DesiredMaterializingCount;
+
+    public int PendingHolderUnloadCount =>
+        _streaming.DistanceManager.PendingUnloadCount;
+
+    public int PendingDistanceUpdateCount =>
+        _streaming.DistanceManager.PendingDistanceUpdateCount;
+
+    /// <summary>
+    /// Settles the simulation graph, advances bounded loading propagation, and
+    /// finalizes holder unloads after loading-level changes are published.
+    /// </summary>
+    public int RunDistanceUpdates(int maximumLoadingUpdates)
+    {
+        var processed = _streaming.DistanceManager.RunDistanceUpdates(maximumLoadingUpdates);
+        if (processed > 0)
+            CompleteReadyPendingHolderUnloads();
+        return processed;
+    }
+
+    /// <summary>Background tasks currently admitted by this dimension's shared worker adapter.</summary>
     public int ActiveWorkerCount =>
+        _generationWorkerPool.InFlightWorkCount +
+        _directionalFaceReconciliationTasks.Values.Count(work =>
+            !work.Operation.IsCompleted);
+
+    public int GenerationWorkerCount => _generationWorkerPool.WorkerCount;
+
+    public int ActiveGenerationWorkerCount =>
+        _generationWorkerPool.ActiveWorkerCount;
+
+    public int PendingGenerationWorkerQueueCount =>
+        _generationWorkerPool.PendingWorkCount;
+
+     public int MaterializationJobCount =>
         _materializationTasks.Count;
+
+    public int DirectionalFaceReconciliationCount =>
+        _pendingDirectionalFaceReconciliations.Count +
+        _directionalFaceReconciliationTasks.Count;
+
+    public int ChunkLightingReconciliationCount =>
+        _pendingChunkLightingReconciliations.Count +
+        _chunkLightingReconciliationTasks.Count;
+
+    public int SuspendedMaterializationCount =>
+        _generationDispatcher.WaitingTaskCount;
+
+    public int ReadyGenerationTaskCount =>
+        _generationDispatcher.ReadyTaskCount;
+
+    public int PendingGenerationWorkerOperations =>
+        _generationDispatcher.PendingWorkerOperationCount;
+
+    public int PendingGenerationCompletions =>
+        _generationCompletionMailbox.PendingCount + _generationDispatcher.PendingOutcomeCount;
+
+    public bool IsQuiescent =>
+        _streaming.MaterializingCount == 0 &&
+        _materializationTasks.Count == 0 &&
+        _generationDispatcher.ActiveTaskCount == 0 &&
+        _generationDispatcher.RetiringTaskCount == 0 &&
+        _generationDispatcher.PendingOutcomeCount == 0 &&
+        DirectionalFaceReconciliationCount == 0 &&
+        ChunkLightingReconciliationCount == 0 &&
+        (_generationWorkerShutdown is null || _generationWorkerShutdown.IsCompleted);
+
+    /// <summary>
+    /// Stops admitting new chunks. Bounded in-flight materializations are
+    /// drained by the owning session and their private results are discarded.
+    /// </summary>
+    public void BeginRetirement()
+    {
+        if (!_acceptingMaterializationWork)
+            return;
+
+        _acceptingMaterializationWork = false;
+        _generationDispatcher.CancelAll();
+        _generationWorkerShutdown ??= _generationWorkerPool.DisposeAsync().AsTask();
+        _pendingDirectionalFaceReconciliations.Clear();
+        _pendingChunkLightingReconciliations.Clear();
+        if (!_directionalFaceChunkEventAttached)
+            return;
+        _world.ChunkBecameResident -= HandleDirectionalFaceChunkArrival;
+        _directionalFaceChunkEventAttached = false;
+    }
+
+    // Chunk arrival is only an enqueue operation. Snapshot capture and all
+    // directional-face scanning run later in the bounded worker lane.
+    private void HandleDirectionalFaceChunkArrival(ChunkCoord coord)
+    {
+        if (_acceptingMaterializationWork &&
+            _directionalFacePaletteUpdater is not null)
+            _pendingDirectionalFaceReconciliations.Enqueue(coord);
+    }
+
+    // Chunk-physics events are queue-only. Snapshot capture and voxel scans
+    // are deferred to the bounded arrival-reconciliation worker.
+    private void HandleBlockPhysicsReconciliationRequested(ChunkCoord coord)
+    {
+        if (_acceptingMaterializationWork)
+            _pendingChunkLightingReconciliations.Enqueue(coord);
+    }
+
+    private void EnqueueDirectionalFaceVisualChanges(
+        IReadOnlyList<WorldVoxelCoord> positions)
+    {
+        foreach (var position in positions)
+        {
+            _terrainContentRevisions.BumpVoxelEdit(_world, position);
+            _worldUpdates.EnqueueSurfaceEdit(_world, position);
+        }
+    }
 
     public int PresentationPendingCount =>
         _streaming.PresentationPendingCount;
@@ -251,6 +670,15 @@ private const int FluidActivationItemsPerSlice = 32;
             center,
             horizontalRadius);
 
+    public bool SelectionNeedsRebuild(
+        ChunkCoord center,
+        int horizontalRadius,
+        int simulationDistanceChunks) =>
+        _streaming.SelectionNeedsRebuild(
+            center,
+            horizontalRadius,
+            simulationDistanceChunks);
+
     public HashSet<ChunkCoord> BootstrapSelection(
         ChunkCoord center, int horizontalRadius) =>
         _streaming.BootstrapSelection(center, horizontalRadius);
@@ -260,16 +688,33 @@ private const int FluidActivationItemsPerSlice = 32;
         int horizontalRadius,
         int retentionRadius,
         IReadOnlySet<ChunkCoord> desired,
+        IEnumerable<ChunkCoord> presented) =>
+        SyncSelection(
+            center,
+            horizontalRadius,
+            retentionRadius,
+            _streaming.SimulationDistanceChunks,
+            desired,
+            presented);
+
+    public bool SyncSelection(
+        ChunkCoord center,
+        int horizontalRadius,
+        int retentionRadius,
+        int simulationDistanceChunks,
+        IReadOnlySet<ChunkCoord> desired,
         IEnumerable<ChunkCoord> presented)
     {
         ArgumentNullException.ThrowIfNull(desired);
         ArgumentNullException.ThrowIfNull(presented);
 
+        var previousCenter = _center;
         var changed =
             _streaming.RebuildSelection(
                 center,
                 horizontalRadius,
                 retentionRadius,
+                simulationDistanceChunks,
                 desired);
 
         _presentationSelection.Sync(
@@ -281,11 +726,31 @@ private const int FluidActivationItemsPerSlice = 32;
             return false;
         }
 
+        _playerTicketAdmissions.RetainDesiredSections(
+            _streaming.DesiredSections);
+        CancelMaterializationsOutsideResidency();
         _center = center;
         _retentionRadius =
             Math.Max(0, retentionRadius);
         SyncResidentState(presented);
+        CompleteReadyPendingHolderUnloads();
+
+        if (previousCenter != center)
+            ReprioritizeActiveWorldWork();
         return true;
+    }
+
+    private void CancelMaterializationsOutsideResidency()
+    {
+        foreach (var (column, work) in _materializationTasks.ToArray())
+        {
+            // A column task's aggregate target is fixed to the complete batch.
+            // If even one section left residency, rebuild from the remaining
+            // requested set rather than letting an obsolete section hold the
+            // other sections at an earlier generation status.
+            if (work.Sections.Any(section => !_streaming.KeepsLoaded(section)))
+                _generationDispatcher.TryCancel(work.TaskKey);
+        }
     }
 
     public void SyncResidentState(
@@ -321,177 +786,729 @@ private const int FluidActivationItemsPerSlice = 32;
 
     public ChunkResidencyUpdate CollectMaterializationResults(
         WorldFrameWorkBudget budget,
-        IEnumerable<ChunkCoord> presented)
+        IEnumerable<ChunkCoord> presented,
+        int maximumWorkerStarts = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(presented);
-        if (_materializationTasks.Count == 0)
+        if (maximumWorkerStarts < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumWorkerStarts));
+        if (_materializationTasks.Count == 0 &&
+            _generationDispatcher.RetiringTaskCount == 0 &&
+            _generationDispatcher.PendingOutcomeCount == 0 &&
+            !_directionalFaceReconciliationTasks.Values.Any(work =>
+                work.Operation.IsCompleted) &&
+            _arrivalLightingCompletionMailbox.PendingCount == 0)
             return ChunkResidencyUpdate.Empty;
+
+        var report = _generationDispatcher.Pump(
+            budget, maximumWorkerStarts);
 
         var activations = new List<ChunkResidencyActivation>();
         var failures = new List<ChunkMaterializationFailure>();
+        var stageTimings = new List<ChunkMaterializationStageTiming>();
         var processed = 0;
-        var completedTerrain = _materializationTasks
-            .Where(entry => entry.Value.IsCompleted)
-            .OrderBy(entry => ChunkStreamingState.Priority(
-                entry.Key, _center, _streaming.MovementDirection))
-            .Take(_settings.MaxResultsPerFrame)
-            .ToArray();
+        var cancelledTasks = 0;
 
-        foreach (var (coord, task) in completedTerrain)
+        while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
-            if (processed >= _settings.MaxResultsPerFrame)
-                break;
-            if (processed > 0 && budget.Exhausted(Stopwatch.GetTimestamp()))
+            // Do not remove a result from the dispatcher after the frame budget
+            // has expired. Every dequeued outcome must be applied or requeued.
+            if (!_generationDispatcher.TryDequeueOutcome(out var outcome))
                 break;
 
             processed++;
-            _materializationTasks.Remove(coord);
-            _streaming.FinishMaterializing(coord);
-            if (task.IsFaulted || task.IsCanceled)
+            switch (outcome.Task.Key.TargetStep)
             {
-                var error = task.IsFaulted
-                    ? task.Exception?.GetBaseException() ??
-                      new InvalidOperationException($"Chunk terrain generation failed: {coord}")
-                    : new TaskCanceledException(task);
-                failures.Add(new ChunkMaterializationFailure(coord, error));
-                RequeueIfDesired(coord);
+                case ChunkGenerationStepId.SectionReady:
+                    CollectMaterializationOutcome(
+                        outcome, presented, activations, failures, stageTimings,
+                        ref cancelledTasks);
+                    break;
+
+                case ChunkGenerationStepId.DirectionalFacePalettes:
+                    CollectDirectionalFaceOutcome(
+                        outcome, failures, ref cancelledTasks);
+                    break;
+
+                case ChunkGenerationStepId.InitialLighting:
+                    CollectChunkLightingOutcome(
+                        outcome, failures, ref cancelledTasks);
+                    break;
+
+                default:
+                    failures.Add(new ChunkMaterializationFailure(
+                        outcome.Task.Key.Column.ToSection(
+                            outcome.Task.Key.SectionY ?? 0),
+                        new InvalidOperationException(
+                            $"Unexpected generation outcome step: {outcome.Task.Key.TargetStep}")));
+                    break;
+            }
+        }
+
+        var completedReconciliations = _directionalFaceReconciliationTasks
+            .Where(entry => entry.Value.Operation.IsCompleted)
+            .OrderBy(entry => ChunkStreamingState.StreamingPriority(
+                entry.Key, _center))
+            .ToArray();
+
+        foreach (var (coord, work) in completedReconciliations)
+        {
+            if (budget.Exhausted(Stopwatch.GetTimestamp()))
+                break;
+
+            _directionalFaceReconciliationTasks.Remove(coord);
+            processed++;
+            if (!work.Operation.TryGetCompletion(out var completion))
+                continue;
+            if (completion.Error is not null)
+            {
+                failures.Add(new ChunkMaterializationFailure(
+                    coord, completion.Error));
+                if (_acceptingMaterializationWork &&
+                    _world.TryGetSavedChunk(coord, out _))
+                    _pendingDirectionalFaceReconciliations.Enqueue(coord);
                 continue;
             }
 
-            if (!_streaming.KeepsLoaded(coord) || _world.ContainsChunk(coord))
+            if (!_acceptingMaterializationWork)
                 continue;
 
-            var generated = task.Result;
-            _world.InsertChunk(coord, generated.Chunk);
-            activations.Add(ActivateResidentChunk(
-                coord, ChunkActivationSource.Provider,
-                generated.TerrainMilliseconds, generated.TerrainMilliseconds));
+            var result = completion.Result ??
+                throw new InvalidOperationException(
+                    $"Directional face reconciliation returned no result: {coord}");
+            if (_directionalFacePaletteUpdater is not null &&
+                _directionalFacePaletteUpdater.TryApplyChunkArrivalReconciliation(
+                    _world, result, out var visualChanges))
+            {
+                EnqueueDirectionalFaceVisualChanges(visualChanges);
+            }
+            else if (_world.TryGetSavedChunk(result.Arriving, out _))
+            {
+                _pendingDirectionalFaceReconciliations.Enqueue(result.Arriving);
+            }
         }
 
-        if (processed > 0)
+        foreach (var (coord, work) in _chunkLightingReconciliationTasks.ToArray())
+        {
+            if (budget.Exhausted(Stopwatch.GetTimestamp()))
+                break;
+
+            if (!_generationDispatcher.LightingExecutor.TryCollectDependency(
+                    _arrivalLightingCompletionMailbox, out var completion))
+                break;
+
+            _chunkLightingReconciliationTasks.Remove(coord);
+            processed++;
+            if (completion.Task != work.TaskInstance)
+                throw new InvalidOperationException(
+                    $"Arrival lighting completion did not match {coord}.");
+
+            if (completion.Error is not null)
+            {
+                failures.Add(new ChunkMaterializationFailure(
+                    coord, completion.Error));
+                if (_acceptingMaterializationWork &&
+                    (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord)))
+                    _pendingChunkLightingReconciliations.Enqueue(coord);
+                continue;
+            }
+
+            if (!_acceptingMaterializationWork)
+                continue;
+
+            var result = completion.Result as ChunkArrivalReconciliationResult ??
+                throw new InvalidOperationException(
+                    $"Chunk lighting reconciliation returned no result: {coord}");
+            if (!_world.IsContentStampCurrent(work.ContentDependencies) ||
+                !_world.AreLightingStampsCurrent(work.LightingDependencies))
+            {
+                if (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord))
+                    _pendingChunkLightingReconciliations.Enqueue(coord);
+                continue;
+            }
+
+            foreach (var position in result.LightingSeeds)
+                _worldUpdates.EnqueueLighting(position);
+
+            if (result.PhysicsPlan is { } physicsPlan)
+                _blockPhysics.ApplyResidentChunkActivationPlan(physicsPlan);
+        }
+
+        return FinishMaterializationCollection(
+            activations, failures, stageTimings, processed,
+            cancelledTasks, report.WorkerOperationsStarted, presented);
+    }
+
+    private void CollectMaterializationOutcome(
+        ChunkGenerationTaskOutcome outcome,
+        IEnumerable<ChunkCoord> presented,
+        List<ChunkResidencyActivation> activations,
+        List<ChunkMaterializationFailure> failures,
+        List<ChunkMaterializationStageTiming> stageTimings,
+        ref int cancelledTasks)
+    {
+        if (outcome.Task.Key.SectionY is not null)
+            throw new InvalidOperationException(
+                "A column materialization outcome unexpectedly has a SectionY.");
+
+        var column = outcome.Task.Key.Column;
+        if (!_materializationTasks.TryGetValue(column, out var work) ||
+            work.Generation != outcome.Task.Generation)
+            return;
+
+        var holder = _streaming.DistanceManager.GetHolder(column) ??
+            throw new InvalidOperationException(
+                $"Generation holder disappeared before its task was retired: {column}.");
+        if (!holder.RemoveGenerationTask(outcome.Task))
+            throw new InvalidOperationException(
+                $"Terminal generation outcome does not own the holder task: {outcome.Task}.");
+
+        _materializationTasks.Remove(column);
+        if (outcome.Kind is ChunkGenerationTaskOutcomeKind.Cancelled or
+            ChunkGenerationTaskOutcomeKind.Failed)
+        {
+            _streaming.DistanceManager.ResetGenerationProgress(
+                column,
+                $"Generation attempt {outcome.Task.Generation} was {outcome.Kind}.");
+        }
+        work.DependencyClaims.Dispose();
+        foreach (var section in work.Sections)
+            _streaming.FinishMaterializing(section);
+
+        var failureCoord = work.Sections[0];
+        if (outcome.Kind == ChunkGenerationTaskOutcomeKind.Cancelled)
+        {
+            _playerTicketAdmissions.Abandon(column);
+            cancelledTasks++;
+            if (_acceptingMaterializationWork)
+                RequeueRequestedSectionsInColumn(
+                    column, work.PendingSinceTimestamp);
+            return;
+        }
+
+        if (outcome.Kind == ChunkGenerationTaskOutcomeKind.Failed)
+        {
+            var error = outcome.Error ??
+                new InvalidOperationException(
+                    $"Chunk column materialization failed without an exception: {column}");
+            failures.Add(new ChunkMaterializationFailure(failureCoord, error));
+            _playerTicketAdmissions.Abandon(column);
+            if (_acceptingMaterializationWork)
+                RequeueRequestedSectionsInColumn(
+                    column, work.PendingSinceTimestamp);
+            return;
+        }
+
+        if (outcome.Result is not ChunkColumnMaterializationTaskOutput result ||
+            result.Column != column ||
+            result.Sections.Length != work.Sections.Count ||
+            !result.Sections.Select(section => section.Coord).ToHashSet()
+                .SetEquals(work.Sections))
+        {
+            failures.Add(new ChunkMaterializationFailure(
+                failureCoord,
+                new InvalidOperationException(
+                    $"Completed generation task returned an invalid column result: {column}")));
+            _streaming.DistanceManager.ResetGenerationProgress(
+                column,
+                $"Generation attempt {outcome.Task.Generation} returned an invalid column result.");
+            _playerTicketAdmissions.Abandon(column);
+            if (_acceptingMaterializationWork)
+                RequeueRequestedSectionsInColumn(
+                    column, work.PendingSinceTimestamp);
+            return;
+        }
+
+        stageTimings.AddRange(
+            result.Sections.SelectMany(section => section.StageTimings));
+        if (!_acceptingMaterializationWork)
+            return;
+
+        if (work.HolderProgressRevision !=
+            _streaming.DistanceManager.GetGenerationProgressRevision(column))
+        {
+            // A new section target changed the holder's required FULL set while
+            // this worker was detached. Discard its products and reconstruct
+            // the complete active demand set, including targets added in-flight.
+            foreach (var section in work.Sections.Where(_world.ContainsChunk))
+                MarkMaterializedSectionFull(section);
+
+            RequeueRequestedSectionsInColumn(
+                column, work.PendingSinceTimestamp);
+            return;
+        }
+
+        // Publish every still-resident section in the holder batch before
+        // presentation/physics work is queued for any of them.
+        var sectionsToActivate = new List<ChunkMaterializationTaskOutput>(
+            result.Sections.Length);
+        foreach (var sectionResult in result.Sections)
+        {
+            var coord = sectionResult.Coord;
+            if (!_streaming.KeepsLoaded(coord))
+                continue;
+
+            if (_world.ContainsChunk(coord))
+            {
+                MarkMaterializedSectionFull(coord);
+                continue;
+            }
+
+            _world.InsertChunk(coord, sectionResult.Chunk);
+            sectionsToActivate.Add(sectionResult);
+        }
+
+        var activatedTimestamp = Stopwatch.GetTimestamp();
+        foreach (var sectionResult in sectionsToActivate)
+        {
+            var coord = sectionResult.Coord;
+            MarkMaterializedSectionFull(coord);
+            var activation = ActivateResidentChunk(
+                coord,
+                ChunkActivationSource.Provider,
+                sectionResult.WorkerMilliseconds,
+                sectionResult.WorkerMilliseconds -
+                    sectionResult.InitialLightingMilliseconds,
+                elapsedMilliseconds: 0d,
+                sectionResult.InitialLightingMilliseconds,
+                sectionResult.WorkerQueueWaitMilliseconds,
+                sectionResult.WorkerWallMilliseconds,
+                resultCollectionWaitMilliseconds: 0d,
+                pendingQueueWaitMilliseconds: Stopwatch.GetElapsedTime(
+                    work.PendingSinceTimestamp,
+                    work.DispatchTimestamp).TotalMilliseconds,
+                dispatchPreparationMilliseconds:
+                    sectionResult.DispatchPreparationMilliseconds,
+                workerSliceCount: sectionResult.WorkerSliceCount,
+                interSliceWaitMilliseconds:
+                    sectionResult.InterSliceWaitMilliseconds);
+
+            activations.Add(activation with
+            {
+                ElapsedMilliseconds = Stopwatch.GetElapsedTime(
+                    work.PendingSinceTimestamp,
+                    activatedTimestamp).TotalMilliseconds,
+                ResultCollectionWaitMilliseconds = Stopwatch.GetElapsedTime(
+                    sectionResult.WorkerCompletedTimestamp,
+                    activatedTimestamp).TotalMilliseconds,
+            });
+        }
+    }
+
+    private void CollectDirectionalFaceOutcome(
+        ChunkGenerationTaskOutcome outcome,
+        List<ChunkMaterializationFailure> failures,
+        ref int cancelledTasks)
+    {
+        var sectionY = outcome.Task.Key.SectionY ?? 0;
+        var coord = outcome.Task.Key.Column.ToSection(sectionY);
+        if (!_directionalFaceReconciliationTasks.Remove(coord))
+            return;
+
+        if (outcome.Kind == ChunkGenerationTaskOutcomeKind.Cancelled)
+        {
+            cancelledTasks++;
+            return;
+        }
+        if (outcome.Kind == ChunkGenerationTaskOutcomeKind.Failed)
+        {
+            failures.Add(new ChunkMaterializationFailure(
+                coord,
+                outcome.Error ?? new InvalidOperationException(
+                    $"Directional face reconciliation failed: {coord}")));
+            if (_acceptingMaterializationWork && _world.TryGetSavedChunk(coord, out _))
+                _pendingDirectionalFaceReconciliations.Enqueue(coord);
+            return;
+        }
+        if (!_acceptingMaterializationWork)
+            return;
+
+        if (outcome.Result is not DirectionalFacePaletteReconciliationResult result)
+        {
+            failures.Add(new ChunkMaterializationFailure(
+                coord,
+                new InvalidOperationException(
+                    $"Directional face reconciliation returned an invalid result: {coord}")));
+            return;
+        }
+
+        if (_directionalFacePaletteUpdater is not null &&
+            _directionalFacePaletteUpdater.TryApplyChunkArrivalReconciliation(
+                _world, result, out var visualChanges))
+        {
+            EnqueueDirectionalFaceVisualChanges(visualChanges);
+        }
+        else if (_world.TryGetSavedChunk(result.Arriving, out _))
+        {
+            _pendingDirectionalFaceReconciliations.Enqueue(result.Arriving);
+        }
+    }
+
+    private void CollectChunkLightingOutcome(
+        ChunkGenerationTaskOutcome outcome,
+        List<ChunkMaterializationFailure> failures,
+        ref int cancelledTasks)
+    {
+        var sectionY = outcome.Task.Key.SectionY ?? 0;
+        var coord = outcome.Task.Key.Column.ToSection(sectionY);
+        if (!_chunkLightingReconciliationTasks.Remove(coord, out var work))
+            return;
+
+        if (outcome.Kind == ChunkGenerationTaskOutcomeKind.Cancelled)
+        {
+            cancelledTasks++;
+            return;
+        }
+        if (outcome.Kind == ChunkGenerationTaskOutcomeKind.Failed)
+        {
+            failures.Add(new ChunkMaterializationFailure(
+                coord,
+                outcome.Error ?? new InvalidOperationException(
+                    $"Chunk lighting reconciliation failed: {coord}")));
+            if (_acceptingMaterializationWork &&
+                (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord)))
+                _pendingChunkLightingReconciliations.Enqueue(coord);
+            return;
+        }
+        if (!_acceptingMaterializationWork)
+            return;
+
+        if (outcome.Result is not ChunkArrivalReconciliationResult result)
+        {
+            failures.Add(new ChunkMaterializationFailure(
+                coord,
+                new InvalidOperationException(
+                    $"Chunk lighting reconciliation returned an invalid result: {coord}")));
+            return;
+        }
+
+        if (!_world.IsContentStampCurrent(work.ContentDependencies) ||
+            !_world.AreLightingStampsCurrent(work.LightingDependencies))
+        {
+            if (_world.ContainsChunk(coord) || _world.HasArchivedChunk(coord))
+                _pendingChunkLightingReconciliations.Enqueue(coord);
+            return;
+        }
+
+        foreach (var position in result.LightingSeeds)
+            _worldUpdates.EnqueueLighting(position);
+
+        if (result.PhysicsPlan is { } physicsPlan)
+            _blockPhysics.ApplyResidentChunkActivationPlan(physicsPlan);
+    }
+
+    private ChunkResidencyUpdate FinishMaterializationCollection(
+        List<ChunkResidencyActivation> activations,
+        List<ChunkMaterializationFailure> failures,
+        List<ChunkMaterializationStageTiming> stageTimings,
+        int processed,
+        int cancelledTasks,
+        int workerOperationsStarted,
+        IEnumerable<ChunkCoord> presented)
+    {
+        if (processed > 0 || activations.Count > 0)
             SyncResidentState(presented);
-        return new ChunkResidencyUpdate(activations, failures);
+        if (activations.Count == 0 && failures.Count == 0 &&
+            stageTimings.Count == 0 && cancelledTasks == 0 &&
+            workerOperationsStarted == 0)
+            return ChunkResidencyUpdate.Empty;
+
+        CompleteReadyPendingHolderUnloads();
+        return new ChunkResidencyUpdate(
+            activations, failures, stageTimings,
+            StartedTasks: 0,
+            CancelledTasks: cancelledTasks,
+            WorkerOperationsStarted: workerOperationsStarted);
     }
 
     public ChunkResidencyUpdate DispatchMaterializationTasks(
         WorldFrameWorkBudget budget,
-        IEnumerable<ChunkCoord> presented,
-        bool deferDistantWork = false,
-        int maximumNewTasks = int.MaxValue)
+        IEnumerable<ChunkCoord> presented)
     {
         ArgumentNullException.ThrowIfNull(presented);
-        if (maximumNewTasks < 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumNewTasks));
+        if (!_acceptingMaterializationWork)
+            return ChunkResidencyUpdate.Empty;
 
-        if (deferDistantWork)
-            _pressuredFramesSinceDistantDispatch = Math.Min(
-                DistantDispatchIntervalFrames,
-                _pressuredFramesSinceDistantDispatch + 1);
-        else
-            _pressuredFramesSinceDistantDispatch = 0;
+        var remainingLoadingUpdates = _settings.MaximumLoadingDistanceUpdatesPerFrame;
+        remainingLoadingUpdates -= RunDistanceUpdates(remainingLoadingUpdates);
 
-        var allowDistant = !deferDistantWork ||
-            _pressuredFramesSinceDistantDispatch >= DistantDispatchIntervalFrames;
-        var localRadius = ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
-        var localDistanceSquared = (long)localRadius * localRadius;
-
-        var activations =
-            new List<ChunkResidencyActivation>();
-        var dispatched = 0;
+        var activations = new List<ChunkResidencyActivation>();
+        var failures = new List<ChunkMaterializationFailure>();
+        var startedTasks = 0;
         var restored = 0;
 
-        // Archived restores also wake fluid simulation and physics.
-        // Bound them independently of provider dispatches.
-        while (_materializationTasks.Count <
-                   _settings.MaxTerrainMaterializationsInFlight &&
-               _materializationTasks.Count <
-                   _settings.MaxMaterializationsInFlight &&
-               restored <
-                   _settings.MaxResultsPerFrame)
+        while (!budget.Exhausted(Stopwatch.GetTimestamp()))
         {
-            if ((dispatched > 0 || restored > 0) &&
-                budget.Exhausted(
-                    Stopwatch.GetTimestamp()))
+            var pendingColumn = _streaming.PopPendingColumnEntryByPriority();
+            if (pendingColumn is null)
+                break;
+
+            var pendingSections = pendingColumn.Value.Sections;
+            var column = pendingColumn.Value.Column;
+            var hasPlayerDemand =
+                _streaming.DesiredSectionsInColumn(column).Count > 0;
+            var hasPendingAdmission =
+                _playerTicketAdmissions.HasPendingAdmission(column);
+            var hadPlayerLoadingTicket =
+                _streaming.DistanceManager.HasPlayerLoadingTicket(column);
+            var admitted = (!hasPlayerDemand && !hasPendingAdmission) ||
+                _playerTicketAdmissions.TryAdmit(
+                    column,
+                    _streaming.DesiredSectionsInColumn(column),
+                    _world.LoadedChunkCoords);
+
+            if (admitted && hasPlayerDemand && !hadPlayerLoadingTicket &&
+                remainingLoadingUpdates > 0)
             {
+                var processed = RunDistanceUpdates(remainingLoadingUpdates);
+                remainingLoadingUpdates -= processed;
+            }
+
+            var sections = pendingSections
+                .Where(section =>
+                    _streaming.IsRequested(section.Coord) &&
+                    (admitted || !_streaming.IsDesired(section.Coord)))
+                .ToArray();
+            if (!admitted)
+            {
+                foreach (var section in pendingSections.Where(section =>
+                             _streaming.IsDesired(section.Coord)))
+                    RequeueIfDesired(section.Coord, section.EnqueuedTimestamp);
+                if (sections.Length == 0)
+                    break;
+            }
+            if (sections.Length == 0)
+                continue;
+
+            // A new PLAYER_LOADING ticket may still be waiting in the leveled
+            // graph queue. Do not register generation against the old ticket
+            // ceiling; preserve its pending sections for the next frame.
+            if (hasPlayerDemand &&
+                _streaming.DistanceManager.GetLoadingLevel(column) >
+                    ChunkLevel.EntityTicking)
+            {
+                foreach (var section in sections)
+                    RequeueIfDesired(section.Coord, section.EnqueuedTimestamp);
                 break;
             }
 
-            var coord = _streaming.PopPendingByPriority(
-                allowDistant ? null : localDistanceSquared);
-
-            if (coord is null)
+            if (_streaming.DistanceManager.GetHolder(column) is null)
             {
+                foreach (var section in sections)
+                    RequeueIfDesired(section.Coord, section.EnqueuedTimestamp);
                 break;
             }
 
-            // Distant dispatch is rate-limited, while nearby chunks keep
-            // their existing deterministic priority on every frame.
-            var priority = ChunkStreamingState.Priority(
-                coord.Value, _center, _streaming.MovementDirection);
-            if (deferDistantWork &&
-                priority.HorizontalDistanceSquared > localDistanceSquared)
+            // One holder owns one active FULL request. If a previous column
+            // batch is still running, keep unstarted sections pending and let
+            // other holder tasks use the shared executor first.
+            if (_materializationTasks.ContainsKey(column))
             {
-                allowDistant = false;
-                _pressuredFramesSinceDistantDispatch = 0;
-            }
-
-            if (!_streaming.IsDesired(coord.Value) ||
-                _world.ContainsChunk(coord.Value) ||
-                _materializationTasks.ContainsKey(
-                    coord.Value))
-            {
+                foreach (var section in sections)
+                    RequeueIfDesired(section.Coord);
                 continue;
             }
 
-            var selected = coord.Value;
-            var restore =
-                _world.RestoreChunk(selected);
+            var dispatchTimestamp = Stopwatch.GetTimestamp();
+            var sectionJobs = new List<IChunkMaterializationJob>(sections.Length);
+            var stopAfterBatch = false;
 
-            if (restore == ChunkRestoreResult.Restored)
+            for (var sectionIndex = 0;
+                 sectionIndex < sections.Length;
+                 sectionIndex++)
             {
-                activations.Add(
-                    ActivateResidentChunk(
+                var pendingEntry = sections[sectionIndex];
+                var selected = pendingEntry.Coord;
+
+                if (budget.Exhausted(Stopwatch.GetTimestamp()))
+                {
+                    RequeuePendingSections(sections, sectionIndex);
+                    stopAfterBatch = true;
+                    break;
+                }
+
+                if (!_streaming.IsRequested(selected))
+                    continue;
+
+                if (_world.ContainsChunk(selected))
+                {
+                    MarkMaterializedSectionFull(selected);
+                    continue;
+                }
+
+                var restore = _world.RestoreChunk(selected);
+                if (restore == ChunkRestoreResult.Restored)
+                {
+                    activations.Add(ActivateResidentChunk(
                         selected,
                         ChunkActivationSource.Archive,
                         workerMilliseconds: 0.0));
-                restored++;
-                continue;
+                    restored++;
+                    MarkMaterializedSectionFull(selected);
+                    continue;
+                }
+
+                if (restore == ChunkRestoreResult.AlreadyResident)
+                {
+                    MarkMaterializedSectionFull(selected);
+                    continue;
+                }
+
+                IChunkMaterializationJob job;
+                try
+                {
+                    job = _chunkProvider is IIncrementalChunkProvider incremental
+                        ? incremental.BeginMaterialization(selected)
+                        : new ProviderMaterializationJob(_chunkProvider, selected);
+                }
+                catch (Exception error)
+                {
+                    failures.Add(new ChunkMaterializationFailure(selected, error));
+                    RequeuePendingSections(sections, sectionIndex);
+                    stopAfterBatch = true;
+                    break;
+                }
+
+                if (job.Coord != selected)
+                {
+                    job.Dispose();
+                    failures.Add(new ChunkMaterializationFailure(
+                        selected,
+                        new InvalidOperationException(
+                            $"Materialization provider returned a job for {job.Coord}, expected {selected}.")));
+                    RequeuePendingSections(sections, sectionIndex);
+                    stopAfterBatch = true;
+                    break;
+                }
+
+                sectionJobs.Add(job);
             }
 
-            if (restore ==
-                ChunkRestoreResult.AlreadyResident)
+            if (sectionJobs.Count > 0)
             {
-                continue;
+                if (_nextMaterializationGeneration == 0 ||
+                    _nextMaterializationGeneration == ulong.MaxValue)
+                {
+                    foreach (var job in sectionJobs)
+                        job.Dispose();
+                    throw new InvalidOperationException(
+                        "Materialization task generation ID space was exhausted.");
+                }
+
+                var generation = _nextMaterializationGeneration++;
+                var taskKey = new ChunkGenerationTaskKey(
+                    column,
+                    ChunkGenerationStepId.SectionReady);
+                var taskPriority = GenerationPriority(column);
+                var targetStatus = _streaming.DesiredSectionsInColumn(column).Count > 0
+                    ? ChunkGenerationStatus.Full
+                    : _streaming.DistanceManager.Tickets.GenerationMaterializationTargets
+                        .Where(target => ChunkColumnCoord.FromChunk(target.Section) == column)
+                        .Select(target => target.Status)
+                        .DefaultIfEmpty(ChunkGenerationStatus.Unloaded)
+                        .Max();
+                if (targetStatus == ChunkGenerationStatus.Unloaded)
+                {
+                    foreach (var job in sectionJobs)
+                        job.Dispose();
+                    foreach (var section in sections)
+                        RequeueIfDesired(section.Coord, section.EnqueuedTimestamp);
+                    stopAfterBatch = true;
+                    break;
+                }
+
+                var generationTask = new ChunkColumnMaterializationGenerationTask(
+                    column,
+                    sectionJobs,
+                    chunk => ChunkLightingSolver.Initialize(
+                        chunk, _blocks, _fluids, _objects),
+                    dispatchTimestamp,
+                    targetStatus: targetStatus);
+                var taskSections = sectionJobs
+                    .Select(job => job.Coord)
+                    .OrderBy(coord => coord.Y)
+                    .ToArray();
+                var dependencyClaims = _streaming.DistanceManager.AcquireDependencyClaims(
+                    taskSections,
+                    AsteriaChunkLoadingPlan.FullSectionDependencyEnvelope);
+                var taskInstance = new ChunkGenerationTaskInstance(taskKey, generation);
+                var holder = _streaming.DistanceManager.GetHolder(column) ??
+                    throw new InvalidOperationException(
+                        $"A FULL generation request has no owning chunk holder: {column}.");
+                if (!holder.TryRegisterGenerationTask(
+                        taskInstance, generationTask.TargetStatus))
+                {
+                    dependencyClaims.Dispose();
+                    generationTask.Dispose();
+                    throw new InvalidOperationException(
+                        $"Chunk holder already owns a generation task or its ticket ceiling " +
+                        $"does not permit {generationTask.TargetStatus}: {column}.");
+                }
+
+                var work = new MaterializationWork(
+                    taskKey,
+                    generation,
+                    pendingColumn.Value.EnqueuedTimestamp,
+                    dispatchTimestamp,
+                    taskSections,
+                    dependencyClaims,
+                    _streaming.DistanceManager.GetGenerationProgressRevision(column));
+
+                foreach (var coord in taskSections)
+                    _streaming.MarkMaterializing(coord);
+                _materializationTasks.Add(column, work);
+
+                if (!_generationDispatcher.TryEnqueue(
+                        taskKey,
+                        generation,
+                        taskPriority,
+                        pendingColumn.Value.EnqueuedTimestamp,
+                        generationTask))
+                {
+                    _materializationTasks.Remove(column);
+                    if (!holder.RemoveGenerationTask(taskInstance))
+                        throw new InvalidOperationException(
+                            $"Could not release rejected generation task ownership: {taskInstance}.");
+                    work.DependencyClaims.Dispose();
+                    generationTask.Dispose();
+                    foreach (var coord in taskSections)
+                    {
+                        _streaming.FinishMaterializing(coord);
+                        RequeueIfDesired(coord, pendingColumn.Value.EnqueuedTimestamp);
+                    }
+
+                    stopAfterBatch = true;
+                }
+                else
+                {
+                    startedTasks++;
+                }
             }
 
-            if (dispatched >= Math.Min(
-                    _settings.MaxDispatchesPerFrame, maximumNewTasks))
-            {
-                _streaming.EnqueuePending(selected);
+            if (stopAfterBatch)
                 break;
-            }
-
-            _streaming.MarkMaterializing(selected);
-            _materializationTasks.Add(
-                selected,
-                Task.Run(() =>
-                    MaterializeTerrain(selected)));
-            dispatched++;
         }
 
-        // Sync derived streaming state once per batch, not once per restore.
-        // Each sync scans desired/resident sets, so syncing in the loop was
-        // quadratic in the number of archived chunks restored in a frame.
         if (restored > 0)
-        {
             SyncResidentState(presented);
-        }
 
-        return activations.Count == 0
-            ? ChunkResidencyUpdate.Empty
-            : new ChunkResidencyUpdate(
-                activations,
-                Array.Empty<ChunkMaterializationFailure>());
+        var dispatchReport = _generationDispatcher.Pump(
+            budget, int.MaxValue);
+
+        // Reconciliation enters the same priority queue as every other world
+        // operation. The executor, not a per-frame worker-slot reservation,
+        // decides when it runs.
+        StartArrivalReconciliationWorker(budget, failures);
+
+        if (activations.Count == 0 && failures.Count == 0 && startedTasks == 0 &&
+            dispatchReport.WorkerOperationsStarted == 0)
+            return ChunkResidencyUpdate.Empty;
+        return new ChunkResidencyUpdate(
+            activations,
+            failures,
+            Array.Empty<ChunkMaterializationStageTiming>(),
+            startedTasks,
+            WorkerOperationsStarted: dispatchReport.WorkerOperationsStarted);
     }
 
     public IReadOnlyList<ChunkResidencyRetirement>
@@ -546,7 +1563,9 @@ private const int FluidActivationItemsPerSlice = 32;
             if (archiveResult !=
                 ChunkArchiveResult.NotResident)
             {
-    }
+                _pendingChunkLightingReconciliations.Enqueue(
+                    coord.Value);
+            }
 
             _pendingFluidActivationCoords.Remove(coord.Value);
             _pendingFluidActivations.Remove(coord.Value);
@@ -558,32 +1577,412 @@ private const int FluidActivationItemsPerSlice = 32;
             processed++;
         }
 
+        CompleteReadyPendingHolderUnloads();
         return retired;
+    }
+
+    private void CompleteReadyPendingHolderUnloads()
+    {
+        var pending = _streaming.DistanceManager.PendingUnloadColumns;
+        if (pending.Count == 0)
+            return;
+
+        foreach (var column in pending)
+        {
+            if (_world.HasResidentChunksInColumn(column) ||
+                _materializationTasks.ContainsKey(column) ||
+                _streaming.RequestedSectionsInColumn(column).Count > 0)
+                continue;
+
+            _streaming.DistanceManager.CompletePendingHolderUnload(column);
+        }
     }
 
     private ChunkResidencyActivation ActivateResidentChunk(
         ChunkCoord coord,
         ChunkActivationSource source,
         double workerMilliseconds,
-        double terrainMilliseconds = 0d)
+        double terrainMilliseconds = 0d,
+        double elapsedMilliseconds = 0d,
+        double initialLightingMilliseconds = 0d,
+        double workerQueueWaitMilliseconds = 0d,
+        double workerWallMilliseconds = 0d,
+        double resultCollectionWaitMilliseconds = 0d,
+        double pendingQueueWaitMilliseconds = 0d,
+        double dispatchPreparationMilliseconds = 0d,
+        int workerSliceCount = 0,
+        double interSliceWaitMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
-EnqueueResidentChunkFluidActivation(coord);
-        _blockPhysics.EnqueueResidentChunk(coord);
+        _blockPhysics.RequestChunkReconciliation(coord);
+        EnqueueResidentChunkFluidActivation(coord);
 
         return new ChunkResidencyActivation(
             coord,
             source,
             workerMilliseconds,
-            terrainMilliseconds);
+            terrainMilliseconds,
+            elapsedMilliseconds,
+            initialLightingMilliseconds,
+            workerQueueWaitMilliseconds,
+            workerWallMilliseconds,
+            resultCollectionWaitMilliseconds,
+            pendingQueueWaitMilliseconds,
+            dispatchPreparationMilliseconds,
+            workerSliceCount,
+            interSliceWaitMilliseconds);
     }
 
-    private GeneratedChunk MaterializeTerrain(ChunkCoord coord)
+    private ChunkGenerationTaskPriority GenerationPriority(ChunkColumnCoord column)
     {
-        var stopwatch = Stopwatch.StartNew();
-        var chunk = _chunkProvider.Materialize(coord);
-        stopwatch.Stop();
-        return new GeneratedChunk(chunk, stopwatch.Elapsed.TotalMilliseconds);
+        var coord = new ChunkCoord(column.X, _center.Y, column.Z);
+        var priority = ChunkStreamingState.StreamingPriority(
+            coord,
+            _center,
+            _streaming.GetLoadingLevel(coord));
+        var holder = _streaming.DistanceManager.GetHolder(column);
+        if (holder is null)
+            return priority;
+
+        if (!holder.HasQueuePriorityContext)
+            _streaming.DistanceManager.UpdateQueuePriority(column, priority);
+        return holder.QueuePriority;
+    }
+
+    /// <summary>
+    /// Applies holder-originated priority changes directly to every active
+    /// dispatch lane for that column. Pending admission is updated separately
+    /// by ChunkStreamingState from the settled ticket-level transition.
+    /// </summary>
+    private void HandleHolderQueuePriorityChanged(
+        ChunkHolderQueuePriorityChange change)
+    {
+        if (change.Revision != change.Holder.QueuePriorityRevision)
+            return;
+
+        if (_materializationTasks.TryGetValue(
+                change.Holder.Position, out var work))
+        {
+            _generationDispatcher.UpdatePriority(work.TaskKey, change.Priority);
+        }
+    }
+
+    /// <summary>
+    /// Ticket graph updates are delivered as one settled batch. Reclassify each
+    /// auxiliary worker lane in one pass rather than rescanning every task once
+    /// per changed holder notification.
+    /// </summary>
+    private void HandleHolderTicketLevelsChanged(
+        IReadOnlyList<ChunkHolderTicketLevelChange> changes)
+    {
+        if (changes.Count == 0)
+            return;
+
+        foreach (var change in changes)
+        {
+            var holder = change.Holder;
+            if (holder.GenerationTask is not { } task ||
+                holder.GenerationTaskTargetStatus is not { } targetStatus)
+                continue;
+
+            var permittedTarget = holder.HighestAllowedGenerationStatus;
+            if (targetStatus > permittedTarget)
+            {
+                _generationDispatcher.TryCancel(task.Key);
+                continue;
+            }
+
+            if (permittedTarget <= targetStatus ||
+                !holder.TryUpgradeGenerationTaskTargetStatus(task, permittedTarget))
+                continue;
+
+            if (!_generationDispatcher.TryUpgradeTargetStatus(
+                    task.Key, permittedTarget))
+                throw new InvalidOperationException(
+                    $"Holder {holder.Position} upgraded its task target without a live dispatcher task.");
+        }
+
+        var changedColumns = changes
+            .Select(change => change.Holder.Position)
+            .ToHashSet();
+
+        foreach (var (section, work) in _chunkLightingReconciliationTasks)
+        {
+            if (changedColumns.Contains(ChunkColumnCoord.FromChunk(section)))
+                _generationDispatcher.LightingExecutor.TryUpdatePriority(
+                    work.TaskInstance, StreamingWorkerPriority(section));
+        }
+
+        foreach (var (section, work) in _directionalFaceReconciliationTasks)
+        {
+            if (changedColumns.Contains(ChunkColumnCoord.FromChunk(section)))
+                _worldWorkerPool.TryUpdatePriority(
+                    work.Operation, StreamingWorkerPriority(section));
+        }
+    }
+
+    private void ReprioritizeActiveWorldWork()
+    {
+        // Recompute each active holder once. Its priority-change event updates
+        // the column dispatcher and all other work sharing that holder.
+        foreach (var column in _materializationTasks.Keys
+                     .Concat(_chunkLightingReconciliationTasks.Keys
+                         .Select(ChunkColumnCoord.FromChunk))
+                     .Concat(_directionalFaceReconciliationTasks.Keys
+                         .Select(ChunkColumnCoord.FromChunk))
+                     .Distinct()
+                     .OrderBy(column => column.X)
+                     .ThenBy(column => column.Z))
+        {
+            GenerationPriority(column);
+        }
+
+        // A player Y change affects section-local worker distances even when
+        // the horizontal holder key itself remains unchanged.
+        foreach (var (coord, work) in _chunkLightingReconciliationTasks)
+            _generationDispatcher.LightingExecutor.TryUpdatePriority(
+                work.TaskInstance, StreamingWorkerPriority(coord));
+
+        foreach (var (coord, work) in _directionalFaceReconciliationTasks)
+            _worldWorkerPool.TryUpdatePriority(
+                work.Operation, StreamingWorkerPriority(coord));
+    }
+
+    private WorldWorkerPriority StreamingWorkerPriority(ChunkCoord coord) =>
+        WorldWorkerPriority.FromGenerationTicket(
+            ChunkStreamingState.StreamingPriority(
+                coord,
+                _center,
+                _streaming.GetLoadingLevel(coord)));
+
+    private void StartArrivalReconciliationWorker(
+        WorldFrameWorkBudget budget,
+        List<ChunkMaterializationFailure> failures)
+    {
+        if (!_acceptingMaterializationWork ||
+            budget.Exhausted(Stopwatch.GetTimestamp()))
+            return;
+
+        var started = _preferChunkLightingReconciliation
+            ? StartChunkLightingReconciliationWorker(failures)
+            : StartDirectionalFaceReconciliationWorker(failures);
+        if (!started)
+            started = _preferChunkLightingReconciliation
+                ? StartDirectionalFaceReconciliationWorker(failures)
+                : StartChunkLightingReconciliationWorker(failures);
+        if (started)
+            _preferChunkLightingReconciliation = !_preferChunkLightingReconciliation;
+    }
+
+    private bool StartChunkLightingReconciliationWorker(
+        List<ChunkMaterializationFailure> failures)
+    {
+        if (_chunkLightingReconciliationTasks.Count > 0 ||
+            _pendingChunkLightingReconciliations.Count == 0)
+            return false;
+
+        if (!_pendingChunkLightingReconciliations.TryDequeue(out var coord))
+            return false;
+        if (!_world.ContainsChunk(coord) && !_world.HasArchivedChunk(coord))
+            return false;
+
+        try
+        {
+            var dependencies = LightingReconciliationDependencies(coord);
+            var snapshotWorld = _world.CloneForWorker(dependencies);
+            var contentDependencies = _world.CaptureContentStamp(dependencies);
+            var lightingDependencies = _world.CaptureLightingStamps(dependencies);
+            if (_nextArrivalLightingGeneration == 0 ||
+                _nextArrivalLightingGeneration == ulong.MaxValue)
+                throw new InvalidOperationException(
+                    "Arrival lighting generation IDs were exhausted.");
+
+            var taskInstance = new ChunkGenerationTaskInstance(
+                new ChunkGenerationTaskKey(
+                    ChunkColumnCoord.FromChunk(coord),
+                    ChunkGenerationStepId.InitialLighting),
+                _nextArrivalLightingGeneration++);
+            var request = new ChunkGenerationWorkerRequest(
+                taskInstance,
+                WaitToken: 1,
+                DependencyId: 1,
+                Execute: _ =>
+                {
+                    var lightingSeeds = ChunkTopologyFrontier.ArrivalLightingSeeds(
+                        snapshotWorld, _blocks, _fluids, coord, _objects);
+                    var physicsPlan = snapshotWorld.ContainsChunk(coord)
+                        ? _blockPhysics.CalculateResidentChunkActivationPlan(
+                            snapshotWorld, coord)
+                        : (BlockPhysicsChunkActivationPlan?)null;
+                    return new ChunkArrivalReconciliationResult(
+                        lightingSeeds, physicsPlan);
+                },
+                Priority: StreamingWorkerPriority(coord));
+            if (!_generationDispatcher.LightingExecutor.TryScheduleDependency(
+                    request, _arrivalLightingCompletionMailbox))
+            {
+                _pendingChunkLightingReconciliations.Enqueue(coord);
+                return false;
+            }
+
+            var work = new ChunkLightingReconciliationWork(
+                coord, contentDependencies, lightingDependencies, taskInstance);
+            _chunkLightingReconciliationTasks.Add(coord, work);
+            return true;
+        }
+        catch (Exception error)
+        {
+            failures.Add(new ChunkMaterializationFailure(coord, error));
+            _pendingChunkLightingReconciliations.Enqueue(coord);
+            return false;
+        }
+    }
+
+    private static ChunkCoord[] LightingReconciliationDependencies(ChunkCoord coord)
+    {
+        var dependencies = new List<ChunkCoord>(7) { coord };
+        if (coord.Y < int.MaxValue)
+            dependencies.Add(new ChunkCoord(coord.X, coord.Y + 1, coord.Z));
+        if (coord.Y > 0)
+            dependencies.Add(new ChunkCoord(coord.X, coord.Y - 1, coord.Z));
+        if (coord.X > int.MinValue)
+            dependencies.Add(new ChunkCoord(coord.X - 1, coord.Y, coord.Z));
+        if (coord.X < int.MaxValue)
+            dependencies.Add(new ChunkCoord(coord.X + 1, coord.Y, coord.Z));
+        if (coord.Z > int.MinValue)
+            dependencies.Add(new ChunkCoord(coord.X, coord.Y, coord.Z - 1));
+        if (coord.Z < int.MaxValue)
+            dependencies.Add(new ChunkCoord(coord.X, coord.Y, coord.Z + 1));
+        return dependencies.ToArray();
+    }
+
+    private bool StartDirectionalFaceReconciliationWorker(
+        List<ChunkMaterializationFailure> failures)
+    {
+        var updater = _directionalFacePaletteUpdater;
+        if (updater is null ||
+            _directionalFaceReconciliationTasks.Count > 0 ||
+            _pendingDirectionalFaceReconciliations.Count == 0)
+            return false;
+
+        if (!_pendingDirectionalFaceReconciliations.TryDequeue(out var coord))
+            return false;
+        if (!_world.TryGetSavedChunk(coord, out _))
+            return false;
+
+        try
+        {
+            var snapshot =
+                updater.CaptureChunkArrivalSnapshot(_world, coord);
+            if (!_worldWorkerPool.TrySchedule(
+                    _ => updater.ReconcileChunkArrival(snapshot),
+                    CancellationToken.None,
+                    out var operation,
+                    priority: StreamingWorkerPriority(coord)))
+            {
+                _pendingDirectionalFaceReconciliations.Enqueue(coord);
+                return false;
+            }
+
+            var work = new DirectionalFaceReconciliationWork(
+                snapshot, operation!);
+            _directionalFaceReconciliationTasks.Add(coord, work);
+            return true;
+        }
+        catch (Exception error)
+        {
+            failures.Add(new ChunkMaterializationFailure(coord, error));
+            _pendingDirectionalFaceReconciliations.Enqueue(coord);
+            return false;
+        }
+    }
+
+    private sealed class DirectionalFaceReconciliationWork
+    {
+        public DirectionalFaceReconciliationWork(
+            DirectionalFacePaletteReconciliationSnapshot snapshot,
+            WorldWorkerOperation<DirectionalFacePaletteReconciliationResult> operation)
+        {
+            Snapshot = snapshot ??
+                throw new ArgumentNullException(nameof(snapshot));
+            Operation = operation ??
+                throw new ArgumentNullException(nameof(operation));
+        }
+
+        public DirectionalFacePaletteReconciliationSnapshot Snapshot { get; }
+
+        public WorldWorkerOperation<DirectionalFacePaletteReconciliationResult> Operation { get; }
+    }
+
+    private sealed record ChunkArrivalReconciliationResult(
+        IReadOnlyList<WorldVoxelCoord> LightingSeeds,
+        BlockPhysicsChunkActivationPlan? PhysicsPlan);
+
+    private sealed class ChunkLightingReconciliationWork
+    {
+        public ChunkLightingReconciliationWork(
+            ChunkCoord coord,
+            ChunkContentStamp contentDependencies,
+            IReadOnlyList<VoxelLightChunkStamp> lightingDependencies,
+            ChunkGenerationTaskInstance taskInstance)
+        {
+            Coord = coord;
+            ContentDependencies = contentDependencies ??
+                throw new ArgumentNullException(nameof(contentDependencies));
+            LightingDependencies = lightingDependencies ??
+                throw new ArgumentNullException(nameof(lightingDependencies));
+            TaskInstance = taskInstance;
+        }
+
+        public ChunkCoord Coord { get; }
+        public ChunkContentStamp ContentDependencies { get; }
+        public IReadOnlyList<VoxelLightChunkStamp> LightingDependencies { get; }
+        public ChunkGenerationTaskInstance TaskInstance { get; }
+    }
+
+    private sealed record MaterializationWork(
+        ChunkGenerationTaskKey TaskKey,
+        ulong Generation,
+        long PendingSinceTimestamp,
+        long DispatchTimestamp,
+        IReadOnlyList<ChunkCoord> Sections,
+        ChunkDependencyClaim DependencyClaims,
+        ulong HolderProgressRevision);
+
+    private sealed class ProviderMaterializationJob : IChunkMaterializationJob
+    {
+        private readonly IChunkProvider _provider;
+
+        public ProviderMaterializationJob(IChunkProvider provider, ChunkCoord coord)
+        {
+            _provider = provider ?? throw new ArgumentNullException(nameof(provider));
+            Coord = coord;
+        }
+
+        public ChunkCoord Coord { get; }
+
+        public ChunkMaterializationStage Stage { get; private set; } =
+            ChunkMaterializationStage.ProviderFallback;
+
+        public bool IsComplete => Stage == ChunkMaterializationStage.Complete;
+
+        public Chunk? Result { get; private set; }
+
+        public void Advance()
+        {
+            if (IsComplete)
+                throw new InvalidOperationException(
+                    "A completed materialization job cannot advance.");
+
+            Result = _provider.Materialize(Coord) ??
+                throw new InvalidOperationException(
+                    "Chunk provider returned no materialized chunk.");
+            Stage = ChunkMaterializationStage.Complete;
+        }
+
+        public void Dispose()
+        {
+        }
     }
 
     private void EnqueueResidentChunkFluidActivation(ChunkCoord coord)
@@ -726,7 +2125,8 @@ EnqueueResidentChunkFluidActivation(coord);
                         originX + x,
                         originY + y,
                         originZ + z);
-                    if (ShouldWakeResidentFluid(position, fluid))
+                    if (ShouldWakeResidentFluid(
+                            chunk, x, y, z, position, fluid))
                     {
                         ScheduleFluidNeighborhood(fluid.Fluid, position);
                     }
@@ -799,6 +2199,73 @@ EnqueueResidentChunkFluidActivation(coord);
     }
 
 
+
+    private bool ShouldWakeResidentFluid(
+        Chunk chunk,
+        int localX,
+        int localY,
+        int localZ,
+        WorldVoxelCoord position,
+        FluidCell fluid)
+    {
+        if (!fluid.IsSource)
+        {
+            return true;
+        }
+
+        var voxelIndex =
+            localX + Chunk.Size * (localZ + Chunk.Size * localY);
+        foreach (var offset in FluidSpreadTargets)
+        {
+            var targetX = localX + offset.X;
+            var targetY = localY + offset.Y;
+            var targetZ = localZ + offset.Z;
+            VoxelCell targetCell;
+            FluidCell neighbor;
+
+            if ((uint)targetX < Chunk.Size &&
+                (uint)targetY < Chunk.Size &&
+                (uint)targetZ < Chunk.Size)
+            {
+                // Most generated-fluid neighbors are inside this same chunk.
+                // Read the known-valid linear slot directly to avoid repeated
+                // coordinate validation, index calculation and world lookups.
+                var targetIndex =
+                    voxelIndex + offset.X +
+                    Chunk.Size * (offset.Z + Chunk.Size * offset.Y);
+                targetCell = chunk.GetCellAtLinearIndexUnchecked(targetIndex);
+                neighbor = chunk.GetFluidAtLinearIndexUnchecked(targetIndex);
+            }
+            else
+            {
+                var target = position + offset;
+                if (target.Y < 0 ||
+                    !_world.TryGetCellAndFluid(
+                        target,
+                        out targetCell,
+                        out neighbor))
+                {
+                    // Missing chunks cannot accept flow. Their arrival performs
+                    // the normal frontier recheck.
+                    continue;
+                }
+            }
+
+            if (!targetCell.IsEmpty)
+            {
+                continue;
+            }
+
+            if (neighbor.IsEmpty ||
+                neighbor.Fluid != fluid.Fluid ||
+                neighbor.Level < fluid.Level)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private bool ShouldWakeResidentFluid(
         WorldVoxelCoord position,
@@ -876,13 +2343,40 @@ EnqueueResidentChunkFluidActivation(coord);
                 delay.Value));
     }
 
-    private void RequeueIfDesired(
-        ChunkCoord coord)
+    private void RequeueRequestedSectionsInColumn(
+        ChunkColumnCoord column,
+        long? enqueuedTimestamp = null)
     {
-        if (_streaming.IsDesired(coord))
+        foreach (var section in _streaming.RequestedSectionsInColumn(column))
         {
-            _streaming.EnqueuePending(coord);
+            if (!_world.ContainsChunk(section) &&
+                !_streaming.IsMaterializing(section))
+                RequeueIfDesired(section, enqueuedTimestamp);
         }
+    }
+
+    private void RequeuePendingSections(
+        IReadOnlyList<ChunkPendingDispatch> sections,
+        int startIndex)
+    {
+        for (var index = startIndex; index < sections.Count; index++)
+        {
+            var section = sections[index];
+            RequeueIfDesired(section.Coord, section.EnqueuedTimestamp);
+        }
+    }
+
+    private void RequeueIfDesired(
+        ChunkCoord coord,
+        long? enqueuedTimestamp = null)
+    {
+        if (!_streaming.IsRequested(coord))
+            return;
+
+        if (enqueuedTimestamp is { } timestamp)
+            _streaming.EnqueuePending(coord, timestamp);
+        else
+            _streaming.EnqueuePending(coord);
     }
 
     private static ulong SaturatingAdd(
@@ -904,9 +2398,5 @@ EnqueueResidentChunkFluidActivation(coord);
 
         public int FrontierFaceIndex { get; set; }
     }
-
-    private sealed record GeneratedChunk(
-        Chunk Chunk,
-        double TerrainMilliseconds);
 
 }

@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -15,7 +17,15 @@ public sealed class VolumeStructureField
     // Repeated vertical chunks of one X/Z area ask about the same
     // anchors. This is an immutable, thread-safe bounded derivation,
     // never a second authority for terrain or volume occupancy.
-    private readonly BoundedMemoCache<CandidateKey, int?> _anchors =
+    // Candidate anchor searches are shared across vertical section cursors.
+    // Each request advances a bounded support-Y slice; no worker performs the
+    // full authored vertical scan synchronously.
+    private readonly BoundedMemoCache<CandidateKey, AnchorSearch> _anchorSearches =
+        new(4096);
+    // One resumable horizontal-column product replaces the repeated X/Z candidate
+    // scan previously performed independently by every vertical section cursor.
+    // It is bounded and non-authoritative: eviction only causes deterministic recomputation.
+    private readonly BoundedMemoCache<ColumnKey, ColumnAnchorProduct> _columnAnchorProducts =
         new(4096);
 
     public VolumeStructureField(
@@ -71,6 +81,7 @@ public sealed class VolumeStructureField
                 throw new ArgumentException(
                     $"Volume structure {authored.Structure} needs a compact (<7) horizontal footprint.");
             rules.Add(new Rule(
+                rules.Count,
                 biome.Id,
                 biome.VolumeLayout!.Placement,
                 authored,
@@ -91,155 +102,603 @@ public sealed class VolumeStructureField
     /// template fits real density voids. All candidate decisions are made in
     /// world coordinates, including anchors outside the requested chunk.
     /// </summary>
+    public ChunkCursor CreateChunkCursor(
+        ChunkCoord coord,
+        ChunkGenerationAccessRegion? accessRegion = null)
+    {
+        if (accessRegion is not null &&
+            (accessRegion.TargetSection != coord ||
+             accessRegion.StepId != ChunkGenerationStepId.VolumeStructures))
+        {
+            throw new ArgumentException(
+                "Volume-structure access region must target this section and the VolumeStructures step.",
+                nameof(accessRegion));
+        }
+
+        if (coord.Y < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(coord), "Volume structures cannot target a section below the world floor.");
+
+        var columnProduct = _columnAnchorProducts.GetOrAdd(
+            new ColumnKey(coord.X, coord.Z),
+            () => new ColumnAnchorProduct(
+                this,
+                coord.X,
+                coord.Z,
+                CreateColumnAccessRegion(coord)));
+        return new ChunkCursor(this, coord, columnProduct);
+    }
+
+    /// <summary>
+    /// Creates the access boundary for resolving the immutable volume-structure
+    /// anchor product of one X/Z column. The vertical allowance is derived from
+    /// the active authored support range and template reach, not from the
+    /// requesting section's local +/- section halo.
+    /// </summary>
+    public ChunkGenerationAccessRegion CreateColumnAccessRegion(ChunkCoord coord)
+    {
+        if (coord.Y < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(coord), "Volume structures cannot target a section below the world floor.");
+
+        var maximumReadWorldY = 0L;
+        foreach (var rule in _rules)
+        {
+            var templateReach = Math.Max(0L, (long)rule.MaxOffsetY);
+            var maximumRuleReadY =
+                (long)rule.Definition.MaxY + templateReach + 1L;
+            maximumReadWorldY = Math.Max(maximumReadWorldY, maximumRuleReadY);
+        }
+
+        var maximumSectionOffset = (int)Math.Min(
+            int.MaxValue,
+            maximumReadWorldY / Chunk.Size);
+        var readEnvelope = new ChunkGenerationDependencyEnvelope(
+            horizontalRadius: 1,
+            minimumSectionOffset: 0,
+            maximumSectionOffset: maximumSectionOffset);
+
+        return new ChunkGenerationAccessRegion(
+            AsteriaChunkGenerationPlan.Default,
+            new ChunkCoord(coord.X, 0, coord.Z),
+            ChunkGenerationStepId.VolumeStructurePlacements,
+            readEnvelope);
+    }
+
+    /// <summary>
+    /// Compatibility/reference query. Production materialization uses
+    /// <see cref="CreateChunkCursor"/> so candidate evaluation and voxel
+    /// application can be interleaved with other generation work.
+    /// </summary>
     public IReadOnlyList<VolumeStructureVoxel> VoxelsForChunk(ChunkCoord coord)
     {
-        if (_rules.Length == 0)
-            return Array.Empty<VolumeStructureVoxel>();
-
-        var origin = VoxelCoordinates.ChunkOrigin(coord);
-        var top = (long)origin.Y + Chunk.Size - 1;
-        var right = (long)origin.X + Chunk.Size - 1;
-        var back = (long)origin.Z + Chunk.Size - 1;
         var results = new List<VolumeStructureVoxel>();
-
-        for (var ruleIndex = 0; ruleIndex < _rules.Length; ruleIndex++)
+        var cursor = CreateChunkCursor(coord);
+        Span<VolumeStructureVoxel> batch = stackalloc VolumeStructureVoxel[64];
+        while (!cursor.IsComplete)
         {
-            var rule = _rules[ruleIndex];
-            // Template offsets are relative to the supporting solid at Y.
-            if (top < (long)rule.Definition.MinY + rule.MinOffsetY ||
-                origin.Y > (long)rule.Definition.MaxY + rule.MaxOffsetY)
-                continue;
-
-            var spacing = rule.Definition.Spacing;
-            var jitter = spacing / 4;
-            var radius = rule.Radius + jitter;
-            var firstX = Cell((long)origin.X - radius, spacing);
-            var lastX = Cell(right + radius, spacing);
-            var firstZ = Cell((long)origin.Z - radius, spacing);
-            var lastZ = Cell(back + radius, spacing);
-            for (var z = firstZ; z <= lastZ; z++)
-            for (var x = firstX; x <= lastX; x++)
-            {
-                var hash = WorldGenerationEntropy.Sample2D(
-                    _seed, rule.Domain, x, z);
-                if (WorldGenerationEntropy.Unit(hash) >= rule.Definition.Chance)
-                    continue;
-
-                // Separate deterministic hashes give independent axes and
-                // family variations without global/random state.
-                var sampleX = WorldGenerationEntropy.Sample2D(
-                    _seed, rule.Domain, x + 113, z);
-                var sampleZ = WorldGenerationEntropy.Sample2D(
-                    _seed, rule.Domain, x, z + 317);
-                var wx = (long)x * spacing + spacing / 2 +
-                         (long)(sampleX % (uint)(2 * jitter + 1)) - jitter;
-                var wz = (long)z * spacing + spacing / 2 +
-                         (long)(sampleZ % (uint)(2 * jitter + 1)) - jitter;
-                if (wx is < int.MinValue or > int.MaxValue ||
-                    wz is < int.MinValue or > int.MaxValue)
-                    continue;
-                if (wx + rule.Radius < origin.X ||
-                    wx - rule.Radius > right ||
-                    wz + rule.Radius < origin.Z ||
-                    wz - rule.Radius > back)
-                    continue;
-
-                var variant = rule.Variants[
-                    (int)(WorldGenerationEntropy.Sample2D(
-                        _seed, rule.Domain, x + 509, z + 1021) %
-                        (uint)rule.Variants.Count)];
-                var anchor = _anchors.GetOrAdd(
-                    new CandidateKey(ruleIndex, x, z),
-                    () => TryAnchor(rule, variant, (int)wx, (int)wz,
-                        out var located) ? located : null);
-                if (anchor is not { } supportY)
-                    continue;
-
-                foreach (var voxel in variant.Voxels)
-                {
-                    var worldX = (long)wx + voxel.X;
-                    var worldY = (long)supportY + voxel.Y;
-                    var worldZ = (long)wz + voxel.Z;
-                    if (worldX < origin.X || worldX > right ||
-                        worldY < origin.Y || worldY > top ||
-                        worldZ < origin.Z || worldZ > back)
-                        continue;
-                    results.Add(new VolumeStructureVoxel(
-                        (int)worldX, (int)worldY, (int)worldZ, voxel.Block));
-                }
-            }
+            _ = cursor.Advance(
+                batch,
+                maximumCandidateEvaluations: 8,
+                out var written);
+            for (var index = 0; index < written; index++)
+                results.Add(batch[index]);
         }
+
         return results;
     }
 
-    private bool TryAnchor(Rule rule, Variant variant, int x, int z,
-                           out int supportY)
+    /// <summary>
+    /// Resumable section rasterizer over one completed column anchor product.
+    /// Candidate discovery and support-Y resolution happen once per X/Z column;
+    /// this cursor only selects placements intersecting its 16³ section.
+    /// </summary>
+    public sealed class ChunkCursor
     {
-        supportY = 0;
-        var direction = rule.Definition.SupportSurface ==
-                        DecorationSupportSurface.Floor ? 1 : -1;
-        var cavity = rule.Placement == VolumeBiomePlacement.CarvedVoid
-            ? _volumes.SampleCave(x, z)
-            : null;
+        private readonly ColumnAnchorProduct _columnProduct;
+        private readonly int _originX;
+        private readonly int _originY;
+        private readonly int _originZ;
+        private readonly long _right;
+        private readonly long _top;
+        private readonly long _back;
+        private int _nextAnchorIndex;
+        private Variant? _activeVariant;
+        private int _activeVoxelIndex;
+        private int _activeWorldX;
+        private int _activeWorldZ;
+        private int _activeSupportY;
 
-        if (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
-            cavity?.Primary != rule.Biome)
-            return false;
-
-        for (var y = rule.Definition.MaxY; y >= rule.Definition.MinY; y--)
+        internal ChunkCursor(
+            VolumeStructureField owner,
+            ChunkCoord coord,
+            ColumnAnchorProduct columnProduct)
         {
-            if ((long)y + variant.MinY <= 0 ||
-                (long)y + variant.MaxY > int.MaxValue - 1)
-                continue;
+            ArgumentNullException.ThrowIfNull(owner);
+            _columnProduct = columnProduct ??
+                throw new ArgumentNullException(nameof(columnProduct));
+            var origin = VoxelCoordinates.ChunkOrigin(coord);
+            _originX = origin.X;
+            _originY = origin.Y;
+            _originZ = origin.Z;
+            _right = (long)origin.X + Chunk.Size - 1;
+            _top = (long)origin.Y + Chunk.Size - 1;
+            _back = (long)origin.Z + Chunk.Size - 1;
+            IsComplete = !owner.HasRules;
+        }
 
-            var volume = cavity ?? _volumes.Sample(x, y, z);
-            if (volume?.Primary != rule.Biome ||
-                _terrain.DensityAt(x, y, z) < 0d ||
-                _terrain.DensityAt(x, y + direction, z) >= 0d)
-                continue;
+        public bool IsComplete { get; private set; }
 
-            if (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
-                !_terrain.IsCaveVoidAt(x, y + direction, z))
-                continue;
+        /// <summary>
+        /// Number of bounded support-search slices advanced by this section
+        /// cursor while helping produce its shared column product.
+        /// </summary>
+        public int AnchorSearchSlices { get; private set; }
 
-            var face = direction > 0
-                ? BiomePaletteFace.Floor : BiomePaletteFace.Ceiling;
-            var support = rule.Placement == VolumeBiomePlacement.Additive
-                ? _materials.SampleColumn(volume, x, z).BlockAt(0)
-                : _materials.VolumeBlockAt(volume, x, y, z, face);
-            if (!variant.GroundBlocks.Contains(support))
-                continue;
+        /// <summary>
+        /// Writes at most <paramref name="voxels"/>.Length intersecting voxels.
+        /// Column product discovery and support-Y scanning are separately
+        /// budgeted; a section never repeats the column's candidate scan.
+        /// </summary>
+        public bool Advance(
+            Span<VolumeStructureVoxel> voxels,
+            int maximumCandidateEvaluations,
+            out int written,
+            int maximumAnchorSupportSamples = 16)
+        {
+            if (voxels.IsEmpty)
+                throw new ArgumentException(
+                    "A volume-structure output buffer cannot be empty.",
+                    nameof(voxels));
+            if (maximumCandidateEvaluations <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maximumCandidateEvaluations));
+            if (maximumAnchorSupportSamples <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maximumAnchorSupportSamples));
 
-            var valid = true;
-            foreach (var voxel in variant.Voxels)
+            written = 0;
+            if (IsComplete)
+                return true;
+
+            if (!_columnProduct.IsComplete)
             {
-                var px = (long)x + voxel.X;
-                var py = (long)y + voxel.Y;
-                var pz = (long)z + voxel.Z;
-                // Every bottom-most stem or arch foot must have real
-                // terrain support, not just the central anchor column.
-                var touchesGround = voxel.Y == direction;
-                if (px is < int.MinValue or > int.MaxValue ||
-                    pz is < int.MinValue or > int.MaxValue ||
-                    py <= 0 || py > int.MaxValue ||
-                    _terrain.DensityAt((int)px, (int)py, (int)pz) >= 0d ||
-                    (touchesGround &&
-                     _terrain.DensityAt((int)px, (int)py - direction,
-                         (int)pz) < 0d) ||
-                    (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
-                     !_terrain.IsCaveVoidAt((int)px, (int)py, (int)pz)))
+                var productCompleted = _columnProduct.Advance(
+                    maximumCandidateEvaluations,
+                    maximumAnchorSupportSamples,
+                    out var anchorSearchSlices);
+                AnchorSearchSlices += anchorSearchSlices;
+                if (!productCompleted)
+                    return false;
+            }
+
+            var anchors = _columnProduct.Anchors;
+            while (!IsComplete && written < voxels.Length)
+            {
+                if (_activeVariant is { } activeVariant)
                 {
-                    valid = false;
+                    while (_activeVoxelIndex < activeVariant.Voxels.Count &&
+                           written < voxels.Length)
+                    {
+                        var relative = activeVariant.Voxels[_activeVoxelIndex++];
+                        var voxelWorldX = (long)_activeWorldX + relative.X;
+                        var voxelWorldY = (long)_activeSupportY + relative.Y;
+                        var voxelWorldZ = (long)_activeWorldZ + relative.Z;
+                        if (voxelWorldX < _originX || voxelWorldX > _right ||
+                            voxelWorldY < _originY || voxelWorldY > _top ||
+                            voxelWorldZ < _originZ || voxelWorldZ > _back)
+                            continue;
+
+                        voxels[written++] = new VolumeStructureVoxel(
+                            (int)voxelWorldX,
+                            (int)voxelWorldY,
+                            (int)voxelWorldZ,
+                            relative.Block);
+                    }
+
+                    if (_activeVoxelIndex >= activeVariant.Voxels.Count)
+                    {
+                        _activeVariant = null;
+                        _activeVoxelIndex = 0;
+                    }
+                    continue;
+                }
+
+                if (_nextAnchorIndex >= anchors.Length)
+                {
+                    IsComplete = true;
                     break;
                 }
-            }
-            if (!valid)
-                continue;
 
-            supportY = y;
-            return true;
+                var anchor = anchors[_nextAnchorIndex++];
+                if ((long)anchor.SupportY + anchor.Variant.MinY > _top ||
+                    (long)anchor.SupportY + anchor.Variant.MaxY < _originY)
+                    continue;
+
+                _activeVariant = anchor.Variant;
+                _activeVoxelIndex = 0;
+                _activeWorldX = anchor.WorldX;
+                _activeWorldZ = anchor.WorldZ;
+                _activeSupportY = anchor.SupportY;
+            }
+
+            return IsComplete;
         }
-        return false;
+    }
+
+    /// <summary>
+    /// Mutable only while incrementally resolving one X/Z column. Once complete,
+    /// its placements are frozen in deterministic order and shared read-only by
+    /// all vertical section cursors in that column.
+    /// </summary>
+    internal sealed class ColumnAnchorProduct
+    {
+        private readonly object _gate = new();
+        private readonly VolumeStructureField _owner;
+        private readonly ChunkGenerationAccessRegion _accessRegion;
+        private readonly int _originX;
+        private readonly int _originZ;
+        private readonly long _right;
+        private readonly long _back;
+        private readonly List<ResolvedAnchor> _buildingAnchors = [];
+        private ImmutableArray<ResolvedAnchor> _anchors =
+            ImmutableArray<ResolvedAnchor>.Empty;
+        private int _ruleIndex = -1;
+        private Rule? _rule;
+        private int _firstX;
+        private int _lastX;
+        private int _firstZ;
+        private int _lastZ;
+        private int _nextX;
+        private int _nextZ;
+        private AnchorSearch? _pendingAnchorSearch;
+        private Variant? _pendingAnchorVariant;
+        private int _pendingAnchorWorldX;
+        private int _pendingAnchorWorldZ;
+        private bool _completed;
+
+        public ColumnAnchorProduct(
+            VolumeStructureField owner,
+            int columnX,
+            int columnZ,
+            ChunkGenerationAccessRegion accessRegion)
+        {
+            _owner = owner;
+            _accessRegion = accessRegion ??
+                throw new ArgumentNullException(nameof(accessRegion));
+            var origin = VoxelCoordinates.ChunkOrigin(
+                new ChunkCoord(columnX, 0, columnZ));
+            _originX = origin.X;
+            _originZ = origin.Z;
+            _right = (long)origin.X + Chunk.Size - 1;
+            _back = (long)origin.Z + Chunk.Size - 1;
+            _completed = !owner.HasRules;
+        }
+
+        public bool IsComplete
+        {
+            get
+            {
+                lock (_gate)
+                    return _completed;
+            }
+        }
+
+        public ImmutableArray<ResolvedAnchor> Anchors
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    if (!_completed)
+                        throw new InvalidOperationException(
+                            "A volume-structure column product cannot be consumed before completion.");
+                    return _anchors;
+                }
+            }
+        }
+
+        public bool Advance(
+            int maximumCandidateEvaluations,
+            int maximumAnchorSupportSamples,
+            out int anchorSearchSlices)
+        {
+            if (maximumCandidateEvaluations <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maximumCandidateEvaluations));
+            if (maximumAnchorSupportSamples <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(maximumAnchorSupportSamples));
+
+            lock (_gate)
+            {
+                anchorSearchSlices = 0;
+                if (_completed)
+                    return true;
+
+                var evaluatedCandidates = 0;
+                while (true)
+                {
+                    if (_pendingAnchorSearch is { } pendingSearch)
+                    {
+                        anchorSearchSlices++;
+                        if (!pendingSearch.Advance(
+                                _owner,
+                                _accessRegion,
+                                maximumAnchorSupportSamples))
+                            return false;
+
+                        var pendingVariant = _pendingAnchorVariant ??
+                            throw new InvalidOperationException(
+                                "A pending volume-structure anchor has no selected variant.");
+                        if (pendingSearch.SupportY is { } supportY)
+                        {
+                            _buildingAnchors.Add(new ResolvedAnchor(
+                                pendingVariant,
+                                _pendingAnchorWorldX,
+                                _pendingAnchorWorldZ,
+                                supportY));
+                        }
+
+                        _pendingAnchorSearch = null;
+                        _pendingAnchorVariant = null;
+                        continue;
+                    }
+
+                    if (evaluatedCandidates >= maximumCandidateEvaluations)
+                        return false;
+
+                    if (!TryNextCandidate(
+                            out var rule,
+                            out var cellX,
+                            out var cellZ))
+                    {
+                        _anchors = _buildingAnchors.ToImmutableArray();
+                        _buildingAnchors.Clear();
+                        _completed = true;
+                        return true;
+                    }
+
+                    evaluatedCandidates++;
+                    var hash = WorldGenerationEntropy.Sample2D(
+                        _owner._seed, rule.Domain, cellX, cellZ);
+                    if (WorldGenerationEntropy.Unit(hash) >= rule.Definition.Chance)
+                        continue;
+
+                    // Independent deterministic hashes avoid global/random state.
+                    var sampleX = WorldGenerationEntropy.Sample2D(
+                        _owner._seed, rule.Domain, cellX + 113, cellZ);
+                    var sampleZ = WorldGenerationEntropy.Sample2D(
+                        _owner._seed, rule.Domain, cellX, cellZ + 317);
+                    var spacing = rule.Definition.Spacing;
+                    var jitter = spacing / 4;
+                    var worldX = (long)cellX * spacing + spacing / 2 +
+                                 (long)(sampleX % (uint)(2 * jitter + 1)) - jitter;
+                    var worldZ = (long)cellZ * spacing + spacing / 2 +
+                                 (long)(sampleZ % (uint)(2 * jitter + 1)) - jitter;
+                    if (worldX is < int.MinValue or > int.MaxValue ||
+                        worldZ is < int.MinValue or > int.MaxValue)
+                        continue;
+                    if (worldX + rule.Radius < _originX ||
+                        worldX - rule.Radius > _right ||
+                        worldZ + rule.Radius < _originZ ||
+                        worldZ - rule.Radius > _back)
+                        continue;
+
+                    var variant = rule.Variants[
+                        (int)(WorldGenerationEntropy.Sample2D(
+                            _owner._seed, rule.Domain, cellX + 509, cellZ + 1021) %
+                            (uint)rule.Variants.Count)];
+                    _pendingAnchorSearch = _owner._anchorSearches.GetOrAdd(
+                        new CandidateKey(rule.Index, cellX, cellZ),
+                        () => new AnchorSearch(
+                            rule, variant, (int)worldX, (int)worldZ));
+                    _pendingAnchorVariant = variant;
+                    _pendingAnchorWorldX = (int)worldX;
+                    _pendingAnchorWorldZ = (int)worldZ;
+                }
+            }
+        }
+
+        private bool TryNextCandidate(
+            out Rule rule,
+            out int cellX,
+            out int cellZ)
+        {
+            while (true)
+            {
+                if (_rule is { } currentRule && _nextZ <= _lastZ)
+                {
+                    rule = currentRule;
+                    cellX = _nextX;
+                    cellZ = _nextZ;
+                    _nextX++;
+                    if (_nextX > _lastX)
+                    {
+                        _nextX = _firstX;
+                        _nextZ++;
+                    }
+                    return true;
+                }
+
+                _rule = null;
+                _ruleIndex++;
+                if (_ruleIndex >= _owner._rules.Length)
+                {
+                    rule = null!;
+                    cellX = 0;
+                    cellZ = 0;
+                    return false;
+                }
+
+                var candidateRule = _owner._rules[_ruleIndex];
+                var spacing = candidateRule.Definition.Spacing;
+                var radius = candidateRule.Radius + spacing / 4;
+                _firstX = Cell((long)_originX - radius, spacing);
+                _lastX = Cell(_right + radius, spacing);
+                _firstZ = Cell((long)_originZ - radius, spacing);
+                _lastZ = Cell(_back + radius, spacing);
+                _nextX = _firstX;
+                _nextZ = _firstZ;
+                _rule = candidateRule;
+            }
+        }
+    }
+
+    internal readonly record struct ResolvedAnchor(
+        Variant Variant,
+        int WorldX,
+        int WorldZ,
+        int SupportY);
+    private bool IsValidAnchorAtSupportY(
+        Rule rule,
+        Variant variant,
+        int x,
+        int z,
+        BiomeSample? cavity,
+        int y,
+        ChunkGenerationAccessRegion? accessRegion)
+    {
+        var direction = rule.Definition.SupportSurface ==
+                        DecorationSupportSurface.Floor ? 1 : -1;
+        if ((long)y + variant.MinY <= 0 ||
+            (long)y + variant.MaxY > int.MaxValue - 1)
+            return false;
+
+        var supportNeighborY = checked(y + direction);
+        accessRegion?.EnsureCanReadWorldPosition(x, y, z);
+        accessRegion?.EnsureCanReadWorldPosition(
+            x, supportNeighborY, z);
+        var volume = cavity ?? _volumes.Sample(x, y, z);
+        if (volume?.Primary != rule.Biome ||
+            _terrain.DensityAt(x, y, z) < 0d ||
+            _terrain.DensityAt(x, supportNeighborY, z) >= 0d)
+            return false;
+
+        if (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
+            !_terrain.IsCaveVoidAt(x, supportNeighborY, z))
+            return false;
+
+        var face = direction > 0
+            ? BiomePaletteFace.Floor : BiomePaletteFace.Ceiling;
+        var support = rule.Placement == VolumeBiomePlacement.Additive
+            ? _materials.SampleColumn(volume, x, z).BlockAt(0)
+            : _materials.VolumeBlockAt(volume, x, y, z, face);
+        if (!variant.GroundBlocks.Contains(support))
+            return false;
+
+        foreach (var voxel in variant.Voxels)
+        {
+            var px = (long)x + voxel.X;
+            var py = (long)y + voxel.Y;
+            var pz = (long)z + voxel.Z;
+            // Every bottom-most stem or arch foot must have real terrain
+            // support, not just the central anchor column.
+            var touchesGround = voxel.Y == direction;
+            if (px is < int.MinValue or > int.MaxValue ||
+                pz is < int.MinValue or > int.MaxValue ||
+                py <= 0 || py > int.MaxValue)
+                return false;
+
+            var voxelX = (int)px;
+            var voxelY = (int)py;
+            var voxelZ = (int)pz;
+            accessRegion?.EnsureCanReadWorldPosition(
+                voxelX, voxelY, voxelZ);
+            var hasUnsupportedFoot = false;
+            if (touchesGround)
+            {
+                var supportYBelow = checked(voxelY - direction);
+                accessRegion?.EnsureCanReadWorldPosition(
+                    voxelX, supportYBelow, voxelZ);
+                hasUnsupportedFoot =
+                    _terrain.DensityAt(
+                        voxelX, supportYBelow, voxelZ) < 0d;
+            }
+
+            if (_terrain.DensityAt(voxelX, voxelY, voxelZ) >= 0d ||
+                hasUnsupportedFoot ||
+                (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
+                 !_terrain.IsCaveVoidAt(voxelX, voxelY, voxelZ)))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Shared deterministic support-Y search for one rule/candidate cell.
+    /// Each Advance performs at most the requested number of Y samples; the
+    /// lock makes concurrent vertical section cursors cooperate on one result.
+    /// </summary>
+    private sealed class AnchorSearch(
+        Rule rule,
+        Variant variant,
+        int worldX,
+        int worldZ)
+    {
+        private readonly object _gate = new();
+        private bool _initialized;
+        private bool _completed;
+        private int _nextSupportY;
+        private BiomeSample? _cavity;
+
+        public int? SupportY { get; private set; }
+
+        public bool Advance(
+            VolumeStructureField owner,
+            ChunkGenerationAccessRegion? accessRegion,
+            int maximumSupportSamples)
+        {
+            lock (_gate)
+            {
+                if (_completed)
+                    return true;
+
+                if (!_initialized)
+                {
+                    accessRegion?.EnsureCanReadColumnData(worldX, worldZ);
+                    if (rule.Placement == VolumeBiomePlacement.CarvedVoid)
+                    {
+                        _cavity = owner._volumes.SampleCave(worldX, worldZ);
+                        if (_cavity?.Primary != rule.Biome)
+                        {
+                            _completed = true;
+                            return true;
+                        }
+                    }
+
+                    _nextSupportY = rule.Definition.MaxY;
+                    _initialized = true;
+                }
+
+                var samples = 0;
+                while (_nextSupportY >= rule.Definition.MinY &&
+                       samples < maximumSupportSamples)
+                {
+                    var supportY = _nextSupportY--;
+                    samples++;
+                    if (owner.IsValidAnchorAtSupportY(
+                            rule,
+                            variant,
+                            worldX,
+                            worldZ,
+                            _cavity,
+                            supportY,
+                            accessRegion))
+                    {
+                        SupportY = supportY;
+                        _completed = true;
+                        return true;
+                    }
+                }
+
+                if (_nextSupportY < rule.Definition.MinY)
+                    _completed = true;
+
+                return _completed;
+            }
+        }
     }
 
     private static Variant CreateVariant(
@@ -283,18 +742,21 @@ public sealed class VolumeStructureField
     private static int Cell(long coordinate, int spacing) =>
         checked((int)Math.Floor(coordinate / (double)spacing));
 
+    private readonly record struct ColumnKey(int X, int Z);
+
     private readonly record struct CandidateKey(
         int RuleIndex, int CellX, int CellZ);
 
-    private sealed record RelativeVoxel(int X, int Y, int Z,
+    internal sealed record RelativeVoxel(int X, int Y, int Z,
                                         BlockRuntimeId Block);
 
-    private sealed record Variant(
+    internal sealed record Variant(
         IReadOnlyList<RelativeVoxel> Voxels,
         IReadOnlySet<BlockRuntimeId> GroundBlocks,
         int Radius, int MinY, int MaxY);
 
     private sealed record Rule(
+        int Index,
         string Biome,
         VolumeBiomePlacement Placement,
         BiomeVolumeStructureDefinition Definition,

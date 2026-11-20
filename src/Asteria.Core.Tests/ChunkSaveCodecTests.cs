@@ -54,6 +54,62 @@ public sealed class ChunkSaveCodecTests
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
 
     [Fact]
+    public void InitialBlockWriterPreservesDirectionalFaceMetadata()
+    {
+        var chunk = new Chunk();
+        const int x = 4;
+        const int y = 8;
+        const int z = 6;
+        var index = x + Chunk.Size * (z + Chunk.Size * y);
+        var metadata = new DirectionalFaceVoxelData(
+            IsTerrainVoxel: true,
+            Up: 0b101,
+            NegativeX: 0b10,
+            PositiveX: 0b1000,
+            NegativeZ: 0b1,
+            PositiveZ: 0,
+            Down: 0b11,
+            BaseBlock: BlockRuntimeId.Air);
+        chunk.SetDirectionalFaceDataAtLinearIndex(
+            index, metadata, updateRevision: false);
+
+        using (var writer = chunk.BeginInitialBlockWrites(18))
+            Assert.True(writer.SetBlockAtLinearIndex(index, new BlockRuntimeId(17)));
+
+        Assert.Equal(metadata, chunk.DirectionalFaceDataAtLinearIndex(index));
+        Assert.Equal(new BlockRuntimeId(17), chunk.GetCell(x, y, z).Block);
+    }
+
+    [Fact]
+    public void InitialDirectionalFaceMetadataUsesFreshPaletteSlots()
+    {
+        var chunk = new Chunk();
+        const int x = 5;
+        const int y = 7;
+        const int z = 9;
+        var index = x + Chunk.Size * (z + Chunk.Size * y);
+        var baseBlock = new BlockRuntimeId(17);
+        var metadata = new DirectionalFaceVoxelData(
+            IsTerrainVoxel: true,
+            Up: 0b101,
+            NegativeX: 0b10,
+            PositiveX: 0b1000,
+            NegativeZ: 0b1,
+            PositiveZ: 0,
+            Down: 0b11,
+            BaseBlock: baseBlock);
+
+        using (var blocks = chunk.BeginInitialBlockWrites(baseBlock.Value + 1))
+            Assert.True(blocks.SetBlockAtLinearIndex(index, baseBlock));
+
+        Assert.True(chunk.SetInitialDirectionalFaceDataAtLinearIndex(
+            index, metadata, updateRevision: false));
+        Assert.False(chunk.SetInitialDirectionalFaceDataAtLinearIndex(
+            index, metadata, updateRevision: false));
+        Assert.Equal(metadata, chunk.DirectionalFaceDataAtLinearIndex(index));
+    }
+
+    [Fact]
     public void EmptyChunksRoundTripDeterministically()
     {
         var content = Content();
@@ -117,6 +173,36 @@ public sealed class ChunkSaveCodecTests
         Assert.Equal(FluidCell.Source(target.Fluids.GetId("asteria:lava")),
             restored.GetFluid(15, 0, 0));
         Assert.Equal(encoded, Encode(restored, target));
+    }
+
+    [Fact]
+    public void DirectionalFaceVoxelMetadataRoundTripsWithOriginalPaletteBlock()
+    {
+        var content = Content();
+        var chunk = new Chunk();
+        var index = 4 + Chunk.Size * (6 + Chunk.Size * 8);
+        var original = content.Blocks.GetId("asteria:stone");
+        var palette = content.Blocks.GetId("asteria:basalt");
+        Assert.True(chunk.SetBlock(4, 8, 6, palette));
+
+        var metadata = new DirectionalFaceVoxelData(
+            IsTerrainVoxel: true,
+            Up: 0b101,
+            NegativeX: 0b10,
+            PositiveX: 0b1000,
+            NegativeZ: 0b1,
+            PositiveZ: 0,
+            Down: 0b11,
+            BaseBlock: original);
+        chunk.SetDirectionalFaceDataAtLinearIndex(index, metadata);
+        chunk.MarkDirectionalFaceDataInitialized();
+
+        var encoded = Encode(chunk, content);
+        var restored = Decode(encoded, content);
+
+        Assert.Equal(metadata, restored.DirectionalFaceDataAtLinearIndex(index));
+        Assert.True(restored.DirectionalFaceDataInitialized);
+        Assert.Equal(encoded, Encode(restored, content));
     }
 
     [Fact]

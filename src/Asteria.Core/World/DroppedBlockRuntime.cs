@@ -352,7 +352,8 @@ public sealed class DroppedBlockRuntime
 
     public DroppedBlockAdvanceResult Advance(
         double deltaSeconds,
-        double gravityStrength)
+        double gravityStrength,
+        Func<ChunkCoord, bool>? isEntityTicking = null)
     {
         if (!double.IsFinite(deltaSeconds) ||
             deltaSeconds < 0)
@@ -395,6 +396,15 @@ public sealed class DroppedBlockRuntime
         {
             var id = _contactIds[index];
             var state = _active[id];
+            if (isEntityTicking is not null)
+            {
+                var feet = FloorToVoxel(state.Position);
+                var chunk = VoxelCoordinates.FromWorld(
+                    feet.X, feet.Y, feet.Z).Chunk;
+                if (!isEntityTicking(chunk))
+                    continue;
+            }
+
             var age =
                 state.AgeSeconds +
                 deltaSeconds;

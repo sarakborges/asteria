@@ -6,11 +6,15 @@ public sealed class GeologyMaterializationRegressionTests
 {
     private const ulong Seed = 0xA57E_3D10_2026UL;
 
-    [Fact]
-    public void MaterializedChunksMatchWorldSpaceGeologyAcrossChunkSeamsAndGenerationOrder()
+    [Theory]
+    [InlineData(BiomeGeologySamplingMode.PerVoxel)]
+    [InlineData(BiomeGeologySamplingMode.Regional)]
+    [InlineData(BiomeGeologySamplingMode.RegionalHybrid)]
+    public void MaterializedChunksMatchWorldSpaceGeologyAcrossChunkSeamsAndGenerationOrder(
+        BiomeGeologySamplingMode samplingMode)
     {
         var blocks = CreateBlocks();
-        var biome = CreateBiome();
+        var biome = CreateBiome(samplingMode: samplingMode);
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
         var firstGenerator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
@@ -109,11 +113,624 @@ public sealed class GeologyMaterializationRegressionTests
         }
     }
 
+    [Theory]
+    [InlineData(3, 4)]
+    [InlineData(19, 8)]
+    public void DirectionalFaceBoundaryMasksPreserveGenerationAcrossHorizontalChunkOrder(
+        int wallDepth,
+        int expectedBoundaryBatchesPerChunk)
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            $$"""
+            {
+              "id": "asteria:test/directional_palette_seam",
+              "surfaceLayout": {
+                "regionSize": { "min": 96, "max": 96 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 14,
+                "macroScale": 20,
+                "detailAmplitude": 3,
+                "detailScale": 9
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }],
+                "walls": [
+                  { "block": "asteria:clay", "depth": {{wallDepth}} },
+                  { "block": "asteria:stone" }
+                ]
+              }
+            }
+            """);
+        var blocks = CreateBlocks();
+        var dimension = CreateDimension(biome.Id);
+        var biomes = new BiomeRegistry([biome]);
+        var materials = new BiomeSurfaceMaterialField(
+            Seed, [biome], blocks);
+        Assert.True(materials.HasDirectionalFacePalettes);
+
+        var coordinates = (
+            from z in Enumerable.Range(-1, 3)
+            from x in Enumerable.Range(-1, 3)
+            select new ChunkCoord(x, 2, z)).ToArray();
+
+        static (
+            Dictionary<ChunkCoord, ulong> Digests,
+            int BoundaryProbes,
+            int BoundaryBatchCount,
+            int BoundaryColumnCount) Capture(
+                BiomeWorldGenerator generator,
+                IEnumerable<ChunkCoord> order)
+        {
+            var digests = new Dictionary<ChunkCoord, ulong>();
+            var boundaryProbes = 0;
+            var boundaryBatchCount = 0;
+            var boundaryColumnCount = 0;
+            foreach (var coord in order)
+            {
+                using var job = generator.BeginMaterialization(coord);
+                while (!job.IsComplete)
+                    job.Advance();
+
+                if (job.DirectionalFacePaletteMetrics is { } metrics)
+                {
+                    boundaryProbes += metrics.BoundaryDensityProbes;
+                    boundaryBatchCount += metrics.HorizontalBoundaryBatchCount;
+                    boundaryColumnCount += metrics.HorizontalBoundaryColumnCount;
+                }
+
+                var chunk = job.Result ??
+                    throw new InvalidOperationException(
+                        "Completed materialization did not publish its chunk.");
+                var digest = 14695981039346656037UL;
+                for (var z = 0; z < Chunk.Size; z++)
+                for (var y = 0; y < Chunk.Size; y++)
+                for (var x = 0; x < Chunk.Size; x++)
+                {
+                    digest = unchecked(
+                        (digest ^ chunk.GetBlock(x, y, z).Value) *
+                        1099511628211UL);
+                }
+
+                digests.Add(coord, digest);
+            }
+
+            return (
+                digests,
+                boundaryProbes,
+                boundaryBatchCount,
+                boundaryColumnCount);
+        }
+
+        var first = Capture(
+            new BiomeWorldGenerator(Seed, dimension, blocks, biomes),
+            coordinates);
+        var second = Capture(
+            new BiomeWorldGenerator(Seed, dimension, blocks, biomes),
+            coordinates.Reverse());
+
+        Assert.True(first.BoundaryProbes > 0,
+            "The fixture must exercise horizontal boundary occupancy masks.");
+        var unsharedBoundaryProbeUpperBound =
+            coordinates.Length * 6 * wallDepth * Chunk.Area;
+        Assert.True(
+            first.BoundaryProbes < unsharedBoundaryProbeUpperBound,
+            $"Adjacent chunks did not reuse occupancy masks: " +
+            $"{first.BoundaryProbes}/{unsharedBoundaryProbeUpperBound} boundary samples.");
+        Assert.Equal(
+            coordinates.Length * expectedBoundaryBatchesPerChunk,
+            first.BoundaryBatchCount);
+        Assert.Equal(
+            coordinates.Length * 4 * wallDepth * Chunk.Size,
+            first.BoundaryColumnCount);
+        var completeBoundaryProbeUpperBound =
+            first.BoundaryColumnCount * Chunk.Size;
+        Assert.True(
+            first.BoundaryProbes < completeBoundaryProbeUpperBound,
+            $"Boundary sampling evaluated unused vertical levels: " +
+            $"{first.BoundaryProbes}/{completeBoundaryProbeUpperBound} samples.");
+        Assert.Equal(first.BoundaryBatchCount, second.BoundaryBatchCount);
+        Assert.Equal(first.BoundaryColumnCount, second.BoundaryColumnCount);
+        Assert.Equal(coordinates.Length, first.Digests.Count);
+        Assert.Equal(coordinates.Length, second.Digests.Count);
+        foreach (var coord in coordinates)
+            Assert.Equal(first.Digests[coord], second.Digests[coord]);
+    }
+
     [Fact]
-    public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns()
+    public void FacePaletteAirMaterialsDisableSupportOccupancyFastPath()
     {
         var blocks = CreateBlocks();
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/air_palette",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 64,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [
+                  { "block": "asteria:air" }
+                ]
+              }
+            }
+            """);
+
+        var materials = new BiomeSurfaceMaterialField(
+            Seed, [biome], blocks);
+
+        Assert.False(materials.FacePalettesPreserveOccupancy);
+    }
+
+    [Theory]
+    [InlineData(true, 40, 20, false, true)]
+    [InlineData(true, 40, 40, false, true)]
+    [InlineData(true, 40, 41, false, false)]
+    [InlineData(true, 40, 0, false, false)]
+    [InlineData(true, 40, 20, true, false)]
+    [InlineData(false, 40, 20, false, false)]
+    public void LocalDensityMaskRequiresCaveBiomeOwnership(
+        bool hasCaveBiome,
+        int baseY,
+        int worldY,
+        bool isSphereShellBoundaryOrLining,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            SurfaceChunkMaterializer.IsLocalDensityCaveVoid(
+                hasCaveBiome, baseY, worldY,
+                isSphereShellBoundaryOrLining));
+    }
+
+    [Fact]
+    public void BiomeRegionOwnershipUsesVolumeIdentityBeforeSurfaceFallback()
+    {
+        static BiomeSample Sample(string id) =>
+            new(id, [new BiomeInfluence(id, 1f)]);
+
+        var surface = Sample("asteria:test/surface");
+        var carvedVolume = Sample("asteria:test/carved_volume");
+        var additiveVolume = Sample("asteria:test/additive_volume");
+
+        var carvedRegion = SurfaceTerrainField.ResolveRegionOwner(
+            surface, null, carvedVolume,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 20,
+            isEmpty: true, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Volume, carvedRegion.Kind);
+        Assert.Equal(carvedVolume.Primary, carvedRegion.Biome.Primary);
+
+        var additiveSolid = SurfaceTerrainField.ResolveRegionOwner(
+            surface, additiveVolume, null,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 220,
+            isEmpty: false, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Volume, additiveSolid.Kind);
+        Assert.Equal(additiveVolume.Primary, additiveSolid.Biome.Primary);
+
+        // An additive formation does not own an empty voxel merely because
+        // the voxel's Y lies inside its authored vertical interval.
+        var additiveEmpty = SurfaceTerrainField.ResolveRegionOwner(
+            surface, additiveVolume, null,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 220,
+            isEmpty: true, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Surface, additiveEmpty.Kind);
+        Assert.Equal(surface.Primary, additiveEmpty.Biome.Primary);
+
+        // Empty cells removed by a surface-fluid cut are not owned by a
+        // carved-volume biome, even if one is selected for that column.
+        var surfaceCut = SurfaceTerrainField.ResolveRegionOwner(
+            surface, null, carvedVolume,
+            baseY: 40, surfaceFluidCutDepth: 4, worldY: 38,
+            isEmpty: true, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Surface, surfaceCut.Kind);
+        Assert.Equal(surface.Primary, surfaceCut.Biome.Primary);
+
+        var shellLining = SurfaceTerrainField.ResolveRegionOwner(
+            surface, null, carvedVolume,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 20,
+            isEmpty: true, isSphereShellBoundaryOrLining: true);
+        Assert.Equal(BiomeRegionOwnerKind.Surface, shellLining.Kind);
+
+        var solidCell = SurfaceTerrainField.ResolveRegionOwner(
+            surface, null, carvedVolume,
+            baseY: 40, surfaceFluidCutDepth: 0, worldY: 20,
+            isEmpty: false, isSphereShellBoundaryOrLining: false);
+        Assert.Equal(BiomeRegionOwnerKind.Surface, solidCell.Kind);
+    }
+
+    [Fact]
+    public void DirectionalPaletteDispatchUsesBiomeMaterialCapabilities()
+    {
+        var blocks = CreateBlocks();
+        var surface = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/surface_owner",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 64,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }],
+                "walls": [{ "block": "asteria:clay" }]
+              }
+            }
+            """);
+        var emptyRegionVolume = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/empty_region_owner",
+              "volumeLayout": { "placement": "carvedVoid" },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }]
+              }
+            }
+            """);
+        var additiveVolume = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/additive_geology_owner",
+              "volumeLayout": { "weight": 0.25 },
+              "terrain3d": {
+                "additive": [{
+                  "minY": 200,
+                  "maxY": 280,
+                  "horizontalScale": 112,
+                  "detailScale": 40,
+                  "coverage": 0.55,
+                  "roughness": 0.18,
+                  "densityScale": 28
+                }]
+              },
+              "geology": {
+                "baseBlock": "asteria:stone",
+                "blocks": ["asteria:dirt", "asteria:gravel"],
+                "scale": 24,
+                "verticalScale": 6,
+                "coverage": 0.78
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }],
+                "walls": [{ "block": "asteria:clay" }]
+              }
+            }
+            """);
+        var materials = new BiomeSurfaceMaterialField(
+            Seed, [surface, emptyRegionVolume, additiveVolume], blocks);
+        var surfaceOwner = new BiomeRegionOwner(
+            new BiomeSample(
+                surface.Id, [new BiomeInfluence(surface.Id, 1f)]),
+            BiomeRegionOwnerKind.Surface);
+        var emptyRegionOwner = new BiomeRegionOwner(
+            new BiomeSample(
+                emptyRegionVolume.Id,
+                [new BiomeInfluence(emptyRegionVolume.Id, 1f)]),
+            BiomeRegionOwnerKind.Volume);
+        var additiveOwner = new BiomeRegionOwner(
+            new BiomeSample(
+                additiveVolume.Id, [new BiomeInfluence(additiveVolume.Id, 1f)]),
+            BiomeRegionOwnerKind.Volume);
+
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            surfaceOwner, BiomePaletteFace.Walls));
+        Assert.False(materials.ShouldApplyDirectionalFacePalette(
+            surfaceOwner, BiomePaletteFace.Ceiling));
+        Assert.False(materials.ShouldApplyDirectionalFacePalette(
+            surfaceOwner, BiomePaletteFace.Floor));
+
+        // A volume biome without geology uses its default material palette
+        // for every exposed orientation.
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            emptyRegionOwner, BiomePaletteFace.Floor));
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            emptyRegionOwner, BiomePaletteFace.Walls));
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            emptyRegionOwner, BiomePaletteFace.Ceiling));
+
+        // A volume biome with geology keeps that 3D field unless it explicitly
+        // authors a directional override.
+        Assert.False(materials.ShouldApplyDirectionalFacePalette(
+            additiveOwner, BiomePaletteFace.Floor));
+        Assert.True(materials.ShouldApplyDirectionalFacePalette(
+            additiveOwner, BiomePaletteFace.Walls));
+        Assert.False(materials.ShouldApplyDirectionalFacePalette(
+            additiveOwner, BiomePaletteFace.Ceiling));
+
+        var surfaceMask = materials.DirectionalPaletteFor(surfaceOwner);
+        Assert.Equal(BiomePaletteFaceMask.Walls, surfaceMask.Faces);
+        var emptyRegionMask = materials.DirectionalPaletteFor(emptyRegionOwner);
+        Assert.Equal(
+            BiomePaletteFaceMask.Floor |
+            BiomePaletteFaceMask.Walls |
+            BiomePaletteFaceMask.Ceiling,
+            emptyRegionMask.Faces);
+        var additiveMask = materials.DirectionalPaletteFor(additiveOwner);
+        Assert.Equal(BiomePaletteFaceMask.Walls, additiveMask.Faces);
+        Assert.True(additiveMask.MaxDepth > 0);
+    }
+
+    [Fact]
+    public void DirectionalPaletteDiagnosticsAreReproducibleForFixedSeedAndChunk()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/directional_palette_diagnostics",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 64,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }],
+                "walls": [{ "block": "asteria:clay" }]
+              }
+            }
+            """);
+        var blocks = CreateBlocks();
+        var dimension = CreateDimension(biome.Id);
+        var biomes = new BiomeRegistry([biome]);
+        var firstGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes);
+        var secondGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes);
+
+        static DirectionalFacePaletteMetrics? Capture(
+            BiomeWorldGenerator generator)
+        {
+            using var job = generator.BeginMaterialization(
+                new ChunkCoord(0, 2, 0));
+            while (!job.IsComplete)
+                job.Advance();
+            return job.DirectionalFacePaletteMetrics;
+        }
+
+        var first = Capture(firstGenerator);
+        var second = Capture(secondGenerator);
+        Assert.True(first.HasValue);
+        Assert.True(second.HasValue);
+        var firstMetrics = first.Value;
+        var secondMetrics = second.Value;
+
+#if DEBUG
+        Assert.True(firstMetrics.HasTimingBreakdown);
+#else
+        Assert.False(firstMetrics.HasTimingBreakdown);
+#endif
+        Assert.Equal(Chunk.Area, firstMetrics.SurfaceColumns);
+        Assert.True(firstMetrics.SolidVoxels > 0);
+        Assert.True(firstMetrics.FaceProbes > 0);
+        Assert.True(firstMetrics.DensityProbes > 0);
+        Assert.True(firstMetrics.BoundaryDensityProbes > 0);
+        Assert.True(firstMetrics.BoundaryDensityProbes <= firstMetrics.DensityProbes);
+        Assert.InRange(firstMetrics.PaletteWrites, 0, firstMetrics.FaceProbes);
+
+        Assert.Equal(firstMetrics.SurfaceColumns, secondMetrics.SurfaceColumns);
+        Assert.Equal(firstMetrics.SolidVoxels, secondMetrics.SolidVoxels);
+        Assert.Equal(firstMetrics.FaceProbes, secondMetrics.FaceProbes);
+        Assert.Equal(firstMetrics.NeighborColumnLookups, secondMetrics.NeighborColumnLookups);
+        Assert.Equal(firstMetrics.SolidPaletteLookups, secondMetrics.SolidPaletteLookups);
+        Assert.Equal(firstMetrics.EmptyRegionPaletteLookups, secondMetrics.EmptyRegionPaletteLookups);
+        Assert.Equal(firstMetrics.DensityProbes, secondMetrics.DensityProbes);
+        Assert.Equal(firstMetrics.BoundaryDensityProbes, secondMetrics.BoundaryDensityProbes);
+        Assert.Equal(firstMetrics.EmptyRegionOwnerResolutions, secondMetrics.EmptyRegionOwnerResolutions);
+        Assert.Equal(firstMetrics.MaskRejectedProbes, secondMetrics.MaskRejectedProbes);
+        Assert.Equal(
+            firstMetrics.EmptyRegionEligibilityRejectedProbes,
+            secondMetrics.EmptyRegionEligibilityRejectedProbes);
+        Assert.Equal(firstMetrics.PaletteRejectedProbes, secondMetrics.PaletteRejectedProbes);
+        Assert.Equal(firstMetrics.DepthRejectedProbes, secondMetrics.DepthRejectedProbes);
+        Assert.Equal(firstMetrics.PaletteWrites, secondMetrics.PaletteWrites);
+    }
+
+    [Fact]
+    public void MaterializedGravityGeologyNeverLeavesUnsupportedCellsAcrossVerticalSeams()
+    {
+        var blocks = CreateBlocks(gravityBlocks: true);
         var biome = CreateBiome();
+        var caves = new DimensionCaveDefinition(
+        [
+            new DimensionCaveLayerDefinition(
+                minDepth: 8,
+                maxDepth: 80,
+                channels:
+                [
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                ],
+                noiseHalfWidth: 1f,
+                densityScale: 24f,
+                boundaryFade: 6),
+        ]);
+        var dimension = CreateDimension(biome.Id, caves);
+        var biomes = new BiomeRegistry([biome]);
+        var firstGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes);
+        var secondGenerator = new BiomeWorldGenerator(
+            Seed, dimension, blocks, biomes);
+        var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
+        Assert.True(materials.FacePalettesPreserveOccupancy);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var gravityBlocks = new HashSet<BlockRuntimeId>
+        {
+            blocks.GetId("asteria:sand"),
+            blocks.GetId("asteria:gravel"),
+        };
+
+        WorldVoxelCoord? unsupportedCandidate = null;
+        WorldVoxelCoord? supportedCandidate = null;
+        var seamHeights = new[] { Chunk.Size, Chunk.Size * 2 };
+
+        // The failing case must be a genuine cave roof exactly at a vertical
+        // chunk boundary: solid geology above a carved void below.
+        for (var z = -128; z <= 128 && !unsupportedCandidate.HasValue; z += 2)
+        for (var x = -128; x <= 128 && !unsupportedCandidate.HasValue; x += 2)
+        foreach (var worldY in seamHeights)
+        {
+            if (firstGenerator.DensityAt(x, worldY, z) < 0d ||
+                firstGenerator.DensityAt(x, worldY - 1, z) >= 0d ||
+                !materials.TryGeologyBlockAt(
+                    sample, x, worldY, z, out var material) ||
+                !gravityBlocks.Contains(material))
+                continue;
+
+            unsupportedCandidate = new WorldVoxelCoord(x, worldY, z);
+            break;
+        }
+
+        // The control case need only be a supported underground deposit; it
+        // should not depend on a rare coincidence at the cave/chunk seam.
+        for (var z = -128; z <= 128 && !supportedCandidate.HasValue; z += 2)
+        for (var x = -128; x <= 128 && !supportedCandidate.HasValue; x += 2)
+        for (var worldY = 4; worldY < 38; worldY++)
+        {
+            if (firstGenerator.DensityAt(x, worldY, z) < 0d ||
+                firstGenerator.DensityAt(x, worldY - 1, z) < 0d ||
+                !materials.TryGeologyBlockAt(
+                    sample, x, worldY, z, out var material) ||
+                !gravityBlocks.Contains(material))
+                continue;
+
+            supportedCandidate = new WorldVoxelCoord(x, worldY, z);
+            break;
+        }
+
+        Assert.True(unsupportedCandidate.HasValue,
+            "The cave fixture did not produce an unsupported gravity deposit on a vertical chunk seam.");
+        Assert.True(supportedCandidate.HasValue,
+            "The geology fixture did not produce a supported underground gravity deposit.");
+
+        var candidates = new[] { unsupportedCandidate.Value, supportedCandidate.Value };
+        var horizontalColumns = candidates
+            .Select(position => VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk)
+            .Select(coord => (coord.X, coord.Z))
+            .Distinct()
+            .ToArray();
+        var coords = horizontalColumns
+            .SelectMany(column => Enumerable.Range(0, 3)
+                .Select(y => new ChunkCoord(column.X, y, column.Z)))
+            .ToArray();
+
+        var firstChunks = new Dictionary<ChunkCoord, Chunk>();
+        foreach (var coord in coords.OrderByDescending(coord => coord.Y)
+                     .ThenBy(coord => coord.Z).ThenBy(coord => coord.X))
+            firstChunks.Add(coord, firstGenerator.Materialize(coord));
+
+        var secondChunks = new Dictionary<ChunkCoord, Chunk>();
+        foreach (var coord in coords.OrderBy(coord => coord.Y)
+                     .ThenBy(coord => coord.Z).ThenBy(coord => coord.X))
+            secondChunks.Add(coord, secondGenerator.Materialize(coord));
+
+        foreach (var coord in coords)
+            AssertChunksEqual(firstChunks[coord], secondChunks[coord]);
+
+        var unsupported = unsupportedCandidate.Value;
+        var (unsupportedCoord, unsupportedLocal) = VoxelCoordinates.FromWorld(
+            unsupported.X, unsupported.Y, unsupported.Z);
+        Assert.False(gravityBlocks.Contains(firstChunks[unsupportedCoord].GetBlock(
+            unsupportedLocal.X, unsupportedLocal.Y, unsupportedLocal.Z)),
+            "Unsupported generated sand/gravel should be replaced by stable host rock.");
+
+        var supported = supportedCandidate.Value;
+        var (supportedCoord, supportedLocal) = VoxelCoordinates.FromWorld(
+            supported.X, supported.Y, supported.Z);
+        Assert.True(gravityBlocks.Contains(firstChunks[supportedCoord].GetBlock(
+            supportedLocal.X, supportedLocal.Y, supportedLocal.Z)),
+            "A generated sand/gravel deposit with solid support must retain its material.");
+
+        foreach (var (coord, chunk) in firstChunks)
+        {
+            var lower = coord.Y > 0
+                ? firstChunks[new ChunkCoord(coord.X, coord.Y - 1, coord.Z)]
+                : null;
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var y = 0; y < Chunk.Size; y++)
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                var cell = chunk.GetCell(x, y, z);
+                if (cell.IsEmpty || !gravityBlocks.Contains(cell.Block))
+                    continue;
+
+                var worldY = coord.Y * Chunk.Size + y;
+                if (worldY == 0)
+                    continue;
+
+                var supportedBelow = y > 0
+                    ? !chunk.GetCell(x, y - 1, z).IsEmpty
+                    : lower is not null &&
+                      !lower.GetCell(x, Chunk.Size - 1, z).IsEmpty;
+                Assert.True(supportedBelow,
+                    $"Generated unsupported gravity block remains at " +
+                    $"{coord.X * Chunk.Size + x},{worldY},{coord.Z * Chunk.Size + z}.");
+            }
+        }
+
+        // Generated chunks enter physics through the same resident-chunk
+        // activation path as restored chunks. A valid generated world must
+        // produce no gravity wakeups when these chunks become resident.
+        var world = new VoxelWorld();
+        foreach (var (coord, chunk) in firstChunks)
+            world.InsertChunk(coord, chunk);
+
+        var physicsUpdates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(
+            world,
+            new WorldUpdateQueue(),
+            new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(),
+            physicsUpdates,
+            new MeshletContentRevisions(),
+            new MeshletContentRevisions());
+        var droppedBlocks = new DroppedBlockRuntime(world, blocks);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, physicsUpdates, droppedBlocks);
+
+        var queuedWakeups = coords.Sum(physics.EnqueueResidentChunk);
+        Assert.Equal(0, queuedWakeups);
+        Assert.Equal(0, physicsUpdates.Count);
+        Assert.Equal(0, physics.ProcessWakeups().FallingStarted);
+    }
+
+    private static void AssertChunksEqual(Chunk expected, Chunk actual)
+    {
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 0; y < Chunk.Size; y++)
+        for (var x = 0; x < Chunk.Size; x++)
+            Assert.Equal(
+                expected.GetCell(x, y, z),
+                actual.GetCell(x, y, z));
+    }
+
+    [Theory]
+    [InlineData(BiomeGeologySamplingMode.PerVoxel)]
+    [InlineData(BiomeGeologySamplingMode.Regional)]
+    [InlineData(BiomeGeologySamplingMode.RegionalHybrid)]
+    public void GeologyVariesAtOneAltitudeAndThroughVerticalMaterializedColumns(
+        BiomeGeologySamplingMode samplingMode)
+    {
+        var blocks = CreateBlocks();
+        var biome = CreateBiome(samplingMode: samplingMode);
         var materials = new BiomeSurfaceMaterialField(Seed, [biome], blocks);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
@@ -194,11 +811,17 @@ public sealed class GeologyMaterializationRegressionTests
             $"Material boundaries are still too continuous on the wall: {horizontalTransitions} transitions.");
     }
 
-    [Fact]
-    public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation()
+    [Theory]
+    [InlineData(BiomeGeologySamplingMode.PerVoxel)]
+    [InlineData(BiomeGeologySamplingMode.Regional)]
+    [InlineData(BiomeGeologySamplingMode.RegionalHybrid)]
+    public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation(
+        BiomeGeologySamplingMode samplingMode)
     {
         var blocks = CreateBlocks();
-        var biome = CreateBiome(surfaceCoverage: 0.4f);
+        var biome = CreateBiome(
+            surfaceCoverage: 0.4f,
+            samplingMode: samplingMode);
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
         var generator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
@@ -233,16 +856,137 @@ public sealed class GeologyMaterializationRegressionTests
             "A flat surface should retain its grass cover while exposing varied geological materials.");
     }
 
-    private static BlockRegistry CreateBlocks() => new(
+    [Fact]
+    public void GeologySamplingDefaultsToRegionalWhenOmittedFromBiomeJson()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/default_regional_geology_json",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 128,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }]
+              },
+              "geology": {
+                "baseBlock": "asteria:stone",
+                "blocks": ["asteria:dirt", "asteria:gravel"],
+                "scale": 48,
+                "verticalScale": 28,
+                "detailScale": 12,
+                "selectionScale": 32,
+                "coverage": 0.65
+              }
+            }
+            """);
+
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Equal(BiomeGeologySamplingMode.Regional, geology.SamplingMode);
+    }
+
+    [Fact]
+    public void PerVoxelGeologyModeCanBeAuthoredInBiomeJson()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/per_voxel_geology_json",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 128,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }]
+              },
+              "geology": {
+                "baseBlock": "asteria:stone",
+                "blocks": ["asteria:dirt", "asteria:gravel"],
+                "scale": 48,
+                "verticalScale": 28,
+                "detailScale": 12,
+                "selectionScale": 32,
+                "coverage": 0.65,
+                "samplingMode": "per-voxel"
+              }
+            }
+            """);
+
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Equal(BiomeGeologySamplingMode.PerVoxel, geology.SamplingMode);
+    }
+
+    [Fact]
+    public void RegionalGeologySettingsCanBeAuthoredInBiomeJson()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/regional_geology_json",
+              "surfaceLayout": {
+                "regionSize": { "min": 128, "max": 128 }
+              },
+              "surfaceTerrain": {
+                "baseHeightOffset": 40,
+                "macroAmplitude": 0,
+                "macroScale": 128,
+                "detailAmplitude": 0,
+                "detailScale": 32
+              },
+              "palette": {
+                "default": [{ "block": "asteria:stone" }]
+              },
+              "geology": {
+                "baseBlock": "asteria:stone",
+                "blocks": ["asteria:dirt", "asteria:gravel"],
+                "scale": 48,
+                "verticalScale": 28,
+                "detailScale": 12,
+                "selectionScale": 32,
+                "coverage": 0.65,
+                "samplingMode": "regional",
+                "regionScale": 24,
+                "regionVerticalScale": 16,
+                "regionWarpStrength": 0.3
+              }
+            }
+            """);
+
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Equal(BiomeGeologySamplingMode.Regional, geology.SamplingMode);
+        Assert.Equal(24u, geology.RegionScale);
+        Assert.Equal(16u, geology.RegionVerticalScale);
+        Assert.Equal(0.3f, geology.RegionWarpStrength);
+    }
+
+    private static BlockRegistry CreateBlocks(bool gravityBlocks = false) => new(
     [
         new BlockDefinition("asteria:grass"),
         new BlockDefinition("asteria:dirt"),
         new BlockDefinition("asteria:stone"),
-        new BlockDefinition("asteria:gravel"),
+        new BlockDefinition("asteria:sand", tags: gravityBlocks
+            ? [BlockPhysicsCapabilities.Gravity] : null),
+        new BlockDefinition("asteria:gravel", tags: gravityBlocks
+            ? [BlockPhysicsCapabilities.Gravity] : null),
         new BlockDefinition("asteria:clay"),
     ]);
 
-    private static BiomeDefinition CreateBiome(float surfaceCoverage = 0f) => new(
+    private static BiomeDefinition CreateBiome(
+        float surfaceCoverage = 0f,
+        BiomeGeologySamplingMode samplingMode = BiomeGeologySamplingMode.Regional) => new(
         "asteria:test/geology",
         new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
         new BiomeTerrainDefinition(
@@ -258,7 +1002,7 @@ public sealed class GeologyMaterializationRegressionTests
         ],
         geology: new BiomeGeologyDefinition(
             "asteria:stone",
-            ["asteria:gravel", "asteria:clay", "asteria:dirt"],
+            ["asteria:sand", "asteria:gravel", "asteria:clay", "asteria:dirt"],
             scale: 24,
             verticalScale: 6,
             detailScale: 5,
@@ -266,9 +1010,12 @@ public sealed class GeologyMaterializationRegressionTests
             coverage: 0.78f,
             roughness: 0.32f,
             surfaceCoverDepth: 3,
-            surfaceCoverage: surfaceCoverage));
+            surfaceCoverage: surfaceCoverage,
+            samplingMode: samplingMode));
 
-    private static DimensionDefinition CreateDimension(string biomeId) => new(
+    private static DimensionDefinition CreateDimension(
+        string biomeId,
+        DimensionCaveDefinition? caves = null) => new(
         new DimensionId("asteria:test"),
         [biomeId],
         seaLevel: 0,
@@ -279,5 +1026,6 @@ public sealed class GeologyMaterializationRegressionTests
             new DimensionColor(255, 255, 255),
             1f,
             new DimensionColor(0, 0, 0),
-            0f));
+            0f),
+        caves: caves);
 }

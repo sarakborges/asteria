@@ -10,15 +10,21 @@ public sealed class FluidMeshPipeline
     private readonly FluidMeshUpdateQueue _updates;
     private readonly MeshletContentRevisions _revisions;
     private readonly ChunkPresentationController _presentations;
-    private sealed class WorkerSlot
+    private sealed class WorkerSlot(WorldWorkerPool workerPool)
     {
-        public FluidMeshWorker Worker { get; } = new();
+        public FluidMeshWorker Worker { get; } =
+            new(workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
 
         public WorldMeshBatch? InFlightBatch { get; set; }
+
+        public WorldWorkerPriority WorkerPriority { get; set; } =
+            WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.BackgroundWorldPriority);
     }
 
     private readonly int _maximumMeshletsPerWorker;
-    private readonly WorkerSlot[] _workers;
+    private readonly WorldWorkerPool _workerPool;
+    private readonly List<WorkerSlot> _workers = [];
 
     private bool _acceptingWork = true;
 
@@ -32,7 +38,7 @@ public sealed class FluidMeshPipeline
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
         int maximumMeshletsPerWorker,
-        int maximumConcurrentWorkers)
+        WorldWorkerPool workerPool)
     {
         _world =
             world ??
@@ -59,17 +65,10 @@ public sealed class FluidMeshPipeline
                 nameof(maximumMeshletsPerWorker));
         }
 
-        if (maximumConcurrentWorkers <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumConcurrentWorkers));
-        }
-
         _maximumMeshletsPerWorker =
             maximumMeshletsPerWorker;
-        _workers = new WorkerSlot[maximumConcurrentWorkers];
-        for (var index = 0; index < _workers.Length; index++)
-            _workers[index] = new WorkerSlot();
+        _workerPool = workerPool ??
+            throw new ArgumentNullException(nameof(workerPool));
     }
 
     public bool IsRunning => ActiveWorkerCount > 0;
@@ -85,6 +84,8 @@ public sealed class FluidMeshPipeline
             return count;
         }
     }
+
+    public bool HasAvailableWorkerSlot => _acceptingWork;
 
     public bool HasWorkAffecting(Func<ChunkCoord, bool> isRelevantChunk)
     {
@@ -117,19 +118,9 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
+        UpdateInFlightWorkerPriorities(center);
+
         if (!_updates.HasWork)
-            return false;
-
-        WorkerSlot? availableWorker = null;
-        foreach (var worker in _workers)
-        {
-            if (worker.Worker.IsRunning)
-                continue;
-            availableWorker = worker;
-            break;
-        }
-
-        if (availableWorker is null)
             return false;
 
         var nearest = _dispatchFairness.ShouldPrioritizeNearby(
@@ -156,20 +147,74 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
-        if (!availableWorker.Worker.TryStart(
+        var worker = new WorkerSlot(_workerPool);
+        var relightable = _presentations.CaptureRelightableFluid(batch);
+        var workerPriority = ResolveWorkerPriority(
+            batch,
+            center,
+            WorldWorkerPriority.FromPriorityClass(
+                nearest
+                    ? WorldWorkerPool.InteractiveWorldPriority
+                    : WorldWorkerPool.BackgroundWorldPriority));
+        if (!worker.Worker.TryStart(
                 _world,
                 _blocks,
                 _fluids,
                 batch,
-                _revisions))
+                _revisions,
+                relightable,
+                workerPriority))
         {
             _updates.Requeue(batch);
             return false;
         }
 
-        availableWorker.InFlightBatch = batch;
+        worker.InFlightBatch = batch;
+        worker.WorkerPriority = workerPriority;
+        _workers.Add(worker);
         _dispatchFairness.RecordStarted(nearest);
         return true;
+    }
+
+    private void UpdateInFlightWorkerPriorities(
+        ChunkCoord? center)
+    {
+        if (center is null)
+            return;
+
+        foreach (var worker in _workers)
+        {
+            if (worker.InFlightBatch is not { } batch)
+                continue;
+
+            var priority = ResolveWorkerPriority(
+                batch, center, worker.WorkerPriority);
+            if (priority != worker.WorkerPriority &&
+                worker.Worker.TryUpdatePriority(priority))
+                worker.WorkerPriority = priority;
+        }
+    }
+
+    private static WorldWorkerPriority ResolveWorkerPriority(
+        WorldMeshBatch batch,
+        ChunkCoord? center,
+        WorldWorkerPriority fallbackPriority)
+    {
+        if (center is not { } focus || batch.DirtyMeshlets.Count == 0)
+            return fallbackPriority;
+
+        ChunkGenerationTaskPriority? nearest = null;
+        foreach (var coord in batch.DirtyMeshlets.Keys)
+        {
+            var priority = ChunkStreamingState.StreamingPriority(
+                coord, focus);
+            if (nearest is null || priority.CompareTo(nearest.Value) < 0)
+                nearest = priority;
+        }
+
+        return nearest is { } ticket
+            ? WorldWorkerPriority.FromGenerationTicket(ticket)
+            : fallbackPriority;
     }
 
     public bool TryPollCompleted(
@@ -179,8 +224,9 @@ public sealed class FluidMeshPipeline
         report = null;
         error = null;
 
-        foreach (var worker in _workers)
+        for (var workerIndex = 0; workerIndex < _workers.Count; workerIndex++)
         {
+            var worker = _workers[workerIndex];
             if (!worker.Worker.TryTakeCompleted(
                     out var result,
                     out error))
@@ -190,6 +236,7 @@ public sealed class FluidMeshPipeline
 
             var sourceBatch = worker.InFlightBatch;
             worker.InFlightBatch = null;
+            _workers.RemoveAt(workerIndex);
 
             if (error is not null)
             {
@@ -209,6 +256,7 @@ public sealed class FluidMeshPipeline
             var accepted = 0;
             var stale = 0;
             var salvaged = 0;
+            var relitWithoutMeshing = 0;
 
             foreach (var meshlet in result.Meshlets)
             {
@@ -234,6 +282,8 @@ public sealed class FluidMeshPipeline
                     accepted++;
                     if (batchStale)
                         salvaged++;
+                    if (meshlet.LightOnly)
+                        relitWithoutMeshing++;
                 }
                 else
                 {
@@ -252,6 +302,7 @@ public sealed class FluidMeshPipeline
                 accepted,
                 stale,
                 CaptureMilliseconds: result.CaptureMilliseconds,
+                RelitWithoutMeshing: relitWithoutMeshing,
                 SalvagedFromStaleBatch: salvaged);
             return true;
         }

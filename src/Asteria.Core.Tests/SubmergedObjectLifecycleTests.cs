@@ -193,13 +193,13 @@ public sealed class SubmergedObjectLifecycleTests
             Directory.EnumerateFiles(folder, "*.json").Select(File.ReadAllText),
             ObjectDefinition.Parse, obj => obj.Id);
         foreach (var name in new[] {
-            "kelp", "seagrass", "anemone_sea", "seashell", "starfish"
+            "kelp", "seagrass", "seashell", "starfish"
         })
         {
             var obj = all.Get("asteria:" + name);
             Assert.Equal("asteria:water", obj.RequiredFluidAbove);
             Assert.Null(obj.SupportFluid);
-            Assert.Equal(name != "anemone_sea", obj.DropSelf);
+            Assert.True(obj.DropSelf);
         }
     }
 

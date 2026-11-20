@@ -88,40 +88,16 @@ public sealed class WallDecorationContentTests
     }
 
     [Fact]
-    public void ProjectedWallFungiAndRosettesRemainSeparate3DContent()
+    public void RemovedProjectedWallDecorationsHaveNoRemainingBiomeReferences()
     {
         var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
-        var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
-        foreach (var (biome, id) in new[]
-        {
-            ("caverns", "fungus_shelf_wall"),
-            ("gorge", "rosette_cliff"),
-        })
-        {
-            var rule = Assert.Single(
-                biomes.Get("asteria:overworld/" + biome).Decorations,
-                r => r.Block == "asteria:" + id);
-            Assert.False(rule.IsLayer);
-            Assert.Equal(DecorationSupportSurface.Wall, rule.SupportSurface);
-            if (id == "fungus_shelf_wall")
-            {
-                Assert.True(rule.IsObject);
-                var objects = PackContentRegistry<ObjectDefinition>.FromJson(
-                    ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
-                var obj = objects.Get(rule.Block);
-                Assert.Equal(ObjectVisualKind.CrossedSprite, obj.Visual.Kind);
-                Assert.All(new[] { BlockFace.Left, BlockFace.Right,
-                    BlockFace.Front, BlockFace.Back },
-                    face => Assert.True(obj.Supports(face)));
-            }
-            else
-            {
-                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-                Assert.True(block.UsesHorizontalFacing);
-                Assert.True(block.HasTag("support_wall"));
-                Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
-            }
-        }
+        var cavern = biomes.Get("asteria:overworld/caverns");
+        var gorge = biomes.Get("asteria:overworld/gorge");
+
+        Assert.DoesNotContain(cavern.Decorations,
+            rule => rule.Block == "asteria:fungus_shelf_wall");
+        Assert.DoesNotContain(gorge.Decorations,
+            rule => rule.Block == "asteria:rosette_cliff");
     }
 
     [Fact]
@@ -178,52 +154,36 @@ public sealed class WallDecorationContentTests
     }
 
     [Fact]
-    public void ProjectedWallObjectsAreSelectedSeparatelyFromFaceOverlays()
+    public void WallLayersRemainSelectedWithoutRemovedProjectedWallObjects()
     {
         var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var layers = AttachedLayerRegistry.FromJson(ReadJson("layers"));
-        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
-            ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
-        foreach (var (biomeName, objectName, layerName) in new[]
+
+        foreach (var (biomeName, layerName) in new[]
         {
-            ("caverns", "fungus_shelf_wall", "moss_wall"),
-            ("gorge", "rosette_cliff", "lichen_cliff"),
+            ("caverns", "moss_wall"),
+            ("gorge", "lichen_cliff"),
         })
         {
             var biome = biomes.Get("asteria:overworld/" + biomeName);
             var decorators = new SurfaceDecorationField(
-                1739, [biome], blocks, layers: layers, objects: objects);
+                1739, [biome], blocks, layers: layers);
             var sample = new BiomeSample(biome.Id,
                 [new BiomeInfluence(biome.Id, 1f)]);
             var stone = blocks.GetId("asteria:stone");
-            Assert.True(biomeName == "caverns"
-                ? decorators.HasWallObjectsFor(biome.Id)
-                : decorators.HasWallBlocksFor(biome.Id));
+            Assert.False(decorators.HasWallObjectsFor(biome.Id));
             Assert.True(decorators.HasWallLayersFor(biome.Id));
-            var foundObject = false;
             var foundLayer = false;
-            for (var x = -52; x <= 52; x++)
-            for (var z = -52; z <= 52; z++)
+            for (var x = -52; x <= 52 && !foundLayer; x++)
+            for (var z = -52; z <= 52 && !foundLayer; z++)
             {
                 var height = biomeName == "caverns" ? 75 : 110;
-                var blockAt = decorators.WallBlockAt(
-                    sample, stone, x, height, z);
-                var objectAt = biomeName == "caverns"
-                    ? decorators.WallObjectAt(sample, stone, x, height, z)
-                    : blockAt.IsAir ? null : "asteria:" + objectName;
-                var overlayAt = decorators.WallLayerAt(
-                    sample, stone, x, height, z);
-                Assert.True(objectAt is null ||
-                    objectAt == "asteria:" + objectName);
-                Assert.True(overlayAt is null ||
-                    overlayAt == "asteria:" + layerName);
-                if (objectAt is not null) foundObject = true;
-                if (overlayAt is not null) foundLayer = true;
-                if (foundObject && foundLayer)
-                    break;
+                Assert.Null(decorators.WallObjectAt(sample, stone, x, height, z));
+                var selected = decorators.WallLayerAt(sample, stone, x, height, z);
+                Assert.True(selected is null || selected == "asteria:" + layerName);
+                foundLayer = selected is not null;
             }
-            Assert.True(foundObject);
             Assert.True(foundLayer);
             Assert.True(decorators.WallBlockAt(
                 sample, blocks.GetId("asteria:basalt"), 0, 90, 0).IsAir);

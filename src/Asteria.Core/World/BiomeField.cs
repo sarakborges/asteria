@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Asteria.Core.World;
 
 public readonly record struct BiomeInfluence(
@@ -7,6 +9,8 @@ public readonly record struct BiomeInfluence(
 
 public sealed class BiomeSample
 {
+    private readonly BiomeInfluence? _primaryInfluence;
+
     public BiomeSample(
         string primary,
         IReadOnlyList<BiomeInfluence> influences)
@@ -25,6 +29,17 @@ public sealed class BiomeSample
 
         Primary = primary;
         Influences = influences;
+        for (var index = 0; index < influences.Count; index++)
+        {
+            if (string.Equals(
+                    influences[index].BiomeId,
+                    primary,
+                    StringComparison.Ordinal))
+            {
+                _primaryInfluence = influences[index];
+                break;
+            }
+        }
     }
 
     public string Primary { get; }
@@ -37,7 +52,11 @@ public sealed class BiomeSample
     public float PrimaryTerrainStrength =>
         PrimaryInfluence.TerrainStrength;
 
+    // The primary influence is read repeatedly in terrain-density hot paths.
+    // Resolve it once when the immutable biome sample is created rather than
+    // scanning the full influence list for every voxel.
     private BiomeInfluence PrimaryInfluence =>
+        _primaryInfluence ??
         Influences
             .First(influence =>
                 string.Equals(
@@ -104,10 +123,16 @@ public sealed class BiomeField
     private const int MinimumSeedSpacing = 64;
     private const int MaximumSeedSpacing = 256;
     private const int CandidateRadiusBuckets = 2;
+    private const int BiomeBorderRadiusBuckets = 1;
     private const int CompatibilityRadiusBuckets =
         CandidateRadiusBuckets * 2;
     private const int CompatibilityClassPeriod =
         CompatibilityRadiusBuckets * 2 + 1;
+
+    private readonly record struct WeightedInfluence(
+        int Rule,
+        double Weight,
+        double TerrainStrength);
     private readonly BiomeBlendingDefinition _blending;
     private readonly GenerationDomain[] _contourDomains;
 
@@ -348,18 +373,77 @@ public sealed class BiomeField
 
     // A bounded query (such as nearby destination search) reuses its seed
     // assignments across columns instead of allocating a cache per voxel.
-    // Never share a sampler across workers or retain it after the query.
-    internal Sampler CreateSampler() => new(this);
+    // Selected chunk-local probes can additionally memoize completed samples
+    // when neighboring coordinates overlap. Samplers remain query-local.
+    internal Sampler CreateSampler(int sampleCacheCapacity = 0) =>
+        new(this, sampleCacheCapacity);
 
     internal sealed class Sampler
     {
         private readonly BiomeField _field;
         private readonly Dictionary<SeedBucket, SeedAssignment> _assignments = [];
+        private readonly Dictionary<SeedBucket, FormationSeed> _formationSeeds = [];
+        private readonly Dictionary<SeedBucket, double[]> _contourPhases = [];
+        private readonly Dictionary<(int X, int Z), BiomeSample>? _samples;
+        private readonly (int X, int Z)[]? _sampleOrder;
+        private int _nextSampleOrderIndex;
 
-        internal Sampler(BiomeField field) => _field = field;
+        internal Sampler(BiomeField field, int sampleCacheCapacity)
+        {
+            if (sampleCacheCapacity < 0)
+                throw new ArgumentOutOfRangeException(nameof(sampleCacheCapacity));
 
-        public BiomeSample Sample(int x, int z) =>
-            _field.SampleCached(x, z, _assignments);
+            _field = field;
+            if (sampleCacheCapacity == 0)
+                return;
+
+            _samples = new Dictionary<(int X, int Z), BiomeSample>(
+                sampleCacheCapacity);
+            _sampleOrder = new (int X, int Z)[sampleCacheCapacity];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        public BiomeSample Sample(int x, int z)
+        {
+            if (_samples is not { } samples)
+                return _field.SampleCached(
+                    x, z, _assignments, _formationSeeds, _contourPhases);
+
+            var coordinate = (X: x, Z: z);
+            if (samples.TryGetValue(coordinate, out var cached))
+                return cached;
+
+            var sample = _field.SampleCached(
+                x, z, _assignments, _formationSeeds, _contourPhases);
+            Prime(x, z, sample);
+            return sample;
+        }
+
+        /// <summary>
+        /// Seeds a query-local sample cache with immutable samples that were
+        /// already resolved by the owning terrain-column snapshot.
+        /// </summary>
+        internal void Prime(int x, int z, BiomeSample sample)
+        {
+            ArgumentNullException.ThrowIfNull(sample);
+            if (_samples is not { } samples)
+                return;
+
+            var coordinate = (X: x, Z: z);
+            if (samples.ContainsKey(coordinate))
+                return;
+
+            var sampleOrder = _sampleOrder ??
+                throw new InvalidOperationException(
+                    "Biome sample cache has no eviction order.");
+            if (samples.Count == sampleOrder.Length)
+                samples.Remove(sampleOrder[_nextSampleOrderIndex]);
+
+            samples.Add(coordinate, sample);
+            sampleOrder[_nextSampleOrderIndex] = coordinate;
+            _nextSampleOrderIndex =
+                (_nextSampleOrderIndex + 1) % sampleOrder.Length;
+        }
     }
 
     public BiomeSampleGrid SampleGrid(
@@ -637,7 +721,9 @@ public sealed class BiomeField
         int z,
         Dictionary<
             SeedBucket,
-            SeedAssignment> assignments)
+            SeedAssignment> assignments,
+        Dictionary<SeedBucket, FormationSeed>? formationSeeds = null,
+        Dictionary<SeedBucket, double[]>? contourPhaseCache = null)
     {
         var (warpedX, warpedZ) =
             WarpedPosition(
@@ -689,12 +775,14 @@ public sealed class BiomeField
                 var seed =
                     FormationSeedFor(
                         bucket,
-                        assignments);
+                        assignments,
+                        formationSeeds);
                 var score =
                     SeedScore(
                         seed,
                         warpedX,
-                        warpedZ);
+                        warpedZ,
+                        contourPhaseCache);
 
                 if (score >
                     bestScores[
@@ -751,40 +839,30 @@ public sealed class BiomeField
                 "Biome field did not produce a candidate.");
         }
 
-        var weighted =
-            new List<(
-                int Rule,
-                double Weight,
-                double TerrainStrength)>(
-                _rules.Length);
-        var total =
-            0d;
+        // Biome sampling is on the decoration hot path when slope conditions
+        // inspect neighboring columns. Keep the small weighted candidate set
+        // in stack storage instead of allocating a List, its backing array,
+        // a capturing sort delegate and a LINQ projection for every sample.
+        Span<WeightedInfluence> weighted =
+            _rules.Length <= 64
+                ? stackalloc WeightedInfluence[_rules.Length]
+                : new WeightedInfluence[_rules.Length];
+        var weightedCount = 0;
+        var total = 0d;
 
         for (var rule = 0;
              rule < _rules.Length;
              rule++)
         {
-            var score =
-                bestScores[rule];
-            if (double.IsNegativeInfinity(
-                    score))
-            {
+            var score = bestScores[rule];
+            if (double.IsNegativeInfinity(score))
                 continue;
-            }
 
-            var delta =
-                primaryScore -
-                score;
-            if (delta >
-                _blending.ScoreBand)
-            {
+            var delta = primaryScore - score;
+            if (delta > _blending.ScoreBand)
                 continue;
-            }
 
-            var proximity =
-                1d -
-                delta /
-                _blending.ScoreBand;
+            var proximity = 1d - delta / _blending.ScoreBand;
             var weight = _blending.WeightAt(proximity);
             if (hasBestSeed[rule] == 0)
             {
@@ -792,63 +870,71 @@ public sealed class BiomeField
                     "Biome score is missing its formation seed.");
             }
 
-            weighted.Add(
-                (
-                    rule,
-                    weight,
-                    FormationStrength(
-                        bestSeeds[rule].Assignment,
-                        warpedX,
-                        warpedZ)));
+            weighted[weightedCount++] = new WeightedInfluence(
+                rule,
+                weight,
+                FormationStrength(
+                    bestSeeds[rule].Assignment,
+                    warpedX,
+                    warpedZ,
+                    assignments,
+                    formationSeeds,
+                    contourPhaseCache));
             total += weight;
         }
 
-        weighted.Sort(
-            (left, right) =>
+        // The candidate set is bounded by the active biome count (normally
+        // below 20). An in-place insertion sort keeps the exact established
+        // primary -> descending weight -> ordinal biome-id ordering without
+        // allocating a comparer closure or sorting scratch buffer.
+        for (var index = 1; index < weightedCount; index++)
+        {
+            var candidate = weighted[index];
+            var destination = index;
+            while (destination > 0 &&
+                   CompareWeightedInfluences(
+                       candidate,
+                       weighted[destination - 1],
+                       primaryRule) < 0)
             {
-                var leftPrimary =
-                    left.Rule ==
-                    primaryRule;
-                var rightPrimary =
-                    right.Rule ==
-                    primaryRule;
+                weighted[destination] = weighted[destination - 1];
+                destination--;
+            }
 
-                if (leftPrimary !=
-                    rightPrimary)
-                {
-                    return rightPrimary
-                        .CompareTo(
-                            leftPrimary);
-                }
+            weighted[destination] = candidate;
+        }
 
-                var byWeight =
-                    right.Weight
-                        .CompareTo(
-                            left.Weight);
-                return byWeight != 0
-                    ? byWeight
-                    : string.CompareOrdinal(
-                        _rules[left.Rule].Id,
-                        _rules[right.Rule].Id);
-            });
-
-        var influences =
-            weighted
-                .Select(entry =>
-                    new BiomeInfluence(
-                        _rules[
-                            entry.Rule].Id,
-                        checked((float)(
-                            entry.Weight /
-                            total)),
-                        checked((float)
-                            entry.TerrainStrength)))
-                .ToArray();
+        var influences = new BiomeInfluence[weightedCount];
+        for (var index = 0; index < weightedCount; index++)
+        {
+            var entry = weighted[index];
+            influences[index] = new BiomeInfluence(
+                _rules[entry.Rule].Id,
+                checked((float)(entry.Weight / total)),
+                checked((float)entry.TerrainStrength));
+        }
 
         return new BiomeSample(
-            _rules[
-                primaryRule].Id,
+            _rules[primaryRule].Id,
             influences);
+    }
+
+    private int CompareWeightedInfluences(
+        in WeightedInfluence left,
+        in WeightedInfluence right,
+        int primaryRule)
+    {
+        var leftPrimary = left.Rule == primaryRule;
+        var rightPrimary = right.Rule == primaryRule;
+        if (leftPrimary != rightPrimary)
+            return leftPrimary ? -1 : 1;
+
+        var byWeight = right.Weight.CompareTo(left.Weight);
+        return byWeight != 0
+            ? byWeight
+            : string.CompareOrdinal(
+                _rules[left.Rule].Id,
+                _rules[right.Rule].Id);
     }
 
     private (int X, int Z)[]
@@ -992,21 +1078,55 @@ public sealed class BiomeField
         SeedBucket bucket,
         Dictionary<
             SeedBucket,
-            SeedAssignment> cache)
+            SeedAssignment> cache,
+        Dictionary<SeedBucket, FormationSeed>? formationSeeds = null)
     {
+        if (formationSeeds is not null &&
+            formationSeeds.TryGetValue(bucket, out var cached))
+        {
+            return cached;
+        }
+
         var assignment =
             SeedAssignmentFor(
                 bucket,
                 cache);
-        var (centerX, centerZ) =
-            SeedCenter(
-                bucket);
+        var (centerX, centerZ) = SeedCenter(bucket);
+        var hasCachedScore = formationSeeds is not null;
+        var sizeScale = 0d;
+        var bias = 0d;
+        var continuationBonus = 0d;
 
-        return new FormationSeed(
+        if (hasCachedScore)
+        {
+            var spacing = (double)_seedSpacing;
+            var targetRatio = Math.Clamp(
+                assignment.TargetSpan / (spacing * 3d),
+                0.5d,
+                12d);
+            sizeScale = Math.Pow(targetRatio, _blending.SizeExponent);
+            bias = WorldGenerationEntropy.SignedUnit(
+                WorldGenerationEntropy.Sample2D(
+                    _seed,
+                    _seedBiasDomain,
+                    bucket.X,
+                    bucket.Z)) * _blending.SeedBiasAmplitude;
+            continuationBonus = assignment.Root != bucket
+                ? _blending.ContinuationBonus
+                : 0d;
+        }
+
+        var seed = new FormationSeed(
             bucket,
             assignment,
             centerX,
-            centerZ);
+            centerZ,
+            hasCachedScore,
+            sizeScale,
+            bias,
+            continuationBonus);
+        formationSeeds?.Add(bucket, seed);
+        return seed;
     }
 
     private SeedAssignment SeedAssignmentFor(
@@ -1087,6 +1207,10 @@ public sealed class BiomeField
         var eligibleCount =
             0;
 
+        // Growth sees the broader established neighborhood, but cannotBorder
+        // governs only adjacent seed cells. Using every established seed here
+        // creates a multi-cell exclusion moat around incompatible biomes and
+        // fragments otherwise valid formations.
         for (var candidate = 0;
              candidate < _rules.Length;
              candidate++)
@@ -1094,16 +1218,27 @@ public sealed class BiomeField
             var compatible =
                 true;
 
-            foreach (var neighbor in
-                     established)
+            for (var neighborZ = -BiomeBorderRadiusBuckets;
+                 neighborZ <= BiomeBorderRadiusBuckets && compatible;
+                 neighborZ++)
             {
-                if (!Compatible(
-                        candidate,
-                        neighbor.Rule))
+                for (var neighborX = -BiomeBorderRadiusBuckets;
+                     neighborX <= BiomeBorderRadiusBuckets;
+                     neighborX++)
                 {
-                    compatible =
-                        false;
-                    break;
+                    if ((neighborX == 0 && neighborZ == 0) ||
+                        !TryOffset(bucket, neighborX, neighborZ, out var neighborBucket) ||
+                        neighborBucket.Classification() >= classification)
+                    {
+                        continue;
+                    }
+
+                    var neighborAssignment = SeedAssignmentFor(neighborBucket, cache);
+                    if (!Compatible(candidate, neighborAssignment.Rule))
+                    {
+                        compatible = false;
+                        break;
+                    }
                 }
             }
 
@@ -1462,11 +1597,20 @@ public sealed class BiomeField
     private double FormationStrength(
         SeedAssignment assignment,
         double x,
-        double z)
+        double z,
+        Dictionary<SeedBucket, SeedAssignment> assignments,
+        Dictionary<SeedBucket, FormationSeed>? formationSeeds = null,
+        Dictionary<SeedBucket, double[]>? contourPhaseCache = null)
     {
-        var (centerX, centerZ) =
-            SeedCenter(
-                assignment.Root);
+        FormationSeed? rootSeed = formationSeeds is null
+            ? null
+            : FormationSeedFor(
+                assignment.Root,
+                assignments,
+                formationSeeds);
+        var (centerX, centerZ) = rootSeed is { } cachedRoot
+            ? (cachedRoot.CenterX, cachedRoot.CenterZ)
+            : SeedCenter(assignment.Root);
         var dx =
             x -
             centerX;
@@ -1481,7 +1625,12 @@ public sealed class BiomeField
             Math.Atan2(
                 dz,
                 dx);
-        var shape = ContourShape(angle, assignment.Root);
+        var shape = contourPhaseCache is null
+            ? ContourShape(angle, assignment.Root)
+            : ContourShape(
+                angle,
+                assignment.Root,
+                ContourPhasesFor(assignment.Root, contourPhaseCache));
         var radius =
             Math.Max(
                 _seedSpacing,
@@ -1501,7 +1650,10 @@ public sealed class BiomeField
                 radius);
     }
 
-    private double ContourShape(double angle, SeedBucket bucket)
+    private double ContourShape(
+        double angle,
+        SeedBucket bucket,
+        double[]? cachedPhases = null)
     {
         var shape = 1d;
         for (var index = 0; index < _contourDomains.Length; index++)
@@ -1512,12 +1664,14 @@ public sealed class BiomeField
                 continue;
             }
 
-            var phase = WorldGenerationEntropy.Unit(
-                WorldGenerationEntropy.Sample2D(
-                    _seed,
-                    _contourDomains[index],
-                    bucket.X,
-                    bucket.Z)) * Math.Tau;
+            var phase = cachedPhases is null
+                ? WorldGenerationEntropy.Unit(
+                    WorldGenerationEntropy.Sample2D(
+                        _seed,
+                        _contourDomains[index],
+                        bucket.X,
+                        bucket.Z)) * Math.Tau
+                : cachedPhases[index];
             shape += harmonic.Amplitude *
                 Math.Sin(angle * harmonic.Lobes + phase);
         }
@@ -1525,10 +1679,36 @@ public sealed class BiomeField
         return shape;
     }
 
+    private double[] ContourPhasesFor(
+        SeedBucket bucket,
+        Dictionary<SeedBucket, double[]> cache)
+    {
+        if (cache.TryGetValue(bucket, out var cached))
+            return cached;
+
+        var phases = new double[_contourDomains.Length];
+        for (var index = 0; index < _contourDomains.Length; index++)
+        {
+            if (_blending.ContourHarmonics[index].Amplitude == 0d)
+                continue;
+
+            phases[index] = WorldGenerationEntropy.Unit(
+                WorldGenerationEntropy.Sample2D(
+                    _seed,
+                    _contourDomains[index],
+                    bucket.X,
+                    bucket.Z)) * Math.Tau;
+        }
+
+        cache.Add(bucket, phases);
+        return phases;
+    }
+
     private double SeedScore(
         FormationSeed seed,
         double x,
-        double z)
+        double z,
+        Dictionary<SeedBucket, double[]>? contourPhaseCache = null)
     {
         var spacing =
             (double)_seedSpacing;
@@ -1547,32 +1727,49 @@ public sealed class BiomeField
             Math.Atan2(
                 dz,
                 dx);
-        var shape = ContourShape(angle, seed.Bucket);
-        var targetRatio =
-            Math.Clamp(
-                seed.Assignment.TargetSpan /
-                (spacing * 3d),
-                0.5d,
-                12d);
-        var sizeScale =
-            Math.Pow(
-                targetRatio,
-                _blending.SizeExponent);
-        var bias =
-            WorldGenerationEntropy
-                .SignedUnit(
-                    WorldGenerationEntropy
-                        .Sample2D(
-                            _seed,
-                            _seedBiasDomain,
-                            seed.Bucket.X,
-                            seed.Bucket.Z)) *
-            _blending.SeedBiasAmplitude;
-        var continuationBonus =
-            seed.Assignment.Root !=
-            seed.Bucket
-                ? _blending.ContinuationBonus
-                : 0d;
+        var shape = contourPhaseCache is null
+            ? ContourShape(angle, seed.Bucket)
+            : ContourShape(
+                angle,
+                seed.Bucket,
+                ContourPhasesFor(seed.Bucket, contourPhaseCache));
+        double sizeScale;
+        double bias;
+        double continuationBonus;
+        if (seed.HasCachedScore)
+        {
+            sizeScale = seed.SizeScale;
+            bias = seed.Bias;
+            continuationBonus = seed.ContinuationBonus;
+        }
+        else
+        {
+            var targetRatio =
+                Math.Clamp(
+                    seed.Assignment.TargetSpan /
+                    (spacing * 3d),
+                    0.5d,
+                    12d);
+            sizeScale =
+                Math.Pow(
+                    targetRatio,
+                    _blending.SizeExponent);
+            bias =
+                WorldGenerationEntropy
+                    .SignedUnit(
+                        WorldGenerationEntropy
+                            .Sample2D(
+                                _seed,
+                                _seedBiasDomain,
+                                seed.Bucket.X,
+                                seed.Bucket.Z)) *
+                _blending.SeedBiasAmplitude;
+            continuationBonus =
+                seed.Assignment.Root !=
+                seed.Bucket
+                    ? _blending.ContinuationBonus
+                    : 0d;
+        }
 
         return -distance /
                    (shape *
@@ -1860,7 +2057,11 @@ public sealed class BiomeField
         SeedBucket Bucket,
         SeedAssignment Assignment,
         double CenterX,
-        double CenterZ);
+        double CenterZ,
+        bool HasCachedScore,
+        double SizeScale,
+        double Bias,
+        double ContinuationBonus);
 }
 
 internal readonly record struct BiomeFieldRuleSource(

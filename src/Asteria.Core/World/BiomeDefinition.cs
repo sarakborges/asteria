@@ -620,6 +620,14 @@ public sealed class BiomeSurfacePatchDefinition
     public SurfacePlacementConditions? Conditions { get; }
 }
 
+/// <summary>Chooses per-voxel sampling, coarse regions, or coarse regions with fine-scale inclusions and locally roughened boundaries.</summary>
+public enum BiomeGeologySamplingMode : byte
+{
+    PerVoxel,
+    Regional,
+    RegionalHybrid,
+}
+
 /// <summary>
 /// Authored volumetric geology. The base material fills the host rock; coherent
 /// three-dimensional formations replace it with weighted materials.
@@ -645,9 +653,16 @@ public sealed class BiomeGeologyDefinition
         uint? clusterScale = null,
         uint? clusterVerticalScale = null,
         float clusterInfluence = 0f,
-        float boundaryGrainInfluence = 0f)
+        float boundaryGrainInfluence = 0f,
+        BiomeGeologySamplingMode samplingMode = BiomeGeologySamplingMode.Regional,
+        uint? regionScale = null,
+        uint? regionVerticalScale = null,
+        float regionWarpStrength = 0.22f)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(baseBlock);
+        var resolvedRegionScale = regionScale ?? Math.Max(8u, scale / 2u);
+        var resolvedRegionVerticalScale =
+            regionVerticalScale ?? Math.Max(8u, verticalScale / 2u);
         if (scale is < 2 or > 2048 ||
             verticalScale is < 2 or > 1024 ||
             detailScale is < 2 or > 2048 ||
@@ -692,6 +707,18 @@ public sealed class BiomeGeologyDefinition
             throw new ArgumentOutOfRangeException(
                 nameof(boundaryGrainInfluence),
                 "Geology boundary grain influence must be within 0..0.6.");
+        if (!Enum.IsDefined(samplingMode))
+            throw new ArgumentOutOfRangeException(nameof(samplingMode));
+        if (resolvedRegionScale is < 8 or > 2048 ||
+            resolvedRegionVerticalScale is < 8 or > 1024)
+            throw new ArgumentOutOfRangeException(
+                nameof(regionScale),
+                "Regional geology cell scales must be within 8..2048 horizontally and 8..1024 vertically.");
+        if (!float.IsFinite(regionWarpStrength) ||
+            regionWarpStrength is < 0f or > 0.45f)
+            throw new ArgumentOutOfRangeException(
+                nameof(regionWarpStrength),
+                "Regional geology warp strength must be within 0..0.45.");
 
         if (surfaceCoverDepth > 64)
             throw new ArgumentOutOfRangeException(
@@ -771,6 +798,10 @@ public sealed class BiomeGeologyDefinition
         ClusterVerticalScale = clusterVerticalScale;
         ClusterInfluence = clusterInfluence;
         BoundaryGrainInfluence = boundaryGrainInfluence;
+        SamplingMode = samplingMode;
+        RegionScale = resolvedRegionScale;
+        RegionVerticalScale = resolvedRegionVerticalScale;
+        RegionWarpStrength = regionWarpStrength;
     }
 
     public string BaseBlock { get; }
@@ -812,6 +843,18 @@ public sealed class BiomeGeologyDefinition
 
     /// <summary>Share of material selection controlled by the intermediate cluster field.</summary>
     public float ClusterInfluence { get; }
+
+    /// <summary>Material selection strategy for the volumetric geology field.</summary>
+    public BiomeGeologySamplingMode SamplingMode { get; }
+
+    /// <summary>Horizontal width/depth of one deterministic material cell, in voxels.</summary>
+    public uint RegionScale { get; }
+
+    /// <summary>Vertical height of one deterministic material cell, in voxels.</summary>
+    public uint RegionVerticalScale { get; }
+
+    /// <summary>Maximum smooth displacement of the regional grid, as a fraction of its cell scale.</summary>
+    public float RegionWarpStrength { get; }
 
     /// <summary>Maximum additional fine-grain score perturbation where the top material candidates are close.</summary>
     public float BoundaryGrainInfluence { get; }

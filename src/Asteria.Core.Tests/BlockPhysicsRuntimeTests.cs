@@ -718,6 +718,7 @@ public sealed class BlockPhysicsRuntimeTests
 
         fixture.Physics.ProcessWakeups();
 
+        fixture.WorldUpdates.DrainLighting();
         fixture.WorldUpdates.DrainMeshlets();
         fixture.FluidUpdates.DrainReady(
             currentTick: 0,

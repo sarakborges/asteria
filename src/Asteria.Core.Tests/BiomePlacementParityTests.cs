@@ -5,6 +5,20 @@ namespace Asteria.Core.Tests;
 public sealed class BiomePlacementParityTests
 {
     [Fact]
+    public void BiomeSampleResolvesPrimaryInfluenceIndependentlyOfListOrder()
+    {
+        var sample = new BiomeSample(
+            "asteria:test/primary",
+            [
+                new BiomeInfluence("asteria:test/secondary", 0.6f, 0.4f),
+                new BiomeInfluence("asteria:test/primary", 0.4f, 0.75f),
+            ]);
+
+        Assert.Equal(0.4f, sample.PrimaryWeight);
+        Assert.Equal(0.75f, sample.PrimaryTerrainStrength);
+    }
+
+    [Fact]
     public void SpawnWeightIsIndependentFromLayoutWeight()
     {
         var stone =
@@ -201,10 +215,42 @@ public sealed class BiomePlacementParityTests
         AssertLayout(
             biomes,
             "asteria:overworld/ocean",
-            2f,
+            1f,
             1f);
         var oceanSize = biomes.Get("asteria:overworld/ocean").SurfaceLayout!;
-        Assert.Equal((768u, 1536u), (oceanSize.RegionMin, oceanSize.RegionMax));
+        Assert.Equal((500u, 1500u), (oceanSize.RegionMin, oceanSize.RegionMax));
+        var plainsSize = biomes.Get("asteria:overworld/plains").SurfaceLayout!;
+        Assert.True(oceanSize.RegionMin > plainsSize.RegionMin);
+        Assert.True(oceanSize.RegionMax > plainsSize.RegionMax);
+
+        var oceanExclusions =
+            new[]
+            {
+                "asteria:overworld/alps",
+                "asteria:overworld/arctic",
+                "asteria:overworld/desert",
+                "asteria:overworld/mountain_belt",
+                "asteria:overworld/mountains",
+                "asteria:overworld/scorched_wastes",
+                "asteria:overworld/swamp",
+                "asteria:overworld/wasteland",
+            };
+        Assert.Equal(
+            oceanExclusions.OrderBy(id => id, StringComparer.Ordinal),
+            oceanSize.CannotBorder.OrderBy(id => id, StringComparer.Ordinal));
+
+        var biomeField = new BiomeField(
+            0xA57E_2026UL,
+            overworld,
+            biomes);
+        foreach (var excludedBiomeId in oceanExclusions)
+        {
+            Assert.False(
+                biomeField.AreCompatible(
+                    "asteria:overworld/ocean",
+                    excludedBiomeId),
+                $"Ocean must not border {excludedBiomeId}.");
+        }
 
         AssertLayout(
             biomes,
@@ -299,8 +345,8 @@ public sealed class BiomePlacementParityTests
                     "asteria:overworld/arctic")
                 .SurfaceLayout!
                 .CannotBorder);
-        // The ocean itself owns its shoreline, so wasteland may border
-        // ocean while the incompatible arctic/wasteland pairing is rejected.
+        // Ocean exclusions are authored by ocean itself. Compatibility is
+        // symmetric, so wasteland does not need to duplicate the ocean rule.
         var wastelandBorders = biomes.Get(
                 "asteria:overworld/wasteland")
             .SurfaceLayout!

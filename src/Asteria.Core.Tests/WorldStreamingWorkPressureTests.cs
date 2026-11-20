@@ -18,9 +18,31 @@ public sealed class WorldStreamingWorkPressureTests
     }
 
     [Theory]
+    [InlineData(511, false)]
+    [InlineData(512, true)]
+    public void TerrainPublicationBacklogDefersBackgroundMeshWork(
+        int pendingPublications, bool expected)
+    {
+        Assert.Equal(expected, WorldStreamingWorkPressure.Evaluate(
+            1.0 / 60.0, dirtyTerrainChunks: 0, loadingWorld: false,
+            pendingTerrainPublications: pendingPublications).IsPressured);
+    }
+
+    [Theory]
     [InlineData(8191, false)]
     [InlineData(8192, true)]
-    public void PhysicsBacklogDefersDistantStreaming(
+    public void LightingBacklogSignalsFramePressure(
+        int pendingSeeds, bool expected)
+    {
+        Assert.Equal(expected, WorldStreamingWorkPressure.Evaluate(
+            1.0 / 60.0, dirtyTerrainChunks: 0, loadingWorld: false,
+            pendingLightingSeeds: pendingSeeds).IsPressured);
+    }
+
+    [Theory]
+    [InlineData(8191, false)]
+    [InlineData(8192, true)]
+    public void PhysicsBacklogSignalsFramePressure(
         int pendingWakeups, bool expected)
     {
         Assert.Equal(expected, WorldStreamingWorkPressure.Evaluate(
@@ -29,11 +51,15 @@ public sealed class WorldStreamingWorkPressureTests
     }
 
     [Fact]
-    public void InitialLoadingNeverThrottlesWorldMaterialization()
+    public void InitialLoadingNeverSignalsStreamingPressure()
     {
-        Assert.False(WorldStreamingWorkPressure.Evaluate(
+        var pressure = WorldStreamingWorkPressure.Evaluate(
             0.1, 1000, loadingWorld: true,
-            pendingPhysicsWakeups: 100_000).IsPressured);
+            pendingLightingSeeds: 100_000,
+            pendingPhysicsWakeups: 100_000,
+            pendingTerrainPublications: 100_000);
+
+        Assert.False(pressure.IsPressured);
     }
 
     [Fact]
@@ -45,6 +71,12 @@ public sealed class WorldStreamingWorkPressureTests
             WorldStreamingWorkPressure.Evaluate(0.016, -1, false));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             WorldStreamingWorkPressure.Evaluate(
+                0.016, 0, false, pendingLightingSeeds: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            WorldStreamingWorkPressure.Evaluate(
                 0.016, 0, false, pendingPhysicsWakeups: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            WorldStreamingWorkPressure.Evaluate(
+                0.016, 0, false, pendingTerrainPublications: -1));
     }
 }

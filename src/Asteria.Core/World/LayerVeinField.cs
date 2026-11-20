@@ -51,7 +51,10 @@ public sealed class LayerVeinField
 
     public bool HasVeins => _veins.Length > 0;
 
-    public void Apply(Chunk chunk, ChunkCoord coord)
+    public void Apply(
+        Chunk chunk,
+        ChunkCoord coord,
+        ChunkGenerationAccessRegion? accessRegion = null)
     {
         ArgumentNullException.ThrowIfNull(chunk);
         if (_veins.Length == 0) return;
@@ -104,12 +107,16 @@ public sealed class LayerVeinField
                     var dy = wy - cy;
                     var dz = originZ + z - cz;
                     if (dx * dx + dy * dy + dz * dz > square) continue;
+                    accessRegion?.EnsureCanReadWorldPosition(
+                        checked(originX + x), wy, checked(originZ + z));
                     var cell = chunk.GetCell(x, y, z);
                     if (cell.IsEmpty || !vein.Hosts.Contains(cell.Block))
                         continue;
                     // Never overwrite an authored structure/another deposit.
                     var previous = chunk.GetSurfaceState(x, y, z);
                     if (previous.Layers.Count > 0) continue;
+                    accessRegion?.EnsureCanWriteWorldPosition(
+                        checked(originX + x), wy, checked(originZ + z));
                     if (previous.IsEmpty)
                         chunk.SetSurfaceState(x, y, z, vein.Surface);
                     else

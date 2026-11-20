@@ -11,6 +11,7 @@ internal static class SphereSessionFileCodec
     private const int MaxBoxes = 65536;
     private const int MaxStructures = 65536;
     private const int MaxQueue = 262144;
+    private const uint PersistentTicketExtensionMagic = 0x4B545041; // APTK
 
     internal static void Write(BinaryWriter writer, SphereClockSnapshot sphere,
         BlockRegistry blocks, FluidRegistry fluids, DyeRegistry dyes,
@@ -55,6 +56,95 @@ internal static class SphereSessionFileCodec
         WriteCreatures(writer, sphere.Creatures);
         WriteFluidQueue(writer, sphere.FluidWork, fluids);
         WritePhysicsQueue(writer, sphere.PhysicsWork);
+    }
+
+    internal static void WritePersistentTickets(
+        BinaryWriter writer,
+        IReadOnlyList<SphereClockSnapshot> spheres)
+    {
+        var owners = spheres
+            .Where(sphere => sphere.PersistentChunkTickets.Entries.Count > 0)
+            .ToArray();
+        if (owners.Length == 0)
+            return;
+
+        writer.Write(PersistentTicketExtensionMagic);
+        writer.Write(owners.Length);
+        foreach (var sphere in owners)
+        {
+            PortableStackSaveCodec.WriteString(writer, sphere.Dimension.Value, 512);
+            var entries = sphere.PersistentChunkTickets.Entries;
+            writer.Write(entries.Count);
+            foreach (var entry in entries)
+            {
+                writer.Write(entry.Column.X);
+                writer.Write(entry.Column.Z);
+                writer.Write((byte)entry.Ticket.Type);
+                writer.Write(entry.Ticket.Level);
+                writer.Write(entry.Ticket.SectionY.HasValue);
+                if (entry.Ticket.SectionY is { } sectionY)
+                    writer.Write(sectionY);
+                writer.Write(entry.RemainingTicks.HasValue);
+                if (entry.RemainingTicks is { } remainingTicks)
+                    writer.Write(remainingTicks);
+            }
+        }
+    }
+
+    internal static void ReadPersistentTickets(
+        BinaryReader reader,
+        SphereClockSnapshot[] spheres,
+        bool hasSectionTargets)
+    {
+        if (reader.ReadUInt32() != PersistentTicketExtensionMagic)
+            throw new InvalidDataException("Unknown persistent ticket extension.");
+
+        var ownerCount = ReadCount(reader, spheres.Length);
+        if (ownerCount == 0)
+            throw new InvalidDataException("Empty persistent ticket extension.");
+
+        var sphereIndices = new Dictionary<DimensionId, int>(spheres.Length);
+        for (var index = 0; index < spheres.Length; index++)
+            if (!sphereIndices.TryAdd(spheres[index].Dimension, index))
+                throw new InvalidDataException("Duplicate Sphere in persistent ticket extension.");
+
+        var restoredOwners = new HashSet<DimensionId>();
+        for (var owner = 0; owner < ownerCount; owner++)
+        {
+            var dimension = new DimensionId(
+                PortableStackSaveCodec.ReadString(reader, 512));
+            if (!sphereIndices.TryGetValue(dimension, out var sphereIndex) ||
+                !restoredOwners.Add(dimension))
+                throw new InvalidDataException(
+                    "Persistent tickets reference a missing or repeated Sphere.");
+
+            var count = ReadCount(reader, PersistentChunkTicketSnapshot.MaximumEntries);
+            if (count == 0)
+                throw new InvalidDataException(
+                    "Persistent ticket extension contains an empty Sphere entry.");
+
+            var entries = new PersistentChunkTicketSnapshotEntry[count];
+            for (var index = 0; index < entries.Length; index++)
+            {
+                var column = new ChunkColumnCoord(
+                    reader.ReadInt32(), reader.ReadInt32());
+                var type = (ChunkTicketType)reader.ReadByte();
+                var level = reader.ReadInt32();
+                var sectionY = hasSectionTargets &&
+                    PortableStackSaveCodec.ReadBool(reader)
+                    ? reader.ReadInt32()
+                    : (int?)null;
+                var remainingTicks = PortableStackSaveCodec.ReadBool(reader)
+                    ? reader.ReadUInt64()
+                    : (ulong?)null;
+                entries[index] = new PersistentChunkTicketSnapshotEntry(
+                    column, new ChunkTicket(type, level, sectionY), remainingTicks);
+            }
+
+            var snapshot = new PersistentChunkTicketSnapshot(entries);
+            spheres[sphereIndex] =
+                spheres[sphereIndex].WithPersistentChunkTickets(snapshot);
+        }
     }
 
     internal static SphereClockSnapshot Read(BinaryReader reader,

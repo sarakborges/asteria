@@ -56,19 +56,55 @@ When touching an area that already violates the canon, do not add new code on to
 - Gameplay UI follows Atomic Design under `ui/src/components/{atoms,molecules,organisms,templates,pages}`.
 - Every reusable WebUI component owns a directory named after the component, containing its `*.tsx`, colocated CSS and Storybook story. Do not place component implementation files flat in an Atomic Design tier.
 - React is the WebUI rendering layer. The presentation flow is `bridge -> controllers -> UiStore -> React`. Controllers parse/bind Godot messages and update presentation state; React components render snapshots and emit explicit semantic UI actions through injected callbacks. Components must never import or call the Godot bridge directly.
-- MineClone UI design migration must preserve Asteria's current `Winky Rough Variable` font family. Do not port MineClone's `SystemUi` font choice or replace the font family unless the user explicitly requests it.
+- Preserve Asteria's current `Winky Rough Variable` font family in WebUI. Do not replace it with a platform/system font unless the user explicitly requests that change.
 - Keep Godot WRY/IPC transport in `ui/src/bridge`; keep event/state binding in `ui/src/controllers`; components must not own transport logic.
 - Global/gameplay input (keyboard presses, mouse buttons, wheel, captured-mouse controls, gameplay hotkeys and debug hotkeys) is owned by Godot/input code, never by WebUI document/window listeners. WebUI may handle pointer/keyboard events only while the user is explicitly interacting with a UI control/surface; gameplay/global actions must cross the bridge as semantic commands/state instead of raw browser input.
 - Every reusable WebUI component or page must have a colocated Storybook `*.stories.ts` file covering meaningful visual states.
 - Storybook is part of WebUI validation. `npm run build-storybook` must stay green together with `npm run build`.
 
-The voxel world is intentionally unlit. Do not reintroduce voxel-light propagation/storage, light emission or dampening properties, per-vertex light channels, relighting caches, or light-specific worker queues unless the user explicitly requests that system.
+## Minecraft Java Edition 26.3 reference rule
 
-## Mineclone reference rule
+- Minecraft Java Edition 26.3 is the sole external reference version for world/chunk lifecycle, ticketing, distance propagation, generation stages, lighting and streaming architecture.
+- Before materially changing one of those systems, inspect the corresponding 26.3 behavior and record the source/version used. Adapt its contracts to Asteria's C# and Godot ownership boundaries instead of copying engine-specific code.
+- Minecraft is a behavioral and architectural reference, not the final authority. Prefer an Asteria design when it is demonstrably simpler, more correct, more efficient, or has cleaner ownership while preserving the relevant contract.
+- Preserve Asteria-specific improvements and its section-based world model; do not reintroduce constraints that belong only to Minecraft's engine or implementation.
+- World-creation controls exposed by UI must map to real authored options and runtime behavior. Never add interactive settings that the generator silently ignores.
 
-- Before implementing or materially changing a system that already exists in `sarakborges/mineclone`, inspect the equivalent implementation on the `world-systems-rebuild` branch first.
-- Use Mineclone as the architecture/behavior reference, then adapt deliberately to Asteria's Godot + C# boundaries rather than copying engine-specific code blindly.
-- Mineclone is a reference, not the final authority. For every inspected implementation, identify whether Asteria can achieve the same contract more simply, correctly, efficiently, or with cleaner ownership; prefer the better Asteria design when there is a concrete improvement.
-- Preserve the behavioral intent and proven invariants from Mineclone, but do not preserve incidental complexity, engine-driven compromises, duplicated ownership, or legacy constraints when Asteria can avoid them.
-- Prefer the rebuild branch over Mineclone `main` for chunk, voxel, world, meshing, placement, streaming and other world-runtime systems unless the task explicitly concerns old presentation behavior.
-- **UI / world-creation parity MUST compare MineClone `main` AND `world-systems-rebuild`** before declaring an interface complete. The rebuild branch can lag `main` on entire user-facing configuration sections and features. Do not infer parity from the existence of a page, Storybook story, old migration checklist, or a branch-specific subset. Record the compared source ref/commit, every section, option, enabled/disabled state, and its authoritative runtime owner. Never insert interactive world-generation controls that the engine silently ignores.
+## Execution continuity and progress protocol
+
+These rules apply to every development session and take precedence over an improvised workflow.
+
+### Session start
+- Read `AGENTS.md`, `ARCHITECTURE.md`, `ENGINEERING_PRACTICES.md`, and the active workstream handoff before inspecting or changing implementation code.
+- Verify the repository, current branch, working-tree state, latest commit, and associated PR head/base. Never assume the previous session's branch or SHA is still current.
+- Continue on the established working branch. For the Minecraft-parity worldgen work, that is `worldgen-perf-fix` / PR #157 unless the user explicitly changes the target. Never switch to `main`, merge, rebase, force-push, or retarget the PR without explicit authorization.
+- Read the handoff's completed work, measurements, decisions, blockers and unchecked tasks. Do not repeat a completed investigation or reopen a settled decision without new evidence.
+
+### Scope and execution
+- Work on one high-impact, independently verifiable task at a time. State the expected result and acceptance criteria before implementation.
+- Prefer a small code-and-test slice over broad speculative analysis. Do not launch unrelated investigations or parallel workstreams.
+- Set a bounded investigation/implementation step. A normal step must produce a concrete finding, code change, test result or documented blocker; stop and report if it cannot.
+- Do not retry the same failed command or approach indefinitely. After one failure, diagnose; after a second equivalent failure, stop that path and report the blocker and alternatives.
+- Long-running tests/benchmarks must have explicit timeouts and progress output. Existing worldgen benchmark process timeout is 15 minutes; do not silently extend it.
+- Never leave a task in an ambiguous state. Record whether it is complete, partially complete, blocked, or not started.
+
+### Progress communication
+- Send a concise update at the start of a work session describing the branch, current task and acceptance criteria.
+- Report after every meaningful checkpoint: inspection complete, implementation slice complete, test/build result, commit created, and PR/CI status.
+- Do not remain silent while doing a sequence of work. If work continues without a discrete result, provide a brief status update at least every 5–10 minutes where the execution environment permits.
+- If a tool, network request, build or test is blocked, report that promptly instead of waiting silently or implying that work is continuing.
+- Updates must contain evidence: files/areas inspected or changed, commands/tests and their outcomes, commit SHA when applicable, and the next bounded action. Do not send empty progress messages.
+
+### Validation and completion
+- Define acceptance criteria before coding. For worldgen changes, include correctness/determinism and relevant Minecraft Java Edition 26.3 contract parity; performance changes also require comparable measurements.
+- Add focused regression tests for changed behavior. Run the narrowest relevant tests first, then broader validation when justified.
+- Do not claim a build, test, benchmark, in-game check, CI run or parity result unless it was actually executed and its result inspected.
+- Before committing, inspect the complete diff and check architecture/engineering rules. Keep commits small and reviewable; do not rewrite already-pushed history.
+- After each coherent commit, record its SHA, tests and result in the active handoff. Verify the branch head and PR head match before continuing.
+- Keep the PR open and do not merge unless explicitly requested.
+
+### Handoff maintenance
+- The active workstream handoff is the durable source of truth for current implementation state and next action. Update it after each coherent milestone, not only at the end of a long session.
+- Keep completed items, incomplete items, superseded decisions, measurements and blockers distinct. Never mark a roadmap item complete based only on design discussion or code presence.
+- End each session by recording: current branch/HEAD, last completed commit, exact unfinished task, acceptance criteria, last test results, blockers, and the first action for the next session.
+- On continuation, reconcile the handoff against the actual branch/PR before coding. If documentation and implementation disagree, inspect evidence and correct the handoff; do not blindly trust stale status text.

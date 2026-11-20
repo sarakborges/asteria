@@ -28,11 +28,13 @@ public sealed class FluidSimulationRuntime
     private readonly WorldTickClock _ticks;
     private readonly WorldGameRules _gameRules;
     private readonly int _maximumUpdatesPerWorker;
-    private readonly FluidSimulationWorker _worker = new();
+    private readonly FluidSimulationWorker _worker;
+    private Func<ChunkCoord, bool>? _isBlockTicking;
 
     private bool _acceptingWork = true;
 
     private FluidWorkBatch? _inFlightBatch;
+    private WorldWorkerPriority? _inFlightWorkerPriority;
 
     public FluidSimulationRuntime(
         VoxelWorld world,
@@ -41,7 +43,8 @@ public sealed class FluidSimulationRuntime
         VoxelMutationRuntime mutations,
         WorldTickClock ticks,
         WorldGameRules gameRules,
-        int maximumUpdatesPerWorker)
+        int maximumUpdatesPerWorker,
+        WorldWorkerPool workerPool)
     {
         _world =
             world ??
@@ -70,52 +73,137 @@ public sealed class FluidSimulationRuntime
 
         _maximumUpdatesPerWorker =
             maximumUpdatesPerWorker;
+        _worker = new FluidSimulationWorker(
+            workerPool ?? throw new ArgumentNullException(nameof(workerPool)));
     }
 
     public bool IsRunning => _worker.IsRunning;
 
     public int ActiveWorkerCount => _worker.IsRunning ? 1 : 0;
 
+    public void ConfigureSimulationEligibility(
+        Func<ChunkCoord, bool> isBlockTicking)
+    {
+        _isBlockTicking = isBlockTicking ??
+            throw new ArgumentNullException(nameof(isBlockTicking));
+    }
+
     public void BeginRetirement()
     {
         _acceptingWork = false;
     }
 
-    public bool TryStartReadyWork()
+    public bool TryStartReadyWork(
+        ChunkCoord? center = null,
+        ChunkMovementDirection movement = default)
     {
+        if (_inFlightBatch is { } pendingBatch &&
+            center is { } currentCenter)
+        {
+            var updatedPriority = ResolveWorkerPriority(
+                pendingBatch, currentCenter);
+            if (_inFlightWorkerPriority != updatedPriority &&
+                _worker.TryUpdatePriority(updatedPriority))
+                _inFlightWorkerPriority = updatedPriority;
+        }
+
         if (!_acceptingWork)
         {
             return false;
         }
 
-        if (_worker.IsRunning ||
-            !_updates.HasReadyWork(
-                _ticks.CurrentTick))
-        {
+        if (_worker.IsRunning)
             return false;
-        }
 
-        var batch =
-            _updates.DrainReady(
+        if (_isBlockTicking is { } isBlockTicking)
+        {
+            _updates.ReactivateSimulationWork(
+                coord => _world.ContainsChunk(coord) && isBlockTicking(coord),
                 _ticks.CurrentTick,
                 _maximumUpdatesPerWorker);
-
-        if (batch.IsEmpty)
-        {
-            return false;
         }
 
+        if (!_updates.HasReadyWork(_ticks.CurrentTick))
+            return false;
+
+        var batch = _updates.DrainReady(
+            _ticks.CurrentTick,
+            _maximumUpdatesPerWorker);
+
+        if (_isBlockTicking is { } shouldBlockTick)
+        {
+            var topology = new List<WorldVoxelCoord>(batch.TopologyPositions.Count);
+            foreach (var position in batch.TopologyPositions)
+            {
+                var coord = VoxelCoordinates.FromWorld(
+                    position.X, position.Y, position.Z).Chunk;
+                if (_world.ContainsChunk(coord) && !shouldBlockTick(coord))
+                    _updates.DeferSimulationTopology(position);
+                else
+                    topology.Add(position);
+            }
+
+            var dueTicks = new List<FluidTickKey>(batch.DueTicks.Count);
+            foreach (var tick in batch.DueTicks)
+            {
+                var coord = VoxelCoordinates.FromWorld(
+                    tick.Position.X, tick.Position.Y, tick.Position.Z).Chunk;
+                if (!_world.ContainsChunk(coord))
+                    _updates.DeferUnloaded(tick);
+                else if (!shouldBlockTick(coord))
+                    _updates.DeferSimulation(tick);
+                else
+                    dueTicks.Add(tick);
+            }
+
+            batch = new FluidWorkBatch(topology, dueTicks);
+        }
+
+        if (batch.IsEmpty)
+            return false;
+
+        var workerPriority = ResolveWorkerPriority(
+            batch, center);
         if (!_worker.TryStart(
                 _world,
                 _fluids,
-                batch))
+                batch,
+                workerPriority))
         {
             Requeue(batch);
             return false;
         }
 
         _inFlightBatch = batch;
+        _inFlightWorkerPriority = workerPriority;
         return true;
+    }
+
+    private static WorldWorkerPriority ResolveWorkerPriority(
+        FluidWorkBatch batch,
+        ChunkCoord? center)
+    {
+        if (center is not { } focus)
+            return WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.BackgroundWorldPriority);
+
+        ChunkGenerationTaskPriority? nearest = null;
+        foreach (var position in batch.Positions)
+        {
+            var coord = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk;
+            var priority = ChunkStreamingState.StreamingPriority(
+                coord, focus);
+            if (nearest is null || priority.CompareTo(nearest.Value) < 0)
+                nearest = priority;
+            if (priority.TicketLevel <= ChunkLevel.EntityTicking)
+                break;
+        }
+
+        return nearest is { } ticket
+            ? WorldWorkerPriority.FromGenerationTicket(ticket)
+            : WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.BackgroundWorldPriority);
     }
 
     public bool TryPollCompleted(
@@ -135,6 +223,7 @@ public sealed class FluidSimulationRuntime
         var sourceBatch =
             _inFlightBatch;
         _inFlightBatch = null;
+        _inFlightWorkerPriority = null;
 
         if (error is not null)
         {

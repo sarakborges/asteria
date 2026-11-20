@@ -1,5 +1,6 @@
 import "./styles/global.css";
 import { LocalizationProvider } from "./localization/LocalizationProvider";
+import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import {
@@ -21,6 +22,13 @@ import { createWorldCatalogController } from "./controllers/WorldCatalogControll
 import { createChatController } from "./controllers/ChatController";
 import { createInitialUiState } from "./state/uiState";
 import { createUiStore } from "./state/uiStore";
+
+function UiReadySignal(): null {
+  useEffect(() => {
+    postGodotMessage("ui.ready", { version: 1 });
+  }, []);
+  return null;
+}
 
 const rootElement =
   document.querySelector<HTMLDivElement>("#app");
@@ -73,6 +81,7 @@ subscribeGodotMessages((message) => {
 
 createRoot(rootElement).render(
   <LocalizationProvider>
+  <UiReadySignal />
   <App
     embedded={embedded}
     store={store}
@@ -140,6 +149,3 @@ createRoot(rootElement).render(
   </LocalizationProvider>,
 );
 
-postGodotMessage("ui.ready", {
-  version: 1,
-});

@@ -119,31 +119,6 @@
       }
     },
     {
-      "object": "asteria:grass_tall",
-      "chance": 0.0186,
-      "surfaceBlocks": [
-        "asteria:block_grass",
-        "asteria:dirt"
-      ],
-      "habitatWeights": {
-        "grove": 0.7,
-        "open": 1.65,
-        "thicket": 2.2,
-        "rocky": 0.09
-      },
-      "cluster": {
-        "scale": 42,
-        "threshold": -0.23,
-        "octaves": 4,
-        "transitionWidth": 0.16
-      },
-      "conditions": {
-        "minY": 83,
-        "maxY": 118,
-        "maxSlope": 4
-      }
-    },
-    {
       "object": "asteria:daisy",
       "chance": 0.0099,
       "surfaceBlocks": [

@@ -48,30 +48,6 @@
       }
     },
     {
-      "block": "asteria:shrub_frost",
-      "chance": 0.0234,
-      "surfaceBlocks": [
-        "asteria:snow",
-        "asteria:gravel"
-      ],
-      "habitatWeights": {
-        "frozen_plain": 2.05,
-        "ice_fields": 0.18,
-        "rocky_ridges": 0.67
-      },
-      "cluster": {
-        "scale": 33,
-        "threshold": -0.25,
-        "octaves": 4,
-        "transitionWidth": 0.16
-      },
-      "conditions": {
-        "minY": 84,
-        "maxY": 115,
-        "maxSlope": 3
-      }
-    },
-    {
       "block": "asteria:lichen_frost",
       "chance": 0.0208,
       "surfaceBlocks": [

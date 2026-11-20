@@ -26,7 +26,7 @@ public sealed class DecorativeObjectMigrationTests
             ("mushroom_yellow", .72f, .62f, 2, true),
             ("daisy", .79f, .79f, 4, false),
             ("aster_purple", .8f, .84f, 4, false),
-            ("iris", .79f, .91f, 4, false),
+            ("cattail", .74f, .94f, 4, false),
         })
         {
             var key = "asteria:" + id;
@@ -42,10 +42,7 @@ public sealed class DecorativeObjectMigrationTests
     }
 
     [Theory]
-    [InlineData("grass_pass", "mountain_belt", .8f, .78f)]
-    [InlineData("fern_violet", "enchanted_forest", .92f, .88f)]
     [InlineData("seedheads_meadow", "plains", .75f, .86f)]
-    [InlineData("sagebrush", "gorge", .84f, .82f)]
     public void RemainingSmallFloraUsesSupportOwnedObjects(
         string name, string biomeName, float width, float height)
     {
@@ -117,7 +114,7 @@ public sealed class DecorativeObjectMigrationTests
         {
             ("plains", "stick"), ("plains", "daisy"),
             ("plains", "aster_purple"), ("swamp", "stick"),
-            ("swamp", "iris"), ("enchanted_forest", "stick"),
+            ("swamp", "cattail"), ("enchanted_forest", "stick"),
             ("mountains", "stick"), ("gorge", "stick"),
             ("wasteland", "stick"), ("umbral/withered_waste", "stick")
         })
@@ -130,11 +127,11 @@ public sealed class DecorativeObjectMigrationTests
             Assert.NotEmpty(rule.SurfaceBlocks);
         }
 
-        var iris = Assert.Single(biomes.Get("asteria:overworld/swamp")
-            .Decorations, rule => rule.Block == "asteria:iris");
+        var cattail = Assert.Single(biomes.Get("asteria:overworld/swamp")
+            .Decorations, rule => rule.Block == "asteria:cattail");
         Assert.Equal(DecorationFluidRelation.Nearby,
-            iris.FluidRequirement!.Relation);
-        Assert.Equal("asteria:water", iris.FluidRequirement.Fluid);
-        Assert.Equal(3, iris.FluidRequirement.MaxDistance);
+            cattail.FluidRequirement!.Relation);
+        Assert.Equal("asteria:water", cattail.FluidRequirement.Fluid);
+        Assert.Equal(2, cattail.FluidRequirement.MaxDistance);
     }
 }

@@ -37,6 +37,12 @@ public sealed class BlockPhysicsUpdateQueue
     // wakeups on restore; old waiters must not accumulate with player travel.
     private readonly Dictionary<ChunkCoord, HashSet<WorldVoxelCoord>>
         _positionsBySourceChunk = [];
+    // Loaded support checks outside BLOCK_TICKING remain dormant until the
+    // simulation graph raises their source holder back into range.
+    private readonly Dictionary<ChunkCoord, HashSet<WorldVoxelCoord>>
+        _waitingSimulationByChunk = [];
+    private readonly Dictionary<WorldVoxelCoord, ChunkCoord>
+        _waitingForSimulation = [];
 
     public BlockPhysicsUpdateQueue(BlockPhysicsUpdateQueueSnapshot? restore = null)
     {
@@ -55,7 +61,9 @@ public sealed class BlockPhysicsUpdateQueue
     {
         var maximumEntries = BlockPhysicsUpdateQueueSnapshot.MaximumEntries;
         var positions = new List<WorldVoxelCoord>(
-            Math.Min(maximumEntries, _queue.Count + _waitingForChunk.Count));
+            Math.Min(
+                maximumEntries,
+                _queue.Count + _waitingForChunk.Count + _waitingForSimulation.Count));
         var captured = new HashSet<WorldVoxelCoord>();
 
         // Keep the authoritative FIFO order ahead of dormant dependencies.
@@ -92,12 +100,28 @@ public sealed class BlockPhysicsUpdateQueue
                 break;
         }
 
+        foreach (var position in _waitingForSimulation.Keys
+                     .OrderBy(position => position.Y)
+                     .ThenBy(position => position.Z)
+                     .ThenBy(position => position.X))
+        {
+            if (!captured.Add(position))
+                continue;
+            positions.Add(position);
+            if (positions.Count == maximumEntries)
+                break;
+        }
+
         return new BlockPhysicsUpdateQueueSnapshot(positions);
     }
 
     public int Count => _queue.Count;
 
-    public int WaitingCount => _waitingForChunk.Count;
+    public int WaitingCount =>
+        _waitingForChunk.Count + _waitingForSimulation.Count;
+
+    public IReadOnlyCollection<ChunkCoord> WaitingSimulationChunks =>
+        _waitingSimulationByChunk.Keys.ToArray();
 
     public BlockPhysicsWaitDistribution CaptureWaitingDistribution(int maximumChunks = 3)
     {
@@ -166,6 +190,93 @@ public sealed class BlockPhysicsUpdateQueue
     }
 
     /// <summary>
+    /// Parks a loaded source chunk's support checks while its holder is outside
+    /// BLOCK_TICKING. These positions are not part of the ready FIFO until the
+    /// simulation distance graph promotes the source holder again.
+    /// </summary>
+    public void WaitForSimulationChunk(
+        WorldVoxelCoord position,
+        ChunkCoord sourceChunk)
+    {
+        if (position.Y < 0 || sourceChunk.Y < 0)
+            return;
+        if (_waitingForSimulation.TryGetValue(position, out var existing) &&
+            existing == sourceChunk)
+            return;
+
+        _queue.Remove(position);
+        UntrackPosition(position);
+        if (_waitingForChunk.TryGetValue(position, out var previousChunk))
+            RemoveWaiter(position, previousChunk);
+        if (_waitingForSimulation.TryGetValue(position, out var previousSimulation))
+            RemoveSimulationWaiter(position, previousSimulation);
+
+        if (!_waitingSimulationByChunk.TryGetValue(sourceChunk, out var waiting))
+        {
+            waiting = [];
+            _waitingSimulationByChunk.Add(sourceChunk, waiting);
+        }
+
+        waiting.Add(position);
+        _waitingForSimulation[position] = sourceChunk;
+        TrackPosition(position);
+    }
+
+    /// <summary>
+    /// Reactivates simulation-dormant support work for every source holder that
+    /// currently belongs to the BLOCK_TICKING graph.
+    /// </summary>
+    public int WakeSimulationChunks(
+        Func<ChunkCoord, bool> isBlockTicking)
+    {
+        ArgumentNullException.ThrowIfNull(isBlockTicking);
+        var reactivated = 0;
+        foreach (var chunk in _waitingSimulationByChunk.Keys
+                     .OrderBy(chunk => chunk.Y)
+                     .ThenBy(chunk => chunk.Z)
+                     .ThenBy(chunk => chunk.X)
+                     .ToArray())
+        {
+            if (!isBlockTicking(chunk))
+                continue;
+            reactivated += WakeSimulationChunk(chunk);
+        }
+
+        return reactivated;
+    }
+
+    public int WakeSimulationChunk(ChunkCoord chunk)
+    {
+        if (!_waitingSimulationByChunk.Remove(chunk, out var waiting))
+            return 0;
+
+        var ordered = waiting
+            .OrderBy(position => position.Y)
+            .ThenBy(position => position.Z)
+            .ThenBy(position => position.X)
+            .ToArray();
+        foreach (var position in ordered)
+        {
+            _waitingForSimulation.Remove(position);
+            _queue.Enqueue(position);
+        }
+
+        return ordered.Length;
+    }
+
+    private void RemoveSimulationWaiter(
+        WorldVoxelCoord position,
+        ChunkCoord chunk)
+    {
+        _waitingForSimulation.Remove(position);
+        if (!_waitingSimulationByChunk.TryGetValue(chunk, out var waiting))
+            return;
+        waiting.Remove(position);
+        if (waiting.Count == 0)
+            _waitingSimulationByChunk.Remove(chunk);
+    }
+
+    /// <summary>
     /// Removes stale wakeups owned by a source chunk that has left residency.
     /// The source's block state is archived and will be rescanned on restore.
     /// </summary>
@@ -179,6 +290,8 @@ public sealed class BlockPhysicsUpdateQueue
             _queue.Remove(position);
             if (_waitingForChunk.TryGetValue(position, out var neededChunk))
                 RemoveWaiter(position, neededChunk);
+            if (_waitingForSimulation.TryGetValue(position, out var simulationChunk))
+                RemoveSimulationWaiter(position, simulationChunk);
         }
 
         return positions.Count;
@@ -258,6 +371,8 @@ public sealed class BlockPhysicsUpdateQueue
 
         if (_waitingForChunk.TryGetValue(position, out var neededChunk))
             RemoveWaiter(position, neededChunk);
+        if (_waitingForSimulation.TryGetValue(position, out var simulationChunk))
+            RemoveSimulationWaiter(position, simulationChunk);
 
         _queue.EnqueueFront(position);
         TrackPosition(position);
@@ -269,6 +384,8 @@ public sealed class BlockPhysicsUpdateQueue
         {
             if (_waitingForChunk.TryGetValue(position, out var neededChunk))
                 RemoveWaiter(position, neededChunk);
+            if (_waitingForSimulation.TryGetValue(position, out var simulationChunk))
+                RemoveSimulationWaiter(position, simulationChunk);
             _queue.Enqueue(position);
             TrackPosition(position);
         }

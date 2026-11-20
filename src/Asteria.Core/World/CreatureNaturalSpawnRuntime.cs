@@ -56,7 +56,9 @@ public sealed class CreatureNaturalSpawnRuntime
         BiomeWorldGenerator generator,
         VoxelWorld world,
         BlockRegistry blocks,
-        CreatureRuntime creatures)
+        CreatureRuntime creatures,
+        Func<ChunkCoord, bool>? isEntityTicking = null,
+        Func<ChunkCoord, bool>? isNaturalSpawnCandidate = null)
     {
         ArgumentNullException.ThrowIfNull(generator);
         ArgumentNullException.ThrowIfNull(world);
@@ -118,6 +120,13 @@ public sealed class CreatureNaturalSpawnRuntime
         var safe = generator.FindGeneratedSurfaceDestination(
             candidate.X, candidate.Z, maxRadius: 0);
         if (safe is not { } feet)
+            return false;
+
+        var spawnChunk = VoxelCoordinates.FromWorld(
+            feet.X, feet.Y, feet.Z).Chunk;
+        if ((isEntityTicking is not null && !isEntityTicking(spawnChunk)) ||
+            (isNaturalSpawnCandidate is not null &&
+             !isNaturalSpawnCandidate(spawnChunk)))
             return false;
 
         var position = new Vector3(

@@ -1,0 +1,2 @@
+# WebUI is built by Vite and served as raw browser files. Godot must not import
+# source files, node_modules, generated WOFF2 fonts, or browser assets.

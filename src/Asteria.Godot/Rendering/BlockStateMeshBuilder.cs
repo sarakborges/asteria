@@ -78,6 +78,11 @@ public static class BlockStateMeshBuilder
         if (layers is not null)
             chunk.SetSurfaceState(0, 0, 0, block.SurfaceState);
 
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            fluids);
+
         var world = new VoxelWorld();
         world.InsertChunk(
             ChunkCoord.Zero,

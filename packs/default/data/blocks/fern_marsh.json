@@ -7,7 +7,7 @@
   "windSway": true,
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/fern_marsh.png",
+    "texture": "textures/objects/fern.png",
     "width": 0.87,
     "height": 0.9,
     "planes": 4

@@ -12,6 +12,239 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void DirectionalFaceMetadataPacksCommonDepthAndPreservesExtendedMasks()
+    {
+        var compact = new DirectionalFaceVoxelData(
+            true,
+            1UL,
+            2UL,
+            4UL,
+            8UL,
+            16UL,
+            64UL,
+            new BlockRuntimeId(12));
+
+        Assert.True(compact.IsTerrainVoxel);
+        Assert.Equal(new BlockRuntimeId(12), compact.BaseBlock);
+        Assert.Equal(1UL, compact.Up);
+        Assert.Equal(2UL, compact.NegativeX);
+        Assert.Equal(4UL, compact.PositiveX);
+        Assert.Equal(8UL, compact.NegativeZ);
+        Assert.Equal(16UL, compact.PositiveZ);
+        Assert.Equal(64UL, compact.Down);
+
+        // Distance 64 exercises the full-width fallback. Replacing the mask
+        // with depth seven must return to the compact representation.
+        const ulong extendedMask = (1UL << 63) | (1UL << 6) | 1UL;
+        var extended = compact.WithCandidates(
+            DirectionalFaceDirection.PositiveZ,
+            extendedMask);
+        Assert.Equal(extendedMask, extended.PositiveZ);
+        Assert.Equal(compact.Up, extended.Up);
+        Assert.Equal(compact.Down, extended.Down);
+
+        var withBaseBlock = extended.WithBaseBlock(new BlockRuntimeId(21));
+        Assert.Equal(new BlockRuntimeId(21), withBaseBlock.BaseBlock);
+        Assert.Equal(extendedMask, withBaseBlock.PositiveZ);
+
+        var compactAgain = withBaseBlock.WithCandidates(
+            DirectionalFaceDirection.PositiveZ,
+            1UL << 6);
+        Assert.Equal(1UL << 6, compactAgain.PositiveZ);
+        Assert.Equal(new BlockRuntimeId(21), compactAgain.BaseBlock);
+    }
+
+    [Fact]
+    public void DirectionalFacePaletteDeduplicatesEquivalentOverflowValues()
+    {
+        const ulong extendedMask = (1UL << 63) | 0x35UL;
+        var first = new DirectionalFaceVoxelData(
+            true, 0, extendedMask, 0, 0, 0, 0, BlockRuntimeId.Air);
+        var second = new DirectionalFaceVoxelData(
+            true, 0, extendedMask, 0, 0, 0, 0, BlockRuntimeId.Air);
+
+        Assert.Equal(first, second);
+        Assert.Equal(first.GetHashCode(), second.GetHashCode());
+
+        var palette = new PaletteStorage<DirectionalFaceVoxelData>();
+        Assert.True(palette.SetInitial(0, first));
+        Assert.True(palette.SetInitial(1, second));
+        Assert.Equal(1, palette.ActivePaletteEntryCount);
+    }
+
+    [Fact]
+    public void PaletteStorageCapacityDiagnosticsReportCollectionCapacitiesAndFixedBuffers()
+    {
+        var palette = new PaletteStorage<DirectionalFaceVoxelData>();
+        var empty = palette.CapacityMetrics;
+
+        Assert.Equal(0, empty.OccupiedVoxelCount);
+        Assert.Equal(0, empty.PaletteEntryCount);
+        Assert.Equal(0, empty.PaletteCapacity);
+        Assert.Equal(0, empty.UsageEntryCount);
+        Assert.Equal(0, empty.LookupEntryCount);
+        Assert.Equal(0, empty.LookupCapacity);
+        Assert.Equal(0, empty.FreeSlotCount);
+        Assert.Equal(0, empty.FreeSlotCapacity);
+        Assert.Equal(Chunk.Volume, empty.IndexCount);
+        Assert.Equal((Chunk.Volume + 63) / 64, empty.OccupancyWordCount);
+        Assert.Equal(ChunkMeshletMask.Count, empty.MeshletOccupancyCount);
+
+        var first = new DirectionalFaceVoxelData(
+            true, 1UL, 0, 0, 0, 0, 0, BlockRuntimeId.Air);
+        var second = first.WithBaseBlock(new BlockRuntimeId(12));
+        Assert.True(palette.SetInitial(0, first));
+        Assert.True(palette.SetInitial(1, first));
+        Assert.True(palette.SetInitial(2, second));
+
+        var populated = palette.CapacityMetrics;
+        Assert.Equal(3, populated.OccupiedVoxelCount);
+        Assert.Equal(2, populated.PaletteEntryCount);
+        Assert.Equal(populated.PaletteEntryCount, populated.UsageEntryCount);
+        Assert.Equal(populated.PaletteEntryCount, populated.LookupEntryCount);
+        Assert.True(populated.PaletteCapacity >= populated.PaletteEntryCount);
+        Assert.True(populated.UsageCapacity >= populated.UsageEntryCount);
+        Assert.True(populated.LookupCapacity >= populated.LookupEntryCount);
+        Assert.Equal(0, populated.FreeSlotCount);
+    }
+
+    [Fact]
+    public void PaletteStorageCapacityDiagnosticsAccountForSupersededGrowthArrays()
+    {
+        var palette = new PaletteStorage<DirectionalFaceVoxelData>();
+
+        for (var index = 0; index < 12; index++)
+        {
+            var metadata = new DirectionalFaceVoxelData(
+                true,
+                1UL << index,
+                0, 0, 0, 0, 0,
+                new BlockRuntimeId((ushort)index));
+            Assert.True(palette.SetInitial(index, metadata));
+        }
+
+        var beforeRelease = palette.CapacityMetrics;
+        Assert.True(beforeRelease.PaletteCapacity >= beforeRelease.PaletteEntryCount);
+        Assert.True(beforeRelease.UsageCapacity >= beforeRelease.UsageEntryCount);
+        Assert.True(beforeRelease.LookupCapacity >= beforeRelease.LookupEntryCount);
+
+#if DEBUG
+        Assert.True(beforeRelease.GrowthDiagnosticsAvailable);
+        Assert.True(beforeRelease.PaletteGrowthEvents > 0);
+        Assert.True(beforeRelease.UsageGrowthEvents > 0);
+        Assert.True(beforeRelease.LookupGrowthEvents > 0);
+        Assert.True(
+            beforeRelease.PaletteGrowthArrayBytes >=
+            (long)beforeRelease.PaletteCapacity * 16);
+        Assert.True(
+            beforeRelease.UsageGrowthArrayBytes >=
+            (long)beforeRelease.UsageCapacity * sizeof(ushort));
+        Assert.True(beforeRelease.LookupBucketGrowthArrayBytes > 0);
+        Assert.True(beforeRelease.LookupEntryGrowthArrayBytes > 0);
+#endif
+
+        for (var index = 0; index < 12; index++)
+            Assert.True(palette.Set(index, default));
+
+        var afterRelease = palette.CapacityMetrics;
+#if DEBUG
+        Assert.True(afterRelease.FreeSlotGrowthEvents > 0);
+        Assert.True(
+            afterRelease.FreeSlotGrowthArrayBytes >=
+            (long)afterRelease.FreeSlotCapacity * sizeof(ushort));
+#endif
+        Assert.Equal(0, afterRelease.OccupiedVoxelCount);
+    }
+
+    [Fact]
+    public void DirectionalFaceArrivalDoesNotPromoteUntrackedSolidBlocksToTerrain()
+    {
+        var chunk = new Chunk();
+        const int index = 7 * Chunk.Area + 5 * Chunk.Size + 9;
+        var decoration = new BlockRuntimeId(23);
+        Assert.True(chunk.SetBlockAtLinearIndex(index, decoration));
+        var revision = chunk.Revision;
+
+        Assert.False(chunk.UpdateDirectionalFaceCandidateAtLinearIndex(
+            index,
+            DirectionalFaceDirection.PositiveX,
+            distance: 1,
+            exposed: true,
+            updateRevision: false));
+
+        Assert.Equal(default, chunk.DirectionalFaceDataAtLinearIndex(index));
+        Assert.Equal(decoration, chunk.GetCellAtLinearIndexUnchecked(index).Block);
+        Assert.Equal(revision, chunk.Revision);
+    }
+
+    [Fact]
+    public void DirectionalFaceArrivalStillUpdatesExplicitTerrainMetadata()
+    {
+        var chunk = new Chunk();
+        const int index = 7 * Chunk.Area + 5 * Chunk.Size + 9;
+        var terrainBlock = new BlockRuntimeId(24);
+        Assert.True(chunk.SetBlockAtLinearIndex(index, terrainBlock));
+        chunk.SetDirectionalFaceDataAtLinearIndex(
+            index,
+            new DirectionalFaceVoxelData(
+                true, 0, 0, 0, 0, 0, 0, BlockRuntimeId.Air),
+            updateRevision: false);
+
+        Assert.True(chunk.UpdateDirectionalFaceCandidateAtLinearIndex(
+            index,
+            DirectionalFaceDirection.PositiveX,
+            distance: 3,
+            exposed: true,
+            updateRevision: false));
+
+        Assert.True(chunk.DirectionalFaceDataAtLinearIndex(index).IsTerrainVoxel);
+        Assert.Equal(1UL << 2,
+            chunk.DirectionalFaceDataAtLinearIndex(index).PositiveX);
+    }
+
+    [Fact]
+    public void DirectionalFaceMetadataCloneAndBaseBlockRestorePreserveOverflowMasks()
+    {
+        const int index = 2 + Chunk.Size * (4 + Chunk.Size * 3);
+        const ulong extendedMask = (1UL << 63) | (1UL << 6) | 5UL;
+        var baseBlock = new BlockRuntimeId(5);
+        var replacementBlock = new BlockRuntimeId(6);
+        var metadata = new DirectionalFaceVoxelData(
+            true,
+            0,
+            0,
+            extendedMask,
+            0,
+            0,
+            0,
+            BlockRuntimeId.Air);
+
+        var chunk = new Chunk();
+        Assert.True(chunk.SetBlockAtLinearIndex(index, baseBlock));
+        chunk.SetDirectionalFaceDataAtLinearIndex(index, metadata);
+
+        var clone = chunk.CloneForWorker();
+        Assert.Equal(metadata, clone.DirectionalFaceDataAtLinearIndex(index));
+
+        Assert.True(clone.SetDirectionalFacePaletteBlockAtLinearIndex(
+            index,
+            replacementBlock));
+        Assert.Equal(replacementBlock, clone.GetBlock(2, 3, 4));
+        Assert.Equal(baseBlock, chunk.GetBlock(2, 3, 4));
+        Assert.Equal(baseBlock, clone.DirectionalFaceDataAtLinearIndex(index).BaseBlock);
+        Assert.Equal(
+            extendedMask,
+            clone.DirectionalFaceDataAtLinearIndex(index).PositiveX);
+
+        Assert.True(clone.RestoreDirectionalFaceBaseBlockAtLinearIndex(index));
+        Assert.Equal(baseBlock, clone.GetBlock(2, 3, 4));
+        Assert.Equal(
+            extendedMask,
+            clone.DirectionalFaceDataAtLinearIndex(index).PositiveX);
+        Assert.Equal(metadata, chunk.DirectionalFaceDataAtLinearIndex(index));
+    }
+
+    [Fact]
     public void PaletteDeduplicatesCellsAndTracksOccupancy()
     {
         var registry = new BlockRegistry(
@@ -38,6 +271,121 @@ public sealed class ChunkTests
         Assert.Equal(2, chunk.NonEmptyVoxelCount);
         Assert.Equal(1, chunk.PaletteEntryCount);
         Assert.True(chunk.GetCell(3, 2, 3).IsEmpty);
+    }
+
+    [Fact]
+    public void InitialBlockWritesBuildPaletteAndCommitOneRevision()
+    {
+        var registry = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:dirt"),
+        ]);
+        var stone = registry.GetId("asteria:stone");
+        var dirt = registry.GetId("asteria:dirt");
+        var chunk = new Chunk();
+        var stoneIndex = 1 + Chunk.Size * 3 + Chunk.Area * 2;
+        var dirtIndex = 2 + Chunk.Size * 3 + Chunk.Area * 2;
+
+        using (var initial = chunk.BeginInitialBlockWrites(
+            registry.AuthoredCount + 1))
+        {
+            Assert.True(initial.SetBlockAtLinearIndex(stoneIndex, stone));
+            Assert.True(initial.SetBlockAtLinearIndex(dirtIndex, stone));
+            Assert.False(initial.SetBlockAtLinearIndex(stoneIndex, stone));
+            Assert.Throws<InvalidOperationException>(
+                () => initial.SetBlockAtLinearIndex(stoneIndex, dirt));
+
+            Assert.Equal(2, chunk.NonEmptyVoxelCount);
+            Assert.Equal(1, chunk.PaletteEntryCount);
+            Assert.Equal((ulong)0, chunk.Revision);
+
+            initial.Complete();
+            Assert.Equal((ulong)1, chunk.Revision);
+            Assert.Throws<ObjectDisposedException>(
+                () => initial.SetBlockAtLinearIndex(dirtIndex, dirt));
+        }
+
+        Assert.Equal(stone, chunk.GetBlock(1, 2, 3));
+        Assert.Equal(stone, chunk.GetBlock(2, 2, 3));
+        Assert.True(chunk.SetBlock(3, 2, 3, dirt));
+        Assert.Equal((ulong)2, chunk.Revision);
+        Assert.Equal(2, chunk.PaletteEntryCount);
+    }
+
+    [Fact]
+    public void FreshInitialBlockWritesPopulateUniqueSlotsAndDeduplicatePalette()
+    {
+        var registry = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:dirt"),
+        ]);
+        var stone = registry.GetId("asteria:stone");
+        var dirt = registry.GetId("asteria:dirt");
+        var chunk = new Chunk();
+
+        using (var initial = chunk.BeginInitialBlockWrites(
+            registry.AuthoredCount + 1))
+        {
+            Assert.True(initial.SetBlockAtLinearIndexFreshUnchecked(17, stone));
+            Assert.True(initial.SetBlockAtLinearIndexFreshUnchecked(18, stone));
+            Assert.True(initial.SetBlockAtLinearIndexFreshUnchecked(Chunk.Area + 17, dirt));
+            Assert.Equal(3, chunk.NonEmptyVoxelCount);
+            Assert.Equal(2, chunk.PaletteEntryCount);
+            Assert.Equal((ulong)0, chunk.Revision);
+        }
+
+        Assert.Equal((ulong)1, chunk.Revision);
+        Assert.Equal(stone, chunk.GetCellAtLinearIndexUnchecked(17).Block);
+        Assert.Equal(stone, chunk.GetCellAtLinearIndexUnchecked(18).Block);
+        Assert.Equal(dirt, chunk.GetCellAtLinearIndexUnchecked(Chunk.Area + 17).Block);
+    }
+
+    [Fact]
+    public void InitialFluidWritesPreserveOccupiedCellsAndCommitOneRevision()
+    {
+        var fluids = new FluidRegistry(
+        [
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(64, 96, 255),
+                opacity: 0.7f),
+            new FluidDefinition(
+                "asteria:lava",
+                new FluidColor(255, 96, 24),
+                opacity: 1f),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var lava = fluids.GetId("asteria:lava");
+        var chunk = new Chunk();
+        const int existingIndex = 1 + Chunk.Size * 3 + Chunk.Area * 2;
+        const int newIndex = 2 + Chunk.Size * 3 + Chunk.Area * 2;
+
+        Assert.True(chunk.SetFluid(1, 2, 3, FluidCell.Source(water)));
+        var initialRevision = chunk.Revision;
+
+        using (var initial = chunk.BeginInitialFluidWrites())
+        {
+            Assert.False(initial.SetFluidAtLinearIndexIfEmpty(
+                existingIndex, FluidCell.Source(lava)));
+            Assert.True(initial.SetFluidAtLinearIndexIfEmpty(
+                newIndex, FluidCell.Source(water)));
+            Assert.False(initial.SetFluidAtLinearIndexIfEmpty(
+                newIndex, FluidCell.Source(water)));
+
+            Assert.Equal(2, chunk.FluidCount);
+            Assert.Equal(initialRevision, chunk.Revision);
+            initial.Complete();
+            Assert.Equal(initialRevision + 1, chunk.Revision);
+            Assert.Throws<ObjectDisposedException>(
+                () => initial.IsEmptyAtLinearIndex(newIndex));
+        }
+
+        Assert.Equal(water, chunk.GetFluid(1, 2, 3).Fluid);
+        Assert.Equal(water, chunk.GetFluid(2, 2, 3).Fluid);
+        Assert.True(chunk.SetFluid(3, 2, 3, FluidCell.Source(lava)));
+        Assert.Equal(initialRevision + 2, chunk.Revision);
     }
 
     [Fact]

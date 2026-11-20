@@ -24,6 +24,17 @@ New-Item $addonsRoot -ItemType Directory -Force | Out-Null
 Remove-Item $targetPath -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item $extension.Directory.FullName $targetPath -Recurse
 
+# WRY's WebView class does not support extension reload. Declaring it reloadable
+# only makes Godot emit an error before disabling reload internally anyway.
+$extensionConfig = Join-Path $targetPath "WRY.gdextension"
+$extensionConfigText = Get-Content -LiteralPath $extensionConfig -Raw
+if (-not $extensionConfigText.Contains("reloadable = true")) {
+    throw "Unexpected WRY.gdextension configuration; expected reloadable = true."
+}
+$extensionConfigText = $extensionConfigText.Replace("reloadable = true", "reloadable = false")
+Set-Content -LiteralPath $extensionConfig -Value $extensionConfigText -Encoding utf8
+Write-Host "Configured WRY.gdextension with reloadable=false (WebView is not hot-reloadable)."
+
 Write-Host "[2/3] Installing WebUI dependencies..."
 Push-Location (Join-Path $repoRoot "ui")
 try {

@@ -15,15 +15,11 @@ public sealed class TerrainMeshPipeline
     private readonly ChunkPresentationController _presentations;
     private readonly int _maximumInteractiveMeshletsPerWorker;
     private readonly int _maximumBackgroundMeshletsPerWorker;
-    private readonly TerrainMeshWorker _interactiveWorker = new();
-    private readonly TerrainMeshWorker _backgroundWorker = new();
+    private readonly TerrainMeshWorker _interactiveWorker;
+    private readonly TerrainMeshWorker _backgroundWorker;
 
     private bool _acceptingWork = true;
     private bool _preferInteractive = true;
-    // Ensure background meshes advance even under sustained pressure.
-    private const int MaximumDeferredBackgroundStarts = 8;
-    private int _deferredBackgroundStarts;
-
     private WorldMeshBatch? _interactiveInFlightBatch;
     private WorldMeshBatch? _backgroundInFlightBatch;
 
@@ -38,7 +34,8 @@ public sealed class TerrainMeshPipeline
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
         int maximumInteractiveMeshletsPerWorker,
-        int maximumBackgroundMeshletsPerWorker)
+        int maximumBackgroundMeshletsPerWorker,
+        WorldWorkerPool workerPool)
     {
         _world =
             world ??
@@ -80,6 +77,9 @@ public sealed class TerrainMeshPipeline
             maximumInteractiveMeshletsPerWorker;
         _maximumBackgroundMeshletsPerWorker =
             maximumBackgroundMeshletsPerWorker;
+        ArgumentNullException.ThrowIfNull(workerPool);
+        _interactiveWorker = new TerrainMeshWorker(workerPool);
+        _backgroundWorker = new TerrainMeshWorker(workerPool);
     }
 
     public bool IsRunning =>
@@ -116,26 +116,20 @@ public sealed class TerrainMeshPipeline
     public bool TryStartReadyWork(
         bool underStreamingPressure = false,
         ChunkCoord? center = null,
-        ChunkMovementDirection movement = default)
+        ChunkMovementDirection movement = default,
+        bool allowBackground = true)
     {
         if (!_acceptingWork)
         {
             return false;
         }
 
-        var visibleWork = _updates.HasPriorityMeshWork ||
-            _interactiveWorker.IsRunning;
-        var shouldDeferBackground = underStreamingPressure &&
-            visibleWork && _updates.HasBackgroundMeshWork;
-        if (shouldDeferBackground)
-            _deferredBackgroundStarts = Math.Min(
-                MaximumDeferredBackgroundStarts,
-                _deferredBackgroundStarts + 1);
-        else
-            _deferredBackgroundStarts = 0;
+        UpdateInFlightWorkerPriorities(center);
 
-        var mayStartBackground = !shouldDeferBackground ||
-            _deferredBackgroundStarts >= MaximumDeferredBackgroundStarts;
+        // Interactive and background operations enter the same global
+        // priority queue. Alternate capture lanes for fairness; the shared
+        // executor decides which queued operation gets a physical worker.
+        var mayStartBackground = allowBackground;
 
         // Worker startup captures neighboring chunks synchronously.
         // Limit each call to one lane and alternate to avoid starvation.
@@ -189,6 +183,53 @@ public sealed class TerrainMeshPipeline
             maximumPerFrame,
             budget);
 
+    private void UpdateInFlightWorkerPriorities(
+        ChunkCoord? center)
+    {
+        if (center is null)
+            return;
+
+        if (_interactiveInFlightBatch is { } interactive)
+        {
+            var priority = ResolveWorkerPriority(
+                interactive, center,
+                WorldWorkerPriority.FromPriorityClass(
+                    WorldWorkerPool.InteractiveWorldPriority));
+            _interactiveWorker.TryUpdatePriority(priority);
+        }
+
+        if (_backgroundInFlightBatch is { } background)
+        {
+            var priority = ResolveWorkerPriority(
+                background, center,
+                WorldWorkerPriority.FromPriorityClass(
+                    WorldWorkerPool.BackgroundWorldPriority));
+            _backgroundWorker.TryUpdatePriority(priority);
+        }
+    }
+
+    private static WorldWorkerPriority ResolveWorkerPriority(
+        WorldMeshBatch batch,
+        ChunkCoord? center,
+        WorldWorkerPriority fallbackPriority)
+    {
+        if (center is not { } focus || batch.DirtyMeshlets.Count == 0)
+            return fallbackPriority;
+
+        ChunkGenerationTaskPriority? nearest = null;
+        foreach (var coord in batch.DirtyMeshlets.Keys)
+        {
+            var priority = ChunkStreamingState.StreamingPriority(
+                coord, focus);
+            if (nearest is null || priority.CompareTo(nearest.Value) < 0)
+                nearest = priority;
+        }
+
+        return nearest is { } ticket
+            ? WorldWorkerPriority.FromGenerationTicket(ticket)
+            : fallbackPriority;
+    }
+
     private bool TryStartLane(
         TerrainMeshWorker worker,
         ref WorldMeshBatch? inFlightBatch,
@@ -230,6 +271,7 @@ public sealed class TerrainMeshPipeline
             return false;
         }
 
+        var relightable = _presentations.CaptureRelightableTerrain(batch);
         if (!worker.TryStart(
                 _world,
                 _blocks,
@@ -238,15 +280,20 @@ public sealed class TerrainMeshPipeline
                 _layers,
                 _dyes,
                 batch,
-                _revisions))
+                _revisions,
+                relightable,
+                workerPriority: ResolveWorkerPriority(
+                    batch, center,
+                    WorldWorkerPriority.FromPriorityClass(
+                        priority
+                            ? WorldWorkerPool.InteractiveWorldPriority
+                            : WorldWorkerPool.BackgroundWorldPriority))))
         {
             Requeue(batch, priority);
             return false;
         }
 
         inFlightBatch = batch;
-        if (!priority)
-            _deferredBackgroundStarts = 0;
         return true;
     }
 
@@ -297,6 +344,7 @@ public sealed class TerrainMeshPipeline
         var accepted = 0;
         var stale = 0;
         var salvaged = 0;
+        var relitWithoutMeshing = 0;
 
         foreach (var meshlet in result.Meshlets)
         {
@@ -345,6 +393,8 @@ public sealed class TerrainMeshPipeline
                 accepted++;
                 if (batchStale)
                     salvaged++;
+                if (meshlet.LightOnly)
+                    relitWithoutMeshing++;
             }
             else
             {
@@ -378,6 +428,7 @@ public sealed class TerrainMeshPipeline
                 accepted,
                 stale,
                 result.CaptureMilliseconds,
+                relitWithoutMeshing,
                 salvaged);
         return true;
     }

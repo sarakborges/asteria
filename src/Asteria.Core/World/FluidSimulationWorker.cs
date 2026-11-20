@@ -10,15 +10,20 @@ public sealed record FluidSimulationWorkerResult(
 
 public sealed class FluidSimulationWorker
 {
-    private readonly SingleFlightWorker<FluidSimulationWorkerResult>
-        _worker = new();
+    private readonly SingleFlightWorker<FluidSimulationWorkerResult> _worker;
+
+    public FluidSimulationWorker(WorldWorkerPool workerPool)
+    {
+        _worker = new SingleFlightWorker<FluidSimulationWorkerResult>(workerPool);
+    }
 
     public bool IsRunning => _worker.IsRunning;
 
     public bool TryStart(
         VoxelWorld world,
         FluidRegistry fluids,
-        FluidWorkBatch batch)
+        FluidWorkBatch batch,
+        WorldWorkerPriority? workerPriority = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(fluids);
@@ -51,8 +56,13 @@ public sealed class FluidSimulationWorker
                 snapshot.Dependencies,
                 simulation,
                 stopwatch.Elapsed.TotalMilliseconds);
-        });
+        }, CancellationToken.None, workerPriority ??
+            WorldWorkerPriority.FromPriorityClass(
+                WorldWorkerPool.InteractiveWorldPriority));
     }
+
+    public bool TryUpdatePriority(WorldWorkerPriority priority) =>
+        _worker.TryUpdatePriority(priority);
 
     public bool TryTakeCompleted(
         out FluidSimulationWorkerResult? result,

@@ -105,55 +105,6 @@
       }
     },
     {
-      "block": "asteria:stonecrop",
-      "chance": 0.0264,
-      "surfaceBlocks": [
-        "asteria:stone",
-        "asteria:cobble_stone",
-        "asteria:gravel"
-      ],
-      "cluster": {
-        "scale": 33,
-        "threshold": -0.19,
-        "octaves": 4,
-        "transitionWidth": 0.14
-      },
-      "conditions": {
-        "minY": 100,
-        "maxY": 192,
-        "maxSlope": 3
-      },
-      "habitatWeights": {
-        "foothill_shelves": 2.45,
-        "talus_fields": 0.82,
-        "exposed_ridges": 0.08
-      }
-    },
-    {
-      "block": "asteria:saxifrage",
-      "chance": 0.0174,
-      "surfaceBlocks": [
-        "asteria:stone",
-        "asteria:cobble_stone"
-      ],
-      "cluster": {
-        "scale": 40,
-        "threshold": -0.18,
-        "octaves": 4,
-        "transitionWidth": 0.14
-      },
-      "conditions": {
-        "minY": 99,
-        "maxY": 167,
-        "maxSlope": 2
-      },
-      "habitatWeights": {
-        "foothill_shelves": 2.6,
-        "talus_fields": 0.43,
-        "exposed_ridges": 0.02
-      }
-    },
-    {
       "block": "asteria:lichen_rock",
       "chance": 0.0198,
       "surfaceBlocks": [

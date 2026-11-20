@@ -58,7 +58,8 @@ internal sealed class WorldObjectVisualCatalog
 
         var mesh = surface.Commit() ??
             throw new InvalidOperationException($"Object {definition.Id} generated no mesh.");
-        // All object materials render without world illumination or shadows.
+        // Keep voxel propagated lighting; shadow reception is an independently
+        // authored material policy shared with GLB surfaces.
         Material material = definition.Unlit
             ? WorldObjectMaterials.CreateUnlit(
                 definition, texture, visual.AlphaCutoff)

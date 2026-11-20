@@ -14,7 +14,7 @@
   },
   "palette": {
     "S": {
-      "block": "asteria:stone"
+      "block": "asteria:portal_frame"
     },
     "C": {
       "clear": true

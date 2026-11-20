@@ -8,7 +8,11 @@ namespace Asteria.Core.World;
 public readonly record struct WorldStreamingWorkPressure(bool IsPressured)
 {
     private const int BackloggedTerrainChunks = 64;
+    // Publication backlog is measured in meshlets rather than chunks.
+    private const int BackloggedTerrainPublications =
+        BackloggedTerrainChunks * ChunkMeshletMask.Count;
     private const int SlowFrameTerrainChunks = 16;
+    private const int BackloggedLightingSeeds = 8192;
     private const int BackloggedPhysicsWakeups = 8192;
     private const double SlowFrameSeconds = 1.0 / 55.0;
 
@@ -16,18 +20,26 @@ public readonly record struct WorldStreamingWorkPressure(bool IsPressured)
         double frameSeconds,
         int dirtyTerrainChunks,
         bool loadingWorld,
-        int pendingPhysicsWakeups = 0)
+        int pendingLightingSeeds = 0,
+        int pendingPhysicsWakeups = 0,
+        int pendingTerrainPublications = 0)
     {
         if (!double.IsFinite(frameSeconds) || frameSeconds < 0)
             throw new ArgumentOutOfRangeException(nameof(frameSeconds));
         if (dirtyTerrainChunks < 0)
             throw new ArgumentOutOfRangeException(nameof(dirtyTerrainChunks));
+        if (pendingLightingSeeds < 0)
+            throw new ArgumentOutOfRangeException(nameof(pendingLightingSeeds));
         if (pendingPhysicsWakeups < 0)
             throw new ArgumentOutOfRangeException(nameof(pendingPhysicsWakeups));
+        if (pendingTerrainPublications < 0)
+            throw new ArgumentOutOfRangeException(nameof(pendingTerrainPublications));
 
         return new WorldStreamingWorkPressure(
             !loadingWorld &&
             (dirtyTerrainChunks >= BackloggedTerrainChunks ||
+             pendingTerrainPublications >= BackloggedTerrainPublications ||
+             pendingLightingSeeds >= BackloggedLightingSeeds ||
              pendingPhysicsWakeups >= BackloggedPhysicsWakeups ||
              (frameSeconds > SlowFrameSeconds &&
               dirtyTerrainChunks >= SlowFrameTerrainChunks)));

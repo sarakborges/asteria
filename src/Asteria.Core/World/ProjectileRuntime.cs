@@ -116,7 +116,8 @@ public sealed class ProjectileRuntime
         IEnumerable<CreatureInstanceState> creatures,
         WorldAabb? playerBounds,
         bool playerTargetable,
-        float gravityStrength)
+        float gravityStrength,
+        Func<ChunkCoord, bool>? isEntityTicking = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -138,6 +139,16 @@ public sealed class ProjectileRuntime
         foreach (var id in _active.Keys.ToArray())
         {
             var state = _active[id];
+            if (isEntityTicking is not null)
+            {
+                var chunk = VoxelCoordinates.FromWorld(
+                    (int)MathF.Floor(state.Position.X),
+                    (int)MathF.Floor(state.Position.Y),
+                    (int)MathF.Floor(state.Position.Z)).Chunk;
+                if (!isEntityTicking(chunk))
+                    continue;
+            }
+
             var remaining = state.Launch.LifetimeSeconds - state.AgeSeconds;
             if (remaining <= 0f)
             {

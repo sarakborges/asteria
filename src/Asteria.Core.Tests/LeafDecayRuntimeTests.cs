@@ -187,8 +187,8 @@ public sealed class LeafDecayRuntimeTests
             .OrderBy(path => path, StringComparer.Ordinal).ToArray();
         var logs = Directory.GetFiles(root, "log_*.json")
             .OrderBy(path => path, StringComparer.Ordinal).ToArray();
-        Assert.Equal(38, leaves.Length);
-        Assert.Equal(152, logs.Length);
+        Assert.Equal(2, leaves.Length);
+        Assert.Equal(8, logs.Length);
 
         Assert.All(leaves, path =>
         {
@@ -203,7 +203,7 @@ public sealed class LeafDecayRuntimeTests
             .Select(entry => entry.Definition.Variant?.Family)
             .Where(family => family is not null)
             .ToHashSet(StringComparer.Ordinal);
-        Assert.Equal(38, supportFamilies.Count);
+        Assert.Equal(2, supportFamilies.Count);
         Assert.All(logDefinitions, entry =>
         {
             Assert.NotNull(entry.Definition.Variant);

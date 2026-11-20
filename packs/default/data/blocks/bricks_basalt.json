@@ -5,12 +5,12 @@
     "fragmentable"
   ],
   "textures": {
-    "top": "textures/blocks/bricks_basalt.png",
-    "bottom": "textures/blocks/bricks_basalt.png",
-    "left": "textures/blocks/bricks_basalt.png",
-    "right": "textures/blocks/bricks_basalt.png",
-    "front": "textures/blocks/bricks_basalt.png",
-    "back": "textures/blocks/bricks_basalt.png"
+    "top": "textures/blocks/basalt_bricks.png",
+    "bottom": "textures/blocks/basalt_bricks.png",
+    "left": "textures/blocks/basalt_bricks.png",
+    "right": "textures/blocks/basalt_bricks.png",
+    "front": "textures/blocks/basalt_bricks.png",
+    "back": "textures/blocks/basalt_bricks.png"
   },
   "lightDampening": 15,
   "castsShadow": true,

@@ -15,10 +15,10 @@ public sealed class ContentNamingTests
                 "sand", "sandstone", "saxifrage", "sedge", "shell", "shrub", "snow", "spike",
                 "starflower", "stone", "stonecrop", "terracotta", "thistle", "thorn", "thornbush",
                 "tiles", "tuft", "yucca"],
-            ["objects"] = ["anemone", "aster", "bloom", "bulrush", "cattail", "clover", "daisy",
+            ["objects"] = ["anemone", "aster", "bloom", "bulrush", "cattail", "clover", "crystal", "daisy",
                 "fern", "fungus", "grass", "iris", "kelp", "mushroom", "orchid", "pad", "pebble",
                 "reed", "roots", "sagebrush", "sapling", "seagrass", "seashell", "seedheads",
-                "starfish", "stick", "vines", "wildflower"],
+                "starfish", "stick", "torchflower", "vines", "wildflower"],
             ["items"] = ["boots", "chestplate", "essence", "fiber", "helmet", "leggings", "ore",
                 "pebble", "slicer", "spores", "stick"],
             ["tools"] = ["axe", "brush", "bucket", "compass", "hatchet", "kit", "pickaxe",
@@ -111,8 +111,8 @@ public sealed class ContentNamingTests
                     variant.GetProperty("family").GetString());
             checkedDefinitions++;
         }
-        Assert.True(checkedDefinitions >= 6 * 36,
-            "All 36 fantasy tree families must have their authored block variants.");
+        Assert.True(checkedDefinitions == 12,
+            "Only the retained Oak and Willow families should have tree block variants.");
     }
 
     [Fact]

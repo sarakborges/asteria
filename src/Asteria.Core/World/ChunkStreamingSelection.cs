@@ -3,6 +3,8 @@ namespace Asteria.Core.World;
 public static class ChunkStreamingSelection
 {
     public const int InitialLoadingRadiusChunks = 2;
+    public const int DefaultSimulationDistanceChunks = 2;
+    public const int MaximumSimulationDistanceChunks = ChunkLevel.EntityTicking - 1;
 
     private const int SurfacePaddingBelowChunks = 2;
     private const int SurfacePaddingAboveChunks = 1;
@@ -37,9 +39,6 @@ public static class ChunkStreamingSelection
             Math.Max(
                 1,
                 horizontalRadius);
-        var radiusSquared =
-            radius *
-            radius;
         var desired =
             DesiredPlayerLocalChunks(
                 center,
@@ -53,13 +52,6 @@ public static class ChunkStreamingSelection
                  dx <= radius;
                  dx++)
             {
-                if (dx * dx +
-                        dz * dz >
-                    radiusSquared)
-                {
-                    continue;
-                }
-
                 var chunkX =
                     checked(
                         center.X +
@@ -143,9 +135,6 @@ public static class ChunkStreamingSelection
             Math.Max(
                 1,
                 horizontalRadius);
-        var radiusSquared =
-            radius *
-            radius;
         var desired =
             new HashSet<ChunkCoord>();
         var minimumLocal =
@@ -167,10 +156,7 @@ public static class ChunkStreamingSelection
                  dx <= radius;
                  dx++)
             {
-                if (dx * dx +
-                        dz * dz >
-                    radiusSquared ||
-                    Math.Abs(dx) >
+                if (Math.Abs(dx) >
                         PlayerLocalHorizontalRadiusChunks ||
                     Math.Abs(dz) >
                         PlayerLocalHorizontalRadiusChunks)
@@ -299,7 +285,6 @@ public sealed class ChunkPresentationSelection
     {
         var dx = (long)coord.X - center.X;
         var dz = (long)coord.Z - center.Z;
-        return dx * dx + dz * dz <=
-               (long)radius * radius;
+        return Math.Max(Math.Abs(dx), Math.Abs(dz)) <= radius;
     }
 }

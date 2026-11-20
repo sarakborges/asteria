@@ -52,6 +52,18 @@ public sealed class DimensionSessionState
 
     public VoxelWorld World { get; }
 
+    /// <summary>
+    /// Persistent chunk tickets owned by this Sphere. Runtime-only player and
+    /// transient tickets are reconstructed when its streaming session starts.
+    /// </summary>
+    public PersistentChunkTicketSnapshot PersistentChunkTickets { get; private set; } =
+        PersistentChunkTicketSnapshot.Empty;
+
+    public void SetPersistentChunkTickets(
+        PersistentChunkTicketSnapshot snapshot) =>
+        PersistentChunkTickets = snapshot ??
+            throw new ArgumentNullException(nameof(snapshot));
+
     /// <summary>Committed manual structures remain Sphere-isolated across
     /// archive/retirement. Like World, the owner survives session recreation.</summary>
     public ManualStructurePlacementLedger ManualStructures { get; } = new();

@@ -7,7 +7,7 @@ public sealed class TreeMaterialContentTests
 {
     [Theory]
     [InlineData("log_oak", "oak")]
-    [InlineData("log_willow", "oak")]
+    [InlineData("log_willow", "willow")]
     public void CarpenterStripsEveryAuthoredWoodFamilyInEveryOrientation(
         string stem, string material)
     {

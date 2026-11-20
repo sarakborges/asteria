@@ -217,7 +217,7 @@ public sealed class GameplaySessionFileCodecTests
         var saved = GameplaySessionSaveCodec.Capture(states,
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
         var data = Encode(saved, content);
-        Assert.Equal((byte)7, data[4]);
+        Assert.Equal((byte)9, data[4]);
         var restored = GameplaySessionSaveCodec.Restore(
             creation, Dimensions(), Decode(data, content),
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
@@ -302,6 +302,50 @@ public sealed class GameplaySessionFileCodecTests
         Assert.Equal(0, restoredDrops.CollectNearby(
             new Vector3(4, 6, 4), 2f,
             loaded.Player.Inventory.TryInsert));
+    }
+
+    [Fact]
+    public void PersistentTicketSectionTargetsRoundTripThroughGameplaySave()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions("Ticket targets", 781UL);
+        var states = new DimensionSessionStateStore(creation, Dimensions());
+        var sphere = states.GetOrCreate(DimensionId.Overworld);
+        var portal = new ChunkTicket(
+            ChunkTicketType.Portal, Level: 30, SectionY: 12);
+        sphere.SetPersistentChunkTickets(new PersistentChunkTicketSnapshot([
+            new PersistentChunkTicketSnapshotEntry(
+                new ChunkColumnCoord(4, -9), portal, 210UL),
+        ]));
+
+        var encoded = Encode(GameplaySessionSaveCodec.Capture(states,
+            content.Blocks, content.Fluids, content.Dyes, content.Layers), content);
+        var decoded = Decode(encoded, content);
+        var restored = Assert.Single(
+            decoded.Spheres.Single().PersistentChunkTickets.Entries);
+
+        Assert.Equal(new ChunkColumnCoord(4, -9), restored.Column);
+        Assert.Equal(12, restored.Ticket.SectionY);
+        Assert.Equal(210UL, restored.RemainingTicks);
+    }
+
+    [Fact]
+    public void LegacyV7WithoutPersistentTicketExtensionLoadsWithEmptyTicketState()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions("Legacy V7", 779UL);
+        var states = new DimensionSessionStateStore(creation, Dimensions());
+        states.GetOrCreate(DimensionId.Overworld);
+        var encoded = Encode(GameplaySessionSaveCodec.Capture(states,
+            content.Blocks, content.Fluids, content.Dyes, content.Layers), content);
+
+        // v8 has no trailing extension when no Sphere owns a persistent ticket,
+        // so this is byte-for-byte the old v7 layout except for its version tag.
+        encoded[4] = 7;
+        encoded[5] = 0;
+        var decoded = Decode(encoded, content);
+
+        Assert.Empty(decoded.Spheres.Single().PersistentChunkTickets.Entries);
     }
 
     [Fact]

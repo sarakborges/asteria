@@ -206,6 +206,100 @@ public sealed class GeneratedSurfaceFluidTests
     }
 
     [Fact]
+    public void ResolvedColumnFluidPolicyMatchesDirectVoxelQueries()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition("asteria:stone"),
+            ]);
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:water",
+                    new FluidColor(0, 96, 255),
+                    0.7f),
+            ]);
+        var biome =
+            new BiomeDefinition(
+                "asteria:test/swamp",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    0f, 0f, 64, 0f, 32),
+                [
+                    new BiomeSurfaceLayerDefinition("asteria:stone"),
+                ]);
+        var dimension =
+            new DimensionDefinition(
+                new DimensionId("asteria:test"),
+                [biome.Id],
+                32,
+                18f,
+                new DimensionSpawnDefinition(0, 0),
+                new DimensionEnvironmentDefinition(
+                    new DimensionColor(0, 0, 0),
+                    new DimensionColor(255, 255, 255),
+                    1f,
+                    new DimensionColor(0, 0, 0),
+                    0f),
+                generatedSurfaceFluids:
+                [
+                    new DimensionGeneratedSurfaceFluidDefinition(
+                        biome.Id,
+                        "asteria:water",
+                        spacing: 16,
+                        radius: 8,
+                        jitter: 0,
+                        chance: 1f,
+                        depth: 2),
+                ]);
+        var field = new GeneratedFluidField(
+            77UL, dimension, fluids, [biome]);
+        var sample = new BiomeSample(
+            biome.Id,
+            [new BiomeInfluence(biome.Id, 1f, 1f)]);
+        const int worldX = 8;
+        const int worldZ = 8;
+        const int baseY = 30;
+        var cutDepth = field.SurfaceCutDepthAt(sample, worldX, worldZ);
+
+        Assert.True(field.TryResolveColumn(
+            sample,
+            baseY,
+            cutDepth,
+            worldX,
+            worldZ,
+            out var plan,
+            out var minimumY,
+            out var maximumY));
+        Assert.Equal(baseY + 1, minimumY);
+        Assert.Equal(baseY + cutDepth, maximumY);
+
+        for (var worldY = 0; worldY <= 40; worldY++)
+        {
+            var direct = field.FluidAt(
+                sample,
+                baseY,
+                cutDepth,
+                worldX,
+                worldY,
+                worldZ,
+                terrainDensity: -1d);
+            var resolved = field.FluidAtResolvedColumn(
+                plan,
+                baseY,
+                cutDepth,
+                worldY,
+                terrainSolid: false);
+            Assert.Equal(direct, resolved);
+        }
+
+        Assert.True(field.FluidAtResolvedColumn(
+            plan, baseY, cutDepth, baseY + 1, terrainSolid: true).IsEmpty);
+    }
+
+    [Fact]
     public void DefaultOverworldUsesTerrainDrivenSurfaceFluids()
     {
         var dimensions =

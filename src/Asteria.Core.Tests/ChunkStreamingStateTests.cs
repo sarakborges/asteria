@@ -41,7 +41,7 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
-    public void DesiredSelectionUsesCircularHorizontalRadius()
+    public void DesiredSelectionUsesSquareHorizontalRadius()
     {
         var desired =
             ChunkStreamingSelection.DesiredSurfaceChunks(
@@ -58,7 +58,7 @@ public sealed class ChunkStreamingStateTests
         Assert.Contains(
             new ChunkCoord(0, 1, 2),
             desired);
-        Assert.DoesNotContain(
+        Assert.Contains(
             new ChunkCoord(2, 0, 2),
             desired);
     }
@@ -161,6 +161,50 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void HolderQueuePriorityChangesArePublishedForSpatialAndTicketUpdates()
+    {
+        var manager = new ChunkDistanceManager();
+        var column = new ChunkColumnCoord(3, -2);
+        Assert.True(manager.AddPlayerLoadingTicket(column));
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+        Assert.True(manager.RunDistanceUpdates(int.MaxValue) > 0);
+        var holder = Assert.IsType<ChunkHolder>(manager.GetHolder(column));
+        var changes = new List<ChunkHolderQueuePriorityChange>();
+        manager.HolderQueuePriorityChanged += changes.Add;
+
+        var spatialPriority = new ChunkGenerationTaskPriority(
+            holder.TicketLevel,
+            HorizontalDistanceSquared: 9,
+            TotalDistanceSquared: 9,
+            CoordinateY: 0,
+            CoordinateZ: column.Z,
+            CoordinateX: column.X);
+        Assert.True(manager.UpdateQueuePriority(column, spatialPriority));
+        Assert.False(manager.UpdateQueuePriority(column, spatialPriority));
+
+        var spatialChange = Assert.Single(changes);
+        Assert.Same(holder, spatialChange.Holder);
+        Assert.Equal(spatialPriority, spatialChange.Priority);
+        Assert.Equal(holder.QueuePriorityRevision, spatialChange.Revision);
+        Assert.True(spatialChange.Revision > 1);
+
+        Assert.True(manager.RemovePlayerLoadingTicket(column));
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+        Assert.True(manager.RunDistanceUpdates(int.MaxValue) > 0);
+
+        var holderChanges = changes
+            .Where(change => ReferenceEquals(change.Holder, holder))
+            .ToArray();
+        Assert.Equal(2, holderChanges.Length);
+        var ticketChange = holderChanges[1];
+        Assert.Equal(ChunkLevel.Unloaded, ticketChange.Priority.TicketLevel);
+        Assert.Equal(ticketChange.Priority, holder.QueuePriority);
+        Assert.Equal(holder.QueuePriorityRevision, ticketChange.Revision);
+        Assert.Equal(spatialPriority.HorizontalDistanceSquared,
+            ticketChange.Priority.HorizontalDistanceSquared);
+    }
+
+    [Fact]
     public void PressuredPendingSelectionKeepsDistantWorkQueued()
     {
         var state = new ChunkStreamingState();
@@ -178,6 +222,291 @@ public sealed class ChunkStreamingStateTests
             maximumHorizontalDistanceSquared: 4));
         Assert.Equal(1, state.PendingCount);
         Assert.Equal(far, state.PopPendingByPriority());
+        Assert.Equal(0, state.PendingCount);
+    }
+
+    [Fact]
+    public void PendingColumnDispatchGroupsVerticalSectionsInPriorityOrder()
+    {
+        var state = new ChunkStreamingState();
+        var lower = new ChunkCoord(1, 0, 0);
+        var upper = new ChunkCoord(1, 1, 0);
+        var otherColumn = new ChunkCoord(0, 0, 1);
+        var desired = new HashSet<ChunkCoord>
+        {
+            upper,
+            otherColumn,
+            lower,
+        };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var first = state.PopPendingColumnEntryByPriority();
+
+        Assert.NotNull(first);
+        Assert.Equal(new ChunkColumnCoord(1, 0), first.Value.Column);
+        Assert.Equal(
+            new[] { lower, upper },
+            first.Value.Sections.Select(section => section.Coord));
+        Assert.Equal(1, state.PendingCount);
+        Assert.Equal(1, state.PendingColumnCount);
+
+        var second = state.PopPendingColumnEntryByPriority();
+
+        Assert.NotNull(second);
+        Assert.Equal(new ChunkColumnCoord(0, 1), second.Value.Column);
+        Assert.Equal(
+            new[] { otherColumn },
+            second.Value.Sections.Select(section => section.Coord));
+        Assert.Equal(0, state.PendingCount);
+        Assert.Equal(0, state.PendingColumnCount);
+    }
+
+    [Fact]
+    public void PendingColumnDispatchCanBeBoundedWithoutSplittingColumnIdentity()
+    {
+        var state = new ChunkStreamingState();
+        var lower = new ChunkCoord(1, 0, 0);
+        var upper = new ChunkCoord(1, 1, 0);
+        var column = new ChunkColumnCoord(1, 0);
+        var desired = new HashSet<ChunkCoord> { upper, lower };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var first = state.PopPendingColumnEntryByPriority(maximumSections: 1);
+
+        Assert.NotNull(first);
+        Assert.Equal(column, first.Value.Column);
+        Assert.Single(first.Value.Sections);
+        Assert.Equal(1, state.PendingCount);
+        Assert.Equal(1, state.PendingColumnCount);
+
+        var second = state.PopPendingColumnEntryByPriority(maximumSections: 1);
+
+        Assert.NotNull(second);
+        Assert.Equal(column, second.Value.Column);
+        Assert.Single(second.Value.Sections);
+        Assert.NotEqual(
+            first.Value.Sections[0].Coord,
+            second.Value.Sections[0].Coord);
+        Assert.Equal(0, state.PendingCount);
+        Assert.Equal(0, state.PendingColumnCount);
+    }
+
+    [Fact]
+    public void PendingColumnDispatchRejectsNonPositiveSectionBatchSize()
+    {
+        var state = new ChunkStreamingState();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => state.PopPendingColumnEntryByPriority(maximumSections: 0));
+    }
+
+    [Fact]
+    public void PendingColumnPriorityUsesTicketDistanceAndStableCoordinateTies()
+    {
+        var state = new ChunkStreamingState();
+        var forward = new ChunkCoord(4, 0, 0);
+        var behind = new ChunkCoord(-2, 0, 0);
+        var desired = new HashSet<ChunkCoord> { forward, behind };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 5,
+            retentionRadius: 6,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        state.RebuildSelection(
+            new ChunkCoord(1, 0, 0),
+            horizontalRadius: 5,
+            retentionRadius: 6,
+            desired);
+
+        // Both columns are three Chebyshev rings from the new center.
+        // The ticket/distance queue resolves this equal-priority tie by X/Z,
+        // not by a directional prefetch corridor.
+        Assert.Equal(behind, state.PopPendingByPriority());
+        Assert.Equal(forward, state.PopPendingByPriority());
+    }
+
+    [Fact]
+    public void PendingColumnsUseAuthoritativeHolderTicketLevelsAndReprioritizeOnChange()
+    {
+        var near = new ChunkCoord(1, 0, 0);
+        var forcedFar = new ChunkCoord(8, 0, 0);
+        var desired = new HashSet<ChunkCoord> { near, forcedFar };
+
+        var withoutTicket = new ChunkStreamingState();
+        withoutTicket.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 10,
+            retentionRadius: 0,
+            desired);
+        withoutTicket.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+        Assert.Equal(near, withoutTicket.PopPendingByPriority());
+
+        var withTicket = new ChunkStreamingState();
+        withTicket.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 10,
+            retentionRadius: 0,
+            desired);
+        withTicket.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var ticket = new ChunkTicket(
+            ChunkTicketType.Forced, Level: 30, SectionY: forcedFar.Y);
+        Assert.True(withTicket.DistanceManager.AddTicket(
+            ChunkColumnCoord.FromChunk(forcedFar), ticket, currentTick: 0));
+        Assert.True(withTicket.DistanceManager.RunDistanceUpdates(int.MaxValue) > 0);
+
+        Assert.Equal(forcedFar, withTicket.PopPendingByPriority());
+    }
+
+    [Fact]
+    public void SimulationGraphSettlesBeforeBoundedLoadingPropagation()
+    {
+        var manager = new ChunkDistanceManager();
+        var loadingColumn = new ChunkColumnCoord(0, 0);
+        var simulationColumn = new ChunkColumnCoord(100, -100);
+
+        Assert.True(manager.AddPlayerLoadingTicket(loadingColumn));
+        Assert.True(manager.AddTicket(
+            simulationColumn,
+            new ChunkTicket(
+                ChunkTicketType.PlayerSimulation,
+                ChunkLevel.EntityTicking),
+            currentTick: 0));
+
+        Assert.Equal(1, manager.RunDistanceUpdates(1));
+        Assert.Equal(
+            ChunkLevel.EntityTicking,
+            manager.GetSimulationLevel(simulationColumn));
+        Assert.Equal(0, manager.SimulationTracker.PendingUpdateCount);
+        Assert.True(manager.LoadingTracker.PendingUpdateCount > 0);
+
+        Assert.Equal(1, manager.RunDistanceUpdates(1));
+        Assert.Equal(0, manager.SimulationTracker.PendingUpdateCount);
+        Assert.True(manager.LoadingTracker.PendingUpdateCount > 0);
+    }
+
+    [Fact]
+    public void EqualPriorityDistanceUpdatesPreserveFifoEnqueueOrder()
+    {
+        var tracker = new ChunkDistanceTracker();
+        var tickets = new ChunkTicketStorage();
+        var source = new ChunkColumnCoord(0, 0);
+        tracker.Rebuild(
+            tickets,
+            ChunkTicketFlags.Loading,
+            ChunkLevel.MaximumLoading);
+
+        tracker.EnqueueSourceChanges(
+            [new KeyValuePair<ChunkColumnCoord, int>(
+                source, ChunkLevel.EntityTicking)],
+            ChunkLevel.MaximumLoading);
+
+        var sourceUpdate = tracker.RunUpdates(1);
+        Assert.Equal(1, sourceUpdate.ProcessedUpdates);
+        Assert.Equal(source, Assert.Single(sourceUpdate.Changes).Column);
+
+        var neighborUpdate = tracker.RunUpdates(1);
+        Assert.Equal(1, neighborUpdate.ProcessedUpdates);
+        Assert.Equal(
+            new ChunkColumnCoord(-1, -1),
+            Assert.Single(neighborUpdate.Changes).Column);
+    }
+
+    [Fact]
+    public void TicketDistancePropagationRespectsNodeBudgetAndConvergesToFullRebuild()
+    {
+        var manager = new ChunkDistanceManager();
+        var center = new ChunkColumnCoord(0, 0);
+        var neighbor = new ChunkColumnCoord(1, 0);
+        Assert.True(manager.AddPlayerLoadingTicket(center));
+
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+        Assert.Equal(1, manager.RunDistanceUpdates(1));
+        Assert.Equal(ChunkLevel.EntityTicking, manager.GetLoadingLevel(center));
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+
+        DrainDistanceUpdates(manager, maximumBatch: 128);
+        var expected = new ChunkDistanceTracker();
+        expected.Rebuild(
+            manager.Tickets,
+            ChunkTicketFlags.Loading,
+            ChunkLevel.MaximumLoading);
+        Assert.Equal(
+            expected.Levels.OrderBy(entry => entry.Key.X).ThenBy(entry => entry.Key.Z),
+            manager.LoadingTracker.Levels.OrderBy(entry => entry.Key.X).ThenBy(entry => entry.Key.Z));
+        Assert.Equal(ChunkLevel.EntityTicking + 1, manager.GetLoadingLevel(neighbor));
+
+        Assert.True(manager.RemovePlayerLoadingTicket(center));
+        Assert.True(manager.PendingDistanceUpdateCount > 0);
+        Assert.Equal(ChunkLevel.EntityTicking, manager.GetLoadingLevel(center));
+
+        DrainDistanceUpdates(manager, maximumBatch: 128);
+        Assert.Empty(manager.LoadingTracker.Levels);
+    }
+
+    private static void DrainDistanceUpdates(
+        ChunkDistanceManager manager,
+        int maximumBatch)
+    {
+        var processed = 0;
+        while (manager.PendingDistanceUpdateCount > 0 && processed < 100_000)
+            processed += manager.RunDistanceUpdates(maximumBatch);
+
+        Assert.Equal(0, manager.PendingDistanceUpdateCount);
+    }
+
+    [Fact]
+    public void PendingDispatchPreservesOriginalQueueTimestamp()
+    {
+        var state = new ChunkStreamingState();
+        var coord = new ChunkCoord(1, 0, 0);
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired: new HashSet<ChunkCoord> { coord });
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var first = state.PopPendingEntryByPriority();
+        Assert.NotNull(first);
+        Assert.Equal(coord, first.Value.Coord);
+        Assert.InRange(
+            first.Value.EnqueuedTimestamp,
+            1L,
+            System.Diagnostics.Stopwatch.GetTimestamp());
+
+        state.EnqueuePending(coord, first.Value.EnqueuedTimestamp);
+        var requeued = state.PopPendingEntryByPriority();
+
+        Assert.NotNull(requeued);
+        Assert.Equal(first.Value.EnqueuedTimestamp, requeued.Value.EnqueuedTimestamp);
         Assert.Equal(0, state.PendingCount);
     }
 
@@ -221,9 +550,10 @@ public sealed class ChunkStreamingStateTests
     {
         var provider =
             new BlockingSurfaceRangeProvider();
+        using var workerPool = new WorldWorkerPool(workerCount: 1);
         var runtime =
             new ChunkStreamingSelectionRuntime(
-                provider);
+                provider, workerPool);
         var callerThread =
             Environment.CurrentManagedThreadId;
 
@@ -320,7 +650,7 @@ public sealed class ChunkStreamingStateTests
                 window);
 
         Assert.Equal(
-            13,
+            25,
             firstCalls);
         Assert.True(
             source.CallCount <
@@ -368,22 +698,92 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
-    public void LoadPriorityFavorsMovementDirectionAfterDistance()
+    public void StreamingPriorityUsesTicketLevelThenHorizontalDistance()
     {
         var center = ChunkCoord.Zero;
-        var movement =
-            new ChunkMovementDirection(1, 0);
 
-        var forward = ChunkStreamingState.Priority(
-            new ChunkCoord(2, 0, 0),
-            center,
-            movement);
-        var backward = ChunkStreamingState.Priority(
-            new ChunkCoord(-2, 0, 0),
-            center,
-            movement);
+        var localBehind = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(-1, 0, 0), center);
+        var forward = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(4, 0, 0), center);
+        var lateral = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(0, 0, 3), center);
+        var behind = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(-4, 0, 0), center);
+        var outsideCorridor = ChunkStreamingState.StreamingPriority(
+            new ChunkCoord(3, 0, 4), center);
 
-        Assert.True(forward.CompareTo(backward) < 0);
+        Assert.True(localBehind.CompareTo(lateral) < 0);
+        Assert.True(lateral.CompareTo(behind) < 0);
+        Assert.True(behind.CompareTo(forward) < 0);
+        Assert.True(forward.CompareTo(outsideCorridor) < 0);
+    }
+
+    [Fact]
+    public void TicketedResidentChunkIsKeptLoadedWithoutPresentationDemand()
+    {
+        var state = new ChunkStreamingState();
+        var ticketed = new ChunkCoord(24, 6, -17);
+        Assert.True(state.SyncTicketedSections(
+            [ticketed], Array.Empty<ChunkCoord>()));
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord>());
+        state.SyncResidentState([ticketed], Array.Empty<ChunkCoord>());
+
+        Assert.True(state.KeepsLoaded(ticketed));
+        Assert.True(state.IsTicketDemanded(ticketed));
+        Assert.False(state.IsDesired(ticketed));
+        Assert.Equal(0, state.PendingCount);
+        Assert.Equal(0, state.PresentationPendingCount);
+        Assert.Null(state.PopPresentationByPriority(
+            new ChunkPresentationSelection(), static _ => true));
+    }
+
+    [Fact]
+    public void TicketedWorkDoesNotInflatePlayerBootstrapPendingCounts()
+    {
+        var state = new ChunkStreamingState();
+        var playerSection = new ChunkCoord(1, 0, 0);
+        var ticketedSection = new ChunkCoord(24, 6, -17);
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord> { playerSection });
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+        state.SyncTicketedSections(
+            [ticketedSection],
+            Array.Empty<ChunkCoord>());
+
+        Assert.Equal(2, state.PendingCount);
+        Assert.Equal(1, state.DesiredPendingCount);
+        Assert.Equal(0, state.DesiredMaterializingCount);
+
+        state.MarkMaterializing(playerSection);
+
+        Assert.Equal(1, state.PendingCount);
+        Assert.Equal(0, state.DesiredPendingCount);
+        Assert.Equal(1, state.DesiredMaterializingCount);
+        Assert.True(state.KeepsLoaded(ticketedSection));
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            desired: new HashSet<ChunkCoord>
+            {
+                playerSection,
+                ticketedSection,
+            });
+
+        Assert.Equal(1, state.DesiredPendingCount);
+        Assert.Equal(1, state.DesiredMaterializingCount);
     }
 
     [Fact]
@@ -625,4 +1025,67 @@ public sealed class ChunkStreamingStateTests
             int chunkZ) =>
             range;
     }
+
+
+    [Fact]
+    public void LightingInterestIncludesDesiredColumnsAndTheirHorizontalNeighborColumns()
+    {
+        var state = new ChunkStreamingState();
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { ChunkCoord.Zero });
+
+        Assert.True(state.IsLightingRelevant(ChunkCoord.Zero));
+        Assert.True(state.IsLightingRelevant(new ChunkCoord(1, 0, 0)));
+        Assert.True(state.IsLightingRelevant(new ChunkCoord(0, 100, 0)));
+        Assert.False(state.IsLightingRelevant(new ChunkCoord(2, 0, 0)));
+    }
+    [Fact]
+    public void PendingColumnsFollowHolderPriorityWhenPlayerMoves()
+    {
+        var state = new ChunkStreamingState();
+        var near = new ChunkCoord(1, 0, 0);
+        var far = new ChunkCoord(3, 0, 0);
+        var desired = new HashSet<ChunkCoord> { near, far };
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 4,
+            retentionRadius: 5,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        var distanceManager = state.DistanceManager;
+        Assert.True(distanceManager.AddPlayerLoadingTicket(
+            ChunkColumnCoord.FromChunk(near)));
+        Assert.True(distanceManager.AddPlayerLoadingTicket(
+            ChunkColumnCoord.FromChunk(far)));
+        distanceManager.RunDistanceUpdates(int.MaxValue);
+
+        var nearHolder = Assert.IsType<ChunkHolder>(
+            distanceManager.GetHolder(ChunkColumnCoord.FromChunk(near)));
+        var farHolder = Assert.IsType<ChunkHolder>(
+            distanceManager.GetHolder(ChunkColumnCoord.FromChunk(far)));
+        Assert.True(nearHolder.HasQueuePriorityContext);
+        Assert.True(farHolder.HasQueuePriorityContext);
+        Assert.Equal(1, nearHolder.QueuePriority.HorizontalDistanceSquared);
+        Assert.Equal(9, farHolder.QueuePriority.HorizontalDistanceSquared);
+        Assert.Equal(near, state.PopPendingByPriority());
+
+        state.EnqueuePending(near);
+        state.RebuildSelection(
+            new ChunkCoord(3, 0, 0),
+            horizontalRadius: 4,
+            retentionRadius: 5,
+            desired);
+
+        Assert.Equal(4, nearHolder.QueuePriority.HorizontalDistanceSquared);
+        Assert.Equal(0, farHolder.QueuePriority.HorizontalDistanceSquared);
+        Assert.Equal(far, state.PopPendingByPriority());
+        Assert.Equal(near, state.PopPendingByPriority());
+    }
+
 }

@@ -78,29 +78,6 @@
   },
   "decorations": [
     {
-      "block": "asteria:grass_dune",
-      "chance": 0.0276,
-      "surfaceBlocks": [
-        "asteria:sand"
-      ],
-      "habitatWeights": {
-        "open_dunes": 0.28,
-        "sand_flats": 2.25,
-        "sandstone_outcrops": 0.65
-      },
-      "cluster": {
-        "scale": 32,
-        "threshold": -0.21,
-        "octaves": 4,
-        "transitionWidth": 0.16
-      },
-      "conditions": {
-        "minY": 78,
-        "maxY": 125,
-        "maxSlope": 2.5
-      }
-    },
-    {
       "block": "asteria:thornbush",
       "chance": 0.0192,
       "surfaceBlocks": [
@@ -120,29 +97,6 @@
       "conditions": {
         "minY": 80,
         "maxY": 127,
-        "maxSlope": 3
-      }
-    },
-    {
-      "block": "asteria:yucca",
-      "chance": 0.0126,
-      "surfaceBlocks": [
-        "asteria:sand"
-      ],
-      "habitatWeights": {
-        "open_dunes": 0,
-        "sand_flats": 0.3,
-        "sandstone_outcrops": 2.3
-      },
-      "cluster": {
-        "scale": 46,
-        "threshold": -0.14,
-        "octaves": 3,
-        "transitionWidth": 0.18
-      },
-      "conditions": {
-        "minY": 82,
-        "maxY": 128,
         "maxSlope": 3
       }
     },

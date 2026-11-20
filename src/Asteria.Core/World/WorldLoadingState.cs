@@ -3,11 +3,12 @@ namespace Asteria.Core.World;
 public enum WorldLoadingPhase : byte
 {
     Inactive = 0,
-    RetiringCurrentDimension = 1,
-    MaterializingInitialArea = 2,
-    PreparingPresentation = 3,
-    Ready = 4,
-    PreparingArrivalStructure = 5,
+    PreparingEntry = 1,
+    RetiringCurrentDimension = 2,
+    MaterializingInitialArea = 3,
+    PreparingPresentation = 4,
+    Ready = 5,
+    PreparingArrivalStructure = 6,
 }
 
 public readonly record struct WorldLoadingProgress(
@@ -28,6 +29,7 @@ public readonly record struct WorldLoadingProgress(
 public readonly record struct WorldLoadingReadiness(
     bool ResidencySettled,
     bool SelectionSettled,
+    bool LightingSettled,
     bool TerrainMeshWorkSettled,
     bool TerrainPublicationsSettled,
     bool FluidMeshWorkSettled,
@@ -37,6 +39,7 @@ public readonly record struct WorldLoadingReadiness(
     public bool IsSettled =>
         ResidencySettled &&
         SelectionSettled &&
+        LightingSettled &&
         TerrainMeshWorkSettled &&
         TerrainPublicationsSettled &&
         FluidMeshWorkSettled &&
@@ -59,6 +62,7 @@ public sealed class WorldLoadingState
 
     public bool IsActive =>
         _progress.Phase is
+            WorldLoadingPhase.PreparingEntry or
             WorldLoadingPhase.RetiringCurrentDimension or
             WorldLoadingPhase.MaterializingInitialArea or
             WorldLoadingPhase.PreparingPresentation or
@@ -67,13 +71,44 @@ public sealed class WorldLoadingState
     // Seam reconciliation is derived from chunk residency. During the initial
     // bootstrap, let the selected chunks finish materializing before dispatching
     // that work so snapshots do not repeatedly go stale as neighbors arrive.
-    public bool AllowsMeshDispatch() =>
-        _progress.Phase != WorldLoadingPhase.RetiringCurrentDimension;
+    public bool AllowsLightingDispatch =>
+        _progress.Phase is not (
+            WorldLoadingPhase.PreparingEntry or
+            WorldLoadingPhase.RetiringCurrentDimension or
+            WorldLoadingPhase.MaterializingInitialArea);
+
+    // Visible terrain may begin meshing as soon as its own chunk is resident.
+    // Meshlet dependency stamps reject/requeue any result invalidated by later
+    // lighting or neighbor changes; background work remains behind the global
+    // bootstrap-lighting barrier to avoid wasting CPU on distant geometry.
+    public bool AllowsPriorityMeshDispatch =>
+        _progress.Phase is not (
+            WorldLoadingPhase.PreparingEntry or
+            WorldLoadingPhase.RetiringCurrentDimension);
+
+    public bool AllowsBackgroundMeshDispatch(bool lightingSettled) =>
+        _progress.Phase switch
+        {
+            WorldLoadingPhase.PreparingEntry or
+                WorldLoadingPhase.RetiringCurrentDimension => false,
+            WorldLoadingPhase.MaterializingInitialArea or
+                WorldLoadingPhase.PreparingPresentation or
+                WorldLoadingPhase.PreparingArrivalStructure or
+                WorldLoadingPhase.Ready => lightingSettled,
+            _ => true,
+        };
 
     public ChunkCoord Center { get; private set; }
 
     public WorldLoadingProgress Progress =>
         _progress;
+
+    public void BeginEntryPreparation()
+    {
+        Center = default;
+        _progress = new WorldLoadingProgress(
+            WorldLoadingPhase.PreparingEntry, 0, 0);
+    }
 
     public void BeginRetirement()
     {

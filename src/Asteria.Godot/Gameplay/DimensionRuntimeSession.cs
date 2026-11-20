@@ -10,16 +10,14 @@ namespace Asteria.Client.Gameplay;
 
 public sealed record DimensionRuntimeSessionSettings(
     int RetentionMarginChunks,
-    int MaxMaterializationTasksInFlight,
-    int MaxMaterializationDispatchesPerFrame,
-    int MaxMaterializationResultsPerFrame,
+    int MaxConcurrentWorldJobs,
     int MaxPresentationPublicationsPerFrame,
     int MaxInteractiveTerrainMeshletsPerWorker,
     int MaxTerrainMeshletsPerWorker,
     int MaxFluidMeshletsPerWorker,
-    int MaxFluidMeshWorkers,
     int MaxFluidUpdatesPerWorker,
-    int MaxChunkEvictionsPerFrame);
+    int MaxChunkEvictionsPerFrame,
+    int SimulationDistanceChunks = ChunkStreamingSelection.DefaultSimulationDistanceChunks);
 
 public sealed record DimensionRetirementDrainReport(
     ChunkResidencyUpdate Materialization,
@@ -41,7 +39,12 @@ public sealed class DimensionRuntimeSession
     private const int SelectedSpawnBiomeSearchRadiusBlocks = 4096;
 
     private readonly DimensionSessionState _state;
+    private readonly WorldWorkerPool _worldWorkerPool;
     private NVector3 _initialPlayerPosition;
+    private WorldWorkerOperation<NVector3>? _initialPositionResolution;
+    private Func<NVector3>? _pendingInitialPositionResolver;
+    private CancellationTokenSource? _initialPositionCancellation;
+    private bool _initialPlayerPositionReady;
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly CreaturePresentationController _creaturePresentation;
@@ -81,6 +84,7 @@ public sealed class DimensionRuntimeSession
         VoxelTerrainMaterialSet terrainMaterials,
         FluidMaterialCatalog fluidMaterials,
         DimensionRuntimeSessionSettings settings,
+        WorldWorkerPool workerPool,
         Func<string, WorldVoxelCoord, bool>? allowBlockBreak = null)
     {
         ArgumentNullException.ThrowIfNull(
@@ -139,6 +143,8 @@ public sealed class DimensionRuntimeSession
             settings ??
             throw new ArgumentNullException(
                 nameof(settings));
+        _worldWorkerPool = workerPool ??
+            throw new ArgumentNullException(nameof(workerPool));
 
         Root =
             new Node3D
@@ -206,9 +212,15 @@ public sealed class DimensionRuntimeSession
         _naturalSpawns =
             new CreatureNaturalSpawnRuntime(
                 creatures, biomes, state.NaturalSpawnNextAttemptTick);
-        _initialPlayerPosition =
-            state.PlayerPosition ??
-            ResolveGeneratedSpawn();
+        if (state.PlayerPosition is { } savedPlayerPosition)
+        {
+            _initialPlayerPosition = savedPlayerPosition;
+            _initialPlayerPositionReady = true;
+        }
+        else
+        {
+            _initialPlayerPositionReady = false;
+        }
         _droppedBlocks =
             new DroppedBlockRuntime(
                 World,
@@ -227,7 +239,8 @@ public sealed class DimensionRuntimeSession
         Mutations.ConfigureObjectDetachment(
             new ObjectDetachmentRuntime(World, objects, _droppedBlocks, fluids,
                 _inventoryCatalog, () => WorldTicks.CurrentTick));
-_saplings = new SaplingGrowthRuntime(
+        Mutations.ConfigureObjectLighting(objects);
+        _saplings = new SaplingGrowthRuntime(
             World, Mutations, blocks, objects, structures,
             state.DimensionSeed, WorldTicks.CurrentTick);
         var storageBoxLifecycle = new StorageBoxBlockLifecycle(
@@ -237,7 +250,12 @@ _saplings = new SaplingGrowthRuntime(
             new ManualStructurePlacementRuntime(
                 Generator, World, Mutations, blocks, structures, structureSets,
                 state.ManualStructures);
-FluidSimulation =
+        var lightingIntegration =
+            new LightingResultIntegrator(
+                World,
+                WorldUpdates,
+                FluidMeshUpdates);
+        FluidSimulation =
             new FluidSimulationRuntime(
                 World,
                 fluids,
@@ -245,8 +263,18 @@ FluidSimulation =
                 Mutations,
                 WorldTicks,
                 state.GameRules,
-                settings.MaxFluidUpdatesPerWorker);
-_blockPhysics =
+                settings.MaxFluidUpdatesPerWorker,
+                workerPool);
+        Lighting =
+            new LightingRuntime(
+                World,
+                blocks,
+                fluids,
+                WorldUpdates,
+                lightingIntegration,
+                workerPool,
+                objects);
+        _blockPhysics =
             new BlockPhysicsRuntime(
                 World,
                 blocks,
@@ -317,12 +345,18 @@ _blockPhysics =
                 FluidContentRevisions,
                 WorldTicks,
                 new ChunkResidencySettings(
-                    settings.MaxMaterializationTasksInFlight,
-                    settings.MaxMaterializationDispatchesPerFrame,
-                    settings.MaxMaterializationResultsPerFrame,
+                    settings.MaxConcurrentWorldJobs,
                     settings.MaxChunkEvictionsPerFrame,
                     state.GameRules),
-                objects);
+                objects,
+                workerPool,
+                state.PersistentChunkTickets,
+                state.SetPersistentChunkTickets);
+        Lighting.ConfigureSerialExecutor(Residency.LightingExecutor);
+        FluidSimulation.ConfigureSimulationEligibility(Residency.IsBlockTicking);
+        BlockEntities.ConfigureSimulationEligibility(
+            Residency.IsBlockTicking,
+            Residency.IsEntityTicking);
         Presentations =
             new ChunkPresentationController(
                 Root,
@@ -348,7 +382,8 @@ _blockPhysics =
                 ContentRevisions,
                 Presentations,
                 settings.MaxInteractiveTerrainMeshletsPerWorker,
-                settings.MaxTerrainMeshletsPerWorker);
+                settings.MaxTerrainMeshletsPerWorker,
+                workerPool);
         FluidMesh =
             new FluidMeshPipeline(
                 World,
@@ -358,7 +393,7 @@ _blockPhysics =
                 FluidContentRevisions,
                 Presentations,
                 settings.MaxFluidMeshletsPerWorker,
-                settings.MaxFluidMeshWorkers);
+                workerPool);
         Streaming =
             new ChunkStreamingController(
                 Residency,
@@ -366,7 +401,9 @@ _blockPhysics =
                 Generator,
                 new ChunkStreamingControllerSettings(
                     settings.RetentionMarginChunks,
-                    settings.MaxPresentationPublicationsPerFrame));
+                    settings.MaxPresentationPublicationsPerFrame,
+                    settings.SimulationDistanceChunks),
+                workerPool);
     }
 
     public DimensionRuntimeSessionSettings Settings { get; }
@@ -410,7 +447,8 @@ _blockPhysics =
 
         var impacts = Projectiles.Advance(
             elapsedSeconds, World, Blocks, Creatures.ActiveCreatures,
-            playerBounds, playerTargetable, Dimension.GravityStrength);
+            playerBounds, playerTargetable, Dimension.GravityStrength,
+            Residency.IsEntityTicking);
         foreach (var impact in impacts)
         {
             if (impact.Target != ProjectileHitTarget.Creature ||
@@ -563,7 +601,9 @@ _blockPhysics =
             Generator,
             World,
             Blocks,
-            Creatures);
+            Creatures,
+            Residency.IsEntityTicking,
+            Residency.IsNaturalSpawnCandidate);
         var spawnMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         started = Stopwatch.GetTimestamp();
@@ -575,9 +615,11 @@ _blockPhysics =
                 Blocks,
                 Dimension.GravityStrength,
                 playerTargetable,
-                playerBounds);
+                playerBounds,
+                Residency.IsEntityTicking);
         var fired = Creatures.FireRangedAttacks(
-            Projectiles, World, Blocks, playerBounds, playerTargetable) > 0;
+            Projectiles, World, Blocks, playerBounds, playerTargetable,
+            Residency.IsEntityTicking) > 0;
         var simulationMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         started = Stopwatch.GetTimestamp();
@@ -611,17 +653,23 @@ _blockPhysics =
         var elapsed = WorldTicks.Advance(
             deltaSeconds,
             _state.GameRules.TicksPerSecond);
+        Residency.AdvanceTicketLifetimes(WorldTicks.CurrentTick);
         DayNight.Advance(elapsed);
         WorldAabb? playerBounds = playerPosition is { } p
             ? new WorldAabb(
                 new NVector3(p.X - .4f, p.Y, p.Z - .4f),
                 new NVector3(p.X + .4f, p.Y + 2f, p.Z + .4f))
             : null;
-        _saplings.Advance(WorldTicks.CurrentTick, playerBounds,
-            enabled: gameplayReady && playerBounds is not null);
-        _leafDecay.Advance(WorldTicks.CurrentTick,
+        _saplings.Advance(
+            WorldTicks.CurrentTick,
+            playerBounds,
+            enabled: gameplayReady && playerBounds is not null,
+            isBlockTicking: Residency.IsBlockTicking);
+        _leafDecay.Advance(
+            WorldTicks.CurrentTick,
             enabled: gameplayReady && playerBounds is not null &&
-                    !_retiring && !_retired);
+                    !_retiring && !_retired,
+            isBlockTicking: Residency.IsBlockTicking);
     }
 
     public FluidUpdateQueue FluidUpdates { get; }
@@ -756,18 +804,118 @@ _blockPhysics =
 
     public FluidSimulationRuntime FluidSimulation { get; }
 
-public bool IsRetiring =>
+    public LightingRuntime Lighting { get; }
+
+    public bool IsRetiring =>
         _retiring;
 
     public bool IsQuiescent =>
-        Residency.MaterializingCount == 0 &&
+        _initialPositionResolution is null &&
+        _pendingInitialPositionResolver is null &&
+        Residency.IsQuiescent &&
+        Residency.DirectionalFaceReconciliationCount == 0 &&
+        Residency.ChunkLightingReconciliationCount == 0 &&
         !Streaming.IsSelectionRunning &&
         !FluidSimulation.IsRunning &&
-!TerrainMesh.IsRunning &&
+        !Lighting.IsRunning &&
+        !TerrainMesh.IsRunning &&
         !FluidMesh.IsRunning;
 
+    public bool InitialPlayerPositionReady =>
+        _initialPlayerPositionReady;
+
     public NVector3 InitialPlayerPosition =>
-        _initialPlayerPosition;
+        _initialPlayerPositionReady
+            ? _initialPlayerPosition
+            : throw new InvalidOperationException(
+                "Generated spawn resolution has not completed for this dimension session.");
+
+    /// <summary>
+    /// Starts the one bounded spawn query owned by this dimension session.
+    /// Call only when no explicit or saved entry position exists.
+    /// </summary>
+    public void BeginGeneratedSpawnResolution(bool force = false)
+    {
+        if (_retiring || _retired)
+            throw new InvalidOperationException(
+                "A retiring dimension session cannot start spawn preparation.");
+        if (_initialPositionResolution is not null ||
+            _pendingInitialPositionResolver is not null)
+        {
+            if (force)
+                throw new InvalidOperationException(
+                    "A generated entry-position query is already running for this session.");
+            return;
+        }
+        if (_initialPlayerPositionReady && !force)
+            return;
+
+        _initialPlayerPositionReady = false;
+        // The generated-world query runs on the shared world executor. If its
+        // bounded queue is full, retain the request and retry on a later frame.
+        QueueInitialPositionResolution(ResolveGeneratedSpawn);
+    }
+
+    /// <summary>
+    /// Collects the session-owned generated-spawn result without blocking.
+    /// A destination explicitly selected while the query was running takes
+    /// precedence over its eventual result.
+    /// </summary>
+    public bool TryCompleteInitialPositionResolution(out Exception? error)
+    {
+        error = null;
+        TryStartPendingInitialPositionResolution();
+        var operation = _initialPositionResolution;
+        if (operation is null ||
+            !operation.TryGetCompletion(out var completion))
+            return _initialPlayerPositionReady;
+
+        _initialPositionResolution = null;
+        _initialPositionCancellation?.Dispose();
+        _initialPositionCancellation = null;
+        if (completion.Error is not null)
+        {
+            error = completion.Error;
+            return _initialPlayerPositionReady || error is not null;
+        }
+
+        if (!_initialPlayerPositionReady)
+        {
+            _initialPlayerPosition = completion.Result;
+            _initialPlayerPositionReady = true;
+        }
+
+        return _initialPlayerPositionReady;
+    }
+
+    private void QueueInitialPositionResolution(Func<NVector3> resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+        _pendingInitialPositionResolver = resolver;
+        TryStartPendingInitialPositionResolution();
+    }
+
+    private void TryStartPendingInitialPositionResolution()
+    {
+        if (_retiring || _retired || _initialPositionResolution is not null ||
+            _pendingInitialPositionResolver is not { } resolver)
+            return;
+
+        var cancellation = new CancellationTokenSource();
+        if (!_worldWorkerPool.TrySchedule(
+                _ => resolver(),
+                cancellation.Token,
+                out var operation,
+                priority: WorldWorkerPool.PlayerChunkPriority))
+        {
+            cancellation.Dispose();
+            return;
+        }
+
+        _pendingInitialPositionResolver = null;
+        _initialPositionCancellation = cancellation;
+        _initialPositionResolution = operation;
+    }
 
     private NVector3 ResolveGeneratedSpawn()
     {
@@ -798,6 +946,7 @@ public bool IsRetiring =>
             preferred.Y < 1f)
             throw new ArgumentOutOfRangeException(nameof(preferred));
         _initialPlayerPosition = preferred;
+        _initialPlayerPositionReady = true;
     }
 
     public ExactArrivalStatus CheckResidentPortalEntry() =>
@@ -865,21 +1014,27 @@ public bool IsRetiring =>
             returnDimension: origin);
     }
 
-    public void PrepareGeneratedDestination(
-        NVector3 preferred)
+    public void BeginGeneratedDestinationResolution(NVector3 preferred)
     {
-        var preferredX =
-            checked(
-                (int)MathF.Floor(
-                    preferred.X));
-        var preferredY =
-            checked(
-                (int)MathF.Floor(
-                    preferred.Y));
-        var preferredZ =
-            checked(
-                (int)MathF.Floor(
-                    preferred.Z));
+        if (_retiring || _retired)
+            throw new InvalidOperationException(
+                "A retiring dimension session cannot prepare a generated destination.");
+        if (_initialPositionResolution is not null ||
+            _pendingInitialPositionResolver is not null)
+            throw new InvalidOperationException(
+                "This dimension session already has an entry-position query in flight.");
+
+        var preferredX = checked((int)MathF.Floor(preferred.X));
+        var preferredY = checked((int)MathF.Floor(preferred.Y));
+        var preferredZ = checked((int)MathF.Floor(preferred.Z));
+        _initialPlayerPositionReady = false;
+        QueueInitialPositionResolution(
+            () => ResolveGeneratedDestination(preferredX, preferredY, preferredZ));
+    }
+
+    private NVector3 ResolveGeneratedDestination(
+        int preferredX, int preferredY, int preferredZ)
+    {
         var destination =
             Generator.FindGeneratedDestination(
                 preferredX,
@@ -889,11 +1044,10 @@ public bool IsRetiring =>
             throw new InvalidOperationException(
                 $"Dimension {Dimension.Id} has no safe generated destination within {SpawnSearchRadiusBlocks} blocks of ({preferredX}, {preferredY}, {preferredZ}).");
 
-        _initialPlayerPosition =
-            new NVector3(
-                destination.X + 0.5f,
-                destination.Y,
-                destination.Z + 0.5f);
+        return new NVector3(
+            destination.X + 0.5f,
+            destination.Y,
+            destination.Z + 0.5f);
     }
 
     /// <summary>Resolve the final entry from authoritative loaded voxels
@@ -907,11 +1061,6 @@ public bool IsRetiring =>
         _initialPlayerPosition = position;
         return true;
     }
-
-    /// <summary>Fallback for an obstructed generated warp entry.
-    /// Starts the usual world loading pipeline around the authored spawn.</summary>
-    public void PrepareGeneratedSpawn() =>
-        _initialPlayerPosition = ResolveGeneratedSpawn();
 
     public ChunkCoord InitialStreamingCenter
     {
@@ -941,9 +1090,13 @@ public bool IsRetiring =>
         }
 
         _retiring = true;
+        _pendingInitialPositionResolver = null;
+        _initialPositionCancellation?.Cancel();
+        Residency.BeginRetirement();
         Streaming.BeginRetirement();
         FluidSimulation.BeginRetirement();
-TerrainMesh.BeginRetirement();
+        Lighting.BeginRetirement();
+        TerrainMesh.BeginRetirement();
         FluidMesh.BeginRetirement();
     }
 
@@ -963,6 +1116,10 @@ TerrainMesh.BeginRetirement();
                 Array.Empty<ChunkCoord>());
         var errors =
             new List<Exception>();
+        if (_initialPositionResolution?.IsCompleted == true &&
+            TryCompleteInitialPositionResolution(out var spawnError) &&
+            spawnError is not null)
+            errors.Add(spawnError);
 
         DrainWorker(
             () =>
@@ -995,7 +1152,16 @@ TerrainMesh.BeginRetirement();
                     ? error
                     : null,
             errors);
-return new DimensionRetirementDrainReport(
+        DrainWorker(
+            () =>
+                Lighting.TryPollCompleted(
+                    out _,
+                    out var error)
+                    ? error
+                    : null,
+            errors);
+
+        return new DimensionRetirementDrainReport(
             materialization,
             errors);
     }

@@ -1,4 +1,5 @@
 using System.Numerics;
+using Asteria.Core.Content;
 
 namespace Asteria.Core.World;
 
@@ -88,6 +89,7 @@ public sealed record SphereClockSnapshot
     private readonly DroppedBlockRuntimeSnapshot? _droppedBlocks;
     private readonly CreatureRuntimeSnapshot? _creatures;
     private readonly FluidUpdateQueueSnapshot? _fluidWork;
+    private readonly PersistentChunkTicketSnapshot _persistentChunkTickets;
     // Legacy serialized field retained so old save files can still be decoded.
     // Runtime physics wakeups are reconstructed from authoritative voxel state.
     private readonly BlockPhysicsUpdateQueueSnapshot? _physicsWork;
@@ -101,7 +103,8 @@ public sealed record SphereClockSnapshot
         DroppedBlockRuntimeSnapshot? droppedBlocks = null,
         CreatureRuntimeSnapshot? creatures = null,
         FluidUpdateQueueSnapshot? fluidWork = null,
-        BlockPhysicsUpdateQueueSnapshot? physicsWork = null)
+        BlockPhysicsUpdateQueueSnapshot? physicsWork = null,
+        PersistentChunkTicketSnapshot? persistentChunkTickets = null)
     {
         if (string.IsNullOrWhiteSpace(dimension.Value) ||
             dayNight is { Day: 0 } ||
@@ -130,6 +133,8 @@ public sealed record SphereClockSnapshot
         _droppedBlocks = SphereDynamicSnapshot.ValidateAndCopy(droppedBlocks);
         _creatures = SphereDynamicSnapshot.ValidateAndCopy(creatures);
         _fluidWork = fluidWork;
+        _persistentChunkTickets = persistentChunkTickets ??
+            PersistentChunkTicketSnapshot.Empty;
         _physicsWork = physicsWork;
     }
 
@@ -143,8 +148,17 @@ public sealed record SphereClockSnapshot
     public CreatureRuntimeSnapshot? Creatures =>
         SphereDynamicSnapshot.Copy(_creatures);
     public FluidUpdateQueueSnapshot? FluidWork => _fluidWork;
+    public PersistentChunkTicketSnapshot PersistentChunkTickets =>
+        _persistentChunkTickets;
     // Legacy-only data. New captures leave this null and restore ignores it.
     public BlockPhysicsUpdateQueueSnapshot? PhysicsWork => _physicsWork;
+
+    internal SphereClockSnapshot WithPersistentChunkTickets(
+        PersistentChunkTicketSnapshot persistentChunkTickets) =>
+        new(
+            Dimension, WorldTick, DayNight, Position, NaturalSpawnNextAttemptTick,
+            _storageBoxes, _manualStructures, _blockPhysics, _droppedBlocks,
+            _creatures, _fluidWork, _physicsWork, persistentChunkTickets);
 
     public DimensionId Dimension { get; }
     public ulong WorldTick { get; }
@@ -238,7 +252,8 @@ public static class GameplaySessionSaveCodec
                     new SavedStorageBoxContents(box.Position, box.Slots)),
                 state.ManualStructures.Snapshot(),
                 state.BlockPhysics, state.DroppedBlocks, state.Creatures,
-                state.PendingFluidWork));
+                state.PendingFluidWork,
+                persistentChunkTickets: state.PersistentChunkTickets));
         return new GameplaySessionSnapshot(
             spatial, source.Name, source.GameRules.TicksPerSecond,
             source.GameRules.SpawnCreatures,
@@ -251,7 +266,9 @@ public static class GameplaySessionSaveCodec
         WorldCreationOptions creation, DimensionRegistry dimensions,
         GameplaySessionSnapshot snapshot,
         BlockRegistry blocks, FluidRegistry fluids,
-        DyeRegistry dyes, AttachedLayerRegistry layers)
+        DyeRegistry dyes, AttachedLayerRegistry layers,
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        bool initializeLighting = true)
     {
         ArgumentNullException.ThrowIfNull(creation);
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -262,7 +279,7 @@ public static class GameplaySessionSaveCodec
         // before an active or loaded state is published.
         var restored = DimensionChunkSaveCodec.Restore(
             creation, dimensions, snapshot.Spatial,
-            blocks, fluids, dyes, layers);
+            blocks, fluids, dyes, layers, objects, initializeLighting);
         restored.GameRules.SetTicksPerSecond(snapshot.TicksPerSecond);
         restored.GameRules.SetSpawnCreatures(snapshot.SpawnCreatures);
         restored.GameRules.SetKeepInventory(snapshot.KeepInventory);
@@ -282,6 +299,7 @@ public static class GameplaySessionSaveCodec
             state.DroppedBlocks = clock.DroppedBlocks;
             state.Creatures = clock.Creatures;
             state.PendingFluidWork = clock.FluidWork;
+            state.SetPersistentChunkTickets(clock.PersistentChunkTickets);
             // clock.PhysicsWork is legacy-only and intentionally discarded.
         }
 

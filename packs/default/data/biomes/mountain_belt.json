@@ -94,56 +94,6 @@
       }
     },
     {
-      "object": "asteria:grass_pass",
-      "chance": 0.0216,
-      "surfaceBlocks": [
-        "asteria:dirt",
-        "asteria:gravel",
-        "asteria:stone"
-      ],
-      "cluster": {
-        "scale": 46,
-        "threshold": -0.16,
-        "octaves": 4,
-        "transitionWidth": 0.14
-      },
-      "conditions": {
-        "minY": 102,
-        "maxY": 145,
-        "maxSlope": 2
-      },
-      "habitatWeights": {
-        "sheltered_passes": 2.7,
-        "boulder_runs": 0.08,
-        "bare_crests": 0
-      }
-    },
-    {
-      "block": "asteria:rosette_thorn",
-      "chance": 0.0162,
-      "surfaceBlocks": [
-        "asteria:stone",
-        "asteria:gravel",
-        "asteria:cobble_stone"
-      ],
-      "cluster": {
-        "scale": 38,
-        "threshold": -0.19,
-        "octaves": 4,
-        "transitionWidth": 0.14
-      },
-      "conditions": {
-        "minY": 105,
-        "maxY": 179,
-        "maxSlope": 3
-      },
-      "habitatWeights": {
-        "sheltered_passes": 1.85,
-        "boulder_runs": 1.1,
-        "bare_crests": 0.035
-      }
-    },
-    {
       "block": "asteria:lichen_scree",
       "chance": 0.0174,
       "surfaceBlocks": [

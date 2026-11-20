@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const project = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const sourceRoots = [
   "ui/src", "ui/index.html", "ui/package.json", "ui/package-lock.json",
-  "ui/tsconfig.json", "ui/vite.config.ts", "packs/default/data/localization",
+  "ui/tsconfig.json", "ui/vite.config.ts", "packs/default/data/localization", "packs/default/ui",
 ];
 
 function visit(path) {
@@ -26,4 +26,4 @@ const entries = sourceRoots.flatMap(path => visit(resolve(project, path)))
     return relativePath + "\t" + hash;
   }).sort();
 
-writeFileSync(resolve(project, "ui/dist/source-manifest.txt"), entries.join("\n") + "\n");
+writeFileSync(resolve(project, "webui-dist/source-manifest.txt"), entries.join("\n") + "\n");

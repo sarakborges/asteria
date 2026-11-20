@@ -4,19 +4,21 @@ namespace Asteria.Core.Tests;
 
 public sealed class BlockTintOptOutTests
 {
-    [Theory]
-    [InlineData("leaf_mycelora")]
-    [InlineData("leaf_gloamroot")]
-    public void AuthoredUntintedLeavesKeepTheirOriginalColorsWithWindSway(string name)
+    [Fact]
+    public void RemovedFantasyTreeLeavesHaveNoRemainingBlockDefinitions()
     {
-        var path = Path.Combine(
-            AppContext.BaseDirectory, "packs", "default", "data", "blocks", name + ".json");
-        var definition = BlockDefinitionJson.Parse(File.ReadAllText(path));
+        var root = Path.Combine(AppContext.BaseDirectory,
+            "packs", "default", "data", "blocks");
+        var registry = BlockRegistry.FromJson(
+            Directory.EnumerateFiles(root, "*.json")
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(File.ReadAllText));
 
-        Assert.Equal(BlockTint.None, definition.Tint);
-        Assert.True(definition.WindSway);
-        Assert.All(definition.Textures.AllLayers(), layer => Assert.False(layer.Dyable));
-        AssertWhiteVertexColorsAndWindOnlyLayerCode(definition);
+        foreach (var name in new[] { "leaf_mycelora", "leaf_gloamroot" })
+        {
+            Assert.False(File.Exists(Path.Combine(root, name + ".json")));
+            Assert.False(registry.TryGetId("asteria:" + name, out _));
+        }
     }
 
     [Fact]
@@ -40,6 +42,7 @@ public sealed class BlockTintOptOutTests
         var blocks = new BlockRegistry([definition]);
         var chunk = new Chunk();
         chunk.SetBlock(2, 2, 2, blocks.GetId(definition.Id));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
 
@@ -57,9 +60,9 @@ public sealed class BlockTintOptOutTests
         Assert.NotEmpty(vertices);
         Assert.All(vertices, vertex =>
         {
-            Assert.Equal(1f, vertex.Tint.X);
-            Assert.Equal(1f, vertex.Tint.Y);
-            Assert.Equal(1f, vertex.Tint.Z);
+            Assert.Equal(1f, vertex.TintAndAo.X);
+            Assert.Equal(1f, vertex.TintAndAo.Y);
+            Assert.Equal(1f, vertex.TintAndAo.Z);
             // 1 is the atlas layer; only the 0.5 wind bit may be set.
             // The 0.25 tint bit must stay clear.
             Assert.Equal(1.5f, vertex.EncodedTextureLayers.X);

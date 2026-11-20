@@ -1,3 +1,5 @@
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -43,7 +45,9 @@ public static class SessionSaveStorage
         RestoreLatest(
             string directory, DimensionRegistry dimensions,
             BlockRegistry blocks, FluidRegistry fluids,
-            DyeRegistry dyes, AttachedLayerRegistry layers)
+            DyeRegistry dyes, AttachedLayerRegistry layers,
+            PackContentRegistry<ObjectDefinition>? objects = null,
+            bool initializeLighting = true)
     {
         ArgumentNullException.ThrowIfNull(dimensions);
         return AtomicSaveGenerationStore.ReadLatest(
@@ -62,7 +66,8 @@ public static class SessionSaveStorage
                         saved.Player.GameMode, saved.TicksPerSecond,
                         saved.SpawnCreatures, saved.Spatial.Generation);
                     var restored = GameplaySessionSaveCodec.Restore(
-                        creation, dimensions, saved, blocks, fluids, dyes, layers);
+                        creation, dimensions, saved, blocks, fluids, dyes, layers,
+                        objects, initializeLighting);
                     return (saved, restored);
                 }
                 catch (Exception error) when (error is ArgumentException or

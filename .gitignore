@@ -19,6 +19,7 @@ addons/godot_wry/
 # WebUI
 ui/node_modules/
 ui/dist/
+/webui-dist/
 ui/storybook-static/
 ui/test-results/
 ui/playwright-report/

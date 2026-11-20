@@ -6,7 +6,9 @@ public readonly record struct FluidMeshVertex(
     Vector3 Position,
     Vector3 Normal,
     Vector2 Uv,
-    Vector4 Tint);
+    Vector4 TintAndAo,
+    Vector4 VoxelLight,
+    ChunkMeshLightSample LightSample = default);
 
 public sealed record ChunkFluidBatchData(
     FluidRuntimeId Fluid,
@@ -19,9 +21,13 @@ public sealed record ChunkFluidBatchData(
 public sealed record ChunkFluidMeshData(
     ChunkFluidBatchData[] Batches)
 {
+    public static ChunkFluidMeshData Empty { get; } = new(
+        Array.Empty<ChunkFluidBatchData>());
+
     public int TriangleCount =>
         Batches.Sum(batch => batch.TriangleCount);
 
     public bool HasGeometry =>
-        Batches.Any(batch => batch.Vertices.Length > 0);
+        Batches.Any(
+            batch => batch.Vertices.Length > 0);
 }

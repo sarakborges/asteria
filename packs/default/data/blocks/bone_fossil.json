@@ -2,12 +2,12 @@
   "id": "asteria:bone_fossil",
   "category": "blocks_natural",
   "textures": {
-    "top": "textures/blocks/bone_fossil.png",
-    "bottom": "textures/blocks/bone_fossil.png",
-    "left": "textures/blocks/bone_fossil.png",
-    "right": "textures/blocks/bone_fossil.png",
-    "front": "textures/blocks/bone_fossil.png",
-    "back": "textures/blocks/bone_fossil.png"
+    "top": "textures/blocks/bone.png",
+    "bottom": "textures/blocks/bone.png",
+    "left": "textures/blocks/bone.png",
+    "right": "textures/blocks/bone.png",
+    "front": "textures/blocks/bone.png",
+    "back": "textures/blocks/bone.png"
   },
   "mining": {
     "hardness": 1.2,
